@@ -466,7 +466,20 @@ def complete_task(
     if (outcome == "failed") != bool(error):
         raise ValueError("failure requires explicit error")
     t = table("ops.task")
-    task = conn.execute(select(t).where(t.c.id == task_id)).mappings().one()
+    task = (
+        conn.execute(
+            select(
+                t.c.run_id,
+                t.c.method_config_id,
+                t.c.unit_type,
+                t.c.unit_id,
+                t.c.input_hash,
+                t.c.invocation_key,
+            ).where(t.c.id == task_id)
+        )
+        .mappings()
+        .one()
+    )
     binding = binding_of(conn, task["run_id"])
     if prepared.release_id != binding.release_id:
         raise OperationConflict("wrong producer release")
@@ -756,7 +769,11 @@ class PreparedUnitCompletion:
         lock_complete_unit_run(conn, run_id=self.run_id)
         tasks = table("ops.task")
         task = (
-            conn.execute(select(tasks).where(tasks.c.id == self.task_id).with_for_update())
+            conn.execute(
+                select(tasks.c.attempt, tasks.c.claimed_by, tasks.c.status)
+                .where(tasks.c.id == self.task_id)
+                .with_for_update()
+            )
             .mappings()
             .one()
         )
@@ -807,7 +824,21 @@ def prepare_unit_completion(
     from .observations import bind_result, source_python, source_value
 
     task_table = table("ops.task")
-    task = conn.execute(select(task_table).where(task_table.c.id == task_id)).mappings().one()
+    task = (
+        conn.execute(
+            select(
+                task_table.c.attempt,
+                task_table.c.claimed_by,
+                task_table.c.unit_key,
+                task_table.c.unit_id,
+                task_table.c.run_id,
+                task_table.c.input_hash,
+                task_table.c.invocation_key,
+            ).where(task_table.c.id == task_id)
+        )
+        .mappings()
+        .one()
+    )
     if task["attempt"] != attempt or task["claimed_by"] != holder:
         raise OperationConflict("recognizer attempt lost")
     if result.characterization_layer is not None or result.characterization_view is not None:

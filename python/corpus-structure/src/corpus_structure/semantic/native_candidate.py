@@ -633,7 +633,11 @@ def series_native_definitions(connection, *, include_selected=True):
     runtime_sql = Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_text()
     for schema, name, grants in (
         ("sem", "validate_runtime_binding", ()),
-        ("sem", "register_runtime_binding", (("corpus_sem_writer", "EXECUTE", False), ("corpus_sem_admitter", "EXECUTE", False))),
+        (
+            "sem",
+            "register_runtime_binding",
+            (("corpus_sem_writer", "EXECUTE", False), ("corpus_sem_admitter", "EXECUTE", False)),
+        ),
         ("sem", "require_runtime_binding", ()),
         ("ops", "create_run", (("corpus_sem_writer", "EXECUTE", False),)),
     ):
@@ -1901,11 +1905,20 @@ def prepare_series_candidate(
     try:
         previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
         previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
-        task = target_metadata.tables.get('ops.task')
-        if task is not None and 'data_request_id' in task.c:
-            for name, native_type in (('data_request_id', 'text'), ('data_generation', 'bigint')):
-                if connection.scalar(text("SELECT NOT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.task'::regclass AND attname=:name AND NOT attisdropped)"), {'name': name}):
-                    connection.exec_driver_sql('ALTER TABLE ops.task ADD COLUMN ' + name + ' ' + native_type)
+        task = target_metadata.tables.get("ops.task")
+        if task is not None and "data_request_id" in task.c:
+            for name, native_type in (("data_request_id", "text"), ("data_generation", "bigint")):
+                if connection.scalar(
+                    text(
+                        "SELECT NOT EXISTS(SELECT FROM pg_attribute "
+                        "WHERE attrelid='ops.task'::regclass "
+                        "AND attname=:name AND NOT attisdropped)"
+                    ),
+                    {"name": name},
+                ):
+                    connection.exec_driver_sql(
+                        "ALTER TABLE ops.task ADD COLUMN " + name + " " + native_type
+                    )
         for relation in new_tables:
             # Migration authority creates cross-owner foreign keys, including
             # evaluator tables referencing ops cuts; runtime roles need no DDL ACLs.
@@ -2044,10 +2057,14 @@ def prepare_series_candidate(
                 ],
             )
             if not roles:
-                publisher_work.append(ExecuteSQLOp(
-                    'REVOKE ALL ON ' + name +
-                    ' FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,'
-                    'corpus_sem_evaluator,corpus_sem_fitter'))
+                publisher_work.append(
+                    ExecuteSQLOp(
+                        "REVOKE ALL ON "
+                        + name
+                        + " FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,"
+                        "corpus_sem_evaluator,corpus_sem_fitter"
+                    )
+                )
             if roles:
                 publisher_work.append(
                     ExecuteSQLOp(

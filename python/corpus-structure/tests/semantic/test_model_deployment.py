@@ -172,7 +172,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         authored = create_candidate()
         configured = settings.model_copy(update={"ci_results": store.root})
         monkeypatch.setattr(recipes, "checkout", lambda _: tmp_path)
-        monkeypatch.setattr(commands, "_prepare_release", lambda *_: prepared_input)
+        monkeypatch.setattr(commands, "_prepare_release", lambda *_, **__: prepared_input)
         runner = CliRunner()
 
         def command(*args):

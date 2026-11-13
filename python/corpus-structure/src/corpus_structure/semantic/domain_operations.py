@@ -911,7 +911,9 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                 descriptors[source["id"]] = None
 
         tasks = (
-            conn.execute(select(table("ops.task")).where(table("ops.task").c.run_id == job["id"]))
+            conn.execute(
+                select(t.c.id, t.c.status, t.c.unit_key).where(t.c.run_id == job["id"])
+            )
             .mappings()
             .all()
         )

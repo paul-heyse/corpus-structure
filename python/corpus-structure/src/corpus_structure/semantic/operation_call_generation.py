@@ -641,7 +641,9 @@ def _all_call_fields(call):
 
 def render_operation_identifiers(model):
     """Render legacy inputs through the shared, model-independent emitter."""
-    return render_call_identifiers(tuple((op.id, call) for op in model.operations for call in op.calls))
+    return render_call_identifiers(
+        tuple((op.id, call) for op in model.operations for call in op.calls)
+    )
 
 
 def render_call_identifiers(calls):
@@ -684,7 +686,14 @@ def render_operation_calls(model, metadata=None):
 
 
 def render_call_bindings(
-    calls, metadata=None, *, identifiers_module="._operation_ids", context_validator=None, value_base=None, row_base=None, wire_schemas=None
+    calls,
+    metadata=None,
+    *,
+    identifiers_module="._operation_ids",
+    context_validator=None,
+    value_base=None,
+    row_base=None,
+    wire_schemas=None,
 ):
     """Emit already resolved immutable correspondences, irrespective of their model owner."""
     out = [
@@ -695,7 +704,9 @@ def render_call_bindings(
         "from collections.abc import Sequence",
         "from datetime import datetime",
         "from decimal import Decimal",
-        "from typing import Annotated, " + ("ClassVar, " if wire_schemas else "") + "Literal, Protocol, TypedDict, cast",
+        "from typing import Annotated, "
+        + ("ClassVar, " if wire_schemas else "")
+        + "Literal, Protocol, TypedDict, cast",
         "",
         "from pydantic import Field, JsonValue, TypeAdapter",
         "from sqlalchemy import (ARRAY, BigInteger, Boolean, Column, Connection, DateTime, "

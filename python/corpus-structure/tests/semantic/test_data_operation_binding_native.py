@@ -57,12 +57,12 @@ def binding_native_connection(semantic_db_engine):
                     "ddo_field",
                     "ddo_json",
                 }:
-                    connection.exec_driver_sql(kernel.excerpt(index))
+                    connection.exec_driver_sql(kernel.excerpt(index), execution_options={"no_parameters": True})
             helpers = prepare_sql(binding_native_sql(), source="binding-helpers")
             for index, raw in enumerate(helpers.statements):
                 assert isinstance(raw.stmt, ast.CreateFunctionStmt)
                 if (raw.stmt.funcname or ())[-1].sval != "ddo_require_binding":
-                    connection.exec_driver_sql(helpers.excerpt(index))
+                    connection.exec_driver_sql(helpers.excerpt(index), execution_options={"no_parameters": True})
             yield connection
         finally:
             transaction.rollback()

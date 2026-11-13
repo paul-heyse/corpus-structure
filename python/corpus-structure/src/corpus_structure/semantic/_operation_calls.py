@@ -1051,7 +1051,7 @@ def lock_schedule_run(
         return _lock_schedule_run_result(_native_result.one())
 
 
-CLAIM_TASKS_CONTRACT_DIGEST = "dfb0ece50336eb7891ae515949b2e85b415824c7ccf9a1a209aa2fd1395bc03f"
+CLAIM_TASKS_CONTRACT_DIGEST = "f145f73ad23455063d67f62163e71ab4d92fc72463126ac27cc9a04e8f6385b7"
 
 
 class ClaimedTask(NativeRowResult):
@@ -1106,10 +1106,10 @@ _claim_tasks_function = func.ops.claim_tasks(
 
 class _claim_tasksColumns(Protocol):
     id: Column[TaskId]
-    run_id: Column[RunId]
+    run_id: Column[RunId | None]
     release_id: Column[ReleaseId]
-    method_config_id: Column[MethodConfigId]
-    unit_type: Column[str]
+    method_config_id: Column[MethodConfigId | None]
+    unit_type: Column[str | None]
     unit_id: Column[int | None]
     unit_key: Column[str | None]
     packet_hash: Column[str | None]
@@ -1141,10 +1141,10 @@ _claim_tasks_statement = select(
 def _claim_tasks_result(
     row: tuple[
         int,
-        int,
+        int | None,
         str,
-        int,
-        str,
+        int | None,
+        str | None,
         int | None,
         str | None,
         str | None,
@@ -1158,11 +1158,17 @@ def _claim_tasks_result(
     with native_result_scope("claim", "ClaimedTask"):
         return ClaimedTask(
             task_id=TaskId(row[0]),
-            run_id=RunId(row[1]),
+            run_id=RunId(_required(row[1], "run_id", "ClaimedTask", "claim")),
             release_id=ReleaseId(row[2]),
-            method_config_id=MethodConfigId(row[3]),
+            method_config_id=MethodConfigId(
+                _required(row[3], "method_config_id", "ClaimedTask", "claim")
+            ),
             unit_type=native_result_value(
-                "claim", "ClaimedTask", "unit_type", TaskUnitType, row[4]
+                "claim",
+                "ClaimedTask",
+                "unit_type",
+                TaskUnitType,
+                _required(row[4], "unit_type", "ClaimedTask", "claim"),
             ),
             unit_id=row[5],
             unit_key=row[6],
@@ -1187,10 +1193,10 @@ def prepare_claim_tasks(
     projection_context: PreparedRelease | None = None,
 ) -> Select[
     TaskId,
-    RunId,
+    RunId | None,
     ReleaseId,
-    MethodConfigId,
-    str,
+    MethodConfigId | None,
+    str | None,
     int | None,
     str | None,
     str | None,
@@ -1214,10 +1220,10 @@ def prepare_claim_tasks(
     return cast(
         Select[
             TaskId,
-            RunId,
+            RunId | None,
             ReleaseId,
-            MethodConfigId,
-            str,
+            MethodConfigId | None,
+            str | None,
             int | None,
             str | None,
             str | None,
@@ -1265,7 +1271,7 @@ def claim_tasks(
         return tuple(_claim_tasks_result(row) for row in _native_result)
 
 
-COMPLETE_TASK_CONTRACT_DIGEST = "046aabc7da4e16dac54081bd194af10b88c658fdf63f6041bdfa47ed1773b569"
+COMPLETE_TASK_CONTRACT_DIGEST = "19ccef5649f97651c796a6e9963c61e1cec14554e6b439bcaa118ac751f406a3"
 
 
 class CompletionResult(OperationResult):
@@ -10726,4 +10732,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "7ce9480f2e0673eb0c0c0289d7596d5ef242930e723c41c3fab6c917670e7607"
+CALL_CONTRACT_DIGEST = "ccfdf713b0df89123794adeaa648e2dfb9606262a2e05b020d8ed2af688a4a46"

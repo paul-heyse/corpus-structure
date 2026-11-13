@@ -38,9 +38,9 @@ def decode_semantic_value(value: Any) -> Any:
         result = OptionalValue(tag)
     elif len(value) == 2:
         payload = value[1]
-        if tag == "string" and isinstance(payload, str):
-            result = payload
-        elif tag == "boolean" and type(payload) is bool:
+        is_text = tag == "string" and isinstance(payload, str)
+        is_boolean = tag == "boolean" and type(payload) is bool
+        if is_text or is_boolean:
             result = payload
         elif tag == "integer" and isinstance(payload, str):
             result = int(payload)

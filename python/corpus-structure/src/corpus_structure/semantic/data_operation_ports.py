@@ -41,7 +41,11 @@ class DataOperationWireValue(BaseModel):
     """Strict external values; field reads detach nested caller-owned structures."""
 
     model_config = ConfigDict(
-        frozen=True, strict=True, extra="forbid", validate_default=True, revalidate_instances="always"
+        frozen=True,
+        strict=True,
+        extra="forbid",
+        validate_default=True,
+        revalidate_instances="always",
     )
 
     __wire_schema__: ClassVar[bytes | None] = None
@@ -51,6 +55,7 @@ class DataOperationWireValue(BaseModel):
         schema = type(self).__wire_schema__
         if schema is not None:
             from .data_operation_wire import validate_wire_schema
+
             validate_wire_schema(schema, self.model_dump(mode="python"))
         return self
 
@@ -142,11 +147,17 @@ class ResolvedPythonPort:
         return self._invoke(values, route="json", binding=binding)
 
     def _invoke(
-        self, values: tuple[PythonRoleValue, ...] | tuple[RoleValue, ...], *, route: Literal["python", "json"], binding: BindingResult | None
+        self,
+        values: tuple[PythonRoleValue, ...] | tuple[RoleValue, ...],
+        *,
+        route: Literal["python", "json"],
+        binding: BindingResult | None,
     ) -> PortCompletion:
         # Recheck the acquired authority per invocation. A retained port is not a
         # durable permission after the target or source has changed.
-        if binding is not None and (binding.operation != self.identity.operation or not binding.sufficient):
+        if binding is not None and (
+            binding.operation != self.identity.operation or not binding.sufficient
+        ):
             raise PortRefusal("resolved binding is insufficient or belongs to another operation")
         self.verify_runtime()
         self.authorize(self.identity)
@@ -192,16 +203,20 @@ class ResolvedPythonPort:
                     _untrusted_value(parameter.default), strict=True
                 )
         positional = tuple(
-            arguments[p.name] for p in self.signature.parameters.values()
+            arguments[p.name]
+            for p in self.signature.parameters.values()
             if p.kind == inspect.Parameter.POSITIONAL_ONLY
         )
         keywords = {
-            name: value for name, value in arguments.items()
+            name: value
+            for name, value in arguments.items()
             if self.signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
         }
         bound = self.signature.bind(*positional, **keywords)
         result = self.function(*bound.args, **bound.kwargs)
-        checked = TypeAdapter(self.signature.return_annotation).validate_python(_untrusted_value(result), strict=True)
+        checked = TypeAdapter(self.signature.return_annotation).validate_python(
+            _untrusted_value(result), strict=True
+        )
         outputs = [role for role in self.operation.roles if role.direction == "output"]
         # There is deliberately no guessed tuple/attribute/outcome interpreter.
         # A multi-output or effectful implementation needs its own admitted
@@ -210,7 +225,9 @@ class ResolvedPythonPort:
             raise PortRefusal("direct function result requires one declared scalar output")
         output = outputs[0]
         encoded = TypeAdapter(self.signature.return_annotation).dump_json(checked)
-        return PortCompletion(self.operation.semantic_id, (RoleValue(output.name, contracts[output.kind], encoded),))
+        return PortCompletion(
+            self.operation.semantic_id, (RoleValue(output.name, contracts[output.kind], encoded),)
+        )
 
 
 def _untrusted_value(value: Any) -> Any:
@@ -242,17 +259,31 @@ def python_port_identity(
     observed = compile_data_operations(python_sources=sources)
     expected = {(i.owner, i.domain): i.key for i in model.identities}
     actual = {(i.owner, i.domain): i.key for i in observed.identities}
-    required = ((operation, "definition"), (operation, "recipe"), (selected.implementation_root, "implementation-slice"))
+    required = (
+        (operation, "definition"),
+        (operation, "recipe"),
+        (selected.implementation_root, "implementation-slice"),
+    )
     if any(key not in expected or actual.get(key) != expected[key] for key in required):
-        raise PortRefusal("complete source/definition/recipe correspondence is unavailable or differs")
+        raise PortRefusal(
+            "complete source/definition/recipe correspondence is unavailable or differs"
+        )
     if observed.operation(operation) != selected:
         # Origins are evidence, so filenames must also correspond for this runtime
         # archive. A broader model may still contain independent operations/kinds.
         raise PortRefusal("supplied operation facts differ from the compiled model")
     return PythonPortIdentity(
-        sha256(model.content).hexdigest(), operation, expected[required[0]], expected[required[1]],
-        expected[required[2]], selected.callable_surfaces[0].declaration,
-        sha256(canonical_bytes(tuple((s.module, sha256(s.content).hexdigest()) for s in sources.sources))).hexdigest(),
+        sha256(model.content).hexdigest(),
+        operation,
+        expected[required[0]],
+        expected[required[1]],
+        expected[required[2]],
+        selected.callable_surfaces[0].declaration,
+        sha256(
+            canonical_bytes(
+                tuple((s.module, sha256(s.content).hexdigest()) for s in sources.sources)
+            )
+        ).hexdigest(),
         canonical_bytes(asdict(selected.capabilities)),
     )
 
@@ -276,10 +307,20 @@ def resolve_python_port(
     """
     identity = python_port_identity(model, sources, operation)
     selected = model.operation(operation)
-    if selected.effects or selected.capabilities.forms != ("scalar",) or selected.capabilities.preparation != "none" or selected.capabilities.cancellation not in ("none", "call-boundary"):
-        raise PortRefusal("the declared effects/form/preparation/cancellation need an explicit admitted implementation capability")
+    if (
+        selected.effects
+        or selected.capabilities.forms != ("scalar",)
+        or selected.capabilities.preparation != "none"
+        or selected.capabilities.cancellation not in ("none", "call-boundary")
+    ):
+        raise PortRefusal(
+            "the declared effects/form/preparation/cancellation need "
+            "an explicit admitted implementation capability"
+        )
     if len([r for r in selected.roles if r.direction == "output"]) != 1:
-        raise PortRefusal("multi-output completion requires an explicit admitted result correspondence")
+        raise PortRefusal(
+            "multi-output completion requires an explicit admitted result correspondence"
+        )
     authorize(identity)
     for source in sources.sources:
         # An archive records exact acquired paths, not a module search fallback.
@@ -292,7 +333,9 @@ def resolve_python_port(
         modules[source.module] = importlib.import_module(source.module)
         if Path(inspect.getfile(modules[source.module])).resolve() != path.resolve():
             raise PortRefusal("runtime module resolved to a different acquired source")
-    module_name = max((name for name in modules if identity.declaration.startswith(name + ".")), key=len)
+    module_name = max(
+        (name for name in modules if identity.declaration.startswith(name + ".")), key=len
+    )
     member = identity.declaration.removeprefix(module_name + ".")
     if "." in member:
         raise PortRefusal("bound methods require an explicit admitted owner capability")
@@ -302,25 +345,44 @@ def resolve_python_port(
     if hasattr(function, "__signature__") or hasattr(function, "__wrapped__"):
         raise PortRefusal("runtime signature override needs an admitted callable transformation")
     signature = inspect.signature(function, eval_str=True)
-    if any(p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD) or p.annotation is inspect.Parameter.empty for p in signature.parameters.values()) or signature.return_annotation is inspect.Signature.empty:
+    if (
+        any(
+            p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+            or p.annotation is inspect.Parameter.empty
+            for p in signature.parameters.values()
+        )
+        or signature.return_annotation is inspect.Signature.empty
+    ):
         raise PortRefusal("direct callable requires a complete fixed annotated signature")
-    if tuple(signature.parameters) != tuple(p.name for p in selected.callable_surfaces[0].parameters):
+    if tuple(signature.parameters) != tuple(
+        p.name for p in selected.callable_surfaces[0].parameters
+    ):
         raise PortRefusal("runtime callable signature differs from compiled declaration")
+
     def verify_runtime() -> None:
         _verify_runtime_sources(model, selected, sources, modules)
+
     verify_runtime()
     contracts = tuple((i.owner, i.key) for i in model.identities if i.domain == "kind")
     # Invalid defaults must fail at acquisition, even when the caller would supply
     # that argument and conceal the invalid default.
     for parameter in signature.parameters.values():
         if parameter.default is not inspect.Parameter.empty:
-            TypeAdapter(parameter.annotation).validate_python(_untrusted_value(parameter.default), strict=True)
-    return ResolvedPythonPort(identity, selected, contracts, function, signature, authorize, verify_runtime)
+            TypeAdapter(parameter.annotation).validate_python(
+                _untrusted_value(parameter.default), strict=True
+            )
+    return ResolvedPythonPort(
+        identity, selected, contracts, function, signature, authorize, verify_runtime
+    )
 
 
 def _verify_runtime_sources(model, operation, sources, modules) -> None:
-    implementation = next(s for s in model.implementation_slices if s.root == operation.implementation_root)
-    expected_nodes = {n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")}
+    implementation = next(
+        s for s in model.implementation_slices if s.root == operation.implementation_root
+    )
+    expected_nodes = {
+        n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")
+    }
     _verify_consumed_globals(sources, modules, expected_nodes)
     for source in sources.sources:
         module = modules[source.module]
@@ -330,34 +392,72 @@ def _verify_runtime_sources(model, operation, sources, modules) -> None:
         functions = {item.co_name: item for item in code.co_consts if isinstance(item, CodeType)}
         tree = ast.parse(source.content)
         for node in tree.body:
-            name = node.name if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) else node.targets[0].id if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) else node.target.id if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) else None
+            name = (
+                node.name
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                else node.targets[0].id
+                if isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                else node.target.id
+                if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+                else None
+            )
             if name is None or source.module + "." + name not in expected_nodes:
                 continue
             value = getattr(module, name)
             if isinstance(node, ast.FunctionDef):
-                if not inspect.isfunction(value) or value.__code__ != functions.get(name) or value.__globals__ is not module.__dict__:
+                if (
+                    not inspect.isfunction(value)
+                    or value.__code__ != functions.get(name)
+                    or value.__globals__ is not module.__dict__
+                ):
                     raise PortRefusal("runtime callable implementation differs: " + name)
                 if hasattr(value, "__signature__") or hasattr(value, "__wrapped__"):
                     raise PortRefusal("runtime signature transformation differs: " + name)
                 runtime_signature = inspect.signature(value, eval_str=True)
                 parameters = runtime_signature.parameters
-                annotated = [(a.arg, a.annotation) for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)]
+                annotated = [
+                    (a.arg, a.annotation)
+                    for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+                ]
                 annotated.append(("return", node.returns))
                 for annotation_name, annotation in annotated:
                     if annotation is None:
                         continue
                     for dependency in ast.walk(annotation):
-                        if isinstance(dependency, ast.Name) and hasattr(builtins, dependency.id) and dependency.id in module.__dict__ and module.__dict__[dependency.id] is not getattr(builtins, dependency.id):
-                            raise PortRefusal("runtime annotation dependency differs: " + dependency.id)
-                    expected_annotation = eval(compile(ast.Expression(annotation), source.filename, "eval"), module.__dict__)
+                        if (
+                            isinstance(dependency, ast.Name)
+                            and hasattr(builtins, dependency.id)
+                            and dependency.id in module.__dict__
+                            and module.__dict__[dependency.id]
+                            is not getattr(builtins, dependency.id)
+                        ):
+                            raise PortRefusal(
+                                "runtime annotation dependency differs: " + dependency.id
+                            )
+                    expected_annotation = eval(
+                        compile(ast.Expression(annotation), source.filename, "eval"),
+                        module.__dict__,
+                    )
                     if isinstance(expected_annotation, str):
                         expected_annotation = eval(expected_annotation, module.__dict__)
-                    actual_annotation = runtime_signature.return_annotation if annotation_name == "return" else parameters[annotation_name].annotation
+                    actual_annotation = (
+                        runtime_signature.return_annotation
+                        if annotation_name == "return"
+                        else parameters[annotation_name].annotation
+                    )
                     if actual_annotation != expected_annotation:
                         raise PortRefusal("runtime callable annotation differs: " + annotation_name)
                 defaults = [
-                    *zip(node.args.posonlyargs + node.args.args, [None] * (len(node.args.posonlyargs + node.args.args) - len(node.args.defaults)) + list(node.args.defaults)),
-                    *zip(node.args.kwonlyargs, node.args.kw_defaults),
+                    *zip(
+                        node.args.posonlyargs + node.args.args,
+                        [None]
+                        * (len(node.args.posonlyargs + node.args.args) - len(node.args.defaults))
+                        + list(node.args.defaults),
+                        strict=True,
+                    ),
+                    *zip(node.args.kwonlyargs, node.args.kw_defaults, strict=True),
                 ]
                 for argument, default in defaults:
                     actual = parameters[argument.arg].default
@@ -367,29 +467,38 @@ def _verify_runtime_sources(model, operation, sources, modules) -> None:
                         continue
                     try:
                         expected = ast.literal_eval(default)
-                    except (ValueError, TypeError):
-                        raise PortRefusal("default requires an explicit acquired correspondence: " + argument.arg) from None
+                    except ValueError, TypeError:
+                        raise PortRefusal(
+                            "default requires an explicit acquired correspondence: " + argument.arg
+                        ) from None
                     if type(actual) is not type(expected) or actual != expected:
                         raise PortRefusal("runtime parameter default differs: " + argument.arg)
                 for global_name in value.__code__.co_names:
-                    if hasattr(builtins, global_name) and global_name in value.__globals__ and value.__globals__[global_name] is not getattr(builtins, global_name):
+                    if (
+                        hasattr(builtins, global_name)
+                        and global_name in value.__globals__
+                        and value.__globals__[global_name] is not getattr(builtins, global_name)
+                    ):
                         raise PortRefusal("runtime builtin dependency was replaced: " + global_name)
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
                 try:
                     if node.value is None:
                         raise PortRefusal("runtime determinant has no source value: " + name)
                     expected = ast.literal_eval(node.value)
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     if isinstance(node.value, ast.Name):
                         # The consumed-global traversal already checked every
                         # link of this closed alias against its source owner.
                         continue
-                    raise PortRefusal("runtime determinant needs an explicit acquired correspondence: " + name) from None
+                    raise PortRefusal(
+                        "runtime determinant needs an explicit acquired correspondence: " + name
+                    ) from None
                 if type(value) is not type(expected) or value != expected:
                     raise PortRefusal("runtime constant determinant differs: " + name)
             else:
-                raise PortRefusal("runtime owner needs an explicit acquired correspondence: " + name)
-
+                raise PortRefusal(
+                    "runtime owner needs an explicit acquired correspondence: " + name
+                )
 
 
 def _code_globals(code: CodeType) -> set[str]:
@@ -413,30 +522,55 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
     attribute_uses: list[tuple[str, str, tuple[str, ...]]] = []
     for source in sources.sources:
         tree = ast.parse(source.content)
-        package = source.module if Path(source.filename).name == "__init__.py" else source.module.rpartition(".")[0]
+        package = (
+            source.module
+            if Path(source.filename).name == "__init__.py"
+            else source.module.rpartition(".")[0]
+        )
         for node in tree.body:
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    bindings[source.module, alias.asname or alias.name.split(".")[0]] = ("module", (alias.name, bool(alias.asname)))
+                    bindings[source.module, alias.asname or alias.name.split(".")[0]] = (
+                        "module",
+                        (alias.name, bool(alias.asname)),
+                    )
             elif isinstance(node, ast.ImportFrom):
                 reference = "." * node.level + (node.module or "")
-                target = importlib.util.resolve_name(reference, package) if node.level else reference
+                target = (
+                    importlib.util.resolve_name(reference, package) if node.level else reference
+                )
                 for alias in node.names:
                     if alias.name == "*":
                         continue  # static extraction already withholds an open wildcard
-                    bindings[source.module, alias.asname or alias.name] = ("from", (target, alias.name))
+                    bindings[source.module, alias.asname or alias.name] = (
+                        "from",
+                        (target, alias.name),
+                    )
             elif isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
                 bindings[source.module, node.name] = ("definition", None)
-                if isinstance(node, ast.FunctionDef) and source.module + "." + node.name in expected_nodes:
+                if (
+                    isinstance(node, ast.FunctionDef)
+                    and source.module + "." + node.name in expected_nodes
+                ):
                     function = modules[source.module].__dict__.get(node.name)
                     if not inspect.isfunction(function):
                         raise PortRefusal("runtime global callable differs: " + node.name)
                     names = _code_globals(function.__code__)
-                    for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
+                    for argument in (
+                        *node.args.posonlyargs,
+                        *node.args.args,
+                        *node.args.kwonlyargs,
+                    ):
                         if argument.annotation is not None:
-                            names.update(n.id for n in ast.walk(argument.annotation) if isinstance(n, ast.Name))
+                            names.update(
+                                n.id
+                                for n in ast.walk(argument.annotation)
+                                if isinstance(n, ast.Name)
+                            )
                     if node.returns is not None:
-                        names.update(n.id for n in ast.walk(node.returns) if isinstance(n, ast.Name))
+                        names.update(
+                            n.id for n in ast.walk(node.returns) if isinstance(n, ast.Name)
+                        )
                     uses.extend((source.module, name) for name in names)
                     for attribute in ast.walk(node):
                         if not isinstance(attribute, ast.Attribute):
@@ -447,11 +581,23 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
                             members.append(root.attr)
                             root = root.value
                         if isinstance(root, ast.Name) and root.id in names:
-                            attribute_uses.append((source.module, root.id, tuple(reversed(members))))
+                            attribute_uses.append(
+                                (source.module, root.id, tuple(reversed(members)))
+                            )
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
-                target = node.targets[0] if isinstance(node, ast.Assign) and len(node.targets) == 1 else node.target if isinstance(node, ast.AnnAssign) else None
+                target = (
+                    node.targets[0]
+                    if isinstance(node, ast.Assign) and len(node.targets) == 1
+                    else node.target
+                    if isinstance(node, ast.AnnAssign)
+                    else None
+                )
                 if isinstance(target, ast.Name):
-                    bindings[source.module, target.id] = ("alias", node.value.id) if isinstance(node.value, ast.Name) else ("value", node.value)
+                    bindings[source.module, target.id] = (
+                        ("alias", node.value.id)
+                        if isinstance(node.value, ast.Name)
+                        else ("value", node.value)
+                    )
 
     active: set[tuple[str, str]] = set()
     checked: dict[tuple[str, str], Any] = {}
@@ -463,7 +609,7 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
         parts = name.split(".")
         for index in range(1, len(parts)):
             parent = importlib.import_module(".".join(parts[:index]))
-            child = importlib.import_module(".".join(parts[:index + 1]))
+            child = importlib.import_module(".".join(parts[: index + 1]))
             if parent.__dict__.get(parts[index]) is not child:
                 raise PortRefusal("runtime imported module path was rebound: " + name)
         if name in modules and value is not modules[name]:
@@ -504,7 +650,9 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
             elif target + "." + member in modules:
                 expected = module_value(target + "." + member)
             else:
-                raise PortRefusal("runtime re-export is outside the captured closure: " + target + "." + member)
+                raise PortRefusal(
+                    "runtime re-export is outside the captured closure: " + target + "." + member
+                )
         elif tag == "alias":
             expected = resolve(module_name, content)
         elif tag == "value":
@@ -512,17 +660,23 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
                 raise PortRefusal("runtime global has no acquired value: " + name)
             try:
                 expected = ast.literal_eval(content)
-            except (ValueError, TypeError):
-                raise PortRefusal("runtime global needs an explicit acquired correspondence: " + name) from None
+            except ValueError, TypeError:
+                raise PortRefusal(
+                    "runtime global needs an explicit acquired correspondence: " + name
+                ) from None
             if type(actual) is not type(expected) or actual != expected:
                 raise PortRefusal("runtime constant determinant differs: " + name)
             expected = actual
         else:
             if module_name + "." + name not in expected_nodes:
-                raise PortRefusal("runtime callable dependency is outside the implementation slice: " + name)
+                raise PortRefusal(
+                    "runtime callable dependency is outside the implementation slice: " + name
+                )
             expected = actual  # definition code/globals/defaults checked by the owner below
         if actual is not expected:
-            raise PortRefusal("runtime consumed import or alias was rebound: " + module_name + "." + name)
+            raise PortRefusal(
+                "runtime consumed import or alias was rebound: " + module_name + "." + name
+            )
         active.remove(key)
         checked[key] = expected
         return expected
@@ -533,5 +687,10 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
         value = resolve(module_name, name)
         for member in members:
             if not isinstance(value, ModuleType) or value.__name__ not in modules:
-                raise PortRefusal("runtime attribute needs an explicit acquired correspondence: " + name + "." + member)
+                raise PortRefusal(
+                    "runtime attribute needs an explicit acquired correspondence: "
+                    + name
+                    + "."
+                    + member
+                )
             value = resolve(value.__name__, member)

@@ -19,7 +19,12 @@ from .operation_call_generation import render_call_bindings, render_call_identif
 from .types import SourceArtifact
 
 GENERATOR_VERSION = "data-operation-ports-v1"
-_GENERATOR_FILES = ("data_operation_artifacts.py", "operation_call_generation.py", "data_operation_ports.py", "data_operation_wire.py")
+_GENERATOR_FILES = (
+    "data_operation_artifacts.py",
+    "operation_call_generation.py",
+    "data_operation_ports.py",
+    "data_operation_wire.py",
+)
 
 
 def capture_port_generator_sources() -> tuple[SourceArtifact, ...]:
@@ -28,7 +33,6 @@ def capture_port_generator_sources() -> tuple[SourceArtifact, ...]:
         SourceArtifact("generator/" + name, Path(__file__).with_name(name).read_bytes())
         for name in _GENERATOR_FILES
     )
-
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,9 @@ def compile_data_operation_artifacts(
     # Standalone callers can deliberately acquire the current implementation.
     captured = capture_port_generator_sources() if generator_sources is None else generator_sources
     acquired = {source.name: source.content for source in captured}
-    if len(acquired) != len(captured) or set(acquired) != {"generator/" + name for name in _GENERATOR_FILES}:
+    if len(acquired) != len(captured) or set(acquired) != {
+        "generator/" + name for name in _GENERATOR_FILES
+    }:
         raise ValueError("generator source acquisition is incomplete or repeated")
     current = {source.name: source.content for source in capture_port_generator_sources()}
     if acquired != current:
@@ -102,12 +108,25 @@ def compile_data_operation_artifacts(
             "version": GENERATOR_VERSION,
             "model_digest": sha256(model.content).hexdigest(),
             "encoding": ENCODING_VERSION,
-            "binding_digest": sha256(canonical_bytes(json.loads(model.content)["bindings"])).hexdigest(),
+            "binding_digest": sha256(
+                canonical_bytes(json.loads(model.content)["bindings"])
+            ).hexdigest(),
             "native_source_digest": native_source_digest,
             "correspondence_digest": correspondence,
-            "generator_digest": sha256(canonical_bytes(tuple((name, sha256(content).hexdigest()) for name, content in sorted(acquired.items())))).hexdigest(),
-            "renderer_digest": sha256(acquired["generator/operation_call_generation.py"]).hexdigest(),
-            "runtime_ports_digest": sha256(acquired["generator/data_operation_ports.py"]).hexdigest(),
+            "generator_digest": sha256(
+                canonical_bytes(
+                    tuple(
+                        (name, sha256(content).hexdigest())
+                        for name, content in sorted(acquired.items())
+                    )
+                )
+            ).hexdigest(),
+            "renderer_digest": sha256(
+                acquired["generator/operation_call_generation.py"]
+            ).hexdigest(),
+            "runtime_ports_digest": sha256(
+                acquired["generator/data_operation_ports.py"]
+            ).hexdigest(),
             "calls_digest": sha256(source).hexdigest(),
             "identifiers_digest": sha256(identifiers).hexdigest(),
             "calls": records,
@@ -120,9 +139,15 @@ def compile_data_operation_artifacts(
 # An object/enum/nullable/collection correspondence needs its own faithful typed
 # lowering; assigning JSON or a familiar Python alias is not such a lowering.
 _NATIVE_PRIMITIVES = {
-    "string": "string", "integer": "integer", "boolean": "boolean",
-    "float": "float", "double": "float", "decimal": "decimal",
-    "datetime": "timestamp", "bytes": "bytes", "json": "json_payload",
+    "string": "string",
+    "integer": "integer",
+    "boolean": "boolean",
+    "float": "float",
+    "double": "float",
+    "decimal": "decimal",
+    "datetime": "timestamp",
+    "bytes": "bytes",
+    "json": "json_payload",
 }
 
 
@@ -133,12 +158,20 @@ def _validate_native_correspondence(
         raise ValueError("native artifact needs an explicitly admitted physical backend lowering")
     if not call.source_digest or any(
         field.resolved is None
-        for field in (*call.parameters, *call.result_fields, *(f for r in call.records for f in r.fields))
+        for field in (
+            *call.parameters,
+            *call.result_fields,
+            *(f for r in call.records for f in r.fields),
+        )
     ):
         raise ValueError("native correspondence must have closed resolved source fields")
     for direction, fields in (("input", call.parameters), ("output", call.result_fields)):
         roles = tuple(r for r in operation.roles if r.direction == direction)
-        if len({r.parameter or r.name for r in roles}) != len(roles) or {r.parameter or r.name for r in roles} != {f.name for f in fields} or len({f.name for f in fields}) != len(fields):
+        if (
+            len({r.parameter or r.name for r in roles}) != len(roles)
+            or {r.parameter or r.name for r in roles} != {f.name for f in fields}
+            or len({f.name for f in fields}) != len(fields)
+        ):
             raise ValueError("native fields differ from effective operation role correspondence")
         by_name = {field.name: field for field in fields}
         for role in roles:
@@ -150,12 +183,17 @@ def _validate_native_correspondence(
         raise ValueError("nested native records require an explicit typed kind lowering")
     if outputs:
         if call.cardinality != "one" or call.result_mode not in {"scalar", "json", "table"}:
-            raise ValueError("native completion cardinality differs from required scalar output roles")
+            raise ValueError(
+                "native completion cardinality differs from required scalar output roles"
+            )
         if call.result_mode == "scalar" and len(outputs) != 1:
             raise ValueError("native scalar completion requires exactly one output role")
         if call.result_mode in {"json", "table"} and not call.result_class:
             raise ValueError("native structured completion requires a typed result class")
-        if call.result_mode == "json" and any(field.resolved is None or field.resolved.kind != "json_payload" for field in call.result_fields):
+        if call.result_mode == "json" and any(
+            field.resolved is None or field.resolved.kind != "json_payload"
+            for field in call.result_fields
+        ):
             raise ValueError("native JSON object fields need an explicit typed JSON lowering")
     elif call.cardinality != "none" or call.result_mode != "void":
         raise ValueError("native completion invents an undeclared result")
@@ -167,22 +205,46 @@ def _validate_native_role(
     kind = next(k for k in model.kinds if k.semantic_id == role.kind)
     facts = json.loads(kind.facts)
     schema = facts.get("json_schema")
-    primitive = "json" if schema is not None else facts.get("primitive") if kind.category == "primitive" else None
+    primitive = (
+        "json"
+        if schema is not None
+        else facts.get("primitive")
+        if kind.category == "primitive"
+        else None
+    )
     native = _NATIVE_PRIMITIVES.get(primitive) if isinstance(primitive, str) else None
     resolved = field.resolved
     if native is None or resolved is None or resolved.kind != native:
-        raise ValueError("native field type differs from effective semantic kind; explicit typed lowering required")
+        raise ValueError(
+            "native field type differs from effective semantic kind; "
+            "explicit typed lowering required"
+        )
     if field.native_type is not None and native != "integer":
         raise ValueError("native SQL representation differs from semantic primitive")
-    if field.semantic_type is not None or resolved.model_class is not None or resolved.enum_values or field.transform not in (None, "identity"):
-        raise ValueError("native nominal/enum/transformed field requires an explicit typed kind lowering")
-    if role.collection != "scalar" or role.minimum != 1 or role.maximum != 1 or role.presence != "required":
-        raise ValueError("native nullable/optional/collection cardinality requires an explicit typed lowering")
+    if (
+        field.semantic_type is not None
+        or resolved.model_class is not None
+        or resolved.enum_values
+        or field.transform not in (None, "identity")
+    ):
+        raise ValueError(
+            "native nominal/enum/transformed field requires an explicit typed kind lowering"
+        )
+    if (
+        role.collection != "scalar"
+        or role.minimum != 1
+        or role.maximum != 1
+        or role.presence != "required"
+    ):
+        raise ValueError(
+            "native nullable/optional/collection cardinality requires an explicit typed lowering"
+        )
     if field.nullable or resolved.nullable or field.multivalued or resolved.multivalued:
         raise ValueError("native nullability or collection differs from required scalar role")
     if field.default_json is not None:
-        raise ValueError("native default requires a declared semantic parameter/default correspondence")
-
+        raise ValueError(
+            "native default requires a declared semantic parameter/default correspondence"
+        )
 
 
 def _wire_boundary_schemas(model, operation, call) -> dict[str, bytes]:
@@ -197,13 +259,26 @@ def _wire_boundary_schemas(model, operation, call) -> dict[str, bytes]:
                 continue
             for name, definition in schema.get("definitions", {}).items():
                 if name in definitions and definitions[name] != definition:
-                    raise ValueError("wire definitions require an explicit collision-free namespace")
+                    raise ValueError(
+                        "wire definitions require an explicit collision-free namespace"
+                    )
                 definitions[name] = definition
-            properties[role.parameter or role.name] = {key: value for key, value in schema.items() if key not in {"definitions", "$schema"}}
+            properties[role.parameter or role.name] = {
+                key: value for key, value in schema.items() if key not in {"definitions", "$schema"}
+            }
         if properties:
             if len(properties) != len(fields):
-                raise ValueError("mixed wire-schema and primitive fields need an explicit typed boundary lowering")
-            body = {"$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+                raise ValueError(
+                    "mixed wire-schema and primitive fields need "
+                    "an explicit typed boundary lowering"
+                )
+            body = {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": properties,
+                "required": list(properties),
+                "additionalProperties": False,
+            }
             if definitions:
                 body["definitions"] = definitions
             result[direction] = canonical_bytes(body)

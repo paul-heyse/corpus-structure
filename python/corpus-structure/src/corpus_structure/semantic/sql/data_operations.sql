@@ -43,7 +43,7 @@ BEGIN
  ELSIF tag='mapping' AND n=2 AND jsonb_typeof(v->1)='array' THEN
  IF EXISTS(SELECT FROM jsonb_array_elements(v->1) e WHERE jsonb_typeof(e)<>'array' OR jsonb_array_length(e)<>2 OR jsonb_typeof(e->0)<>'string')
  OR EXISTS(SELECT FROM jsonb_array_elements(v->1) e GROUP BY e->>0 HAVING count(*)<>1) THEN RAISE EXCEPTION 'invalid mapping members'; END IF;
- SELECT coalesce(jsonb_agg(jsonb_build_array(e->0,data.ddo_normalize(e->1)) ORDER BY e->>0 COLLATE "C"),'[]') INTO result FROM jsonb_array_elements(v->1) e;
+ SELECT coalesce(jsonb_agg(jsonb_build_array(e->0,data.ddo_normalize(e->1)) ORDER BY (e->>0) COLLATE "C"),'[]') INTO result FROM jsonb_array_elements(v->1) e;
  RETURN jsonb_build_array(tag,result);
  END IF;
  RAISE EXCEPTION 'invalid or unsupported DDO semantic tag %',tag USING ERRCODE='23514';
@@ -546,37 +546,38 @@ BEGIN
  OR NOT public.json_matches_schema(member_kind.body_schema::json,data.ddo_json(data.ddo_normalize(m->'body'))::json) THEN RAISE EXCEPTION 'member kind/body differs from declared nominal container member contract'; END IF;
  IF nullif(m->>'member_id','') IS NULL OR NOT public.json_matches_schema(k.member_schema::json,data.ddo_json(data.ddo_normalize(m->'body'))::json) THEN RAISE EXCEPTION 'invalid member contract'; END IF;
  raw:=data.ddo_json(data.ddo_normalize(m->'body'));
- IF EXISTS(SELECT FROM (VALUES('coordinates','coordinate'),('roles','role'),('endpoints','endpoint'),('coverage','coverage'),('choices','choice')) fields(field,family) WHERE (k.families ? family AND coalesce(raw->field,'[]') IS DISTINCT FROM coalesce(m->field,'[]')) OR (NOT k.families ? family AND coalesce(m->field,'[]')<>'[]'::jsonb)) THEN RAISE EXCEPTION 'member projection differs from semantic body'; END IF;
+ IF EXISTS(SELECT FROM (VALUES('coordinates','coordinate'),('roles','role'),('endpoints','endpoint'),('coverage','coverage'),('choices','choice')) fields(field,family) WHERE (member_kind.families ? family AND coalesce(raw->field,'[]') IS DISTINCT FROM coalesce(m->field,'[]')) OR (NOT member_kind.families ? family AND coalesce(m->field,'[]')<>'[]'::jsonb)) THEN RAISE EXCEPTION 'member projection differs from semantic body'; END IF;
  INSERT INTO kb.data_product_member VALUES(key,m->>'member_id',member_kind.kind_contract,member_context->>'subject',member_context->>'original_source',member_context->'analyzed_scope',data.ddo_normalize(m->'body')) ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM kb.data_product_member WHERE product_id=key AND member_id=m->>'member_id' AND kind_contract=member_kind.kind_contract AND body=data.ddo_normalize(m->'body') AND subject=member_context->>'subject' AND original_source=member_context->>'original_source' AND analyzed_scope=member_context->'analyzed_scope') THEN RAISE EXCEPTION 'member local identity collision'; END IF;
  END LOOP;
  -- All local endpoints exist before family insertion. Cross-product endpoints require exact custody.
  FOR m IN SELECT value FROM jsonb_array_elements(o->'members') LOOP
+ SELECT * INTO STRICT member_kind FROM sem.data_kind_contract WHERE kind_contract=m->>'kind_contract';
  FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'coordinates','[]')) WITH ORDINALITY a(value,ord) LOOP
  PERFORM ops.ddo_fields(f,ARRAY['original_source','start','end'],ARRAY['page']);
- IF f->>'original_source'<>r.original_source OR NOT k.families ? 'coordinate' THEN RAISE EXCEPTION 'coordinate source/family mismatch'; END IF;
+ IF f->>'original_source'<>r.original_source OR NOT member_kind.families ? 'coordinate' THEN RAISE EXCEPTION 'coordinate source/family mismatch'; END IF;
  INSERT INTO kb.data_member_coordinate VALUES(key,m->>'member_id',n,f->>'original_source',(f->>'start')::integer,(f->>'end')::integer,(f->>'page')::integer) ON CONFLICT DO NOTHING;
  END LOOP;
  FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'roles','[]')) WITH ORDINALITY a(value,ord) LOOP
  PERFORM ops.ddo_fields(f,ARRAY['role','position','multiplicity']);
- IF NOT k.families ? 'role' THEN RAISE EXCEPTION 'undeclared role family'; END IF;
+ IF NOT member_kind.families ? 'role' THEN RAISE EXCEPTION 'undeclared role family'; END IF;
  INSERT INTO kb.data_member_role VALUES(key,m->>'member_id',n,f->>'role',(f->>'position')::integer,(f->>'multiplicity')::integer) ON CONFLICT DO NOTHING;
  END LOOP;
  FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'endpoints','[]')) WITH ORDINALITY a(value,ord) LOOP
  IF f->>'scope'='local' THEN PERFORM ops.ddo_fields(f,ARRAY['scope','role','member_id']);
  ELSIF f->>'scope'='external' THEN PERFORM ops.ddo_fields(f,ARRAY['scope','role','product_id','member_id']);
  ELSE RAISE EXCEPTION 'endpoint requires explicit local/external scope'; END IF;
- IF NOT k.families ? 'endpoint' OR NOT EXISTS(SELECT FROM kb.data_product x WHERE x.id=CASE WHEN f->>'scope'='local' THEN key ELSE f->>'product_id' END AND x.project_id=r.project_id AND x.original_source=r.original_source) THEN RAISE EXCEPTION 'endpoint custody/family mismatch'; END IF;
+ IF NOT member_kind.families ? 'endpoint' OR NOT EXISTS(SELECT FROM kb.data_product x WHERE x.id=CASE WHEN f->>'scope'='local' THEN key ELSE f->>'product_id' END AND x.project_id=r.project_id AND x.original_source=r.original_source) THEN RAISE EXCEPTION 'endpoint custody/family mismatch'; END IF;
  INSERT INTO kb.data_member_endpoint VALUES(key,m->>'member_id',n,f->>'role',CASE WHEN f->>'scope'='local' THEN key ELSE f->>'product_id' END,f->>'member_id') ON CONFLICT DO NOTHING;
  END LOOP;
  FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'coverage','[]')) WITH ORDINALITY a(value,ord) LOOP
  PERFORM ops.ddo_fields(f,ARRAY['scope','start','end','complete']);
- IF NOT k.families ? 'coverage' THEN RAISE EXCEPTION 'undeclared coverage family'; END IF;
+ IF NOT member_kind.families ? 'coverage' THEN RAISE EXCEPTION 'undeclared coverage family'; END IF;
  INSERT INTO kb.data_member_coverage VALUES(key,m->>'member_id',n,f->>'scope',(f->>'start')::integer,(f->>'end')::integer,(f->>'complete')::boolean) ON CONFLICT DO NOTHING;
  END LOOP;
  FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'choices','[]')) WITH ORDINALITY a(value,ord) LOOP
  PERFORM ops.ddo_fields(f,ARRAY['choice_group','alternative','selected']);
- IF NOT k.families ? 'choice' THEN RAISE EXCEPTION 'undeclared choice family'; END IF;
+ IF NOT member_kind.families ? 'choice' THEN RAISE EXCEPTION 'undeclared choice family'; END IF;
  INSERT INTO kb.data_member_choice VALUES(key,m->>'member_id',n,f->>'choice_group',f->>'alternative',(f->>'selected')::boolean) ON CONFLICT DO NOTHING;
  END LOOP;
  END LOOP;
@@ -715,7 +716,7 @@ BEGIN
  IF p ? 'trust_snapshot' AND p->'trust_snapshot' IS DISTINCT FROM snapshot THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
  PERFORM ops.ddo_authorize(k.universe) FROM ops.demand_use u JOIN ops.data_derivation_output outp ON outp.derivation_id=u.derivation_id JOIN kb.data_product x ON x.id=outp.product_id JOIN sem.data_kind_contract k ON k.kind_contract=x.kind_contract WHERE u.demand_id=d.id AND ops.ddo_read_visible(u.created_at,u.created_xid,boundary);
  WITH bounded AS MATERIALIZED (SELECT o.* FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>after_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary) ORDER BY o.id LIMIT lim),
- latest AS MATERIALIZED (SELECT o.id AS obligation, u.* FROM bounded o CROSS JOIN LATERAL (SELECT x.* FROM ops.demand_use x WHERE x.obligation_id=o.id AND ops.ddo_read_visible(x.created_at,x.created_xid,boundary) ORDER BY x.created_at DESC,x.id DESC LIMIT 1) u)
+ latest AS MATERIALIZED (SELECT u.* FROM bounded o CROSS JOIN LATERAL (SELECT x.* FROM ops.demand_use x WHERE x.obligation_id=o.id AND ops.ddo_read_visible(x.created_at,x.created_xid,boundary) ORDER BY x.created_at DESC,x.id DESC LIMIT 1) u)
  SELECT coalesce(jsonb_agg(jsonb_build_object('use_id',u.id,'obligation_id',u.obligation_id,'fate',CASE WHEN u.fate='fulfilled' AND NOT ops.ddo_use_valid(u,boundary) THEN 'unavailable' ELSE u.fate END,'historical_fate',u.fate,'semantic_outcome',(SELECT i.payload->'outcome' FROM ops.data_derivation der JOIN ops.data_completion_intent i ON i.id=der.intent_id WHERE der.id=u.derivation_id),'completion_state',(SELECT der.outcome FROM ops.data_derivation der WHERE der.id=u.derivation_id),'request_id',u.request_id,'generation',u.generation,'derivation_id',u.derivation_id,'selection',u.selection,'trust_snapshot',u.trust_snapshot,'products',(SELECT coalesce(jsonb_agg(jsonb_build_object('role',outp.role,'position',outp.position,'multiplicity',outp.multiplicity,'product_id',outp.product_id,'member_id',outp.member_id,'kind_contract',x.kind_contract,'subject',x.subject,'original_source',x.original_source,'analyzed_scope',x.analyzed_scope,'body_state',CASE WHEN selected_view='products' THEN 'present' ELSE 'not_requested' END)||CASE WHEN selected_view='products' THEN jsonb_build_object('body',x.canonical_body) ELSE '{}'::jsonb END ORDER BY outp.role,outp.position),'[]') FROM ops.data_derivation_output outp JOIN kb.data_product x ON x.id=outp.product_id WHERE outp.derivation_id=u.derivation_id)) ORDER BY u.obligation_id),'[]') INTO results FROM latest u;
  WITH bounded AS MATERIALIZED (SELECT o.* FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>after_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary) ORDER BY o.id LIMIT lim)
  SELECT coalesce(jsonb_agg((to_jsonb(o)-'created_at'-'created_xid')||jsonb_build_object('obligation_id',o.id,'historical_fate',u.fate,

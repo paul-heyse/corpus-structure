@@ -5,6 +5,7 @@ schemas before use; every reference is local and authenticated before resolution
 See https://python-jsonschema.readthedocs.io/en/stable/validate/ and
 https://github.com/supabase/pg_jsonschema for the shared validation realization.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,16 +42,32 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
 @lru_cache(maxsize=16)
 def _checked_protocol(content: bytes) -> bytes:
     result = yaml.safe_load(content)
-    if not isinstance(result, dict) or set(result) != {"version", "wire_schema_version", "definitions", "operations"} or result["version"] != "data-operation-native-v1" or result["wire_schema_version"] != "draft7-closed-v1":
+    if (
+        not isinstance(result, dict)
+        or set(result) != {"version", "wire_schema_version", "definitions", "operations"}
+        or result["version"] != "data-operation-native-v1"
+        or result["wire_schema_version"] != "draft7-closed-v1"
+    ):
         raise ValueError("unsupported closed native wire protocol")
     if not isinstance(result["definitions"], dict) or not isinstance(result["operations"], list):
         raise ValueError("native wire definitions and operations are required")
     names = []
     for operation in result["operations"]:
-        if not isinstance(operation, dict) or set(operation) != {"name", "profile", "request", "result", "purposes"} or operation["profile"] not in {"command", "read"}:
+        if (
+            not isinstance(operation, dict)
+            or set(operation) != {"name", "profile", "request", "result", "purposes"}
+            or operation["profile"] not in {"command", "read"}
+        ):
             raise ValueError("invalid native wire operation")
         purposes = operation["purposes"]
-        if not isinstance(purposes, list) or not purposes or any(not isinstance(p, str) or p not in {"read", "write", "evaluate"} for p in purposes) or len(purposes) != len(set(purposes)):
+        if (
+            not isinstance(purposes, list)
+            or not purposes
+            or any(
+                not isinstance(p, str) or p not in {"read", "write", "evaluate"} for p in purposes
+            )
+            or len(purposes) != len(set(purposes))
+        ):
             raise ValueError("native wire operation requires unique explicit purpose capabilities")
         names.append(operation["name"])
         for direction in ("request", "result"):
@@ -78,7 +95,12 @@ def _references(value: Any) -> set[str]:
     result = set()
     if "$ref" in value:
         reference = value["$ref"]
-        if not isinstance(reference, str) or not reference.startswith("#/definitions/") or "/" in reference.removeprefix("#/definitions/") or "~" in reference.removeprefix("#/definitions/"):
+        if (
+            not isinstance(reference, str)
+            or not reference.startswith("#/definitions/")
+            or "/" in reference.removeprefix("#/definitions/")
+            or "~" in reference.removeprefix("#/definitions/")
+        ):
             raise ValueError("native wire schemas allow only closed local definition references")
         result.add(reference.removeprefix("#/definitions/"))
     for key in ("properties", "patternProperties", "definitions"):
@@ -87,7 +109,17 @@ def _references(value: Any) -> set[str]:
     for key in ("allOf", "anyOf", "oneOf"):
         for child in value.get(key, []):
             result.update(_references(child))
-    for key in ("additionalItems", "additionalProperties", "contains", "propertyNames", "not", "if", "then", "else", "items"):
+    for key in (
+        "additionalItems",
+        "additionalProperties",
+        "contains",
+        "propertyNames",
+        "not",
+        "if",
+        "then",
+        "else",
+        "items",
+    ):
         if key in value:
             children = value[key] if isinstance(value[key], list) else [value[key]]
             for child in children:
@@ -135,16 +167,22 @@ def schema_closure(root: dict[str, Any], definitions: dict[str, Any]) -> dict[st
 @lru_cache(maxsize=16)
 def _wire_contract_bytes(content: bytes) -> bytes:
     protocol = json.loads(_checked_protocol(content))
-    return canonical_bytes({
-        operation["name"]: {
-            direction: schema_closure({"$ref": "#/definitions/" + operation[side]}, protocol["definitions"])
-            for direction, side in (("input", "request"), ("output", "result"))
+    return canonical_bytes(
+        {
+            operation["name"]: {
+                direction: schema_closure(
+                    {"$ref": "#/definitions/" + operation[side]}, protocol["definitions"]
+                )
+                for direction, side in (("input", "request"), ("output", "result"))
+            }
+            for operation in protocol["operations"]
         }
-        for operation in protocol["operations"]
-    })
+    )
 
 
-def wire_operations(sources: tuple[SourceArtifact, ...] | None = None) -> tuple[dict[str, Any], ...]:
+def wire_operations(
+    sources: tuple[SourceArtifact, ...] | None = None,
+) -> tuple[dict[str, Any], ...]:
     """Detached operation facts, including explicit purpose capabilities, from one parser."""
     return tuple(_protocol(sources)["operations"])
 
@@ -183,8 +221,11 @@ def _operation_schema(content: bytes, operation: str, direction: str) -> bytes:
 
 
 def validate_native_wire(
-    operation: str, direction: Literal["input", "output"], value: Any,
-    *, sources: tuple[SourceArtifact, ...] | None = None,
+    operation: str,
+    direction: Literal["input", "output"],
+    value: Any,
+    *,
+    sources: tuple[SourceArtifact, ...] | None = None,
 ) -> dict[str, Any]:
     schema = _operation_schema(_protocol_content(sources), operation, direction)
     result = validate_wire_schema(schema, value)
@@ -193,12 +234,16 @@ def validate_native_wire(
     return result
 
 
-def wire_kind_declarations(sources: tuple[SourceArtifact, ...] | None = None) -> tuple[dict[str, Any], ...]:
+def wire_kind_declarations(
+    sources: tuple[SourceArtifact, ...] | None = None,
+) -> tuple[dict[str, Any], ...]:
     protocol = _protocol(sources)
     return tuple(
         {
-            "id": KIND_PREFIX + name, "name": "wire." + name,
-            "scope": "native-wire", "json_schema": schema_closure(body, protocol["definitions"]),
+            "id": KIND_PREFIX + name,
+            "name": "wire." + name,
+            "scope": "native-wire",
+            "json_schema": schema_closure(body, protocol["definitions"]),
             "references": sorted(KIND_PREFIX + target for target in _references(body)),
         }
         for name, body in sorted(protocol["definitions"].items())
@@ -217,6 +262,7 @@ def json_schema_properties(schema: dict[str, Any]) -> tuple[tuple[str, dict[str,
     """Normalize only actual object fields, preserving every union constraint."""
     checked_json_schema(schema)
     definitions = schema.get("definitions", {})
+
     def variants(value, active: frozenset[str] = frozenset()):
         if "$ref" in value:
             name = value["$ref"].removeprefix("#/definitions/")
@@ -228,8 +274,13 @@ def json_schema_properties(schema: dict[str, Any]) -> tuple[tuple[str, dict[str,
             # their combinations (e.g body_state), not replace that field graph.
             return [value]
         if "oneOf" in value or "anyOf" in value:
-            return [item for branch in value.get("oneOf", value.get("anyOf", [])) for item in variants(branch, active)]
+            return [
+                item
+                for branch in value.get("oneOf", value.get("anyOf", []))
+                for item in variants(branch, active)
+            ]
         return []
+
     alternatives = variants(schema)
     names = sorted({name for variant in alternatives for name in variant.get("properties", {})})
     result = []
@@ -253,11 +304,20 @@ def json_schema_field_type(
     root = {key: value for key, value in schema.items() if key not in {"definitions", "$schema"}}
     if "$ref" in root:
         if nominal_namespace is None:
-            raise ValueError("unsupported nominal projection for non-wire local JSON Schema references; use the LinkML or captured Python nominal owner")
+            raise ValueError(
+                "unsupported nominal projection for non-wire local JSON Schema references; "
+                "use the LinkML or captured Python nominal owner"
+            )
         return nominal_namespace + root["$ref"].removeprefix("#/definitions/"), False
     alternatives = root.get("oneOf", root.get("anyOf"))
     if alternatives:
-        projected = {json_schema_field_type(schema_closure(item, schema.get("definitions", {})), nominal_namespace=nominal_namespace) for item in alternatives}
+        projected = {
+            json_schema_field_type(
+                schema_closure(item, schema.get("definitions", {})),
+                nominal_namespace=nominal_namespace,
+            )
+            for item in alternatives
+        }
         if len(projected) == 1:
             return projected.pop()
     if root.get("type") == "array" and isinstance(root.get("items"), dict):
@@ -272,12 +332,18 @@ def json_schema_field_type(
             primitive = "boolean"
         elif values and all(type(value) is int for value in values):
             primitive = "integer"
-    return "primitive:" + {"string": "string", "integer": "integer", "boolean": "boolean", "number": "float"}.get(primitive if isinstance(primitive, str) else "", "json"), False
+    return "primitive:" + {
+        "string": "string",
+        "integer": "integer",
+        "boolean": "boolean",
+        "number": "float",
+    }.get(primitive if isinstance(primitive, str) else "", "json"), False
 
 
 def json_schema_category(schema: dict[str, Any]) -> Literal["class", "type"]:
     """An object record is a class; scalar/collection/heterogeneous values are types."""
     definitions = schema.get("definitions", {})
+
     def object_record(value, active=frozenset()):
         if "$ref" in value:
             name = value["$ref"].removeprefix("#/definitions/")
@@ -286,4 +352,5 @@ def json_schema_category(schema: dict[str, Any]) -> Literal["class", "type"]:
         if alternatives:
             return all(object_record(item, active) for item in alternatives)
         return value.get("type") == "object"
+
     return "class" if object_record(schema) else "type"
