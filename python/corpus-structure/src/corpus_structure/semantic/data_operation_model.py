@@ -80,6 +80,15 @@ class OperationRole:
     parameter: str | None = None
     alternatives: tuple[str, ...] = ()
     selected: str | None = None
+    subject_field: str | None = None
+
+
+def operation_role_record(role: OperationRole) -> dict:
+    """Export absent subject association under its original archived meaning."""
+    record = asdict(role)
+    if role.subject_field is None:
+        record.pop("subject_field")
+    return record
 
 
 @dataclass(frozen=True)
@@ -277,7 +286,7 @@ class EffectiveOperation:
                 "profile": self.profile,
                 "subject": self.subject,
                 "context": self.context,
-                "roles": [asdict(role) for role in self.roles],
+                "roles": [operation_role_record(role) for role in self.roles],
                 "invariants": self.invariants,
                 "coverage": self.coverage,
                 "outcomes": self.outcomes,
@@ -366,6 +375,9 @@ class EffectiveDataOperationModel:
 
         record = asdict(self)
         for operation in record["operations"]:
+            for role in operation["roles"]:
+                if role["subject_field"] is None:
+                    role.pop("subject_field")
             if not operation["result_fields"]:
                 operation.pop("result_fields")
         if self.version == ARCHIVED_MODEL_VERSION:
@@ -460,6 +472,10 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
         archived_fields = expected - historical.keys() if archived_v1 else expected
 
         def structure(value, _):
+            if cls is OperationRole and isinstance(value, dict):
+                if archived_v1 and "subject_field" in value:
+                    raise ValueError("v1 role cannot declare a subject association")
+                value = {"subject_field": None, **value}
             if cls is EffectiveOperation and isinstance(value, dict):
                 if archived_v1 and "result_fields" in value:
                     raise ValueError("v1 operation cannot declare result correspondence")

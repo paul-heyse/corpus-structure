@@ -865,8 +865,12 @@ BEGIN
    SELECT m.member_id,m.kind_contract,m.subject,m.original_source,m.analyzed_scope,m.body FROM kb.data_product_member m WHERE m.product_id=a.product_id AND (a.output_member IS NULL OR a.output_member=m.member_id)
   ) projected
   LEFT JOIN kb.data_member_role member_role ON member_role.product_id=a.product_id AND member_role.member_id=projected.member_id
-  WHERE (p_subject IS NULL OR projected.projected_subject=p_subject)
-   AND EXISTS(SELECT FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation AND input_role.value->>'kind_contract'=projected.projected_kind)
+  WHERE EXISTS(SELECT FROM sem.data_operation_definition operation
+   CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value)
+   WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation
+   AND input_role.value->>'kind_contract'=projected.projected_kind
+   AND (p_subject IS NULL OR ops.ddo_binding_subject(input_role.value,
+    jsonb_build_object('subject',projected.projected_subject,'meaning_body',projected.projected_body),p_subject)))
  )
  SELECT candidate.product_id,candidate.projected_kind,candidate.projected_subject,candidate.projected_source,candidate.projected_scope,
   coalesce((SELECT jsonb_agg(to_jsonb(coverage_row)-'product_id'-'member_id' ORDER BY coverage_row.ordinal) FROM kb.data_member_coverage coverage_row WHERE coverage_row.product_id=candidate.product_id AND coverage_row.member_id=candidate.member_id),'[]'),

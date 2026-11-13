@@ -938,3 +938,28 @@ def test_absence_rejects_nested_bundle_aggregate_scope(storage):
             (projection,),
             subject="doc",
         )
+
+
+def test_declared_subject_association_keeps_original_member_subject(storage):
+    connection, _, projection = storage
+    ordinary = model(BindingExpression("scan", roles=("items",)))
+    associated = replace(
+        ordinary,
+        operations=(replace(ordinary.operations[0], roles=(replace(ordinary.operations[0].roles[0], subject_field="base"),)),),
+    )
+    result = execute_binding(connection, compile_binding(associated, "urn:op", (projection,), subject="b"))
+    assert result.sufficient
+    assert {member.subject for member in result.roles[0].members} == {"doc"}
+    assert {member.member for member in result.roles[0].members} == {"m1", "m2", "m3"}
+    unmatched = execute_binding(connection, compile_binding(associated, "urn:op", (projection,), subject="foreign"))
+    assert not unmatched.sufficient
+    old = execute_binding(connection, compile_binding(ordinary, "urn:op", (projection,), subject="b"))
+    assert not old.sufficient
+
+
+def test_subject_association_requires_admitted_identifier_projection(storage):
+    _, _, projection = storage
+    original = model(BindingExpression("scan", roles=("items",)))
+    bad = replace(original, operations=(replace(original.operations[0], roles=(replace(original.operations[0].roles[0], subject_field="value"),)),))
+    with pytest.raises(ValueError, match="identifier"):
+        compile_binding(bad, "urn:op", (projection,), subject="b")

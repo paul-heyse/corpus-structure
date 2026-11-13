@@ -593,7 +593,9 @@ def data_operation_definition_projection(
             raise ValueError("cannot admit an incomplete implementation recipe")
         roles = []
         for role in operation.roles:
-            record: dict[str, Any] = asdict(role)
+            from .data_operation_model import operation_role_record
+
+            record: dict[str, Any] = operation_role_record(role)
             record["kind_contract"] = ids[role.kind, "kind"]
             record["identity_requirements"] = (
                 list(role.support.identity_requirements) if role.support else []

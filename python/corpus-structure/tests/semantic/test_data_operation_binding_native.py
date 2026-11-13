@@ -421,3 +421,23 @@ def test_native_declared_property_wins_over_physical_header_and_typed_parameters
         },
     )
     assert values == [["float", "-0x0.0p+0"]]
+
+
+@pytest.mark.db
+def test_native_subject_association_preserves_original_subject(binding_native_connection):
+    connection = binding_native_connection
+    value = row(2)
+    value["subject"] = "view:original"
+    role = {"subject_field": "base"}
+
+    def matches(definition, subject):
+        return connection.scalar(
+            text("SELECT ops.ddo_binding_subject(CAST(:role AS jsonb),CAST(:row AS jsonb),:subject)"),
+            {"role": json.dumps(definition), "row": json.dumps(value), "subject": subject},
+        )
+
+    assert matches(role, "b") is True
+    assert matches(role, "foreign") is False
+    assert matches({}, "view:original") is True
+    assert matches({}, "b") is False
+    assert value["subject"] == "view:original"

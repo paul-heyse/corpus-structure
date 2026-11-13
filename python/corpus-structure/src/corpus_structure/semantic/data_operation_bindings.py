@@ -169,6 +169,7 @@ class CompiledBinding:
     unavailable_roles: tuple[str, ...] = ()
     inactive_roles: tuple[str, ...] = ()
     population_roles: tuple[tuple[str, str], ...] = ()
+    subject_columns: tuple[tuple[str, str], ...] = ()
 
 
 def _decode_value(content: bytes) -> Any:
@@ -407,6 +408,19 @@ def compile_binding(
     optional_join_filters = {}
     optional_unknowns = []
 
+    subject_columns = {}
+    for name, role in roles.items():
+        if role.subject_field is None or name not in aliases:
+            continue
+        matches = [field for field in projected[role.kind].fields if field.name == role.subject_field]
+        if len(matches) != 1 or matches[0].value_type.removeprefix("primitive:") not in {"string", "uri", "uriorcurie"}:
+            raise ValueError("subject association requires an admitted identifier field")
+        subject_columns[name] = matches[0].column
+
+    def subject_condition(name):
+        alias = aliases[name]
+        return alias.c[subject_columns.get(name, "subject")] == anchor.c.subject
+
     def joined_relation(filters):
         relation = anchor
         # Optional predicates may refer to required peers, which must already be
@@ -419,7 +433,7 @@ def compile_binding(
             alias = aliases[name]
             role = roles[name]
             condition = and_(
-                alias.c.subject == anchor.c.subject,
+                subject_condition(name),
                 alias.c.kind_contract == identities[role.kind, "kind"],
             )
             if role.presence == "alternative":
@@ -453,15 +467,25 @@ def compile_binding(
             raise ValueError("field is not native admitted: " + field.field)
         return aliases[field.role].c[matches[0].column]
 
+    def primitive_type(value_type: str) -> str:
+        kind = next((item for item in model.kinds if item.semantic_id == value_type or item.name == value_type), None)
+        if kind is None:
+            return value_type.removeprefix("primitive:")
+        facts = json.loads(kind.facts)
+        primitive = facts.get("primitive", facts.get("effective_primitive"))
+        if primitive is None and kind.category in {"class", "enum"}:
+            primitive = "string"
+        if not isinstance(primitive, str):
+            raise ValueError("binding kind lacks an effective primitive: " + value_type)
+        return {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(primitive, primitive)
+
     def operand_value(operand: BindingOperand, *, many=False):
         if operand.kind == "field":
             if operand.field is None:
                 raise ValueError("field operand lacks field")
             projection = projected[roles[operand.field.role].kind]
             native = next((f for f in projection.fields if f.name == operand.field.field), None)
-            if native is None or native.value_type.removeprefix(
-                "primitive:"
-            ) != operand.value_type.removeprefix("primitive:"):
+            if native is None or primitive_type(native.value_type) != primitive_type(operand.value_type):
                 raise ValueError("native projected field type mismatch")
             return field_value(operand.field)
         if operand.kind == "population":
@@ -478,14 +502,14 @@ def compile_binding(
                         "membership universe is not closed",
                     )
                 )
-            return _typed(population.members, operand.value_type, many=True)
+            return _typed(population.members, primitive_type(operand.value_type), many=True)
         if operand.kind == "parameter":
             if operand.name not in params:
                 raise ValueError("missing frozen demand parameter: " + str(operand.name))
-            return _typed(params[operand.name], operand.value_type, many=many)
+            return _typed(params[operand.name], primitive_type(operand.value_type), many=many)
         if operand.value is None:
             raise ValueError("literal operand lacks value")
-        return _typed(_decode_value(operand.value), operand.value_type, many=many)
+        return _typed(_decode_value(operand.value), primitive_type(operand.value_type), many=many)
 
     # Quantifiers/cardinalities are SQL checks over selected rows, not Python filters.
     aggregate_nodes = []
@@ -591,7 +615,7 @@ def compile_binding(
                 nested,
                 *(
                     and_(
-                        aliases[name].c.subject == subject,
+                        subject_condition(name),
                         aliases[name].c.kind_contract == identities[roles[name].kind, "kind"],
                         aliases[name].c.member.in_(population.members)
                         if population is not None
@@ -655,7 +679,7 @@ def compile_binding(
             negative_relation = relation
             for peer in names:
                 negative_relation = negative_relation.join(
-                    aliases[peer], aliases[peer].c.subject == anchor.c.subject
+                    aliases[peer], subject_condition(peer)
                 )
             query = (
                 select(*query_columns)
@@ -721,7 +745,7 @@ def compile_binding(
         covered = (
             select(func.count(func.distinct(alias.c.member)))
             .where(
-                alias.c.subject == subject,
+                subject_condition(name),
                 alias.c.kind_contract == identities[roles[name].kind, "kind"],
                 alias.c.member.in_(population.members),
             )
@@ -877,6 +901,7 @@ def compile_binding(
         (),
         tuple(sorted(inactive)),
         tuple(sorted(role_populations.items())),
+        tuple(sorted(subject_columns.items())),
     )
 
 
@@ -945,7 +970,11 @@ def decode_binding_rows(
             ),
             None,
         )
-        malformed = raw_invalid or any(
+        subject_column = dict(compiled.subject_columns).get(role.name)
+        subject_invalid = subject_column is not None and any(
+            row.get(subject_column) != compiled.subject for row in rows.get(role.name, ())
+        )
+        malformed = raw_invalid or subject_invalid or any(
             type(member.multiplicity) is not int
             or member.multiplicity < 1
             or any(
@@ -957,7 +986,7 @@ def decode_binding_rows(
                     member.kind_contract,
                 )
             )
-            or member.subject != compiled.subject
+            or (role.subject_field is None and member.subject != compiled.subject)
             or member.kind_contract != expected_kind
             or (
                 member.position is not None

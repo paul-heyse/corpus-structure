@@ -1,0 +1,68 @@
+id: https://corpus-structure.dev/semantic/data-operation-consumers
+name: data_operation_consumers
+prefixes:
+  dcb: https://corpus-structure.dev/semantic/data-operation-consumers/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: dcb
+default_range: DdoBindingText
+types:
+  DdoBindingText: {base: str, uri: xsd:string}
+  DdoBindingInteger: {base: int, uri: xsd:integer}
+  DdoBindingBoolean: {base: bool, uri: xsd:boolean}
+classes:
+  DdoSourceViewBinding:
+    description: >-
+      Binding projection of the existing source-view publication/ref. document_subject is
+      the canonical document association, not the physical document_id. The projection
+      producer authenticates its original product/view relationship before publication.
+    attributes:
+      document_subject: {required: true}
+      base_product: {required: true}
+      view_key: {required: true}
+      projection_digest: {required: true}
+      source_recipe: {required: true}
+      analysis_eligible: {range: DdoBindingBoolean, required: true}
+  DdoPassageBinding:
+    description: >-
+      Projection of an actual StructuralInput passage and its source reference. The
+      input_subject association preserves the original passage subject and exact extent.
+    attributes:
+      input_subject: {required: true}
+      passage_id: {required: true}
+      source_ref: {required: true}
+      start: {range: DdoBindingInteger, required: true, minimum_value: 0}
+      end: {range: DdoBindingInteger, required: true, minimum_value: 1}
+  DdoReadingBinding:
+    description: >-
+      Projection of an explicitly retained contribution/read selection in a StructuralInput.
+      The producing operation authenticates contribution membership and its passage relation.
+    attributes:
+      input_subject: {required: true}
+      passage_id: {required: true}
+      contribution_id: {required: true}
+      producer_operation: {required: true}
+  DdoOccurrenceBinding:
+    description: >-
+      Projection of an existing retained located contribution. anchors_valid records the
+      result of the admitted original-pin/range/slice/occurrence-identity validator;
+      possession of caller-created rows does not establish that result or native admission.
+    attributes:
+      view_subject: {required: true}
+      occurrence_id: {required: true}
+      contribution_id: {required: true}
+      semantic_type: {required: true}
+      contribution_kind: {required: true}
+      anchors_valid: {range: DdoBindingBoolean, required: true}
+      exact_context: {range: DdoBindingBoolean, required: true}
+  DdoAnchorBinding:
+    description: Projection of an existing occurrence anchor under its original source view.
+    attributes:
+      view_subject: {required: true}
+      occurrence_id: {required: true}
+      source_product: {required: true}
+      pointer: {required: true}
+      space: {required: true}
+      start: {range: DdoBindingInteger, minimum_value: 0}
+      end: {range: DdoBindingInteger, minimum_value: 1}
+      precision: {required: true}
+      source_piece: {}
