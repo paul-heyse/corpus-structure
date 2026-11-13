@@ -1888,12 +1888,14 @@ def test_writer_cannot_mutate_or_read_pending_evaluator_obligations(kernel, nati
             kernel, operation="urn:ddo-test:evaluator", engine=evaluator
         )
         calls = [
-            ("read_demand_result", demand),
-            ("record_data_fate", {**obligation, "fate": "closed", "selection": {}}),
+            ("read_demand_result", {"demand_id": demand["demand_id"]}),
+            ("record_data_fate", {
+                "obligation_id": obligation["obligation_id"], "fate": "closed", "selection": {},
+            }),
             (
                 "expand_data_obligation",
                 {
-                    **demand,
+                    "demand_id": demand["demand_id"],
                     "operation_id": "urn:ddo-test:evaluator",
                     "subject": "subject:one",
                     "original_source": "source:test",
@@ -2002,7 +2004,9 @@ def test_registration_rejects_forged_selected_graph_with_authentic_node_identiti
     if mutation == "dependency":
         frozen["operations"][0]["dependencies"] = [frozen["operations"][0]["operation"]]
     elif mutation == "roots":
-        frozen["root_operations"] = []
+        # Use an authentic admitted operation, but forge its membership in this
+        # selected graph. Empty roots would fail wire admission before this guard.
+        frozen["root_operations"] = [kernel["model"].operation("urn:ddo-test:sample").semantic_id]
     elif mutation == "discovery":
         frozen["discovery"] = [
             {
@@ -2112,13 +2116,15 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
                 with pytest.raises(DBAPIError, match=r"active|lease|invalid"):
                     planner.ready(snapshot, authorization=b"{}")
                 savepoint.rollback()
-            connection.execute(
-                text(
-                    "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' "
-                    "WHERE id=:id"
-                ),
-                {"id": consumer_fence["task_id"]},
+            released = planner.storage.invoke(
+                "release_data_attempt",
+                {
+                    **consumer_fence,
+                    "physical_retirement": "confirmed",
+                    "failure": {"code": "invalidated-support", "message": "computation retired"},
+                },
             )
+            assert released["state"] == "released"
             updated = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
             assert len(updated) == 1
             new_request = json.loads(updated[0].native)
