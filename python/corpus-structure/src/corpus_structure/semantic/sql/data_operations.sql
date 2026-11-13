@@ -87,6 +87,22 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_scope(project text,source text) RETURNS text
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$ SELECT 'source:'||ops.ddo_digest(jsonb_build_array(project,source)) $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_trust_snapshot_meaning(snapshot jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE pair record; epoch numeric; result jsonb:='{}';
+BEGIN
+ IF jsonb_typeof(snapshot) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'trust snapshot requires an explicit epoch mapping'; END IF;
+ FOR pair IN SELECT key,value FROM jsonb_each(snapshot) LOOP
+ IF nullif(pair.key,'') IS NULL OR jsonb_typeof(pair.value) IS DISTINCT FROM 'number' THEN
+ RAISE EXCEPTION 'trust snapshot requires nonnegative integer epochs'; END IF;
+ epoch:=(pair.value#>>'{}')::numeric;
+ IF epoch<0 OR epoch<>trunc(epoch) THEN RAISE EXCEPTION 'trust snapshot requires nonnegative integer epochs'; END IF;
+ -- An absent scope has epoch zero. Its lazy row creation is not revocation.
+ IF epoch<>0 THEN result:=result||jsonb_build_object(pair.key,epoch); END IF;
+ END LOOP;
+ RETURN result;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_lock_support(project text,source text,support jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE scope_key text; snapshot jsonb:='{}'; e bigint;
@@ -621,7 +637,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.attach_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; o ops.data_obligation; d ops.data_demand; def sem.data_operation_definition;
- r ops.data_request; key text; snapshot jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint; retained_id text; retained ops.data_completion_intent; current_task ops.task; invalid_current boolean; invalid_retained boolean;
+ r ops.data_request; key text; snapshot jsonb; read_trust jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint; retained_id text; retained ops.data_completion_intent; current_task ops.task; invalid_current boolean; invalid_retained boolean;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['obligation_id','request_meaning','binding','replicate'],ARRAY['rebind_derivation','request_key']);
  IF p->'request_meaning'->>0='ddo' THEN
@@ -651,7 +667,12 @@ BEGIN
  OR r.analyzed_scope IS DISTINCT FROM o.analyzed_scope THEN RAISE EXCEPTION 'request custody or contract mismatch'; END IF;
  IF NOT ops.ddo_bound_support_available(r,p->'binding'->'support',p->'binding') THEN RAISE EXCEPTION 'selected support is unavailable or revoked'; END IF;
  PERFORM ops.ddo_validate_binding(r,o,def,p->'binding',p->'request_meaning',p->>'replicate');
- PERFORM ops.ddo_require_binding(d.id,o.operation_id,o.subject,p->'request_meaning',p->'binding',snapshot);
+ SELECT acquired.trust_snapshot INTO STRICT read_trust FROM ops.data_demand_read acquired
+ WHERE acquired.id=p->'binding'->>'read_id' AND acquired.demand_id=d.id;
+ IF NOT (ops.ddo_trust_snapshot_meaning(read_trust) @> ops.ddo_trust_snapshot_meaning(snapshot)) THEN
+ RAISE EXCEPTION 'binding trust snapshot changed after support locking'; END IF;
+ -- Binding checks the complete pinned demand, not this request's lock subset.
+ PERFORM ops.ddo_require_binding(d.id,o.operation_id,o.subject,p->'request_meaning',p->'binding',read_trust);
  IF jsonb_typeof(p->'binding'->'inputs')<>'array' THEN RAISE EXCEPTION 'input manifest must be an array'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(p->'binding'->'inputs') LOOP
  PERFORM ops.ddo_fields(item,ARRAY['role','position','multiplicity','product_id'],ARRAY['member_id','support_derivation_id']);
@@ -1177,15 +1198,16 @@ BEGIN
  SELECT s.epoch INTO epoch FROM ops.data_trust_scope s WHERE s.scope=scope_key FOR SHARE;
  snapshot:=snapshot||jsonb_build_object(scope_key,epoch);
  END LOOP;
+ snapshot:=ops.ddo_trust_snapshot_meaning(snapshot);
  IF p ? 'read_id' THEN
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=d.id;
- IF boundary.trust_snapshot IS DISTINCT FROM snapshot
+ IF ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) IS DISTINCT FROM snapshot
  OR (p ? 'read_snapshot' AND p->>'read_snapshot' IS DISTINCT FROM boundary.read_snapshot)
  OR (p ? 'frontier_at' AND (p->>'frontier_at')::timestamptz IS DISTINCT FROM boundary.frontier_at) THEN RAISE EXCEPTION 'read acquisition pins or current trust differ'; END IF;
  ELSE
  INSERT INTO ops.data_demand_read VALUES('read:'||gen_random_uuid()::text,d.id,pg_current_snapshot()::text,clock_timestamp(),pg_current_xact_id()::text,snapshot) RETURNING * INTO boundary;
  END IF;
- IF p ? 'trust_snapshot' AND p->'trust_snapshot' IS DISTINCT FROM snapshot THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
+ IF p ? 'trust_snapshot' AND ops.ddo_trust_snapshot_meaning(p->'trust_snapshot') IS DISTINCT FROM snapshot THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
  PERFORM ops.ddo_authorize(k.universe) FROM ops.demand_use u JOIN ops.data_derivation_output outp ON outp.derivation_id=u.derivation_id JOIN kb.data_product x ON x.id=outp.product_id JOIN sem.data_kind_contract k ON k.kind_contract=x.kind_contract WHERE u.demand_id=d.id AND ops.ddo_read_visible(u.created_at,u.created_xid,boundary);
  WITH bounded AS MATERIALIZED (SELECT o.* FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>after_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary) ORDER BY o.id LIMIT lim),
  latest AS MATERIALIZED (SELECT u.* FROM bounded o CROSS JOIN LATERAL (SELECT x.* FROM ops.demand_use x WHERE x.obligation_id=o.id AND ops.ddo_read_visible(x.created_at,x.created_xid,boundary) ORDER BY x.created_at DESC,x.id DESC LIMIT 1) u)
@@ -1279,7 +1301,7 @@ BEGIN
  scope:=ops.ddo_lock_support(demand.project_id,p->>'original_source',jsonb_build_array(jsonb_build_object('derivation_id',parent.evidence->>'derivation_id')));
  PERFORM ops.ddo_require_active_demand(demand.id);
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=demand.id;
- IF NOT boundary.trust_snapshot @> scope OR NOT ops.ddo_read_visible(parent.created_at,parent.created_xid,boundary)
+ IF NOT (ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) @> ops.ddo_trust_snapshot_meaning(scope)) OR NOT ops.ddo_read_visible(parent.created_at,parent.created_xid,boundary)
  OR NOT ops.ddo_population_valid(parent,boundary) OR source_request.project_id IS DISTINCT FROM demand.project_id
  OR parent.evidence ? 'selection' OR parent.name=p->>'population_name' THEN RAISE EXCEPTION 'selected population lacks its pinned admitted base parent'; END IF;
  scope:=boundary.trust_snapshot;
@@ -1424,7 +1446,8 @@ BEGIN
  IF p_read IS NOT NULL THEN SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_read AND demand_id=d.id; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation) THEN RAISE EXCEPTION 'projection operation outside frozen demand'; END IF;
  SELECT coalesce(jsonb_object_agg(scope.scope,scope.epoch),'{}') INTO snapshot FROM ops.data_trust_scope scope WHERE scope.project_id=d.project_id AND EXISTS(SELECT FROM (SELECT value FROM jsonb_array_elements(d.root) UNION ALL SELECT entry FROM jsonb_each(coalesce(d.selection->'source_sets','{}')) named CROSS JOIN LATERAL jsonb_array_elements(named.value) entry) roots(root) WHERE scope.scope=ops.ddo_scope(d.project_id,root->>'original_source'));
- IF snapshot IS DISTINCT FROM p_trust OR (boundary.id IS NOT NULL AND boundary.trust_snapshot IS DISTINCT FROM snapshot) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
+ snapshot:=ops.ddo_trust_snapshot_meaning(snapshot);
+ IF snapshot IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(p_trust) OR (boundary.id IS NOT NULL AND ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) IS DISTINCT FROM snapshot) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) JOIN sem.data_kind_contract kind ON kind.kind_contract=input_role.value->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
  RETURN QUERY
  WITH admitted AS MATERIALIZED (
