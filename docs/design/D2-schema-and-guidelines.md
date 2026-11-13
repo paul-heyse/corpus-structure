@@ -27,7 +27,8 @@ finite typed records.
 packages one explicit `data-operations/` input manifest; preparation exports versioned
 `data_operations.json`. It refuses mixing that target manifest with legacy execution-admission
 inputs. Griffe supplies exposed/declaration ownership and C3 inheritance; LibCST supplies source
-references and conservative normalized syntax. Captured sources, stubs and opaque interpretation
+references and conservative normalized syntax; preparation-local Astroid structural lookup refines
+alias bindings with transforms/inference/runtime bootstrap disabled. Captured sources, stubs and opaque interpretation
 revisions are explicit; target code is never imported for extraction. Origins survive explicit
 serialization. Archived effective products reopen their pinned version without consulting current
 source or injecting current defaults.

@@ -135,9 +135,10 @@ campaign or new graph-specific gate follows. These future checks are not_run at 
 ## Introspection adoption and qualification — Python I01–I07
 
 Consumes the [shared implementation contract and acceptance route](implementation-contracts-and-fingerprints.md#I07).
-DDO-00 records operator-accepted introspection RC01–03 (2026-11-12), updates affected D1–D8 targets
-and coherently supersedes relevant ADR0063/0060 clauses through existing routes. Original RC01–09
-remain distinct; no repeated confirmation. Authoring records planned adoption, not executed migration.
+DDO-00 recorded operator-accepted introspection RC01–03 (2026-11-12), updated D1–D8 targets
+and established scoped target successors ADR-0092–0095. The predecessor records retain their
+selected legacy/archived consumers until coordinated DDO-11 reference retirement. Original
+RC01–09 remain distinct; no repeated confirmation or migration follows from authoring.
 DDO-11 preserves archived source/normalization/effective-model/runtime interpretations and actual
 original custody before retiring duplicate registries, dependency lists or generated wrappers.
 

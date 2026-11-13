@@ -1,7 +1,7 @@
 # Declared data operations — total governing model
 
-**Status: In execution · 2026-11-12. DDO-00 metadata/decision preparation implemented;
-DDO-01/02 compiler and identity foundations in final targeted verification. DDO-03–12 remain open.**
+**Status: In execution · 2026-11-12. DDO-00–02 complete at their preparation/compiler/identity
+foundation boundary, with targeted qualification passed. DDO-03–12 remain open.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no scope, prerequisites or acceptance limits. Current code/data remain the implementation baseline.
@@ -171,8 +171,8 @@ actual duplicated mappings/lists with consumers, while DDO-11 preserves archived
 
 ## Execution queue and readiness
 
-DDO-00 is **implemented** within its scoped preparation boundary; DDO-01/02 are **implemented,
-targeted verification in progress**. DDO-03–12 remain **open/not implemented**.
+DDO-00–02 are **complete at their scoped foundation boundary; targeted qualification passed,
+2026-11-12 local / 13 UTC**. DDO-03–12 remain **open/not implemented**.
 Rows describe dependencies, not mandatory stage-wide
 barriers or separate agent assignments. Interface agreement permits design, not a claim of usable
 native behavior. Product-family slices carry immediate consumers; no late consumer repair phase.
@@ -235,7 +235,8 @@ Review §7 scenarios belong to DDO-02/05/06/09/10/12 as detailed by their indepe
 ### NetworkX review disposition · 2026-11-12
 
 Source-qualified IDs below refer to the NetworkX review at `7c5368faa`, not new diagnostic findings.
-All selected work is **open/not implemented**. Conditional subfeatures retain their source judgments
+All recommendations remain **open at series scope**; pure foundation contributions are recorded
+in the execution receipt. Conditional subfeatures retain their source judgments
 and triggers in the graph companion; mentioning them does not schedule execution or qualification.
 
 | Source recommendation | Selected correction and package owners | Closure evidence |
@@ -305,6 +306,15 @@ original contracts until their owning cutover packages replace the actual consum
   separate from release-bound attestation; the actual unbound runtime cache consumer uses it.
   PostgreSQL parity covers framing of already normalized tagged values in rollback-only temporary
   helpers, not native normalization, product admission or a new installed ABI.
+- **Actual provider projections:** `NativeProfile.identity_projections` reads positive identity
+  roles from its actual typed constructor and nested `GlinerProfile` declarations. Explicit
+  supplied released authentic-observation policy qualifies D1/GLiNER, separating runtime/threads/
+  refusal bounds from semantic model/options/device/dtype/math policy. Missing/unsupported provider
+  policy refuses; no installed fallback qualifies the other providers. Shared GLiNER validation
+  rejects historical CPU/unknown nested profiles under CUDA; artifact-map reordering preserves
+  target identities. Existing wire/defaults/fingerprints remain exact. DDO-07/09 owns actual
+  request/reuse adoption; the foundation does not claim broad runtime salts have already disappeared
+  from selected production stage keys.
 
 **Real-source qualification boundary:** the existing `semantic.identity.claim_source_item` now
 owns its colocated typed/domain contract and supplies a successful captured-source recipe case.
@@ -317,12 +327,57 @@ reader/context/output bindings must receive supported complete profiles before D
 adoption; missing capture or interpretation cannot become an identity fallback. Optional general
 framework inference remains conditional, not a new universal Python modeling project.
 
-**Verification:** final targeted compiler/identity/provider-projection and regression receipts are
-being assembled. The existing preparation/contracts/archive/value/call/interpretation selection
-passed 221/221 in managed result `79667a68ef9b4811ba63170c918ec313`; source applicability will be
-reconciled after final maintenance. Prior failed/intermediate receipts remain retained. No broad
-`ci test`, provider execution, book run, production DB write/migration, activation, or protected
-answer read was performed. DDO-12 remains the assembled final qualification owner.
+**Tested · 2026-11-12 local / 13 UTC:** the final 18-path union passed **436 selected / 436 passed**,
+managed `9d485175a11e44018135cf84b59c7a29`. Its exact receipt is
+[retained durably](../design_review/evidence/2026-11-13_cli-9d485175a11e44018135cf84b59c7a29/README.md)
+under record `cli.9d485175a11e44018135cf84b59c7a29`. The named opt-in actual GLiNER diagnostic
+was excluded because provider execution is outside this foundation qualification. This union
+covers the new compiler/identity/source/profile cases, actual rollback-only PostgreSQL framing and
+existing preparation/contracts/archive/runtime/value/call/interpretation/GLiNER/host regressions:
+
+```sh
+uv run ci test --json -- \
+  python/corpus-structure/tests/semantic/test_data_operation_compilation.py \
+  python/corpus-structure/tests/semantic/test_data_operation_identity.py \
+  python/corpus-structure/tests/semantic/test_data_operation_identity_native.py \
+  python/corpus-structure/tests/semantic/test_prepare.py \
+  python/corpus-structure/tests/semantic/test_contracts.py \
+  python/corpus-structure/tests/semantic/test_execution_release.py \
+  python/corpus-structure/tests/semantic/test_release_compatibility.py \
+  python/corpus-structure/tests/semantic/test_release_wire_payload.py \
+  python/corpus-structure/tests/semantic/test_runtime_identity.py \
+  python/corpus-structure/tests/semantic/test_analysis_contracts.py \
+  python/corpus-structure/tests/semantic/test_value_codec.py \
+  python/corpus-structure/tests/semantic/test_identity_vectors.py \
+  python/corpus-structure/tests/semantic/test_operation_call_generation.py \
+  python/corpus-structure/tests/semantic/test_interpretations.py \
+  python/corpus-structure/tests/methods/test_native_profile_identities.py \
+  python/corpus-structure/tests/methods/test_native_host.py \
+  python/corpus-structure/tests/methods/test_gliner.py \
+  python/corpus-structure/tests/methods/test_pm2_gliner_classification.py \
+  -k 'not native_boundary_diagnostic_observes_and_rescores_exact_occurrence'
+```
+
+Final `uv run ci check --only types --json` passed `1b8c525eba5b41c2913a867ab6b19f4f`;
+`--only lint` passed `cf5aabe7d74744cc8712ee9fb7c2ef21`; `--only deps` passed
+`8003758619af4e119fe238957f7dd217`. `uv run ci doctor --json` passed
+`a2d46c5105b34811b9d768231877fbd7` after dependency placement. Final source was formatted before
+this union; commits `0de179fc7` / `d1c25aa4a` preserve those tested source/test bytes. Independent
+read-only implementation review found no remaining material finding within the bounded compiler
+and selected D1/GLiNER projection scope; reviewer tests were not_run. Existing 221-case and
+intermediate focused passes retain their original scope, not an additional qualification claim.
+Initial typing failure `47eed05be9e044ffaea1cfd0599c56ee` and transient visitor failures
+`1b6dc49e7a3f428fba594413ce48b010` / `cba8775412fe4becae6b8c415d114055` remain recorded;
+the owning repairs and affected cases are included in the final passing union.
+
+`uv run ci docs check --json` passed `2c36be942c6b4dac9c920a0ea4dfc52e` (948 canonical pages,
+zero link errors; existing phase0 descriptor-tag warnings). `uv run ci evidence check --json`
+passed `df6182ace4a14d71ba25685c68920458` (402 records / 217 folders, zero errors and 42 existing
+historical warnings). Root `just turn-end` passed; subsequent receipt-only documentation additions
+do not alter qualified source/test bytes. Broad `uv run ci test` / `uv run ci check`,
+provider execution, book processing, permanent database writes/migration, activation and protected
+answer reads are **not_run** for this increment. DDO-12 remains the assembled final qualification
+owner; passing this foundation does not qualify the redesigned production pipeline.
 
 ## Investigations, risks and evidence boundaries
 
@@ -355,7 +410,7 @@ The acceptance details and commands are in the qualification companion. Record e
 D1–D8 and accepted decision records, preserving exact old review/evidence history. Never delete plan
 or evidence files. Authoring publication checks are separate from product qualification.
 
-**Next:** finish targeted DDO-01/02 integration checks, then DDO-03 typed invocation/native/wire
-correspondence and DDO-04 actual native acquisition. DDO-07/08 production profiles must close their
+**Next:** DDO-03 typed invocation/native/wire correspondence and DDO-04 actual native acquisition.
+DDO-07/08 production profiles must close their
 required kind/implementation/context facts before invoking or reusing target results. DDO-11
 preservation remains a prerequisite for adoption effects; DDO-12 owns the final required union.

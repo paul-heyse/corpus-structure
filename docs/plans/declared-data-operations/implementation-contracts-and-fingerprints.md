@@ -106,6 +106,14 @@ exports nor canonical identity bytes.
 [serialization](https://mkdocstrings.github.io/griffe/guide/users/serializing/),
 selected installed source `griffe/_internal/models.py:1338–1364` (2.4.1).
 
+**Implemented foundation adjustment · 2026-11-12.** The closed frontend reads the admitted literal
+metadata pattern from the same wrapped LibCST syntax used for dependency analysis, rather than
+registering a second Griffe extension visitor. Griffe still owns exposed/callable/C3 facts;
+explicit effective-model export retains every metadata field and its supplying/exposed origin.
+This avoids two recognition passes and an extension lifecycle without losing metadata custody or
+making library-native serialization authoritative. A Griffe extension remains available when an
+actual supported pattern needs its model hooks.
+
 ### LibCST 1.9.0: source/binding evidence and conservative projection
 
 `parse_module` retains source/encoding/formatting. `MetadataWrapper.resolve_many` and batched visitors
