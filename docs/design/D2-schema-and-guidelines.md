@@ -1,5 +1,48 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Effective operation compilation and authoring
+
+**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+effective model for declaration-owned and implementation-owned operations, canonical semantic values
+and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
+demands/requests preserve original source, permissions, explicit selection and authentic runtime
+provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
+legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+scope and evidence; all older implemented sections retain their stated selected/archived boundary.
+
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md)
+
+**Implemented foundation · 2026-11-12; final series qualification remains open.**
+[`compile_data_operations`](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_compilation.py)
+compiles supplied declaration artifacts and captured Python sources into the immutable
+[`EffectiveDataOperationModel`](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py).
+The shared `effective_class_definitions` phase runs before release hashing; inherited slots,
+constraints, conditional rules, policies and explicitly resolved vocabulary members reach kind
+closure. Closed relational expressions retain typed roles, collection/presence, alternatives,
+population, support, state/effects and capabilities. Unresolved references, identity collisions
+and invalid inheritance/operation cycles refuse preparation. Recursive kind references remain
+finite typed records.
+
+[`data_operation_dependencies`](../../python/corpus-structure/src/corpus_structure/semantic/composed.py)
+packages one explicit `data-operations/` input manifest; preparation exports versioned
+`data_operations.json`. It refuses mixing that target manifest with legacy execution-admission
+inputs. Griffe supplies exposed/declaration ownership and C3 inheritance; LibCST supplies source
+references and conservative normalized syntax. Captured sources, stubs and opaque interpretation
+revisions are explicit; target code is never imported for extraction. Origins survive explicit
+serialization. Archived effective products reopen their pinned version without consulting current
+source or injecting current defaults.
+
+[`data_operation_identity`](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_identity.py)
+owns domain/version-framed typed canonical bytes, root-inclusive graph/kind and admitted slice
+identities, definition/recipe/eligibility, subject/body/product, request/admission and runtime
+artifact/attestation separation. Required unknown source or kind dependencies withhold reusable
+identity; a successful partial inference cannot authorize it. The compiled binding projector
+preserves selected support, analyzed scope, population witnesses, alternatives and explicit
+replicates. It constructs identities, not a native validity or execution permission decision.
+The PostgreSQL helper is rollback-only framing parity over already normalized tagged values;
+native product normalization/admission and generated ports remain later DDO packages. Current
+selected execution/ABI12 and archived releases retain their original interpretation.
+
 ## Released characterization contracts
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** The trusted

@@ -197,6 +197,17 @@ it. Changing one needs an ADR and a design/target review.
 
 <a id="section-b1"></a>
 
+### Total governing data-operation target
+
+**Accepted target; production adoption Proposed · 2026-11-12.** DDO replaces duplicated operation
+policy with one effective model, mixed declaration/Python ownership and selective implementation
+recipe determinants. Native products/support, demands/requests and exact recovery preserve the
+existing source, authorization, numerical and protected-reference guarantees. DDO-00–02 foundation
+work does not switch selected production protocols. The DDO coordinator owns implementation and
+scope; D1–D8 label the accepted target separately from older implemented mechanisms.
+
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md)
+
 ### Audit-closure contract qualification
 
 **Accepted target; implementation and qualification Proposed (2026-11-03).**

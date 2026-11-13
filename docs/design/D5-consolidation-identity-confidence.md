@@ -1,5 +1,17 @@
 # D5 · Consolidation, identity and confidence
 
+## Declared consolidation and currentness
+
+**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+effective model for declaration-owned and implementation-owned operations, canonical semantic values
+and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
+demands/requests preserve original source, permissions, explicit selection and authentic runtime
+provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
+legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+scope and evidence; all older implemented sections retain their stated selected/archived boundary.
+
+> Decision: [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md)
+
 ## Witnessed component target
 
 **Implemented; bounded Tested,2026-11-06.** Exact operation-specific eligibility qualifies only the independently assessed component or relationship statement. Whole-report applicability policies require their own evidence. Native completion replays selected relationship constraints and six applicability dimensions against actual retained bindings; private proposals and preferred selections alone confer no public standing. Typed comparison and supported-facet display are implemented, with integrated qualification owned by WCE; neither establishes canonical identity.

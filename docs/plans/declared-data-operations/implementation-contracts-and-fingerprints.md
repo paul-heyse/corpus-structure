@@ -1,19 +1,23 @@
 # Implementation-owned contracts and operation fingerprints
 
-**Proposed implementation target · 2026-11-12.** Integrates the
+**Accepted target with implemented DDO-01/02 foundations · 2026-11-12.** Integrates the
 [Python-introspection review](../../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md)
 at `0907dcc23`, I01–I07. Its source-qualified RC01–03 were explicitly accepted by the operator on
 2026-11-12. These differ from the original review's RC01–09 and the NetworkX I01–I07. The
-[coordinator](../declared-data-operations_2026-11-12.md) owns scheduled disposition/progress; all
-implementation packages remain open. This companion owns shared authoring/extraction/fingerprint
+[coordinator](../declared-data-operations_2026-11-12.md) owns scheduled disposition/progress and the
+bounded implementation/qualification receipt. This companion owns shared authoring/extraction/fingerprint
 contracts, not a second catalog or progress ledger. Apply core 3.3, heuristics, code-intelligence 1.4,
 test-assessment 1.2 and repository binding. No production behavior is claimed by authoring.
 
 Selected library inputs: LibCST 1.9.0, Astroid 4.3.4, Griffe/griffelib 2.4.1 and ty 0.0.102;
 pyrefly 1.4.0 remains the checker. The operator's root manifest/lock additions establish workspace
-availability, not production-package dependency placement. DDO-01 declares consumed production
-libraries in the owning package when implementing this route, retaining exact versions unless a
-consequential incompatibility warrants a deliberate change. No dependency edit occurs during planning.
+availability. DDO-01 now declares those same exact LibCST/Astroid/Griffe versions in the production
+package. ty remains optional tooling, not the checker. The admitted implementation uses static
+Griffe/LibCST acquisition plus preparation-local Astroid structural binding refinement, without
+inference, transforms or runtime import discovery. General framework models and broader contextual
+dispatch remain unsupported until selected and qualified for actual adapter integration; required
+unknowns withhold reuse identity. The coordinator distinguishes the successful real closed operation
+from actual inherited-family extraction/refusal and future production admission.
 
 <a id="I01"></a>
 ## Authoring authority and effective model — I01

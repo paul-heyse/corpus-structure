@@ -1,5 +1,17 @@
 # D6 · Orchestration, metrics and policies
 
+## Native demand and request execution
+
+**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+effective model for declaration-owned and implementation-owned operations, canonical semantic values
+and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
+demands/requests preserve original source, permissions, explicit selection and authentic runtime
+provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
+legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+scope and evidence; all older implemented sections retain their stated selected/archived boundary.
+
+> Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
+
 ## Final characterization policy and retained recovery
 
 **Implemented; focused controls Tested2026-11-12; combined qualification open.** Shared application

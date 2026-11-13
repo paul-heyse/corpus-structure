@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "ddo.operation-inventory",
+  "title": "Static owned operation and consumer inventory",
+  "group": "declared-data-operations",
+  "package": "DDO-00",
+  "finalized": "2026-11-12",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which concrete owned operations and bypasses must the DDO compiler and migration account for?",
+  "answers": [
+    "DDO-00",
+    "DDO-01",
+    "DDO-07",
+    "DDO-08"
+  ],
+  "method": "Static Python AST and declared YAML inspection with exact source hashes, no application imports.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-12_ddo-operation-inventory/inventory.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/inventory.json",
+      "role": "Owned declared operation facts, method/registry candidates and descriptor sites",
+      "sha256": "535c0bb69a15afebb0d1799cc67fd97aabd9ddddeec8e6d70880040eace54319"
+    },
+    {
+      "path": "inventory.py",
+      "role": "Reproducible static inventory",
+      "sha256": "c14714661826892537f60d8ccd55aa311eea4e7a4626af4a95d130ec483b7fc7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "declared_operations",
+      "value": 101,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    },
+    {
+      "name": "descriptor_sites",
+      "value": 6,
+      "of": null,
+      "unit": "sites",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Declared protocol operations and concrete method/bypass candidates located. Full external-pack, inherited-contract and consumer reconciliation remains open; counts are not completeness.",
+  "consumed_by": [
+    "DDO-00",
+    "DDO-01",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

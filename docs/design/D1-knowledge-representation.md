@@ -1,5 +1,17 @@
 # D1 · Knowledge representation
 
+## Semantic products and authentic support
+
+**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+effective model for declaration-owned and implementation-owned operations, canonical semantic values
+and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
+demands/requests preserve original source, permissions, explicit selection and authentic runtime
+provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
+legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+scope and evidence; all older implemented sections retain their stated selected/archived boundary.
+
+> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md)
+
 ## Enriched-document analysis layers
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** A full exact published document

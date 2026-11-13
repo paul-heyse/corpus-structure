@@ -1,5 +1,17 @@
 # D8 · Agent and query interfaces
 
+## Pinned demand and operation interfaces
+
+**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+effective model for declaration-owned and implementation-owned operations, canonical semantic values
+and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
+demands/requests preserve original source, permissions, explicit selection and authentic runtime
+provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
+legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+scope and evidence; all older implemented sections retain their stated selected/archived boundary.
+
+> Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
+
 ## Shared policy settings, status and characterization resume
 
 **Application implementation/scoped controls present · 2026-11-12; native/assembled qualification pending.** SourceRunRequest

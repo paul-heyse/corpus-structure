@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "id": "ddo.preservation-root-inventory",
+  "title": "Metadata preservation roots and declared external custody inventory",
+  "group": "declared-data-operations",
+  "package": "DDO-00",
+  "finalized": "2026-11-12",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which actual source, reference, completed-result, native-workspace and declared external metadata roots must survive DDO adoption, and what closure remains unresolved?",
+  "answers": [
+    "DDO-00",
+    "DDO-11"
+  ],
+  "method": "Maintenance target acquisition followed by repeatable-read read-only bounded SQL identity/digest/revision/receipt projections; explicit local managed/review/export manifest and evidence-record metadata; lstat-only artifact-member existence. No payload or protected answer reads.",
+  "commands": [
+    "uv run ci db status --maintenance --json",
+    "uv run python docs/design_review/evidence/2026-11-12_ddo-preservation-closure/census.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "census.py",
+      "role": "Reusable bounded metadata-only DDO census source",
+      "sha256": "3377165ad0815299bf5c7e78c471004349f00b80aeb927da842de28de374f909"
+    },
+    {
+      "path": "raw/inventory.json",
+      "role": "Exact selected database metadata, FK definitions and declared external manifests/records",
+      "sha256": "4f5a0452bad3a3e902ccd080e89c3278a1fa12df480701d58aa9a09fcbc17d39"
+    },
+    {
+      "path": "raw/summary.json",
+      "role": "Root classifications, concrete consumer references, selected link checks and remaining custody boundary",
+      "sha256": "45b09e698dc63702220a0fc6381d3aff9aab4e59602d4de68a6b1a622731c307"
+    },
+    {
+      "path": "raw/preflight.json",
+      "role": "Initial acquired maintenance target",
+      "sha256": "b95225d4b80a40170cd40ad0a0c8da5c9a721eb9d608151979d2add90c926db9"
+    },
+    {
+      "path": "raw/attempts.json",
+      "role": "Passed/failed command account; initial read-only draft failure retained",
+      "sha256": "7d2d6d844a866414c5a9c714be095b1140e27931b137171e338c9b92761f62b6"
+    },
+    {
+      "path": "raw/census.stdout.json",
+      "role": "Final census command result",
+      "sha256": "9c70a874f74c5dca2c67ad6aebab4d1b9b4cb63883b4910e14eff75413515f09"
+    },
+    {
+      "path": "raw/census.stderr.txt",
+      "role": "Final census diagnostics",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "projected_relations",
+      "value": 58,
+      "of": null,
+      "unit": "relations",
+      "note": null
+    },
+    {
+      "name": "foreign_keys",
+      "value": 357,
+      "of": null,
+      "unit": "constraints",
+      "note": null
+    },
+    {
+      "name": "source_artifacts",
+      "value": 7480,
+      "of": null,
+      "unit": "digests",
+      "note": null
+    },
+    {
+      "name": "source_views",
+      "value": 784,
+      "of": null,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "protected_reference_sets",
+      "value": 42,
+      "of": null,
+      "unit": "sets",
+      "note": null
+    },
+    {
+      "name": "completed_results",
+      "value": 256,
+      "of": null,
+      "unit": "results",
+      "note": null
+    },
+    {
+      "name": "declared_manifests",
+      "value": 3967,
+      "of": null,
+      "unit": "manifests",
+      "note": null
+    },
+    {
+      "name": "evidence_records",
+      "value": 397,
+      "of": null,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "artifact_digest_links",
+      "value": 41949,
+      "of": null,
+      "unit": "links",
+      "note": null
+    },
+    {
+      "name": "missing_artifact_digest_links",
+      "value": 0,
+      "of": null,
+      "unit": "links",
+      "note": null
+    },
+    {
+      "name": "source_input_product_links",
+      "value": 3726,
+      "of": null,
+      "unit": "links",
+      "note": null
+    },
+    {
+      "name": "missing_source_input_product_links",
+      "value": 0,
+      "of": null,
+      "unit": "links",
+      "note": null
+    },
+    {
+      "name": "unpublished_native_builds",
+      "value": 4,
+      "of": null,
+      "unit": "builds",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Exact metadata roots and conservative preservation classes are materialized for the acquired database and declared local manifest/record universe. All selected artifact/source-input product links resolve; no production derivation is approved disposable and no correspondence is selected. Historical detached identifiers remain sealed, not presumed dangling. Freeze/recovery-byte proof, applicability of historical or unknown manifest interpretations, explicit treatment of pending recovery intent, and unrecorded external delivery custody remain outside this metadata-only closure; destructive adoption is not established.",
+  "consumed_by": [
+    "DDO-00",
+    "DDO-11"
+  ]
+}

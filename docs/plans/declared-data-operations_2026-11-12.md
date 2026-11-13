@@ -1,6 +1,7 @@
 # Declared data operations — total governing model
 
-**Status: Proposed implementation series; authoring revised 2026-11-12 with NetworkX and Python-introspection integration; production not started.**
+**Status: In execution · 2026-11-12. DDO-00 metadata/decision preparation implemented;
+DDO-01/02 compiler and identity foundations in final targeted verification. DDO-03–12 remain open.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no scope, prerequisites or acceptance limits. Current code/data remain the implementation baseline.
@@ -14,8 +15,10 @@ The NetworkX amendment consumes [its review](../plan_improvement_reviews/declare
 at `7c5368faa`. Operator authorization selects I01–I07 required portions and preserves conditional
 capabilities with explicit triggers, not mandatory investigations. The Python-introspection amendment
 consumes [its review](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md)
-at `0907dcc23`; its source-qualified RC01–03 were explicitly accepted on 2026-11-12. All new mechanisms here are **Proposed**. Source inspection and metadata census are bounded evidence;
-no new implementation, migration, deployment, activation, provider inference or product test was run.
+at `0907dcc23`; its source-qualified RC01–03 were explicitly accepted on 2026-11-12.
+The [execution receipt](#ddo-0002-execution-receipt--2026-11-12) distinguishes implemented foundations
+and actual checks from the remaining **Proposed** target. No production migration, deployment,
+activation or provider inference was run for this increment.
 Apply core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding. No new broad diagnostic audit
 is initiated by authoring. This coordinator is the single owner of scheduled finding/package state.
 
@@ -30,9 +33,11 @@ not schedule recomputation. Explicit selection and original evidence survive eve
 ### Operator-confirmed rule changes ·2026-11-12
 
 The operator explicitly accepted RC01–RC09 during plan preparation. Do not request confirmation again.
-DDO-00 records/supersedes the affected accepted ADRs and updates D1–D8 owners as target architecture
-before dependent production cutover. Group coherent decisions; nine impacts do not require nine
-redundant records. Accepted historical ADR bodies remain immutable.
+DDO-00 records the affected scoped target successors and updates D1–D8 before dependent production
+cutover. ADR-0092–0095 establish those accepted target rules. The predecessor records still govern
+selected legacy/archived consumers; full-record/reference retirement belongs to DDO-11 when those
+actual consumers switch. This preserves their unrelated operational and custody decisions rather
+than retiring them prematurely. Accepted predecessor bodies remain immutable.
 
 | Review impact | Accepted direction and architectural route |
 |---|---|
@@ -166,7 +171,9 @@ actual duplicated mappings/lists with consumers, while DDO-11 preserves archived
 
 ## Execution queue and readiness
 
-All packages are **open/not implemented**. Rows describe dependencies, not mandatory stage-wide
+DDO-00 is **implemented** within its scoped preparation boundary; DDO-01/02 are **implemented,
+targeted verification in progress**. DDO-03–12 remain **open/not implemented**.
+Rows describe dependencies, not mandatory stage-wide
 barriers or separate agent assignments. Interface agreement permits design, not a claim of usable
 native behavior. Product-family slices carry immediate consumers; no late consumer repair phase.
 
@@ -195,8 +202,9 @@ independence. The coordinator integrates contributions and reconciles revealed s
 
 ## Finding and recommendation disposition
 
-Each row is **open**, with closure determined by the complete contributing package behavior, not
-mere acceptance of the target. Preserve original source IDs; do not relabel prior plan findings.
+Each multi-package finding remains **open**. DDO-00–02 contributions are recorded below; closure
+requires the complete contributing package behavior, not acceptance or a foundation-only pass.
+Preserve original source IDs; do not relabel prior plan findings.
 
 | Source finding | Component/correction and package owner | Closure evidence |
 |---|---|---|
@@ -243,7 +251,8 @@ and triggers in the graph companion; mentioning them does not schedule execution
 
 ### Python-introspection review disposition · 2026-11-12
 
-All selected work remains **open/not implemented**. IDs below refer to review `0907dcc23`, not
+All recommendations remain **open at series scope**; implemented foundation contributions are
+recorded in the execution receipt. IDs below refer to review `0907dcc23`, not
 NetworkX recommendations. Conditional catalogue entries are not scheduled investigations or required
 qualification unless selected for a concrete consumer. The shared companion owns their technical detail.
 
@@ -257,6 +266,64 @@ qualification unless selected for a concrete consumer. The shared companion owns
 | [Python I06](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md#I06) | DDO-03/10/12 checker/public tooling boundary | pyrefly obligations preserved; any adopted ty inspection negotiates public supported API |
 | [Python I07](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md#I07) | DDO-01–12 preparation/profile/lifecycle qualification | Independent effective facts/slices, archived interpretation and adopted native/provider/consumer union |
 
+## DDO-00–02 execution receipt · 2026-11-12
+
+Implementation baseline `31427a080383fad70c73b98851ad8f312cdb8429`; the earlier product design
+baseline remains `8c0f4f951`. This increment supplies unused target preparation/identity foundations.
+Current selected native ABI, producers, task reuse and archived interpretations retain their
+original contracts until their owning cutover packages replace the actual consumers.
+
+- **DDO-00:** accepted scoped target ADR-0092–0095 and D1–D8 owner updates; the
+  [operation/consumer reconciliation](../design_review/evidence/2026-11-12_ddo-operation-inventory/consumer-reconciliation.md)
+  accounts for 101 declared protocol operations, both repository registries (34 phase0 / 17 M1),
+  all three local pack configurations, inherited dispatch, six descriptor selectors, explicit
+  interpretation authoring and immediate publisher/read consumers. New record
+  `ddo.operation-consumer-reconciliation` passes this bounded metadata inquiry; the original
+  partial record remains unchanged. Unconfigured external plugins are not an asserted population.
+- **DDO-00 preservation:** the [root census and follow-up](../design_review/evidence/2026-11-12_ddo-preservation-closure/README.md)
+  retain exact acquired database identity/revision, 58 metadata projections and 357 FKs.
+  All 41,949 artifact links and 3,726 selected source/input product links resolve. The follow-up
+  classifies all 417 pending manifests preserve-sealed and all 73 historical ID occurrences as
+  retained provenance within their original scope. There is no discovered missing required root
+  or remaining metadata-classification blocker in that declared universe. DDO-11 still reacquires
+  and freezes the actual target, verifies bytes/readers/recovery, fences writers and resolves
+  actual correspondence before adoption. The old unsettled `0a78…` result remains protected.
+- **DDO-01:** frozen effective kind/operation/binding/source/identity products and one shared
+  pre-hash `effective_class_definitions` phase; closed declaration and captured Python frontends.
+  Griffe owns callable/declaration/C3 facts, LibCST owns lexical/normalized source facts, and
+  preparation-local Astroid structural bindings refine source aliases without inference,
+  transforms, runtime bootstrap or ambient import discovery. Typed binding fields/literals,
+  complete conditional/policy/vocabulary facts, duplicate identities, unsupported dispatch,
+  mutable/global/alias cycles and unmodeled transformations receive explicit refusal/unknowns.
+  Explicit target manifests archive effective products and reopen pinned version1 products
+  without consulting current source; mixed legacy/target admission inputs refuse.
+- **DDO-02:** versioned typed canonical values, root-inclusive finite semantic graphs and
+  independent kind/definition/recipe/eligibility/slice/subject/body/product identities. Compiled
+  role policies drive request/admission projections including exact versus substitutable support,
+  required episodes/providers/alternatives, analyzed scope, population witnesses and replicates.
+  Unknown required kind/slice closure withholds reusable identity. Runtime artifact identity is
+  separate from release-bound attestation; the actual unbound runtime cache consumer uses it.
+  PostgreSQL parity covers framing of already normalized tagged values in rollback-only temporary
+  helpers, not native normalization, product admission or a new installed ABI.
+
+**Real-source qualification boundary:** the existing `semantic.identity.claim_source_item` now
+owns its colocated typed/domain contract and supplies a successful captured-source recipe case.
+Actual operation-event scoring and the inherited authored-interpretation family supply real
+effective fields, supplying/exposed ownership, callable shapes and origins, with explicit unknown
+dependencies and no reusable recipe when their framework/context closure is unavailable. Closed
+inherited/alias profiles have separate independent controls. This does not claim that the inherited
+production pipeline is reusable or fully admitted. Its Pydantic/generated behavior and selected
+reader/context/output bindings must receive supported complete profiles before DDO-03/07/08
+adoption; missing capture or interpretation cannot become an identity fallback. Optional general
+framework inference remains conditional, not a new universal Python modeling project.
+
+**Verification:** final targeted compiler/identity/provider-projection and regression receipts are
+being assembled. The existing preparation/contracts/archive/value/call/interpretation selection
+passed 221/221 in managed result `79667a68ef9b4811ba63170c918ec313`; source applicability will be
+reconciled after final maintenance. Prior failed/intermediate receipts remain retained. No broad
+`ci test`, provider execution, book run, production DB write/migration, activation, or protected
+answer read was performed. DDO-12 remains the assembled final qualification owner.
+
 ## Investigations, risks and evidence boundaries
 
 Authoring resolved compiler ordering through effective IR/stable references, typed relational forms,
@@ -266,8 +333,9 @@ topology-policy separation, matching and selected-call typing questions with nam
 Optional features have revisit conditions and no mandatory investigation task. The implementation companion additionally assigns supported-profile coverage, source-only acquisition,
 metadata export, cache isolation and slice-locality investigations before dependent reuse/migrations.
 Remaining bounded execution investigations have outcomes, not a license to weaken
-contracts: DDO-00 completes actual external-reference preservation closure; DDO-01/02 qualifies
-semantic closure on all real effective declarations; DDO-04 qualifies native catalog/permission /
+contracts: DDO-00's scoped metadata classification is complete; DDO-11 reacquires/freezes it before
+adoption effects. DDO-01/02 qualifies semantic closure on actual effective schemas and its admitted
+source profiles, preserving explicit unknowns for unsupported production profiles. DDO-04 qualifies native catalog/permission /
 transaction behavior; DDO-07 qualifies actual provider mappings; DDO-12 resolves any material final
 workload regression uncertainty. Failure blocks the dependent capability until corrected; no
 field-only digest, hidden callback, CPU provider fallback or narrowed source universe is substituted.
@@ -287,5 +355,7 @@ The acceptance details and commands are in the qualification companion. Record e
 D1–D8 and accepted decision records, preserving exact old review/evidence history. Never delete plan
 or evidence files. Authoring publication checks are separate from product qualification.
 
-**Next:** execute DDO-00 and the DDO-01–03 compiler/binding foundation when implementation is
-requested. This document authorizes no production effect merely by being published.
+**Next:** finish targeted DDO-01/02 integration checks, then DDO-03 typed invocation/native/wire
+correspondence and DDO-04 actual native acquisition. DDO-07/08 production profiles must close their
+required kind/implementation/context facts before invoking or reusing target results. DDO-11
+preservation remains a prerequisite for adoption effects; DDO-12 owns the final required union.

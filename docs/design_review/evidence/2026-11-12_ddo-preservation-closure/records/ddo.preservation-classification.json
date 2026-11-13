@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "id": "ddo.preservation-classification",
+  "title": "Preservation metadata classification and historical custody reconciliation",
+  "group": "declared-data-operations",
+  "package": "DDO-00",
+  "finalized": "2026-11-12",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the pending manifest classifications and absent active historical IDs leave a DDO-00 metadata preservation blocker, separately from DDO-11 adoption validation?",
+  "answers": [
+    "DDO-00",
+    "DDO-11"
+  ],
+  "method": "Read finalized census and417unchanged local manifest metadata documents; consult owning source contracts; lstat870explicit member/outbound references. No database, payload, source/answer body or provider reads. Classify original bounded scopes conservatively sealed.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-12_ddo-preservation-closure/reconcile_classification.py",
+    "uv run python - (validate evidence record schema and verify original seven output SHA256 values unchanged)"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/inventory.json",
+      "role": "Finalized original metadata inventory",
+      "sha256": "4f5a0452bad3a3e902ccd080e89c3278a1fa12df480701d58aa9a09fcbc17d39"
+    },
+    {
+      "path": "raw/summary.json",
+      "role": "Original pending classifications and historical references",
+      "sha256": "45b09e698dc63702220a0fc6381d3aff9aab4e59602d4de68a6b1a622731c307"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "reconcile_classification.py",
+      "role": "Metadata-only reconciliation source",
+      "sha256": "e2fb40330e79eb53a30d2ccfb7b1131e1e4cd4eccb9e6230183e040a9a8ba063"
+    },
+    {
+      "path": "raw/classification-followup.json",
+      "role": "Initial path-state observation retained before reader-branch disposition",
+      "sha256": "618c83e5dddd116f6438b754d83f474f83c352b791dbc553d1a6897401ef581d"
+    },
+    {
+      "path": "raw/classification-reconciled.json",
+      "role": "Final per-manifest and per-historical-reference preservation dispositions",
+      "sha256": "87ea58ea01928c59d186959f9034bbdc320cc14f287f943b0618f9702e548642"
+    },
+    {
+      "path": "classification-followup.md",
+      "role": "Scope, contracts, findings and DDO-00 versus DDO-11 boundary",
+      "sha256": "73064a27c3c8f9c2255d6c34e7fdce88c8259a247039fd702dc87ddc5f54a6be"
+    }
+  ],
+  "depends_on": [
+    "ddo.preservation-root-inventory"
+  ],
+  "results": [
+    {
+      "name": "manifest_dispositions",
+      "value": 417,
+      "of": null,
+      "unit": "manifests",
+      "note": null
+    },
+    {
+      "name": "historical_identifier_occurrences",
+      "value": 73,
+      "of": null,
+      "unit": "references",
+      "note": null
+    },
+    {
+      "name": "declared_member_checks",
+      "value": 870,
+      "of": null,
+      "unit": "paths",
+      "note": null
+    },
+    {
+      "name": "unchanged_manifest_hashes",
+      "value": 417,
+      "of": null,
+      "unit": "manifests",
+      "note": null
+    },
+    {
+      "name": "inactive_provider_model_hints_missing",
+      "value": 2,
+      "of": null,
+      "unit": "paths",
+      "note": null
+    },
+    {
+      "name": "remaining_scoped_metadata_classification_blockers",
+      "value": 0,
+      "of": null,
+      "unit": "blockers",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "DDO-00 metadata root selection and conservative preservation classification are complete within the acquired database and declared local/outbound owner scope. All417pending manifests are preserve-sealed;73old identifiers are retained historical provenance, not automatically live database prerequisites. Two absent archive-overlay model-location hints are unused by their retained reader. No missing required source/archive member or scoped metadata-classification blocker was found. DDO-11freeze, byte/replay/recovery verification, settlement and actual correspondence remain future operational obligations; no destructive effect or complete DDO-00 package qualification is claimed.",
+  "consumed_by": [
+    "DDO-00",
+    "DDO-11"
+  ]
+}

@@ -1,6 +1,6 @@
 # Preservation, adoption and qualification
 
-**Proposed ·2026-11-12.** Develops DDO-00 preservation preparation, DDO-11 cutover and
+**DDO-00 metadata preparation implemented; DDO-11/12 Proposed ·2026-11-12.** Develops DDO-00 preservation preparation, DDO-11 cutover and
 DDO-12 assembled qualification. The [coordinator](../declared-data-operations_2026-11-12.md)
 owns decisions and current state. Other plans supply no prerequisites or qualification obligations.
 
@@ -13,17 +13,24 @@ The snapshot contains565runs,256completed results,7480source artifacts,784source
 42reference sets and107reference units. Counts are not maximum IDs or source coverage claims.
 No protected answers or source bodies were read. Source64dc6c3e6 remains unchanged by the census.
 
-DDO-00 completes the metadata-only selection of preservation roots before destructive migration design
-is finalized: original artifacts/native capture/source-view custody; protected reference sets/units;
+DDO-00 completed the [metadata-only root selection and classification](../../design_review/evidence/2026-11-12_ddo-preservation-closure/README.md)
+within the acquired database and declared local/outbound owner universe: original artifacts/native capture/source-view custody; protected reference sets/units;
 required completed snapshots/receipts; retained managed/evidence/export references; and incomplete
-workspaces with an actual recovery consumer. Follow exact FK and artifact references to closure,
-including external retained bundles that SQL FKs cannot describe. Record root IDs/digests, original
+workspaces with an actual recovery consumer. The census follows exact FK and artifact references,
+including external retained bundles that SQL FKs cannot describe. It records root IDs/digests, original
 contract/revision, preservation action and dependent reader/custody, not copied source or gold bodies.
 
 Classify each selected closure as preserve in its own sealed interpretation, explicit reviewed
 correspondence, or disposable regeneration. Preserving migration files does not preserve instances.
 Default: preserve originals, protected references and retained evidence; regenerate only classified
 disposable derivations. No plan authoring command authorizes a reset, migration or activation.
+
+The original partial census remains unchanged. New `ddo.preservation-classification` dispositions
+settle all 417 pending manifests and 73 historical identifier occurrences, with conservative sealed
+preservation and named readers/custodians; no required missing root was found in that scope.
+Existence/classification is distinct from byte integrity or successful historical execution.
+DDO-11 must reacquire/freeze the actual target and verify required recovery/read/correspondence
+before adoption. Unsettled work remains protected, not presumed recoverable or disposable.
 
 ## DDO-11 — One coordinated forward adoption
 

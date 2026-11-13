@@ -65,6 +65,10 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0089](0089-isolated-source-plan-observations.md) | Isolate native source-plan logging context while retaining committed creation notifications | 2026-11-12 | [§2](../design/DESIGN.md#section-2) | Proposed | [ADR-0080](0080-observe-committed-source-run.md) |
 | [ADR-0090](0090-native-source-operation-lineage.md) | Persist source operation lineage in native run options | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0091](0091-gpu-native-environment-boundaries.md) | Run all selected NLP in one Python 3.14 GPU host with a tested Protobuf override | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Tested | [ADR-0088](0088-gpu-default-native-hosts.md) |
+| [ADR-0092](0092-ddo-operation-authority.md) | One effective operation model admits declaration and implementation owners | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0093](0093-ddo-products-and-support.md) | Semantic products retain authentic support independently of execution | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0094](0094-ddo-demand-and-recovery.md) | Native demands and requests own fulfillment and recovery | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
+| [ADR-0095](0095-ddo-preservation-and-currentness.md) | Declared currentness and preservation govern coordinated adoption | 2026-11-12 | [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

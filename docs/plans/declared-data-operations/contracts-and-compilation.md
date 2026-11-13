@@ -1,6 +1,7 @@
 # Declared data operations — contracts and compilation
 
-**Status:** Proposed implementation scope; no implementation or qualification claimed.
+**Status:** DDO-01/02 foundations implemented, targeted integration checks in progress;
+DDO-03 and assembled qualification remain open. The coordinator owns actual package state.
 **Authored:** 2026-11-12. **Packages:** DDO-01–DDO-03.
 
 This companion specifies the governing model, semantic identities and generated binding/port
@@ -13,10 +14,11 @@ on 2026-11-12; their decision-record and architectural-owner changes belong to t
 Earlier plans provide no prerequisite or scope constraint. This is a substantive replacement;
 old interfaces and private policy do not become preservation requirements merely because they exist.
 
-All target mechanisms below are **Proposed**. Existing-source and selected-library observations
-are **Interface-checked by source inspection, 2026-11-12**, at product source `8c0f4f951`.
-No tests, model calls, database queries or protected reference-answer reads were performed to
-author this companion. Its acceptance cases describe future implementation checks.
+The [coordinator receipt](../declared-data-operations_2026-11-12.md#ddo-0002-execution-receipt--2026-11-12)
+distinguishes implemented compiler/identity foundations and actual targeted tests from the remaining
+**Proposed** target. Original selected-library/source observations were **Interface-checked,
+2026-11-12**, at product source `8c0f4f951`. Generated ports, native normalization/admission and
+production reuse/caller cutover are not established by pure preparation or framing parity.
 
 ## Responsibility and delivered contracts
 
