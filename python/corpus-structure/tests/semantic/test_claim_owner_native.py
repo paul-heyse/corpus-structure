@@ -620,3 +620,82 @@ def test_exceptional_exit_reports_every_uncertain_sibling(
         assert any(
             f"task {claim.task_id}, attempt {claim.attempt}" in note for note in primary.__notes__
         )
+
+
+def test_dynamic_owner_renews_injected_fences_and_retain_does_not_retire(
+    semantic_db_engine, semantic_writer_engine
+):
+    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    renewed = Event()
+
+    def renew(conn, owned):
+        assert owned is claim
+        claim_lifetime.renew_claim(
+            conn, task_id=owned.task_id, attempt=owned.attempt, holder=owned.holder
+        )
+        renewed.set()
+
+    with claim_lifetime.maintained_claims(
+        semantic_writer_engine,
+        (),
+        "owner",
+        interval=0.01,
+        renew=renew,
+    ) as owner:
+        owner.add_claim(claim)
+        assert renewed.wait(5)
+        assert owner.retain(claim, lambda conn: conn.scalar(text("SELECT 17"))) == 17
+        owner.check_claim(claim)
+        result = owner.settle(claim, completion(prepared, claim))
+        assert isinstance(result, CompletionResult)
+        assert result.transaction == "applied"
+        assert not owner.active
+
+
+def test_uncertain_retention_requires_exact_stage_and_does_not_retire_claim(
+    semantic_db_engine, semantic_writer_engine
+):
+    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    attempts = []
+
+    class ResponsesLost:
+        @contextmanager
+        def connect(self):
+            with semantic_writer_engine.connect() as conn:
+
+                class Connection:
+                    @contextmanager
+                    def begin(self):
+                        with conn.begin():
+                            yield
+                        attempts.append(True)
+                        if len(attempts) <= 2:
+                            raise psycopg.OperationalError("commit response lost")
+
+                    def __getattr__(self, name):
+                        return getattr(conn, name)
+
+                yield Connection()
+
+    owner = claim_lifetime.ClaimOwner(
+        ResponsesLost(),
+        (claim,),
+        "owner",
+        claim_lifetime.DatabaseSettings(),
+        lambda: None,
+    )
+
+    def retain(conn):
+        return conn.scalar(text("SELECT 19"))
+
+    with pytest.raises(claim_lifetime.ClaimSettlementUncertain) as uncertainty:
+        owner.retain(claim, retain)
+    assert not uncertainty.value.retire
+    with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
+        owner.settle(claim, retain)
+    assert owner.retain(claim, retain) == 19
+    owner.check_claim(claim)
+    result = owner.settle(claim, completion(prepared, claim))
+    assert isinstance(result, CompletionResult)
+    assert result.transaction == "applied"
+    assert not owner.active and not owner.uncertain

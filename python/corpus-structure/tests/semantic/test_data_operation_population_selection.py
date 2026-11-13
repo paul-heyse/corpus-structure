@@ -61,7 +61,9 @@ def within(role="items"):
 def test_population_filter_keeps_row_qualification_and_defers_cardinality(selection_connection):
     connection = selection_connection
     node = {
-        "operator": "forall", "roles": ["items"], "population": "selected-items",
+        "operator": "forall",
+        "roles": ["items"],
+        "population": "selected-items",
         "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1}],
     }
     predicate = project(connection, node)
@@ -80,7 +82,8 @@ def test_population_filter_keeps_constraints_outside_forall_and_cross_role_child
 ):
     connection = selection_connection
     node = {
-        "operator": "all", "children": [
+        "operator": "all",
+        "children": [
             {"operator": "forall", "roles": ["items"], "population": "selected-items"},
             {"operator": "equal", "operands": [field(), field("right")], "children": [within()]},
         ],
@@ -95,7 +98,8 @@ def test_population_filter_keeps_constraints_outside_forall_and_cross_role_child
 @pytest.mark.db
 def test_population_filter_uses_only_frozen_active_choice(selection_connection):
     node = {
-        "operator": "choice", "choice_parameter": "which",
+        "operator": "choice",
+        "choice_parameter": "which",
         "children": [within(), within("right")],
     }
     predicate = project(selection_connection, node, choices={"which": "items"})
@@ -111,10 +115,18 @@ def test_population_filter_uses_only_frozen_active_choice(selection_connection):
 def test_population_filter_optional_parameter_absence_preserves_native_semantics(
     selection_connection,
 ):
-    node = {"operator": "optional", "children": [{
-        "operator": "membership",
-        "operands": [field(), {"kind": "parameter", "name": "allowed", "value_type": "integer"}],
-    }]}
+    node = {
+        "operator": "optional",
+        "children": [
+            {
+                "operator": "membership",
+                "operands": [
+                    field(),
+                    {"kind": "parameter", "name": "allowed", "value_type": "integer"},
+                ],
+            }
+        ],
+    }
     predicate = project(selection_connection, node)
     facts = context(15)
     assert evaluate(selection_connection, predicate, facts) is False
@@ -124,18 +136,21 @@ def test_population_filter_optional_parameter_absence_preserves_native_semantics
 
 
 @pytest.mark.db
-@pytest.mark.parametrize("node", [
-    {"operator": "unreviewed", "roles": ["items"]},
-    {"operator": "absent", "roles": ["items"], "population": "selected-items"},
-    {
-        "operator": "membership",
-        "operands": [field(), {"kind": "population", "name": "selected-items"}],
-    },
-    {
-        "operator": "optional",
-        "children": [{"operator": "cardinality", "roles": ["items"], "maximum": 1}],
-    },
-])
+@pytest.mark.parametrize(
+    "node",
+    [
+        {"operator": "unreviewed", "roles": ["items"]},
+        {"operator": "absent", "roles": ["items"], "population": "selected-items"},
+        {
+            "operator": "membership",
+            "operands": [field(), {"kind": "population", "name": "selected-items"}],
+        },
+        {
+            "operator": "optional",
+            "children": [{"operator": "cardinality", "roles": ["items"], "maximum": 1}],
+        },
+    ],
+)
 def test_population_filter_refuses_unrepresentable_role_qualification(selection_connection, node):
     with selection_connection.begin_nested() as savepoint:
         with pytest.raises(DBAPIError):

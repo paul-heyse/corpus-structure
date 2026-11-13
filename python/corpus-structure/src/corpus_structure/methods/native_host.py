@@ -59,7 +59,9 @@ def host_request_frame_size(selection, payload, limit):
 
 
 def payload_digest(payload) -> str:
-    return sha256(json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()).hexdigest()
+    return sha256(
+        json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -309,7 +311,9 @@ class NativeHost:
             pending.future.set_exception(kind(str(message.get("message", message["kind"]))[:1800]))
 
     def infer(self, selection, payload, *, check_active, timeout=120.0):
-        return self.infer_result(selection, payload, check_active=check_active, timeout=timeout).payload
+        return self.infer_result(
+            selection, payload, check_active=check_active, timeout=timeout
+        ).payload
 
     def infer_result(self, selection, payload, *, check_active, timeout=120.0):
         check_active()
@@ -330,7 +334,7 @@ class NativeHost:
             )[:-6]
             if not frame.startswith(prefix):
                 raise Pm2WorkerError("native inference frame header differs from its receipt")
-            input_digest = sha256(memoryview(frame)[len(prefix):-2]).hexdigest()
+            input_digest = sha256(memoryview(frame)[len(prefix) : -2]).hexdigest()
         except BaseException:
             permit.release()
             raise
@@ -357,11 +361,18 @@ class NativeHost:
                     reply = future.result(timeout=0.1)
                     if cancelled is not None:
                         raise cancelled
-                    return NativeHostResult(reply, NativeExecutionReceipt(
-                        self.generation, request_id, selection.provider,
-                        selection.native.fingerprint, sha256(selection.runtime).hexdigest(),
-                        input_digest, payload_digest(reply),
-                    ))
+                    return NativeHostResult(
+                        reply,
+                        NativeExecutionReceipt(
+                            self.generation,
+                            request_id,
+                            selection.provider,
+                            selection.native.fingerprint,
+                            sha256(selection.runtime).hexdigest(),
+                            input_digest,
+                            payload_digest(reply),
+                        ),
+                    )
                 except TimeoutError:
                     if time.monotonic() >= deadline:
                         raise Pm2WorkerError("native host inference timed out") from None

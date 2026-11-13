@@ -1302,34 +1302,62 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
         before = DataOperationStorage(connection).invoke("read_demand_result", demand)
     cancelled = cancel_demand(kernel, demand)
     assert cancelled["state"] == "cancelled"
-    assert cancelled["requests"] == [{
-        "request_id": fence["request_id"], "generation": fence["generation"],
-        "task_id": fence["task_id"], "interest": "orphaned", "physical_retirement": "unconfirmed",
-    }]
+    assert cancelled["requests"] == [
+        {
+            "request_id": fence["request_id"],
+            "generation": fence["generation"],
+            "task_id": fence["task_id"],
+            "interest": "orphaned",
+            "physical_retirement": "unconfirmed",
+        }
+    ]
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         assert storage.invoke("read_demand_result", demand)["state"] == "cancelled"
-        historical = storage.invoke("read_demand_result", {
-            **demand, "read_id": before["read_id"], "trust_snapshot": before["trust_snapshot"],
-        })
+        historical = storage.invoke(
+            "read_demand_result",
+            {
+                **demand,
+                "read_id": before["read_id"],
+                "trust_snapshot": before["trust_snapshot"],
+            },
+        )
         assert historical["state"] == "active"
-        assert connection.scalar(
-            text("SELECT status FROM ops.task WHERE id=:id"), {"id": fence["task_id"]}
-        ) == "running"
-        assert storage.invoke("claim_data_request", {
-            "request_id": fence["request_id"], "holder": "late", "lease_seconds": 30,
-        }) == {"state": "no-work"}
+        assert (
+            connection.scalar(
+                text("SELECT status FROM ops.task WHERE id=:id"), {"id": fence["task_id"]}
+            )
+            == "running"
+        )
+        assert storage.invoke(
+            "claim_data_request",
+            {
+                "request_id": fence["request_id"],
+                "holder": "late",
+                "lease_seconds": 30,
+            },
+        ) == {"state": "no-work"}
     for name, payload in [
         ("renew_data_request", {**fence, "lease_seconds": 30}),
         ("publish_data_derivation", {**fence, "intent_id": intent["intent_id"]}),
         ("attach_data_request", wire),
-        ("expand_data_obligation", {
-            "demand_id": demand["demand_id"], "operation_id": "urn:ddo-test:source",
-            **demand["selection"]["roots"][0], "parameters": {},
-        }),
-        ("record_data_fate", {
-            "obligation_id": obligation["obligation_id"], "fate": "partial", "selection": {},
-        }),
+        (
+            "expand_data_obligation",
+            {
+                "demand_id": demand["demand_id"],
+                "operation_id": "urn:ddo-test:source",
+                **demand["selection"]["roots"][0],
+                "parameters": {},
+            },
+        ),
+        (
+            "record_data_fate",
+            {
+                "obligation_id": obligation["obligation_id"],
+                "fate": "partial",
+                "selection": {},
+            },
+        ),
     ]:
         with (
             kernel["engine"].begin() as connection,
@@ -1341,11 +1369,17 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
     # Resume/re-registration cannot silently undo terminal intent.
     selected = demand["selection"]
     with kernel["engine"].begin() as connection:
-        replay = DataOperationStorage(connection).invoke("register_data_demand", {
-            "project_id": "ddo-test", "release_id": kernel["prepared"].release_id,
-            "runtime_id": kernel["runtime"], "root": selected["roots"],
-            "selection": selected, "strength": "value",
-        })
+        replay = DataOperationStorage(connection).invoke(
+            "register_data_demand",
+            {
+                "project_id": "ddo-test",
+                "release_id": kernel["prepared"].release_id,
+                "runtime_id": kernel["runtime"],
+                "root": selected["roots"],
+                "selection": selected,
+                "strength": "value",
+            },
+        )
         assert replay["demand_id"] == demand["demand_id"]
         assert replay["state"] == "cancelled"
 
@@ -1373,10 +1407,14 @@ def test_native_cancellation_preserves_shared_producer_and_committed_receipt(ker
     cancel_demand(kernel, second)
     assert publish(kernel, fence, intent)["receipt_id"] == receipt["receipt_id"]
     with kernel["engine"].begin() as connection:
-        inspected = DataOperationStorage(connection).invoke("inspect_data_completion", {
-            "request_id": fence["request_id"], "generation": fence["generation"],
-            "intent_id": intent["intent_id"],
-        })
+        inspected = DataOperationStorage(connection).invoke(
+            "inspect_data_completion",
+            {
+                "request_id": fence["request_id"],
+                "generation": fence["generation"],
+                "intent_id": intent["intent_id"],
+            },
+        )
         assert inspected["state"] == "committed"
 
 
@@ -1405,9 +1443,17 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(kernel):
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         assert storage.invoke("read_demand_result", demand)["state"] == "cancelled"
-        assert storage.invoke("claim_data_request", {
-            "request_id": attached["request_id"], "holder": "late", "lease_seconds": 30,
-        })["state"] == "no-work"
+        assert (
+            storage.invoke(
+                "claim_data_request",
+                {
+                    "request_id": attached["request_id"],
+                    "holder": "late",
+                    "lease_seconds": 30,
+                },
+            )["state"]
+            == "no-work"
+        )
 
 
 def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
@@ -1419,7 +1465,9 @@ def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
     old_intent = retain(kernel, old_claim)
     cancel_demand(kernel, first)
     replacement = prepare_data_operation_runtime(
-        kernel["prepared"], kernel["runtime_inputs"], execution_profile="execution:test",
+        kernel["prepared"],
+        kernel["runtime_inputs"],
+        execution_profile="execution:test",
         observed={"host": "new-demand-owner"},
     )
     with kernel["engine"].begin() as connection:
@@ -1435,9 +1483,12 @@ def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
     with pytest.raises(DBAPIError, match="stale"):
         publish(kernel, old_claim, old_intent)
     with kernel["engine"].begin() as connection:
-        assert connection.scalar(
-            text("SELECT status FROM ops.task WHERE id=:id"), {"id": old_claim["task_id"]}
-        ) == "running"
+        assert (
+            connection.scalar(
+                text("SELECT status FROM ops.task WHERE id=:id"), {"id": old_claim["task_id"]}
+            )
+            == "running"
+        )
         current_request = connection.execute(
             text("SELECT runtime_id,release_id,binding FROM ops.data_request WHERE id=:id"),
             {"id": current["request_id"]},
@@ -1445,13 +1496,19 @@ def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
         assert current_request.runtime_id == replacement.runtime_id
         assert current_request.release_id == kernel["prepared"].release_id
         assert current_request.binding["read_id"] == current_binding["binding"]["read_id"]
-        assert connection.scalar(
-            text("SELECT release_id FROM ops.task WHERE id=:id"), {"id": current["task_id"]}
-        ) == current_request.release_id
+        assert (
+            connection.scalar(
+                text("SELECT release_id FROM ops.task WHERE id=:id"), {"id": current["task_id"]}
+            )
+            == current_request.release_id
+        )
     receipt = publish(updated, current_claim, retain(updated, current_claim, outputs=(2,)))
     assert receipt["replayed"] is False
     with kernel["engine"].connect() as connection:
-        assert connection.scalar(
-            text("SELECT runtime_id FROM ops.data_derivation WHERE id=:id"),
-            {"id": receipt["derivation_id"]},
-        ) == replacement.runtime_id
+        assert (
+            connection.scalar(
+                text("SELECT runtime_id FROM ops.data_derivation WHERE id=:id"),
+                {"id": receipt["derivation_id"]},
+            )
+            == replacement.runtime_id
+        )

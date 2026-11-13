@@ -16,8 +16,8 @@ from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
 from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding
-from .identity import canonical_bytes
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
+from .identity import canonical_bytes
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
@@ -142,7 +142,11 @@ def freeze_demand(
         if not isinstance(parameters, dict) or not isinstance(choices, dict):
             raise ValueError("operation parameters and choices must be mappings")
         parameters = effective_binding_parameters(operation, parameters)
-        required_source_sets = {role.support.source_set for role in operation.roles if role.support is not None and role.support.source_set is not None}
+        required_source_sets = {
+            role.support.source_set
+            for role in operation.roles
+            if role.support is not None and role.support.source_set is not None
+        }
         if not required_source_sets <= frozen_source_sets.keys():
             raise ValueError("selected operation lacks its explicit frozen source set")
         selected.append(
@@ -158,7 +162,12 @@ def freeze_demand(
                 "eligibility": identities[operation_id, "eligibility"],
             }
         )
-    declared_source_sets = {role.support.source_set for operation_id in closure for role in operations[operation_id].roles if role.support is not None and role.support.source_set is not None}
+    declared_source_sets = {
+        role.support.source_set
+        for operation_id in closure
+        for role in operations[operation_id].roles
+        if role.support is not None and role.support.source_set is not None
+    }
     if frozen_source_sets.keys() != declared_source_sets:
         raise ValueError("frozen source sets must exactly match selected operation declarations")
     return DemandIntent(

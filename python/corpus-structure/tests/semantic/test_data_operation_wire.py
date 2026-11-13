@@ -692,19 +692,39 @@ def test_request_renewal_wire_requires_exact_fence_and_bounded_duration():
 def test_cancel_demand_wire_requires_reason_and_never_claims_physical_retirement():
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
-    assert validate_native_wire("cancel_data_demand", "input", {
-        "demand_id": "demand:one", "reason": "operator cancelled",
-    })["reason"] == "operator cancelled"
+    assert (
+        validate_native_wire(
+            "cancel_data_demand",
+            "input",
+            {
+                "demand_id": "demand:one",
+                "reason": "operator cancelled",
+            },
+        )["reason"]
+        == "operator cancelled"
+    )
     with pytest.raises(ValueError):
-        validate_native_wire("cancel_data_demand", "input", {
-            "demand_id": "demand:one", "reason": "",
-        })
+        validate_native_wire(
+            "cancel_data_demand",
+            "input",
+            {
+                "demand_id": "demand:one",
+                "reason": "",
+            },
+        )
     result: dict[str, Any] = {
-        "demand_id": "demand:one", "state": "cancelled", "reason": "operator cancelled",
-        "requests": [{
-        "request_id": "request:one", "generation": 1, "task_id": 1,
-        "interest": "shared", "physical_retirement": "unconfirmed",
-        }],
+        "demand_id": "demand:one",
+        "state": "cancelled",
+        "reason": "operator cancelled",
+        "requests": [
+            {
+                "request_id": "request:one",
+                "generation": 1,
+                "task_id": 1,
+                "interest": "shared",
+                "physical_retirement": "unconfirmed",
+            }
+        ],
     }
     assert validate_native_wire("cancel_data_demand", "output", result) == result
     result["requests"][0]["physical_retirement"] = "retired"
@@ -716,28 +736,43 @@ def test_selected_population_wire_accepts_only_authenticated_parent_and_frozen_f
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
     request = {
-        "obligation_id": "obligation:one", "population_name": "selected-items",
-        "parent_population_id": "population:parent", "read_id": "read:one",
+        "obligation_id": "obligation:one",
+        "population_name": "selected-items",
+        "parent_population_id": "population:parent",
+        "read_id": "read:one",
     }
     assert validate_native_wire("select_data_population", "input", request) == request
     for key, value in (("filter", {}), ("parameters", {}), ("members", []), ("complete", True)):
         with pytest.raises(ValueError):
             validate_native_wire("select_data_population", "input", {**request, key: value})
     selection = {
-        "parent_population_id": "population:parent", "read_id": "read:one",
-        "obligation_id": "obligation:one", "operation_id": "urn:consumer",
-        "subject": "doc:one", "original_source": "source:one", "analyzed_scope": {},
-        "role": "items", "definition": "definition:one", "eligibility": "eligibility:one",
+        "parent_population_id": "population:parent",
+        "read_id": "read:one",
+        "obligation_id": "obligation:one",
+        "operation_id": "urn:consumer",
+        "subject": "doc:one",
+        "original_source": "source:one",
+        "analyzed_scope": {},
+        "role": "items",
+        "definition": "definition:one",
+        "eligibility": "eligibility:one",
         "filter": {"operator": "all", "children": []},
-        "parameter_meaning": ["mapping", []], "choices": {},
+        "parameter_meaning": ["mapping", []],
+        "choices": {},
     }
     result = {
-        "population_id": "population:selected", "name": "selected-items",
-        "semantic_key": "population-value:one", "members": [], "complete": True,
+        "population_id": "population:selected",
+        "name": "selected-items",
+        "semantic_key": "population-value:one",
+        "members": [],
+        "complete": True,
         "evidence": {
-            "product_id": "product:parent", "derivation_id": "derivation:parent",
-            "member_role": "members", "trust_snapshot": {},
-            "population_id": "population:selected", "admission_use_id": "use:parent",
+            "product_id": "product:parent",
+            "derivation_id": "derivation:parent",
+            "member_role": "members",
+            "trust_snapshot": {},
+            "population_id": "population:selected",
+            "admission_use_id": "use:parent",
             "selection": selection,
         },
     }

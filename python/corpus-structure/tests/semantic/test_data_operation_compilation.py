@@ -1197,7 +1197,9 @@ def test_source_set_policy_is_owned_typed_and_part_of_definition():
     value["roles"][0]["kind"] = "Other"
     baseline = compile_data_operations(schema_bundle(), declarations=declarations(value))
     support = value["roles"][0]["support"]
-    support.update(source="frozen-source-set", source_set="inputs", source_reference_field="unrelated")
+    support.update(
+        source="frozen-source-set", source_set="inputs", source_reference_field="unrelated"
+    )
     compiled = compile_data_operations(schema_bundle(), declarations=declarations(value))
     assert compiled.operations[0].roles[0].support.source_set == "inputs"
     assert read_effective_data_operations(compiled.content).content == compiled.content

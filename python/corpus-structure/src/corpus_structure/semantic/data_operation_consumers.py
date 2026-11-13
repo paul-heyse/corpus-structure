@@ -51,7 +51,9 @@ class BoundConsumerSelection:
         return matches[0]
 
 
-def consumer_selection_declarations(sources: tuple[PythonSource, ...]) -> tuple[SourceArtifact, ...]:
+def consumer_selection_declarations(
+    sources: tuple[PythonSource, ...],
+) -> tuple[SourceArtifact, ...]:
     """Extract only colocated literal selection contracts from captured source bytes.
 
     This explicit declaration route never imports target implementations. The
@@ -92,8 +94,12 @@ def consumer_selection_declarations(sources: tuple[PythonSource, ...]) -> tuple[
 
         module.visit(Contracts())
         if operations:
-            declarations.append(SourceArtifact(
-                "consumer-selection:" + source.module,
-                canonical_bytes({"version": "data-operation-model-v2", "operations": operations}),
-            ))
+            declarations.append(
+                SourceArtifact(
+                    "consumer-selection:" + source.module,
+                    canonical_bytes(
+                        {"version": "data-operation-model-v2", "operations": operations}
+                    ),
+                )
+            )
     return tuple(declarations)

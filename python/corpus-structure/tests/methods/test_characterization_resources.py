@@ -73,14 +73,27 @@ def runtime(monkeypatch):
 
         def infer_result(self, selected, payload, active):
             from hashlib import sha256
-            from corpus_structure.methods.native_host import NativeExecutionReceipt, NativeHostResult, payload_digest
+
+            from corpus_structure.methods.native_host import (
+                NativeExecutionReceipt,
+                NativeHostResult,
+                payload_digest,
+            )
+
             result = self.infer(selected, payload, active)
             self.receipt_count += 1
-            return NativeHostResult(result, NativeExecutionReceipt(
-                "controlled-test-generation", str(self.receipt_count),
-                selected.provider, selected.native.fingerprint, sha256(selected.runtime).hexdigest(),
-                payload_digest(payload), payload_digest(result),
-            ))
+            return NativeHostResult(
+                result,
+                NativeExecutionReceipt(
+                    "controlled-test-generation",
+                    str(self.receipt_count),
+                    selected.provider,
+                    selected.native.fingerprint,
+                    sha256(selected.runtime).hexdigest(),
+                    payload_digest(payload),
+                    payload_digest(result),
+                ),
+            )
 
         def close(self):
             for worker in self.workers.values():
@@ -338,13 +351,23 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
             return result
 
         def receipt(self, phase, inputs, options):
-            from corpus_structure.methods.native_host import NativeExecutionReceipt, payload_digest
             from hashlib import sha256
+
+            from corpus_structure.methods.native_host import NativeExecutionReceipt, payload_digest
+
             sink = options.get("receipt_sink")
             if sink is not None:
-                sink(NativeExecutionReceipt("controlled-gliner-generation", phase, "gliner",
-                    self.selection.native.fingerprint, sha256(self.selection.runtime).hexdigest(),
-                    payload_digest([item.context_id for item in inputs]), payload_digest({"phase": phase})))
+                sink(
+                    NativeExecutionReceipt(
+                        "controlled-gliner-generation",
+                        phase,
+                        "gliner",
+                        self.selection.native.fingerprint,
+                        sha256(self.selection.runtime).hexdigest(),
+                        payload_digest([item.context_id for item in inputs]),
+                        payload_digest({"phase": phase}),
+                    )
+                )
 
         def extract(self, pack, inputs, **kwargs):
             calls.append(("infer", tuple(item.context_id for item in inputs)))
@@ -743,9 +766,18 @@ def test_logical_provider_member_receipt_keeps_native_order_and_exact_fence(runt
     execution, _, _ = runtime
     selected = selection("d1")
     from corpus_structure.methods.native_host import payload_digest
+
     members = [dict(state={"value": 2}), dict(state={"value": 1})]
-    logical = resources.LogicalProviderMember("request:one", 3, 17, 2, "member:one", 0, 2, payload_digest(members))
-    work = resources.PM2Work(selected, resources.ordered_native_bytes({"batch": members}), "correlation:one", (), (logical,))
+    logical = resources.LogicalProviderMember(
+        "request:one", 3, 17, 2, "member:one", 0, 2, payload_digest(members)
+    )
+    work = resources.PM2Work(
+        selected,
+        resources.ordered_native_bytes({"batch": members}),
+        "correlation:one",
+        (),
+        (logical,),
+    )
     handle = execution.try_submit(work)
     assert handle is not None
     handle.flush()
@@ -760,11 +792,24 @@ def test_logical_provider_member_receipt_keeps_native_order_and_exact_fence(runt
     assert receipt.physical[0].profile == selected.native.fingerprint
     bad = replace(receipt, member_offset=1)
     with pytest.raises(ValueError, match="member range"):
-        resources._execution_receipt(work, bad.physical, cohort=bad.cohort_digest, offset=bad.member_offset,
-            cohort_members=bad.cohort_members, work_members=bad.work_members)
+        resources._execution_receipt(
+            work,
+            bad.physical,
+            cohort=bad.cohort_digest,
+            offset=bad.member_offset,
+            cohort_members=bad.cohort_members,
+            work_members=bad.work_members,
+        )
     handle.retire()
     with pytest.raises(ValueError, match="ordered native input"):
-        execution.try_submit(replace(work, logical_members=(replace(logical, input_digest=payload_digest(list(reversed(members)))),)))
+        execution.try_submit(
+            replace(
+                work,
+                logical_members=(
+                    replace(logical, input_digest=payload_digest(list(reversed(members)))),
+                ),
+            )
+        )
 
 
 @pytest.mark.parametrize("field", ["profile", "input_digest", "output_digest"])
@@ -792,12 +837,21 @@ def test_provider_lane_refuses_mismatched_physical_receipt(runtime, monkeypatch,
 def test_coalesced_logical_requests_share_host_receipt_with_distinct_exact_ranges(runtime):
     execution, _, _ = runtime
     from corpus_structure.methods.native_host import payload_digest
+
     selected = selection("d1")
     handles = []
     for ordinal in (2, 1):
         value = [{"state": {"ordinal": ordinal}}]
-        member = resources.LogicalProviderMember(f"request:{ordinal}", 1, ordinal, 1, "one", 0, 1, payload_digest(value))
-        work = resources.PM2Work(selected, resources.ordered_native_bytes({"batch": value}), f"work:{ordinal}", (), (member,))
+        member = resources.LogicalProviderMember(
+            f"request:{ordinal}", 1, ordinal, 1, "one", 0, 1, payload_digest(value)
+        )
+        work = resources.PM2Work(
+            selected,
+            resources.ordered_native_bytes({"batch": value}),
+            f"work:{ordinal}",
+            (),
+            (member,),
+        )
         handle = execution.try_submit(work)
         assert handle is not None
         handles.append(handle)

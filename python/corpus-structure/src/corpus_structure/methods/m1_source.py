@@ -10,9 +10,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from corpus_structure.semantic.data_operation_bindings import BindingResult
-from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
-
 from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
@@ -35,6 +32,8 @@ from corpus_structure.methods.source_preparation import (
     native_table_geometry,
     prepare_source,
 )
+from corpus_structure.semantic.data_operation_bindings import BindingResult
+from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -310,78 +309,128 @@ class M1Candidates:
     Config = M1Config
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__ = {'id': 'extract.m1_candidates/selection',
-     'profile': 'selection',
-     'subject': 'original-document',
-     'context': ['project', 'original-source', 'frozen-selection'],
-     'roles': [{'name': 'views',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                'direction': 'input',
-                'minimum': 0,
-                'maximum': None,
-                'collection': 'set',
-                'presence': 'optional',
-                'support': {'provenance': 'exact',
-                            'source': 'same-original',
-                            'coverage': 'qualified-selected-population',
-                            'identity_requirements': ['episode']},
-                'subject_field': 'document_subject'},
-               {'name': 'projection',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                'direction': 'input',
-                'minimum': 0,
-                'maximum': None,
-                'collection': 'set',
-                'presence': 'optional',
-                'support': {'provenance': 'exact',
-                            'source': 'same-original',
-                            'coverage': 'qualified-selected-population',
-                            'identity_requirements': ['episode']},
-                'subject_field': 'document_subject'}],
-     'applicability': ['admitted-selected-populations'],
-     'invariants': ['original-subject-and-source-preserved'],
-     'coverage': 'qualified-selected-population',
-     'outcomes': ['selected', 'unavailable', 'invalid'],
-     'precision': 'exact',
-     'dependencies': [],
-     'effects': [],
-     'capabilities': {'forms': ['scalar'],
-                      'preparation': 'none',
-                      'cancellation': 'call-boundary',
-                      'ownership': 'immutable-selection'},
-     'behavior': 'retained-binding-selection-v1',
-     'parameters': {'projection_digest': {'value_type': 'string', 'required': False}},
-     'binding': {'operator': 'choice',
-                 'choice_parameter': 'source_selection',
-                 'children': [{'operator': 'forall',
-                               'roles': ['views'],
-                               'population': 'eligible-source-views',
-                               'children': [{'operator': 'literal',
-                                             'fields': [{'role': 'views',
-                                                         'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                                                         'field': 'analysis_eligible'}],
-                                             'value': True}]},
-                              {'operator': 'forall',
-                               'roles': ['projection'],
-                               'population': 'selected-projection-views',
-                               'children': [{'operator': 'literal',
-                                             'fields': [{'role': 'projection',
-                                                         'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                                                         'field': 'analysis_eligible'}],
-                                             'value': True},
-                                            {'operator': 'equal',
-                                             'operands': [{'kind': 'field',
-                                                           'value_type': 'DdoBindingText',
-                                                           'field': {'role': 'projection',
-                                                                     'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                                                                     'field': 'projection_digest'}},
-                                                          {'kind': 'parameter',
-                                                           'name': 'projection_digest',
-                                                           'value_type': 'DdoBindingText'}]},
-                                            {'operator': 'cardinality',
-                                             'roles': ['projection'],
-                                             'minimum': 1,
-                                             'maximum': 1}]}]}}
+    __selection_operation__ = {
+        "id": "extract.m1_candidates/selection",
+        "profile": "selection",
+        "subject": "original-document",
+        "context": ["project", "original-source", "frozen-selection"],
+        "roles": [
+            {
+                "name": "views",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                },
+                "subject_field": "document_subject",
+            },
+            {
+                "name": "projection",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                },
+                "subject_field": "document_subject",
+            },
+        ],
+        "applicability": ["admitted-selected-populations"],
+        "invariants": ["original-subject-and-source-preserved"],
+        "coverage": "qualified-selected-population",
+        "outcomes": ["selected", "unavailable", "invalid"],
+        "precision": "exact",
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "none",
+            "cancellation": "call-boundary",
+            "ownership": "immutable-selection",
+        },
+        "behavior": "retained-binding-selection-v1",
+        "parameters": {"projection_digest": {"value_type": "string", "required": False}},
+        "binding": {
+            "operator": "choice",
+            "choice_parameter": "source_selection",
+            "children": [
+                {
+                    "operator": "forall",
+                    "roles": ["views"],
+                    "population": "eligible-source-views",
+                    "children": [
+                        {
+                            "operator": "literal",
+                            "fields": [
+                                {
+                                    "role": "views",
+                                    "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                                    "field": "analysis_eligible",
+                                }
+                            ],
+                            "value": True,
+                        }
+                    ],
+                },
+                {
+                    "operator": "forall",
+                    "roles": ["projection"],
+                    "population": "selected-projection-views",
+                    "children": [
+                        {
+                            "operator": "literal",
+                            "fields": [
+                                {
+                                    "role": "projection",
+                                    "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                                    "field": "analysis_eligible",
+                                }
+                            ],
+                            "value": True,
+                        },
+                        {
+                            "operator": "equal",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "DdoBindingText",
+                                    "field": {
+                                        "role": "projection",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                                        "field": "projection_digest",
+                                    },
+                                },
+                                {
+                                    "kind": "parameter",
+                                    "name": "projection_digest",
+                                    "value_type": "DdoBindingText",
+                                },
+                            ],
+                        },
+                        {
+                            "operator": "cardinality",
+                            "roles": ["projection"],
+                            "minimum": 1,
+                            "maximum": 1,
+                        },
+                    ],
+                },
+            ],
+        },
+    }
 
     def __init__(self) -> None:
         self._worker: HostedGliner | None = None
@@ -393,7 +442,9 @@ class M1Candidates:
 
     def select_bound(self, binding: BindingResult) -> BoundConsumerSelection:
         """Consume the target operation's retained relational selection unchanged."""
-        return BoundConsumerSelection.from_binding(binding, operation=self.__selection_operation__["id"])
+        return BoundConsumerSelection.from_binding(
+            binding, operation=self.__selection_operation__["id"]
+        )
 
     def select(self, run, cfg):
         views = tuple(view for view in run.reader.source_views() if view.analysis_eligible)
