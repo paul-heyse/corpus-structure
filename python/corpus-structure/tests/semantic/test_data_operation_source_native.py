@@ -1,0 +1,149 @@
+"""Independent source-builder vectors; custody belongs to the native authenticated read."""
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import pglast
+import pytest
+from pglast import ast
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
+
+from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_source_native import (
+    source_native_sources,
+    source_native_sql,
+)
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepared_sql import prepare_sql
+from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+
+
+@pytest.fixture(scope="module")
+def source_prepared():
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    return prepare_release(
+        source_product_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    )
+
+
+@pytest.fixture
+def source_builder_connection(semantic_db_engine):
+    parsed = prepare_sql(source_native_sql(), source="original-source-helper-test")
+    with semantic_db_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            # Install only the pure builder; no source admission or persistent effect.
+            connection.exec_driver_sql(parsed.excerpt(0), execution_options={"no_parameters": True})
+            yield connection
+        finally:
+            transaction.rollback()
+
+
+def inputs() -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    text_ = "A valve opens."
+    atom = dict(
+        self_ref="#/texts/0",
+        label="text",
+        text=text_,
+        orig=text_,
+        prov=[dict(page_no=1, bbox={"l": 1.5})],
+        parent={"$ref": "#/groups/0"},
+        ignored_native_payload={"score": 0.25},
+    )
+    projection = dict(
+        text=text_,
+        pieces=[
+            dict(
+                kind="native_text",
+                start=0,
+                end=len(text_),
+                item_ref="#/texts/0",
+                source_field="text",
+            )
+        ],
+        items=["#/texts/0"],
+        ancestors=["#/groups/0"],
+        health={"formula_outcomes": [], "diagnostic_ref": {"task_id": 1}},
+    )
+    selectors = [dict(projection="b" * 64, native_pointer="#/texts/0", start=0, end=len(text_))]
+    return atom, projection, selectors
+
+
+def build(connection, projection, atoms, selectors):
+    return connection.execute(
+        text(
+            "SELECT ops.ddo_native_source_body('document:semantic','#/groups/0','descendants',"
+            "CAST(:projection AS jsonb),:digest,CAST(:items AS jsonb),"
+            "CAST(:selectors AS jsonb))"
+        ),
+        dict(
+            projection=json.dumps(projection),
+            digest="b" * 64,
+            items=json.dumps(atoms),
+            selectors=json.dumps(selectors),
+        ),
+    ).scalar_one()
+
+
+def test_native_source_helper_capture_and_compilation():
+    assert {source.name for source in source_native_sources()} == {
+        "native/data-operation-source-admission.sql",
+        "native/data-operation-source-native.py",
+    }
+    parsed = prepare_sql(source_native_sql(), source="source")
+    assert len(parsed.statements) == 2
+    for index, raw in enumerate(parsed.statements):
+        assert isinstance(raw.stmt, ast.CreateFunctionStmt)
+        if index == 0:
+            pglast.parse_plpgsql(parsed.excerpt(index))
+
+
+def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_salts(
+    source_prepared, source_builder_connection
+):
+    atom, projection, selectors = inputs()
+    view = SimpleNamespace(
+        ref=SimpleNamespace(
+            section_pointer="#/groups/0", membership="descendants", projection_digest="b" * 64
+        ),
+        text=projection["text"],
+        pieces=projection["pieces"],
+        items=[atom],
+        health=projection["health"],
+    )
+    expected = FrozenNativeSource.from_source_view(
+        source_prepared, view, document="document:semantic", selectors=selectors
+    )
+    actual = build(source_builder_connection, projection, [atom], selectors)
+    assert canonical_bytes(actual) == expected.content
+    assert (
+        b"bbox" not in expected.content
+        and b"score" not in expected.content
+        and b"task_id" not in expected.content
+    )
+    typed = source_builder_connection.execute(
+        text("SELECT data.ddo_normalize(data.record_json_meaning(CAST(:body AS jsonb)))"),
+        {"body": json.dumps(actual)},
+    ).scalar_one()
+    assert typed == semantic_value(actual)
+
+
+@pytest.mark.parametrize("case", ["projection", "pointer", "bounds", "fractional", "gap"])
+def test_native_source_builder_refuses_non_original_coordinates(source_builder_connection, case):
+    atom, projection, selectors = inputs()
+    if case == "projection":
+        selectors[0]["projection"] = "c" * 64
+    elif case == "pointer":
+        selectors[0]["native_pointer"] = "#/missing"
+    elif case == "bounds":
+        selectors[0]["end"] = len(projection["text"]) + 1
+    elif case == "fractional":
+        selectors[0]["start"] = 1.5
+    else:
+        projection["pieces"][0]["start"] = 1
+    with pytest.raises(DBAPIError, match="original source"):
+        build(source_builder_connection, projection, [atom], selectors)
