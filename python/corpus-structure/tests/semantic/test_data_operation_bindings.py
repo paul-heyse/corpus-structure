@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from typing import Literal
 
 import pytest
 from sqlalchemy import JSON, Column, Integer, MetaData, String, Table, create_engine
@@ -38,10 +39,10 @@ from corpus_structure.semantic.types import SourceArtifact
 def model(
     expression,
     *,
-    collection="set",
-    minimum=1,
-    maximum=None,
-    presence="required",
+    collection: Literal["scalar", "sequence", "bag", "set"] = "set",
+    minimum: int = 1,
+    maximum: int | None = None,
+    presence: Literal["required", "optional", "alternative"] = "required",
     parameters=None,
     names=("items",),
 ):
@@ -282,6 +283,7 @@ def test_closed_population_required_for_quantification_and_absence(storage):
         ),
     )
     assert result.sufficient
+    assert result.roles[0].population_witness is not None
     assert json.loads(result.roles[0].population_witness)["identity"] == "population:one"
     missing = replace(population, members=(*population.members, "m4"))
     assert (
@@ -548,13 +550,46 @@ def test_population_scopes_output_and_member_distinctness(storage):
         ),
     )
     assert [member.member for member in result.roles[0].members] == ["m2"]
+    assert result.roles[0].population_witness is not None
     assert json.loads(result.roles[0].population_witness)["identity"] == "population:subset"
     connection.execute(table.update().values(product="same-product"))
     pair = model(BindingExpression("distinct", roles=("left", "right")), names=("left", "right"))
     distinct = execute_binding(
         connection, compile_binding(pair, "urn:op", (projection,), subject="doc")
     )
-    assert distinct.sufficient and len(distinct.roles[0].members) == 3
+    # Row-pair matches cannot silently become incompatible whole role bundles.
+    assert distinct.status == "not-applicable"
+    assert any(reason.code == "bundle-relation" for reason in distinct.reasons)
+    fixed = replace(
+        pair,
+        bindings=(
+            replace(
+                pair.bindings[0],
+                expression=BindingExpression(
+                    "all",
+                    children=(
+                        pair.bindings[0].expression,
+                        BindingExpression(
+                            "literal",
+                            fields=(BindingField("left", "urn:item", "value"),),
+                            value=b'["integer","1"]',
+                        ),
+                        BindingExpression(
+                            "literal",
+                            fields=(BindingField("right", "urn:item", "value"),),
+                            value=b'["integer","2"]',
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    selected = execute_binding(
+        connection, compile_binding(fixed, "urn:op", (projection,), subject="doc")
+    )
+    assert selected.sufficient
+    assert selected.roles[0].members[0].member == "m1"
+    assert selected.roles[1].members[0].member == "m2"
 
 
 def test_bag_multiplicity_and_sequence_ordinal_defects_remain_explicit(storage):
@@ -605,3 +640,194 @@ def test_unknown_kind_and_unadmitted_fingerprint_cannot_be_ready(storage):
         connection, compile_binding(product, "urn:op", (projection,), subject="doc")
     )
     assert not rejected.sufficient and rejected.roles[0].members == ()
+
+
+def test_optional_role_filter_never_suppresses_required_peer(storage):
+    connection, _, projection = storage
+    optional_filter = BindingExpression(
+        "optional",
+        roles=("right",),
+        children=(
+            BindingExpression(
+                "literal",
+                fields=(BindingField("right", "urn:item", "value"),),
+                value=b'["integer","99"]',
+            ),
+        ),
+    )
+    product = model(
+        BindingExpression(
+            "all", children=(BindingExpression("scan", roles=("left",)), optional_filter)
+        ),
+        names=("left", "right"),
+    )
+    operation = product.operations[0]
+    product = replace(
+        product,
+        operations=(
+            replace(
+                operation,
+                roles=(
+                    operation.roles[0],
+                    replace(operation.roles[1], minimum=0, presence="optional"),
+                ),
+            ),
+        ),
+    )
+    result = execute_binding(
+        connection, compile_binding(product, "urn:op", (projection,), subject="doc")
+    )
+    assert result.sufficient
+    assert {member.product for member in result.roles[0].members} == {"p1", "p2", "p3"}
+    assert result.roles[1].state == "present" and result.roles[1].members == ()
+
+
+def test_scoped_absence_retains_required_positive_sibling(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "all",
+        children=(
+            BindingExpression("scan", roles=("left",)),
+            BindingExpression("absent", roles=("right",), population="forbidden"),
+        ),
+    )
+    product = model(expression, names=("left", "right"))
+    operation = product.operations[0]
+    product = replace(
+        product,
+        operations=(
+            replace(
+                operation,
+                roles=(
+                    operation.roles[0],
+                    replace(operation.roles[1], minimum=0, presence="optional"),
+                ),
+            ),
+        ),
+    )
+    population = PopulationBinding("forbidden", "population:empty", True, (), b'{"closed":true}')
+    result = execute_binding(
+        connection,
+        compile_binding(product, "urn:op", (projection,), subject="doc", populations=(population,)),
+    )
+    assert result.sufficient
+    assert {member.product for member in result.roles[0].members} == {"p1", "p2", "p3"}
+    assert result.roles[1].state == "known-absent" and result.roles[1].members == ()
+    forbidden = replace(population, identity="population:one", members=("m2",))
+    result = execute_binding(
+        connection,
+        compile_binding(product, "urn:op", (projection,), subject="doc", populations=(forbidden,)),
+    )
+    assert result.status == "not-applicable"
+    assert result.roles[1].members[0].member == "m2"
+
+
+def test_empty_conjunction_is_subject_unit_without_synthetic_product(storage):
+    connection, _, _ = storage
+    product = model(BindingExpression("all"), names=())
+    compiled = compile_binding(product, "urn:op", (), subject="doc")
+    result = execute_binding(connection, compiled)
+    assert result.sufficient and result.roles == () and compiled.queries == ()
+    raw = declaration()
+    raw["roles"] = [role for role in raw["roles"] if role["direction"] == "output"]
+    raw["binding"] = {"operator": "all", "children": []}
+    compiled_model = compile_data_operations(
+        declarations=(
+            SourceArtifact(
+                "unit.json", canonical_bytes({"version": MODEL_VERSION, "operations": [raw]})
+            ),
+        )
+    )
+    assert compiled_model.bindings[0].expression.children == ()
+
+
+def test_decoder_refuses_null_identity_and_every_required_support_dimension(storage):
+    from corpus_structure.semantic.data_operation_bindings import decode_binding_rows
+
+    connection, _, projection = storage
+    product = model(BindingExpression("scan", roles=("items",)))
+    compiled = compile_binding(product, "urn:op", (projection,), subject="doc")
+    rows = {
+        name: tuple(dict(row) for row in connection.execute(query).mappings())
+        for name, query in compiled.queries
+    }
+    checks = tuple(connection.execute(check.query).scalar_one() for check in compiled.checks)
+    corrupted = {"items": tuple({**row, "original_source": None} for row in rows["items"])}
+    assert decode_binding_rows(compiled, corrupted, checks).status == "invalid"
+    operation = product.operations[0]
+    role = operation.roles[0]
+    assert role.support is not None
+    strengthened = replace(
+        product,
+        operations=(
+            replace(
+                operation,
+                roles=(
+                    replace(
+                        role,
+                        support=replace(
+                            role.support,
+                            identity_requirements=("episode", "provider", "alternative"),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    compiled = compile_binding(strengthened, "urn:op", (projection,), subject="doc")
+    assert decode_binding_rows(compiled, rows, checks).status == "invalid"
+
+
+def test_shared_roles_remain_active_in_selected_branch_and_conflicting_populations_refuse(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "choice",
+        choice_parameter="producer",
+        children=(
+            BindingExpression(
+                "all",
+                roles=("left", "shared"),
+                children=(BindingExpression("scan", roles=("left", "shared")),),
+            ),
+            BindingExpression(
+                "all",
+                roles=("right", "shared"),
+                children=(BindingExpression("scan", roles=("right", "shared")),),
+            ),
+        ),
+    )
+    product = model(expression, names=("left", "right", "shared"), presence="optional", minimum=0)
+    result = execute_binding(
+        connection,
+        compile_binding(
+            product, "urn:op", (projection,), subject="doc", choices={"producer": "left"}
+        ),
+    )
+    assert result.sufficient and result.roles[2].members and result.roles[1].state == "known-absent"
+    conflict = replace(
+        product,
+        bindings=(
+            replace(
+                product.bindings[0],
+                expression=BindingExpression(
+                    "all",
+                    children=(
+                        BindingExpression(
+                            "forall",
+                            roles=("left",),
+                            population="one",
+                            children=(BindingExpression("scan", roles=("left",)),),
+                        ),
+                        BindingExpression(
+                            "forall",
+                            roles=("left",),
+                            population="two",
+                            children=(BindingExpression("scan", roles=("left",)),),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="two population scopes"):
+        compile_binding(conflict, "urn:op", (projection,), subject="doc")

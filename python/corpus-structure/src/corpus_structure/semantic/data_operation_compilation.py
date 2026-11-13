@@ -222,7 +222,7 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     if collection is not None and collection not in {"scalar", "sequence", "bag", "set"}:
         _fail(operation, "unsupported collection meaning")
     children = tuple(_expression(child, operation, roles) for child in value.get("children", []))
-    if operator in {"all", "choice", "optional", "forall"} and not children:
+    if operator in {"choice", "optional", "forall"} and not children:
         _fail(operation, operator + " requires a nested binding")
     from .value_codec import value_meaning
 

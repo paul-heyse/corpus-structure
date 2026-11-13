@@ -17,6 +17,7 @@ from typing import Any, Literal, cast
 
 from sqlalchemy import and_, func, literal, not_, or_, select, true
 from sqlalchemy.sql import ColumnElement, FromClause, Select
+from sqlalchemy.sql.visitors import replacement_traverse
 
 from .data_operation_model import (
     BindingExpression,
@@ -264,6 +265,13 @@ def compile_binding(
     initial = []
     inactive = set()
 
+    def referenced_roles(node):
+        names = set(node.roles) | {field.role for field in node.fields}
+        names.update(operand.field.role for operand in node.operands if operand.field is not None)
+        for child in node.children:
+            names.update(referenced_roles(child))
+        return names
+
     def selected_children(node):
         if node.operator != "choice":
             return node.children
@@ -276,11 +284,16 @@ def compile_binding(
             raise ValueError("missing frozen branch choice: " + str(node.choice_parameter))
         if node.selected is not None and node.choice_parameter is not None:
             raise ValueError("choice must have one static or demand selector")
-        matching = tuple(child for child in node.children if selected in child.roles)
+        matching = tuple(child for child in node.children if selected in referenced_roles(child))
         if len(matching) != 1:
             raise ValueError("choice must select exactly one declared branch")
+        active = referenced_roles(matching[0])
         inactive.update(
-            role for child in node.children if child not in matching for role in child.roles
+            role
+            for child in node.children
+            if child not in matching
+            for role in referenced_roles(child)
+            if role not in active
         )
         return matching
 
@@ -289,6 +302,26 @@ def compile_binding(
             visit_choices(child)
 
     visit_choices(expression)
+    negative_roles = set()
+    role_populations = {}
+
+    def inspect_scopes(node):
+        if node.operator in {"forall", "absent"}:
+            names = node.roles or tuple(roles)
+            for name in names:
+                if name in role_populations and role_populations[name] != node.population:
+                    raise ValueError(
+                        "one role cannot bind two population scopes; use distinct named roles"
+                    )
+                role_populations[name] = node.population
+            if node.operator == "absent":
+                negative_roles.update(names)
+        for child in selected_children(node):
+            inspect_scopes(child)
+
+    inspect_scopes(expression)
+    if any(roles[name].minimum != 0 for name in negative_roles):
+        raise ValueError("absence requires a role admitting zero members")
     for name, role in roles.items():
         if name in inactive:
             if role.presence == "required":
@@ -303,7 +336,7 @@ def compile_binding(
         name for name, role in roles.items() if (role.kind, "kind") not in identities
     ]
     if (operation, "definition") not in identities or (operation, "eligibility") not in identities:
-        missing_contracts.extend(roles)
+        missing_contracts.extend(roles or ("__operation__",))
     if missing_contracts:
         initial.extend(
             BindingReason(
@@ -339,23 +372,39 @@ def compile_binding(
             tuple(sorted(inactive)),
         )
     anchor = select(literal(subject).label("subject")).subquery("binding_subject")
-    relation = anchor
-    for name, alias in aliases.items():
-        role = roles[name]
-        condition = and_(
-            alias.c.subject == anchor.c.subject,
-            alias.c.kind_contract == identities[role.kind, "kind"],
+    optional_join_filters = {}
+    optional_unknowns = []
+
+    def joined_relation(filters):
+        relation = anchor
+        # Optional predicates may refer to required peers, which must already be
+        # in scope in their ON clause. Candidate text never controls join targets.
+        ordered = sorted(
+            (name for name in aliases if name not in negative_roles),
+            key=lambda name: roles[name].presence == "optional",
         )
-        if role.presence == "alternative":
-            selected = choice_values.get(name, role.selected)
-            if selected not in role.alternatives:
-                raise ValueError("missing or invalid frozen role alternative: " + name)
-            condition = and_(condition, alias.c.alternative_identity == selected)
-        relation = (
-            relation.outerjoin(alias, condition)
-            if role.presence == "optional"
-            else relation.join(alias, condition)
-        )
+        for name in ordered:
+            alias = aliases[name]
+            role = roles[name]
+            condition = and_(
+                alias.c.subject == anchor.c.subject,
+                alias.c.kind_contract == identities[role.kind, "kind"],
+            )
+            if role.presence == "alternative":
+                selected = choice_values.get(name, role.selected)
+                if selected not in role.alternatives:
+                    raise ValueError("missing or invalid frozen role alternative: " + name)
+                condition = and_(condition, alias.c.alternative_identity == selected)
+            if name in filters:
+                condition = and_(condition, *filters[name])
+            relation = (
+                relation.outerjoin(alias, condition)
+                if role.presence == "optional"
+                else relation.join(alias, condition)
+            )
+        return relation
+
+    unfiltered_relation = joined_relation({})
 
     def field_value(field):
         if field.role not in aliases:
@@ -408,6 +457,16 @@ def compile_binding(
 
     # Quantifiers/cardinalities are SQL checks over selected rows, not Python filters.
     aggregate_nodes = []
+    bundle_predicates: list[tuple[tuple[str, ...], ColumnElement[Any]]] = []
+    absence_predicates = []
+    absence_queries = {}
+
+    def bundle_predicate(node, comparison: ColumnElement[Any]):
+        names = set(node.roles) | {field.role for field in node.fields}
+        names.update(operand.field.role for operand in node.operands if operand.field is not None)
+        if len(names) > 1:
+            bundle_predicates.append((tuple(sorted(names)), comparison))
+        return comparison
 
     def predicate(node: BindingExpression):
         children = selected_children(node)
@@ -443,7 +502,12 @@ def compile_binding(
             values = [
                 value if isinstance(value, ColumnElement) else literal(value) for value in values
             ]
-            return and_(nested, *(left == right for left, right in pairwise(values)))
+            return and_(
+                nested,
+                bundle_predicate(
+                    node, and_(true(), *(left == right for left, right in pairwise(values)))
+                ),
+            )
         if node.operator == "literal":
             if node.value is None:
                 raise ValueError("literal predicate lacks a typed value")
@@ -451,7 +515,7 @@ def compile_binding(
         if node.operator == "range":
             value, lower, upper = [operand_value(operand) for operand in node.operands]
             value = value if isinstance(value, ColumnElement) else literal(value)
-            return and_(nested, value >= lower, value <= upper)
+            return and_(nested, bundle_predicate(node, and_(value >= lower, value <= upper)))
         if node.operator == "membership":
             value = operand_value(node.operands[0])
             value = value if isinstance(value, ColumnElement) else literal(value)
@@ -474,8 +538,41 @@ def compile_binding(
                 for i, left in enumerate(values)
                 for right in values[i + 1 :]
             ]
-            return and_(nested, *clauses)
-        if node.operator in {"cardinality", "collection", "forall", "absent"}:
+            return and_(nested, bundle_predicate(node, and_(true(), *clauses)))
+        if node.operator == "absent":
+            names = node.roles or tuple(roles)
+            population = (
+                population_map.get(node.population) if node.population is not None else None
+            )
+            if population is None or not population.complete:
+                initial.append(
+                    BindingReason(
+                        "population-incomplete",
+                        operation + "/binding/absent",
+                        "negation requires a closed pinned population",
+                    )
+                )
+            scope = and_(
+                nested,
+                *(
+                    and_(
+                        aliases[name].c.subject == subject,
+                        aliases[name].c.kind_contract == identities[roles[name].kind, "kind"],
+                        aliases[name].c.member.in_(population.members)
+                        if population is not None
+                        else true(),
+                    )
+                    for name in names
+                ),
+            )
+            forbidden = (
+                select(literal(1)).select_from(*(aliases[name] for name in names)).where(scope)
+            )
+            absence_predicates.append((node, not_(forbidden.exists())))
+            for name in names:
+                absence_queries[name] = (names, scope)
+            return true()
+        if node.operator in {"cardinality", "collection", "forall"}:
             aggregate_nodes.append(node)
             if node.operator in {"forall", "absent"} and node.population in population_map:
                 population = population_map[node.population]
@@ -487,29 +584,67 @@ def compile_binding(
                     ),
                 )
         if node.operator == "optional":
-            names = node.roles or tuple(
-                dict.fromkeys(role for child in children for role in child.roles)
-            )
-            return or_(nested, and_(*(aliases[name].c.product.is_(None) for name in names)))
+            names = set(node.roles) or referenced_roles(node)
+            optional = {name for name in names if roles[name].presence == "optional"}
+            if optional:
+                if len(optional) != 1:
+                    raise ValueError(
+                        "optional relational groups require one declared nullable role"
+                    )
+                name = next(iter(optional))
+                if any(
+                    roles[peer].presence == "optional" and peer != name
+                    for peer in referenced_roles(node)
+                ):
+                    raise ValueError("optional predicate cannot depend on another nullable role")
+                optional_join_filters.setdefault(name, []).append(nested)
+                optional_unknowns.append(
+                    and_(aliases[name].c.product.is_not(None), nested.is_(None))
+                )
+                return true()
+            return nested
         return nested
 
-    condition = predicate(expression)
+    positive_condition = predicate(expression)
+    condition = and_(positive_condition, *(predicate for _, predicate in absence_predicates))
+    relation = joined_relation(optional_join_filters)
     queries = []
     selected_relations = {}
     for name, alias in aliases.items():
-        query = (
-            select(*(alias.c[column].label(column) for column in _MEMBER_COLUMNS))
-            .select_from(relation)
-            .where(condition.is_(True), alias.c.product.is_not(None))
-            .distinct()
-        )
+        query_columns: list[ColumnElement[Any]] = [
+            alias.c[column].label(column) for column in _MEMBER_COLUMNS
+        ]
+        query_columns.extend(column for column in alias.c if column.key not in _MEMBER_COLUMNS)
+        if name in negative_roles:
+            names, scope = absence_queries[name]
+            negative_relation = relation
+            for peer in names:
+                negative_relation = negative_relation.join(
+                    aliases[peer], aliases[peer].c.subject == anchor.c.subject
+                )
+            query = (
+                select(*query_columns)
+                .select_from(negative_relation)
+                .where(positive_condition.is_(True), scope.is_(True), alias.c.product.is_not(None))
+                .distinct()
+            )
+        else:
+            query = (
+                select(*query_columns)
+                .select_from(relation)
+                .where(condition.is_(True), alias.c.product.is_not(None))
+                .distinct()
+            )
         if roles[name].collection == "sequence":
             query = query.order_by(alias.c.position)
         queries.append((name, query))
         selected_relations[name] = query.order_by(None).subquery("selected_" + name)
     checks = []
     null_query = select(
-        select(literal(1)).select_from(relation).where(condition.is_(None)).exists()
+        select(literal(1))
+        .select_from(unfiltered_relation)
+        .where(or_(condition.is_(None), *optional_unknowns))
+        .exists()
     )
     checks.append(
         BindingCheck(
@@ -520,8 +655,51 @@ def compile_binding(
             "unknown",
         )
     )
+    alias_names = {alias: name for name, alias in aliases.items()}
+
+    def selected_column(element: Any, **_kw: Any) -> Any:
+        table = getattr(element, "table", None)
+        if table in alias_names:
+            return selected_relations[alias_names[table]].c[element.key]
+        return None
+
+    for index, (names, comparison) in enumerate(bundle_predicates):
+        compared = replacement_traverse(comparison, {}, selected_column)
+        bad = (
+            select(literal(1))
+            .select_from(*(selected_relations[name] for name in names))
+            .where(compared.is_not(True))
+        )
+        checks.append(
+            BindingCheck(
+                BindingReason(
+                    "bundle-relation",
+                    operation + "/binding/relation/" + str(index),
+                    "selected role bundles contain incompatible members",
+                ),
+                select(not_(bad.exists())),
+                "not-applicable",
+            )
+        )
+    for index, (_node, absence) in enumerate(absence_predicates):
+        bad = (
+            select(literal(1))
+            .select_from(relation)
+            .where(positive_condition.is_(True), absence.is_(False))
+        )
+        checks.append(
+            BindingCheck(
+                BindingReason(
+                    "binding-absent",
+                    operation + "/binding/absent/" + str(index),
+                    "closed population contains a forbidden member",
+                ),
+                select(not_(bad.exists())),
+                "not-applicable",
+            )
+        )
     for name, role in roles.items():
-        if name in inactive:
+        if name in inactive or name in negative_roles:
             continue
         selected = selected_relations[name]
         count = select(func.coalesce(func.sum(selected.c.multiplicity), 0)).scalar_subquery()
@@ -685,7 +863,14 @@ def decode_binding_rows(
         if role.direction != "input":
             continue
         members = []
+        raw_invalid = False
         for row in rows.get(role.name, ()):
+            episodes = row["support_episodes"]
+            if not isinstance(episodes, (tuple, list)) or any(
+                not isinstance(item, str) or not item for item in episodes
+            ):
+                raw_invalid = True
+                episodes = ()
 
             def payload(name, selected_row=row):
                 value = selected_row[name]
@@ -693,13 +878,13 @@ def decode_binding_rows(
 
             members.append(
                 BoundRoleMember(
-                    str(row["product"]),
-                    str(row["kind_contract"]),
-                    str(row["subject"]),
-                    str(row["original_source"]),
+                    row["product"],
+                    row["kind_contract"],
+                    row["subject"],
+                    row["original_source"],
                     payload("analyzed_scope"),
                     payload("coverage"),
-                    tuple(row["support_episodes"]),
+                    tuple(episodes),
                     payload("support_evidence"),
                     row["position"],
                     row["multiplicity"],
@@ -708,12 +893,28 @@ def decode_binding_rows(
                     row["alternative_identity"],
                 )
             )
-        malformed = any(
+        expected_kind = next(
+            (
+                identity.key
+                for identity in compiled.model.identities
+                if identity.owner == role.kind and identity.domain == "kind"
+            ),
+            None,
+        )
+        malformed = raw_invalid or any(
             type(member.multiplicity) is not int
             or member.multiplicity < 1
-            or not member.original_source
-            or not member.subject
-            or not member.product
+            or any(
+                not isinstance(value, str) or not value
+                for value in (
+                    member.original_source,
+                    member.subject,
+                    member.product,
+                    member.kind_contract,
+                )
+            )
+            or member.subject != compiled.subject
+            or member.kind_contract != expected_kind
             or (
                 member.position is not None
                 and (type(member.position) is not int or member.position < 0)
@@ -722,6 +923,19 @@ def decode_binding_rows(
                 role.support is not None
                 and "episode" in role.support.identity_requirements
                 and not member.support_episodes
+            )
+            or (
+                role.support is not None
+                and "provider" in role.support.identity_requirements
+                and (not isinstance(member.provider_identity, str) or not member.provider_identity)
+            )
+            or (
+                role.support is not None
+                and "alternative" in role.support.identity_requirements
+                and (
+                    not isinstance(member.alternative_identity, str)
+                    or not member.alternative_identity
+                )
             )
             for member in members
         )
@@ -800,8 +1014,8 @@ def decode_binding_rows(
         "unavailable",
         "unknown",
         "awaiting-population",
-        "awaiting-inputs",
         "not-applicable",
+        "awaiting-inputs",
     )
     status = cast(BindingStatus, next((state for state in priority if state in statuses), "ready"))
     identities = {
