@@ -468,6 +468,16 @@ def profile_identities(fields: Iterable[ProfileField]) -> ProfileIdentities:
     )
 
 
+def contextual_product_identity(*, kind: str, context: SubjectContext, body: str) -> CanonicalIdentity:
+    """Current publication identity; the pure legacy helper does not authorize it."""
+    return canonical_identity("product", {
+        "kind": _identifier(kind, "kind fingerprint"),
+        "subject": context.subject,
+        "subject_context": context.record,
+        "body": _identifier(body, "body digest"),
+    })
+
+
 def runtime_artifact_identity(executable_inputs: Any) -> CanonicalIdentity:
     """Only executable inputs; release binding belongs in the attestation."""
     return canonical_identity("runtime-artifact", executable_inputs)

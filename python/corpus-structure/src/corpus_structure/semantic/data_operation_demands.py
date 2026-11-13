@@ -722,9 +722,16 @@ class DemandPlanner:
                 "inference": frozen["inference"],
                 "read_id": snapshot["read_id"],
             }
+            # The pinned native view names a directly trusted historical producer.
+            # The hint is not authority: attachment revalidates it under trust locks.
+            rebind = next((use["rebind_derivation"] for use in snapshot.get("uses", ())
+                           if use.get("obligation_id") == obligation["obligation_id"]
+                           and use.get("request_id") == request.identity.key
+                           and use.get("rebind_derivation")), None)
             native = self.storage.invoke(
                 "attach_data_request",
                 {
+                    **({"rebind_derivation": rebind} if rebind is not None else {}),
                     "obligation_id": obligation["obligation_id"],
                     "request_meaning": json.loads(request.identity.canonical_input),
                     "request_key": request.identity.key,

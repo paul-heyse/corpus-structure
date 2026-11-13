@@ -789,11 +789,6 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,i.payload->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
- -- A concurrent publisher may have committed while support/request locks waited.
- -- Read again before requiring ownership of the now-terminal producer task.
- SELECT * INTO receipt FROM ops.data_publication_receipt WHERE intent_id=i.id;
- IF FOUND AND i.request_id=r.id AND i.generation=(p->>'generation')::integer THEN
- RETURN jsonb_build_object('payload',jsonb_build_object('receipt_id',receipt.id,'derivation_id',receipt.derivation_id,'replayed',true,'trust_snapshot',receipt.trust_snapshot)); END IF;
  t:=ops.ddo_claim(r,p);
  IF i.request_id<>r.id OR i.generation<>r.generation OR i.generation<>(p->>'generation')::integer OR EXISTS(SELECT FROM ops.data_publication_receipt WHERE intent_id=i.id) THEN RAISE EXCEPTION 'only unresolved exact generation intent can be adopted'; END IF;
  PERFORM ops.ddo_assert_support(r,i.payload->'support');
@@ -1076,7 +1071,7 @@ BEGIN
  AND ((p->>'selector_kind'='recipe' AND request.recipe=p->>'selector')
  OR (p->>'selector_kind'='runtime' AND request.runtime_id=p->>'selector')
  OR EXISTS(SELECT FROM ops.data_derivation episode WHERE episode.request_id=request.id
- AND ((p->>'selector_kind'='derivation' AND episode.id=p->>'selector')
+ AND ((p->>'selector_kind'='runtime' AND episode.runtime_id=p->>'selector') OR (p->>'selector_kind'='recipe' AND episode.recipe=p->>'selector') OR (p->>'selector_kind'='derivation' AND episode.id=p->>'selector')
  OR (p->>'selector_kind'='product' AND EXISTS(SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=episode.id AND output.product_id=p->>'selector')))));
  PERFORM ops.ddo_authorize(kind.universe) FROM ops.original_source_admission admission
  JOIN kb.data_product product ON product.id=admission.product_id
@@ -1125,7 +1120,12 @@ BEGIN
  PERFORM ops.ddo_authorize(k.universe) FROM ops.demand_use u JOIN ops.data_derivation_output outp ON outp.derivation_id=u.derivation_id JOIN kb.data_product x ON x.id=outp.product_id JOIN sem.data_kind_contract k ON k.kind_contract=x.kind_contract WHERE u.demand_id=d.id AND ops.ddo_read_visible(u.created_at,u.created_xid,boundary);
  WITH bounded AS MATERIALIZED (SELECT o.* FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>after_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary) ORDER BY o.id LIMIT lim),
  latest AS MATERIALIZED (SELECT u.* FROM bounded o CROSS JOIN LATERAL (SELECT x.* FROM ops.demand_use x WHERE x.obligation_id=o.id AND ops.ddo_read_visible(x.created_at,x.created_xid,boundary) ORDER BY x.created_at DESC,x.id DESC LIMIT 1) u)
- SELECT coalesce(jsonb_agg(jsonb_build_object('use_id',u.id,'obligation_id',u.obligation_id,'fate',CASE WHEN u.fate='fulfilled' AND NOT ops.ddo_use_valid(u,boundary) THEN 'unavailable' ELSE u.fate END,'historical_fate',u.fate,'semantic_outcome',(SELECT i.payload->'outcome' FROM ops.data_derivation der JOIN ops.data_completion_intent i ON i.id=der.intent_id WHERE der.id=u.derivation_id),'completion_state',(SELECT der.outcome FROM ops.data_derivation der WHERE der.id=u.derivation_id),'request_id',u.request_id,'generation',u.generation,'derivation_id',u.derivation_id,'selection',u.selection,'trust_snapshot',u.trust_snapshot,'products',(SELECT coalesce(jsonb_agg(jsonb_build_object('role',outp.role,'position',outp.position,'multiplicity',outp.multiplicity,'product_id',outp.product_id,'member_id',outp.member_id,'kind_contract',x.kind_contract,'subject',x.subject,'original_source',x.original_source,'analyzed_scope',x.analyzed_scope,'body_state',CASE WHEN selected_view='products' THEN 'present' ELSE 'not_requested' END)||CASE WHEN selected_view='products' THEN jsonb_build_object('body',x.canonical_body) ELSE '{}'::jsonb END ORDER BY outp.role,outp.position),'[]') FROM ops.data_derivation_output outp JOIN kb.data_product x ON x.id=outp.product_id WHERE outp.derivation_id=u.derivation_id)) ORDER BY u.obligation_id),'[]') INTO results FROM latest u;
+ SELECT coalesce(jsonb_agg(jsonb_build_object('use_id',u.id,'obligation_id',u.obligation_id,'fate',CASE WHEN u.fate='fulfilled' AND NOT ops.ddo_use_valid(u,boundary) THEN 'unavailable' ELSE u.fate END,'historical_fate',u.fate,'semantic_outcome',(SELECT i.payload->'outcome' FROM ops.data_derivation der JOIN ops.data_completion_intent i ON i.id=der.intent_id WHERE der.id=u.derivation_id),'completion_state',(SELECT der.outcome FROM ops.data_derivation der WHERE der.id=u.derivation_id),'request_id',u.request_id,'generation',u.generation,'derivation_id',u.derivation_id,'rebind_derivation',CASE WHEN u.fate='fulfilled' AND NOT ops.ddo_use_valid(u,boundary)
+ AND ops.ddo_direct_support_valid(u.derivation_id) AND d.strength='value'
+ AND EXISTS(SELECT FROM ops.data_request request JOIN sem.data_operation_definition definition ON definition.release_id=d.release_id AND definition.operation_id=request.operation_id
+ WHERE request.id=u.request_id AND definition.support_contract->>'provenance'='value_substitution'
+ AND NOT EXISTS(SELECT FROM jsonb_array_elements(definition.input_roles) role WHERE coalesce(role->'identity_requirements','[]')<>'[]'::jsonb))
+ THEN u.derivation_id ELSE NULL END,'selection',u.selection,'trust_snapshot',u.trust_snapshot,'products',(SELECT coalesce(jsonb_agg(jsonb_build_object('role',outp.role,'position',outp.position,'multiplicity',outp.multiplicity,'product_id',outp.product_id,'member_id',outp.member_id,'kind_contract',x.kind_contract,'subject',x.subject,'original_source',x.original_source,'analyzed_scope',x.analyzed_scope,'body_state',CASE WHEN selected_view='products' THEN 'present' ELSE 'not_requested' END)||CASE WHEN selected_view='products' THEN jsonb_build_object('body',x.canonical_body) ELSE '{}'::jsonb END ORDER BY outp.role,outp.position),'[]') FROM ops.data_derivation_output outp JOIN kb.data_product x ON x.id=outp.product_id WHERE outp.derivation_id=u.derivation_id)) ORDER BY u.obligation_id),'[]') INTO results FROM latest u;
  WITH bounded AS MATERIALIZED (SELECT o.* FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>after_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary) ORDER BY o.id LIMIT lim)
  SELECT coalesce(jsonb_agg((to_jsonb(o)-'created_at'-'created_xid')||jsonb_build_object('obligation_id',o.id,'historical_fate',u.fate,
  'fate',CASE WHEN u.fate='fulfilled' AND NOT ops.ddo_use_valid(u,boundary) THEN 'unavailable' ELSE coalesce(u.fate,'waiting') END,

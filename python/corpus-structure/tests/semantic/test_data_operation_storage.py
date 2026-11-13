@@ -1792,3 +1792,53 @@ def test_overlapping_publication_returns_committed_exact_receipt(kernel):
     assert second == {**first, "replayed": True}
     with kernel["engine"].connect() as connection:
         assert connection.execute(text("SELECT count(*) FROM ops.data_derivation WHERE intent_id=:id"), {"id": intent["intent_id"]}).scalar_one() == 1
+
+
+def test_writer_cannot_mutate_or_read_pending_evaluator_obligations(kernel, native_settings):
+    from native_test_support import principal_engine
+    writer = principal_engine(native_settings, "write", kernel["engine"].url.database)
+    evaluator = principal_engine(native_settings, "evaluate", kernel["engine"].url.database)
+    try:
+        demand, obligation, _, attached = attach(kernel, operation="urn:ddo-test:evaluator", engine=evaluator)
+        calls = [
+            ("read_demand_result", demand),
+            ("record_data_fate", {**obligation, "fate": "closed", "selection": {}}),
+            ("expand_data_obligation", {**demand, "operation_id": "urn:ddo-test:evaluator", "subject": "subject:one", "original_source": "source:test", "analyzed_scope": {"page": 1}, "parameters": {}}),
+        ]
+        for name, payload in calls:
+            with writer.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
+                DataOperationStorage(connection).invoke(name, payload)
+        with evaluator.begin() as connection:
+            result = DataOperationStorage(connection).invoke("read_demand_result", demand)
+            assert result["obligations"][0]["fate"] == "attached"
+            assert result["obligations"][0]["request_id"] == attached["request_id"]
+    finally:
+        writer.dispose()
+        evaluator.dispose()
+
+
+def test_writer_cannot_revoke_runtime_with_ordinary_and_evaluator_targets(kernel, native_settings):
+    from native_test_support import principal_engine
+    writer = principal_engine(native_settings, "write", kernel["engine"].url.database)
+    try:
+        ordinary_demand, _, _, ordinary = attach(kernel)
+        ordinary_fence = claim(kernel, ordinary)
+        publish(kernel, ordinary_fence, retain(kernel, ordinary_fence))
+        protected_demand, _, _, protected = attach(kernel, operation="urn:ddo-test:evaluator")
+        protected_fence = claim(kernel, protected)
+        def protected_kind(completion):
+            completion["outputs"][0]["product"]["kind_contract"] = kernel["identities"]["urn:ddo-test:evaluator-integer", "kind"]
+        publish(kernel, protected_fence, retain(kernel, protected_fence, mutate=protected_kind))
+        with kernel["engine"].connect() as connection:
+            before = connection.execute(text("SELECT epoch FROM ops.data_trust_scope WHERE project_id='ddo-test'")).scalars().all()
+        with writer.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
+            DataOperationStorage(connection).invoke("revoke_data_support", {
+                "project_id": "ddo-test", "original_source": "source:test", "selector_kind": "runtime", "selector": kernel["runtime"], "reason": "unauthorized broad revoke",
+            })
+        with kernel["engine"].connect() as connection:
+            assert connection.execute(text("SELECT epoch FROM ops.data_trust_scope WHERE project_id='ddo-test'")).scalars().all() == before
+            for demand in (ordinary_demand, protected_demand):
+                result = DataOperationStorage(connection).invoke("read_demand_result", demand)
+                assert result["uses"][0]["fate"] == "fulfilled"
+    finally:
+        writer.dispose()

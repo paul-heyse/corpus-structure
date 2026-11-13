@@ -882,6 +882,10 @@ definitions:
         anyOf:
         - $ref: '#/definitions/identifier'
         - type: 'null'
+      rebind_derivation:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
       selection:
         oneOf:
         - $ref: '#/definitions/binding'
