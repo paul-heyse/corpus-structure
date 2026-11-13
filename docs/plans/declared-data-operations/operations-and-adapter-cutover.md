@@ -75,3 +75,27 @@ same source under a changed operation declaration, equal-content output, empty/p
 missing candidate and a wrong native witness. Test a non-statistics context without page-specific
 routing. Required actual provider work cannot be replaced with mocks or successful import checks.
 No automatic training/model replacement or extra NLP taxonomy is implied by this structural redesign.
+
+
+## Graph consumer migration and authored-claim repair — I02–I05/I07
+
+DDO-07/08 consume the [shared topology contract](graph-projections-and-analysis.md#shared-closure-cycles-and-partial-orders--i02i03)
+and [comparison/inspection contract](graph-projections-and-analysis.md#comparison-and-inspection-contracts--i04i05).
+Include actual hierarchy, characterization closure, authored claims and structural comparison callers
+in the migration inventory; no blanket replacement of adequate factor connectivity or spatial indexes.
+
+DDO-08 repairs `semantic/domain_operations.py:1646–1663`: draining TopologicalSorter leaves both
+cycle members and their blocked descendants. Use
+[`strongly_connected_components`/`condensation`](https://github.com/networkx/networkx/tree/networkx-3.7/networkx/algorithms/components)
+to distinguish cycle members (including singleton self-loops) from blocked-by-cyclic-premise claims.
+Preserve unrelated publishable claims and unavailable-premise diagnostics. Independent expected
+outcomes for A↔B→C plus unrelated D and a self-loop establish the distinction. This is scheduled
+repair scope, not a claim that the old path was tested or the fix implemented.
+
+Retain [`MultiDiGraphMatcher`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/isomorphism/vf2userfunc.py)
+for actual assessment projection migrations: typed edge counters, rooted focus, shared binders,
+asymmetric expected fields and post-mapping joint-choice checks survive. Complete slots remain
+isomorphism and partial positive witnesses monomorphism. VF2++/ISMAGS are conditional alternatives,
+not mandatory substitutions. Native language evidence/potentials do not change meaning because a
+new graph representation is used. Retire private traversal/matcher adapters only with migrated callers
+and independent semantic controls; auth/source/coverage checks remain with their semantic owners.

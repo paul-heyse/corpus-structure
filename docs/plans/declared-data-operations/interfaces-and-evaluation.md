@@ -61,3 +61,32 @@ preservation constraints, not proof that replacement paths already work.
 
 The series' final qualification owns fresh evidence. Existing historical results may inform input
 selection but cannot establish current-source passage or impose another plan's requirements.
+
+
+## Declared graph explanations and preserved matching — I01/I02/I04/I05/I07
+
+Consumes [shared projection](graph-projections-and-analysis.md#projection-contract-and-physical-route--i01)
+and [comparison/inspection contracts](graph-projections-and-analysis.md#comparison-and-inspection-contracts--i04i05).
+Extend the existing production read owner and generated typed results with selected members, SCC
+membership, typed dependency/support witness paths, scope boundaries and explicit examined/partial
+standing. Native, installed ci, actual MCP tools/resources and detached export consume those same
+facts. A presentation filter cannot remove necessary intermediate members from examined closure.
+No arbitrary algorithm-name execution endpoint or new graph service/viewer is introduced.
+
+[`edges(keys=True,data=True)` and directional reporting views](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/classes/reportviews.py)
+supply occurrence-aware reports only within the pinned graph lifetime. Emit detached typed rows;
+cursors bind demand/selection/contracts/trust, never a live NetworkX view. Authenticated export keeps
+all required typed edges, not only a BFS tree, and preserves original source/order/extent closure.
+
+Migrate assessment through retained
+[`MultiDiGraphMatcher`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/isomorphism/vf2userfunc.py)
+semantics: canonical payload/edge counters, root, multiplicity, shared binding, asymmetric expected
+fields and mapping-dependent joint choices. Test complete versus partial/induced patterns and
+symmetry distinguished by joint queries. Expected answers stay independent and protected; execution
+and export roundtrip fidelity do not establish linguistic correctness.
+
+Source containment may use [`is_arborescence`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/tree/recognition.py)
+where single-parent shape is required; semantic DAGs need not be trees. LCA, dominators, reductions,
+cuts, rankings, layouts and graph-file codecs remain explicitly conditional in the shared catalogue.
+DAG LCA ambiguity cannot silently select unique context. No optional visualization/backend/candidate
+analysis becomes required DDO-12 qualification merely by being documented.

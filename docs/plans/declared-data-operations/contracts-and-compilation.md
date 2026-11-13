@@ -182,7 +182,8 @@ Use the already selected NetworkX 3.7 `DiGraph`, `strongly_connected_components`
 operations for compile-time closure and diagnostics where needed. Keep semantic edge records
 separately so graph connectivity cannot collapse parallel roles or meaningful multiplicity.
 Sort semantic IDs rather than relying on graph insertion order or component enumeration.
-NetworkX is a compile-time mechanism here, not durable execution state or a new scheduler.
+NetworkX computes derived compile-time or pinned runtime projections under the shared graph
+contract; it is neither durable execution authority nor a new scheduler.
 The [SCC API](https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.components.strongly_connected_components.html)
 describes the mechanism; selected 3.7 installed source
 `networkx/algorithms/components/strongly_connected.py:17–87` was inspected. No graph-isomorphism
@@ -374,3 +375,30 @@ trust evidence. Those incidental admission fields are not hashed into SemanticRe
 their meaning is declared result-affecting. Native registration authenticates both projections;
 no caller chooses an ad hoc exclusion list. An eligibility-only revision or substitutable support
 change therefore need not manufacture a different logical computation.
+
+
+## NetworkX projection/compiler integration — I01–I03/I06/I07
+
+Consumes the [shared graph contract](graph-projections-and-analysis.md#projection-contract-and-physical-route--i01)
+and [selected topology composition](graph-projections-and-analysis.md#shared-closure-cycles-and-partial-orders--i02i03),
+from the NetworkX review at `7c5368faa`. DDO-01 adds declared projection semantics to the effective
+model, not another registry: source/contract/selection, universe/filter/completeness, qualified nodes,
+typed role/order/multiplicity edges and attribute interpretation. DDO-03 generates typed acquisition /
+result correspondences consumed by native bindings and explanations. DDO-02 canonicalizes original
+semantic records, independent of physical graph class or iteration order.
+
+Use [`DiGraph`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/classes/digraph.py)
+connectivity with original typed edge witnesses: insertion auto-creates endpoints, so validate every
+reference and add isolates first. Repeated edges collapse connectivity but must not collapse canonical
+roles. [`strongly_connected_components`/`condensation`](https://github.com/networkx/networkx/tree/networkx-3.7/networkx/algorithms/components)
+permit finite recursive type closure and precise unsupported-cycle diagnostics. Retain `members` /
+`mapping` and original edges; component integers never enter semantic identity. `descendants` excludes
+the root: add it explicitly. Stable-key topological order applies to acyclic projections/condensation,
+not permitted cyclic reference graphs. Binding sufficiency remains typed relational semantics.
+
+DDO-01/02 qualify actual effective definitions plus independent isolate, unknown endpoint, parallel
+role, self-reference and shuffled-input canonical examples before downstream identity consumers use
+them. DDO-03 checks that acquisition/explanation retain independently expected roles/completeness.
+Add attribute-aliasing controls: freeze does not freeze payload dictionaries. Selected 3.7 APIs need
+ordinary typing checks against the older stub selection. No WL/isomorphism-derived identity or new
+backend package is selected. All implementation checks remain not_run at authoring.

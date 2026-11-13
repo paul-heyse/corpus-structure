@@ -134,3 +134,26 @@ trusted for its own recipe/runtime/behavior. Alternative upstream evidence canno
 execution directly revoked for its own defect. Such a product needs a separate trusted producing
 derivation (or recomputation), even when its bytes match. Preserve this refusal as an independent
 native/admission test, alongside allowed substitution of equal-value upstream support.
+
+
+## Coherent graph acquisition — I01/I02/I06
+
+Consumes the [shared projection and physical-route contract](graph-projections-and-analysis.md#projection-contract-and-physical-route--i01).
+DDO-04 supplies compact typed rows/adjacency through the same pinned native read owner used by
+DDO-10. Bind source/contracts, selection and trust assessment for the acquisition lifetime; pagination
+must retain the exact scope and required intermediates. Authenticate endpoints, occurrence roles and
+support before exposing adjacency. Use indexed product/input/support lineage; no graph mirror table,
+unrestricted reference crawler or independent trust cache is introduced.
+
+[`MultiDiGraph`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/classes/multidigraph.py)
+can preserve keyed support occurrences for an analysis, while native typed rows remain authoritative.
+[`reverse_view`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/classes/graphviews.py)
+can reuse owned immutable adjacency for reverse lineage; it is a live view, not a historical snapshot.
+Run pure graph computation outside publication/trust locks. Retain selective SQL instead of first
+hydrating the entire history. A read/result budget does not establish complete examined closure;
+partial/unavailable acquisition remains explicit. Re-admit live effects under existing native fences.
+
+Before runtime consumers integrate, qualify independent expected selected edges/members, isolates,
+wrong source/trust scope, omitted intermediate and continuation across incompatible snapshots.
+Bounds/custody failure must not become empty/complete support. Existing native race/publication and
+revocation checks remain required; NetworkX reachability does not prove admissibility.

@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status: Proposed implementation series; authoring complete2026-11-12, production not started.**
+**Status: Proposed implementation series; authoring revised 2026-11-12 with NetworkX integration; production not started.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no scope, prerequisites or acceptance limits. Current code/data remain the implementation baseline.
@@ -10,7 +10,9 @@ no scope, prerequisites or acceptance limits. Current code/data remain the imple
 Consumes the [integrated review](../design_review/reviews/design_review_declared-data-operations_2026-11-12.md)
 and all4supporting pages at64dc6c3e6; the audit companion explains changes, not additional scope.
 Product source8c0f4f951, diagnostic reconciliationf6ce5d086. Actual starting tree64dc6c3e6 was clean.
-All new mechanisms here are **Proposed**. Source inspection and metadata census are bounded evidence;
+The NetworkX amendment consumes [its review](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md)
+at `7c5368faa`. Operator authorization selects I01–I07 required portions and preserves conditional
+capabilities with explicit triggers, not mandatory investigations. All new mechanisms here are **Proposed**. Source inspection and metadata census are bounded evidence;
 no new implementation, migration, deployment, activation, provider inference or product test was run.
 Apply core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding. No new broad diagnostic audit
 is initiated by authoring. This coordinator is the single owner of scheduled finding/package state.
@@ -87,10 +89,34 @@ publication transaction follows from total modeling. This is a credible qualitat
 retained316-view/518-page book, skewed sections, cross-page groups and concurrent independent demands;
 no numerical speed/capacity claim is made. A bounded refusal alone does not establish workload fit.
 
+
+### NetworkX amendments and package dependencies
+
+The [graph companion](declared-data-operations/graph-projections-and-analysis.md) owns faithful
+projection families, selected NetworkX 3.7 APIs/source links, execution policy and complete feature
+selection. Declarations remain the single semantic model; PostgreSQL remains transactional authority.
+Replace compile-time-only wording with derived computations over effective declarations or pinned
+runtime selections. This is a plan mechanism amendment, not a new rule change; RC01–09 remain accepted.
+
+DDO-01–03 supply projection definitions, canonical typed records and pure topology kernels first.
+DDO-04 supplies actual coherent native acquisition before runtime graph consumers integrate.
+DDO-05/06 readiness still uses selected relational sufficiency and native claims, with no generation
+barriers. DDO-08 repairs cycle-member versus downstream-blocked authored claims. DDO-09 distinguishes
+potential impact from stale bindings and preserves substitution cutoffs. DDO-10 supplies bounded typed
+member/path/SCC/boundary explanations and preserved matching; DDO-11 retains authenticated closure.
+DDO-12 incorporates adopted cases into the same final union. These are additions to existing packages,
+not new stages or DDO-13. Companion-level design agreement alone does not establish working prerequisites.
+
+Graph snapshots preserve roles/order/multiplicity, source/selection/trust pins, isolates, original
+witnesses and examined completeness. Canonical identities use typed semantic records, not graph class,
+component numbers, insertion order or fingerprints of structural similarity. Core dispatch is explicit;
+optional accelerators and analytics neither block core delivery nor become new required investigations.
+
 ## Reading and work-package ownership
 
 | Supporting plan | Owns design detail |
 |---|---|
+| [Graph projections and analysis](declared-data-operations/graph-projections-and-analysis.md) | Shared projection/algorithm/lifecycle contracts across DDO-01–12; complete capability selection and conditional triggers |
 | [Contracts and compilation](declared-data-operations/contracts-and-compilation.md) | DDO-01–03, semantic authority/IR, canonical identity and generated binding/port semantics |
 | [Products and support](declared-data-operations/products-and-support.md) | DDO-04, native storage/admission, request/attempt/derivation/fulfillment/receipt protocol |
 | [Demand planning and execution](declared-data-operations/demand-planning-and-execution.md) | DDO-05/06, discovery, readiness, scheduling, physical ownership/recovery |
@@ -158,11 +184,30 @@ explicit replicate/retry/revocation; cross-demand ownership; uncertain completio
 authored/external work; zero-output reporting; protected assessment and full pinned evidence closure.
 Review §7 scenarios belong to DDO-02/05/06/09/10/12 as detailed by their independent checks.
 
+
+### NetworkX review disposition · 2026-11-12
+
+Source-qualified IDs below refer to the NetworkX review at `7c5368faa`, not new diagnostic findings.
+All selected work is **open/not implemented**. Conditional subfeatures retain their source judgments
+and triggers in the graph companion; mentioning them does not schedule execution or qualification.
+
+| Source recommendation | Selected correction and package owners | Closure evidence |
+|---|---|---|
+| [NetworkX I01](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I01) | Typed snapshot projection families and faithful representation, DDO-01–04/09/10 | Independent roles/multiplicity/isolate/endpoint/canonical and coherent snapshot checks |
+| [NetworkX I02](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I02) | Shared authenticated topology/closure kernels, DDO-02/05/09–11 | Exact root-inclusive memberships, all required edges, missing/partial scope and custody |
+| [NetworkX I03](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I03) | Potential versus bound graphs, SCC diagnostics/nonbarrier readiness, DDO-01/02/05/06/08/09/10 | Cycle member versus blocked tail; unselected alternative; B admits C while unrelated A runs |
+| [NetworkX I04](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I04) | Preserve explicit rooted attributed comparison modes and mappings, DDO-02/08/10/12 | Independent multiplicity/shared-binder/asymmetric-field/joint-choice matching outcomes |
+| [NetworkX I05](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I05) | Typed paths/member/SCC/boundary inspection and faithful containment, DDO-05/09–11 | Exact witness/source hierarchy and pinned partial scope; optional advanced summaries remain conditional |
+| [NetworkX I06](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I06) | Explicit core backend, ownership/cache and conversion contracts, DDO-03/06/09/10 | Adopted-call dispatch/refusal, immutable lifetime and actual numeric/index fidelity checks |
+| [NetworkX I07](../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md#I07) | Independent topology fixtures and existing public qualification, DDO-01–12 | Independently expected semantics and adopted native/ci/MCP/export cases in final union |
+
 ## Investigations, risks and evidence boundaries
 
 Authoring resolved compiler ordering through effective IR/stable references, typed relational forms,
 native Demand authority, request ownership under existing tasks, and a short atomic publication /
-trust protocol. Remaining bounded execution investigations have outcomes, not a license to weaken
+trust protocol. The graph companion additionally owns bounded effective-model fidelity, coherent acquisition,
+topology-policy separation, matching and selected-call typing questions with named dependent packages.
+Optional features have revisit conditions and no mandatory investigation task. Remaining bounded execution investigations have outcomes, not a license to weaken
 contracts: DDO-00 completes actual external-reference preservation closure; DDO-01/02 qualifies
 semantic closure on all real effective declarations; DDO-04 qualifies native catalog/permission /
 transaction behavior; DDO-07 qualifies actual provider mappings; DDO-12 resolves any material final

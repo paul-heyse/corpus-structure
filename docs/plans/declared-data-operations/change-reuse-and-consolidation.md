@@ -8,8 +8,8 @@ binding/support and native admission; integrates with DDO-05–08 demands and pr
 
 Compile the typed producer/consumer dependency graph from declarations. Reuse existing normalized
 member diffs as change facts; `semantic/operation_reporting.py:791–888` does not already provide
-complete transitive data-operation impact. Use existing graph primitives for compile-time closure
-and cycle diagnostics; do not persist a second workflow scheduler.
+complete transitive data-operation impact. Use shared graph primitives for declaration closure and pinned runtime lineage/impact
+analysis; do not persist a second workflow scheduler.
 
 The recipe changes only for declared result-affecting meaning. Bindings include exact semantic
 products, role/order/multiplicity, support requirements, analyzed context and closed population
@@ -82,3 +82,29 @@ trusted for its own recipe/runtime/behavior. Alternative upstream evidence canno
 execution directly revoked for its own defect. Such a product needs a separate trusted producing
 derivation (or recomputation), even when its bytes match. Preserve this refusal as an independent
 native/admission test, alongside allowed substitution of equal-value upstream support.
+
+
+## Snapshot graph impact and explanations — I01–I03/I05
+
+Consumes [selected projection semantics](graph-projections-and-analysis.md#projection-contract-and-physical-route--i01)
+and [SCC/reachability kernels](graph-projections-and-analysis.md#shared-closure-cycles-and-partial-orders--i02i03).
+DDO-09 may analyze compact pinned runtime lineage as well as declaration graphs. Keep selective
+indexed PostgreSQL traversal for live affected-scope acquisition; no second durable scheduler/cache.
+
+[`ancestors`/`descendants`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/dag.py)
+exclude the root. Include changed nodes/components, preserve edge direction and map every diagnostic
+back to typed role occurrences. SCC condensation supplies candidate reachability, not automatic stale
+marking. Recheck substitution and stop at equal admissible value/support. Membership deletions,
+optional absent-to-present inputs and newly applicable never-derived subjects require old/new declared
+population witnesses; existing derivation lineage alone is incomplete.
+
+Expose typed reason paths and scope crossings through DDO-10.
+[`edge_boundary`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/boundary.py)
+can identify crossings in the examined projection, preserving incoming/outgoing direction and unknowns.
+Keep stable-ID semantic added/removed/changed records as change facts. WL hashes/GED, dominance/cuts,
+quotient/reduction and centrality remain conditional diagnostics, not compatibility/trust/evidence
+votes. Exact source-episode revocation cannot be laundered by structurally similar paths.
+
+Add independent changed-root/descendant sets, unrelated SCC, absent-to-present input, membership
+removal, never-derived applicability and equal-output cutoff cases. A causal-looking path without
+its required conjunction/choice/support does not prove admissibility or actual required recomputation.

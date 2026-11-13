@@ -92,3 +92,34 @@ must exercise actual packet/result custody through the supported transport with 
 producer where required; controlled responses establish only their stated local contract. Preserve
 unavailable prerequisites as blocked obligations. These bounded source-provider checks are distinct
 from the retained whole-book demand and do not require re-recognizing518pages solely for re-keying.
+
+
+## Graph fidelity in preservation and the final union — I01–I07
+
+Consumes the [shared graph contract and qualification cases](graph-projections-and-analysis.md#package-investigations-migration-and-qualification--i07).
+DDO-00 carries NetworkX amendment provenance into its operation/consumer inventory and architectural
+work. The amendment changes proposed mechanism scope from compile-time-only to faithful derived
+runtime snapshots; PostgreSQL authority and accepted RC01–09 remain intact. No new rule acceptance
+or migration execution is implied by authoring.
+
+DDO-11 preserves authenticated selected source/schema/support closure when topology bookkeeping moves
+to [`BFS/DFS/edge traversal`](https://github.com/networkx/networkx/tree/networkx-3.7/networkx/algorithms/traversal).
+A traversal tree is insufficient to retain all non-tree/parallel relationships. Original acquisition,
+row/byte budgets, sealed interpretation and external-reference custody survive; retain indexed SQLite
+or native SQL where they already supply the better bounded route. No arbitrary JSON-reference crawl,
+NetworkX file-format replacement or automatic protected-reference rewrite is permitted.
+
+DDO-12 adds independently expected isolates/unresolved endpoints, parallel roles/self-loops, canonical
+ordering, nested attribute aliasing, root-inclusive impact, SCC member versus downstream blockage,
+valid recursive kinds/invalid selected execution cycles, unselected alternatives, population changes,
+equal-value cutoff, nonbarrier ready progress, wrong snapshot cursors, incomplete examined closure
+and mapping-sensitive rooted assessment. Use small
+[`path_graph`/tree/cycle/bipartite generators](https://github.com/networkx/networkx/tree/networkx-3.7/networkx/generators)
+only for topology; expected bytes/roles/outcomes are independently authored. No same-algorithm oracle.
+
+Qualify actual adopted core dispatch and conversion boundaries, including stable node-index mappings
+for existing numerical consumers. Conditional accelerators, GED, communities/rankings/cuts, compression,
+layouts and interchange are excluded from the required union unless explicitly selected later.
+Check targeted compiler/native/consumer behavior during implementation; final `uv run ci test` and
+`uv run ci check` still wait for complete functional scope and retirement. No performance measurement
+campaign or new graph-specific gate follows. These future checks are not_run at plan authoring.

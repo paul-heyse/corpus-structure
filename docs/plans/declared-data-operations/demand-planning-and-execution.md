@@ -361,3 +361,33 @@ bounded paging, streaming and backpressure provide the physical route rather tha
 **Authoring checks:** `not_run` — product tests, database/native controls and providers; this document
 defines future verification. The root performs documentation checking and turn-end maintenance
 after integrating the series.
+
+
+## Declared versus selected graphs and execution policy — I01–I03/I06
+
+Consumes [projection families](graph-projections-and-analysis.md#projection-contract-and-physical-route--i01)
+and [topology kernels](graph-projections-and-analysis.md#shared-closure-cycles-and-partial-orders--i02i03).
+DDO-05 distinguishes potential producer dependencies from actual bound-request precedence. Keep
+operation/role occurrence and alternative-group identities: A and B required together is not one
+reachable input, and unselected producer alternatives cannot impose mandatory prerequisites/cycles.
+DDO-03/04 relational binding and native obligation facts remain readiness authority.
+
+[`lexicographical_topological_sort` and `topological_generations`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/dag.py)
+produce stable explanations and dependency levels, not a new scheduler. Execute C when its B input
+settles even if unrelated A at B's level is still running. SCC/condensation diagnose genuine selected
+cycles; potential alternative cycles alone do not establish unavoidable execution blockage.
+`nx.dag.antichain_width` uses transitive closure/matching and is conditional inspection only, never
+capacity admission. Longest-path weights likewise do not create an implicit duration estimator.
+
+DDO-06 admits graph algorithms through [explicit execution/cache policy](graph-projections-and-analysis.md#execution-and-interchange--i06).
+The [3.7 dispatcher](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/utils/backends.py)
+supports `backend="networkx"`; select it for core dispatchable calls instead of ambient priorities.
+No request mutates global nx.config. Converted caches belong to immutable projection lifetimes;
+direct attribute mutation may bypass invalidation. No optional accelerator installation or nested
+pool is required. Future engine adoption shares invocation CPU/device capacity and qualifies the
+actual invocation, conversion/result route and explicit fallback/refusal policy.
+
+Add independent cases for A/B/C nonbarrier progress, selected versus unselected cycle, all-of versus
+alternative sufficiency, partial discovery, root inclusion and locked/backpressured work not becoming
+exhaustion. Runtime projection acquisition requires actual DDO-04 native support, not merely an agreed
+interface. No in-memory whole-database graph is needed to replenish the native bounded frontier.
