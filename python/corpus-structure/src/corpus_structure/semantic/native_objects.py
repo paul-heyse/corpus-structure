@@ -658,6 +658,82 @@ def normalize_native_backfill(
         savepoint.rollback()
 
 
+def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
+    """Check concrete PL/pgSQL expressions against the complete installed candidate.
+
+    The caller owns the rollback-only normalization savepoint, including any checker
+    installation. This checks static SQL, not arbitrary runtime-generated SQL or
+    semantic behavior. Frozen predecessors are historical inputs, not new authoring.
+    """
+    selected = []
+    for item in definitions:
+        if item.identity.kind != "function":
+            continue
+        metadata = connection.execute(
+            text("""SELECT l.lanname, t.typname AS result_type,
+                EXISTS (SELECT FROM unnest(p.proargtypes) argument(oid)
+                    JOIN pg_type a ON a.oid=argument.oid WHERE a.typtype='p') AS pseudo_argument
+                FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
+                JOIN pg_type t ON t.oid=p.prorettype
+                WHERE p.oid=CAST(:signature AS regprocedure)"""),
+            {"signature": item.identity.qualified},
+        ).mappings().one()
+        if metadata["lanname"] != "plpgsql":
+            continue
+        if metadata["pseudo_argument"] or metadata["result_type"] in {
+            "trigger", "event_trigger", "anyelement", "anyarray", "anynonarray",
+            "anyenum", "anyrange", "anymultirange", "anycompatible",
+            "anycompatiblearray", "anycompatiblenonarray", "anycompatiblerange",
+            "anycompatiblemultirange",
+        }:
+            raise NativeAuthoringError(
+                f"PL/pgSQL authoring check requires a concrete ordinary function context: "
+                f"{item.identity.qualified}; source={item.source}"
+            )
+        selected.append(item)
+    if not selected:
+        return
+    extension = connection.execute(text("""SELECT e.extversion, n.nspname
+        FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
+        WHERE e.extname='plpgsql_check'""")).mappings().one_or_none()
+    if extension is None:
+        available = connection.scalar(text("""SELECT EXISTS(SELECT FROM
+            pg_available_extension_versions WHERE name='plpgsql_check' AND version='2.10')"""))
+        if not available:
+            raise NativeAuthoringError(
+                "PL/pgSQL authoring requires available plpgsql_check extension version 2.10"
+            )
+        execute_native_sql(
+            connection, "CREATE EXTENSION plpgsql_check WITH SCHEMA public VERSION '2.10'"
+        )
+        schema = "public"
+    else:
+        if extension["extversion"] != "2.10":
+            raise NativeAuthoringError(
+                "PL/pgSQL authoring requires plpgsql_check extension version 2.10"
+            )
+        schema = extension["nspname"]
+    checker = _quote(schema) + ".plpgsql_check_function_tb"
+    for item in selected:
+        errors = connection.execute(
+            text(f"""SELECT sqlstate, lineno, message FROM {checker}(
+                CAST(:signature AS regprocedure), fatal_errors=>false,
+                without_warnings=>true, use_incomment_options=>false)
+                WHERE level='error' LIMIT 8"""),
+            {"signature": item.identity.qualified},
+        ).mappings().all()
+        if errors:
+            diagnostics = "; ".join(
+                f"SQLSTATE {error['sqlstate']} line {error['lineno']}: "
+                + " ".join(error["message"].split())[:500]
+                for error in errors
+            )
+            raise NativeAuthoringError(
+                f"PL/pgSQL authoring check failed for {item.identity.qualified}: "
+                f"{diagnostics}; source={item.source}"
+            )
+
+
 def prepare_native_authoring(
     connection: Connection,
     definitions: tuple[NativeDefinition, ...],
@@ -666,6 +742,7 @@ def prepare_native_authoring(
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
     owned_authoring: bool = False,
+    check_plpgsql: frozenset[NativeIdentity] = frozenset(),
 ) -> NativeAuthoring:
     """Normalize complete declared definitions in rollback-only authoring savepoints.
 
@@ -674,6 +751,9 @@ def prepare_native_authoring(
     source, never adoption of live catalog state. No implicit CASCADE is used.
     """
     _require_owned_authoring(connection, owned_authoring)
+    functions = {item.identity for item in definitions if item.identity.kind == "function"}
+    if check_plpgsql - functions:
+        raise NativeAuthoringError("PL/pgSQL check selection requires desired function identities")
     frozen_predecessor = bool(predecessor) and all(
         isinstance(item, NativeObject) for item in predecessor
     )
@@ -688,7 +768,7 @@ def prepare_native_authoring(
     scope_items = {item.identity: item for item in (*predecessor, *definitions)}
     scope = native_dependency_order(connection, tuple(scope_items))
 
-    def normalize(items):
+    def normalize(items, *, check_selected=False):
         savepoint = connection.begin_nested()
         active = None
         phase = "normalization"
@@ -731,6 +811,11 @@ def prepare_native_authoring(
                             _declared_acl(connection, item),
                             catalog_version=item.catalog_version,
                         )
+            if check_selected:
+                phase = "check PL/pgSQL static SQL"
+                _check_plpgsql_authoring(
+                    connection, tuple(item for item in items if item.identity in check_plpgsql)
+                )
             result = []
             for item in items:
                 active = item
@@ -822,7 +907,7 @@ def prepare_native_authoring(
         if frozen_predecessor
         else normalize(tuple(item for item in predecessor if isinstance(item, NativeDefinition)))
     )
-    desired = normalize(definitions)
+    desired = normalize(definitions, check_selected=True)
     return NativeAuthoring(desired, before, retire, recreate)
 
 
