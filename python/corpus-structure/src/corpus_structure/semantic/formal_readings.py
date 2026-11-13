@@ -16,9 +16,38 @@ from corpus_structure.semantic.product_reference import ProductReference
 
 
 @dataclass(frozen=True, slots=True)
+class SemanticFormalPin:
+    product: str
+
+    def values(self) -> dict[str, str]:
+        return {"product": self.product}
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticFormalReference:
+    layer: SemanticFormalPin
+    local_id: str
+
+    def values(self) -> dict[str, Any]:
+        return {"product": self.layer.product, "local_id": self.local_id}
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticFormalSource:
+    coordinate: bytes
+    projection_digest: str
+
+
+def _reference(pin, local_id):
+    if isinstance(pin, SemanticFormalPin):
+        return SemanticFormalReference(pin, local_id)
+    return annotation_reference(pin, local_id)
+
+
+@dataclass(frozen=True, slots=True)
 class FormalFieldReading:
-    reference: AnnotationReference
-    input_reference: AnnotationReference
+    reference: AnnotationReference | SemanticFormalReference
+    input_reference: AnnotationReference | SemanticFormalReference
     start: int
     end: int
     text: str
@@ -30,7 +59,7 @@ class FormalFieldReading:
 
 @dataclass(frozen=True, slots=True)
 class ComparisonBasisReading:
-    reference: AnnotationReference
+    reference: AnnotationReference | SemanticFormalReference
     start: int
     end: int
     text: str
@@ -39,13 +68,13 @@ class ComparisonBasisReading:
 
 @dataclass(frozen=True, slots=True)
 class LexicalFact:
-    reference: AnnotationReference
+    reference: AnnotationReference | SemanticFormalReference
     start: int
     end: int
     text: str
     kind: str
     value: str
-    bindings: tuple[tuple[str, AnnotationReference, str], ...] = ()
+    bindings: tuple[tuple[str, AnnotationReference | SemanticFormalReference, str], ...] = ()
 
 
 class FormalSourceReadings:
@@ -54,6 +83,33 @@ class FormalSourceReadings:
     def __init__(self, layers, source):
         self.source = source
         self._selected = tuple(_selected(layers, source))
+
+    @classmethod
+    def from_products(cls, products, source):
+        """Immediate construction input: retain exact typed facts, never parse again."""
+        from .formal_products import FrozenFormalSource, validate_formal_product
+        from .identity import canonical_bytes
+
+        selected = source.value
+        coordinate = selected["source"]
+        prepared_source = SemanticFormalSource(canonical_bytes(coordinate), coordinate["projection"])
+        retained = []
+        for product in products:
+            # The product's retained examined scope is validated under the same original
+            # source, rather than relabelling it as the consumer's requested scope.
+            body = product.value.model_dump(mode="json", exclude_unset=True)
+            if body["source"] != coordinate:
+                raise ValueError("formal construction input belongs to another original source")
+            original = FrozenFormalSource.acquire(product.prepared, {**selected, "selectors": body["selectors"]})
+            checked = validate_formal_product(product.prepared, body, original, model=product.model)
+            retained.append((SemanticFormalPin(checked.semantic_id), checked.inventory()))
+        instance = cls.__new__(cls)
+        instance.source = prepared_source
+        instance._selected = tuple(retained)
+        return instance
+
+    def fields(self, *, family: str, start: int, end: int):
+        return formal_field_readings(self, self.source, family=family, start=start, end=end)
 
 
 def _selected(layers, source):
@@ -96,7 +152,8 @@ def _extent(row, occurrences, source):
     part = parts[0]
     if (
         part.get("synthetic")
-        or part["source_view_id"] != source.source_view_id
+        or ("source_view_id" in part if isinstance(source, SemanticFormalSource)
+            else part["source_view_id"] != source.source_view_id)
         or part["projection"] != source.projection_digest
         or not isinstance(part.get("text"), str)
     ):
@@ -170,8 +227,8 @@ def formal_field_readings(
             captured_roots.add(root["local_id"])
             results.append(
                 FormalFieldReading(
-                    annotation_reference(pin, node["local_id"]),
-                    annotation_reference(pin, root["local_id"]),
+                    _reference(pin, node["local_id"]),
+                    _reference(pin, root["local_id"]),
                     part["start"],
                     part["end"],
                     part["text"],
@@ -221,7 +278,7 @@ def comparison_basis_readings(
             ):
                 results.append(
                     ComparisonBasisReading(
-                        annotation_reference(pin, node["local_id"]),
+                        _reference(pin, node["local_id"]),
                         part["start"],
                         part["end"],
                         part["text"],
@@ -267,13 +324,13 @@ def lexical_fact_readings(
                 bindings.append(
                     (
                         row["role"],
-                        annotation_reference(pin, member["local_id"]),
+                        _reference(pin, member["local_id"]),
                         member["native_label"],
                     )
                 )
             results.append(
                 LexicalFact(
-                    annotation_reference(pin, node["local_id"]),
+                    _reference(pin, node["local_id"]),
                     part["start"],
                     part["end"],
                     part["text"],

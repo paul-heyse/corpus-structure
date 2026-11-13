@@ -1,0 +1,347 @@
+id: https://corpus-structure.dev/semantic/data-operation-characterization
+name: data_operation_characterization
+prefixes:
+  dcf: https://corpus-structure.dev/semantic/data-operation-characterization/
+  xsd: http://www.w3.org/2001/XMLSchema#
+  cs: https://corpus-structure.dev/semantic/
+default_prefix: dcf
+default_range: string
+classes:
+  DdoFormalExtent:
+    is_a: SourceRecordProduct
+    description: Original native address and exact text interval, never a producing
+      task or physical source-view identifier.
+    attributes:
+      projection:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      native_pointer:
+        required: true
+        pattern: ^.+$
+      page:
+        range: integer
+        minimum_value: 1
+      start:
+        range: integer
+        minimum_value: 0
+      end:
+        range: integer
+        minimum_value: 0
+      text: {}
+      synthetic:
+        range: boolean
+        required: true
+  DdoFormalOccurrence:
+    is_a: DdoFormalMember
+    attributes:
+      local_id:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      extents:
+        range: DdoFormalExtent
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      record_type:
+        required: true
+        equals_string: occurrence
+    annotations:
+      cs:data_universe: source
+  DdoFormalCoverage:
+    is_a: SourceRecordProduct
+    attributes:
+      family:
+        required: true
+        pattern: ^formal\.
+      eligible:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+      examined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+      availability:
+        required: true
+        pattern: ^(available|unknown|unsupported|unavailable)$
+      outcome:
+        required: true
+        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+      reason: {}
+  DdoFormalScope:
+    is_a: SourceRecordProduct
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+  DdoFormalMemberContext:
+    is_a: SourceRecordProduct
+    attributes:
+      subject:
+        required: true
+        pattern: ^.+$
+      original_source:
+        required: true
+        pattern: ^.+$
+      analyzed_scope:
+        range: DdoFormalScope
+        inlined: true
+        required: true
+  DdoFormalPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+        pattern: ^.+$
+      kind_contract:
+        required: true
+        pattern: ^.+$
+      context:
+        range: DdoFormalMemberContext
+        inlined: true
+        required: true
+      body:
+        range: DdoFormalMember
+        inlined: true
+        required: true
+  DdoFormalProduct:
+    is_a: SourceRecordProduct
+    description: Positioned formal facts and packed alternatives; execution recipe/attempt/provider
+      custody is not part of meaning.
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      outcome:
+        required: true
+        pattern: ^(complete|partial|failed)$
+      coverage:
+        range: DdoFormalCoverage
+        inlined: true
+        multivalued: true
+        required: true
+      members:
+        range: DdoFormalPacket
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+    annotations:
+      cs:data_universe: source
+  DdoFormalAnnotation:
+    is_a: CharacterizationAnnotation
+    annotations:
+      cs:data_universe: source
+    attributes:
+      family:
+        required: true
+        pattern: ^formal\.
+      kind:
+        required: true
+        pattern: ^formal\.
+      status:
+        required: true
+        equals_string: native_evidence
+      vocabulary:
+        required: true
+        pattern: ^(formal-source-fields-1|formal-syntax-v1|math-source-symbol-1)$
+      record_type:
+        required: true
+        equals_string: annotation
+    rules:
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          context:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          model_answer:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          native_token:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          native_mention:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          native_edu:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          native_boundary:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          native_rst:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          navigation:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          named_match:
+            value_presence: ABSENT
+    - preconditions:
+        slot_conditions:
+          family:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          native_batch:
+            value_presence: ABSENT
+    mixins:
+    - DdoFormalMember
+    slot_usage:
+      external_premises:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      required_external_choices:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      scores:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      provenance:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+  DdoFormalMembership:
+    is_a: CharacterizationMembership
+    annotations:
+      cs:data_universe: source
+    attributes:
+      family:
+        required: true
+        pattern: ^formal\.
+      record_type:
+        required: true
+        equals_string: membership
+    mixins:
+    - DdoFormalMember
+    slot_usage:
+      required_external_choices:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+  DdoFormalTerm:
+    is_a: CharacterizationTerm
+    annotations:
+      cs:data_universe: source
+    attributes:
+      family:
+        required: true
+        pattern: ^formal\.
+      status:
+        required: true
+        pattern: ^(interpreted|unknown|implicit)$
+      record_type:
+        required: true
+        equals_string: term
+    mixins:
+    - DdoFormalMember
+    slot_usage:
+      external_premises:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      required_external_choices:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      scores:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      provenance:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+  DdoFormalChoiceMember:
+    is_a: CharacterizationChoiceMember
+    slot_usage:
+      external_premises:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      required_external_choices:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      scores:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+  DdoFormalChoice:
+    is_a: CharacterizationChoiceGroup
+    annotations:
+      cs:data_universe: source
+    attributes:
+      family:
+        required: true
+        pattern: ^formal\.
+      members:
+        range: DdoFormalChoiceMember
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      record_type:
+        required: true
+        equals_string: choice
+    mixins:
+    - DdoFormalMember
+  DdoFormalMember:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      record_type:
+        required: true
+      local_id:
+        required: true
+        pattern: ^.+$

@@ -625,6 +625,20 @@ def validate_layer_structure(
                 raise ValueError("external choice requires exact dependency closure")
             if external["local_id"] not in dependency_indexes[_pin(external["layer"])][1]:
                 raise ValueError("required external choice is not a choice member")
+    validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis)
+    if data["outcome"] == "complete" and any(
+        c["outcome"] not in {"complete", "empty"} for c in data["coverage"]
+    ):
+        raise ValueError("complete layer contains incomplete family coverage")
+    return LayerReport(canonical_bytes(data))
+
+
+def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
+    """Shared local graph closure for legacy layers and source-native formal products."""
+    def refs(values, index, label):
+        if any(value not in index for value in values):
+            raise ValueError(f"dangling {label} reference")
+
     structural = {key: [] for key in all_nodes}
     for name in ("annotations", "memberships", "roles", "terms"):
         for item in data[name]:
@@ -675,11 +689,6 @@ def validate_layer_structure(
         m["local_id"]: m.get("required_choices", ()) for g in data["choices"] for m in g["members"]
     }
     _acyclic(choice_edges, "choice dependency")
-    if data["outcome"] == "complete" and any(
-        c["outcome"] not in {"complete", "empty"} for c in data["coverage"]
-    ):
-        raise ValueError("complete layer contains incomplete family coverage")
-    return LayerReport(canonical_bytes(data))
 
 
 def validate_view(
