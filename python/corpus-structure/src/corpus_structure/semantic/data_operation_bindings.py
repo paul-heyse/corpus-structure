@@ -29,8 +29,8 @@ from .data_operation_model import (
     ResolvedOperationBinding,
     ResolvedRoleBinding,
 )
-from .identity import canonical_bytes
 from .data_operation_source_sets import FrozenSourceSet, source_sets_record
+from .identity import canonical_bytes
 
 BindingStatus = Literal[
     "ready",
@@ -248,7 +248,11 @@ def compile_binding(
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
     available_source_sets = source_sets_record(source_sets)
-    named_source_sets = {role.support.source_set for role in op.roles if role.support is not None and role.support.source_set is not None}
+    named_source_sets = {
+        role.support.source_set
+        for role in op.roles
+        if role.support is not None and role.support.source_set is not None
+    }
     if not named_source_sets <= available_source_sets.keys():
         raise ValueError("binding lacks a declared frozen source set")
     selected_source_sets = {name: available_source_sets[name] for name in sorted(named_source_sets)}
@@ -424,8 +428,14 @@ def compile_binding(
     for name, role in roles.items():
         if role.subject_field is None or name not in aliases:
             continue
-        matches = [field for field in projected[role.kind].fields if field.name == role.subject_field]
-        if len(matches) != 1 or matches[0].value_type.removeprefix("primitive:") not in {"string", "uri", "uriorcurie"}:
+        matches = [
+            field for field in projected[role.kind].fields if field.name == role.subject_field
+        ]
+        if len(matches) != 1 or matches[0].value_type.removeprefix("primitive:") not in {
+            "string",
+            "uri",
+            "uriorcurie",
+        }:
             raise ValueError("subject association requires an admitted identifier field")
         subject_columns[name] = matches[0].column
 
@@ -434,19 +444,30 @@ def compile_binding(
         association = alias.c[subject_columns.get(name, "subject")] == anchor.c.subject
         support = roles[name].support
         if support is not None and support.source_set is not None:
-            fields = [field for field in projected[roles[name].kind].fields if field.name == support.source_reference_field]
+            fields = [
+                field
+                for field in projected[roles[name].kind].fields
+                if field.name == support.source_reference_field
+            ]
             if len(fields) != 1:
                 raise ValueError("source-set policy requires its admitted reference field")
-            permitted = [and_(
-                alias.c.product == entry["product"],
-                alias.c.member.is_not_distinct_from(entry["member"]),
-                alias.c.subject == entry["subject"],
-                alias.c.original_source == entry["original_source"],
-                alias.c.analyzed_scope == entry["analyzed_scope"],
-                alias.c[fields[0].column] == entry["source_reference"],
-            ) for entry in selected_source_sets[support.source_set]]
+            permitted = [
+                and_(
+                    alias.c.product == entry["product"],
+                    alias.c.member.is_not_distinct_from(entry["member"]),
+                    alias.c.subject == entry["subject"],
+                    alias.c.original_source == entry["original_source"],
+                    alias.c.analyzed_scope == entry["analyzed_scope"],
+                    alias.c[fields[0].column] == entry["source_reference"],
+                )
+                for entry in selected_source_sets[support.source_set]
+            ]
             return and_(association, or_(*permitted))
-        return and_(association, alias.c.original_source == original_source) if original_source is not None else association
+        return (
+            and_(association, alias.c.original_source == original_source)
+            if original_source is not None
+            else association
+        )
 
     def joined_relation(filters):
         relation = anchor
@@ -495,7 +516,14 @@ def compile_binding(
         return aliases[field.role].c[matches[0].column]
 
     def primitive_type(value_type: str) -> str:
-        kind = next((item for item in model.kinds if item.semantic_id == value_type or item.name == value_type), None)
+        kind = next(
+            (
+                item
+                for item in model.kinds
+                if item.semantic_id == value_type or item.name == value_type
+            ),
+            None,
+        )
         if kind is None:
             return value_type.removeprefix("primitive:")
         facts = json.loads(kind.facts)
@@ -504,7 +532,18 @@ def compile_binding(
             primitive = "string"
         if not isinstance(primitive, str):
             raise ValueError("binding kind lacks an effective primitive: " + value_type)
-        return {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(primitive, primitive)
+        return {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(
+            primitive, primitive
+        )
+
+    def population_product(name: str, population: PopulationBinding):
+        evidence = json.loads(population.evidence)
+        product = evidence.get("product_id")
+        if product is None:
+            return true()
+        if not isinstance(product, str) or not product:
+            raise ValueError("population product identity must be a nonempty native pin")
+        return aliases[name].c.product == product
 
     def operand_value(operand: BindingOperand, *, many=False):
         if operand.kind == "field":
@@ -512,7 +551,9 @@ def compile_binding(
                 raise ValueError("field operand lacks field")
             projection = projected[roles[operand.field.role].kind]
             native = next((f for f in projection.fields if f.name == operand.field.field), None)
-            if native is None or primitive_type(native.value_type) != primitive_type(operand.value_type):
+            if native is None or primitive_type(native.value_type) != primitive_type(
+                operand.value_type
+            ):
                 raise ValueError("native projected field type mismatch")
             return field_value(operand.field)
         if operand.kind == "population":
@@ -606,7 +647,16 @@ def compile_binding(
             if node.operands[1].kind == "field":
                 raise ValueError("membership universe must be a frozen sequence or population")
             members = cast(tuple[Any, ...], operand_value(node.operands[1], many=True))
-            return and_(nested, value.in_(members))
+            product_scopes = []
+            if node.operands[1].kind == "population":
+                population_name = node.operands[1].name
+                if population_name is None:
+                    raise ValueError("population operand lacks its frozen name")
+                population = population_map[population_name]
+                product_scopes = [
+                    population_product(name, population) for name in referenced_roles(node)
+                ]
+            return and_(nested, value.in_(members), *product_scopes)
         if node.operator in {"same", "distinct"}:
             values = [aliases[name] for name in node.roles]
             clauses = [
@@ -647,6 +697,7 @@ def compile_binding(
                         aliases[name].c.member.in_(population.members)
                         if population is not None
                         else true(),
+                        population_product(name, population) if population is not None else true(),
                     )
                     for name in names
                 ),
@@ -665,7 +716,10 @@ def compile_binding(
                 nested = and_(
                     nested,
                     *(
-                        aliases[name].c.member.in_(population.members)
+                        and_(
+                            aliases[name].c.member.in_(population.members),
+                            population_product(name, population),
+                        )
                         for name in (node.roles or tuple(aliases))
                     ),
                 )
@@ -705,9 +759,7 @@ def compile_binding(
             names, scope = absence_queries[name]
             negative_relation = relation
             for peer in names:
-                negative_relation = negative_relation.join(
-                    aliases[peer], subject_condition(peer)
-                )
+                negative_relation = negative_relation.join(aliases[peer], subject_condition(peer))
             query = (
                 select(*query_columns)
                 .select_from(negative_relation)
@@ -775,6 +827,7 @@ def compile_binding(
                 subject_condition(name),
                 alias.c.kind_contract == identities[roles[name].kind, "kind"],
                 alias.c.member.in_(population.members),
+                population_product(name, population),
             )
             .scalar_subquery()
         )
@@ -877,14 +930,23 @@ def compile_binding(
             required = cast(tuple[Any, ...], operand_value(node.operands[1], many=True))
             # Coverage compares distinct typed identifiers, independently of row count,
             # multiplicity or extra selected values. Empty requirements are satisfied.
-            covered = select(func.count(func.distinct(column))).select_from(selected).where(
-                column.in_(required)
-            ).scalar_subquery()
-            checks.append(BindingCheck(
-                BindingReason("binding-covers", operation + "/binding/" + str(index),
-                              "selected field values omit required frozen values"),
-                select(covered == len(set(required))), "not-applicable",
-            ))
+            covered = (
+                select(func.count(func.distinct(column)))
+                .select_from(selected)
+                .where(column.in_(required))
+                .scalar_subquery()
+            )
+            checks.append(
+                BindingCheck(
+                    BindingReason(
+                        "binding-covers",
+                        operation + "/binding/" + str(index),
+                        "selected field values omit required frozen values",
+                    ),
+                    select(covered == len(set(required))),
+                    "not-applicable",
+                )
+            )
             continue
         names = node.roles or tuple(selected_relations)
         for name in names:
@@ -1021,43 +1083,50 @@ def decode_binding_rows(
         subject_invalid = subject_column is not None and any(
             row.get(subject_column) != compiled.subject for row in rows.get(role.name, ())
         )
-        malformed = raw_invalid or subject_invalid or any(
-            type(member.multiplicity) is not int
-            or member.multiplicity < 1
+        malformed = (
+            raw_invalid
+            or subject_invalid
             or any(
-                not isinstance(value, str) or not value
-                for value in (
-                    member.original_source,
-                    member.subject,
-                    member.product,
-                    member.kind_contract,
+                type(member.multiplicity) is not int
+                or member.multiplicity < 1
+                or any(
+                    not isinstance(value, str) or not value
+                    for value in (
+                        member.original_source,
+                        member.subject,
+                        member.product,
+                        member.kind_contract,
+                    )
                 )
-            )
-            or (role.subject_field is None and member.subject != compiled.subject)
-            or member.kind_contract != expected_kind
-            or (
-                member.position is not None
-                and (type(member.position) is not int or member.position < 0)
-            )
-            or (
-                role.support is not None
-                and "episode" in role.support.identity_requirements
-                and not member.support_episodes
-            )
-            or (
-                role.support is not None
-                and "provider" in role.support.identity_requirements
-                and (not isinstance(member.provider_identity, str) or not member.provider_identity)
-            )
-            or (
-                role.support is not None
-                and "alternative" in role.support.identity_requirements
-                and (
-                    not isinstance(member.alternative_identity, str)
-                    or not member.alternative_identity
+                or (role.subject_field is None and member.subject != compiled.subject)
+                or member.kind_contract != expected_kind
+                or (
+                    member.position is not None
+                    and (type(member.position) is not int or member.position < 0)
                 )
+                or (
+                    role.support is not None
+                    and "episode" in role.support.identity_requirements
+                    and not member.support_episodes
+                )
+                or (
+                    role.support is not None
+                    and "provider" in role.support.identity_requirements
+                    and (
+                        not isinstance(member.provider_identity, str)
+                        or not member.provider_identity
+                    )
+                )
+                or (
+                    role.support is not None
+                    and "alternative" in role.support.identity_requirements
+                    and (
+                        not isinstance(member.alternative_identity, str)
+                        or not member.alternative_identity
+                    )
+                )
+                for member in members
             )
-            for member in members
         )
         if malformed:
             statuses.append("invalid")

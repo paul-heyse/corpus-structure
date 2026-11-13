@@ -292,23 +292,63 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
 
 def test_frozen_source_sets_are_explicit_selected_operation_scope():
     from dataclasses import replace
+
     from corpus_structure.semantic.data_operation_model import InputSupport, OperationRole
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
     from corpus_structure.semantic.structural_products import ExternalSourceRef
 
     compiled = model(operation("op:result"))
     op = compiled.operations[0]
-    role = OperationRole("source", "primitive:string", "input", 1, 1, "scalar", "required", InputSupport("exact", "frozen-source-set", "whole", identity_requirements=("episode",), source_set="inputs", source_reference_field="source_ref"))
+    role = OperationRole(
+        "source",
+        "primitive:string",
+        "input",
+        1,
+        1,
+        "scalar",
+        "required",
+        InputSupport(
+            "exact",
+            "frozen-source-set",
+            "whole",
+            identity_requirements=("episode",),
+            source_set="inputs",
+            source_reference_field="source_ref",
+        ),
+    )
     compiled = replace(compiled, operations=(replace(op, roles=(role,)),))
-    reference = ExternalSourceRef(project_id="project", run_id=1, cut_id=2, release_id="release", result_revision=0,
-                                  source_view_id=3, native_task_id=4, native_product_key="native:key",
-                                  native_content_digest="a"*64, projection_digest="b"*64, recipe_digest="c"*64, coordinate_version=3)
-    entry = SourceSetEntry.from_structural_source(reference, original_source="source:foreign", subject="view:original", analyzed_scope=b'{"page":1}', product="product:one")
+    reference = ExternalSourceRef(
+        project_id="project",
+        run_id=1,
+        cut_id=2,
+        release_id="release",
+        result_revision=0,
+        source_view_id=3,
+        native_task_id=4,
+        native_product_key="native:key",
+        native_content_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        coordinate_version=3,
+    )
+    entry = SourceSetEntry.from_structural_source(
+        reference,
+        original_source="source:foreign",
+        subject="view:original",
+        analyzed_scope=b'{"page":1}',
+        product="product:one",
+    )
     scope = FrozenSourceSet("inputs", (entry,))
-    with pytest.raises(ValueError, match="lacks.*source set"):
+    with pytest.raises(ValueError, match=r"lacks.*source set"):
         freeze(compiled)
     frozen = freeze(compiled, source_sets=(scope,))
     assert frozen.record["source_sets"]["inputs"][0]["original_source"] == "source:foreign"
-    assert frozen.record["roots"] == [{"subject": "document:one", "original_source": "source:one", "analyzed_scope": {"whole": True}}]
+    assert frozen.record["roots"] == [
+        {
+            "subject": "document:one",
+            "original_source": "source:one",
+            "analyzed_scope": {"whole": True},
+        }
+    ]
     with pytest.raises(ValueError, match="exactly match"):
         freeze(compiled, source_sets=(scope, FrozenSourceSet("unused", (entry,))))

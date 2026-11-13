@@ -51,7 +51,9 @@ class BoundConsumerSelection:
         return matches[0]
 
 
-def consumer_selection_declarations(sources: tuple[PythonSource, ...]) -> tuple[SourceArtifact, ...]:
+def consumer_selection_declarations(
+    sources: tuple[PythonSource, ...],
+) -> tuple[SourceArtifact, ...]:
     """Extract only colocated literal selection contracts from captured source bytes.
 
     This explicit declaration route never imports target implementations. The
@@ -63,37 +65,52 @@ def consumer_selection_declarations(sources: tuple[PythonSource, ...]) -> tuple[
 
     from .identity import canonical_bytes
 
+    class Contracts(cst.CSTVisitor):
+        def __init__(self, module: cst.Module) -> None:
+            self.module = module
+            self.operations: list[dict] = []
+
+        def visit_ClassDef(self, node: cst.ClassDef) -> None:
+            body = node.body.body if isinstance(node.body, cst.IndentedBlock) else ()
+            values = []
+            for statement in body:
+                if not isinstance(statement, cst.SimpleStatementLine):
+                    continue
+                for small in statement.body:
+                    if isinstance(small, cst.Assign) and any(
+                        isinstance(target.target, cst.Name)
+                        and target.target.value == "__selection_operation__"
+                        for target in small.targets
+                    ):
+                        values.append(ast.literal_eval(self.module.code_for_node(small.value)))
+                    elif (
+                        isinstance(small, cst.AnnAssign)
+                        and isinstance(small.target, cst.Name)
+                        and small.target.value == "__selection_operation__"
+                    ):
+                        if small.value is None:
+                            raise ValueError("consumer selection contract lacks a literal value")
+                        values.append(ast.literal_eval(self.module.code_for_node(small.value)))
+            if len(values) > 1:
+                raise ValueError("one class cannot declare conflicting selection contracts")
+            if values:
+                operation = values[0]
+                if not isinstance(operation, dict) or operation.get("profile") != "selection":
+                    raise ValueError("consumer selection contract requires selection profile")
+                self.operations.append(operation)
+
     declarations = []
     for source in sources:
         module = cst.parse_module(source.content)
-        operations = []
-
-        class Contracts(cst.CSTVisitor):
-            def visit_ClassDef(self, node: cst.ClassDef) -> None:
-                body = node.body.body if isinstance(node.body, cst.IndentedBlock) else ()
-                values = []
-                for statement in body:
-                    if not isinstance(statement, cst.SimpleStatementLine):
-                        continue
-                    for small in statement.body:
-                        if isinstance(small, cst.Assign) and any(
-                            isinstance(target.target, cst.Name)
-                            and target.target.value == "__selection_operation__"
-                            for target in small.targets
-                        ):
-                            values.append(ast.literal_eval(module.code_for_node(small.value)))
-                if len(values) > 1:
-                    raise ValueError("one class cannot declare conflicting selection contracts")
-                if values:
-                    operation = values[0]
-                    if not isinstance(operation, dict) or operation.get("profile") != "selection":
-                        raise ValueError("consumer selection contract requires selection profile")
-                    operations.append(operation)
-
-        module.visit(Contracts())
-        if operations:
-            declarations.append(SourceArtifact(
-                "consumer-selection:" + source.module,
-                canonical_bytes({"version": "data-operation-model-v2", "operations": operations}),
-            ))
+        contracts = Contracts(module)
+        module.visit(contracts)
+        if contracts.operations:
+            declarations.append(
+                SourceArtifact(
+                    "consumer-selection:" + source.module,
+                    canonical_bytes(
+                        {"version": "data-operation-model-v2", "operations": contracts.operations}
+                    ),
+                )
+            )
     return tuple(declarations)

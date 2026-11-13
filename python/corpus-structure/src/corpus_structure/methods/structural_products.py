@@ -9,15 +9,14 @@ from __future__ import annotations
 from collections import defaultdict
 from hashlib import sha256
 from itertools import pairwise
-from typing import Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field, model_validator
 
-from corpus_structure.semantic.data_operation_bindings import BindingResult
-from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
-
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.data_operation_bindings import BindingResult
+from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 from corpus_structure.semantic.formal_readings import (
     FormalSourceReadings,
     comparison_basis_readings,
@@ -1328,159 +1327,269 @@ class StructuralComparisonMethod:
     Config = StructuralComparisonConfig
     resources = Resources()
 
-    __selection_operation__ = {'id': 'structure.compare/selection',
- 'profile': 'selection',
- 'subject': 'authored-structural-input',
- 'context': ['project', 'original-source', 'frozen-source-set', 'frozen-selection'],
- 'roles': [{'name': 'left_passage',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding',
-            'direction': 'input',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required',
-            'support': {'provenance': 'exact',
-                        'source': 'frozen-source-set',
-                        'coverage': 'qualified-selected-population',
-                        'identity_requirements': ['episode'],
-                        'source_set': 'structural-input-sources',
-                        'source_reference_field': 'source_ref'},
-            'subject_field': 'input_subject'},
-           {'name': 'right_passage',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding',
-            'direction': 'input',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required',
-            'support': {'provenance': 'exact',
-                        'source': 'frozen-source-set',
-                        'coverage': 'qualified-selected-population',
-                        'identity_requirements': ['episode'],
-                        'source_set': 'structural-input-sources',
-                        'source_reference_field': 'source_ref'},
-            'subject_field': 'input_subject'},
-           {'name': 'left_reading',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding',
-            'direction': 'input',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required',
-            'support': {'provenance': 'exact',
-                        'source': 'frozen-source-set',
-                        'coverage': 'qualified-selected-population',
-                        'identity_requirements': ['episode'],
-                        'source_set': 'structural-input-sources',
-                        'source_reference_field': 'source_ref'},
-            'subject_field': 'input_subject'},
-           {'name': 'right_reading',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding',
-            'direction': 'input',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required',
-            'support': {'provenance': 'exact',
-                        'source': 'frozen-source-set',
-                        'coverage': 'qualified-selected-population',
-                        'identity_requirements': ['episode'],
-                        'source_set': 'structural-input-sources',
-                        'source_reference_field': 'source_ref'},
-            'subject_field': 'input_subject'}],
- 'applicability': ['admitted-selected-populations'],
- 'invariants': ['original-subject-and-source-preserved'],
- 'coverage': 'qualified-selected-population',
- 'outcomes': ['selected', 'unavailable', 'invalid'],
- 'precision': 'exact',
- 'dependencies': [],
- 'effects': [],
- 'capabilities': {'forms': ['scalar'],
-                  'preparation': 'none',
-                  'cancellation': 'call-boundary',
-                  'ownership': 'immutable-selection'},
- 'behavior': 'retained-binding-selection-v1',
- 'parameters': {'left_passage_id': {'value_type': 'string'},
-                'right_passage_id': {'value_type': 'string'},
-                'left_reading_id': {'value_type': 'string'},
-                'right_reading_id': {'value_type': 'string'}},
- 'binding': {'operator': 'all',
-             'children': [{'operator': 'equal',
-                           'operands': [{'kind': 'field',
-                                         'value_type': 'DdoBindingText',
-                                         'field': {'role': 'left_reading',
-                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding',
-                                                   'field': 'passage_id'}},
-                                        {'kind': 'field',
-                                         'value_type': 'DdoBindingText',
-                                         'field': {'role': 'left_passage',
-                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding',
-                                                   'field': 'passage_id'}}]},
-                          {'operator': 'forall',
-                           'roles': ['left_reading'],
-                           'population': 'selected-left-reading',
-                           'children': [{'operator': 'equal',
-                                         'operands': [{'kind': 'field',
-                                                       'value_type': 'DdoBindingText',
-                                                       'field': {'role': 'left_reading',
-                                                                 'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding',
-                                                                 'field': 'contribution_id'}},
-                                                      {'kind': 'parameter',
-                                                       'name': 'left_reading_id',
-                                                       'value_type': 'DdoBindingText'}]}]},
-                          {'operator': 'equal',
-                           'operands': [{'kind': 'field',
-                                         'value_type': 'DdoBindingText',
-                                         'field': {'role': 'right_reading',
-                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding',
-                                                   'field': 'passage_id'}},
-                                        {'kind': 'field',
-                                         'value_type': 'DdoBindingText',
-                                         'field': {'role': 'right_passage',
-                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding',
-                                                   'field': 'passage_id'}}]},
-                          {'operator': 'forall',
-                           'roles': ['right_reading'],
-                           'population': 'selected-right-reading',
-                           'children': [{'operator': 'equal',
-                                         'operands': [{'kind': 'field',
-                                                       'value_type': 'DdoBindingText',
-                                                       'field': {'role': 'right_reading',
-                                                                 'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding',
-                                                                 'field': 'contribution_id'}},
-                                                      {'kind': 'parameter',
-                                                       'name': 'right_reading_id',
-                                                       'value_type': 'DdoBindingText'}]}]},
-                          {'operator': 'distinct', 'roles': ['left_passage', 'right_passage']},
-                          {'operator': 'distinct', 'roles': ['left_reading', 'right_reading']},
-                          {'operator': 'forall',
-                           'roles': ['left_passage'],
-                           'population': 'selected-left-passage',
-                           'children': [{'operator': 'equal',
-                                         'operands': [{'kind': 'field',
-                                                       'value_type': 'DdoBindingText',
-                                                       'field': {'role': 'left_passage',
-                                                                 'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding',
-                                                                 'field': 'passage_id'}},
-                                                      {'kind': 'parameter',
-                                                       'name': 'left_passage_id',
-                                                       'value_type': 'DdoBindingText'}]}]},
-                          {'operator': 'forall',
-                           'roles': ['right_passage'],
-                           'population': 'selected-right-passage',
-                           'children': [{'operator': 'equal',
-                                         'operands': [{'kind': 'field',
-                                                       'value_type': 'DdoBindingText',
-                                                       'field': {'role': 'right_passage',
-                                                                 'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding',
-                                                                 'field': 'passage_id'}},
-                                                      {'kind': 'parameter',
-                                                       'name': 'right_passage_id',
-                                                       'value_type': 'DdoBindingText'}]}]}]}}
+    __selection_operation__: ClassVar[dict[str, Any]] = {
+        "id": "structure.compare/selection",
+        "profile": "selection",
+        "subject": "authored-structural-input",
+        "context": ["project", "original-source", "frozen-source-set", "frozen-selection"],
+        "roles": [
+            {
+                "name": "left_passage",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                    "source_set": "structural-input-sources",
+                    "source_reference_field": "source_ref",
+                },
+                "subject_field": "input_subject",
+            },
+            {
+                "name": "right_passage",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                    "source_set": "structural-input-sources",
+                    "source_reference_field": "source_ref",
+                },
+                "subject_field": "input_subject",
+            },
+            {
+                "name": "left_reading",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                    "source_set": "structural-input-sources",
+                    "source_reference_field": "source_ref",
+                },
+                "subject_field": "input_subject",
+            },
+            {
+                "name": "right_reading",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                    "source_set": "structural-input-sources",
+                    "source_reference_field": "source_ref",
+                },
+                "subject_field": "input_subject",
+            },
+        ],
+        "applicability": ["admitted-selected-populations"],
+        "invariants": ["original-subject-and-source-preserved"],
+        "coverage": "qualified-selected-population",
+        "outcomes": ["selected", "unavailable", "invalid"],
+        "precision": "exact",
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "none",
+            "cancellation": "call-boundary",
+            "ownership": "immutable-selection",
+        },
+        "behavior": "retained-binding-selection-v1",
+        "parameters": {
+            "left_passage_id": {"value_type": "string"},
+            "right_passage_id": {"value_type": "string"},
+            "left_reading_id": {"value_type": "string"},
+            "right_reading_id": {"value_type": "string"},
+        },
+        "binding": {
+            "operator": "all",
+            "children": [
+                {
+                    "operator": "equal",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "left_reading",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding",
+                                "field": "passage_id",
+                            },
+                        },
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "left_passage",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding",
+                                "field": "passage_id",
+                            },
+                        },
+                    ],
+                },
+                {
+                    "operator": "forall",
+                    "roles": ["left_reading"],
+                    "population": "selected-left-reading",
+                    "children": [
+                        {
+                            "operator": "equal",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "DdoBindingText",
+                                    "field": {
+                                        "role": "left_reading",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding",
+                                        "field": "contribution_id",
+                                    },
+                                },
+                                {
+                                    "kind": "parameter",
+                                    "name": "left_reading_id",
+                                    "value_type": "DdoBindingText",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "equal",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "right_reading",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding",
+                                "field": "passage_id",
+                            },
+                        },
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "right_passage",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding",
+                                "field": "passage_id",
+                            },
+                        },
+                    ],
+                },
+                {
+                    "operator": "forall",
+                    "roles": ["right_reading"],
+                    "population": "selected-right-reading",
+                    "children": [
+                        {
+                            "operator": "equal",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "DdoBindingText",
+                                    "field": {
+                                        "role": "right_reading",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoReadingBinding",
+                                        "field": "contribution_id",
+                                    },
+                                },
+                                {
+                                    "kind": "parameter",
+                                    "name": "right_reading_id",
+                                    "value_type": "DdoBindingText",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {"operator": "distinct", "roles": ["left_passage", "right_passage"]},
+                {"operator": "distinct", "roles": ["left_reading", "right_reading"]},
+                {
+                    "operator": "forall",
+                    "roles": ["left_passage"],
+                    "population": "selected-left-passage",
+                    "children": [
+                        {
+                            "operator": "equal",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "DdoBindingText",
+                                    "field": {
+                                        "role": "left_passage",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding",
+                                        "field": "passage_id",
+                                    },
+                                },
+                                {
+                                    "kind": "parameter",
+                                    "name": "left_passage_id",
+                                    "value_type": "DdoBindingText",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "forall",
+                    "roles": ["right_passage"],
+                    "population": "selected-right-passage",
+                    "children": [
+                        {
+                            "operator": "equal",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "DdoBindingText",
+                                    "field": {
+                                        "role": "right_passage",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoPassageBinding",
+                                        "field": "passage_id",
+                                    },
+                                },
+                                {
+                                    "kind": "parameter",
+                                    "name": "right_passage_id",
+                                    "value_type": "DdoBindingText",
+                                },
+                            ],
+                        }
+                    ],
+                },
+            ],
+        },
+    }
 
     def select_bound(self, binding: BindingResult) -> BoundConsumerSelection:
         """Consume the target operation's retained relational selection unchanged."""
-        return BoundConsumerSelection.from_binding(binding, operation=self.__selection_operation__["id"])
+        return BoundConsumerSelection.from_binding(
+            binding, operation=self.__selection_operation__["id"]
+        )
 
     def select(self, run, cfg) -> tuple[UnitRef, ...]:
         return (UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity),) if cfg.inputs else ()

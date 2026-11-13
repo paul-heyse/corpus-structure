@@ -10,8 +10,30 @@ from corpus_structure.semantic.data_operation_model import BoundRoleMember, Reso
 
 
 def retained(operation):
-    member = BoundRoleMember("product:one", "kind:view", "view:original", "source:one", b"{}", b"{}", ("episode:one",), b"{}", member="view:member")
-    return BindingResult(operation, "document:consumer", (ResolvedRoleBinding("views", "present", (member,)),), "ready", (), b"{}", b"{}", "data-operation-model-v2", "definition:one", "eligibility:one", (b"{}",))
+    member = BoundRoleMember(
+        "product:one",
+        "kind:view",
+        "view:original",
+        "source:one",
+        b"{}",
+        b"{}",
+        ("episode:one",),
+        b"{}",
+        member="view:member",
+    )
+    return BindingResult(
+        operation,
+        "document:consumer",
+        (ResolvedRoleBinding("views", "present", (member,)),),
+        "ready",
+        (),
+        b"{}",
+        b"{}",
+        "data-operation-model-v2",
+        "definition:one",
+        "eligibility:one",
+        (b"{}",),
+    )
 
 
 def test_real_consumer_selection_handoff_preserves_exact_original_roles():
@@ -20,7 +42,12 @@ def test_real_consumer_selection_handoff_preserves_exact_original_roles():
     from corpus_structure.methods.native_evidence import NativeEvidenceMethod
     from corpus_structure.methods.structural_products import StructuralComparisonMethod
 
-    for consumer in (NativeEvidenceMethod(), M1Candidates(), StructuralComparisonMethod(), ContextualCandidates()):
+    for consumer in (
+        NativeEvidenceMethod(),
+        M1Candidates(),
+        StructuralComparisonMethod(),
+        ContextualCandidates(),
+    ):
         binding = retained(consumer.__selection_operation__["id"])
         selected = consumer.select_bound(binding)
         assert selected.binding is binding

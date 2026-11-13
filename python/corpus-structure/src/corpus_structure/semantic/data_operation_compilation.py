@@ -282,7 +282,8 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     if operator == "membership" and operands[1].kind == "field":
         _fail(operation, "membership universe requires a frozen sequence or population")
     if operator == "covers" and (
-        len(operands) != 2 or operands[0].kind != "field"
+        len(operands) != 2
+        or operands[0].kind != "field"
         or operands[1].kind not in {"parameter", "literal"}
     ):
         _fail(operation, "covers requires a qualified scalar field and frozen sequence")
@@ -595,7 +596,10 @@ def _validate_binding_fields(
             )
             if json.loads(kinds[property_id].facts)["range"] != expected:
                 _fail(owner, "operand type differs from projected field range")
-    if expression.operator in {"equal", "join", "range", "membership", "covers"} and expression.operands:
+    if (
+        expression.operator in {"equal", "join", "range", "membership", "covers"}
+        and expression.operands
+    ):
         types = {
             aliases.get(operand.value_type, operand.value_type) for operand in expression.operands
         }
@@ -1042,17 +1046,33 @@ def compile_data_operations(
                 if (source_set is None) != (source_reference_field is None):
                     _fail(semantic_id, "source sets require an explicit owned reference field")
                 if (source_set is not None) != (data.get("source") == "frozen-source-set"):
-                    _fail(semantic_id, "frozen source-set policy requires its explicit set and reference field")
+                    _fail(
+                        semantic_id,
+                        "frozen source-set policy requires its explicit set and reference field",
+                    )
                 if source_set is not None:
                     source_set = _text(source_set, semantic_id + "/source_set")
-                    source_reference_field = _text(source_reference_field, semantic_id + "/source_reference_field")
+                    source_reference_field = _text(
+                        source_reference_field, semantic_id + "/source_reference_field"
+                    )
                     prop = kinds.get(kind + "/property/" + source_reference_field)
                     facts = json.loads(prop.facts) if prop is not None else {}
-                    target = kinds.get(facts.get("range"))
+                    range_id = facts.get("range")
+                    target = kinds.get(range_id) if isinstance(range_id, str) else None
                     target_facts = json.loads(target.facts) if target is not None else {}
-                    primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
-                    if prop is None or prop.category != "property" or facts.get("multivalued") or primitive not in {"str", "string", "uri", "uriorcurie"}:
-                        _fail(semantic_id, "source reference requires an owned scalar identifier property")
+                    primitive = target_facts.get(
+                        "primitive", target_facts.get("effective_primitive")
+                    )
+                    if (
+                        prop is None
+                        or prop.category != "property"
+                        or facts.get("multivalued")
+                        or primitive not in {"str", "string", "uri", "uriorcurie"}
+                    ):
+                        _fail(
+                            semantic_id,
+                            "source reference requires an owned scalar identifier property",
+                        )
                 support = InputSupport(
                     data["provenance"],
                     _text(data.get("source"), semantic_id),
@@ -1088,7 +1108,11 @@ def compile_data_operations(
                 primitive = {"str": "string"}.get(primitive, primitive)
                 if facts.get("multivalued") or (
                     primitive not in {"string", "uri", "uriorcurie"}
-                    and not (target is not None and target.category in {"class", "enum"} and not facts.get("inlined"))
+                    and not (
+                        target is not None
+                        and target.category in {"class", "enum"}
+                        and not facts.get("inlined")
+                    )
                 ):
                     _fail(semantic_id, "subject association requires a scalar subject identifier")
             roles.append(
@@ -1158,12 +1182,17 @@ def compile_data_operations(
                 return annotation
             try:
                 node = ast.parse(annotation, mode="eval").body
-            except (SyntaxError, TypeError):
+            except SyntaxError, TypeError:
                 return annotation
-            if not (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)
-                and node.value.id == "tuple" and isinstance(node.slice, ast.Tuple)
-                and len(node.slice.elts) == 2 and isinstance(node.slice.elts[1], ast.Constant)
-                and node.slice.elts[1].value is Ellipsis):
+            if not (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "tuple"
+                and isinstance(node.slice, ast.Tuple)
+                and len(node.slice.elts) == 2
+                and isinstance(node.slice.elts[1], ast.Constant)
+                and node.slice.elts[1].value is Ellipsis
+            ):
                 return annotation
             return ast.unparse(node.slice.elts[0])
 
@@ -1188,12 +1217,16 @@ def compile_data_operations(
             by_parameter = {parameter.name: parameter for parameter in surface.parameters}
             for role in roles:
                 if role.parameter is not None and role.direction == "input":
-                    annotation_kind(logical_annotation(by_parameter[role.parameter].annotation), role)
+                    annotation_kind(
+                        logical_annotation(by_parameter[role.parameter].annotation), role
+                    )
             outputs = [role for role in roles if role.direction == "output"]
             if result_fields:
                 result_annotation: ast.expr | None = None
                 try:
-                    result_annotation = ast.parse(logical_annotation(surface.returns), mode="eval").body
+                    result_annotation = ast.parse(
+                        logical_annotation(surface.returns), mode="eval"
+                    ).body
                 except SyntaxError:
                     _fail(surface.exposed, "result correspondence requires a typed mapping return")
                 if not (

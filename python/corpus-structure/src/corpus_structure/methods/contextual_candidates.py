@@ -5,13 +5,10 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Annotated, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import DBAPIError
-
-from corpus_structure.semantic.data_operation_bindings import BindingResult
-from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
@@ -39,6 +36,8 @@ from corpus_structure.semantic.contributions import (
     occurrence_identity,
     operation_identity,
 )
+from corpus_structure.semantic.data_operation_bindings import BindingResult
+from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
@@ -732,117 +731,215 @@ class ContextualCandidates:
     Config = ContextualCandidateConfig
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__ = {'id': 'retrieve.contextual/selection',
- 'profile': 'selection',
- 'subject': 'original-source-view',
- 'context': ['project', 'original-source', 'frozen-selection'],
- 'roles': [{'name': 'view',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-            'direction': 'input',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required',
-            'support': {'provenance': 'exact',
-                        'source': 'same-original',
-                        'coverage': 'qualified-selected-population',
-                        'identity_requirements': ['episode']}},
-           {'name': 'occurrences',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding',
-            'direction': 'input',
-            'minimum': 0,
-            'maximum': None,
-            'collection': 'set',
-            'presence': 'optional',
-            'support': {'provenance': 'exact',
-                        'source': 'same-original',
-                        'coverage': 'qualified-selected-population',
-                        'identity_requirements': ['episode']},
-            'subject_field': 'view_subject'}],
- 'applicability': ['admitted-selected-populations'],
- 'invariants': ['original-subject-and-source-preserved'],
- 'coverage': 'qualified-selected-population',
- 'outcomes': ['selected', 'unavailable', 'invalid'],
- 'precision': 'exact',
- 'dependencies': [],
- 'effects': [],
- 'capabilities': {'forms': ['scalar'],
-                  'preparation': 'none',
-                  'cancellation': 'call-boundary',
-                  'ownership': 'immutable-selection'},
- 'behavior': 'retained-binding-selection-v1',
- 'parameters': {'source_product': {'value_type': 'string'},
-                'source_projection': {'value_type': 'string'},
-                'semantic_types': {'value_type': 'string', 'many': True, 'required': False},
-                'required_occurrence_ids': {'value_type': 'string',
-                                            'many': True,
-                                            'required': False}},
- 'binding': {'operator': 'all',
-             'children': [{'operator': 'equal',
-                           'operands': [{'kind': 'field',
-                                         'value_type': 'DdoBindingText',
-                                         'field': {'role': 'view',
-                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                                                   'field': 'base_product'}},
-                                        {'kind': 'parameter',
-                                         'name': 'source_product',
-                                         'value_type': 'DdoBindingText'}]},
-                          {'operator': 'equal',
-                           'operands': [{'kind': 'field',
-                                         'value_type': 'DdoBindingText',
-                                         'field': {'role': 'view',
-                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                                                   'field': 'projection_digest'}},
-                                        {'kind': 'parameter',
-                                         'name': 'source_projection',
-                                         'value_type': 'DdoBindingText'}]},
-                          {'operator': 'forall',
-                           'roles': ['occurrences'],
-                           'population': 'selected-retained-occurrences',
-                           'children': [{'operator': 'literal',
-                                         'fields': [{'role': 'occurrences',
-                                                     'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding',
-                                                     'field': 'anchors_valid'}],
-                                         'value': True},
-                                        {'operator': 'optional',
-                                         'children': [{'operator': 'membership',
-                                                       'operands': [{'kind': 'field',
-                                                                     'value_type': 'DdoBindingText',
-                                                                     'field': {'role': 'occurrences',
-                                                                               'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding',
-                                                                               'field': 'semantic_type'}},
-                                                                    {'kind': 'parameter',
-                                                                     'name': 'semantic_types',
-                                                                     'value_type': 'DdoBindingText'}]}]},
-                                        {'operator': 'optional',
-                                         'children': [{'operator': 'membership',
-                                                       'operands': [{'kind': 'field',
-                                                                     'value_type': 'DdoBindingText',
-                                                                     'field': {'role': 'occurrences',
-                                                                               'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding',
-                                                                               'field': 'occurrence_id'}},
-                                                                    {'kind': 'parameter',
-                                                                     'name': 'required_occurrence_ids',
-                                                                     'value_type': 'DdoBindingText'}]},
-                                                      {'operator': 'literal',
-                                                       'fields': [{'role': 'occurrences',
-                                                                   'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding',
-                                                                   'field': 'exact_context'}],
-                                                       'value': True}]}]},
-                          {'operator': 'optional',
-                           'children': [{'operator': 'covers',
-                                         'operands': [{'kind': 'field',
-                                                       'value_type': 'DdoBindingText',
-                                                       'field': {'role': 'occurrences',
-                                                                 'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding',
-                                                                 'field': 'occurrence_id'}},
-                                                      {'kind': 'parameter',
-                                                       'name': 'required_occurrence_ids',
-                                                       'value_type': 'DdoBindingText'}]}]}]}}
+    __selection_operation__: ClassVar[dict[str, Any]] = {
+        "id": "retrieve.contextual/selection",
+        "profile": "selection",
+        "subject": "original-source-view",
+        "context": ["project", "original-source", "frozen-selection"],
+        "roles": [
+            {
+                "name": "view",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
+                "name": "occurrences",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                },
+                "subject_field": "view_subject",
+            },
+        ],
+        "applicability": ["admitted-selected-populations"],
+        "invariants": ["original-subject-and-source-preserved"],
+        "coverage": "qualified-selected-population",
+        "outcomes": ["selected", "unavailable", "invalid"],
+        "precision": "exact",
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "none",
+            "cancellation": "call-boundary",
+            "ownership": "immutable-selection",
+        },
+        "behavior": "retained-binding-selection-v1",
+        "parameters": {
+            "source_product": {"value_type": "string"},
+            "source_projection": {"value_type": "string"},
+            "semantic_types": {"value_type": "string", "many": True, "required": False},
+            "required_occurrence_ids": {"value_type": "string", "many": True, "required": False},
+        },
+        "binding": {
+            "operator": "all",
+            "children": [
+                {
+                    "operator": "equal",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "view",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                                "field": "base_product",
+                            },
+                        },
+                        {
+                            "kind": "parameter",
+                            "name": "source_product",
+                            "value_type": "DdoBindingText",
+                        },
+                    ],
+                },
+                {
+                    "operator": "equal",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "view",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                                "field": "projection_digest",
+                            },
+                        },
+                        {
+                            "kind": "parameter",
+                            "name": "source_projection",
+                            "value_type": "DdoBindingText",
+                        },
+                    ],
+                },
+                {
+                    "operator": "forall",
+                    "roles": ["occurrences"],
+                    "population": "selected-retained-occurrences",
+                    "children": [
+                        {
+                            "operator": "literal",
+                            "fields": [
+                                {
+                                    "role": "occurrences",
+                                    "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding",
+                                    "field": "anchors_valid",
+                                }
+                            ],
+                            "value": True,
+                        },
+                        {
+                            "operator": "optional",
+                            "children": [
+                                {
+                                    "operator": "membership",
+                                    "operands": [
+                                        {
+                                            "kind": "field",
+                                            "value_type": "DdoBindingText",
+                                            "field": {
+                                                "role": "occurrences",
+                                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding",
+                                                "field": "semantic_type",
+                                            },
+                                        },
+                                        {
+                                            "kind": "parameter",
+                                            "name": "semantic_types",
+                                            "value_type": "DdoBindingText",
+                                        },
+                                    ],
+                                }
+                            ],
+                        },
+                        {
+                            "operator": "optional",
+                            "children": [
+                                {
+                                    "operator": "membership",
+                                    "operands": [
+                                        {
+                                            "kind": "field",
+                                            "value_type": "DdoBindingText",
+                                            "field": {
+                                                "role": "occurrences",
+                                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding",
+                                                "field": "occurrence_id",
+                                            },
+                                        },
+                                        {
+                                            "kind": "parameter",
+                                            "name": "required_occurrence_ids",
+                                            "value_type": "DdoBindingText",
+                                        },
+                                    ],
+                                },
+                                {
+                                    "operator": "literal",
+                                    "fields": [
+                                        {
+                                            "role": "occurrences",
+                                            "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding",
+                                            "field": "exact_context",
+                                        }
+                                    ],
+                                    "value": True,
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "children": [
+                        {
+                            "operator": "covers",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "DdoBindingText",
+                                    "field": {
+                                        "role": "occurrences",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoOccurrenceBinding",
+                                        "field": "occurrence_id",
+                                    },
+                                },
+                                {
+                                    "kind": "parameter",
+                                    "name": "required_occurrence_ids",
+                                    "value_type": "DdoBindingText",
+                                },
+                            ],
+                        }
+                    ],
+                },
+            ],
+        },
+    }
 
     def select_bound(self, binding: BindingResult) -> BoundConsumerSelection:
         """Consume the target operation's retained relational selection unchanged."""
-        return BoundConsumerSelection.from_binding(binding, operation=self.__selection_operation__["id"])
+        return BoundConsumerSelection.from_binding(
+            binding, operation=self.__selection_operation__["id"]
+        )
 
     def select(self, run, cfg):
         selected = tuple(
