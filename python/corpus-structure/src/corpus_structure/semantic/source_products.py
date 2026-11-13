@@ -61,6 +61,20 @@ def _values(model: BaseModel) -> dict[str, Any]:
     return model.model_dump(mode="json", exclude_unset=True)
 
 
+def native_projection_identity(text: str, pieces, items, recognition=()) -> str:
+    """Hash actual projected source meaning, excluding legacy diagnostic/task custody."""
+    return sha256(
+        canonical_bytes(
+            {
+                "text": text,
+                "pieces": list(pieces),
+                "items": list(items),
+                "recognition": list(recognition),
+            }
+        )
+    ).hexdigest()
+
+
 def source_subject(source: Mapping[str, Any]) -> str:
     """One original source address shared by independent characterization producers."""
     return "source-native:" + sha256(canonical_bytes(source)).hexdigest()
@@ -82,19 +96,24 @@ class FrozenNativeSource:
         checked["pieces"], checked["items"] = pieces, items
         previous = 0
         for piece in pieces:
-            if not previous <= piece["start"] <= piece["end"] <= len(text):
+            if not previous == piece["start"] < piece["end"] <= len(text):
                 raise ValueError("selected native source pieces overlap or exceed text")
             previous = piece["end"]
             if piece["kind"] == "native_text" and (
                 piece.get("item_ref") not in pointers or not piece.get("source_field")
             ):
                 raise ValueError("selected native native piece requires its original atom/field")
+        if previous != len(text):
+            raise ValueError("selected native pieces do not partition the original text")
         recognition = checked.get("recognition", [])
         if len({row["pointer"] for row in recognition}) != len(recognition) or any(
             row["pointer"] not in pointers for row in recognition
         ):
             raise ValueError("selected native recognition must name distinct original atoms")
-        projection = checked["source"]["projection"]
+        checked["recognition"] = recognition
+        projection = native_projection_identity(text, pieces, items, recognition)
+        if checked["source"]["projection"] != projection:
+            raise ValueError("selected native projection differs from actual source meaning")
         for selector in checked["selectors"]:
             if selector["projection"] != projection:
                 raise ValueError("selected native scope has another projection")
@@ -142,6 +161,14 @@ class FrozenNativeSource:
             }
             for piece in view.pieces
         ]
+        recognition = [
+            {"pointer": row["pointer"], "outcome": row["outcome"]}
+            for row in view.health.get("formula_outcomes", ())
+        ]
+        projection = native_projection_identity(view.text, pieces, atoms, recognition)
+        if any(selector["projection"] != view.ref.projection_digest for selector in selectors):
+            raise ValueError("selected native scope differs from acquired legacy projection")
+        selected = [{**selector, "projection": projection} for selector in selectors]
         return cls.acquire(
             prepared,
             dict(
@@ -149,16 +176,13 @@ class FrozenNativeSource:
                     document=document,
                     section_pointer=view.ref.section_pointer,
                     membership=view.ref.membership,
-                    projection=view.ref.projection_digest,
+                    projection=projection,
                 ),
                 text=view.text,
                 pieces=pieces,
                 items=atoms,
-                recognition=[
-                    {"pointer": row["pointer"], "outcome": row["outcome"]}
-                    for row in view.health.get("formula_outcomes", ())
-                ],
-                selectors=selectors,
+                recognition=recognition,
+                selectors=selected,
             ),
         )
 
