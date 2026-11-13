@@ -97,6 +97,18 @@ def registered_base(location: Path, acquired: str, predecessor: str) -> NativeMi
         seen.add(ancestor)
         path, fields = declarations[ancestor]
         files["versions/" + path.name] = sha256(path.read_bytes()).hexdigest()
+        # Catalog verification derives each frozen expectation through ancestry,
+        # so preserve its admission/state artifacts even for revisions not executed.
+        for kind in ("UPGRADE", "STATE", "ADMISSION"):
+            name = fields.get(f"NATIVE_{kind}_FILE")
+            if name is None:
+                continue
+            digest = fields.get(f"NATIVE_{kind}_SHA256")
+            if not isinstance(name, str) or Path(name).name != name or not isinstance(digest, str):
+                raise SemanticRefusal("invalid native resolver artifact metadata")
+            if sha256(path.with_name(name).read_bytes()).hexdigest() != digest:
+                raise SemanticRefusal("registered native resolver artifact differs: " + name)
+            files["versions/" + name] = digest
         parent = fields.get("down_revision")
         if parent is not None and not isinstance(parent, str):
             raise SemanticRefusal("native migration resolver ancestry must be linear")
