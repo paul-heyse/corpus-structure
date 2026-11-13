@@ -977,6 +977,56 @@ class Item:
                             authorize=lambda _: None)
 
 
+@pytest.mark.parametrize('mutation', [
+    '__repr__', '__eq__', '__replace__', '__hash__', '__setattr__', '__delattr__',
+    'wrapped', 'repr_closure', 'repr_wrapped_code', 'repr_running',
+    'qualname', 'match_args', 'field_behavior', 'hash_global',
+])
+def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeypatch, mutation):
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata['roles'][0]['kind'] = 'urn:test:generated-input'
+    metadata['kinds'] = [{'id': 'urn:test:generated-input',
+                          'python': 'ddo_port_' + tmp_path.name.replace('-', '_') + '.Item'}]
+    model, inputs = fixture_source(
+        tmp_path, monkeypatch, 'index: Item', 'return str(index.value)', metadata=metadata,
+        header='from dataclasses import dataclass\n@dataclass(frozen=True)\nclass Item:\n    value: int = 1',
+        profiles=('dataclasses-runtime',),
+    )
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id,
+                               authorize=lambda _: None)
+    item = port.function.__globals__['Item']
+    assert port.invoke_json((RoleValue('index', kind(model, 'index'), b'{}'),)).outputs[0].value() == '1'
+    if mutation == 'wrapped':
+        monkeypatch.setattr(item.__repr__, '__wrapped__', lambda self: 'changed')
+    elif mutation == 'repr_closure':
+        cells = dict(zip(item.__repr__.__code__.co_freevars, item.__repr__.__closure__, strict=True))
+        monkeypatch.setattr(cells['fillvalue'], 'cell_contents', 'changed')
+    elif mutation == 'repr_wrapped_code':
+        monkeypatch.setattr(item.__repr__.__wrapped__, '__code__', (lambda self: 'changed').__code__)
+    elif mutation == 'repr_running':
+        cells = dict(zip(item.__repr__.__code__.co_freevars, item.__repr__.__closure__, strict=True))
+        monkeypatch.setattr(cells['repr_running'], 'cell_contents', {(0, 0)})
+    elif mutation == 'qualname':
+        original = item.__qualname__
+        item.__qualname__ = 'Changed'
+        try:
+            with pytest.raises(PortRefusal, match='source owner differs'):
+                port.invoke_json((RoleValue('index', kind(model, 'index'), b'{}'),))
+        finally:
+            item.__qualname__ = original
+        return
+    elif mutation == 'match_args':
+        monkeypatch.setattr(item, '__match_args__', ())
+    elif mutation == 'field_behavior':
+        monkeypatch.setattr(item.__dataclass_fields__['value'], 'repr', False)
+    elif mutation == 'hash_global':
+        monkeypatch.setitem(port.function.__globals__, 'hash', lambda _: 0)
+    else:
+        monkeypatch.setattr(item, mutation, lambda *args, **kwargs: 'changed')
+    with pytest.raises(PortRefusal, match='generated dataclass'):
+        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{}'),))
+
+
 def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     owner = "ddo_port_" + tmp_path.name.replace("-", "_") + ".Item"
