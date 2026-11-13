@@ -1480,7 +1480,7 @@ class ClosedPythonSources:
                     if kind == "opaque":
                         return kind, targets
                     if kind == "instance":
-                        results = []
+                        results: list[tuple[str, tuple[str, ...]]] = []
                         for target in targets:
                             try:
                                 cls = extractor.resolve(target)
