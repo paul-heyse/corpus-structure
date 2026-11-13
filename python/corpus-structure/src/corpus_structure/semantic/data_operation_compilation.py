@@ -1107,6 +1107,20 @@ def compile_data_operations(
             if target is not None and target != role.kind:
                 _fail(owner, "semantic role kind differs from callable annotation")
 
+        def logical_annotation(annotation, raw=raw, surfaces=surfaces):
+            if raw.get("capabilities", {}).get("forms") != ["batch"] or len(surfaces) != 1:
+                return annotation
+            try:
+                node = ast.parse(annotation, mode="eval").body
+            except (SyntaxError, TypeError):
+                return annotation
+            if not (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)
+                and node.value.id == "tuple" and isinstance(node.slice, ast.Tuple)
+                and len(node.slice.elts) == 2 and isinstance(node.slice.elts[1], ast.Constant)
+                and node.slice.elts[1].value is Ellipsis):
+                return annotation
+            return ast.unparse(node.slice.elts[0])
+
         for surface in surfaces:
             parameters = {p.name for p in surface.parameters if p.name not in {"self", "cls"}}
             mapped = {role.parameter for role in roles if role.parameter is not None}
@@ -1128,12 +1142,12 @@ def compile_data_operations(
             by_parameter = {parameter.name: parameter for parameter in surface.parameters}
             for role in roles:
                 if role.parameter is not None and role.direction == "input":
-                    annotation_kind(by_parameter[role.parameter].annotation, role)
+                    annotation_kind(logical_annotation(by_parameter[role.parameter].annotation), role)
             outputs = [role for role in roles if role.direction == "output"]
             if result_fields:
                 result_annotation: ast.expr | None = None
                 try:
-                    result_annotation = ast.parse(surface.returns, mode="eval").body
+                    result_annotation = ast.parse(logical_annotation(surface.returns), mode="eval").body
                 except SyntaxError:
                     _fail(surface.exposed, "result correspondence requires a typed mapping return")
                 if not (
@@ -1149,7 +1163,7 @@ def compile_data_operations(
                 for role in outputs:
                     annotation_kind(ast.unparse(result_annotation.slice.elts[1]), role)
             elif len(outputs) == 1:
-                annotation_kind(surface.returns, outputs[0])
+                annotation_kind(logical_annotation(surface.returns), outputs[0])
         dimensions = []
         for record in raw.get("state_dimensions", []):
             record = _mapping(record, semantic_id, {"name", "values"})
