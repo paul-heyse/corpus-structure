@@ -226,6 +226,10 @@ class NativeDemandExecutor:
                         relation.c.product == member.product,
                         relation.c.member.is_not_distinct_from(member.member),
                         relation.c.subject == member.subject,
+                        relation.c.support_evidence == json.loads(member.support_evidence),
+                        relation.c.support_episodes == list(member.support_episodes),
+                        relation.c.position.is_not_distinct_from(member.position),
+                        relation.c.multiplicity == member.multiplicity,
                     )
                     rows = connection.execute(query).scalars().all()
                     if len(rows) != 1:
