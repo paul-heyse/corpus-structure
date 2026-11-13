@@ -6,6 +6,7 @@ default_prefix: dsr
 default_range: string
 classes:
   DdoSemanticProductReference:
+    is_a: SourceRecordProduct
     description: Governed semantic product address, independent of physical task and receipt custody.
     attributes:
       product_id: {required: true, pattern: '^.+$'}
