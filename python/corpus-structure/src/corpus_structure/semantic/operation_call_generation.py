@@ -684,7 +684,7 @@ def render_operation_calls(model, metadata=None):
 
 
 def render_call_bindings(
-    calls, metadata=None, *, identifiers_module="._operation_ids", context_validator=None, value_base=None, row_base=None
+    calls, metadata=None, *, identifiers_module="._operation_ids", context_validator=None, value_base=None, row_base=None, wire_schemas=None
 ):
     """Emit already resolved immutable correspondences, irrespective of their model owner."""
     out = [
@@ -695,7 +695,7 @@ def render_call_bindings(
         "from collections.abc import Sequence",
         "from datetime import datetime",
         "from decimal import Decimal",
-        "from typing import Annotated, Literal, Protocol, TypedDict, cast",
+        "from typing import Annotated, " + ("ClassVar, " if wire_schemas else "") + "Literal, Protocol, TypedDict, cast",
         "",
         "from pydantic import Field, JsonValue, TypeAdapter",
         "from sqlalchemy import (ARRAY, BigInteger, Boolean, Column, Connection, DateTime, "
@@ -880,6 +880,8 @@ def render_call_bindings(
                     else "(OperationResult):"
                 )
             ]
+            if wire_schemas and (schema := wire_schemas.get(call.id, {}).get("output")) is not None:
+                out += [f"    __wire_schema__: ClassVar[bytes | None] = {schema!r}"]
             json_fields = tuple(
                 f.name
                 for f in call.result_fields
@@ -891,6 +893,8 @@ def render_call_bindings(
                 f"    {f.name}: {field_type(f, json_text=json_text)}" for f in call.result_fields
             ]
         out += ["", f"class {request_class}(OperationResult):"]
+        if wire_schemas and (schema := wire_schemas.get(call.id, {}).get("input")) is not None:
+            out += [f"    __wire_schema__: ClassVar[bytes | None] = {schema!r}"]
         out += [
             f"    {f.name}: {request_type(f)}"
             + ("" if f.default_json is None else " = " + repr(json.loads(f.default_json)))
