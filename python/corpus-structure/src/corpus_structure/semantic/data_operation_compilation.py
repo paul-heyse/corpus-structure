@@ -625,6 +625,24 @@ def _validate_literal(
 
     facts = json.loads(kind.facts)
     prop_facts = json.loads(property_kind.facts)
+    wire_schema = prop_facts.get("json_schema", facts.get("json_schema"))
+    if wire_schema is not None:
+        from .data_operation_wire import validate_wire_schema
+        def wire_json(value):
+            # The semantic sequence codec uses tuples internally; this explicit
+            # wire lowering restores JSON arrays without converting typed values.
+            if isinstance(value, tuple):
+                return [wire_json(item) for item in value]
+            if isinstance(value, dict):
+                return {name: wire_json(item) for name, item in value.items()}
+            return value
+        if expression.value is None:
+            _fail(owner, "typed binding literal requires an explicit value")
+        try:
+            validate_wire_schema(wire_schema, wire_json(decode(json.loads(expression.value))))
+        except (TypeError, ValueError) as exc:
+            _fail(owner, "typed binding literal violates its effective wire field contract: " + str(exc))
+        return
     prop = PropertyDefinition(
         **{field.name: prop_facts[field.name] for field in fields(PropertyDefinition)}
     )

@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 import yaml
 from jsonschema import Draft7Validator
-from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import SchemaError, ValidationError
 from pydantic import JsonValue, TypeAdapter
 
 from .identity import canonical_bytes
@@ -68,12 +68,14 @@ def _references(value: Any) -> set[str]:
         return set()
     if not isinstance(value, dict):
         raise ValueError("native wire schema position must contain a schema")
+    if value.get("$schema", DRAFT7) != DRAFT7:
+        raise ValueError("native wire schemas require a single Draft7 dialect")
     if "$id" in value:
         raise ValueError("native wire schemas cannot change the local reference scope")
     result = set()
     if "$ref" in value:
         reference = value["$ref"]
-        if not isinstance(reference, str) or not reference.startswith("#/definitions/") or "/" in reference.removeprefix("#/definitions/"):
+        if not isinstance(reference, str) or not reference.startswith("#/definitions/") or "/" in reference.removeprefix("#/definitions/") or "~" in reference.removeprefix("#/definitions/"):
             raise ValueError("native wire schemas allow only closed local definition references")
         result.add(reference.removeprefix("#/definitions/"))
     for key in ("properties", "patternProperties", "definitions"):
@@ -95,15 +97,17 @@ def _references(value: Any) -> set[str]:
 
 def checked_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Validate the selected dialect and resolve no remote/implicit resource."""
+    if not isinstance(schema, dict):
+        raise ValueError("native wire kind requires an object schema")
     if schema.get("$schema", DRAFT7) != DRAFT7:
         raise ValueError("native wire schema requires Draft7")
-    definitions = schema.get("definitions", {})
-    if not isinstance(definitions, dict) or not _references(schema) <= definitions.keys():
-        raise ValueError("unresolved local native wire schema reference")
     try:
         Draft7Validator.check_schema(schema)
     except SchemaError as exc:
         raise ValueError("invalid Draft7 wire schema: " + exc.message) from exc
+    definitions = schema.get("definitions", {})
+    if not isinstance(definitions, dict) or not _references(schema) <= definitions.keys():
+        raise ValueError("unresolved local native wire schema reference")
     return schema
 
 
@@ -154,7 +158,11 @@ def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
     snapshot = canonical_bytes(checked)  # also excludes non-finite JSON numbers
     result = json.loads(snapshot)
     encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
-    _validator(encoded).validate(result)
+    try:
+        _validator(encoded).validate(result)
+    except ValidationError as exc:
+        path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
+        raise ValueError("native wire violates schema at " + path + ": " + exc.message) from exc
     return result
 
 

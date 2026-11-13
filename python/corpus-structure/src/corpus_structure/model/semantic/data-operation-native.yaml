@@ -336,12 +336,17 @@ definitions:
         $ref: '#/definitions/tagged_mapping'
       inference:
         $ref: '#/definitions/identifier'
+      populations:
+        type: array
+        items:
+          $ref: '#/definitions/population_reference'
     required:
     - inputs
     - support
     - parameters
     - request_inputs
     - inference
+    - populations
     additionalProperties: false
   coordinate:
     type: object
@@ -605,11 +610,17 @@ definitions:
         $ref: '#/definitions/identifier'
       trust_snapshot:
         $ref: '#/definitions/trust_snapshot'
+      population_id:
+        $ref: '#/definitions/identifier'
+      admission_use_id:
+        $ref: '#/definitions/identifier'
     required:
     - product_id
     - derivation_id
     - member_role
     - trust_snapshot
+    - population_id
+    - admission_use_id
     additionalProperties: false
   population:
     type: object
@@ -631,6 +642,8 @@ definitions:
         type: boolean
       evidence:
         $ref: '#/definitions/population_evidence'
+      semantic_key:
+        $ref: '#/definitions/identifier'
     required:
     - id
     - population_id
@@ -639,6 +652,7 @@ definitions:
     - members
     - complete
     - evidence
+    - semantic_key
     additionalProperties: false
   result_product:
     type: object
@@ -759,6 +773,10 @@ definitions:
         $ref: '#/definitions/identifier'
       execution_profile:
         $ref: '#/definitions/identifier'
+      populations:
+        type: array
+        items:
+          $ref: '#/definitions/population_reference'
     required:
     - inputs
     - support
@@ -766,6 +784,7 @@ definitions:
     - request_inputs
     - inference
     - execution_profile
+    - populations
     additionalProperties: false
   result_obligation:
     type: object
@@ -990,12 +1009,15 @@ definitions:
         minItems: 0
       evidence:
         $ref: '#/definitions/population_evidence'
+      semantic_key:
+        $ref: '#/definitions/identifier'
     required:
     - population_id
     - name
     - complete
     - members
     - evidence
+    - semantic_key
     additionalProperties: false
   attach_data_request_request:
     type: object
@@ -1442,6 +1464,20 @@ definitions:
     - obligations
     - populations
     - continuation
+    additionalProperties: false
+  population_reference:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      name:
+        $ref: '#/definitions/identifier'
+      population_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - role
+    - name
+    - population_id
     additionalProperties: false
 operations:
 - name: register_data_demand
