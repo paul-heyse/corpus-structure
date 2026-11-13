@@ -162,7 +162,6 @@ classes:
       artifact_digest: {range: string, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
-      unique_0: {unique_key_slots: [kind_contract, project_id, subject, original_source, body_digest]}
     annotations:
       ph:read_roles: '[]'
       ph:immutability: intrinsic

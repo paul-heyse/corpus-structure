@@ -1588,7 +1588,7 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
             {"id": fence["task_id"]},
         ).one()
         assert physical.status == "pending"
-        assert physical.claimed_by is None and physical.lease_until is None
+        assert physical.claimed_by == fence["holder"] and physical.lease_until is None
         assert physical.error["data_attempt_failure"] == released["failure_id"]
         current = storage.invoke("read_demand_result", demand)
         assert current["uses"][0]["fate"] == "attached"

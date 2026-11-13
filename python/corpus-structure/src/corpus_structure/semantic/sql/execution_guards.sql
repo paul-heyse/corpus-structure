@@ -14,7 +14,7 @@ BEGIN
     IF NEW.attempt<>OLD.attempt+1 OR NEW.status<>'running' OR nullif(NEW.claimed_by,'') IS NULL OR NEW.lease_until IS NULL OR NEW.lease_until<=clock_timestamp()
     OR OLD.status NOT IN ('pending','running') OR (OLD.status='running' AND (OLD.lease_until IS NULL OR OLD.lease_until>clock_timestamp())) THEN RAISE EXCEPTION 'invalid data claim fence'; END IF;
    ELSIF NEW.claimed_by IS DISTINCT FROM OLD.claimed_by THEN RAISE EXCEPTION 'data holder requires new attempt';
-   ELSIF NEW.status<>OLD.status AND NOT (OLD.status='running' AND NEW.status IN ('done','empty','failed','cancelled')) THEN RAISE EXCEPTION 'invalid data task transition'; END IF;
+   ELSIF NEW.status<>OLD.status AND NOT (OLD.status='running' AND NEW.status IN ('pending','done','empty','failed','cancelled')) THEN RAISE EXCEPTION 'invalid data task transition'; END IF;
   END IF;
   IF NEW.status='running' AND (NEW.attempt<=0 OR NEW.claimed_by IS NULL OR NEW.lease_until IS NULL) THEN RAISE EXCEPTION 'data running task requires exact fence'; END IF;
   IF NEW.status<>'running' AND NEW.lease_until IS NOT NULL THEN RAISE EXCEPTION 'data terminal task retains lease'; END IF;

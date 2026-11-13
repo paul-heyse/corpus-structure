@@ -814,7 +814,9 @@ BEGIN
  RETURN ops.ddo_lost_attempt(p,'fence'); END IF;
  key:='attempt-failure:'||ops.ddo_digest(p);
  INSERT INTO ops.data_attempt_failure VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->'failure',clock_timestamp(),pg_current_xact_id()::text);
- UPDATE ops.task SET status='pending',claimed_by=NULL,lease_until=NULL,finished_at=NULL,
+ -- Holder remains immutable attribution for this retired attempt. Pending with
+ -- no lease is reclaimable only through the next incremented attempt fence.
+ UPDATE ops.task SET status='pending',lease_until=NULL,finished_at=NULL,
  error=jsonb_build_object('data_attempt_failure',key,'failure',p->'failure') WHERE id=t.id;
  END IF;
  SELECT id INTO retained FROM ops.data_completion_intent WHERE request_id=r.id AND generation=(p->>'generation')::integer;
