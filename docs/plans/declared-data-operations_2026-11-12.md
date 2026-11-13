@@ -894,22 +894,42 @@ The assembled implementation now includes:
   support substitution/invalid-intent generation recovery and pinned continuation controls.
   Runtime/native evidence is required before their package obligations close.
 
-**Intermediate assembled checks · 2026-11-13:** the focused compiler/source/port/consumer/CPU
-selection **passed 253/253**, `c225794b38e045c795ffc06652d76365`. Port/outcome checks
-**passed 45/45**, `36dd61a1360345d1acab4eae517003e1`; prepared product families **passed
-56/56**, `5d8aad0f951641ee896ed84be7fb9f7f`; typed population association **passed 13/13**,
-`04adbe5a99444fca9e8e4baa9dc47bf8`. Pyrefly **passed**,
-`dc7d241a477640be90133991f47bc23b`. Subsequent source/context refinements require affected
-reassessment; these receipts retain their original selections and are not final qualification.
+**Current assembled checks · 2026-11-13:** source/compiler/identity/binding/ports/planner/CPU
+checks **passed 296/296**, `b0a886ec084441fab287c5b2644f0786`. Prepared product families
+**passed 57/57**, `bfe48e3b290748e091f3cf2b296bdf13`, including actual spaCy and canonical
+CPU controls; controlled HanLP behavior does not establish actual provider execution. Wire,
+parameters, source-set, preparation and consumer checks **passed 50/50**,
+`dfac6b0e387049d19d0629fc0a71fc4c`. Current binding, null-context, command/authoring and
+checker controls **passed 73/73**, `f7fe163768034b33ba2ae3014652b2ec`. Full repository
+`uv run ci check --json` **passed**, `0b4fd0a8679b442287303c34e89a7ee4`. Later documentation
+changes require their publication check; these receipts preserve their actual source and scope.
 
-The never-deployed archive-v1 registration failed clean migration replay because its predecessor
-collector omitted schema-wide grants from frozen Python wrappers. The files remain unchanged
-in [authoring evidence](../design_review/evidence/2026-11-13_ddo-archive-composition/README.md),
-outside the active Alembic path. Corrected clean predecessor acquisition **passed 7/7**,
-`947ec01d14064464ac4dc1b23b9932de`. Normal rollback-only authoring targets archive-v2;
-registration then enables the actual native publication, consumer, discovery/recovery and
-production-callable journeys. The persistent development database remains at
-`semantic_bep_located_v2`; DDO-11 owns deployment/adoption/activation.
+The [authoring evidence](../design_review/evidence/2026-11-13_ddo-archive-composition/README.md)
+owns frozen revisions and all failed/superseded attempts. Invalid never-deployed archive-v1 bytes
+remain unchanged outside active Alembic discovery. Corrected v2 and ordinary v3 remain frozen;
+actual runtime checks exposed two deferred SQL precedence errors and a fixture kind-shadowing
+error. Source repairs also distinguish population variables from support aliases and project
+computational episode IDs from mixed-origin support without discarding original references.
+
+Final desired DDO functions now receive active PostgreSQL embedded-SQL type checking through
+plpgsql_check during rollback-only authoring. Explicit inventory selection preserves frozen
+predecessor meaning, native ACLs and extension lifetime; bounded diagnostics expose unexamined
+scope. This catches static typing errors, not arbitrary runtime dynamic SQL or semantic truth.
+[The database owner](../design/D3-database.md#postgresql-capability-realization) records the
+mechanism and limits. The scope binder uses SQLAlchemy `JSON.NULL` to distinguish explicit
+JSON-null context from an omitted SQL-NULL projection parameter, leaving typed body/parameter
+null meanings unchanged.
+
+Archive-v4 preview `ad0a9ebb043b4e2aa6f034819c87956b`, rollback-only candidate
+`b725cb7122424cdc8bc6bb0e458f3849` and registration `aa6793ea4ce64363b768d699fe0d2180`
+**passed**. The critical native/production selection **passed 7/7** (six native journeys and
+one independent production-preparation control), `78a4a3930af741adb9f2e40f51043418`: atomic/exact overlapping publication, precise fractional
+context, genuine JSON-null product binding, discovery/closed fan-in/pinned resume and unchanged
+production `claim_source_item` execution with settled resume. The complete native union
+`0aaa980a87bc415f8c6c682ebacd2214` is running; package and audit-finding acceptance remain open
+until that union and final disposition are reconciled. The persistent development database
+remains `semantic_bep_located_v2`; plpgsql_check was not left installed there. DDO-11 owns
+persistent deployment/adoption/activation.
 
 ## Completion and current next action
 

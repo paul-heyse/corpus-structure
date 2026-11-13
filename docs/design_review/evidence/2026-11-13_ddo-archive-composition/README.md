@@ -1,6 +1,6 @@
 # Typed archive and declared input composition
 
-**Registered through v3; native qualification open · 2026-11-13.** This normal forward successor follows
+**Registered through v4; native union qualification open · 2026-11-13.** This normal forward successor follows
 `semantic_ddo_original_v1`, retaining complete original-source model content while replacing
 the oversized whole-archive JSONB transport. It also integrates concrete nominal input
 refinement, owned nested subject paths and genuine runless PDF staging foundations.
@@ -120,3 +120,18 @@ PostgreSQL binding/comparison controls and the combined binding selection **pass
 parameter/predicate control: current authentic original-source builders emit object scopes, and
 no null original admission was fabricated. A genuine computational null-root native journey is
 part of the pending v4 union.
+
+
+## Accepted v4 authoring and current qualification
+
+Refreshed preview `ad0a9ebb043b4e2aa6f034819c87956b`, rollback-only candidate
+`b725cb7122424cdc8bc6bb0e458f3849` and registration `aa6793ea4ce64363b768d699fe0d2180`
+**passed**. This checked successor after v3 changes four native functions and no ordinary
+physical operation. Critical native/production controls **passed 7/7** (six native journeys and
+one production-preparation control),
+`78a4a3930af741adb9f2e40f51043418`, including authentic publication/replay, actual production
+callable execution/resume, closed discovery fan-in and exact fractional/null context binding.
+The complete native union remains open. `ci db status --maintenance` confirmed the working
+database remains at `semantic_bep_located_v2` with checkout head v4. Read-only PostgreSQL
+extension metadata also confirmed plpgsql_check is absent after candidate rollback; no deployment
+or activation occurred.
