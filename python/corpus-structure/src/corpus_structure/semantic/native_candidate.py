@@ -60,7 +60,7 @@ def _context_definition(connection, sql, *, source):
 
 
 # Existing PDF declarations join the forward native object lifecycle when this scope
-# starts owning their semantics. Their predecessor is always the frozen0065 source.
+# starts owning their semantics. Their predecessor is the frozen source prefix through0065.
 _PDF_PAYLOAD_FUNCTIONS = frozenset(
     {
         # Bounded historical prerequisites now owned by the genuine request/run
@@ -167,6 +167,106 @@ def _pdf_payload_definitions(connection, sql, *, source, current_source=False):
         # is the source authority, while the inventory carries its cumulative ACL.
         definitions[definition.identity] = definition
     return tuple(definitions.values())
+
+
+def _pdf_predecessor_declarations(paths, *, owner):
+    """Project bounded PDF prerequisites from the complete frozen baseline prefix.
+
+    A later revision can inherit a function without repeating its CREATE. Native
+    inventory applies later ACL/owner changes and explicit overload retirement;
+    declarations retain the precise frozen file that last authored their body.
+    """
+    from pglast import enums
+
+    from .native_function_signatures import function_signature, remove_output_signature_aliases
+    from .native_inventory import (
+        _object_signature,
+        function_descriptor,
+        update_function_inventory,
+    )
+
+    inventory, declarations = {}, {}
+    for path in sorted(paths):
+        prepared = prepare_sql(
+            path.read_text().replace("__MIGRATION_OWNER__", owner), source=path.name
+        )
+        remove_output_signature_aliases(inventory, prepared.statements)
+        current_owner = owner
+        for index, raw in enumerate(prepared.statements):
+            statement = raw.stmt
+            if (
+                isinstance(statement, ast.DropStmt)
+                and statement.removeType == enums.ObjectType.OBJECT_FUNCTION
+            ):
+                # Replay exact frozen overload retirement before a later CREATE;
+                # otherwise the recreated function would inherit stale owner/ACL facts.
+                for obj in statement.objects or ():
+                    if not isinstance(obj, ast.ObjectWithArgs) or obj.args_unspecified:
+                        raise NativeAuthoringError(
+                            f"{path.name}: frozen PDF predecessor requires exact DROP identity"
+                        )
+                    signature = _object_signature(obj)
+                    inventory.pop(signature, None)
+                    declarations.pop(signature, None)
+                continue
+            if not isinstance(statement, ast.CreateFunctionStmt):
+                update_function_inventory(inventory, prepared.excerpt(index), owner=current_owner)
+                if (
+                    isinstance(statement, ast.VariableSetStmt)
+                    and statement.name == "role"
+                    and statement.args
+                    and isinstance(statement.args[0].val, ast.String)
+                ):
+                    current_owner = statement.args[0].val.sval
+                continue
+            signature = function_signature(statement)
+            inventory[signature] = function_descriptor(
+                statement, inventory.get(signature, {}), owner=current_owner
+            )
+            name = tuple(part.sval for part in statement.funcname or ())
+            if len(name) != 2 or name[0] != "ops" or name[1] not in _PDF_PAYLOAD_FUNCTIONS:
+                continue
+            declaration = prepared.excerpt(index)
+            if not statement.replace:
+                declaration = declaration.replace(
+                    "CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1
+                )
+            declarations[signature] = (path.name, declaration)
+    return tuple(
+        (source, declaration, inventory[signature])
+        for signature, (source, declaration) in declarations.items()
+        if signature in inventory
+    )
+
+
+def _pdf_predecessor_definitions(connection):
+    from .migrations import ALEMBIC_DIR
+
+    owner = semantic_namespace_owner(connection)
+    # 0065 is the declared historical PDF baseline. Newer native snapshots are
+    # already supplied by _predecessor_source and never inferred from live bodies.
+    paths = tuple(
+        path
+        for path in ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")
+        if int(path.name.split("_")[1]) <= 65
+    )
+    result = []
+    for source, sql, facts in _pdf_predecessor_declarations(paths, owner=owner):
+        definition = definition_from_sql(
+            connection,
+            sql,
+            source=source,
+            owner=facts["owner"],
+            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]),
+        )
+        if definition.owner == owner:
+            definition = replace(
+                definition,
+                bind_owner=True,
+                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+            )
+        result.append(definition)
+    return tuple(result)
 
 
 def _publication_view_definitions(connection, sql, *, source):
@@ -542,7 +642,7 @@ def series_predecessor_definitions(connection):
     return (
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
-        *_pdf_payload_definitions(connection, sql, source=path.name),
+        *_pdf_predecessor_definitions(connection),
         *_publication_view_definitions(connection, sql, source=path.name),
         *_execution_task_definitions(
             connection,
