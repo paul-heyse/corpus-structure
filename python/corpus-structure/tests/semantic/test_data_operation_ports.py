@@ -1027,6 +1027,26 @@ def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeyp
         port.invoke_json((RoleValue('index', kind(model, 'index'), b'{}'),))
 
 
+@pytest.mark.parametrize('declaration', ['1', 'field(default=1)', 'field(default_factory=make_value)', None])
+def test_generated_dataclass_refuses_changed_class_field_value(tmp_path, monkeypatch, declaration):
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata['roles'][0]['kind'] = 'urn:test:generated-input'
+    metadata['kinds'] = [{'id': 'urn:test:generated-input',
+                          'python': 'ddo_port_' + tmp_path.name.replace('-', '_') + '.Item'}]
+    suffix = '' if declaration is None else ' = ' + declaration
+    model, inputs = fixture_source(
+        tmp_path, monkeypatch, 'index: Item', 'return str(index.value)', metadata=metadata,
+        header='from dataclasses import dataclass, field\ndef make_value() -> int:\n    return 1\n'
+               '@dataclass\nclass Item:\n    value: int' + suffix,
+        profiles=('dataclasses-runtime',),
+    )
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id,
+                               authorize=lambda _: None)
+    monkeypatch.setattr(port.function.__globals__['Item'], 'value', 9, raising=False)
+    with pytest.raises(PortRefusal, match='class field'):
+        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":3}'),))
+
+
 def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     owner = "ddo_port_" + tmp_path.name.replace("-", "_") + ".Item"

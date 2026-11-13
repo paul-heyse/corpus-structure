@@ -1392,6 +1392,21 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
             )
         return actual == modeled
 
+    declared_fields = {
+        declaration.target.id for declaration in node.body
+        if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name)
+    }
+    for name, field in actual_fields.items():
+        # Standard transformation removes field()/required declarations without
+        # a literal default. An inherited field keeps the captured base owner;
+        # adding an own shadow changes class-level reads independently of init.
+        owns_default = name in declared_fields and field.default is not dataclasses.MISSING
+        if owns_default:
+            if name not in vars(value) or not same_default(vars(value)[name], field.default):
+                raise PortRefusal("generated dataclass class field default differs")
+        elif name in vars(value):
+            raise PortRefusal("generated dataclass acquired an undeclared class field value")
+
     if not same_default(value.__init__.__defaults__, expected.__init__.__defaults__):
         raise PortRefusal("generated dataclass constructor defaults differ")
     actual_keywords = value.__init__.__kwdefaults__
