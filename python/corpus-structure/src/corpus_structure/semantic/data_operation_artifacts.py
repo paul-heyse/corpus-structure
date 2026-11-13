@@ -11,9 +11,9 @@ from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 
-from .contracts import OperationCallBinding
+from .contracts import OperationCallBinding, OperationFieldBinding
 from .data_operation_identity import ENCODING_VERSION
-from .data_operation_model import EffectiveDataOperationModel
+from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, OperationRole
 from .identity import canonical_bytes
 from .operation_call_generation import render_call_bindings, render_call_identifiers
 from .types import SourceArtifact
@@ -79,15 +79,9 @@ def compile_data_operation_artifacts(
         operation = model.operation(owner)
         if not any(i.owner == owner and i.domain == "recipe" for i in model.identities):
             raise ValueError("native correspondence requires a complete effective recipe")
-        for direction, fields in (("input", call.parameters), ("output", call.result_fields)):
-            roles = tuple(r for r in operation.roles if r.direction == direction)
-            if {r.parameter or r.name for r in roles} != {f.name for f in fields}:
-                raise ValueError("native fields differ from effective operation role correspondence")
-        if not call.source_digest or any(
-            field.resolved is None
-            for field in (*call.parameters, *call.result_fields, *(f for r in call.records for f in r.fields))
-        ):
-            raise ValueError("native correspondence must have closed resolved source fields")
+        _validate_native_correspondence(model, operation, call)
+        if call.source_digest != native_source_digest:
+            raise ValueError("native correspondence source identity differs from captured source")
     records = tuple((owner, asdict(call)) for owner, call in calls)
     correspondence = sha256(canonical_bytes(records)).hexdigest()
     source = render_call_bindings(
@@ -95,6 +89,7 @@ def compile_data_operation_artifacts(
         identifiers_module=".data_operation_ids",
         context_validator=(".data_operation_admission", "require_data_operation_call_context"),
         value_base=(".data_operation_ports", "DataOperationWireValue"),
+        row_base=(".data_operation_ports", "DataOperationNativeRow"),
     ).encode()
     identifiers = render_call_identifiers(calls).encode()
     manifest = canonical_bytes(
@@ -114,3 +109,70 @@ def compile_data_operation_artifacts(
         }
     )
     return DataOperationArtifacts(manifest, source, identifiers)
+
+
+# This finite lowering is deliberately narrower than the model's kind system.
+# An object/enum/nullable/collection correspondence needs its own faithful typed
+# lowering; assigning JSON or a familiar Python alias is not such a lowering.
+_NATIVE_PRIMITIVES = {
+    "string": "string", "integer": "integer", "boolean": "boolean",
+    "float": "float", "double": "float", "decimal": "decimal",
+    "datetime": "timestamp", "bytes": "bytes", "json": "json_payload",
+}
+
+
+def _validate_native_correspondence(
+    model: EffectiveDataOperationModel, operation: EffectiveOperation, call: OperationCallBinding
+) -> None:
+    if call.backend != "native":
+        raise ValueError("native artifact needs an explicitly admitted physical backend lowering")
+    if not call.source_digest or any(
+        field.resolved is None
+        for field in (*call.parameters, *call.result_fields, *(f for r in call.records for f in r.fields))
+    ):
+        raise ValueError("native correspondence must have closed resolved source fields")
+    for direction, fields in (("input", call.parameters), ("output", call.result_fields)):
+        roles = tuple(r for r in operation.roles if r.direction == direction)
+        if len({r.parameter or r.name for r in roles}) != len(roles) or {r.parameter or r.name for r in roles} != {f.name for f in fields} or len({f.name for f in fields}) != len(fields):
+            raise ValueError("native fields differ from effective operation role correspondence")
+        by_name = {field.name: field for field in fields}
+        for role in roles:
+            _validate_native_role(model, role, by_name[role.parameter or role.name])
+    outputs = tuple(r for r in operation.roles if r.direction == "output")
+    if call.ordered or call.order_by:
+        raise ValueError("scalar native completion cannot invent collection order")
+    if call.records:
+        raise ValueError("nested native records require an explicit typed kind lowering")
+    if outputs:
+        if call.cardinality != "one" or call.result_mode not in {"scalar", "json", "table"}:
+            raise ValueError("native completion cardinality differs from required scalar output roles")
+        if call.result_mode == "scalar" and len(outputs) != 1:
+            raise ValueError("native scalar completion requires exactly one output role")
+        if call.result_mode in {"json", "table"} and not call.result_class:
+            raise ValueError("native structured completion requires a typed result class")
+        if call.result_mode == "json" and any(field.resolved is None or field.resolved.kind != "json_payload" for field in call.result_fields):
+            raise ValueError("native JSON object fields need an explicit typed JSON lowering")
+    elif call.cardinality != "none" or call.result_mode != "void":
+        raise ValueError("native completion invents an undeclared result")
+
+
+def _validate_native_role(
+    model: EffectiveDataOperationModel, role: OperationRole, field: OperationFieldBinding
+) -> None:
+    kind = next(k for k in model.kinds if k.semantic_id == role.kind)
+    facts = json.loads(kind.facts)
+    primitive = facts.get("primitive") if kind.category == "primitive" else None
+    native = _NATIVE_PRIMITIVES.get(primitive) if isinstance(primitive, str) else None
+    resolved = field.resolved
+    if native is None or resolved is None or resolved.kind != native:
+        raise ValueError("native field type differs from effective semantic kind; explicit typed lowering required")
+    if field.native_type is not None and native != "integer":
+        raise ValueError("native SQL representation differs from semantic primitive")
+    if field.semantic_type is not None or resolved.model_class is not None or resolved.enum_values or field.transform not in (None, "identity"):
+        raise ValueError("native nominal/enum/transformed field requires an explicit typed kind lowering")
+    if role.collection != "scalar" or role.minimum != 1 or role.maximum != 1 or role.presence != "required":
+        raise ValueError("native nullable/optional/collection cardinality requires an explicit typed lowering")
+    if field.nullable or resolved.nullable or field.multivalued or resolved.multivalued:
+        raise ValueError("native nullability or collection differs from required scalar role")
+    if field.default_json is not None:
+        raise ValueError("native default requires a declared semantic parameter/default correspondence")

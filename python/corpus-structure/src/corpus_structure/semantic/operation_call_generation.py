@@ -684,7 +684,7 @@ def render_operation_calls(model, metadata=None):
 
 
 def render_call_bindings(
-    calls, metadata=None, *, identifiers_module="._operation_ids", context_validator=None, value_base=None
+    calls, metadata=None, *, identifiers_module="._operation_ids", context_validator=None, value_base=None, row_base=None
 ):
     """Emit already resolved immutable correspondences, irrespective of their model owner."""
     out = [
@@ -708,13 +708,17 @@ def render_call_bindings(
         "from .metadata import table as _core_table",
         "from .operation_value_types import (HeldProgress, NativeResultViolation, "
         + ("OperationResult, " if value_base is None else "")
-        + "NativeRowResult, held_progress, "
+        + ("NativeRowResult, " if row_base is None else "")
+        + "held_progress, "
         + ("require_call_context, " if context_validator is None else "")
         + "native_result_scope, native_result_value, SQL_NULL, SqlNull)",
     ]
     if value_base is not None:
         module, symbol = value_base
         out += [f"from {module} import {symbol} as OperationResult"]
+    if row_base is not None:
+        module, symbol = row_base
+        out += [f"from {module} import {symbol} as NativeRowResult"]
     if context_validator is not None:
         module, symbol = context_validator
         out += [f"from {module} import {symbol} as require_call_context"]
