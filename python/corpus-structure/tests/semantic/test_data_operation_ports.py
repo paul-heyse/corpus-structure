@@ -58,7 +58,9 @@ def fixture_source(
     path = tmp_path / (name + ".py")
     path.write_text(source)
     monkeypatch.syspath_prepend(str(tmp_path))
-    inputs = PythonSourceCollection((PythonSource(name, source.encode(), str(path)),), generated_interfaces=profiles)
+    inputs = PythonSourceCollection(
+        (PythonSource(name, source.encode(), str(path)),), generated_interfaces=profiles
+    )
     return compile_data_operations(python_sources=inputs), inputs
 
 
@@ -419,8 +421,12 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
     )
     values = (PythonRoleValue("index", kind(model, "index"), 7),)
     from corpus_structure.semantic.data_operation_model import SubjectContext
+
     resolved = binding.resolved(
-        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="cpu",
+        inference="exact",
+        authorization=b"{}",
+        trust_evidence=b"{}",
+        execution_profile="cpu",
         subject_context=SubjectContext("project:test", binding.subject, "source:test", b"{}"),
     )
     ready = ReadyDataRequest(
@@ -729,90 +735,128 @@ def test_execution_admission_serializes_capability_meaning_and_checks_exact_iden
 
 def test_data_stream_is_pull_bounded_typed_and_has_terminal_standing(tmp_path, monkeypatch):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
-    metadata['capabilities']['forms'] = ['stream']
-    metadata['opaque'] = [{
-        'reference': 'collections.abc.Iterator', 'contract': 'python-iterator-annotation',
-        'role': 'annotation', 'content_digest': 'a' * 64,
-    }]
+    metadata["capabilities"]["forms"] = ["stream"]
+    metadata["opaque"] = [
+        {
+            "reference": "collections.abc.Iterator",
+            "contract": "python-iterator-annotation",
+            "role": "annotation",
+            "content_digest": "a" * 64,
+        }
+    ]
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, 'index: int',
-        'yield str(index)\n    yield str(index + 1)',
-        metadata=metadata, header='from collections.abc import Iterator', returns='Iterator[str]',
+        tmp_path,
+        monkeypatch,
+        "index: int",
+        "yield str(index)\n    yield str(index + 1)",
+        metadata=metadata,
+        header="from collections.abc import Iterator",
+        returns="Iterator[str]",
     )
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    stream = port.open_stream_python((PythonRoleValue('index', kind(model, 'index'), 3),))
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    stream = port.open_stream_python((PythonRoleValue("index", kind(model, "index"), 3),))
     assert stream.terminal is None
-    assert next(stream)[1].outputs[0].value() == '3'
+    assert next(stream)[1].outputs[0].value() == "3"
     assert stream.terminal is None
     assert next(stream)[0] == 1
     with pytest.raises(StopIteration):
         next(stream)
-    assert (stream.terminal.state, stream.terminal.items) == ('complete', 2)
+    assert (stream.terminal.state, stream.terminal.items) == ("complete", 2)
     stream.close()
-    assert stream.terminal.state == 'complete'
+    assert stream.terminal.state == "complete"
 
 
 def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monkeypatch):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
-    metadata['capabilities']['forms'] = ['stream']
-    metadata['opaque'] = [{
-        'reference': 'collections.abc.Iterator', 'contract': 'python-iterator-annotation',
-        'role': 'annotation', 'content_digest': 'a' * 64,
-    }]
+    metadata["capabilities"]["forms"] = ["stream"]
+    metadata["opaque"] = [
+        {
+            "reference": "collections.abc.Iterator",
+            "contract": "python-iterator-annotation",
+            "role": "annotation",
+            "content_digest": "a" * 64,
+        }
+    ]
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, 'index: int', 'yield str(index)\n    yield str(index + 1)',
-        metadata=metadata, header='from collections.abc import Iterator', returns='Iterator[str]',
+        tmp_path,
+        monkeypatch,
+        "index: int",
+        "yield str(index)\n    yield str(index + 1)",
+        metadata=metadata,
+        header="from collections.abc import Iterator",
+        returns="Iterator[str]",
     )
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    value = PythonRoleValue('index', kind(model, 'index'), 3)
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    value = PythonRoleValue("index", kind(model, "index"), 3)
     with port.open_stream_python((value,)) as stream:
         assert next(stream)[0] == 0
-    assert (stream.terminal.state, stream.terminal.items) == ('cancelled', 1)
+    assert (stream.terminal.state, stream.terminal.items) == ("cancelled", 1)
     calls = []
+
     def active():
         calls.append(1)
         if len(calls) == 3:
-            raise RuntimeError('cancelled')
+            raise RuntimeError("cancelled")
+
     stream = port.open_stream_python((value,), check_active=active)
     next(stream)
-    with pytest.raises(RuntimeError, match='cancelled'):
+    with pytest.raises(RuntimeError, match="cancelled"):
         next(stream)
-    assert stream.terminal.state == 'failed'
+    assert stream.terminal.state == "failed"
     assert stream._iterator.gi_frame is None
 
 
 def test_publication_port_requires_the_native_effect_receipt_and_preserves_replay():
-    from corpus_structure.semantic.data_operation_ports import ResolvedPublicationPort
     from types import SimpleNamespace
+
+    from corpus_structure.semantic.data_operation_ports import ResolvedPublicationPort
+
     seen = []
-    result = {'receipt_id': 'receipt:one', 'derivation_id': 'derivation:original',
-              'replayed': False, 'trust_snapshot': {}}
+    result = {
+        "receipt_id": "receipt:one",
+        "derivation_id": "derivation:original",
+        "replayed": False,
+        "trust_snapshot": {},
+    }
+
     def invoke(name, payload):
         seen.append((name, payload))
         return result
-    port = ResolvedPublicationPort(SimpleNamespace(invoke=invoke), 'request:kind', 'result:kind')
-    value = RoleValue('request', 'request:kind', b'{"intent_id":"original"}')
+
+    port = ResolvedPublicationPort(SimpleNamespace(invoke=invoke), "request:kind", "result:kind")
+    value = RoleValue("request", "request:kind", b'{"intent_id":"original"}')
     first = port.invoke_json(value)
-    assert first.receipt_id == 'receipt:one'
-    assert first.derivation_id == 'derivation:original'
-    result['replayed'] = True
+    assert first.receipt_id == "receipt:one"
+    assert first.derivation_id == "derivation:original"
+    result["replayed"] = True
     replay = port.invoke_json(value)
     assert replay.receipt_id == first.receipt_id
-    assert replay.result.value()['replayed'] is True
-    assert seen == [('publish_data_derivation', {'intent_id': 'original'})] * 2
+    assert replay.result.value()["replayed"] is True
+    assert seen == [("publish_data_derivation", {"intent_id": "original"})] * 2
     result.clear()
-    result['output'] = first.result.value()
-    with pytest.raises(PortRefusal, match='required effect receipt'):
+    result["output"] = first.result.value()
+    with pytest.raises(PortRefusal, match="required effect receipt"):
         port.invoke_json(value)
-    with pytest.raises(PortRefusal, match='nominal request'):
-        port.invoke_json(RoleValue('request', 'another:kind', value.content))
+    with pytest.raises(PortRefusal, match="nominal request"):
+        port.invoke_json(RoleValue("request", "another:kind", value.content))
 
 
 @pytest.mark.parametrize("frozen", [False, True])
-def test_generated_dataclass_runtime_constructor_keeps_defaults_and_nominal_ingress(tmp_path, monkeypatch, frozen):
+def test_generated_dataclass_runtime_constructor_keeps_defaults_and_nominal_ingress(
+    tmp_path, monkeypatch, frozen
+):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
-    metadata['roles'][0]['kind'] = 'urn:test:generated-input'
-    metadata['kinds'] = [{'id': 'urn:test:generated-input', 'python': 'ddo_port_' + tmp_path.name.replace('-', '_') + '.Item'}]
+    metadata["roles"][0]["kind"] = "urn:test:generated-input"
+    metadata["kinds"] = [
+        {
+            "id": "urn:test:generated-input",
+            "python": "ddo_port_" + tmp_path.name.replace("-", "_") + ".Item",
+        }
+    ]
     header = f"""from dataclasses import dataclass, field
 
 def make_label() -> str:
@@ -823,60 +867,91 @@ class Item:
     value: int
     label: str = field(default_factory=make_label)
 """
-    model, inputs = fixture_source(tmp_path, monkeypatch, 'index: Item',
-                                  "return str(index.value) + index.label", metadata=metadata,
-                                  header=header, profiles=('dataclasses-runtime',))
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    completed = port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":3}'),))
-    assert completed.outputs[0].value() == '3default'
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: Item",
+        "return str(index.value) + index.label",
+        metadata=metadata,
+        header=header,
+        profiles=("dataclasses-runtime",),
+    )
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    completed = port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
+    assert completed.outputs[0].value() == "3default"
     import importlib
+
     module = importlib.import_module(inputs.sources[0].module)
-    checked = module.Item(value=4, label='chosen')
-    assert port.invoke_python((PythonRoleValue('index', kind(model, 'index'), checked),)).outputs[0].value() == '4chosen'
-    object.__setattr__(checked, 'value', True)
+    checked = module.Item(value=4, label="chosen")
+    assert (
+        port.invoke_python((PythonRoleValue("index", kind(model, "index"), checked),))
+        .outputs[0]
+        .value()
+        == "4chosen"
+    )
+    object.__setattr__(checked, "value", True)
     with pytest.raises(ValidationError):
-        port.invoke_python((PythonRoleValue('index', kind(model, 'index'), checked),))
-    with pytest.raises(PortRefusal, match='undeclared fields'):
-        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":3,"extra":1}'),))
-    monkeypatch.setattr(module.Item, '__init__', lambda self, **kwargs: None)
-    with pytest.raises(PortRefusal, match='constructor implementation'):
-        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":3}'),))
+        port.invoke_python((PythonRoleValue("index", kind(model, "index"), checked),))
+    with pytest.raises(PortRefusal, match="undeclared fields"):
+        port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3,"extra":1}'),))
+    monkeypatch.setattr(module.Item, "__init__", lambda self, **kwargs: None)
+    with pytest.raises(PortRefusal, match="constructor implementation"):
+        port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
 
 
 def test_generated_typeddict_ingress_preserves_original_kwargs_signature(tmp_path, monkeypatch):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
-    metadata['roles'][0].update(kind='urn:test:generated-options', parameter='kwargs')
-    metadata['kinds'] = [{'id': 'urn:test:generated-options',
-                          'python': 'ddo_port_' + tmp_path.name.replace('-', '_') + '.Options'}]
+    metadata["roles"][0].update(kind="urn:test:generated-options", parameter="kwargs")
+    metadata["kinds"] = [
+        {
+            "id": "urn:test:generated-options",
+            "python": "ddo_port_" + tmp_path.name.replace("-", "_") + ".Options",
+        }
+    ]
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, '**kwargs: Unpack[Options]',
-        "return str(kwargs['value'])", metadata=metadata,
-        header='from typing import TypedDict, Unpack, NotRequired\nclass Options(TypedDict):\n    value: int\n    label: NotRequired[str]',
-        profiles=('unpack-typeddict-runtime',),
+        tmp_path,
+        monkeypatch,
+        "**kwargs: Unpack[Options]",
+        "return str(kwargs['value'])",
+        metadata=metadata,
+        header="from typing import TypedDict, Unpack, NotRequired\nclass Options(TypedDict):\n    value: int\n    label: NotRequired[str]",
+        profiles=("unpack-typeddict-runtime",),
     )
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     import inspect
-    assert port.signature.parameters['kwargs'].kind == inspect.Parameter.VAR_KEYWORD
-    completed = port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":5}'),))
-    assert completed.outputs[0].value() == '5'
+
+    assert port.signature.parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
+    completed = port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":5}'),))
+    assert completed.outputs[0].value() == "5"
     with pytest.raises((PortRefusal, ValidationError)):
-        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":true}'),))
-    with pytest.raises(PortRefusal, match='undeclared fields'):
-        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":5,"other":1}'),))
+        port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":true}'),))
+    with pytest.raises(PortRefusal, match="undeclared fields"):
+        port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":5,"other":1}'),))
 
 
 def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
-    owner = 'ddo_port_' + tmp_path.name.replace('-', '_') + '.Item'
-    metadata['kinds'] = [{'id': 'urn:test:record', 'python': owner}]
-    for role in metadata['roles']:
-        role['kind'] = 'urn:test:record'
+    owner = "ddo_port_" + tmp_path.name.replace("-", "_") + ".Item"
+    metadata["kinds"] = [{"id": "urn:test:record", "python": owner}]
+    for role in metadata["roles"]:
+        role["kind"] = "urn:test:record"
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, 'index: Item', 'return index', metadata=metadata,
-        header='from dataclasses import dataclass\n@dataclass(kw_only=True)\nclass Item:\n    value: int',
-        returns='Item', profiles=('dataclasses-runtime',),
+        tmp_path,
+        monkeypatch,
+        "index: Item",
+        "return index",
+        metadata=metadata,
+        header="from dataclasses import dataclass\n@dataclass(kw_only=True)\nclass Item:\n    value: int",
+        returns="Item",
+        profiles=("dataclasses-runtime",),
     )
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    result = port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":3}'),))
-    assert result.outputs[0].value() == {'value': 3}
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    result = port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
+    assert result.outputs[0].value() == {"value": 3}
     assert result.outputs[0].meaning == b'["mapping",[["value",["integer","3"]]]]'

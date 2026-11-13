@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from corpus_structure.semantic.data_operation_model import SubjectContext
-
 import json
 
 import pytest
@@ -19,6 +17,7 @@ from corpus_structure.semantic.data_operation_demands import (
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -151,7 +150,9 @@ def population_kernel(ddo_kernel_engine, tmp_path):
     }
 
 
-def discover(kernel, *, complete=True, ambiguous=False, values=(5, 15, 25), inference="inference:test"):
+def discover(
+    kernel, *, complete=True, ambiguous=False, values=(5, 15, 25), inference="inference:test"
+):
     scope = {"page": 1}
     root = {"subject": "doc", "original_source": "source:test", "analyzed_scope": scope}
     selection = freeze_demand(
@@ -205,7 +206,9 @@ def discover(kernel, *, complete=True, ambiguous=False, values=(5, 15, 25), infe
             {},
             {"parameters": {}, "replicate": None},
             inference,
-            subject_context=SubjectContext("ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])),
+            subject_context=SubjectContext(
+                "ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])
+            ),
         )
         attached = storage.invoke(
             "attach_data_request",
@@ -403,36 +406,67 @@ def test_native_planner_preserves_ambiguous_authentic_parent_populations(populat
 def _complete_ready(kernel, ready, value=1):
     binding = json.loads(ready.binding)
     claim_fence = claim(kernel, json.loads(ready.native))
-    kind = next(role.kind for operation in kernel["model"].operations if operation.semantic_id == ready.operation for role in operation.roles if role.direction == "output")
+    kind = next(
+        role.kind
+        for operation in kernel["model"].operations
+        if operation.semantic_id == ready.operation
+        for role in operation.roles
+        if role.direction == "output"
+    )
     kind_contract = kernel["identities"][kind, "kind"]
     with kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).invoke("retain_data_completion_intent", {
-            **claim_fence, "runtime_id": kernel["runtime"], "completion": {
-                "outcome": "success", "implementation_revision": "native-test-source-v1",
-                "inputs": binding["inputs"], "support": binding["support"], "outputs": [{
-                    "role": "result", "position": 0, "multiplicity": 1,
-                    "product": {"kind_contract": kind_contract, "body": semantic_value(value), "members": []},
-                }],
+        intent = DataOperationStorage(connection).invoke(
+            "retain_data_completion_intent",
+            {
+                **claim_fence,
+                "runtime_id": kernel["runtime"],
+                "completion": {
+                    "outcome": "success",
+                    "implementation_revision": "native-test-source-v1",
+                    "inputs": binding["inputs"],
+                    "support": binding["support"],
+                    "outputs": [
+                        {
+                            "role": "result",
+                            "position": 0,
+                            "multiplicity": 1,
+                            "product": {
+                                "kind_contract": kind_contract,
+                                "body": semantic_value(value),
+                                "members": [],
+                            },
+                        }
+                    ],
+                },
             },
-        })
+        )
     return publish(kernel, claim_fence, intent)
 
 
 def test_native_discovery_children_closed_fanin_and_pinned_resume(population_kernel):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
+
     kernel = population_kernel
-    demand, consumer, parent = discover(kernel)
+    demand, consumer, _parent = discover(kernel)
     with kernel["engine"].begin() as connection:
         planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         producing_use = next(use for use in snapshot["uses"] if use["products"])
-        planner.expand_discovery(snapshot, population="all-items", product=producing_use["products"][0]["product_id"], derivation=producing_use["derivation_id"])
+        planner.expand_discovery(
+            snapshot,
+            population="all-items",
+            product=producing_use["products"][0]["product_id"],
+            derivation=producing_use["derivation_id"],
+        )
         current = planner.resume(demand["demand_id"])
         children = planner.ready(current, authorization=b"{}")
         assert planner.selected_population_ids  # fan-in waits for its fresh selection read
         assert {request.subject for request in children} == {"item:5", "item:15", "item:25"}
         assert all(request.operation == "urn:child" for request in children)
-        assert all(request.resolved.subject_context.original_source == "source:test" for request in children)
+        assert all(
+            request.resolved.subject_context.original_source == "source:test"
+            for request in children
+        )
     for child in children[:2]:
         _complete_ready(kernel, child)
     with kernel["engine"].begin() as connection:
@@ -441,7 +475,9 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(population_ker
         aggregate = [request for request in frontier if request.operation == "urn:consumer"]
         assert any(request.operation == "urn:child" for request in frontier)
         assert len(aggregate) == 1 and aggregate[0].obligation == consumer["obligation_id"]
-        assert [member.member for role in aggregate[0].binding_result.roles for member in role.members] == ["m15"]
+        assert [
+            member.member for role in aggregate[0].binding_result.roles for member in role.members
+        ] == ["m15"]
     _complete_ready(kernel, aggregate[0])
     _complete_ready(kernel, children[2])
     with kernel["engine"].begin() as connection:
@@ -452,24 +488,42 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(population_ker
         selection, trust, read = page["selection"], page["trust_snapshot"], page["read_id"]
         obligations = list(page["obligations"])
         while page.get("continuation"):
-            page = planner.resume(demand["demand_id"], selection=selection, limit=1, after=page["continuation"]["after"], trust_snapshot=trust, read_id=read)
+            page = planner.resume(
+                demand["demand_id"],
+                selection=selection,
+                limit=1,
+                after=page["continuation"]["after"],
+                trust_snapshot=trust,
+                read_id=read,
+            )
             obligations.extend(page["obligations"])
         assert len({row["obligation_id"] for row in obligations}) == 5
         assert all(row["fate"] == "fulfilled" for row in obligations)
-        assert connection.execute(text("SELECT count(*) FROM ops.data_derivation")).scalar_one() == count
+        assert (
+            connection.execute(text("SELECT count(*) FROM ops.data_derivation")).scalar_one()
+            == count
+        )
 
 
 @pytest.mark.parametrize("complete", [True, False])
 @pytest.mark.parametrize("values", [(), (15,)])
-def test_native_empty_partial_populations_do_not_invent_closed_children(population_kernel, complete, values):
+def test_native_empty_partial_populations_do_not_invent_closed_children(
+    population_kernel, complete, values
+):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
+
     kernel = population_kernel
-    demand, _, parent = discover(kernel, complete=complete, values=values)
+    demand, _, _parent = discover(kernel, complete=complete, values=values)
     with kernel["engine"].begin() as connection:
         planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         producing_use = next(use for use in snapshot["uses"] if use["products"])
-        population = planner.expand_discovery(snapshot, population="all-items", product=producing_use["products"][0]["product_id"], derivation=producing_use["derivation_id"])
+        population = planner.expand_discovery(
+            snapshot,
+            population="all-items",
+            product=producing_use["products"][0]["product_id"],
+            derivation=producing_use["derivation_id"],
+        )
         assert population["complete"] is complete and len(population["members"]) == len(values)
         current = planner.resume(demand["demand_id"])
         children = [row for row in current["obligations"] if row["operation_id"] == "urn:child"]
@@ -477,4 +531,6 @@ def test_native_empty_partial_populations_do_not_invent_closed_children(populati
         ready = planner.ready(current, authorization=b"{}")
         if not complete:
             assert all(request.operation != "urn:consumer" for request in ready)
-        assert all(request.subject in {"doc", *(f"item:{value}" for value in values)} for request in ready)
+        assert all(
+            request.subject in {"doc", *(f"item:{value}" for value in values)} for request in ready
+        )

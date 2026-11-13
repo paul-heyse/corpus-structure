@@ -122,7 +122,9 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
 
     _, _, prepared, _, formal = acquired
     source = selected(formal, "Not every trial succeeds.")
-    primary = formal.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
+    primary = formal.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
     port = admitted(acquired, "text.constructions/source-native", resolve_construction_port)
     inputs = values(port, source=source.value, formal=(primary,))
     expected = port.invoke_python(inputs)
@@ -159,12 +161,14 @@ def test_actual_contextual_kernel_uses_same_retained_symbols_and_no_schema_capsu
 
     _, _, prepared, model, formal = acquired
     source = selected(formal, "All samples are finite.")
-    primary = formal.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
-    symbolic = PreparedConstructionProfile(prepared, model).run(source, (primary,), subject_context = _publication_context(source))
-    port = admitted(acquired, "text.contextual_evaluation/source-native", resolve_contextual_port)
-    inputs = values(
-        port, source=source.value, formal=(primary,), constructions=(symbolic,)
+    primary = formal.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
     )
+    symbolic = PreparedConstructionProfile(prepared, model).run(
+        source, (primary,), subject_context=_publication_context(source)
+    )
+    port = admitted(acquired, "text.contextual_evaluation/source-native", resolve_contextual_port)
+    inputs = values(port, source=source.value, formal=(primary,), constructions=(symbolic,))
     expected = port.invoke_python(inputs)
     cpu = CPUExecutionScope(
         prepared,
@@ -189,6 +193,11 @@ def _publication_context(source, *, document=False):
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.source_products import source_subject
+
     value = source.value
-    return SubjectContext("family-test", value["source"]["document"] if document else source_subject(value["source"]),
-                          value["source"]["document"], canonical_bytes({"source": value["source"], "selectors": value["selectors"]}))
+    return SubjectContext(
+        "family-test",
+        value["source"]["document"] if document else source_subject(value["source"]),
+        value["source"]["document"],
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
+    )

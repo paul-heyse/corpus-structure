@@ -29,7 +29,9 @@ class CanonicalProduct:
 
     def _publication_context(self):
         if self.subject_context is None:
-            raise ValueError("native product identity requires an explicit acquired subject context")
+            raise ValueError(
+                "native product identity requires an explicit acquired subject context"
+            )
         return self.subject_context
 
     @property
@@ -45,7 +47,6 @@ class CanonicalProduct:
     def reference(self):
         from .data_operation_identity import body_identity, contextual_product_identity
         from .data_product_reference import DataProductReference
-        from .source_products import source_subject
 
         value = self.value.model_dump(mode="python", exclude_unset=True)
         kind = next(
@@ -154,7 +155,10 @@ class PreparedCanonicalProfile:
 
     def project(self, inventory, *, subject_context=None):
         actual = self.validate_input(inventory)
-        return self.validate_output(canonical_packet_values(actual, json.loads(self.projection)), subject_context=subject_context)
+        return self.validate_output(
+            canonical_packet_values(actual, json.loads(self.projection)),
+            subject_context=subject_context,
+        )
 
 
 def execute_canonical_projection(receiver, inventory):

@@ -250,19 +250,37 @@ def _declared_function_predecessors(connection, products):
     from .migrations import ALEMBIC_DIR
 
     owner = semantic_namespace_owner(connection)
-    paths = tuple(path for path in ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")
-                  if int(path.name.split("_")[1]) <= 65)
+    paths = tuple(
+        path
+        for path in ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")
+        if int(path.name.split("_")[1]) <= 65
+    )
     # Source guards retain their dedicated historical migration-owner ACL handling.
-    separately_owned = (_RETIRED_SOURCE_FUNCTIONS | set(_CURRENT_SOURCE_GUARDS)
-                        | {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")})
-    names = {(item.identity.schema, item.identity.name) for item in products
-             if item.identity.kind == "function"} - separately_owned
+    separately_owned = (
+        _RETIRED_SOURCE_FUNCTIONS
+        | set(_CURRENT_SOURCE_GUARDS)
+        | {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")}
+    )
+    names = {
+        (item.identity.schema, item.identity.name)
+        for item in products
+        if item.identity.kind == "function"
+    } - separately_owned
     result = []
     for source, sql, facts in _frozen_predecessor_declarations(paths, owner=owner, names=names):
-        definition = definition_from_sql(connection, sql, source=source, owner=facts["owner"],
-            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]))
+        definition = definition_from_sql(
+            connection,
+            sql,
+            source=source,
+            owner=facts["owner"],
+            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]),
+        )
         if definition.owner == owner:
-            definition = replace(definition, bind_owner=True, role_bindings=(("$migration_owner", "sem_namespace_owner"),))
+            definition = replace(
+                definition,
+                bind_owner=True,
+                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+            )
         result.append(definition)
     return tuple(result)
 
@@ -1894,8 +1912,10 @@ def _prepare_series_authoring(
         desired = {item.identity for item in products}
         newly_managed = tuple(
             item
-            for item in (*_declared_function_predecessors(connection, products),
-                         *series_predecessor_definitions(connection))
+            for item in (
+                *_declared_function_predecessors(connection, products),
+                *series_predecessor_definitions(connection),
+            )
             if item.identity not in known
             and item.identity in desired
             and source.permits_backfill(item.identity)

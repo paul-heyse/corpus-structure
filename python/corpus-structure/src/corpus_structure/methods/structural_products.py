@@ -1591,13 +1591,20 @@ class StructuralComparisonMethod:
             binding, operation=self.__selection_operation__["id"]
         )
 
-    def select_bound_native(self, connection, model, binding, *, demand_id,
-                            read_id, trust_snapshot, max_bytes):
+    def select_bound_native(
+        self, connection, model, binding, *, demand_id, read_id, trust_snapshot, max_bytes
+    ):
         from corpus_structure.semantic.data_operation_consumers import hydrate_consumer_selection
+
         selected = self.select_bound(binding)
         hydrated = hydrate_consumer_selection(
-            connection, model, selected, demand_id=demand_id, read_id=read_id,
-            trust_snapshot=trust_snapshot, max_bytes=max_bytes,
+            connection,
+            model,
+            selected,
+            demand_id=demand_id,
+            read_id=read_id,
+            trust_snapshot=trust_snapshot,
+            max_bytes=max_bytes,
         )
         return self.select_hydrated(hydrated)
 
@@ -1609,7 +1616,8 @@ class StructuralComparisonMethod:
             raise ValueError("structural comparison requires distinct selected passages")
         for passage, reading in (left, right):
             if (passage.value()["passage_id"], passage.value()["source_ref"]) != (
-                reading.value()["passage_id"], reading.value()["source_ref"]
+                reading.value()["passage_id"],
+                reading.value()["source_ref"],
             ):
                 raise ValueError("selected structural reading differs from its passage")
         return left, right

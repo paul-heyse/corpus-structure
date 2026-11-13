@@ -306,6 +306,11 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
 def _publication_context(source):
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.source_products import source_subject
+
     value = source.value
-    return SubjectContext("family-test", source_subject(value["source"]), value["source"]["document"],
-        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}))
+    return SubjectContext(
+        "family-test",
+        source_subject(value["source"]),
+        value["source"]["document"],
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
+    )

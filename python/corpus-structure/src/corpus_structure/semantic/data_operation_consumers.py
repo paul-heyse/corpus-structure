@@ -125,6 +125,7 @@ class SelectedConsumerValue:
 
     def value(self):
         import json
+
         return json.loads(self.content)
 
 
@@ -134,35 +135,42 @@ class HydratedConsumerSelection:
     values: tuple[tuple[str, tuple[SelectedConsumerValue, ...]], ...]
 
     def __post_init__(self):
-        if tuple(name for name, _ in self.values) != tuple(role.role for role in self.selection.roles):
-            raise ValueError('hydration must retain exactly the selected roles')
+        if tuple(name for name, _ in self.values) != tuple(
+            role.role for role in self.selection.roles
+        ):
+            raise ValueError("hydration must retain exactly the selected roles")
         for role, (_, values) in zip(self.selection.roles, self.values, strict=True):
             expected = tuple(member for member in role.members for _ in range(member.multiplicity))
-            if tuple(value.member for value in values) != expected or any(type(value.content) is not bytes for value in values):
-                raise ValueError('hydration must retain exact ordered selected member pins')
+            if tuple(value.member for value in values) != expected or any(
+                type(value.content) is not bytes for value in values
+            ):
+                raise ValueError("hydration must retain exact ordered selected member pins")
 
     def role(self, name: str) -> tuple[SelectedConsumerValue, ...]:
         matches = tuple(values for role, values in self.values if role == name)
         if len(matches) != 1:
-            raise ValueError('hydrated selection lacks its exact role: ' + name)
+            raise ValueError("hydrated selection lacks its exact role: " + name)
         return matches[0]
 
     def one(self, name: str) -> SelectedConsumerValue:
         values = self.role(name)
         if len(values) != 1:
-            raise ValueError('consumer requires one bound member: ' + name)
+            raise ValueError("consumer requires one bound member: " + name)
         return values[0]
 
 
-def hydrate_consumer_selection(connection, model, selection, *, demand_id, read_id,
-                               trust_snapshot, max_bytes):
+def hydrate_consumer_selection(
+    connection, model, selection, *, demand_id, read_id, trust_snapshot, max_bytes
+):
     """Hydrate only retained role pins under the same authenticated native read.
 
     This is not a new selector. No unselected body or mutable latest/default query
     can supply an input. Native custody and purpose remain enforced by its owner.
     """
     import json
+
     from sqlalchemy import select
+
     from .data_operation_identity import decode_semantic_value
     from .data_operation_storage import admitted_data_projection
     from .data_operation_support import support_reference_records
@@ -170,22 +178,32 @@ def hydrate_consumer_selection(connection, model, selection, *, demand_id, read_
 
     binding = selection.binding
     identities = {(value.owner, value.domain): value.key for value in model.identities}
-    if (binding.definition != identities[binding.operation, "definition"]
-            or binding.eligibility != identities[binding.operation, "eligibility"]
-            or binding.model_version != model.version):
-        raise ValueError('consumer binding differs from its admitted model interpretation')
+    if (
+        binding.definition != identities[binding.operation, "definition"]
+        or binding.eligibility != identities[binding.operation, "eligibility"]
+        or binding.model_version != model.version
+    ):
+        raise ValueError("consumer binding differs from its admitted model interpretation")
     context = binding.subject_context
     if context is None or context.subject != binding.subject:
-        raise ValueError('native consumer hydration requires its acquired subject context')
+        raise ValueError("native consumer hydration requires its acquired subject context")
     if type(max_bytes) is not int or max_bytes <= 0:
-        raise ValueError('native hydration requires explicit positive packet capacity')
+        raise ValueError("native hydration requires explicit positive packet capacity")
     projections = admitted_data_projection(
-        connection, demand_id, binding.operation, trust_snapshot, model, read_id=read_id,
-        subject=context.subject, original_source=context.original_source,
+        connection,
+        demand_id,
+        binding.operation,
+        trust_snapshot,
+        model,
+        read_id=read_id,
+        subject=context.subject,
+        original_source=context.original_source,
         analyzed_scope=json.loads(context.analyzed_scope),
     )
-    if set(binding.admission_evidence) != {projection.admission_evidence for projection in projections}:
-        raise ValueError('retained consumer binding belongs to a different native read boundary')
+    if set(binding.admission_evidence) != {
+        projection.admission_evidence for projection in projections
+    }:
+        raise ValueError("retained consumer binding belongs to a different native read boundary")
     by_kind = {projection.kind: projection for projection in projections}
     declaration = model.operation(binding.operation)
     result, used = [], 0
@@ -203,17 +221,20 @@ def hydrate_consumer_selection(connection, model, selection, *, demand_id, read_
                 relation.c.analyzed_scope == json.loads(member.analyzed_scope),
                 relation.c.support_evidence == json.loads(member.support_evidence),
                 relation.c.support_episodes == list(member.support_episodes),
-                relation.c.support_references == support_reference_records(member.support_references),
+                relation.c.support_references
+                == support_reference_records(member.support_references),
                 relation.c.position.is_not_distinct_from(member.position),
                 relation.c.multiplicity == member.multiplicity,
             )
             rows = connection.execute(query).scalars().all()
             if len(rows) != 1:
-                raise ValueError('retained consumer member no longer has one admitted body')
+                raise ValueError("retained consumer member no longer has one admitted body")
             content = canonical_bytes(decode_semantic_value(rows[0]))
             used += len(content) * member.multiplicity
             if used > max_bytes:
-                raise ValueError('complete consumer inputs exceed owned packet capacity')
-            values.extend(SelectedConsumerValue(member, content) for _ in range(member.multiplicity))
+                raise ValueError("complete consumer inputs exceed owned packet capacity")
+            values.extend(
+                SelectedConsumerValue(member, content) for _ in range(member.multiplicity)
+            )
         result.append((role.role, tuple(values)))
     return HydratedConsumerSelection(selection, tuple(result))

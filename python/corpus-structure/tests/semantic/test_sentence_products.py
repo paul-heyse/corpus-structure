@@ -130,12 +130,17 @@ def test_empty_and_partial_block_scope_never_invent_canonical_sentences(profile,
         "corpus_structure.semantic.sentence_products.pipeline",
         lambda *_: pytest.fail("unexamined/empty scope invoked a model"),
     )
-    empty = profile.run(selected(profile, ""), subject_context = _publication_context(selected(profile, "")))
+    empty = profile.run(
+        selected(profile, ""), subject_context=_publication_context(selected(profile, ""))
+    )
     assert empty.inventory("sentence") == () and empty.value.outcome == "complete"
     source = selected(profile)
     value = source.value
     value["selectors"][0]["start"] = 4
-    partial = profile.run(FrozenNativeSource.acquire(profile.prepared, value), subject_context = _publication_context(FrozenNativeSource.acquire(profile.prepared, value)))
+    partial = profile.run(
+        FrozenNativeSource.acquire(profile.prepared, value),
+        subject_context=_publication_context(FrozenNativeSource.acquire(profile.prepared, value)),
+    )
     assert partial.inventory("sentence") == () and partial.value.outcome == "partial"
     assert partial.value.block_coverage[0].outcome == "unsupported"
 
@@ -158,7 +163,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     profile, text, monkeypatch, gpu_host
 ):
     source = selected(profile, text)
-    product = profile.run(source, host=gpu_host, subject_context = _publication_context(source))
+    product = profile.run(source, host=gpu_host, subject_context=_publication_context(source))
     sentences = product.inventory("sentence")
     assert [text[row["start"] : row["end"]] for row in sentences] == [
         part.strip() + "." for part in text.split(".") if part.strip()
@@ -431,7 +436,11 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
     port = canonical_port(profile)
-    inventory = json.loads(profile.run(selected(profile, ""), subject_context = _publication_context(selected(profile, ""))).content)
+    inventory = json.loads(
+        profile.run(
+            selected(profile, ""), subject_context=_publication_context(selected(profile, ""))
+        ).content
+    )
     kind = next(
         item.key
         for item in port.profile.model.identities
@@ -548,7 +557,11 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
     port = canonical_port(profile)
-    inventory = json.loads(profile.run(selected(profile, ""), subject_context = _publication_context(selected(profile, ""))).content)
+    inventory = json.loads(
+        profile.run(
+            selected(profile, ""), subject_context=_publication_context(selected(profile, ""))
+        ).content
+    )
     kind = next(
         item.key
         for item in port.profile.model.identities
@@ -600,7 +613,10 @@ def test_unprojected_requested_native_text_is_unknown_instead_of_empty_language(
         "corpus_structure.semantic.sentence_products.pipeline",
         lambda *_: pytest.fail("unprojected source invoked NLP"),
     )
-    result = profile.run(FrozenNativeSource.acquire(profile.prepared, value), subject_context = _publication_context(FrozenNativeSource.acquire(profile.prepared, value)))
+    result = profile.run(
+        FrozenNativeSource.acquire(profile.prepared, value),
+        subject_context=_publication_context(FrozenNativeSource.acquire(profile.prepared, value)),
+    )
     assert result.value.outcome == "partial" and result.inventory("token") == ()
     assert all(row.outcome == "unsupported" and row.unexamined for row in result.value.coverage)
 
@@ -609,6 +625,11 @@ def _publication_context(source, *, document=False):
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.source_products import source_subject
+
     value = source.value
-    return SubjectContext("family-test", value["source"]["document"] if document else source_subject(value["source"]),
-                          value["source"]["document"], canonical_bytes({"source": value["source"], "selectors": value["selectors"]}))
+    return SubjectContext(
+        "family-test",
+        value["source"]["document"] if document else source_subject(value["source"]),
+        value["source"]["document"],
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
+    )

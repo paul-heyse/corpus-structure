@@ -15,7 +15,12 @@ import networkx as nx
 from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
-from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding, SubjectContext, json_context_meaning
+from .data_operation_model import (
+    EffectiveDataOperationModel,
+    ResolvedOperationBinding,
+    SubjectContext,
+    json_context_meaning,
+)
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
 from .data_operation_support import (
     OriginalSourceSelection,

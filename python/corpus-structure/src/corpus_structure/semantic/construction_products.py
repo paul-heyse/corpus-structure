@@ -25,7 +25,7 @@ from .characterization import (
 from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
 from .data_operation_identity import body_identity, contextual_product_identity
-from .data_operation_model import SubjectContext, EffectiveDataOperationModel
+from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_product_reference import DataProductReference, member_reference, reference_inputs
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
@@ -163,7 +163,9 @@ class InterpretedProduct:
 
     def _publication_context(self):
         if self.subject_context is None:
-            raise ValueError("native product identity requires an explicit acquired subject context")
+            raise ValueError(
+                "native product identity requires an explicit acquired subject context"
+            )
         return self.subject_context
 
     @property
@@ -442,7 +444,14 @@ def construction_product_values(
 
 
 def validate_interpreted_product(
-    prepared, model, value, source, formal, *, product_type=ConstructionProduct, subject_context=None
+    prepared,
+    model,
+    value,
+    source,
+    formal,
+    *,
+    product_type=ConstructionProduct,
+    subject_context=None,
 ):
     checked = prepared.validate_json(product_type.kind_name, canonical_bytes(value)).model_dump(
         mode="json", exclude_unset=True
@@ -550,7 +559,9 @@ def validate_construction_product(prepared, model, value, source, formal, *, sub
     if len(set(requested)) != len(requested) or any(key not in available for key in requested):
         raise ValueError("construction lacks its exact retained dependency closure")
     selected = tuple(available[key] for key in requested)
-    return validate_interpreted_product(prepared, model, value, source, selected, subject_context=subject_context)
+    return validate_interpreted_product(
+        prepared, model, value, source, selected, subject_context=subject_context
+    )
 
 
 @dataclass(frozen=True)

@@ -388,10 +388,18 @@ class ClosedPythonSources:
                 self.generated[init.path] = init
 
     def _runtime_typeddict(self, path: str) -> bool:
-        if "unpack-typeddict-runtime" not in self.inputs.generated_interfaces or path not in self.definitions:
+        if (
+            "unpack-typeddict-runtime" not in self.inputs.generated_interfaces
+            or path not in self.definitions
+        ):
             return False
         module_name, node = self.definitions[path]
-        if not isinstance(node, cst.ClassDef) or node.decorators or node.keywords or len(node.bases) != 1:
+        if (
+            not isinstance(node, cst.ClassDef)
+            or node.decorators
+            or node.keywords
+            or len(node.bases) != 1
+        ):
             return False
         for statement in node.body.body:
             if not isinstance(statement, cst.SimpleStatementLine):
@@ -399,7 +407,10 @@ class ClosedPythonSources:
             for value in statement.body:
                 if isinstance(value, cst.AnnAssign) and value.value is None:
                     continue
-                if isinstance(value, cst.Pass) or (isinstance(value, cst.Expr) and isinstance(value.value, (cst.SimpleString, cst.ConcatenatedString))):
+                if isinstance(value, cst.Pass) or (
+                    isinstance(value, cst.Expr)
+                    and isinstance(value.value, (cst.SimpleString, cst.ConcatenatedString))
+                ):
                     continue
                 return False
         module = self.modules[module_name]
@@ -408,7 +419,10 @@ class ClosedPythonSources:
         return {name.name for name in names} == {"typing.TypedDict"}
 
     def _runtime_dataclass(self, path: str) -> bool:
-        if "dataclasses-runtime" not in self.inputs.generated_interfaces or path not in self.definitions:
+        if (
+            "dataclasses-runtime" not in self.inputs.generated_interfaces
+            or path not in self.definitions
+        ):
             return False
         module_name, node = self.definitions[path]
         if not isinstance(node, cst.ClassDef) or node.keywords:
@@ -424,12 +438,17 @@ class ClosedPythonSources:
             for value in statement.body:
                 if isinstance(value, (cst.AnnAssign, cst.Pass)):
                     continue
-                if isinstance(value, cst.Expr) and isinstance(value.value, (cst.SimpleString, cst.ConcatenatedString)):
+                if isinstance(value, cst.Expr) and isinstance(
+                    value.value, (cst.SimpleString, cst.ConcatenatedString)
+                ):
                     continue
                 return False
-        if any(parent == path and isinstance(self.definitions[name][1], cst.FunctionDef)
-               and name.rsplit(".", 1)[-1].startswith("__")
-               for name, parent in self.parents.items()):
+        if any(
+            parent == path
+            and isinstance(self.definitions[name][1], cst.FunctionDef)
+            and name.rsplit(".", 1)[-1].startswith("__")
+            for name, parent in self.parents.items()
+        ):
             return False
         if len(node.decorators) != 1:
             return False
@@ -456,9 +475,11 @@ class ClosedPythonSources:
         module = self.modules[module_name]
         names = module.names.get(value.func, set())
         names = names() if callable(names) else names
-        return ({name.name for name in names} == {"dataclasses.field"}
-                and all(arg.keyword is not None and arg.keyword.value in {"default", "default_factory", "kw_only"}
-                        for arg in value.args))
+        return {name.name for name in names} == {"dataclasses.field"} and all(
+            arg.keyword is not None
+            and arg.keyword.value in {"default", "default_factory", "kw_only"}
+            for arg in value.args
+        )
 
     @staticmethod
     def _expression(value: str | griffe.Expr | None) -> Any:
@@ -736,9 +757,14 @@ class ClosedPythonSources:
                     effective[name] = {
                         "name": name,
                         "annotation": (
-                            str(actual.annotation).removeprefix("NotRequired[").removeprefix("Required[")[:-1]
-                            if self._runtime_typeddict(cls.path) and str(actual.annotation).startswith(("NotRequired[", "Required["))
-                            else str(actual.annotation) if actual.annotation else None
+                            str(actual.annotation)
+                            .removeprefix("NotRequired[")
+                            .removeprefix("Required[")[:-1]
+                            if self._runtime_typeddict(cls.path)
+                            and str(actual.annotation).startswith(("NotRequired[", "Required["))
+                            else str(actual.annotation)
+                            if actual.annotation
+                            else None
                         ),
                         "default": str(actual.value) if actual.value is not None else None,
                         "owner": actual.path,
@@ -1014,9 +1040,12 @@ class ClosedPythonSources:
             return max(matches, key=lambda b: len(b.reference)) if matches else None
 
         def reference(path: str, target: str, relation: str, location: str) -> None:
-            if ("unpack-typeddict-runtime" in self.inputs.generated_interfaces and target in {
-                "typing.TypedDict", "typing.Unpack", "typing.NotRequired", "typing.Required"
-            }):
+            if "unpack-typeddict-runtime" in self.inputs.generated_interfaces and target in {
+                "typing.TypedDict",
+                "typing.Unpack",
+                "typing.NotRequired",
+                "typing.Required",
+            }:
                 return
             boundary = boundary_for(target)
             if boundary is not None:
@@ -1084,8 +1113,12 @@ class ClosedPythonSources:
                 edges.add(SemanticEdge(node_id, "python:" + owner, "implementation_determinant"))
                 if not (self._runtime_dataclass(owner) or self._runtime_typeddict(owner)):
                     unknowns.add(
-                        SourceUnknown(path, path,
-                            "generated constructor runtime behavior requires an admitted analysis model")
+                        SourceUnknown(
+                            path,
+                            path,
+                            "generated constructor runtime behavior requires "
+                            "an admitted analysis model",
+                        )
                     )
                 return
             if path not in self.definitions:
@@ -1197,7 +1230,9 @@ class ClosedPythonSources:
                         admitted_constant = self._closed_alias_binding(path)
                         # Supplied definition aliases are checked through their own nodes;
                         # unsupported builtin aliases cannot hide a dynamic call target.
-                admitted_constant = admitted_constant or self._runtime_dataclass_field(path, node.value)
+                admitted_constant = admitted_constant or self._runtime_dataclass_field(
+                    path, node.value
+                )
                 if not admitted_constant:
                     unknowns.add(
                         SourceUnknown(
@@ -1375,9 +1410,18 @@ class ClosedPythonSources:
                                 allowed = True
                                 break
                             ancestor_for_use = module.parent_nodes.get(ancestor_for_use)
-                        if kind in {"callable", "class", "module", "opaque", "receiver"} and not allowed and not isinstance(parent, cst.Arg):
-                            unknowns.add(SourceUnknown(path, location,
-                                "callable/object escape requires an admitted use model"))
+                        if (
+                            kind in {"callable", "class", "module", "opaque", "receiver"}
+                            and not allowed
+                            and not isinstance(parent, cst.Arg)
+                        ):
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "callable/object escape requires an admitted use model",
+                                )
+                            )
                     relation = "resolved_definition"
                     ancestor = parent
                     while ancestor is not None:
@@ -1450,16 +1494,31 @@ class ClosedPythonSources:
                                 names = module.names.get(arg.value, set())
                                 names = names() if callable(names) else names
                                 if len(names) != 1:
-                                    unknowns.add(SourceUnknown(path, location, "dataclass factory requires one captured target"))
+                                    unknowns.add(
+                                        SourceUnknown(
+                                            path,
+                                            location,
+                                            "dataclass factory requires one captured target",
+                                        )
+                                    )
                                 for candidate in names:
-                                    target = (candidate.name if candidate.source == QualifiedNameSource.IMPORT
-                                              else module_name + "." + candidate.name)
+                                    target = (
+                                        candidate.name
+                                        if candidate.source == QualifiedNameSource.IMPORT
+                                        else module_name + "." + candidate.name
+                                    )
                                     reference(path, target, "implementation_determinant", location)
                             else:
                                 try:
                                     ast.literal_eval(module.wrapper.module.code_for_node(arg.value))
-                                except (ValueError, SyntaxError):
-                                    unknowns.add(SourceUnknown(path, location, "dataclass field option requires a literal"))
+                                except ValueError, SyntaxError:
+                                    unknowns.add(
+                                        SourceUnknown(
+                                            path,
+                                            location,
+                                            "dataclass field option requires a literal",
+                                        )
+                                    )
                         return False
                     expression = node.func
                     text = module.wrapper.module.code_for_node(expression)
@@ -1485,6 +1544,7 @@ class ClosedPythonSources:
                             )
                         )
                     callee_kind, _ = expression_binding(expression)
+
                     class ArgumentUses(cst.CSTVisitor):
                         def visit_Call(self, node):
                             # The nested call has its own argument admission below;
@@ -1494,8 +1554,14 @@ class ClosedPythonSources:
                         def visit_Attribute(self, node):
                             kind, _ = expression_binding(node)
                             if kind in {"callable", "class", "module", "opaque", "receiver"}:
-                                unknowns.add(SourceUnknown(path, location,
-                                    "callable/object escape requires an admitted argument model"))
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path,
+                                        location,
+                                        "callable/object escape requires "
+                                    "an admitted argument model",
+                                    )
+                                )
                             return False
 
                         def visit_Name(self, node):
@@ -1515,7 +1581,8 @@ class ClosedPythonSources:
                                     SourceUnknown(
                                         path,
                                         location,
-                                        "callable/object escape requires an admitted argument model",
+                                        "callable/object escape requires "
+                                    "an admitted argument model",
                                     )
                                 )
 

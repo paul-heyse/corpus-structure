@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from corpus_structure.semantic.data_operation_model import SubjectContext
-
 import json
 from dataclasses import replace
 from typing import Literal
@@ -34,6 +32,7 @@ from corpus_structure.semantic.data_operation_model import (
     OperationRole,
     RelationalBinding,
     SemanticEdge,
+    SubjectContext,
     read_effective_data_operations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -247,7 +246,10 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
     assert decode_semantic_value(json.loads(result.parameters)) == {"allowed": [2, 3], "maximum": 3}
     resolved = result.resolved(
         subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}"),
-        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
+        inference="exact",
+        authorization=b"{}",
+        trust_evidence=b"{}",
+        execution_profile="native",
     )
     assert resolved.roles == result.roles
 
@@ -966,7 +968,10 @@ def test_runtime_parameter_mapping_preserves_date_decimal_and_signed_zero(storag
     assert math.copysign(1, decoded["sign"]) == -1
     resolved = result.resolved(
         subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}"),
-        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
+        inference="exact",
+        authorization=b"{}",
+        trust_evidence=b"{}",
+        execution_profile="native",
     )
     assert resolved.parameters == result.parameters
 
@@ -1214,16 +1219,37 @@ def test_native_membership_and_absence_cannot_use_another_containers_local_membe
 def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storage):
     connection, _, projection = storage
     context = SubjectContext("project:test", "doc", "source", b'{"page":1}')
-    compiled = compile_binding(model(BindingExpression("scan", roles=("items",))), "urn:op", (projection,),
-                               subject="doc", original_source="source", subject_context=context)
+    compiled = compile_binding(
+        model(BindingExpression("scan", roles=("items",))),
+        "urn:op",
+        (projection,),
+        subject="doc",
+        original_source="source",
+        subject_context=context,
+    )
     result = execute_binding(connection, compiled)
     assert result.subject_context == context
-    resolved = result.resolved(inference="exact", subject_context=context,
-                               authorization=b"{}", trust_evidence=b"{}", execution_profile="native")
+    resolved = result.resolved(
+        inference="exact",
+        subject_context=context,
+        authorization=b"{}",
+        trust_evidence=b"{}",
+        execution_profile="native",
+    )
     assert resolved.subject_context == context
-    equivalent = result.resolved(inference="exact", subject_context=SubjectContext("project:test", "doc", "source", b'{"page":1.0}'),
-                                 authorization=b"{}", trust_evidence=b"{}", execution_profile="native")
+    equivalent = result.resolved(
+        inference="exact",
+        subject_context=SubjectContext("project:test", "doc", "source", b'{"page":1.0}'),
+        authorization=b"{}",
+        trust_evidence=b"{}",
+        execution_profile="native",
+    )
     assert equivalent.subject_context == context
     with pytest.raises(ValueError, match="differs"):
-        result.resolved(inference="exact", subject_context=SubjectContext("other", "doc", "source", b'{"page":1}'),
-                        authorization=b"{}", trust_evidence=b"{}", execution_profile="native")
+        result.resolved(
+            inference="exact",
+            subject_context=SubjectContext("other", "doc", "source", b'{"page":1}'),
+            authorization=b"{}",
+            trust_evidence=b"{}",
+            execution_profile="native",
+        )

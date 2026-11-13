@@ -483,8 +483,12 @@ def test_frozen_root_identity_includes_source_and_canonical_analyzed_scope():
 def test_root_duplicate_check_uses_json_numeric_meaning_and_keeps_boolean_distinct():
     compiled = model(operation("op:result"))
     arguments = {"targets": ("op:result",), "inference": "exact", "execution_profile": "one"}
-    roots = tuple(RootSubject("same", "source", scope) for scope in (b'{"page":1}', b'{"page":1.0}'))
+    roots = tuple(
+        RootSubject("same", "source", scope) for scope in (b'{"page":1}', b'{"page":1.0}')
+    )
     with pytest.raises(ValueError, match="duplicate root context"):
         freeze_demand(compiled, roots=roots, **arguments)
-    roots = tuple(RootSubject("same", "source", scope) for scope in (b'{"page":1}', b'{"page":true}'))
+    roots = tuple(
+        RootSubject("same", "source", scope) for scope in (b'{"page":1}', b'{"page":true}')
+    )
     assert len(freeze_demand(compiled, roots=roots, **arguments).record["roots"]) == 2

@@ -89,7 +89,9 @@ class SentenceInventory:
 
     def _publication_context(self):
         if self.subject_context is None:
-            raise ValueError("native product identity requires an explicit acquired subject context")
+            raise ValueError(
+                "native product identity requires an explicit acquired subject context"
+            )
         return self.subject_context
 
     @property
@@ -638,7 +640,12 @@ class PreparedSentenceProfile:
         )
         check_active()
         return validate_sentence_inventory(
-            self.prepared, self.model, value, source, receipts=tuple(receipts), subject_context=subject_context
+            self.prepared,
+            self.model,
+            value,
+            source,
+            receipts=tuple(receipts),
+            subject_context=subject_context,
         )
 
 

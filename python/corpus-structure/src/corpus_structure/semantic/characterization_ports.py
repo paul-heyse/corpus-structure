@@ -26,13 +26,13 @@ from .construction_products import (
     validate_construction_product,
 )
 from .data_operation_identity import decode_semantic_value, semantic_value
+from .data_operation_model import SubjectContext
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
     RetainedCharacterizationProduct,
     compose_enriched_document,
 )
 from .formal_products import FormalEvidenceProduct, _semantic_nodes, validate_formal_product
-from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
 from .sentence_products import SentenceInventory
@@ -282,7 +282,10 @@ def execute_view_profile(receiver, sources, products, active):
 
 
 def _body(prepared, name, value):
-    if isinstance(value, (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SentenceInventory)):
+    if isinstance(
+        value,
+        (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SentenceInventory),
+    ):
         value = value.value
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="python", exclude_unset=True)
@@ -412,6 +415,7 @@ class PreparedCharacterizationPort(ABC):
     def _selected_product(self, product, binding, role_name, index):
         """Restore the exact publication address from an admitted role member."""
         from .data_operation_ports import PortRefusal
+
         if binding is None:
             product._publication_context()
             return product
@@ -422,8 +426,12 @@ class PreparedCharacterizationPort(ABC):
         member = members[index]
         if member.member is not None:
             raise PortRefusal("whole family product cannot substitute for a selected member")
-        context = SubjectContext(binding.subject_context.project_id, member.subject,
-                                 member.original_source, member.analyzed_scope)
+        context = SubjectContext(
+            binding.subject_context.project_id,
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+        )
         product = replace(product, subject_context=context)
         if product.semantic_id != member.product:
             raise PortRefusal("family body differs from its selected native product identity")
@@ -436,10 +444,22 @@ class PreparedCharacterizationPort(ABC):
             original = FrozenNativeSource.acquire(
                 self.prepared, {**source.value, "selectors": body["selectors"]}
             )
-            result.append(self._selected_product(
-                validate_formal_product(self.prepared, body, original, model=self.model,
-                    subject_context=value.subject_context if isinstance(value, FormalEvidenceProduct) else None),
-                binding, "formal", len(result)))
+            result.append(
+                self._selected_product(
+                    validate_formal_product(
+                        self.prepared,
+                        body,
+                        original,
+                        model=self.model,
+                        subject_context=value.subject_context
+                        if isinstance(value, FormalEvidenceProduct)
+                        else None,
+                    ),
+                    binding,
+                    "formal",
+                    len(result),
+                )
+            )
         return tuple(result)
 
     def _retained(self, raw, binding, name):
@@ -452,7 +472,10 @@ class PreparedCharacterizationPort(ABC):
                 raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
             return tuple(
                 RetainedCharacterizationProduct.acquire(
-                    self.prepared, self.model, value.kind, value.content,
+                    self.prepared,
+                    self.model,
+                    value.kind,
+                    value.content,
                     subject_context=value.subject_context,
                 )
                 for value in raw
@@ -531,14 +554,21 @@ class PreparedCharacterizationPort(ABC):
             return _ConstructionInputs(source, formal, native)
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = tuple(
-            self._selected_product(validate_construction_product(
-                self.prepared,
-                self.model,
-                _body(self.prepared, "DdoConstructionProduct", value),
-                source,
-                (*formal, *supporting),
-                subject_context=value.subject_context if isinstance(value, ConstructionProduct) else None,
-            ), binding, "constructions", index)
+            self._selected_product(
+                validate_construction_product(
+                    self.prepared,
+                    self.model,
+                    _body(self.prepared, "DdoConstructionProduct", value),
+                    source,
+                    (*formal, *supporting),
+                    subject_context=value.subject_context
+                    if isinstance(value, ConstructionProduct)
+                    else None,
+                ),
+                binding,
+                "constructions",
+                index,
+            )
             for index, value in enumerate(roles["constructions"])
         )
         return _ContextualInputs(source, formal, constructions, supporting)

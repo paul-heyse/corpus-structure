@@ -300,10 +300,15 @@ def configured_pack_variants(prepared, cfg, *, generic_role_guidance: bool = Fal
 
 
 def _select_eligible_projection(rows, digest=None):
-    selected = tuple(row for row in rows if row["analysis_eligible"]
-                     and (digest is None or row["projection_digest"] == digest))
+    selected = tuple(
+        row
+        for row in rows
+        if row["analysis_eligible"] and (digest is None or row["projection_digest"] == digest)
+    )
     if digest is not None and len(selected) != 1:
-        raise GlinerRefused("source projection selection must match exactly one eligible source view")
+        raise GlinerRefused(
+            "source projection selection must match exactly one eligible source view"
+        )
     return selected
 
 
@@ -454,19 +459,28 @@ class M1Candidates:
             binding, operation=self.__selection_operation__["id"]
         )
 
-    def select_bound_native(self, connection, model, binding, *, demand_id,
-                            read_id, trust_snapshot, max_bytes):
+    def select_bound_native(
+        self, connection, model, binding, *, demand_id, read_id, trust_snapshot, max_bytes
+    ):
         from corpus_structure.semantic.data_operation_consumers import hydrate_consumer_selection
+
         selected = self.select_bound(binding)
         hydrated = hydrate_consumer_selection(
-            connection, model, selected, demand_id=demand_id, read_id=read_id,
-            trust_snapshot=trust_snapshot, max_bytes=max_bytes,
+            connection,
+            model,
+            selected,
+            demand_id=demand_id,
+            read_id=read_id,
+            trust_snapshot=trust_snapshot,
+            max_bytes=max_bytes,
         )
         return self.select_hydrated(hydrated)
 
     def select_hydrated(self, inputs):
-        from corpus_structure.semantic.data_operation_identity import decode_semantic_value
         import json
+
+        from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+
         self.select_bound(inputs.selection.binding)
         roles = {role.role: role for role in inputs.selection.roles}
         name = "projection" if roles["projection"].state == "present" else "views"
@@ -479,12 +493,18 @@ class M1Candidates:
         return values
 
     def select(self, run, cfg):
-        rows = tuple(dict(view=view, analysis_eligible=view.analysis_eligible,
-                          projection_digest=view.projection_digest)
-                     for view in run.reader.source_views())
+        rows = tuple(
+            dict(
+                view=view,
+                analysis_eligible=view.analysis_eligible,
+                projection_digest=view.projection_digest,
+            )
+            for view in run.reader.source_views()
+        )
         selected = _select_eligible_projection(rows, cfg.source_projection_digest)
-        return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, row["view"].id, row["view"].key)
-                     for row in selected)
+        return tuple(
+            UnitRef(TaskUnitType.SOURCE_VIEW, row["view"].id, row["view"].key) for row in selected
+        )
 
     def input_digest(self, unit, cfg):
         if unit.ref.unit_id is None:

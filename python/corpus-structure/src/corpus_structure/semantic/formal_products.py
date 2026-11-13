@@ -24,7 +24,7 @@ from .characterization import (
     validate_inventory_graph,
 )
 from .characterization_evidence import validate_evidence
-from .data_operation_model import SubjectContext, EffectiveDataOperationModel, EffectiveOperation
+from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .formal_evidence import (
     FAMILIES,
     FormalIdentity,
@@ -133,7 +133,9 @@ class FormalEvidenceProduct:
 
     def _publication_context(self):
         if self.subject_context is None:
-            raise ValueError("native product identity requires an explicit acquired subject context")
+            raise ValueError(
+                "native product identity requires an explicit acquired subject context"
+            )
         return self.subject_context
 
     @property
@@ -363,7 +365,9 @@ class PreparedFormalEvidence:
             formal_member_contracts(self.prepared, self.model),
             check_active=check_active,
         )
-        return validate_formal_product(self.prepared, value, source, model=self.model, subject_context=subject_context)
+        return validate_formal_product(
+            self.prepared, value, source, model=self.model, subject_context=subject_context
+        )
 
 
 def formal_member_contracts(

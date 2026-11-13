@@ -506,7 +506,9 @@ def json_context_meaning(content: bytes) -> bytes:
     """Canonical typed JSON meaning with JSONB-equivalent numeric semantics."""
     from .data_operation_identity import semantic_value
 
-    return canonical_bytes(semantic_value(json.loads(content, parse_int=Decimal, parse_float=Decimal)))
+    return canonical_bytes(
+        semantic_value(json.loads(content, parse_int=Decimal, parse_float=Decimal))
+    )
 
 
 @dataclass(frozen=True, eq=False)

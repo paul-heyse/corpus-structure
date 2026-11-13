@@ -10,8 +10,8 @@ from __future__ import annotations
 import ast
 import builtins
 import copy
-import dis
 import dataclasses
+import dis
 import importlib
 import importlib.util
 import inspect
@@ -452,10 +452,14 @@ class ResolvedPythonPort:
                     assert isinstance(value, RoleValue)
                     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
                         raw = value.value()
-                        fields = {field.name for field in dataclasses.fields(annotation) if field.init}
+                        fields = {
+                            field.name for field in dataclasses.fields(annotation) if field.init
+                        }
                         if not isinstance(raw, dict) or set(raw) - fields:
                             raise PortRefusal("dataclass JSON ingress contains undeclared fields")
-                        checked = _validated_python_input(annotation, adapter.validate_json(value.content, strict=True))
+                        checked = _validated_python_input(
+                            annotation, adapter.validate_json(value.content, strict=True)
+                        )
                     else:
                         checked = adapter.validate_json(value.content, strict=True)
                 else:
@@ -601,9 +605,15 @@ class ResolvedPythonPort:
                     role.name,
                     contracts[role.kind],
                     adapter.dump_json(checked[correspondence[role.name]]),
-                    canonical_bytes(semantic_value(adapter.dump_python(checked[correspondence[role.name]], mode="python"))),
+                    canonical_bytes(
+                        semantic_value(
+                            adapter.dump_python(checked[correspondence[role.name]], mode="python")
+                        )
+                    ),
                     project_product_members(
-                        self.model, role.kind, adapter.dump_python(checked[correspondence[role.name]], mode="python")
+                        self.model,
+                        role.kind,
+                        adapter.dump_python(checked[correspondence[role.name]], mode="python"),
                     ),
                 )
                 for role in outputs
@@ -648,6 +658,7 @@ def _validated_python_input(annotation, value):
             object.__setattr__(result, field.name, copy.deepcopy(checked))
         return result
     checked = TypeAdapter(annotation).validate_python(_untrusted_value(value), strict=True)
+
     def owned(item):
         if dataclasses.is_dataclass(item) and not isinstance(item, type):
             return _validated_python_input(type(item), item)
@@ -658,6 +669,7 @@ def _validated_python_input(annotation, value):
         if isinstance(item, list):
             return [owned(value) for value in item]
         return item
+
     return owned(checked)
 
 
@@ -892,13 +904,18 @@ def resolve_python_port(
             raise PortRefusal("atomic result fields require required scalar roles and dict[str, T]")
     if (
         any(
-            (p.kind == inspect.Parameter.VAR_POSITIONAL
-             or (p.kind == inspect.Parameter.VAR_KEYWORD and not (
-                 "unpack-typeddict-runtime" in sources.generated_interfaces
-                 and get_origin(p.annotation) is typing.Unpack
-                 and len(get_args(p.annotation)) == 1
-                 and typing.is_typeddict(get_args(p.annotation)[0])
-             )))
+            (
+                p.kind == inspect.Parameter.VAR_POSITIONAL
+                or (
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    and not (
+                        "unpack-typeddict-runtime" in sources.generated_interfaces
+                        and get_origin(p.annotation) is typing.Unpack
+                        and len(get_args(p.annotation)) == 1
+                        and typing.is_typeddict(get_args(p.annotation)[0])
+                    )
+                )
+            )
             or p.annotation is inspect.Parameter.empty
             for p in signature.parameters.values()
         )
@@ -1007,11 +1024,16 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
             "typing.Generator": typing.Generator,
         }
     if "unpack-typeddict-runtime" in sources.generated_interfaces:
-        standard_references.update({"typing." + name: getattr(typing, name)
-                                    for name in ("TypedDict", "Unpack", "NotRequired", "Required")})
+        standard_references.update(
+            {
+                "typing." + name: getattr(typing, name)
+                for name in ("TypedDict", "Unpack", "NotRequired", "Required")
+            }
+        )
     if "dataclasses-runtime" in sources.generated_interfaces:
-        standard_references.update({"dataclasses.dataclass": dataclasses.dataclass,
-                                    "dataclasses.field": dataclasses.field})
+        standard_references.update(
+            {"dataclasses.dataclass": dataclasses.dataclass, "dataclasses.field": dataclasses.field}
+        )
     _verify_closed_runtime_sources(
         sources, modules, paths, expected_nodes, standard_references=standard_references
     )
@@ -1020,7 +1042,9 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
 def _verify_closed_runtime_sources(
     sources, modules, paths, expected_nodes, *, standard_references=None
 ) -> None:
-    _verify_consumed_globals(sources, modules, expected_nodes, standard_references=standard_references)
+    _verify_consumed_globals(
+        sources, modules, expected_nodes, standard_references=standard_references
+    )
     for source in sources.sources:
         module = modules[source.module]
         if paths[source.module].read_bytes() != source.content:
@@ -1113,10 +1137,13 @@ def _verify_closed_runtime_sources(
                 for component in owner_name.removeprefix(source.module).strip(".").split("."):
                     if component:
                         owner = inspect.getattr_static(owner, component)
-                if ("dataclasses-runtime" in sources.generated_interfaces
-                        and isinstance(owner, type) and dataclasses.is_dataclass(owner)
-                        and isinstance(node.value, ast.Call)
-                        and _source_reference(node.value.func, module) is dataclasses.field):
+                if (
+                    "dataclasses-runtime" in sources.generated_interfaces
+                    and isinstance(owner, type)
+                    and dataclasses.is_dataclass(owner)
+                    and isinstance(node.value, ast.Call)
+                    and _source_reference(node.value.func, module) is dataclasses.field
+                ):
                     # Source field/default/factory correspondence is checked as one
                     # generated constructor by the owning class below.
                     continue
@@ -1135,12 +1162,16 @@ def _verify_closed_runtime_sources(
                 if type(value) is not type(expected) or value != expected:
                     raise PortRefusal("runtime constant determinant differs: " + name)
             elif isinstance(node, ast.ClassDef):
-                if ("unpack-typeddict-runtime" in sources.generated_interfaces
-                        and typing.is_typeddict(value)):
+                if (
+                    "unpack-typeddict-runtime" in sources.generated_interfaces
+                    and typing.is_typeddict(value)
+                ):
                     _verify_generated_typeddict(value, node, module)
                     continue
-                if ("dataclasses-runtime" in sources.generated_interfaces
-                        and dataclasses.is_dataclass(value)):
+                if (
+                    "dataclasses-runtime" in sources.generated_interfaces
+                    and dataclasses.is_dataclass(value)
+                ):
                     _verify_generated_dataclass(value, node, module)
                     continue
                 if (
@@ -1180,7 +1211,6 @@ def _verify_closed_runtime_sources(
                 )
 
 
-
 def _input_annotation(parameter):
     annotation = parameter.annotation
     if parameter.kind == inspect.Parameter.VAR_KEYWORD:
@@ -1199,16 +1229,29 @@ def _verify_generated_typeddict(value, node, module):
         raise PortRefusal("TypedDict original base differs")
     annotations, required, optional = {}, set(), set()
     for declaration in node.body:
-        if isinstance(declaration, ast.Pass) or (isinstance(declaration, ast.Expr) and isinstance(declaration.value, ast.Constant)):
+        if isinstance(declaration, ast.Pass) or (
+            isinstance(declaration, ast.Expr) and isinstance(declaration.value, ast.Constant)
+        ):
             continue
-        if not isinstance(declaration, ast.AnnAssign) or not isinstance(declaration.target, ast.Name) or declaration.value is not None:
+        if (
+            not isinstance(declaration, ast.AnnAssign)
+            or not isinstance(declaration.target, ast.Name)
+            or declaration.value is not None
+        ):
             raise PortRefusal("TypedDict boundary contains unsupported executable members")
-        annotation = eval(compile(ast.Expression(declaration.annotation), module.__file__, "eval"), module.__dict__)
+        annotation = eval(
+            compile(ast.Expression(declaration.annotation), module.__file__, "eval"),
+            module.__dict__,
+        )
         name = declaration.target.id
         annotations[name] = annotation
         (optional if get_origin(annotation) is typing.NotRequired else required).add(name)
-    if (value.__annotations__ != annotations or value.__required_keys__ != required
-            or value.__optional_keys__ != optional or not value.__total__):
+    if (
+        value.__annotations__ != annotations
+        or value.__required_keys__ != required
+        or value.__optional_keys__ != optional
+        or not value.__total__
+    ):
         raise PortRefusal("TypedDict runtime fields differ from captured declaration")
 
 
@@ -1234,19 +1277,32 @@ def _verify_generated_dataclass(value, node, module):
     if options.get("init", True) is not True:
         raise PortRefusal("generated dataclass requires init=True")
     actual_fields = {field.name: field for field in dataclasses.fields(value)}
-    expected_names = {field.name for base in value.__bases__ if dataclasses.is_dataclass(base)
-                      for field in dataclasses.fields(base)}
+    expected_names = {
+        field.name
+        for base in value.__bases__
+        if dataclasses.is_dataclass(base)
+        for field in dataclasses.fields(base)
+    }
     for declaration in node.body:
-        if isinstance(declaration, ast.FunctionDef) and declaration.name in {"__init__", "__new__", "__post_init__"}:
+        if isinstance(declaration, ast.FunctionDef) and declaration.name in {
+            "__init__",
+            "__new__",
+            "__post_init__",
+        }:
             raise PortRefusal("custom dataclass construction needs an explicit model")
-        if not isinstance(declaration, ast.AnnAssign) or not isinstance(declaration.target, ast.Name):
+        if not isinstance(declaration, ast.AnnAssign) or not isinstance(
+            declaration.target, ast.Name
+        ):
             continue
         name = declaration.target.id
         expected_names.add(name)
         actual = actual_fields.get(name)
         if actual is None:
             raise PortRefusal("generated dataclass field correspondence differs")
-        annotation = eval(compile(ast.Expression(declaration.annotation), module.__file__, "eval"), module.__dict__)
+        annotation = eval(
+            compile(ast.Expression(declaration.annotation), module.__file__, "eval"),
+            module.__dict__,
+        )
         if actual.type != annotation:
             raise PortRefusal("generated dataclass field annotation differs")
         default, factory = dataclasses.MISSING, dataclasses.MISSING
@@ -1269,8 +1325,12 @@ def _verify_generated_dataclass(value, node, module):
                     raise PortRefusal("unsupported dataclass field option")
         elif declaration.value is not None:
             default = ast.literal_eval(declaration.value)
-        if (actual.default_factory is not factory or actual.kw_only != kw_only
-                or type(actual.default) is not type(default) or actual.default != default):
+        if (
+            actual.default_factory is not factory
+            or actual.kw_only != kw_only
+            or type(actual.default) is not type(default)
+            or actual.default != default
+        ):
             raise PortRefusal("dataclass default or factory correspondence differs")
     if set(actual_fields) != expected_names:
         raise PortRefusal("generated dataclass acquired undeclared fields")
@@ -1279,30 +1339,57 @@ def _verify_generated_dataclass(value, node, module):
         raise PortRefusal("generated dataclass runtime options differ")
     specification = []
     for field in actual_fields.values():
-        specification.append((field.name, field.type, dataclasses.field(
-            default=field.default, default_factory=field.default_factory,
-            kw_only=field.kw_only)))
-    expected = dataclasses.make_dataclass(value.__name__, specification,
-                                        frozen=parameters.frozen,
-                                        kw_only=options.get("kw_only", False))
+        specification.append(
+            (
+                field.name,
+                field.type,
+                dataclasses.field(
+                    default=field.default,
+                    default_factory=field.default_factory,
+                    kw_only=field.kw_only,
+                ),
+            )
+        )
+    expected = dataclasses.make_dataclass(
+        value.__name__,
+        specification,
+        frozen=parameters.frozen,
+        kw_only=options.get("kw_only", False),
+    )
     if value.__init__.__code__ != expected.__init__.__code__:
         raise PortRefusal("generated dataclass constructor implementation differs")
-    allowed = set(vars(expected)) | {"__firstlineno__", "__static_attributes__", "__annotate_func__"}
+    allowed = set(vars(expected)) | {
+        "__firstlineno__",
+        "__static_attributes__",
+        "__annotate_func__",
+    }
     if "__slotnames__" in vars(value):
         if value.__slotnames__ != []:
             raise PortRefusal("generated dataclass has unexpected runtime slots")
         allowed.add("__slotnames__")  # copyreg caches the absence of slots during deepcopy.
-    allowed.update(declaration.name for declaration in node.body
-                   if isinstance(declaration, (ast.FunctionDef, ast.ClassDef)))
-    allowed.update(declaration.target.id for declaration in node.body
-                   if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name))
+    allowed.update(
+        declaration.name
+        for declaration in node.body
+        if isinstance(declaration, (ast.FunctionDef, ast.ClassDef))
+    )
+    allowed.update(
+        declaration.target.id
+        for declaration in node.body
+        if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name)
+    )
     if set(vars(value)) - allowed:
-        raise PortRefusal("generated dataclass acquired undeclared class behavior: " + repr(sorted(set(vars(value)) - allowed)))
+        raise PortRefusal(
+            "generated dataclass acquired undeclared class behavior: "
+            + repr(sorted(set(vars(value)) - allowed))
+        )
     for name in ("__setattr__", "__delattr__", "__getattribute__"):
         actual_method = inspect.getattr_static(value, name)
         expected_method = inspect.getattr_static(expected, name)
         if inspect.isfunction(expected_method):
-            if not inspect.isfunction(actual_method) or actual_method.__code__ != expected_method.__code__:
+            if (
+                not inspect.isfunction(actual_method)
+                or actual_method.__code__ != expected_method.__code__
+            ):
                 raise PortRefusal("generated dataclass mutation behavior differs")
         elif actual_method is not expected_method:
             raise PortRefusal("generated dataclass field access behavior differs")
@@ -1577,19 +1664,27 @@ class ResolvedPublicationPort:
     result_kind: str
 
     def invoke_json(self, value: RoleValue) -> NativeCommandCompletion:
-        if value.role != 'request' or value.kind_contract != self.request_kind:
-            raise PortRefusal('publication command requires its captured nominal request')
-        result = self.storage.invoke('publish_data_derivation', value.value())
+        if value.role != "request" or value.kind_contract != self.request_kind:
+            raise PortRefusal("publication command requires its captured nominal request")
+        result = self.storage.invoke("publish_data_derivation", value.value())
         if (
-            type(result.get('receipt_id')) is not str or not result['receipt_id']
-            or type(result.get('derivation_id')) is not str or not result['derivation_id']
-            or type(result.get('replayed')) is not bool
+            type(result.get("receipt_id")) is not str
+            or not result["receipt_id"]
+            or type(result.get("derivation_id")) is not str
+            or not result["derivation_id"]
+            or type(result.get("replayed")) is not bool
         ):
-            raise PortRefusal('native publication did not return its required effect receipt')
+            raise PortRefusal("native publication did not return its required effect receipt")
         from .data_operation_identity import semantic_value
+
         return NativeCommandCompletion(
-            'data.publish_data_derivation',
-            RoleValue('result', self.result_kind, canonical_bytes(result),
-                      canonical_bytes(semantic_value(result))),
-            result['receipt_id'], result['derivation_id'],
+            "data.publish_data_derivation",
+            RoleValue(
+                "result",
+                self.result_kind,
+                canonical_bytes(result),
+                canonical_bytes(semantic_value(result)),
+            ),
+            result["receipt_id"],
+            result["derivation_id"],
         )

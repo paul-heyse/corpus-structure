@@ -1796,7 +1796,8 @@ def test_distinct_root_contexts_attach_and_publish_equal_bodies(kernel, changed)
             context_row = (
                 connection.execute(
                     text(
-                        "SELECT project_id,subject,original_source,analyzed_scope FROM ops.data_request WHERE id=:id"
+                        "SELECT project_id,subject,original_source,analyzed_scope "
+                        "FROM ops.data_request WHERE id=:id"
                     ),
                     {"id": attached["request_id"]},
                 )
@@ -1997,7 +1998,7 @@ def test_registration_rejects_forged_selected_graph_with_authentic_node_identiti
         frozen["operations"].append(deepcopy(frozen["operations"][0]))
     with (
         kernel["engine"].begin() as connection,
-        pytest.raises(DBAPIError, match="graph|closure|discovery"),
+        pytest.raises(DBAPIError, match=r"graph|closure|discovery"),
     ):
         DataOperationStorage(connection).invoke(
             "register_data_demand",
@@ -2090,12 +2091,13 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
         snapshot = planner.resume(demand["demand_id"])
         if uncommitted_intent:
             with connection.begin_nested() as savepoint:
-                with pytest.raises(DBAPIError, match="active|lease|invalid"):
+                with pytest.raises(DBAPIError, match=r"active|lease|invalid"):
                     planner.ready(snapshot, authorization=b"{}")
                 savepoint.rollback()
             connection.execute(
                 text(
-                    "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:id"
+                    "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' "
+                    "WHERE id=:id"
                 ),
                 {"id": consumer_fence["task_id"]},
             )
@@ -2116,7 +2118,11 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
             assert old["state"] == "known-uncommitted" and old["intent_retained"]
         else:
             assert original_receipt is not None
-            previous = next(use for use in snapshot["uses"] if use["request_id"] == consumer_native["request_id"])
+            previous = next(
+                use
+                for use in snapshot["uses"]
+                if use["request_id"] == consumer_native["request_id"]
+            )
             assert previous["rebind_derivation"] == original_receipt["derivation_id"]
             assert planner.ready(snapshot, authorization=b"{}") == ()
             assert consumer_native["request_id"] in planner.fulfilled_request_ids
@@ -2140,7 +2146,7 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
                 == 1
             )
     if uncommitted_intent:
-        with pytest.raises(DBAPIError, match="stale|fence"):
+        with pytest.raises(DBAPIError, match=r"stale|fence"):
             publish(kernel, consumer_fence, original_intent)
 
 

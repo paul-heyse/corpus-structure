@@ -8,10 +8,10 @@ from typing import ClassVar
 
 from .characterization import characterization_profiles
 from .data_operation_identity import body_identity, contextual_product_identity
-from .data_operation_model import SubjectContext, EffectiveDataOperationModel
+from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
-from .source_products import FrozenNativeSource, source_subject
+from .source_products import FrozenNativeSource
 from .types import PreparedRelease
 
 
@@ -48,7 +48,9 @@ class RetainedCharacterizationProduct:
 
     def _publication_context(self):
         if self.subject_context is None:
-            raise ValueError("native product identity requires an explicit acquired subject context")
+            raise ValueError(
+                "native product identity requires an explicit acquired subject context"
+            )
         return self.subject_context
 
     @property
@@ -79,7 +81,9 @@ class EnrichedDocumentProduct:
 
     def _publication_context(self):
         if self.subject_context is None:
-            raise ValueError("native product identity requires an explicit acquired subject context")
+            raise ValueError(
+                "native product identity requires an explicit acquired subject context"
+            )
         return self.subject_context
 
     @property
@@ -252,7 +256,10 @@ def compose_enriched_document(
     )
     checked = prepared.validate_json("DdoEnrichedDocumentView", canonical_bytes(value))
     return EnrichedDocumentProduct(
-        canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)), prepared, model, subject_context
+        canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),
+        prepared,
+        model,
+        subject_context,
     )
 
 
