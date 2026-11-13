@@ -254,6 +254,8 @@ class DemandPlanner:
                 "strength": strength,
             },
         )
+        if result.get("state") == "cancelled":
+            return result
         for root in record["roots"]:
             for operation in record["operations"]:
                 if operation["operation"] not in record["root_operations"]:
@@ -359,6 +361,9 @@ class DemandPlanner:
         from .data_operation_bindings import PopulationBinding, compile_binding, execute_binding
         from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_storage import admitted_data_projection
+
+        if snapshot.get("state") == "cancelled":
+            return ()
 
         frozen = snapshot["intent"]
         if frozen["model"] != sha256(self.model.content).hexdigest():
