@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .data_operation_json import json_bytes, json_loads
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
@@ -56,8 +57,8 @@ class SourceSetEntry:
         if self.member is not None and not self.member:
             raise ValueError("source-set member is null or a nonempty original identifier")
         if (
-            not isinstance(json.loads(self.analyzed_scope), dict)
-            or canonical_bytes(json.loads(self.analyzed_scope)) != self.analyzed_scope
+            not isinstance(json_loads(self.analyzed_scope), dict)
+            or json_bytes(json_loads(self.analyzed_scope)) != self.analyzed_scope
         ):
             raise ValueError("source-set scope must be canonical JSON")
         if canonical_bytes(reference.model_dump(mode="json", exclude_none=True)) != self.reference:
@@ -90,7 +91,7 @@ class SourceSetEntry:
             "project_id": self.project_id,
             "original_source": self.original_source,
             "subject": self.subject,
-            "analyzed_scope": json.loads(self.analyzed_scope),
+            "analyzed_scope": json_loads(self.analyzed_scope),
             "product": self.product,
             "member": self.member,
             "source_reference": self.source_reference,
@@ -154,7 +155,7 @@ def read_source_sets(record: dict) -> tuple[FrozenSourceSet, ...]:
                     entry["project_id"],
                     entry["original_source"],
                     entry["subject"],
-                    canonical_bytes(entry["analyzed_scope"]),
+                    json_bytes(entry["analyzed_scope"]),
                     entry["product"],
                     entry["member"],
                     entry["source_reference"],

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import networkx as nx
 from pydantic import TypeAdapter
 
+from .data_operation_json import json_bytes, json_loads, wire_json_loads
 from .data_operation_compilation import project_operation_binding
 from .data_operation_model import (
     EffectiveDataOperationModel,
@@ -67,7 +68,7 @@ class DemandIntent:
 
     @property
     def record(self) -> dict[str, Any]:
-        return json.loads(self.content)
+        return wire_json_loads(self.content)
 
 
 def freeze_demand(
@@ -188,7 +189,7 @@ def freeze_demand(
     if frozen_source_sets.keys() != declared_source_sets:
         raise ValueError("frozen source sets must exactly match selected operation declarations")
     return DemandIntent(
-        canonical_bytes(
+        json_bytes(
             {
                 "version": "data-demand-intent-v1",
                 "model": sha256(model.content).hexdigest(),
@@ -197,14 +198,14 @@ def freeze_demand(
                         {
                             "subject": root.subject,
                             "original_source": root.original_source,
-                            "analyzed_scope": json.loads(root.analyzed_scope),
+                            "analyzed_scope": json_loads(root.analyzed_scope),
                         }
                         for root in roots
                     ),
                     key=lambda root: (
                         root["subject"],
                         root["original_source"],
-                        canonical_bytes(root["analyzed_scope"]),
+                        json_bytes(root["analyzed_scope"]),
                     ),
                 ),
                 "targets": sorted(set(targets)),
@@ -273,8 +274,8 @@ def _population_context_matches(
     """Use authenticated contexts, or an explicitly frozen exact member association."""
     def same_context(left: dict, right: dict) -> bool:
         return all(left.get(key) == right[key] for key in ("subject", "original_source")) and (
-            json_context_meaning(canonical_bytes(left.get("analyzed_scope")))
-            == json_context_meaning(canonical_bytes(right["analyzed_scope"]))
+            json_context_meaning(json_bytes(left.get("analyzed_scope")))
+            == json_context_meaning(json_bytes(right["analyzed_scope"]))
         )
 
     evidence = row["evidence"]
@@ -486,12 +487,8 @@ class DemandPlanner:
                 analyzed_scope=obligation["analyzed_scope"],
             )
             binding_arguments = dict(
-                subject_context=SubjectContext(
-                    snapshot["project_id"],
-                    obligation["subject"],
-                    obligation["original_source"],
-                    canonical_bytes(obligation["analyzed_scope"]),
-                ),
+                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
+                    obligation["original_source"], json_bytes(obligation["analyzed_scope"])),
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
@@ -636,7 +633,7 @@ class DemandPlanner:
                     row["semantic_key"],
                     row["complete"],
                     tuple(member["member_id"] for member in row["members"]),
-                    canonical_bytes(
+                    json_bytes(
                         {
                             **row["evidence"],
                             "population_id": row["population_id"],
@@ -665,15 +662,11 @@ class DemandPlanner:
                 )
                 continue
             resolved = binding.resolved(
-                subject_context=SubjectContext(
-                    snapshot["project_id"],
-                    obligation["subject"],
-                    obligation["original_source"],
-                    canonical_bytes(obligation["analyzed_scope"]),
-                ),
+                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
+                    obligation["original_source"], json_bytes(obligation["analyzed_scope"])),
                 inference=frozen["inference"],
                 authorization=authorization,
-                trust_evidence=canonical_bytes(
+                trust_evidence=json_bytes(
                     {
                         "demand_id": snapshot["demand_id"],
                         "obligation_id": obligation["obligation_id"],

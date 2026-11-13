@@ -16,6 +16,7 @@ from .data_operation_support import (
     OriginalSourceSupportReference,
     SupportReference,
 )
+from .data_operation_json import json_bytes, json_loads
 from .identity import canonical_bytes
 
 MODEL_VERSION = "data-operation-model-v2"
@@ -523,16 +524,13 @@ class SubjectContext:
     def __post_init__(self):
         if not self.project_id or not self.subject or not self.original_source:
             raise ValueError("subject context requires project, subject and original source")
-        object.__setattr__(self, "analyzed_scope", canonical_bytes(json.loads(self.analyzed_scope)))
+        object.__setattr__(self, "analyzed_scope", json_bytes(json_loads(self.analyzed_scope)))
 
     @property
     def record(self) -> dict:
-        return {
-            "project_id": self.project_id,
-            "subject": self.subject,
-            "original_source": self.original_source,
-            "analyzed_scope": json.loads(self.analyzed_scope),
-        }
+        return {"project_id": self.project_id, "subject": self.subject,
+                "original_source": self.original_source,
+                "analyzed_scope": json_loads(self.analyzed_scope)}
 
     @property
     def identity_content(self) -> bytes:

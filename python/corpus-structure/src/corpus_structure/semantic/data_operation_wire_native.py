@@ -19,6 +19,10 @@ def wire_native_sources() -> tuple[SourceArtifact, ...]:
             "native/data-operation-wire.py",
             Path(__file__).with_name("data_operation_wire.py").read_bytes(),
         ),
+        SourceArtifact(
+            "native/data-operation-json.py",
+            Path(__file__).with_name("data_operation_json.py").read_bytes(),
+        ),
     )
 
 

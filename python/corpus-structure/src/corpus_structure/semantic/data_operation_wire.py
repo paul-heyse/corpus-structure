@@ -9,6 +9,7 @@ https://github.com/supabase/pg_jsonschema for the shared validation realization.
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
@@ -16,15 +17,19 @@ from typing import Any, Literal
 import yaml
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError, ValidationError
-from pydantic import JsonValue, TypeAdapter
+from pydantic import TypeAdapter
 
+from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
 DRAFT7 = "http://json-schema.org/draft-07/schema#"
 PROTOCOL_SOURCE = "native/data-operation-protocol.yaml"
 KIND_PREFIX = "urn:corpus:data-wire:"
-_JSON_VALUE = TypeAdapter(JsonValue)
+type ExactJSONValue = (
+    dict[str, ExactJSONValue] | list[ExactJSONValue] | str | bool | int | float | Decimal | None
+)
+_JSON_VALUE = TypeAdapter(ExactJSONValue)
 
 
 def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
@@ -279,8 +284,9 @@ def _validator(content: bytes) -> Draft7Validator:
 def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
     """Strict JSON-value ingress; return an owned detached snapshot, never coerce."""
     checked = _JSON_VALUE.validate_python(value, strict=True)
-    snapshot = canonical_bytes(checked)  # also excludes non-finite JSON numbers
-    result = json.loads(snapshot)
+    snapshot = json_bytes(checked)  # also excludes non-finite JSON numbers
+    result = wire_json_loads(snapshot)
+    json_bytes(result)  # finite non-context numbers must remain representable as floats
     encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
     try:
         _validator(encoded).validate(result)

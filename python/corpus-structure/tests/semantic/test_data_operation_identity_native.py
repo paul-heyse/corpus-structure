@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_identity import (
     CollectionValue,
     OptionalValue,
@@ -126,10 +127,7 @@ def test_json_subject_context_encoding_matches_literals_and_python(semantic_db_e
                     == expected
                 )
                 context = SubjectContext("project", "local", "original", value.encode())
-                actual = connection.execute(
-                    text("SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb))"),
-                    {"value": json.dumps(context.record)},
-                ).scalar_one()
+                actual = connection.execute(text("SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb))"), {"value": json_bytes(context.record).decode()}).scalar_one()
                 assert actual == semantic_value(context.identity_record)
         finally:
             transaction.rollback()

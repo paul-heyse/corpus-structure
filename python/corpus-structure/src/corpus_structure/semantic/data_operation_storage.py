@@ -12,11 +12,12 @@ from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import bindparam, func, select, text
+from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from .data_operation_model import MODEL_VERSION
+from .data_operation_json import ContextJSONB, json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -106,6 +107,8 @@ def _captured(sources) -> dict[str, bytes]:
     }
     if b"admit_original_document_asset" in result.get("native/data-operation-protocol.yaml", b""):
         required.add("native/data-operation-original-support-reference.json")
+    if b".data_operation_json import" in result.get("native/data-operation-wire.py", b""):
+        required.add("native/data-operation-json.py")
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
     return result
@@ -320,9 +323,13 @@ class DataOperationStorage:
         if name not in {item["name"] for item in _protocol()}:
             raise ValueError("unknown trusted native data operation")
         payload = validate_native_wire(name, "input", payload)
-        value = self.connection.scalar(
-            select(getattr(func.ops, name)(bindparam("payload", type_=JSONB))), {"payload": payload}
+        encoded = self.connection.scalar(
+            select(cast(getattr(func.ops, name)(cast(bindparam("payload", type_=Text), JSONB)), Text)),
+            {"payload": json_bytes(payload).decode()},
         )
+        if not isinstance(encoded, str):
+            raise ValueError("native data operation returned a malformed fixed envelope")
+        value = wire_json_loads(encoded)
         if (
             not isinstance(value, dict)
             or set(value) != {"payload"}
@@ -828,10 +835,12 @@ def admitted_data_projection(
         read_id,
         subject,
         original_source,
-        bindparam("data_binding_scope", analyzed_scope, type_=JSONB),
+        bindparam("data_binding_scope", analyzed_scope, type_=ContextJSONB()),
     ).table_valued(
         *(
-            column(name, JSONB())
+            column(name, ContextJSONB())
+            if name in {"analyzed_scope", "support_evidence"}
+            else column(name, JSONB())
             if name in json_columns
             else column(name, BigInteger())
             if name in {"position", "multiplicity"}

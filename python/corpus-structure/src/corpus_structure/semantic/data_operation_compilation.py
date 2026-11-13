@@ -40,6 +40,7 @@ from .data_operation_model import (
     StateTransition,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
+from .data_operation_json import json_loads, scope_identity, wire_json_loads
 from .identity import canonical_bytes
 from .python_operation_sources import ClosedPythonSources, PythonSourceCollection
 from .types import (
@@ -1723,7 +1724,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 "subject": member.subject,
                 "member": member.member,
                 "original_source": member.original_source,
-                "analyzed_scope": json.loads(member.analyzed_scope),
+                "analyzed_scope": scope_identity(json_loads(member.analyzed_scope)),
                 "coverage": json.loads(member.coverage),
                 "position": member.position if role.collection == "sequence" else None,
                 "multiplicity": member.multiplicity,
@@ -1768,7 +1769,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                     "position": member.position,
                     "episodes": member.support_episodes,
                     "support_references": support_reference_records(member.support_references),
-                    "evidence": json.loads(member.support_evidence),
+                    "evidence": wire_json_loads(member.support_evidence),
                     "provider": member.provider_identity,
                     "alternative": member.alternative_identity,
                 }
@@ -1812,7 +1813,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         if actual.state == "known-absent" and actual.population_witness is None:
             _fail(name, "known absence requires a closed population witness")
         witness = (
-            json.loads(actual.population_witness) if actual.population_witness is not None else None
+            wire_json_loads(actual.population_witness) if actual.population_witness is not None else None
         )
         values[name] = {
             "value": OptionalValue(actual.state, collection if actual.state == "present" else None),
@@ -1831,7 +1832,11 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         "replicate": binding.replicate,
     }
     if binding.source_sets != b"{}":
-        parameters["source_sets"] = json.loads(binding.source_sets)
+        parameters["source_sets"] = {
+            name: [{**entry, "analyzed_scope": scope_identity(entry["analyzed_scope"])}
+                   for entry in entries]
+            for name, entries in wire_json_loads(binding.source_sets).items()
+        }
     request = SemanticRequestKey(
         recipe,
         binding.subject,
@@ -1846,7 +1851,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         {
             "selected_support": support,
             "definition_revision": identities[operation.semantic_id, "definition"],
-            "trust_evidence": json.loads(binding.trust_evidence),
+            "trust_evidence": wire_json_loads(binding.trust_evidence),
         },
         json.loads(binding.authorization),
         binding.execution_profile,

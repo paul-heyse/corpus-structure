@@ -32,6 +32,7 @@ from .data_operation_model import (
     SubjectContext,
 )
 from .data_operation_source_sets import FrozenSourceSet, source_sets_record
+from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 
 BindingStatus = Literal[
@@ -572,7 +573,7 @@ def compile_binding(
         )
 
     def population_product(name: str, population: PopulationBinding):
-        evidence = json.loads(population.evidence)
+        evidence = wire_json_loads(population.evidence)
         product = evidence.get("product_id")
         if product is None:
             return true()
@@ -1046,7 +1047,7 @@ def compile_binding(
         tuple(sorted(inactive)),
         tuple(sorted(role_populations.items())),
         tuple(sorted(subject_columns.items())),
-        canonical_bytes(selected_source_sets),
+        json_bytes(selected_source_sets),
         original_source,
         subject_context,
     )
@@ -1092,7 +1093,9 @@ def decode_binding_rows(
 
             def payload(name, selected_row=row):
                 value = selected_row[name]
-                return value if isinstance(value, bytes) else canonical_bytes(value)
+                return value if isinstance(value, bytes) else (
+                    json_bytes(value) if name in {"analyzed_scope", "support_evidence"} else canonical_bytes(value)
+                )
 
             members.append(
                 BoundRoleMember(
@@ -1221,19 +1224,19 @@ def decode_binding_rows(
                 )
             )
         witness = (
-            canonical_bytes(
+            json_bytes(
                 {
                     "identity": population.identity,
                     "complete": population.complete,
                     "members": population.members,
-                    "evidence": json.loads(population.evidence),
+                    "evidence": wire_json_loads(population.evidence),
                 }
             )
             if population
             else None
         )
         if role.name in compiled.inactive_roles:
-            witness = canonical_bytes(
+            witness = json_bytes(
                 {
                     "complete": True,
                     "members": [],

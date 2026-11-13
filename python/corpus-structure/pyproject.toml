@@ -60,6 +60,7 @@ dependencies = [
     "astroid==4.3.4",
     "griffe==2.4.1",
     "libcst==1.9.0",
+    "python-rapidjson==1.25",
 ]
 
 [project.scripts]
