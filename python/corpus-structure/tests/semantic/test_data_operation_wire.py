@@ -94,7 +94,7 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 13
+    assert len(contracts) == 14
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)
@@ -687,3 +687,26 @@ def test_request_renewal_wire_requires_exact_fence_and_bounded_duration():
     ):
         with pytest.raises(ValueError):
             validate_native_wire("renew_data_request", "input", altered)
+
+
+def test_cancel_demand_wire_requires_reason_and_never_claims_physical_retirement():
+    from corpus_structure.semantic.data_operation_wire import validate_native_wire
+
+    assert validate_native_wire("cancel_data_demand", "input", {
+        "demand_id": "demand:one", "reason": "operator cancelled",
+    })["reason"] == "operator cancelled"
+    with pytest.raises(ValueError):
+        validate_native_wire("cancel_data_demand", "input", {
+            "demand_id": "demand:one", "reason": "",
+        })
+    result: dict[str, Any] = {
+        "demand_id": "demand:one", "state": "cancelled", "reason": "operator cancelled",
+        "requests": [{
+        "request_id": "request:one", "generation": 1, "task_id": 1,
+        "interest": "shared", "physical_retirement": "unconfirmed",
+        }],
+    }
+    assert validate_native_wire("cancel_data_demand", "output", result) == result
+    result["requests"][0]["physical_retirement"] = "retired"
+    with pytest.raises(ValueError):
+        validate_native_wire("cancel_data_demand", "output", result)

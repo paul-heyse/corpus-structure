@@ -958,9 +958,51 @@ definitions:
         $ref: '#/definitions/identifier'
       selection:
         $ref: '#/definitions/demand_intent'
+      state:
+        type: string
+        enum: [active, cancelled]
     required:
     - demand_id
     - selection
+    additionalProperties: false
+  cancel_data_demand_request:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      reason:
+        $ref: '#/definitions/identifier'
+    required: [demand_id, reason]
+    additionalProperties: false
+  cancel_data_demand_result:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      state:
+        const: cancelled
+      reason:
+        $ref: '#/definitions/identifier'
+      requests:
+        type: array
+        items:
+          type: object
+          properties:
+            request_id:
+              $ref: '#/definitions/identifier'
+            generation:
+              $ref: '#/definitions/positive_integer'
+            task_id:
+              anyOf:
+              - $ref: '#/definitions/task_id'
+              - type: 'null'
+            interest:
+              enum: [shared, orphaned]
+            physical_retirement:
+              const: unconfirmed
+          required: [request_id, generation, task_id, interest, physical_retirement]
+          additionalProperties: false
+    required: [demand_id, state, reason, requests]
     additionalProperties: false
   expand_data_obligation_request:
     type: object
@@ -1613,6 +1655,9 @@ definitions:
         enum:
         - frontier
         - products
+      state:
+        type: string
+        enum: [active, cancelled]
     required:
     - demand_id
     - selection
@@ -1693,6 +1738,13 @@ operations:
   profile: command
   request: register_data_demand_request
   result: register_data_demand_result
+  purposes:
+  - write
+  - evaluate
+- name: cancel_data_demand
+  profile: command
+  request: cancel_data_demand_request
+  result: cancel_data_demand_result
   purposes:
   - write
   - evaluate
