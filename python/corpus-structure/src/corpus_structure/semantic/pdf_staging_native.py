@@ -117,18 +117,22 @@ BEGIN
  RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
  IF context.request_id IS NOT NULL THEN
- SELECT * INTO STRICT request FROM ops.data_request WHERE id=context.request_id;
+ SELECT request_row.* INTO STRICT request FROM ops.data_request request_row
+ WHERE request_row.id=context.request_id;
  PERFORM ops.ddo_lock_support(request.project_id,request.original_source,
  request.binding->'support');
  PERFORM 1 FROM ops.data_demand demand WHERE EXISTS(SELECT FROM ops.demand_use use_
  WHERE use_.demand_id=demand.id AND use_.request_id=request.id
  AND use_.generation=request.generation
  AND use_.fate='attached') ORDER BY demand.id FOR SHARE;
- SELECT * INTO STRICT request FROM ops.data_request WHERE id=context.request_id FOR UPDATE;
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
+ SELECT request_row.* INTO STRICT request FROM ops.data_request request_row
+ WHERE request_row.id=context.request_id FOR UPDATE;
+ SELECT task_row.* INTO STRICT job FROM ops.task task_row WHERE task_row.id=p_task FOR UPDATE;
  ELSE
- SELECT * INTO STRICT legacy FROM ops.run WHERE id=context.run_id FOR SHARE;
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=legacy.id FOR UPDATE;
+ SELECT run_row.* INTO STRICT legacy FROM ops.run run_row
+ WHERE run_row.id=context.run_id FOR SHARE;
+ SELECT task_row.* INTO STRICT job FROM ops.task task_row
+ WHERE task_row.id=p_task AND task_row.run_id=legacy.id FOR UPDATE;
  END IF;
  IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
  RAISE EXCEPTION 'stale private PDF build owner/capability/support' USING ERRCODE='P0004'; END IF;
