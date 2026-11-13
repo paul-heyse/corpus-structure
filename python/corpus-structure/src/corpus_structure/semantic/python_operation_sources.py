@@ -1490,6 +1490,7 @@ class ClosedPythonSources:
                 def visit_Call(self, node: cst.Call) -> bool | None:
                     if extractor._runtime_dataclass_field(path, node):
                         for arg in node.args:
+                            assert arg.keyword is not None
                             if arg.keyword.value == "default_factory":
                                 names = module.names.get(arg.value, set())
                                 names = names() if callable(names) else names

@@ -640,7 +640,7 @@ class ResolvedPythonPort:
         )
 
 
-def _validated_python_input(annotation, value):
+def _validated_python_input(annotation: Any, value: Any) -> Any:
     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
         if type(value) is not annotation:
             raise PortRefusal("typed Python dataclass ingress requires its exact nominal class")
@@ -1015,7 +1015,7 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
     expected_nodes = {
         n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")
     }
-    standard_references = {}
+    standard_references: dict[str, object] = {}
     if operation.capabilities.forms == ("stream",):
         standard_references = {
             "collections.abc.Iterator": Iterator,
@@ -1211,7 +1211,8 @@ def _verify_closed_runtime_sources(
                 )
 
 
-def _input_annotation(parameter):
+
+def _input_annotation(parameter: inspect.Parameter) -> Any:
     annotation = parameter.annotation
     if parameter.kind == inspect.Parameter.VAR_KEYWORD:
         if get_origin(annotation) is not typing.Unpack or len(get_args(annotation)) != 1:
@@ -1334,28 +1335,21 @@ def _verify_generated_dataclass(value, node, module):
             raise PortRefusal("dataclass default or factory correspondence differs")
     if set(actual_fields) != expected_names:
         raise PortRefusal("generated dataclass acquired undeclared fields")
-    parameters = value.__dataclass_params__
+    parameters = inspect.getattr_static(value, "__dataclass_params__")
     if parameters.frozen != options.get("frozen", False) or not parameters.init:
         raise PortRefusal("generated dataclass runtime options differ")
     specification = []
     for field in actual_fields.values():
-        specification.append(
-            (
-                field.name,
-                field.type,
-                dataclasses.field(
-                    default=field.default,
-                    default_factory=field.default_factory,
-                    kw_only=field.kw_only,
-                ),
-            )
-        )
-    expected = dataclasses.make_dataclass(
-        value.__name__,
-        specification,
-        frozen=parameters.frozen,
-        kw_only=options.get("kw_only", False),
-    )
+        if field.default_factory is dataclasses.MISSING:
+            modeled_field = dataclasses.field(default=field.default, kw_only=field.kw_only)
+        else:
+            if not callable(field.default_factory):
+                raise PortRefusal("dataclass field factory is not callable")
+            modeled_field = dataclasses.field(default_factory=field.default_factory, kw_only=field.kw_only)
+        specification.append((field.name, field.type, modeled_field))
+    expected = dataclasses.make_dataclass(value.__name__, specification,
+                                        frozen=parameters.frozen,
+                                        kw_only=options.get("kw_only", False))
     if value.__init__.__code__ != expected.__init__.__code__:
         raise PortRefusal("generated dataclass constructor implementation differs")
     allowed = set(vars(expected)) | {
@@ -1364,7 +1358,7 @@ def _verify_generated_dataclass(value, node, module):
         "__annotate_func__",
     }
     if "__slotnames__" in vars(value):
-        if value.__slotnames__ != []:
+        if vars(value)["__slotnames__"] != []:
             raise PortRefusal("generated dataclass has unexpected runtime slots")
         allowed.add("__slotnames__")  # copyreg caches the absence of slots during deepcopy.
     allowed.update(

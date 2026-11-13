@@ -763,7 +763,8 @@ def test_data_stream_is_pull_bounded_typed_and_has_terminal_standing(tmp_path, m
     assert next(stream)[0] == 1
     with pytest.raises(StopIteration):
         next(stream)
-    assert (stream.terminal.state, stream.terminal.items) == ("complete", 2)
+    assert stream.terminal is not None
+    assert (stream.terminal.state, stream.terminal.items) == ('complete', 2)
     stream.close()
     assert stream.terminal.state == "complete"
 
@@ -794,7 +795,8 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
     value = PythonRoleValue("index", kind(model, "index"), 3)
     with port.open_stream_python((value,)) as stream:
         assert next(stream)[0] == 0
-    assert (stream.terminal.state, stream.terminal.items) == ("cancelled", 1)
+    assert stream.terminal is not None
+    assert (stream.terminal.state, stream.terminal.items) == ('cancelled', 1)
     calls = []
 
     def active():
@@ -806,7 +808,10 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
     next(stream)
     with pytest.raises(RuntimeError, match="cancelled"):
         next(stream)
-    assert stream.terminal.state == "failed"
+    assert stream.terminal is not None
+    assert stream.terminal.state == 'failed'
+    import inspect
+    assert inspect.isgenerator(stream._iterator)
     assert stream._iterator.gi_frame is None
 
 
