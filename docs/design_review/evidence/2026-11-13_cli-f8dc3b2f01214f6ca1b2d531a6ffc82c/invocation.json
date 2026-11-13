@@ -1,0 +1,29 @@
+{
+  "id": "f8dc3b2f01214f6ca1b2d531a6ffc82c",
+  "action": "model.candidate",
+  "stage": "rollback-only authoring",
+  "started": 1794604083.9067633,
+  "settled": 1794604154.0602522,
+  "outcome": "failed",
+  "artifact_role": "observations",
+  "custody": "settled",
+  "operation_account": {
+    "version": 1,
+    "outcome": "failed",
+    "cleanup": "established",
+    "failure": {
+      "kind": "refusal",
+      "code": "NativeAuthoringError",
+      "message": "PL/pgSQL authoring check failed for ops.ddo_validate_binding(ops.data_request,ops.data_obligation,sem.data_operation_definition,jsonb,jsonb,text): SQLSTATE 42702 line 46: column reference \"reference\" is ambiguous; SQLSTATE 42702 line 66: column reference \"reference\" is ambiguous; SQLSTATE 42702 line 67: column reference \"reference\" is ambiguous; SQLSTATE 42702 line 70: column reference \"reference\" is ambiguous; source=data-operations:forward",
+      "reason": null,
+      "operation_id": null,
+      "database_effects": null
+    },
+    "known_effects": [],
+    "acquired_target": null,
+    "predecessor": null,
+    "reached_revision": null,
+    "release": null,
+    "routing": null
+  }
+}
