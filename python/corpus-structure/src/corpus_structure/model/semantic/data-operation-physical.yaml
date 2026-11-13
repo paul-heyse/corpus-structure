@@ -12,6 +12,7 @@ classes:
       kind_contract: {range: string, required: true}
       kind: {range: string, required: true}
       body_schema: {range: json_payload, required: true}
+      meaning_schema: {range: json_payload, required: true}
       member_schema: {range: json_payload, required: true}
       families: {range: json_payload, required: true}
       universe: {range: string, required: true}
@@ -339,12 +340,14 @@ classes:
       support_derivation_id: {range: string, required: true}
       scope: {range: string, required: true}
       epoch: {range: integer, required: true}
+      admission_use_id: {range: string, required: false}
+      occurrence: {range: integer, required: true}
     unique_keys:
-      primary_key: {unique_key_slots: [derivation_id, role, position]}
+      primary_key: {unique_key_slots: [derivation_id, occurrence]}
     annotations:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
-      ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["support_derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["scope"], "target": "ops.data_trust_scope.scope"}]'
+      ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["support_derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["scope"], "target": "ops.data_trust_scope.scope"}, {"columns": ["admission_use_id"], "target": "ops.demand_use.id"}]'
   data_publication_receipt:
     in_subset: [ops]
     attributes:
