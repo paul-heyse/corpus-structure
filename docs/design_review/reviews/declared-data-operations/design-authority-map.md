@@ -15,6 +15,15 @@ readings, not statements in the sources.
 §1–§4 are earlier proposed detail qualified by the later sections at the top of the file, so
 where they differ the later text is current.
 
+
+**Audit reconciliation2026-11-12.** This remains an implementation/authority baseline,
+not the target specification. The [corrected target](target-contracts-and-storage.md) and
+[principal §§4–11](../design_review_declared-data-operations_2026-11-12.md#4-corrected-target-state)
+supersede original proposed mechanisms; the [companion](../audits/design_review_declared-data-operations_2026-11-12_audit.md)
+records every recommendation disposition. Original dated counts and unrefreshed observations
+remain historical, not new execution evidence.
+
+
 ## Property 1 — Operations as uniformly specified ports with contracts
 
 **Standard.** DP-08 requires every domain operation to have a contract covering inputs,
@@ -145,3 +154,12 @@ uneven authority) and DA-017 (`agent_reuse` undefined). Their rows read open, wh
 stale given later work (*inferred*). The
 [BEP coordinator](../../../plans/book-processing-efficiency-and-parallelism_2026-11-11.md#execution-findings)
 owns E09 and E15–E19. This review changes none of those dispositions.
+
+## Corrected rule-impact map
+
+The principal RC01–RC09 is the current proposed mapping. In addition to the original seven
+impacts, provider/profile fingerprint semantics affect ADR-0085/0091 (RC08); source custody and
+current-only regeneration require preservation/correspondence across ADR-0050/0064/0067 (RC09).
+Original “kept” entries above describe obligations, not a prohibition on replacing their current
+physical representation. Retain protected admission, exact attempts and source/evaluation
+separation while extending the governing model. Accepted ADRs remain unchanged by this audit.

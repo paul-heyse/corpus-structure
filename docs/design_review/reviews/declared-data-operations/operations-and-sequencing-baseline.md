@@ -14,6 +14,15 @@ Nothing was run.
 **Path convention.** Paths without a prefix are relative to
 `python/corpus-structure/src/corpus_structure/`.
 
+
+**Audit reconciliation2026-11-12.** This remains an implementation/authority baseline,
+not the target specification. The [corrected target](target-contracts-and-storage.md) and
+[principal §§4–11](../design_review_declared-data-operations_2026-11-12.md#4-corrected-target-state)
+supersede original proposed mechanisms; the [companion](../audits/design_review_declared-data-operations_2026-11-12_audit.md)
+records every recommendation disposition. Original dated counts and unrefreshed observations
+remain historical, not new execution evidence.
+
+
 ## Layout
 
 All pipeline code is Python. `crates/corpus-structure/src/lib.rs` is a placeholder.
@@ -28,7 +37,7 @@ All pipeline code is Python. `crates/corpus-structure/src/lib.rs` is a placehold
 | `evaluate/`, `serve/`, `intervene/`, `cli/`, `schema/` | Evaluation, read side, MCP server, the `ci` command, schema tooling |
 
 Declared contracts live in `model/semantic/*.yaml`, mainly `execution-model.yaml`. SQL kernels
-live in `semantic/sql/`. Model services run in separate environments under `services/`. Domain
+live in `semantic/sql/`. Legacy service definitions remain under `services/`; ADR-0091 selects one root Python3.14 GPU host for the current learned NLP providers. Domain
 packs under `domains/` hold `methods.yaml` and policies.
 
 ## Operation inventory

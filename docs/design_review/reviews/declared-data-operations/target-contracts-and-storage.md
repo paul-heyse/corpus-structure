@@ -1,148 +1,123 @@
-# Declared data operations — target contracts and storage
+# Declared data operations — corrected target contracts and storage
 
-Supporting document for the
-[declared data operations review](../design_review_declared-data-operations_2026-11-12.md),
-which owns the findings, the corrections C1 to C7 and their order. This page gives the
-proposed declaration shape, binding, storage changes and special-case fit in the detail a plan
-would need.
+**Proposed · recommendation-audit synthesis2026-11-12**, original8f35f1d07,
+product source8c0f4f951. The [principal](../design_review_declared-data-operations_2026-11-12.md)
+owns the complete target, F01–F14, C1–C7, RC01–RC09 and overall judgment.
+This page specifies the resulting contracts; the [audit companion](../audits/design_review_declared-data-operations_2026-11-12_audit.md)
+owns changes to the original. No implementation or schema change is made by this document.
 
-**Everything here is Proposed.** Names are conceptual: they express required meaning and do
-not fix a type, table or file. The fit readings come from a delegated planning pass over the
-code on 2026-11-12 and were not all re-read by the review's author. Nothing was run.
+## Governing declaration and compilation
 
-**Path convention.** Paths without a prefix are relative to
-`python/corpus-structure/src/corpus_structure/`.
+Extend the composed operation model with typed profiles, not an independently authoritative
+sibling declaration. Existing OperationContract/call bindings already have inputs/results,
+cardinality, effects, transitions and outcomes (semantic/contracts.py:670–716). The total model
+covers data derivation, discovery, selection, authored input, external work, publication,
+consolidation and governed read/evaluation behavior. Different profiles need not all be memoized
+or scheduled as data producers.
 
-## Declaration
-
-A `data_operations` section in `model/semantic/execution-model.yaml`, compiled to a sibling of
-`OperationContract` in `semantic/contracts.py`. `OperationContract` stays for database and
-protocol actions. The form generalizes three declarations that already exist:
-
-- `CharacterizationOperation` (`model/semantic/characterization.yaml:66-100`): key, version,
-  model, grammar, configuration, context, produced families, required layers, preconditions,
-  effects, result determinants, outcomes.
-- Analysis demands (`execution-model.yaml:14708`): an id, prerequisites and named
-  determinants.
-- Parsing adapters (`execution-model.yaml:14766`): implementation, frontend and grammar
-  revisions and capabilities.
-
-| Field | Meaning |
+| Owned part | Required meaning |
 |---|---|
-| `id` | Stable operation identity |
-| `subject` | The concept the operation is applied to |
-| `effect` | `derive` a new product; `augment` a base product with a layer; `author` a selection |
-| `executor` | In-process, native host, or external agent |
-| `behavior_version` | Bumped by hand when the operation's behaviour changes |
-| `consumes` | Kinds, each with an optional family, a role, the outcomes that satisfy it, and whether it is optional |
-| `produces` | One kind, with its families |
-| `applicability` | Conditions on the subject beyond input presence |
-| `determinants` | The parameters, assets, provider profile and numerical policy that affect the result |
-| `outcome_domain`, `implementation` | As in existing contracts |
+| Definition revision | Stable operation identity; complete subject/input/output/state/effect/validity contract |
+| Subject binding | Immutable original source/context/actual analyzed scope; distinct from which subjects a demand requests |
+| Input role | Semantic kind contract, subject relation/selector, order/multiplicity/cardinality, alternatives/optional behavior, acceptable outcomes/coverage and support requirements |
+| Output role | Typed product/result bundle, member roles/cardinality, discovery population and no-product outcomes |
+| Applicability | Typed relational predicates; closed population required for negation/all-members claims; unknown remains unknown |
+| Recipe | Behavior revision, semantic parameters/assets, provider/numerical policy, interpretation/coverage contracts and all result-affecting binding semantics |
+| Effects/lifecycle | Authorized capabilities, fulfillment/idempotency, preparation/submission/publication/recovery/retirement outcomes |
+| Implementation | Admitted algorithm/provider, supported capabilities and limits, typed invocation/result forms |
 
-**Kinds** are existing concept ids, qualified by layer family where a concept has families.
-Each kind needs a contract digest compiled with the release. Whether that digest is derivable
-from the member walk the release comparison already performs is inferred, not verified.
+Compile complete definition revision, result-recipe fingerprint, eligibility/binding revision
+and execution binding from this one authority. Eligibility-only widening preserves the recipe
+only where result meaning, scope, input/support, required effects and validity are unchanged.
+Operation ordinals name immutable fingerprints; they are not another manual version source.
 
-**Applicability** is a conjunction of two row forms only:
+Generate operation-shaped typed ports and fixed relational projections. A selector adapter may
+execute the declared query; it cannot define its own applicability or input digest. Inputs arrive
+as admitted bindings, not an ambient Reader permitting undeclared semantic reads. Preserve useful
+batch/stream/preparation/cancellation capabilities without a process or task per semantic concept.
+Specialized predicates/algorithms remain explicit domain operations, not arbitrary effect programs.
 
-1. a consumed kind is present for the subject with an outcome in a declared set;
-2. a declared facet of the subject equals a literal, for example analysis eligibility
-   (`methods/m1_source.py:319`).
+## Identity and canonicalization
 
-Both project to fixed release relations, so SQL evaluates a semi-join and Python reads the
-same rows. Existing invariants cannot carry applicability because they have no evaluator.
-
-**Fingerprint.** A hash of the id, behaviour version, parameters, asset digests, provider
-profile identity, numerical policy, and the contract digests of consumed and produced kinds.
-
-## Configuration split
-
-Today a `Config` carries three different things, and hashing it whole would give one operation
-version per subject:
-
-| Part | Role in the target | Example today |
-|---|---|---|
-| Parameters | Determinant; part of the operation version | Thresholds, model and grammar selections |
-| Subject selection | The demand's subject set | Selectors in `methods/native_evidence.py:45-47` |
-| Input pins | The derivation's inputs | Layer pins pushed through configuration by `orchestrate/characterization.py`; `cfg.inputs` in `methods/structural_products.py:1328` |
-
-## Adapter binding
-
-`Method` keeps `select` and `run`. Its name, version, family, tier, unit type, `Config` and
-`input_digest` move to the declaration. A generated port per operation supplies typed
-parameters and declared-kind inputs, following `render_operation_calls`
-(`semantic/operation_call_generation.py:675`). `plan`, `original_recipe` and `close` become
-declared port capabilities in place of `getattr` discovery.
-
-## Storage
-
-**New.**
-
-| Record | Content |
+| Identity | Contract |
 |---|---|
-| Operation version | Operation, ordinal, fingerprint, determinants, first release |
-| Product kind | Release, kind, contract digest |
-| Data operation and its consumed kinds | The projected declaration rows used for eligibility |
-| Derivation | Key, operation version, subject key, replicate, outcome, runtime identity, task, demand, times |
-| Derivation input and output | The exact products consumed and produced |
-| Revocation | Operation version, runtimes, reason |
-| Operation version change | What changed between two versions of an operation |
+| Semantic kind | Effective normalized contract plus declared semantic dependency closure, including inheritance/invariants/relations/coverage/numerics |
+| Semantic product | Kind-contract fingerprint + immutable subject/context identity + canonical semantic body digest |
+| Stored artifact | Exact byte encoding/archive digest, mapped to semantic identity; byte equality alone proves no source truth |
+| Logical computation request | Recipe + subject + exact role-labeled value/support/population inputs + requested replicate |
+| Derivation execution | Authentic production episode under that request; independently attributed runtime/task/attempt/outcome/output support |
+| Demand/use | Frozen requested obligation and exact selected fulfillment/support/fate |
+| Runtime | Executable artifact identity separately linked to release-bound execution attestation |
 
-**Changed.**
+Domain-tagged, versioned encodings resolve defaults and typed numeric/precision semantics;
+retain role, ordering and multiplicity and distinguish absent from present-empty. Normalize only
+explicit sets. Do not derive identity from reader fields, arbitrary row order or the entire release.
+Do not embed producing version/task/runtime recursively in semantic layer bodies. Meaningful
+source coordinates, native schemes, coverage and choices remain. Local IDs qualify through the
+product and avoid hash self-reference. Distinct evidence episodes never merge into extra votes.
 
-- `ProductReference` becomes kind, subject key and content digest. Product primary keys
-  follow, with task and release as provenance columns.
-- The source-view key drops the consuming release and the native task id
-  (`ingest/pdf_hierarchy.py:348-370`).
-- Observation keys drop the release and invocation key and use the derivation key.
-- The task's input hash becomes the derivation key.
-- The layer operation block shrinks to the operation version, so that a layer's content digest
-  stops changing with runtime and task hash.
-- The cut's task set becomes a derivation set.
-- The runtime manifest drops the release.
+A provider profile has compiled semantic inference-recipe and complete execution/admission
+projections. Current NativeProfile includes runtime/thread fields: hashing it whole contradicts
+thread-independent reuse. Preserve requested/observed profile and actual numerical/batch evidence;
+CUDA/dtype guarantees are not weakened by the identity split. See principal RC08.
 
-**Dropped.** `ops.task_dependency` and its check; `ops.run_source_view`; `reused_task_id` and
-the `reused` status; `ops.valid_reuse`; `ops.task_dependency_scope`; runtime equality as a
-reuse condition; the random invocation-key default; `ops.method` and `ops.method_config`.
+## Retained records and responsibilities
 
-**Migration.** Forward migrations that drop and recreate from `model/semantic/physical.yaml`,
-with no data transforms. Derived products are regenerated. Frozen revisions are left alone.
+| Record/projection | Consumer |
+|---|---|
+| Operation definitions/recipes/kind contracts | Compiler, typed ports, admission, explanations and release comparison |
+| Discovery/population product | Subject expansion, exact membership, empty/partial/negative dependency meaning |
+| Logical request reservation + fenced attempts | One live producer, concurrent-demand coalescing, safe takeover and replicate separation |
+| Semantic products/member projections | Analytics and retained reads, independent of producing execution identity |
+| Derivation and role-qualified input/output/support | Reuse, attribution, dependency analysis and independently retained observations |
+| DemandUse / demand-result selection | Each requested target's fate, selected exact support, reuse reporting, resume and downstream cuts |
+| Revocation with reason/scope | Current admissibility without destroying shared content or rewriting historical evidence |
+| Cut selection / consumed bindings | Per-run consolidation and currentness relative to an explicit target |
+| Completion intent/receipt and frozen build custody | Exact uncertain-commit replay and authorized adoption without repeated inference |
 
-## Why product identity is content and not derivation
+Supersession/currentness are relative queries, not a mutable latest product pointer. Serving
+pins the demand-result/cut selection, contracts, source and support closure across calls,
+resources, continuation, export and detached replay. Reference-source release, prediction selection
+and grading recipe remain separate; protected labels cannot become ordinary planner inputs.
 
-A product keyed by its derivation would change identity whenever its producing operation's
-version changed, even if its content did not, and every consumer would then need updating.
-Keying by content, with derivations as provenance that may share a product, means a rerun
-producing identical content leaves consumers valid without comparing anything on read. D6 §4
-already states this intent. It does not hold today because layer payloads embed the runtime
-and the task hash.
+## Execution, admission and change
 
-## Why dependencies are not stored as planned edges
+Resolve typed inputs from declarations; register tasks after immutable bindings exist. Indexed
+set operations and demand-scoped frontiers avoid all-operations × all-history scans. Preserve
+closed aggregate populations, source coverage, explicit producer selection and bounded fan-out.
+Physical grouping/fusion/preparation is independent of semantic granularity.
 
-Dependent tasks are registered after their parents settle and the edge rows are written then
-(`orchestrate/semantic.py:1236-1300`), so the stored edges are lineage, not a schedule.
-ADR-0084 requires that order. The target keeps it: the planner decides what is eligible from
-declarations and derivations, and derivation inputs carry the lineage.
+One fenced publication commits product/projection/derivation/receipt/fulfillment coherently.
+Known rollback and uncertain commit differ; uncertain replay uses the exact completion intent.
+Uncertain physical submission retains custody until drain, reports executor failure and cannot
+become permanent temporary backpressure. Revocation and final admission have serialized ordering.
+Actual closure is modeled; absent registered edges do not establish independence.
 
-## Fit of special cases
+Cross-release admission checks kind compatibility plus original scope/source custody, acceptable
+coverage/outcome, selected support/alternatives, permissions and trust. Compatible content never
+launders a revoked observation. Rebinding equivalent trusted support is explicit and allowed only
+where the consumer's contract permits it. Changed support can invalidate an unchanged payload.
 
-| Case | Reading | Adjustment |
-|---|---|---|
-| PDF private build (`orchestrate/pdf_streaming.py`, `semantic/pdf_staging.py`) | Its lifecycle of open, frozen, published and abandoned is an attempt workspace | Not recorded as history. `PdfBuildRef` is re-keyed by derivation key with task, attempt and holder as fences, so a frozen build survives a new demand |
-| External agent tasks | Awaiting an agent is eligible and externally assigned | Declare the executor. The packet hash is the input pin. Policy trigger and run options, which enter identity today (`orchestrate/semantic.py:1653`), become demand provenance |
-| Run-unit `structure.*` methods | Their inputs arrive through configuration | The subject becomes a content-addressed authored selection |
-| `consolidate.claims` | Not a derivation in this model | Stays per run with the cut as its subject |
-| `fresh` and the freshness seed | Hash salts (`orchestrate/semantic.py:731-744`) | A distrusted result is a revocation. A wanted rival observation is an explicit replicate on the derivation, selected explicitly under ADR-0082 |
-| Non-deterministic GPU providers | Reuse selects an authentic retained observation under ADR-0085 | None. The determinant is the declared numerical policy |
-| Source-view membership copied on reuse | `ops.select_reused_source_views` exists because membership is per run | Disappears; membership is the demand's subject set |
-| Thread profile in the hash | `execution_native_profile` enters for primary producers (`orchestrate/semantic.py:729-730`) | Removed. Device class and dtype stay determinants through the provider profile |
-| Cross-release inputs | Execution binds one release (ADR-0027) | Inputs are admitted by kind contract digest. An existing test already covers a new rule release reusing an original native layer (`tests/semantic/test_characterization_native.py:873`) |
+Change reporting combines old/new typed declarations, demand/discovery universe and actual
+reverse lineage. Newly applicable/unseen subjects and changed optional/absent memberships matter.
+Potential impact differs from proven staleness; propagation stops at substitutable value/support.
+Reads explain update need without scheduling execution or repeating upstream interpretation.
 
-## What a plan would still need to settle
+## Replacement and preservation
 
-- Whether a per-kind contract digest can be compiled from the existing release member walk.
-- How fine the digest must be so that an edit to a shared model mixin does not change every
-  kind.
-- Which methods cannot separate parameters from selection.
-- The reported form of update need for the `ci` view and the served read.
+C2/C3 establish the contracts/records before C1 removes conservative reuse conditions.
+C4 replaces name-based scheduling and adapter-owned selection. C5–C7 consume the same admission
+and change semantics. Replace all callers of old task-keyed refs and run membership, including
+zero-output reports, evaluation, serving, exports and original-source authentication.
+
+Regenerate disposable derived products through a preservation-aware forward cutover. Preserve
+original source custody, protected reference definitions/labels, required completed snapshots,
+receipts/evidence and their reference closure. Immutable migration files alone do not preserve
+instances. Named correspondence exists only for actual retained consumers; it cannot relabel
+an incompatible historical contract. No blanket database reset or deletion is implied.
+
+PDF open/frozen builds retain source/recipe/schema/profile premises, sealed union and replay
+receipts. Adoption authenticates equivalence and transfers custody under a newly fenced attempt;
+changing the build key alone does not authorize adoption. Consolidation remains per run but is
+fully modeled, as are external-agent packets and effectful actions. The principal §7 supplies
+independent acceptance countercases; layout/index mechanics follow these contracts in planning.

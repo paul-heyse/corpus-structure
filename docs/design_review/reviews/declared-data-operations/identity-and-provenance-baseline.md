@@ -14,6 +14,15 @@ and describe that database only. Nothing was run.
 **Path convention.** Paths without a prefix are relative to
 `python/corpus-structure/src/corpus_structure/`.
 
+
+**Audit reconciliation2026-11-12.** This remains an implementation/authority baseline,
+not the target specification. The [corrected target](target-contracts-and-storage.md) and
+[principal §§4–11](../design_review_declared-data-operations_2026-11-12.md#4-corrected-target-state)
+supersede original proposed mechanisms; the [companion](../audits/design_review_declared-data-operations_2026-11-12_audit.md)
+records every recommendation disposition. Original dated counts and unrefreshed observations
+remain historical, not new execution evidence.
+
+
 ## Identities in use
 
 | Identity | How it is computed | Where |
@@ -62,7 +71,7 @@ produced families, required layers, preconditions, effects, result determinants 
 hashed into its content digest, so the digest changes with runtime and task hash.
 
 **Release comparison.** `compare_semantic_releases` (`semantic/operation_reporting.py:763`)
-diffs two releases' declared members and computes the consumer closure. Runtime and
+diffs two releases' declared members and lists directly referenced consumers, retaining unknown closure; it does not implement the proposed transitive data-operation impact graph. Runtime and
 implementation changes are reported as unknowns. It invalidates nothing.
 
 ## Run-keyed and content-keyed data
