@@ -6,6 +6,41 @@ The living diagnostic account maintained by the
 owns freshness and disposition. This account diagnoses current design; reviews own solution
 reasoning, and implementation plans own scheduled work and closure evidence.
 
+<a id="declared-data-operations-entry-refresh"></a>
+
+## Declared-data-operations recommendation-audit reconciliation · 2026-11-12
+
+**Interface-checked by source inspection**, product source8c0f4f951, clean starting tree
+8f35f1d07; core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding.
+This bounded reconciliation supplies the requested target recommendation audit, not a fresh
+whole-codebase certification. Earlier entries retain their dates and limits.
+
+DA-054's two-method correction remains bounded: task_dependency_scope.sql:3–17 narrows only
+M1 annotation/candidate manifests; valid_reuse:23–40 still requires release/runtime/input
+binding equality. This is contrary evidence against both universal fine-grained reuse and
+universal absence of useful dependency scoping. DA-041's native lifecycle/attempt protections
+remain preservation requirements, not mechanisms to discard merely because derivations become
+first-class. DA-012 remains a bounded correspondence question, not evidence that all current
+operational values lack a declaration.
+
+Actual contracts require more than kind presence: native_evidence.py:283–293 checks same-base,
+single-document membership; m1_source.py:318–328 checks exact selected projection cardinality;
+structural_products.py:1280–1320 checks two distinct passages/readings with dependency closure.
+OperationContract/call bindings (contracts.py:670–716) already declare cardinality, outcomes,
+effects and transitions. ProductReference remains task/key/digest; evaluation separately binds
+original reference release and prediction view (operation_assessment.py:1612–1667). These
+premises challenge the proposed replacement's sufficiency, not the total-model objective.
+NativeProfile:60–112 includes runtime/thread/device/numerical fields, so semantic recipe and
+execution provenance cannot be separated merely by dropping that whole identity.
+
+Inspection also covered CPU admission/submit ownership (cpu_execution.py:630–743), PDF private
+build adoption (pdf_staging.py:129–174), layer operation declarations and release comparison.
+The failed-submit path retains uncertain submitted credit without a returned handle; it is a
+useful target lifecycle countercase, not proof of the book's original BrokenPipe cause.
+Current diagnosis/remediation of that incident remains with BEP, not this account's execution
+queue. The recommendation audit develops the corrected design. No DB/provider calls, tests,
+benchmarks or protected reference-answer reads were performed for this reconciliation.
+
 <a id="book-ready-execution-refresh"></a>
 
 ## Ready-execution entry refresh · 2026-11-11
