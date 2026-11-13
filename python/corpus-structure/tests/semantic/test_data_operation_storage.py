@@ -1661,3 +1661,61 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
         assert isinstance(receipt, dict)
         assert receipt["derivation_id"]
         assert not owner.active
+
+
+@pytest.mark.parametrize("state", ["pending", "active", "expired"])
+def test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generation(kernel, state):
+    from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
+    from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
+
+    # Establish native authority for this scoped runtime revocation through a
+    # genuine earlier episode, not direct mutation of request/task custody.
+    _, _, _, produced = attach(kernel, subject="subject:runtime-proof")
+    proof = claim(kernel, produced)
+    publish(kernel, proof, retain(kernel, proof))
+    _, _, _, old = attach(kernel)
+    fence = (
+        None if state == "pending" else claim(kernel, old, seconds=30 if state == "active" else 1)
+    )
+    replacement = prepare_data_operation_runtime(
+        kernel["prepared"], kernel["runtime_inputs"], execution_profile="execution:test",
+        observed={"host": "unretained-replacement"},
+    )
+    with kernel["engine"].begin() as connection:
+        persist_runtime_binding(connection, kernel["prepared"], replacement)
+        DataOperationStorage(connection).invoke("revoke_data_support", {
+            "project_id": "ddo-test", "original_source": "source:test",
+            "selector_kind": "runtime", "selector": kernel["runtime"],
+            "reason": "runtime invalidated before completion intent",
+        })
+    updated = {**kernel, "runtime": replacement.runtime_id}
+    if state == "active":
+        with pytest.raises(DBAPIError, match="active producer lease"):
+            attach(updated)
+        return
+    if state == "expired":
+        time.sleep(1.05)
+    with pytest.raises(DBAPIError, match="replacement runtime or recipe"):
+        attach(kernel)
+    _, _, binding, current = attach(updated)
+    assert current["request_id"] == old["request_id"]
+    assert current["generation"] == old["generation"] + 1
+    assert current["task_id"] != old["task_id"]
+    assert current["action"] == "compute" and current["retained_intent_id"] is None
+    with kernel["engine"].connect() as connection:
+        row = connection.execute(
+            text("SELECT runtime_id,binding FROM ops.data_request WHERE id=:id"),
+            {"id": current["request_id"]},
+        ).one()
+        assert row.runtime_id == replacement.runtime_id
+        assert row.binding["read_id"] == binding["binding"]["read_id"]
+        assert connection.scalar(text(
+            "SELECT count(*) FROM ops.data_completion_intent WHERE request_id=:id"
+        ), {"id": old["request_id"]}) == 0
+        # Fencing publication is distinct from claiming physical retirement.
+        assert connection.scalar(text("SELECT status FROM ops.task WHERE id=:id"),
+                                 {"id": old["task_id"]}) == (
+            "pending" if fence is None else "running"
+        )
+    successor = claim(updated, current, holder="unretained-successor")
+    assert publish(updated, successor, retain(updated, successor))["derivation_id"]
