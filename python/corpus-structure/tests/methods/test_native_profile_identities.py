@@ -172,7 +172,7 @@ def test_policy_is_a_selected_semantic_determinant_not_the_other_provider_roster
     selected["providers"]["gliner"]["numerical_contract"] = "unrelated-new-contract"
     assert d1().identity_projections(inference_policy=selected) == expected
     with pytest.raises(ValueError, match="qualified numerical"):
-        pm2_selection("hanlp", Path("/captured-model"), {}, {}).native.identity_projections(
+        pm2_selection("maverick", Path("/captured-model"), {}, {}).native.identity_projections(
             inference_policy=policy()
         )
 
@@ -270,7 +270,32 @@ def test_spacy_native_observation_projection_has_its_own_qualified_standing():
     with pytest.raises(ValueError, match="native-label"):
         original.identity_projections(inference_policy=policy())
     with pytest.raises(ValueError, match="numerical contract"):
-        unsupported: dict[str, Any] = {**values, "provider": "hanlp"}
+        unsupported: dict[str, Any] = {**values, "provider": "maverick"}
         NativeProfile(**unsupported).identity_projections(
             inference_policy=spacy_observation_policy()
         )
+
+
+def test_hanlp_native_head_policy_retains_semantic_conventions_and_execution_custody():
+    from corpus_structure.methods.native_profiles import hanlp_observation_policy
+
+    original = pm2_selection(
+        "hanlp", Path("/captured-model"), {"torch": "runtime-a"}, {"model": "a" * 64}
+    ).native
+    changed = pm2_selection(
+        "hanlp", Path("/other-acquisition"), {"torch": "runtime-b"}, {"model": "a" * 64}, threads=8
+    ).native
+    a = original.identity_projections(inference_policy=hanlp_observation_policy())
+    b = changed.identity_projections(inference_policy=hanlp_observation_policy())
+    assert a.inference == b.inference and a.execution != b.execution
+    different = pm2_selection(
+        "hanlp", Path("/captured-model"), {"torch": "runtime-a"}, {"model": "b" * 64}
+    ).native
+    assert (
+        different.identity_projections(inference_policy=hanlp_observation_policy()).inference
+        != a.inference
+    )
+    altered = hanlp_observation_policy()
+    altered["dependency_convention"] = "silently-zero-based"
+    with pytest.raises(ValueError, match="native-head"):
+        original.identity_projections(inference_policy=altered)
