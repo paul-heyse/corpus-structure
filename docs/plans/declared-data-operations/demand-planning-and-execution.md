@@ -391,3 +391,24 @@ Add independent cases for A/B/C nonbarrier progress, selected versus unselected 
 alternative sufficiency, partial discovery, root inclusion and locked/backpressured work not becoming
 exhaustion. Runtime projection acquisition requires actual DDO-04 native support, not merely an agreed
 interface. No in-memory whole-database graph is needed to replenish the native bounded frontier.
+
+
+## Compiled Python capabilities and implementation revisions — Python I01–I03/I05
+
+Consumes [authoring and extraction](implementation-contracts-and-fingerprints.md#I01) and
+[slice identity](implementation-contracts-and-fingerprints.md#I03). DDO-05/06 receive admitted recipe,
+capability and input manifests compiled before request registration; they do not inspect current
+source to decide readiness or reconstruct determinants from method names/getattr. Actual relational
+sufficiency and native ownership remain authoritative. A Python possible-call edge is not a required
+product dependency or all-of binding. No helper becomes a separate scheduled operation automatically.
+
+Astroid [MRO/member ownership and call contexts](https://github.com/pylint-dev/astroid/blob/v4.3.4/astroid/context.py)
+help derive inherited capabilities and supported target candidates. Capture runtime-selected callbacks
+as explicit bound implementation inputs or a closed admitted target universe. Unknown target closure
+is not an empty dependency set. Run metadata/extraction once under captured preparation context;
+cache/manager state cannot reinterpret another release. No extra resident analyzer process is required.
+
+Preserve actual batch/stream/preparation/cancellation ports without redundant wrappers, provider
+residency, bounded hydration and task fencing. Check changed implementation revision changes affected
+requests, new unrelated runtime provenance does not salt them, and resumptions consume the same archived
+interpretation. New recipe results can stop downstream work at equal admissible value/support.

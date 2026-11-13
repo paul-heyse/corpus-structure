@@ -157,3 +157,22 @@ Before runtime consumers integrate, qualify independent expected selected edges/
 wrong source/trust scope, omitted intermediate and continuation across incompatible snapshots.
 Bounds/custody failure must not become empty/complete support. Existing native race/publication and
 revocation checks remain required; NetworkX reachability does not prove admissibility.
+
+
+## Source-derived contract and recipe admission — Python I01–I04
+
+Consumes the [shared contract](implementation-contracts-and-fingerprints.md). DDO-04 authenticates
+compiled effective definitions and admitted implementation-revision manifests under the same native
+request/publication owner. Input/support/value key projections consume the resulting recipe identity;
+raw runtime archives remain provenance and never become hidden equality salts. Changed code cannot
+publish under stale admitted recipe/correspondence merely because its Python signature matches.
+
+Griffe [`visit` and alias resolution](https://mkdocstrings.github.io/griffe/reference/api/loaders/)
+can identify callable structure and origins; this supplies no effect permission, trust or native
+admission. Direct typed Python ports retain strict wire and native validation. Purpose roles, exact
+source custody, unknown completeness and trust-serialized publication remain unchanged. Return pinned
+source/contract/revision witnesses through existing reads; no mutable source-graph authority is added.
+
+Native integration checks include mismatched manifest/recipe/call correspondence, unauthorized
+implementation discovered by static analysis, nominal-role confusion and retained historical producing
+runtime. Python extraction success cannot substitute for the deliberate invalid native-input cases.

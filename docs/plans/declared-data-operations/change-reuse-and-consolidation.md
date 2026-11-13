@@ -6,23 +6,25 @@ binding/support and native admission; integrates with DDO-05–08 demands and pr
 
 ## One mechanism for currentness and substitutability
 
-Compile the typed producer/consumer dependency graph from declarations. Reuse existing normalized
+Compile typed producer/consumer dependencies from the common effective model of both authoring routes. Reuse existing normalized
 member diffs as change facts; `semantic/operation_reporting.py:791–888` does not already provide
 complete transitive data-operation impact. Use shared graph primitives for declaration closure and pinned runtime lineage/impact
 analysis; do not persist a second workflow scheduler.
 
-The recipe changes only for declared result-affecting meaning. Bindings include exact semantic
+The recipe changes for effective result-affecting meaning, including admitted conservative
+implementation-slice revisions under supported operation profiles. Bindings include exact semantic
 products, role/order/multiplicity, support requirements, analyzed context and closed population
-witnesses. A refactor or execution placement change records new provenance without invalidating
-unaffected results. Whole NativeProfile hashing must be replaced with the compiled semantic recipe
+witnesses. Execution placement or an unrelated executable edit remains provenance unless result-affecting.
+A refactor within an admitted slice may conservatively change its recipe; equal resulting values
+can still stop downstream propagation. Whole NativeProfile hashing must be replaced with the compiled semantic recipe
 projection; execution admission still checks the complete requested/observed profile.
 
 Plan binding resolution first; then find an admissible settled request/output under the same recipe,
 semantic value binding and required support. Where the contract permits value substitution, attach
 an explicit equivalent trusted support binding and avoid inference. Preserve the authentic original
 derivation and any consumer requiring that episode/provider/independent evidence. Never interpret
-multiple copies of one product as multiple evidence votes. Do not compare runtime/code bytes as a
-reuse equality fence. Unknown semantic determinants refuse binding rather than silently use a broad
+multiple copies of one product as multiple evidence votes. Do not use broad runtime/code archive bytes as a reuse equality fence; use the admitted normalized
+implementation revision where the operation profile requires it. Unknown semantic determinants refuse binding rather than silently use a broad
 runtime fallback.
 
 ## Change and revocation algorithm
@@ -108,3 +110,25 @@ votes. Exact source-episode revocation cannot be laundered by structurally simil
 Add independent changed-root/descendant sets, unrelated SCC, absent-to-present input, membership
 removal, never-derived applicability and equal-output cutoff cases. A causal-looking path without
 its required conjunction/choice/support does not prove admissibility or actual required recomputation.
+
+
+## Implementation-sensitive change and comprehensive drift — Python I03/I04
+
+Consumes [slice and normalization policy](implementation-contracts-and-fingerprints.md#I03).
+DDO-09 compares contract, admitted implementation revision, recipe and runtime custody separately.
+For supported implementation-owned profiles, a body/helper/base/default/decorator/asset change can
+produce a new recipe without a manual behavior revision. A changed slice is conservative relevance,
+not proof outputs differ. Recompute requested affected operations then retain equal-value/support
+cutoff. Historical products/derivations are never deleted merely because code changed.
+
+[`find_breaking_changes`](https://mkdocstrings.github.io/griffe/guide/users/checking/) supplies selected
+asymmetric API-compatibility explanations, not complete drift/equality; compare canonical effective
+records for additions, body/metadata/documentation changes and unsupported type/value differences.
+Do not hash whole Griffe dumps or whole runtime archives. Successful Astroid inference does not prove
+exhaustive targets; supported-profile coverage and explicit opaque boundaries govern complete reuse.
+
+Add independently expected affected sets and distinct identity outcomes for same signature/new body,
+helper versus unrelated edit, inherited constant/default/asset, permitted cosmetics, dynamic unknown,
+changed normalization/analysis meaning and unchanged output stopping propagation. Preserve genuine
+nonreuse, trust revocation and explicit population/absence witnesses; source analysis cannot infer
+newly applicable domain subjects from implementation call graphs.

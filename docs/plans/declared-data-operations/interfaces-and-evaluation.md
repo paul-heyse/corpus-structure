@@ -90,3 +90,25 @@ where single-parent shape is required; semantic DAGs need not be trees. LCA, dom
 cuts, rankings, layouts and graph-file codecs remain explicitly conditional in the shared catalogue.
 DAG LCA ambiguity cannot silently select unique context. No optional visualization/backend/candidate
 analysis becomes required DDO-12 qualification merely by being documented.
+
+
+## Derived contracts, documentation and source-linked drift — Python I01/I04/I06
+
+Consumes [ports/documentation/drift](implementation-contracts-and-fingerprints.md#I04). DDO-10 exposes
+one pinned effective operation view: owned semantic facts, actual callable surface, supplying/exposed
+origins, located connectivity/unknowns, contract/revision identities and separate runtime provenance.
+Native, ci, actual MCP and export consume the same production read owner. No hidden source reanalysis,
+newest-implementation selection or provider import occurs during serving.
+
+Griffe [`Docstring.parse`/typed sections](https://mkdocstrings.github.io/griffe/reference/docstrings/)
+enrich colocated prose from final signatures; parse after enrichment to avoid cached stale sections.
+Native dumps omit extension extra: export meaningful metadata through explicit typed DTOs. Full
+record drift and native selected API breakages remain distinct. Direct suitable typed Python ports
+retain nominal distinctions, strict ingress and native permission enforcement.
+
+ty [public LSP](https://docs.astral.sh/ty/features/language-server/) navigation/signatures/hierarchy
+are conditional for a concrete inspection consumer, with selected 0.0.102 capability negotiation.
+Hover prose, internal Rust types and Salsa dependencies are not canonical contract/fingerprint APIs.
+Keep pyrefly and actual generated-consumer expectations. Qualification compares independent selected
+facts, source/byte spans, inherited origins, alias ambiguity, custom metadata and old cursor/archive
+meaning, rather than equating a doc roundtrip/type pass with complete behavior.

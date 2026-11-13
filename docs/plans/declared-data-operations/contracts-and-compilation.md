@@ -109,19 +109,22 @@ generation and reporting. It includes admitted effective class/property definiti
 semantic URIs, enum members/meanings, relation endpoints/direction/multiplicity, applicable
 invariants and interpretation policies, and normalized operation/binding/state contracts.
 Use typed references between these facts. Retain declaration locations for diagnostics outside
-semantic identity where they do not affect meaning. Declarations remain the authored authority;
-the representation is a rebuildable compiler product, never another editable catalog.
+semantic identity where they do not affect meaning. Authority belongs to each owned definition: external declarations or admitted implementation-owned
+Python facts. The representation is a rebuildable compiler product, never another editable catalog.
 
 Refactor the existing preparation path into these logical phases:
 
 1. Acquire explicitly supplied immutable sources/assets; validate their admitted schema/profile
-   and construct closed LinkML views. No ambient import or implementation discovery.
-2. Materialize effective definitions, resolve names/defaults and construct typed operation and
+   and construct closed LinkML views plus admitted Python source collections. Permit closed supplied-
+   source implementation extraction; prohibit ambient imports/discovery or executing metadata code.
+2. Materialize both authoring frontends, extract callable/member facts and explicit domain metadata,
+   resolve names/defaults and construct typed operation and
    binding products. Validate references, cardinalities, scopes, state/effect correspondence,
    capabilities and specialized dependency declarations.
-3. Build the semantic dependency graph and derive kind/definition/recipe/binding identities
+3. Build semantic and admitted implementation-slice dependency graphs and derive kind/definition/recipe/binding identities
    under DDO-02. References inside this graph use stable semantic identifiers, not final release IDs.
-4. Generate typed boundaries, native/call correspondences and fixed projection/query artifacts
+4. Use suitable authoritative typed invocation surfaces directly; generate required native/wire
+   boundaries, call correspondences and fixed projection/query artifacts
    from those products. Archive the effective products, their identities and generator provenance.
 5. Form the final release manifest/identity and bind the execution attestation. Final release
    identity can refer to compiled semantic products; those products never require that final ID
@@ -194,8 +197,10 @@ kind contracts and all result-affecting binding/support semantics. The complete 
 owns eligibility/effects/lifecycle and execution capabilities. Eligibility-only widening preserves
 an existing recipe only when result interpretation, actual inputs/scope/coverage, required
 support/effects and validity are unchanged. Its new binding revision still governs admission.
-Compiler/generator source edits alone never become automatic data invalidation; changed
-normalized semantic meaning or an explicitly changed behavior contract does.
+Incidental runtime/compiler provenance changes do not automatically invalidate data. An admitted
+normalized implementation revision is a result determinant for its supported profile; changing that
+slice changes the recipe without a manual version bump. Compiler/generator changes affect recipes
+through changed effective products or their explicitly modeled interpretation dependencies.
 
 ### Canonical values and subjects
 
@@ -244,14 +249,16 @@ fingerprint consumers (`:95–109,173–175`) so whole execution-profile hashing
 remain semantic invalidation. Separate executable artifact identity from its release-bound
 execution attestation; `runtime_bindings.py:100–123` currently mixes release/model references
 with executable inputs. Neither executable identity nor library inventory becomes a reuse
-equality condition unless the operation explicitly declares a semantic version determinant.
+equality condition merely by being archived. Admitted implementation-slice revisions are explicit
+recipe determinants under the supported profile; broad runtime/library inventory is not a fallback salt.
 
-## DDO-03 — Generated ports and shared binding semantics
+## DDO-03 — Authoritative typed ports and shared binding semantics
 
 ### Typed ports and trust boundaries
 
-Generate concrete operation-shaped parameter, subject/input bundle, outcome/result-bundle and
-adapter protocol types from DDO-01. Preserve nominal semantic distinctions through the existing
+Use the authoritative typed Python invocation surface directly where suitable. Generate necessary
+native/wire/protocol correspondences and declaration-owned operation boundaries from DDO-01; do not
+maintain redundant parameter/default wrappers for implementation-owned operations. Preserve nominal semantic distinctions through the existing
 source/type resolution machinery; do not reduce admitted products, support or capabilities to
 untyped dictionaries. Frozen dataclasses/tuples and owned canonical bytes represent internal
 immutable bindings. Public mapping access returns detached values; `frozen=True` alone does not
@@ -332,7 +339,7 @@ not that the model is complete or the generated semantics are correct.
 |---|---|
 | DDO-01 | Hand-authored inherited/mixin/enum/range/relationship examples retain effective constraints; unresolved/invalid definitions reject with located diagnostics. The three operation shapes above compile with independent expected roles, states, effects and outcomes. Adding a supported operation needs one semantic definition and its specialized implementation, without another private selector list. |
 | DDO-02 | Independent literal expected encodings distinguish typed numbers/strings, bool/int, signed zero, missing/null/empty, order/multiplicity and explicit sets. Equivalent source layout/import packaging preserves semantic fingerprints; a meaning-changing inherited constraint changes the correct rooted closures. Cyclic reference kinds terminate canonically, while invalid inheritance/execution cycles refuse. Python/native round trips agree without deriving both expected digests from production. |
-| DDO-02 | An unchanged declaration across a source refactor retains the recipe; eligibility-only widening changes definition/binding but preserves that recipe. An actual scope/model/numerical change changes the appropriate identity. Equal text at different source occurrences stays distinct. Equal semantic output under different producing executions shares product identity while evidence episodes remain distinct. Whole execution-profile/thread changes do not leak into semantic identity under the declared neutral policy. |
+| DDO-02 | An unrelated executable edit outside admitted determinants retains the recipe; a normalized in-slice refactor may conservatively change it; eligibility-only widening changes definition/binding but preserves that recipe. An actual scope/model/numerical change changes the appropriate identity. Equal text at different source occurrences stays distinct. Equal semantic output under different producing executions shares product identity while evidence episodes remain distinct. Whole execution-profile/thread changes do not leak into semantic identity under the declared neutral policy. |
 | DDO-03 | Native and Python binding-result boundaries retain an independently specified set of members/roles, positions, support and witnesses. Test too-many/too-few roles, wrong-source joins, two distinct passages sharing text, present-empty versus unknown optional input, incomplete negative lookup, member addition/removal and unselected alternatives. Explanations identify the actual unmet obligation. |
 | DDO-03 | Untrusted/caller-mutated nested payloads cannot change retained canonical state or gain protected authority. Strict JSON/Python differences and invalid defaults are intentional and covered. Effectful multi-output results retain atomic-bundle/receipt requirements; having a matching payload cannot satisfy a missing required effect. |
 
@@ -356,8 +363,10 @@ and non-weakening checks. Thus LinkML supplies materialization, not a replacemen
 project's complete semantic closure or operation validation. Retain the explicit supplied-import
 route; do not call an ambient schema loader merely because it can resolve more sources.
 
-The existing pinned LinkML/Pydantic/cattrs/SQLAlchemy/NetworkX families suffice for this target;
-no new dependency, general effect interpreter or workflow engine is selected. Exact module names,
+The existing pinned LinkML/Pydantic/cattrs/SQLAlchemy/NetworkX families supply the relational/native
+foundation. The implementation companion selects Griffe/LibCST/Astroid for the closed Python frontend
+and assigns production dependency placement to DDO-01; ty remains conditional tooling. No general
+effect interpreter or workflow engine is selected. Exact module names,
 helper decomposition, table indexes and SQL expression arrangement remain implementation choices.
 The effective facts, identity framing, support/population distinctions and projection ownership
 above are shared contracts. If an actual composed declaration cannot be represented faithfully,
@@ -402,3 +411,28 @@ them. DDO-03 checks that acquisition/explanation retain independently expected r
 Add attribute-aliasing controls: freeze does not freeze payload dictionaries. Selected 3.7 APIs need
 ordinary typing checks against the older stub selection. No WL/isomorphism-derived identity or new
 backend package is selected. All implementation checks remain not_run at authoring.
+
+
+## Implementation-owned frontend and slice integration — Python I01–I04/I07
+
+Consumes the [shared authoring/extraction contract](implementation-contracts-and-fingerprints.md#I01)
+and [implementation identity policy](implementation-contracts-and-fingerprints.md#I03), from review
+`0907dcc23`. Its RC01–03 were accepted on 2026-11-12. DDO-01 implements both source frontends into
+one effective model; DDO-02 admits complete supported slices as recipe dependencies; DDO-03 uses
+suitable authoritative typed invocation directly and generates necessary native/wire correspondence.
+
+Griffe [`visit`](https://mkdocstrings.github.io/griffe/reference/api/agents/) reads supplied source
+into callable/member objects; explicit module collections and bounded external-disabled alias
+resolution retain source/exposure identity. The thin operation extension exports custom metadata
+explicitly because native JSON omits extra. LibCST
+[`ScopeProvider`/qualified names](https://libcst.readthedocs.io/en/latest/metadata.html) supply located
+binding evidence; Astroid [`lookup`/assignment/inference protocols](https://github.com/pylint-dev/astroid/blob/v4.3.4/astroid/protocols.py)
+refine supported targets. Successful inference does not certify exhaustive closure. Keep authored /
+extracted/inferred/modeled provenance and supported-profile admission separate from graph connectivity.
+
+Qualify one actual simple operation and inherited interpretation family before bulk migration;
+require independently expected signatures, nominal roles, metadata export, slice members and
+normalization bytes. Preserve existing ingress/native controls. Body/helper/default/base/asset
+changes must reach the correct recipe; unrelated or permitted cosmetic changes need not. Unknown
+required determinants refuse complete reusable admission. Actual native/provider integration and
+final qualification remain with their existing packages; no source-policy fallback or new checker.

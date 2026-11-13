@@ -99,3 +99,27 @@ isomorphism and partial positive witnesses monomorphism. VF2++/ISMAGS are condit
 not mandatory substitutions. Native language evidence/potentials do not change meaning because a
 new graph representation is used. Retire private traversal/matcher adapters only with migrated callers
 and independent semantic controls; auth/source/coverage checks remain with their semantic owners.
+
+
+## Author-once operation migration — Python I01/I02/I04/I05
+
+Consumes [operation ownership](implementation-contracts-and-fingerprints.md#I01) and
+[consumer retirement](implementation-contracts-and-fingerprints.md#I05). DDO-00 selects the authority
+per actual operation; DDO-07/08 migrate its definition, algorithm, invocation, inventory and immediate
+readers together. Coupled Python operations own typed methods plus non-derivable domain metadata;
+external protocols keep independently specified declarations. Remove duplicated owner/symbol/signature,
+manual behavior version/source_dependencies and getattr capability lists after compiled replacements
+and their consumers work. Broad executable custody and explicit non-Python assets remain.
+
+Griffe [inherited members/aliases](https://mkdocstrings.github.io/griffe/guide/users/navigating/)
+and Astroid [class resolution](https://pylint.pycqa.org/projects/astroid/en/stable/api/nodes/astroid.nodes.ClassDef.html)
+retain supplying owners when subclasses override effective class facts. Use the real inherited
+interpretation family and one simple algorithm as initial shapes; do not convert all operations to
+Python authority or infer domain effects from signatures. Existing providers keep explicit source,
+config/numerical/support and capability contracts. Static plugin discovery does not grant execution.
+
+LibCST [codemods/import coordination](https://libcst.readthedocs.io/en/latest/codemods.html) are
+conditional tools for actual source-preserving migration. Keep adequate AST generation and native SQL
+analysis. Require independent same-signature/body-change, inherited-value, metadata-export and nominal
+port cases; no parallel registration or handwritten parameter list should remain necessary to add
+one supported operation. Language extraction semantics and protected evaluation remain preserved.

@@ -15,7 +15,8 @@ code-intelligence 1.4 and test-assessment 1.2. Expected benefits are Proposed an
 
 ## Projection contract and physical route — I01
 
-The effective governing model contains a typed GraphProjection specification, not arbitrary Python
+The effective governing model, compiled from declaration-owned and admitted implementation-owned
+definitions, contains a typed GraphProjection specification, not arbitrary Python
 callbacks, SQL text or a separately edited graph registry. It declares source contracts and exact
 selection/snapshot, node/relationship kinds, edge orientation, role/order/multiplicity, stable
 identity, unresolved-reference treatment, completeness, attribute/weight interpretation and the
@@ -206,3 +207,21 @@ No full backend campaign, benchmark, architectural lint or generated semantic or
 this author's focused reinspection confirmed the SCC invalidation pattern and authored-claim residual
 path at product source `8c0f4f951`. Production tests, native queries, providers and semantic probes are
 **not_run** for plan authoring. Future checks above are obligations, not passing receipts.
+
+
+## Implementation-reference projections — Python I02/I03
+
+Consumes [implementation facts and slice admission](implementation-contracts-and-fingerprints.md#I02).
+Extend the effective model's projection families with lexical-reference, possible-call, resolved
+implementation-definition, type-reference and admitted implementation-determinant relations. Preserve
+relationship kind, source/analysis provenance, supplying owner, target alternatives and coverage.
+Astroid [`lookup`/assignment protocols](https://github.com/pylint-dev/astroid/blob/v4.3.4/astroid/protocols.py)
+and LibCST [scope/qualified-name metadata](https://libcst.readthedocs.io/en/latest/metadata.html)
+supply facts with distinct guarantees. None is an authentic data/support or native readiness edge.
+
+Reuse finite canonical typed records and NetworkX closure/SCC mechanisms, retaining original edge
+witnesses and root inclusion. A resolved singleton does not certify exhaustive dependency targets;
+supported profile and explicit opaque boundaries must justify reusable slice completeness. Cyclic
+implementation references are finite graphs, not hash recursion or admitted execution iteration.
+Do not create another mirror, scheduler or private canonicalization. Docstrings/annotations/source
+positions remain governed by the shared normalization/reflection policy, not arbitrary display filters.

@@ -123,3 +123,29 @@ layouts and interchange are excluded from the required union unless explicitly s
 Check targeted compiler/native/consumer behavior during implementation; final `uv run ci test` and
 `uv run ci check` still wait for complete functional scope and retirement. No performance measurement
 campaign or new graph-specific gate follows. These future checks are not_run at plan authoring.
+
+
+## Introspection adoption and qualification — Python I01–I07
+
+Consumes the [shared implementation contract and acceptance route](implementation-contracts-and-fingerprints.md#I07).
+DDO-00 records operator-accepted introspection RC01–03 (2026-11-12), updates affected D1–D8 targets
+and coherently supersedes relevant ADR0063/0060 clauses through existing routes. Original RC01–09
+remain distinct; no repeated confirmation. Authoring records planned adoption, not executed migration.
+DDO-11 preserves archived source/normalization/effective-model/runtime interpretations and actual
+original custody before retiring duplicate registries, dependency lists or generated wrappers.
+
+DDO-12 incorporates independent source-change/identity matrices, metadata export, imported aliases,
+inherited methods/constants, callbacks/defaults/decorators/globals/assets, permitted cosmetic edits,
+unknown dispatch refusal, cache/transform isolation, source/stub disagreement and equal-output cutoff.
+Griffe [serialization](https://mkdocstrings.github.io/griffe/guide/users/serializing/) omits extra;
+LibCST [metadata](https://libcst.readthedocs.io/en/latest/metadata.html) depends on wrapped-node identity;
+Astroid [inference](https://pylint.pycqa.org/projects/astroid/en/stable/inference.html) is partial.
+Expected semantics must be independent of those same extraction paths. A fixture whose import would
+fail checks static acquisition; actual native/provider guarantees still need their existing real lanes.
+
+Retain pyrefly positive/negative nominal/protocol/SQL checks. Optional ty services/extensions/codemods
+are not required qualification unless adopted for an actual consumer. No benchmark, universal Python
+proof, architectural lint or four-engine voting campaign is introduced. Extraction/bootstrap must
+avoid self-referential identity and archived products must not reopen current code. Targeted checks
+accompany implementation; final broad union waits for complete functional replacement/retirement.
+All implementation checks here remain not_run at authoring.
