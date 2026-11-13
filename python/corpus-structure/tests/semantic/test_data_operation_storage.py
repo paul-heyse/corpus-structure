@@ -35,7 +35,7 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
     assert {owner for owner, _ in calls} == {
         operation.semantic_id for operation in model.operations
     }
-    assert len(calls) == 13
+    assert len(calls) == 14
     assert all(call.parameters[0].native_parameter == "p_payload" for _, call in calls)
     assert all(call.result_fields[0].native_field == "payload" for _, call in calls)
     assert all(call.source_digest == native_source_digest(captured) for _, call in calls)
@@ -1285,3 +1285,146 @@ def test_native_request_renewal_preserves_a_shared_demand_after_one_detaches(ker
         DataOperationStorage(connection).invoke(
             "renew_data_request", {**fence, "lease_seconds": 30}
         )
+
+
+def cancel_demand(kernel, demand, reason="operator stopped this demand"):
+    with kernel["engine"].begin() as connection:
+        return DataOperationStorage(connection).invoke(
+            "cancel_data_demand", {"demand_id": demand["demand_id"], "reason": reason}
+        )
+
+
+def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(kernel):
+    demand, obligation, wire, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence)
+    with kernel["engine"].begin() as connection:
+        before = DataOperationStorage(connection).invoke("read_demand_result", demand)
+    cancelled = cancel_demand(kernel, demand)
+    assert cancelled["state"] == "cancelled"
+    assert cancelled["requests"] == [{
+        "request_id": fence["request_id"], "generation": fence["generation"],
+        "task_id": fence["task_id"], "interest": "orphaned", "physical_retirement": "unconfirmed",
+    }]
+    with kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
+        assert storage.invoke("read_demand_result", demand)["state"] == "cancelled"
+        historical = storage.invoke("read_demand_result", {
+            **demand, "read_id": before["read_id"], "trust_snapshot": before["trust_snapshot"],
+        })
+        assert historical["state"] == "active"
+        assert connection.scalar(
+            text("SELECT status FROM ops.task WHERE id=:id"), {"id": fence["task_id"]}
+        ) == "running"
+        assert storage.invoke("claim_data_request", {
+            "request_id": fence["request_id"], "holder": "late", "lease_seconds": 30,
+        }) == {"state": "no-work"}
+    for name, payload in [
+        ("renew_data_request", {**fence, "lease_seconds": 30}),
+        ("publish_data_derivation", {**fence, "intent_id": intent["intent_id"]}),
+        ("attach_data_request", wire),
+        ("expand_data_obligation", {
+            "demand_id": demand["demand_id"], "operation_id": "urn:ddo-test:source",
+            **demand["selection"]["roots"][0], "parameters": {},
+        }),
+        ("record_data_fate", {
+            "obligation_id": obligation["obligation_id"], "fate": "partial", "selection": {},
+        }),
+    ]:
+        with (
+            kernel["engine"].begin() as connection,
+            pytest.raises(DBAPIError, match=r"cancelled|no attached demand"),
+        ):
+            DataOperationStorage(connection).invoke(name, payload)
+    repeated = cancel_demand(kernel, demand, "retry must not rewrite original reason")
+    assert repeated["reason"] == cancelled["reason"]
+    # Resume/re-registration cannot silently undo terminal intent.
+    selected = demand["selection"]
+    with kernel["engine"].begin() as connection:
+        replay = DataOperationStorage(connection).invoke("register_data_demand", {
+            "project_id": "ddo-test", "release_id": kernel["prepared"].release_id,
+            "runtime_id": kernel["runtime"], "root": selected["roots"],
+            "selection": selected, "strength": "value",
+        })
+        assert replay["demand_id"] == demand["demand_id"]
+        assert replay["state"] == "cancelled"
+
+
+def test_native_cancellation_preserves_shared_producer_and_committed_receipt(kernel):
+    first, _, _, attached = attach(kernel)
+    second, _, _, shared = attach(kernel, targets=("urn:ddo-test:source", "urn:ddo-test:sample"))
+    assert shared["request_id"] == attached["request_id"]
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence)
+    cancelled = cancel_demand(kernel, first)
+    assert cancelled["requests"][0]["interest"] == "shared"
+    with kernel["engine"].begin() as connection:
+        renewed = DataOperationStorage(connection).invoke(
+            "renew_data_request", {**fence, "lease_seconds": 30}
+        )
+        assert renewed["state"] == "renewed"
+    receipt = publish(kernel, fence, intent)
+    with kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
+        first_result = storage.invoke("read_demand_result", first)
+        assert first_result["state"] == "cancelled"
+        assert {item["fate"] for item in first_result["obligations"]} == {"cancelled"}
+        assert storage.invoke("read_demand_result", second)["uses"][0]["fate"] == "fulfilled"
+    cancel_demand(kernel, second)
+    assert publish(kernel, fence, intent)["receipt_id"] == receipt["receipt_id"]
+    with kernel["engine"].begin() as connection:
+        inspected = DataOperationStorage(connection).invoke("inspect_data_completion", {
+            "request_id": fence["request_id"], "generation": fence["generation"],
+            "intent_id": intent["intent_id"],
+        })
+        assert inspected["state"] == "committed"
+
+
+def test_native_concurrent_cancel_and_attach_never_resurrects_demand(kernel):
+    demand, _, wire, attached = attach(kernel)
+    barrier = Barrier(2)
+
+    def attaching():
+        barrier.wait()
+        try:
+            with kernel["engine"].begin() as connection:
+                return DataOperationStorage(connection).invoke("attach_data_request", wire)
+        except DBAPIError as error:
+            assert "cancelled" in str(error)
+            return None
+
+    def cancelling():
+        barrier.wait()
+        return cancel_demand(kernel, demand)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        joining = pool.submit(attaching)
+        stopping = pool.submit(cancelling)
+        joining.result(timeout=30)
+        assert stopping.result(timeout=30)["state"] == "cancelled"
+    with kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
+        assert storage.invoke("read_demand_result", demand)["state"] == "cancelled"
+        assert storage.invoke("claim_data_request", {
+            "request_id": attached["request_id"], "holder": "late", "lease_seconds": 30,
+        })["state"] == "no-work"
+
+
+def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
+    first, _, _, attached = attach(kernel)
+    old_claim = claim(kernel, attached)
+    old_intent = retain(kernel, old_claim)
+    cancel_demand(kernel, first)
+    _, _, _, current = attach(kernel, targets=("urn:ddo-test:source", "urn:ddo-test:sample"))
+    assert current["request_id"] == old_claim["request_id"]
+    assert current["generation"] == old_claim["generation"] + 1
+    assert current["task_id"] != old_claim["task_id"]
+    current_claim = claim(kernel, current, holder="new-demand-owner")
+    with pytest.raises(DBAPIError, match="stale"):
+        publish(kernel, old_claim, old_intent)
+    with kernel["engine"].begin() as connection:
+        assert connection.scalar(
+            text("SELECT status FROM ops.task WHERE id=:id"), {"id": old_claim["task_id"]}
+        ) == "running"
+    receipt = publish(kernel, current_claim, retain(kernel, current_claim, outputs=(2,)))
+    assert receipt["replayed"] is False

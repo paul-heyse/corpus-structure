@@ -180,11 +180,30 @@ BEGIN
  WHERE operation.release_id=r.release_id AND operation.operation_id=r.operation_id;
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_demand_active(demand text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT NOT EXISTS(SELECT FROM ops.data_demand_cancellation c WHERE c.demand_id=demand)
+$$;
+CREATE OR REPLACE FUNCTION ops.ddo_require_active_demand(demand text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ PERFORM 1 FROM ops.data_demand WHERE id=demand FOR SHARE;
+ IF NOT ops.ddo_demand_active(demand) THEN RAISE EXCEPTION 'data demand is cancelled'; END IF;
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_request_useful(r ops.data_request) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT EXISTS(SELECT FROM ops.demand_use u WHERE u.request_id=r.id AND u.generation=r.generation
+ AND u.fate='attached' AND ops.ddo_demand_active(u.demand_id)
+ AND NOT EXISTS(SELECT FROM ops.demand_use later WHERE later.obligation_id=u.obligation_id
+ AND (later.created_at,later.id)>(u.created_at,u.id)))
+$$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_claim(r ops.data_request,p jsonb) RETURNS ops.task
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task;
 BEGIN
  PERFORM ops.ddo_authorize_request(r);
+ IF NOT ops.ddo_request_useful(r) THEN RAISE EXCEPTION 'data request has no attached demand interest'; END IF;
  SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
  IF (t.data_request_id,t.data_generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM
  (r.id,r.generation,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder')
@@ -220,14 +239,72 @@ BEGIN
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) SELECT DISTINCT ops.ddo_scope(p->>'project_id',root->>'original_source'),p->>'project_id',0 FROM jsonb_array_elements(p->'root') root ORDER BY 1 ON CONFLICT DO NOTHING;
  INSERT INTO ops.data_demand VALUES(key,p->>'project_id',p->>'release_id',p->>'runtime_id',p->'root',p->'selection',p->>'strength',clock_timestamp()) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=key;
- RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection));
+ RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection)||CASE WHEN ops.ddo_demand_active(d.id) THEN '{}'::jsonb ELSE jsonb_build_object('state','cancelled') END);
 END $$;
+CREATE OR REPLACE FUNCTION ops.cancel_data_demand(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE p jsonb:=p_payload; d ops.data_demand; r ops.data_request; o ops.data_obligation;
+ old ops.demand_use; cancellation ops.data_demand_cancellation; scope_key text;
+ requests jsonb:='[]'; key text; generation_row record;
+BEGIN
+ PERFORM ops.ddo_fields(p,ARRAY['demand_id','reason']);
+ IF nullif(p->>'reason','') IS NULL THEN RAISE EXCEPTION 'cancellation requires a reason'; END IF;
+ SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
+ PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(d.selection->'operations') selected
+ JOIN sem.data_operation_definition operation ON operation.release_id=d.release_id AND operation.operation_id=selected->>'operation'
+ CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
+ -- Stable trust -> demand -> request -> task ordering. Demand SHARE guards all
+ -- creation/attachment paths; no new request can enter this demand during cancellation.
+ FOR scope_key IN SELECT DISTINCT ops.ddo_scope(d.project_id,root->>'original_source')
+ FROM jsonb_array_elements(d.root) root ORDER BY 1 LOOP
+ PERFORM 1 FROM ops.data_trust_scope WHERE scope=scope_key FOR UPDATE;
+ END LOOP;
+ PERFORM 1 FROM ops.data_demand WHERE id=d.id FOR UPDATE;
+ PERFORM 1 FROM ops.data_request req WHERE EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.request_id=req.id) ORDER BY req.id FOR UPDATE;
+ INSERT INTO ops.data_demand_cancellation VALUES(d.id,p->>'reason',clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
+ SELECT * INTO STRICT cancellation FROM ops.data_demand_cancellation WHERE demand_id=d.id;
+ FOR o IN SELECT obligation.* FROM ops.data_obligation obligation WHERE obligation.demand_id=d.id ORDER BY obligation.id LOOP
+ SELECT * INTO old FROM ops.demand_use u WHERE u.obligation_id=o.id ORDER BY u.created_at DESC,u.id DESC LIMIT 1;
+ -- Settled evidence stays selected historical evidence. Cancellation detaches only unfinished work.
+ IF old.id IS NULL OR old.fate NOT IN ('fulfilled','closed','cancelled','failed','not-applicable') THEN
+ key:='use:'||ops.ddo_digest(jsonb_build_array('cancel-demand',d.id,o.id));
+ INSERT INTO ops.demand_use VALUES(key,d.id,o.id,'cancelled',old.request_id,old.generation,NULL,
+ coalesce(old.selection,'{}'::jsonb),coalesce(old.trust_snapshot,'{}'::jsonb),clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
+ END IF;
+ END LOOP;
+ -- Last-interest detachment permanently fences the old producer. Advancing the
+ -- request does not claim the old task/process stopped; keep its history intact.
+ FOR r IN SELECT req.* FROM ops.data_request req WHERE EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.request_id=req.id) ORDER BY req.id LOOP
+ IF NOT ops.ddo_request_useful(r) AND r.live_task_id IS NOT NULL THEN
+ PERFORM 1 FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
+ IF EXISTS(SELECT FROM ops.task WHERE id=r.live_task_id AND status IN ('pending','running')) THEN
+ UPDATE ops.data_request SET generation=generation+1,live_task_id=NULL WHERE id=r.id;
+ END IF;
+ END IF;
+ END LOOP;
+ -- Report exact attached generations, never a newer generation belonging only
+ -- to another demand. Physical owners correlate cancellation by this same fence.
+ FOR generation_row IN SELECT DISTINCT u.request_id,u.generation,g.task_id
+ FROM ops.demand_use u JOIN ops.data_request_generation g
+ ON (g.request_id,g.generation)=(u.request_id,u.generation)
+ WHERE u.demand_id=d.id ORDER BY u.request_id,u.generation LOOP
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=generation_row.request_id;
+ r.generation:=generation_row.generation;
+ r.live_task_id:=generation_row.task_id;
+ requests:=requests||jsonb_build_array(jsonb_build_object('request_id',r.id,'generation',r.generation,'task_id',r.live_task_id,
+ 'interest',CASE WHEN ops.ddo_request_useful(r) THEN 'shared' ELSE 'orphaned' END,'physical_retirement','unconfirmed'));
+ END LOOP;
+ RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'state','cancelled','reason',cancellation.reason,'requests',requests));
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.expand_data_obligation(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; key text; population ops.data_population; allowed boolean;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['demand_id','operation_id','subject','original_source','analyzed_scope','parameters'],ARRAY['population_id']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
+ PERFORM ops.ddo_require_active_demand(d.id);
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=p->>'operation_id')
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') s WHERE s->>'operation'=p->>'operation_id' AND s->'parameters'=p->'parameters')
  OR nullif(p->>'subject','') IS NULL OR nullif(p->>'original_source','') IS NULL THEN RAISE EXCEPTION 'obligation differs from frozen operation/parameters'; END IF;
@@ -252,6 +329,7 @@ DECLARE p jsonb:=p_payload; o ops.data_obligation; key text;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['obligation_id','fate','selection'],ARRAY['request_id','generation','derivation_id','trust_snapshot']);
  SELECT * INTO STRICT o FROM ops.data_obligation WHERE id=p->>'obligation_id';
+ PERFORM ops.ddo_require_active_demand(o.demand_id);
  IF p->>'fate' NOT IN ('known-absent','unknown','unavailable','invalid','closed','awaiting-discovery','awaiting-inputs','awaiting-population','not-applicable','failed','cancelled','partial') THEN RAISE EXCEPTION 'native ownership required for fulfillment/attachment'; END IF;
  key:='use:'||ops.ddo_digest(p);
  INSERT INTO ops.demand_use VALUES(key,o.demand_id,o.id,p->>'fate',NULL,NULL,NULL,p->'selection','{}',clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
@@ -267,6 +345,7 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=producer.request_id;
  SELECT * INTO STRICT x FROM kb.data_product WHERE id=p->>'product_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,jsonb_build_array(jsonb_build_object('derivation_id',producer.id)));
+ PERFORM ops.ddo_require_active_demand(d.id);
  SELECT value INTO STRICT rel FROM jsonb_array_elements(d.selection->'discovery') value WHERE value->>'population'=p->>'name' AND value->>'producer'=r.operation_id AND value->>'output_role'=p->>'member_role';
  IF x.project_id<>d.project_id OR r.project_id<>d.project_id OR r.release_id<>d.release_id
  OR NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_use_valid(u)) OR NOT EXISTS(SELECT FROM sem.data_operation_definition op WHERE op.release_id=d.release_id AND op.operation_id=r.operation_id AND op.profile='discovery')
@@ -382,6 +461,7 @@ BEGIN
  key:=data.ddo_identity('semantic-request',p->'request_meaning');
  IF p ? 'request_key' AND p->>'request_key'<>key THEN RAISE EXCEPTION 'request key differs from canonical meaning'; END IF;
  snapshot:=ops.ddo_lock_support(d.project_id,o.original_source,p->'binding'->'support');
+ PERFORM ops.ddo_require_active_demand(d.id);
  -- INSERT waits for a concurrent winner. The following statement has a fresh READ COMMITTED
  -- snapshot before locking; a one-statement CTE would miss an uncommitted conflicting row.
  INSERT INTO ops.data_request VALUES(key,key,d.project_id,d.release_id,d.runtime_id,o.operation_id,def.recipe,o.subject,o.original_source,o.analyzed_scope,(p->'binding')||jsonb_build_object('execution_profile',d.selection->'execution_profile'),p->>'replicate',1,NULL) ON CONFLICT(request_key) DO NOTHING;
@@ -448,6 +528,7 @@ BEGIN
  UPDATE ops.data_request SET generation=generation+1,live_task_id=NULL,binding=(p->'binding')||jsonb_build_object('execution_profile',d.selection->'execution_profile'),release_id=d.release_id,runtime_id=d.runtime_id WHERE id=r.id RETURNING * INTO r;
  END IF; END IF;
  IF r.live_task_id IS NULL THEN
+ UPDATE ops.data_request SET binding=(p->'binding')||jsonb_build_object('execution_profile',d.selection->'execution_profile'),release_id=d.release_id,runtime_id=d.runtime_id WHERE id=r.id RETURNING * INTO r;
  INSERT INTO ops.task(release_id,data_request_id,data_generation,status,attempt,cost,priority,created_at)
  VALUES(r.release_id,r.id,r.generation,'pending',0,'{}',0,clock_timestamp()) RETURNING id INTO task;
  INSERT INTO ops.data_request_generation VALUES(r.id,r.generation,task);
@@ -470,6 +551,7 @@ BEGIN
  PERFORM ops.ddo_authorize_request(r);
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
+ IF NOT ops.ddo_request_useful(r) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
  IF t.status='running' AND t.lease_until IS NULL THEN RAISE EXCEPTION 'running task has no publication lease'; END IF;
  IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
@@ -495,13 +577,8 @@ BEGIN
  AND ((v.selector_kind='runtime' AND v.selector=r.runtime_id)
  OR (v.selector_kind='recipe' AND v.selector=r.recipe))) THEN
  RAISE EXCEPTION 'request producer runtime or recipe was directly revoked'; END IF;
- -- Latest selection owns usefulness: a historical attached use cannot override a
- -- later cancellation/terminal fate. Future demand cancellation must serialize
- -- on this request lock; a fate append alone is not an atomic cancellation protocol.
- IF NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.request_id=r.id AND u.generation=r.generation
- AND u.fate='attached' AND NOT EXISTS(SELECT FROM ops.demand_use later
- WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id))) THEN
- RAISE EXCEPTION 'data request has no attached demand interest'; END IF;
+ -- Cancellation and renewal serialize on the request fence.
+ IF NOT ops.ddo_request_useful(r) THEN RAISE EXCEPTION 'data request has no attached demand interest'; END IF;
  UPDATE ops.task SET lease_until=greatest(t.lease_until,clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer))
  WHERE id=t.id RETURNING * INTO t;
  RETURN jsonb_build_object('payload',jsonb_build_object('state','renewed','request_id',r.id,'generation',r.generation,
@@ -691,7 +768,7 @@ BEGIN
  -- Every already attached obligation is fulfilled without copying execution episodes or votes.
  IF result_state<>'failed' THEN
  INSERT INTO ops.demand_use SELECT 'use:'||ops.ddo_digest(jsonb_build_array(u.obligation_id,key)),u.demand_id,u.obligation_id,'fulfilled',r.id,r.generation,episode,u.selection,snapshot,clock_timestamp(),pg_current_xact_id()::text
- FROM (SELECT DISTINCT ON(obligation_id) * FROM ops.demand_use WHERE request_id=r.id AND generation=r.generation ORDER BY obligation_id,created_at DESC,id DESC) u ON CONFLICT DO NOTHING;
+ FROM (SELECT DISTINCT ON(obligation_id) * FROM ops.demand_use WHERE request_id=r.id AND generation=r.generation ORDER BY obligation_id,created_at DESC,id DESC) u WHERE u.fate='attached' AND ops.ddo_demand_active(u.demand_id) ON CONFLICT DO NOTHING;
  END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('receipt_id',key,'derivation_id',episode,'replayed',false,'trust_snapshot',snapshot));
 END $$;
@@ -777,7 +854,7 @@ BEGIN
  'request_id',u.request_id,'generation',u.generation,'intent_id',(SELECT i.id FROM ops.data_completion_intent i WHERE i.request_id=u.request_id AND i.generation=u.generation ORDER BY i.created_at DESC,i.id DESC LIMIT 1)) ORDER BY o.id),'[]'),max(o.id) INTO obligations,next_key
  FROM bounded o LEFT JOIN LATERAL (SELECT x.* FROM ops.demand_use x WHERE x.obligation_id=o.id AND ops.ddo_read_visible(x.created_at,x.created_xid,boundary) ORDER BY x.created_at DESC,x.id DESC LIMIT 1) u ON true;
  more:=next_key IS NOT NULL AND EXISTS(SELECT FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>next_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary));
- RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection,'intent',d.selection,'root',d.root,'project_id',d.project_id,'release_id',d.release_id,'runtime_id',d.runtime_id,'view',selected_view,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'uses',results,'obligations',obligations,'populations',(SELECT coalesce(jsonb_agg((to_jsonb(pop)-'created_at'-'created_xid')||jsonb_build_object('population_id',pop.id) ORDER BY pop.name),'[]') FROM ops.data_population pop WHERE pop.demand_id=d.id AND ops.ddo_read_visible(pop.created_at,pop.created_xid,boundary) AND ops.ddo_population_valid(pop,boundary)),'continuation',CASE WHEN more THEN jsonb_build_object('demand_id',d.id,'selection',d.selection,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'view',selected_view,'after',next_key,'limit',lim) ELSE NULL END));
+ RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection,'intent',d.selection,'root',d.root,'project_id',d.project_id,'release_id',d.release_id,'runtime_id',d.runtime_id,'state',CASE WHEN EXISTS(SELECT FROM ops.data_demand_cancellation c WHERE c.demand_id=d.id AND ops.ddo_read_visible(c.created_at,c.created_xid,boundary)) THEN 'cancelled' ELSE 'active' END,'view',selected_view,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'uses',results,'obligations',obligations,'populations',(SELECT coalesce(jsonb_agg((to_jsonb(pop)-'created_at'-'created_xid')||jsonb_build_object('population_id',pop.id) ORDER BY pop.name),'[]') FROM ops.data_population pop WHERE pop.demand_id=d.id AND ops.ddo_read_visible(pop.created_at,pop.created_xid,boundary) AND ops.ddo_population_valid(pop,boundary)),'continuation',CASE WHEN more THEN jsonb_build_object('demand_id',d.id,'selection',d.selection,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'view',selected_view,'after',next_key,'limit',lim) ELSE NULL END));
 END $$;
 
 

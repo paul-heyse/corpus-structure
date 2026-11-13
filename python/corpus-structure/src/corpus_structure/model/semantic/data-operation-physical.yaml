@@ -80,6 +80,19 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id", "runtime_id"], "target": "sem.runtime_binding.release_id,runtime_id"}]'
+  data_demand_cancellation:
+    in_subset: [ops]
+    attributes:
+      demand_id: {range: string, required: true}
+      reason: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [demand_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'
   data_obligation:
     in_subset: [ops]
     attributes:
