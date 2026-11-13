@@ -198,3 +198,38 @@ def test_actual_colocated_consumer_contracts_are_captured_without_imports(tmp_pa
         operations["text.native_evidence/selection"]["roles"][0]["subject_field"]
         == "document_subject"
     )
+
+
+def test_original_source_schema_is_explicitly_acquired_for_native_admission(tmp_path):
+    root = inputs(tmp_path)
+    from pathlib import Path
+
+    core = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    (root / "core.yaml").write_bytes(core.read_bytes())
+    schema = (
+        (root / "schema.yaml")
+        .read_text()
+        .replace("name: target\n", "name: target\nimports: [core]\n")
+    )
+    (root / "schema.yaml").write_text(schema)
+    declaration = (
+        (root / "target.yaml")
+        .read_text()
+        .replace(
+            "schemas: [{name: target, path: schema.yaml}]",
+            "schemas: [{name: target, path: schema.yaml}, {name: core, path: core.yaml}]",
+        )
+    )
+    (root / "target.yaml").write_text(declaration + "source_bindings: true\n")
+    bundle, _, _, prepared = prepare_data_operation_inputs(root, "target.yaml")
+    assert "data_operation_source" in {source.name for source in bundle.sources}
+    assert "DdoSelectedNativeSource" in prepared.index.definitions
+    model = json.loads(
+        next(
+            artifact.content
+            for artifact in prepared.artifacts
+            if artifact.kind == "data_operations.json"
+        )
+    )
+    source = next(kind for kind in model["kinds"] if kind["name"] == "DdoSelectedNativeSource")
+    assert source["facts"]["json"]["universe"] == "source"
