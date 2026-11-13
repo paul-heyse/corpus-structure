@@ -342,9 +342,9 @@ BEGIN
  CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') operation
  JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=operation->>'semantic_id'
  WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json'
- AND (NOT coalesce(operation->'dependencies','[]') <@ selected->'dependencies'
+ AND (NOT (coalesce(operation->'dependencies','[]') <@ (selected->'dependencies'))
  OR EXISTS(SELECT FROM jsonb_array_elements_text(selected->'dependencies') dependency
- WHERE NOT (coalesce(operation->'dependencies','[]')||coalesce(operation->'potential_dependencies','[]')) ? dependency)
+ WHERE NOT ((coalesce(operation->'dependencies','[]')||coalesce(operation->'potential_dependencies','[]')) ? dependency))
  OR EXISTS(SELECT FROM jsonb_array_elements_text(selected->'dependencies') dependency GROUP BY dependency HAVING count(*)<>1)))
  OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected
  CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency
