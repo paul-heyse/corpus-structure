@@ -861,6 +861,30 @@ completion defect. The batch liveness finding concerns promised retirement, not 
 specified independent controls. Retain the existing broader DDO-03–12 obligations and conditional
 capability triggers. Audit authorization publishes this corrected account, not those repairs.
 
+## Audit repair execution · 2026-11-13
+
+**Implemented; integrated qualification open.** Execution of DDO-CA-01–05 and the remaining
+DDO-03–05 scope is authorized. ADR-0100 records explicit qualified subject context through
+request and product identity; the accepted tagged encoding and frozen historical meanings stay
+unchanged. The native replay/purpose/context repairs and concrete-kind attachment correction
+are integrated at `94eaa0ca6`; native qualification awaits the normal frozen successor.
+
+DDO-CA-03 now checks exact batch-member claims during physical work, continues with authorized
+siblings and enters existing bounded retirement when none remains. Unknown completion custody
+is preserved separately. `uv run ci test --workers 2 --json --` selecting
+`test_data_operation_batch_activity.py` **passed 3/3**, `8efecb9296e1459ca10a66fdd2191bcb`,
+including actual spawned hung-call retirement. The broader CPU/activity selection **passed 9/9**,
+`515f429636594afe8aa5cf6c99b64675`; subsequent activity controls passed 3/3,
+`3d5fdbacb3de4c83b9f1a9b6fb100cd6`. Receipts are retained under their own evidence folders.
+Pyrefly **passed**, `b4c72849ba294940bb92c7c362153e9c`, after repairing the initial test-only
+narrowing diagnostic `eb039c2a1d224b0eaec44778961f253d`. Later integrated source needs its
+applicable diagnostics. No full package/finding closure follows from these local passes.
+
+Source-analysis, native/demand and port/consumer work is isolated on three implementation
+branches. Root owns shared integration, final source qualification and rollback-only candidate
+registration. No persistent deployment or activation is performed; DDO-11 remains the adoption
+owner. Remaining scope stays in the existing package and completion-audit rows above.
+
 ## Completion and current next action
 
 Complete means one target authority, all supported operations/consumers migrated, no obsolete

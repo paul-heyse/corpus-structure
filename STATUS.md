@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-13. Completion audit reopened DDO-01/02; DDO-03–07 execution remains open. No production cutover._
+_Updated 2026-11-13. Audit repairs and DDO-03–05 execution integrating; native successor qualification open. No production cutover._
 
 ## Authority and implementation
 
@@ -14,7 +14,8 @@ _Updated 2026-11-13. Completion audit reopened DDO-01/02; DDO-03–07 execution 
 
 ## Completion audit · 2026-11-13
 
-- The [coordinator completion audit](docs/plans/declared-data-operations_2026-11-12.md#completion-audit--2026-11-13) owns five open gaps, package corrections and closure evidence. Baseline `01375f9f7`; no production repairs. DDO-00 metadata classification remains complete; adoption/recovery and assembled qualification remain open.
+- **Current execution:** [audit repair execution](docs/plans/declared-data-operations_2026-11-12.md#audit-repair-execution--2026-11-13) owns integration. Contextual identity/native guards and source reflection repairs are integrated; batch physical controls passed. Root assembled compiler/source/CPU/activity **passed 109/109**, `a8c347a5997349afa6d0783bd841b60a`. Native registration/consumer integration remain open; no package closure.
+- The [coordinator completion audit](docs/plans/declared-data-operations_2026-11-12.md#completion-audit--2026-11-13) owns five open gaps, package corrections and closure evidence. Audit baseline `01375f9f7`; subsequent production repairs are in progress. DDO-00 metadata classification remains complete; adoption/recovery and assembled qualification remain open.
 - **passed:** `uv run ci test --workers 2 --json --` compilation/identity/ports, 151/151, `8fbbd195527b40c2b527b47b3cfc93e5`. **passed as defect reproduction:** `uv run python docs/design_review/evidence/2026-11-13_ddo-completion-audit/reflection_probe.py`; equal reusable recipe despite independently differing source-observing outputs. New native concurrency/purpose/root-context and physical batch controls: **not_run** in this audit.
 
 - **passed:** `uv run ci docs check --json`, `3af34ff2285448a58cd7d05e2348e676`; `uv run ci evidence check --json`, `3028611d5579454d9daed5bac418cabf` (zero errors, 42 historical warnings); `just turn-end`. Earlier audit publication failures were corrected (relative link and generated evidence indices).
@@ -34,4 +35,4 @@ _Updated 2026-11-13. Completion audit reopened DDO-01/02; DDO-03–07 execution 
 - Repair the audit gaps through their existing DDO package owners and obtain their independent controls. Finish the combined native successor and small authentic archive/execution/original-support controls, then integrate the prepared family contributions and their immediate consumers. Continue the full approved DDO-03–07 scope; the coordinator owns remaining obligations.
 - DDO-11 adoption must preserve originals/protected references/evidence, reacquire exact target/source/forward chain and drain old writers. Persistent database changes wait for that boundary.
 - Old result `0a78c71ce1a949e38e906c9c5392c1f3` remains held/unsettled; no memory/BrokenPipe cause is established.
-- Current checkout has only the main worktree; prior implementation contributions are merged. Concurrent closeout evidence is preserved separately from audit changes. No push.
+- Native, ports and family implementation worktrees remain active; merge source and retain evidence before cleanup. The reflection worktree was integrated and removed. Concurrent test-audit evidence stays untouched. No push.

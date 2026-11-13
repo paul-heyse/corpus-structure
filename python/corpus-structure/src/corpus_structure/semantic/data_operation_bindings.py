@@ -28,8 +28,8 @@ from .data_operation_model import (
     EffectiveDataOperationModel,
     EffectiveOperation,
     ResolvedOperationBinding,
-    SubjectContext,
     ResolvedRoleBinding,
+    SubjectContext,
 )
 from .data_operation_source_sets import FrozenSourceSet, source_sets_record
 from .identity import canonical_bytes
@@ -270,7 +270,10 @@ def compile_binding(
     A range is inclusive. Membership compares a typed scalar against a frozen
     sequence or population member IDs. SQL NULL remains unknown, never absence.
     """
-    if subject_context is not None and (subject_context.subject != subject or (original_source is not None and subject_context.original_source != original_source)):
+    if subject_context is not None and (
+        subject_context.subject != subject
+        or (original_source is not None and subject_context.original_source != original_source)
+    ):
         raise ValueError("compiled binding differs from acquired subject context")
     if not subject:
         raise ValueError("binding requires a frozen subject")

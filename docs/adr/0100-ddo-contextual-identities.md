@@ -50,3 +50,11 @@ sharing would need an explicit admitted representation rather than accidental di
 Affected Python/native constructors and independent vectors must migrate together. Normal frozen
 forward authoring supplies the new native projection; persistent adoption remains DDO-11.
 This decision accepts the contract, not verified implementation or closure of DDO-CA-05.
+
+## Amendments
+
+2026-11-13: The implementation makes the existing JSONB analyzed-scope meaning explicit:
+JSON numbers use canonical decimal meaning; boolean/string/null and structural distinctions
+remain. A context-only encoder preserves that interpretation without changing typed operation
+parameter or product-body numerical semantics. This clarifies the existing scope contract,
+not a different semantic role for subject context.

@@ -15,7 +15,11 @@ import networkx as nx
 from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
-from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding, SubjectContext
+from .data_operation_model import (
+    EffectiveDataOperationModel,
+    ResolvedOperationBinding,
+    SubjectContext,
+)
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
 from .data_operation_support import (
     OriginalSourceSelection,
@@ -480,8 +484,12 @@ class DemandPlanner:
                 analyzed_scope=obligation["analyzed_scope"],
             )
             binding_arguments = dict(
-                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
-                    obligation["original_source"], canonical_bytes(obligation["analyzed_scope"])),
+                subject_context=SubjectContext(
+                    snapshot["project_id"],
+                    obligation["subject"],
+                    obligation["original_source"],
+                    canonical_bytes(obligation["analyzed_scope"]),
+                ),
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
@@ -655,8 +663,12 @@ class DemandPlanner:
                 )
                 continue
             resolved = binding.resolved(
-                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
-                    obligation["original_source"], canonical_bytes(obligation["analyzed_scope"])),
+                subject_context=SubjectContext(
+                    snapshot["project_id"],
+                    obligation["subject"],
+                    obligation["original_source"],
+                    canonical_bytes(obligation["analyzed_scope"]),
+                ),
                 inference=frozen["inference"],
                 authorization=authorization,
                 trust_evidence=canonical_bytes(
@@ -726,10 +738,16 @@ class DemandPlanner:
             }
             # The pinned native view names a directly trusted historical producer.
             # The hint is not authority: attachment revalidates it under trust locks.
-            rebind = next((use["rebind_derivation"] for use in snapshot.get("uses", ())
-                           if use.get("obligation_id") == obligation["obligation_id"]
-                           and use.get("request_id") == request.identity.key
-                           and use.get("rebind_derivation")), None)
+            rebind = next(
+                (
+                    use["rebind_derivation"]
+                    for use in snapshot.get("uses", ())
+                    if use.get("obligation_id") == obligation["obligation_id"]
+                    and use.get("request_id") == request.identity.key
+                    and use.get("rebind_derivation")
+                ),
+                None,
+            )
             native = self.storage.invoke(
                 "attach_data_request",
                 {

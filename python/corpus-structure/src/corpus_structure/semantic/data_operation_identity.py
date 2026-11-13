@@ -18,8 +18,8 @@ from typing import Any, Literal
 
 import networkx as nx
 
-from .identity import canonical_bytes
 from .data_operation_model import SubjectContext
+from .identity import canonical_bytes
 from .value_codec import value_meaning
 
 ENCODING_VERSION = "1"
@@ -468,14 +468,19 @@ def profile_identities(fields: Iterable[ProfileField]) -> ProfileIdentities:
     )
 
 
-def contextual_product_identity(*, kind: str, context: SubjectContext, body: str) -> CanonicalIdentity:
+def contextual_product_identity(
+    *, kind: str, context: SubjectContext, body: str
+) -> CanonicalIdentity:
     """Current publication identity; the pure legacy helper does not authorize it."""
-    return canonical_identity("product", {
-        "kind": _identifier(kind, "kind fingerprint"),
-        "subject": context.subject,
-        "subject_context": context.identity_record,
-        "body": _identifier(body, "body digest"),
-    })
+    return canonical_identity(
+        "product",
+        {
+            "kind": _identifier(kind, "kind fingerprint"),
+            "subject": context.subject,
+            "subject_context": context.identity_record,
+            "body": _identifier(body, "body digest"),
+        },
+    )
 
 
 def runtime_artifact_identity(executable_inputs: Any) -> CanonicalIdentity:
