@@ -12,7 +12,8 @@ from typing import Literal
 
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v1"
+MODEL_VERSION = "data-operation-model-v2"
+ARCHIVED_MODEL_VERSION = "data-operation-model-v1"
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,17 @@ class BindingField:
 
 
 @dataclass(frozen=True)
+class BindingOperand:
+    """Typed value source; names resolve only in the frozen demand/projection universe."""
+
+    kind: Literal["field", "literal", "parameter", "population"]
+    value_type: str
+    field: BindingField | None = None
+    name: str | None = None
+    value: bytes | None = None
+
+
+@dataclass(frozen=True)
 class BindingExpression:
     """Closed relational vocabulary; never SQL text or an executable callback."""
 
@@ -106,6 +118,8 @@ class BindingExpression:
         "optional",
         "forall",
         "absent",
+        "range",
+        "membership",
     ]
     roles: tuple[str, ...] = ()
     fields: tuple[BindingField, ...] = ()
@@ -117,6 +131,8 @@ class BindingExpression:
     selected: str | None = None
     population: str | None = None
     impact: Literal["result", "eligibility"] = "result"
+    operands: tuple[BindingOperand, ...] = ()
+    choice_parameter: str | None = None
 
 
 @dataclass(frozen=True)
@@ -249,6 +265,7 @@ class EffectiveOperation:
     binding: str
     replicate_policy: str = "deterministic-single-result"
     support_policy: str = "all-declared-input-support"
+    potential_dependencies: tuple[str, ...] = ()
 
     @property
     def recipe(self) -> bytes:
@@ -290,6 +307,11 @@ class EffectiveOperation:
             {
                 **json.loads(self.recipe),
                 "applicability": self.applicability,
+                **(
+                    {"potential_dependencies": self.potential_dependencies}
+                    if self.potential_dependencies
+                    else {}
+                ),
                 "state_dimensions": [asdict(s) for s in self.state_dimensions],
                 "transitions": [asdict(s) for s in self.transitions],
                 "capabilities": asdict(self.capabilities),
@@ -340,7 +362,20 @@ class EffectiveDataOperationModel:
                 return [encode(item) for item in value]
             return value
 
-        return canonical_bytes(encode(asdict(self)))
+        record = asdict(self)
+        if self.version == ARCHIVED_MODEL_VERSION:
+            # Re-export the v1 shape, including its absence of v2 constructs.
+            def historical_expression(expression):
+                expression.pop("operands")
+                expression.pop("choice_parameter")
+                for child in expression["children"]:
+                    historical_expression(child)
+
+            for operation in record["operations"]:
+                operation.pop("potential_dependencies")
+            for binding in record["bindings"]:
+                historical_expression(binding["expression"])
+        return canonical_bytes(encode(record))
 
 
 @dataclass(frozen=True)
@@ -365,7 +400,7 @@ class BoundRoleMember:
 @dataclass(frozen=True)
 class ResolvedRoleBinding:
     role: str
-    state: Literal["present", "known-absent", "unavailable", "unknown"]
+    state: Literal["present", "known-absent", "unavailable", "unknown", "invalid"]
     members: tuple[BoundRoleMember, ...] = ()
     population_witness: bytes | None = None
     selected_alternative: str | None = None
@@ -385,16 +420,20 @@ class ResolvedOperationBinding:
 
 
 def read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
-    """Read the archived v1 product; missing fields never acquire current defaults."""
+    """Read a complete pinned product; v1 retains its closed historical semantics."""
     from dataclasses import fields, is_dataclass
 
     from cattrs import Converter
     from cattrs.gen import make_dict_structure_fn
 
     record = json.loads(content)
-    if not isinstance(record, dict) or record.get("version") != MODEL_VERSION:
+    if not isinstance(record, dict) or record.get("version") not in {
+        MODEL_VERSION,
+        ARCHIVED_MODEL_VERSION,
+    }:
         raise ValueError("unsupported archived data-operation model version")
-    converter = Converter(forbid_extra_keys=True)
+    archived_v1 = record["version"] == ARCHIVED_MODEL_VERSION
+    converter = Converter(forbid_extra_keys=True, detailed_validation=False)
 
     def structure_bytes(value, _):
         if not isinstance(value, dict) or set(value) != {"json"}:
@@ -404,11 +443,21 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
     def structure_record(cls):
         build = make_dict_structure_fn(cls, converter, _cattrs_forbid_extra_keys=True)
         expected = {field.name for field in fields(cls)}
+        # Fixed v1 semantics, not dataclass defaults: a v1 expression has no demand
+        # operands/choice and a v1 operation has no alternative producer graph.
+        historical = (
+            {"operands": [], "choice_parameter": None}
+            if cls is BindingExpression
+            else {"potential_dependencies": []}
+            if cls is EffectiveOperation
+            else {}
+        )
+        archived_fields = expected - historical.keys() if archived_v1 else expected
 
         def structure(value, _):
-            if not isinstance(value, dict) or set(value) != expected:
+            if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
-            return build(value, cls)
+            return build({**value, **historical} if archived_v1 else value, cls)
 
         return structure
 
