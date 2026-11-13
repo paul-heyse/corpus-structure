@@ -13,6 +13,7 @@ imports:
 - pdf-records
 - pdf-staging
 - characterization-physical
+- data-operation-physical
 default_range: string
 subsets:
   sem: {}
@@ -1251,6 +1252,8 @@ classes:
     in_subset:
     - ops
     attributes:
+      data_request_id: {range: string, required: false}
+      data_generation: {range: integer, required: false}
       trigger:
         range: json_payload
         required: true
@@ -1267,16 +1270,16 @@ classes:
           ph:identity: 'true'
       run_id:
         range: integer
-        required: true
+        required: false
       release_id:
         range: string
         required: true
       stage:
         range: string
-        required: true
+        required: false
       unit_type:
         range: string
-        required: true
+        required: false
       unit_id:
         range: integer
         required: false
@@ -1285,10 +1288,10 @@ classes:
         required: false
       method_config_id:
         range: integer
-        required: true
+        required: false
       input_hash:
         range: string
-        required: true
+        required: false
       packet_hash:
         range: string
         required: false
@@ -1346,7 +1349,7 @@ classes:
       ph:foreign_keys: '[{"columns": ["run_id", "release_id"], "target": "ops.run.id,release_id"},
         {"columns": ["method_config_id"], "target": "ops.method_config.id"}, {"columns":
         ["reused_task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["invocation_key <> ''''", "attempt >= 0", "status IN (''pending'',''running'',''awaiting_agent'',''done'',''empty'',''failed'',''reused'',''skipped'',''cancelled'')"]'
+      ph:checks: '["(data_request_id IS NULL AND data_generation IS NULL AND run_id IS NOT NULL AND stage IS NOT NULL AND unit_type IS NOT NULL AND method_config_id IS NOT NULL AND input_hash IS NOT NULL) OR (data_request_id IS NOT NULL AND data_generation > 0 AND run_id IS NULL AND stage IS NULL AND method_config_id IS NULL AND input_hash IS NULL)", "invocation_key <> ''''", "attempt >= 0", "status IN (''pending'',''running'',''awaiting_agent'',''done'',''empty'',''failed'',''reused'',''skipped'',''cancelled'')"]'
   observation:
     in_subset:
     - kb
