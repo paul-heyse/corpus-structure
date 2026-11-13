@@ -103,3 +103,41 @@ classes:
         inlined: true
         multivalued: true
         required: true
+      coverage:
+        range: DdoCharacterizationCoverage
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  DdoCharacterizationCoverage:
+    is_a: SourceRecordProduct
+    description: A family standing over explicitly eligible, examined and unexamined
+      original source scope. Concrete producers own the evidence for each standing.
+    attributes:
+      family:
+        required: true
+        pattern: ^\S+$
+      eligible:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      examined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      unexamined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      availability:
+        required: true
+        pattern: ^(available|unknown|unsupported|unavailable)$
+      outcome:
+        required: true
+        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+      reason: {}
