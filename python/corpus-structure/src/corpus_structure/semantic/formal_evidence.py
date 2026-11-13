@@ -439,8 +439,9 @@ class FormalIdentity:
 
 
 class _LayerBuilder:
-    def __init__(self, view: FormalSource, operation: Mapping[str, Any], identity: FormalIdentity):
+    def __init__(self, view: FormalSource, operation: Mapping[str, Any], identity: FormalIdentity, *, selector_match=None):
         self.view = view
+        self.selector_match = selector_match
         self.identity = identity
         self.operation = {} if identity.semantic else dict(operation)
         self.occurrences: dict[str, dict[str, Any]] = {}
@@ -1006,15 +1007,23 @@ def extract_formal_facts(
             raise ValueError("formal selector does not name a selected native source atom")
 
     def matches(piece, selector):
-        selected_pointer = selector.get("native_pointer")
-        pointer = piece.get("item_ref")
-        seen = set()
-        while selected_pointer and pointer != selected_pointer and pointer not in seen:
-            seen.add(pointer)
-            parent = builder.items.get(pointer, {}).get("parent")
-            pointer = parent.get("$ref") if isinstance(parent, dict) else parent
-        if selected_pointer and pointer != selected_pointer:
-            return False
+        if builder.selector_match is not None:
+            selected = builder.selector_match(selector,piece["item_ref"])
+            if selected is not True:
+                if selected is None:
+                    for family in FAMILIES:
+                        builder.problems[family].append("Selected source ancestry is unavailable; membership is unknown.")
+                return False
+        else:
+            selected_pointer = selector.get("native_pointer")
+            pointer = piece.get("item_ref")
+            seen = set()
+            while selected_pointer and pointer != selected_pointer and pointer not in seen:
+                seen.add(pointer)
+                parent = builder.items.get(pointer, {}).get("parent")
+                pointer = parent.get("$ref") if isinstance(parent, dict) else parent
+            if selected_pointer and pointer != selected_pointer:
+                return False
         if "page" in selector:
             pages = {
                 prov.get("page_no")

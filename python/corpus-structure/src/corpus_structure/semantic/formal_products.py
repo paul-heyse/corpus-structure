@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -34,6 +33,7 @@ from .formal_evidence import (
     grammar_identity,
 )
 from .identity import canonical_bytes
+from .python_operation_sources import PythonSourceCollection
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
 )
@@ -175,7 +175,7 @@ class FormalEvidenceProduct:
         for packet in body["members"]:
             if packet["body"]["record_type"] != "choice_member":
                 result[by_kind[packet["body"]["record_type"]]].append(packet["body"])
-        return {**result, "coverage": body["coverage"]}
+        return {**result, "roles": [], "coverage": body["coverage"]}
 
 
 def validate_formal_product(
@@ -257,22 +257,8 @@ def validate_formal_product(
                 ):
                     raise ValueError("formal occurrence escapes its original native piece")
 
-                def selected_pointer(selector, pointer=pointer):
-                    wanted = selector.get("native_pointer")
-                    actual = pointer
-                    items = {
-                        row["self_ref"]: row
-                        for row in (*selected["items"], *selected.get("ancestors", ()))
-                    }
-                    seen = set()
-                    while wanted and actual != wanted and actual not in seen:
-                        seen.add(actual)
-                        parent = items.get(actual, {}).get("parent")
-                        actual = parent.get("$ref") if isinstance(parent, dict) else parent
-                    return wanted is None or actual == wanted
-
                 if not any(
-                    selected_pointer(selector)
+                    source.selector_index().matches(selector,pointer) is True
                     and selector.get("start", 0)
                     <= a
                     < b
@@ -421,14 +407,7 @@ def formal_positioned_lexicon(builder, selected):
         for piece in builder.view.pieces:
             if piece["kind"] != "native_text":
                 continue
-            wanted = selector.get("native_pointer")
-            pointer = piece["item_ref"]
-            seen = set()
-            while wanted and pointer != wanted and pointer not in seen:
-                seen.add(pointer)
-                parent = builder.items.get(pointer, {}).get("parent")
-                pointer = parent.get("$ref") if isinstance(parent, dict) else parent
-            if wanted and pointer != wanted:
+            if builder.selector_match(selector,piece["item_ref"]) is not True:
                 continue
             a, b = max(lower, piece["start"]), min(upper, piece["end"])
             if a < b:
@@ -507,6 +486,7 @@ def formal_product_values(
         FormalIdentity(
             canonical_bytes(coordinate), coordinate["projection"], source_subject(coordinate), True
         ),
+        selector_match=source.selector_index().matches,
     )
     builder.macros = dict(options.macros)
     extract_formal_facts(
@@ -648,7 +628,6 @@ def formal_profile_assets() -> SourceArtifact:
         root / "characterization.py",
         root / "characterization_evidence.py",
         root / "source_products.py",
-        root / "data_product_reference.py",
         root / "constructions/reuse.py",
         root / "constructions/nodes.py",
         root / "constructions/lexical.py",
@@ -726,6 +705,7 @@ class PreparedFormalEvidencePort:
     profile: PreparedFormalEvidence
     authorize: Callable[[PreparedCapabilityIdentity], None]
     custody: tuple[SourceArtifact, ...]
+    sources: PythonSourceCollection | None = None
 
     @property
     def logical_signature(self):
@@ -741,104 +721,24 @@ class PreparedFormalEvidencePort:
         )
 
     def _verify(self) -> None:
-        from dataclasses import asdict
-
-        from .data_operation_ports import PortRefusal
-
-        model = self.profile.model
-        ids = {(item.owner, item.domain): item.key for item in model.identities}
-        operation = self.operation
-        if operation.implementation_root is None:
-            raise PortRefusal("formal capability lacks an implementation root")
-        expected = dict(
-            model_digest=sha256(model.content).hexdigest(),
-            operation=operation.semantic_id,
-            definition=ids[operation.semantic_id, "definition"],
-            recipe=ids[operation.semantic_id, "recipe"],
-            implementation=ids[operation.implementation_root, "implementation-slice"],
-            declaration="corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",
-            capabilities=canonical_bytes(asdict(operation.capabilities)),
-            eligibility=ids[operation.semantic_id, "eligibility"],
-        )
-        sources = formal_operation_sources()
-        retained = {artifact.name: artifact for artifact in self.custody}
-        if len(retained) != len(self.custody):
-            raise PortRefusal("formal runtime custody repeats an acquired artifact name")
-        for actual in (formal_profile_assets(), formal_execution_custody()):
-            if retained.get(actual.name) != actual:
-                raise PortRefusal("formal runtime/parser assets differ from acquired custody")
-        expected["source_digest"] = sha256(
-            canonical_bytes(
-                tuple(
-                    (source.module, sha256(source.content).hexdigest())
-                    for source in sources.sources
-                )
-            )
-        ).hexdigest()
-        if any(getattr(self.identity, name) != value for name, value in expected.items()):
-            raise PortRefusal(
-                "formal capability differs from admitted source/operation correspondence"
-            )
-        # Prepared opaque resources are not closed Python functions, but their
-        # original endpoint and resource bridge still require actual loaded-code
-        # correspondence, not only a matching on-disk file.
-        import inspect
-        from types import CodeType
-
         from corpus_structure.methods import formal_evidence as endpoint
+        from .data_operation_ports import PortRefusal
+        from .data_operation_prepared_products import verify_prepared_product
 
-        def declared(content, filename, *path):
-            code = compile(content, filename, "exec", dont_inherit=True)
-            for name in path:
-                code = next(
-                    item
-                    for item in code.co_consts
-                    if isinstance(item, CodeType) and item.co_name == name
-                )
-            return code
-
-        source = sources.sources[0]
-        runtime = inspect.getattr_static(endpoint.FormalEvidenceOperation, "run")
-        if (
-            not inspect.isfunction(runtime)
-            or runtime.__code__
-            != declared(source.content, source.filename, "FormalEvidenceOperation", "run")
-            or runtime.__globals__ is not endpoint.__dict__
-        ):
-            raise PortRefusal("loaded formal endpoint differs from acquired implementation")
-        if (
-            endpoint.execute_formal_profile is not execute_formal_profile
-            or execute_formal_profile.__code__
-            != declared(Path(__file__).read_bytes(), __file__, "execute_formal_profile")
-        ):
+        if endpoint.execute_formal_profile is not execute_formal_profile:
             raise PortRefusal("loaded formal resource bridge differs from acquired implementation")
-        if self.profile.run.__func__.__code__ != declared(
-            Path(__file__).read_bytes(), __file__, "PreparedFormalEvidence", "run"
-        ):
-            raise PortRefusal(
-                "loaded formal resource algorithm differs from acquired implementation"
-            )
-        contracts = {item.name: item.digest for item in self.custody}
-        boundaries = (
-            *operation.assets,
-            *(
-                boundary
-                for implementation in model.implementation_slices
-                if implementation.root == operation.implementation_root
-                for boundary in implementation.boundaries
+        required=formal_operation_sources()
+        sources=required if self.sources is None else self.sources
+        verify_prepared_product(
+            self.identity,self.profile.model,self.operation,sources,self.custody,
+            assets=(formal_profile_assets(),formal_execution_custody()),
+            functions=(
+                ("corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",endpoint.FormalEvidenceOperation.run),
+                ("corpus_structure.semantic.formal_products.execute_formal_profile",execute_formal_profile),
+                ("corpus_structure.semantic.formal_products.PreparedFormalEvidence.run",self.profile.run.__func__),
             ),
+            authorize=self.authorize,required_sources=required,
         )
-        if not operation.assets or any(
-            contracts.get(boundary.contract) != boundary.content_digest for boundary in boundaries
-        ):
-            raise PortRefusal(
-                "formal parser assets differ from explicitly acquired boundary custody"
-            )
-        if self.identity.assets != canonical_bytes(
-            tuple(asdict(boundary) for boundary in boundaries)
-        ):
-            raise PortRefusal("formal capability has another acquired resource boundary")
-        self.authorize(self.identity)
 
     def _source(self, values, binding):
         from .data_operation_identity import decode_semantic_value
@@ -871,23 +771,9 @@ class PreparedFormalEvidencePort:
 
     def _completion(self, product):
         from .data_operation_identity import semantic_value
-        from .data_operation_ports import PortCompletion, RoleValue
+        from .data_operation_ports import PortCompletion, RoleValue, project_product_members
 
-        # Product meaning uses the exact typed record's fields; display JSON and native
-        # member packets are deliberate projections of that same validated product.
-        model_value = product.value.model_dump(mode="python", exclude_unset=True)
-        packets = json.loads(product.content)["members"]
-        native_members = tuple(
-            canonical_bytes(
-                {
-                    "member_id": packet["member_id"],
-                    "kind_contract": packet["kind_contract"],
-                    "context": packet["context"],
-                    "body": semantic_value(packet["body"]),
-                }
-            )
-            for packet in packets
-        )
+        model_value=product.value.model_dump(mode="python",exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
         return PortCompletion(
@@ -898,7 +784,7 @@ class PreparedFormalEvidencePort:
                     contracts[output.kind, "kind"],
                     product.content,
                     canonical_bytes(semantic_value(model_value)),
-                    native_members,
+                    project_product_members(self.profile.model,output.kind,model_value),
                 ),
             ),
         )
@@ -979,6 +865,7 @@ def resolve_formal_evidence_port(
     identity: PreparedCapabilityIdentity,
     authorize: Callable[[PreparedCapabilityIdentity], None],
     custody: tuple[SourceArtifact, ...],
+    sources: PythonSourceCollection | None = None,
 ) -> PreparedFormalEvidencePort:
     from .data_operation_ports import PortRefusal
 
@@ -1005,6 +892,7 @@ def resolve_formal_evidence_port(
         prepare_formal_evidence(prepared, model, grammar=grammar_identity()),
         authorize,
         custody,
+        sources,
     )
     port._verify()
     return port

@@ -79,13 +79,9 @@ class FormalSourceReadings:
     def from_products(cls, products, source):
         """Immediate construction input: retain exact typed facts, never parse again."""
         from .formal_products import FrozenFormalSource, validate_formal_product
-        from .identity import canonical_bytes
 
         selected = source.value
         coordinate = selected["source"]
-        prepared_source = SemanticFormalSource(
-            canonical_bytes(coordinate), coordinate["projection"]
-        )
         retained = []
         lexical = []
         for product in products:
@@ -100,11 +96,18 @@ class FormalSourceReadings:
             checked = validate_formal_product(product.prepared, body, original, model=product.model)
             retained.append((DataProductReference(checked.semantic_id), checked.inventory()))
             lexical.extend(body["lexicon"])
-        instance = cls.__new__(cls)
-        instance.source = prepared_source
-        instance._selected = tuple(retained)
-        instance._lexical = tuple(lexical)
-        instance._text = selected["text"]
+        return cls._from_retained(selected,retained,lexical)
+
+    @classmethod
+    def _from_retained(cls,selected,retained,lexical):
+        """Private prepared-kernel read index after its parent authenticated all inputs."""
+        from .identity import canonical_bytes
+        coordinate=selected["source"]
+        instance=cls.__new__(cls)
+        instance.source=SemanticFormalSource(canonical_bytes(coordinate),coordinate["projection"])
+        instance._selected=tuple(retained)
+        instance._lexical=tuple(lexical)
+        instance._text=selected["text"]
         return instance
 
     def positioned(self, *, start: int, end: int):

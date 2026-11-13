@@ -25,10 +25,11 @@ from corpus_structure.semantic.data_product_reference import (
     DataProductReference, DataProductMemberReference, member_reference, read_member_reference,
 )
 
+from .nodes import identity
+
 type MemberReference = LegacyMemberReference | DataProductMemberReference
 type ProductPin = LegacyProductPin | DataProductReference
 
-from .nodes import identity
 
 EVALUATION_REVISION = "primary-contextual-evaluation-1"
 EVALUATION_FAMILIES = (
@@ -165,6 +166,8 @@ class ContextualEvaluator:
                     elif inventory == "annotations" and node.get("kind") == "model.span_proposal":
                         for premise in node.get("premises", ()):
                             self._model_proposals.setdefault((pin, premise), []).append(node)
+            for packet in payload.get("source_facts",()):
+                self.nodes[member_reference(pin,packet["member_id"])]=("source_facts",packet["body"])
             for occurrence in payload["occurrences"]:
                 self.occurrences[occurrence["local_id"]] = occurrence
             for group in payload["choices"]:

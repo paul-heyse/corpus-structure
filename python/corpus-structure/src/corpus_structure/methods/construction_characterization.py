@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+from corpus_structure.semantic.source_products import FrozenNativeSource
+from corpus_structure.semantic.formal_products import FormalEvidenceProduct
+from corpus_structure.semantic.construction_products import ConstructionProduct
+from corpus_structure.semantic.sentence_products import SentenceInventory
+from corpus_structure.semantic.characterization_ports import execute_construction_profile
+
 import json
 import time
 from collections.abc import Iterable
@@ -460,3 +467,104 @@ class ConstructionCharacterizationMethod:
                         "native-dependent construction coverage unavailable; "
                         "source grammar retained",
                     )
+
+
+class ConstructionOperation:
+    __data_operation__: ClassVar[dict] = {'id': 'text.constructions/source-native',
+     'profile': 'derivation',
+     'subject': 'original-source-view',
+     'context': ['original-source', 'selected-scope'],
+     'entrypoints': ['run'],
+     'roles': [{'name': 'source',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource',
+                'direction': 'input',
+                'minimum': 1,
+                'maximum': 1,
+                'collection': 'scalar',
+                'presence': 'required',
+                'parameter': 'source',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation', 'original-source'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'formal',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct',
+                'direction': 'input',
+                'minimum': 1,
+                'maximum': None,
+                'collection': 'sequence',
+                'presence': 'required',
+                'parameter': 'formal',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'sentences',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-sentences/DdoSentenceInventory',
+                'direction': 'input',
+                'minimum': 0,
+                'maximum': 1,
+                'collection': 'scalar',
+                'presence': 'optional',
+                'parameter': 'sentences',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'result',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct',
+                'direction': 'output',
+                'minimum': 1,
+                'maximum': 1,
+                'collection': 'scalar',
+                'presence': 'required'}],
+     'applicability': ['acquired-construction-profile'],
+     'invariants': ['original-source-coordinates',
+                    'governed-semantic-member-references',
+                    'explicit-coverage-and-private-standing'],
+     'coverage': 'exact-selected-source-scope',
+     'outcomes': ['success', 'failed'],
+     'precision': 'retained-positioned-characterization',
+     'dependencies': [],
+     'effects': [],
+     'capabilities': {'forms': ['scalar'],
+                      'preparation': 'resource',
+                      'cancellation': 'cooperative',
+                      'ownership': 'immutable'},
+     'behavior': 'compose retained typed construction products without upstream language '
+                 'reacquisition',
+     'parameters': {},
+     'binding': {'operator': 'all',
+                 'children': [{'operator': 'scan', 'roles': ['source']},
+                              {'operator': 'collection',
+                               'roles': ['formal'],
+                               'collection': 'sequence'},
+                              {'operator': 'scan', 'roles': ['sentences']}]},
+     'opaque': [{'reference': 'corpus_structure.semantic.characterization_ports.execute_construction_profile',
+                 'contract': 'characterization/construction-assets',
+                 'role': 'prepared-construction-resources'},
+                {'reference': 'corpus_structure.semantic.source_products.FrozenNativeSource',
+                 'contract': 'characterization/construction-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.formal_products.FormalEvidenceProduct',
+                 'contract': 'characterization/construction-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.construction_products.ConstructionProduct',
+                 'contract': 'characterization/construction-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.sentence_products.SentenceInventory',
+                 'contract': 'characterization/construction-assets',
+                 'role': 'nominal-boundary'}],
+     'assets': [{'reference': 'construction-profile',
+                 'contract': 'characterization/construction-assets',
+                 'role': 'semantic-implementation-and-schema-assets'}]}
+
+    def __init__(self, profile, check_active):
+        self.profile=profile
+        self.check_active=check_active
+
+    def run(self, source: FrozenNativeSource, formal: tuple[FormalEvidenceProduct, ...], sentences:SentenceInventory|None=None) -> ConstructionProduct:
+        return execute_construction_profile(self, source, formal,sentences)
