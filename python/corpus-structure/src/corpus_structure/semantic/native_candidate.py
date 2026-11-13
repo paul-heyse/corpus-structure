@@ -250,37 +250,19 @@ def _declared_function_predecessors(connection, products):
     from .migrations import ALEMBIC_DIR
 
     owner = semantic_namespace_owner(connection)
-    paths = tuple(
-        path
-        for path in ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")
-        if int(path.name.split("_")[1]) <= 65
-    )
+    paths = tuple(path for path in ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")
+                  if int(path.name.split("_")[1]) <= 65)
     # Source guards retain their dedicated historical migration-owner ACL handling.
-    separately_owned = (
-        _RETIRED_SOURCE_FUNCTIONS
-        | set(_CURRENT_SOURCE_GUARDS)
-        | {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")}
-    )
-    names = {
-        (item.identity.schema, item.identity.name)
-        for item in products
-        if item.identity.kind == "function"
-    } - separately_owned
+    separately_owned = (_RETIRED_SOURCE_FUNCTIONS | set(_CURRENT_SOURCE_GUARDS)
+                        | {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")})
+    names = {(item.identity.schema, item.identity.name) for item in products
+             if item.identity.kind == "function"} - separately_owned
     result = []
     for source, sql, facts in _frozen_predecessor_declarations(paths, owner=owner, names=names):
-        definition = definition_from_sql(
-            connection,
-            sql,
-            source=source,
-            owner=facts["owner"],
-            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]),
-        )
+        definition = definition_from_sql(connection, sql, source=source, owner=facts["owner"],
+            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]))
         if definition.owner == owner:
-            definition = replace(
-                definition,
-                bind_owner=True,
-                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
-            )
+            definition = replace(definition, bind_owner=True, role_bindings=(("$migration_owner", "sem_namespace_owner"),))
         result.append(definition)
     return tuple(result)
 
@@ -537,7 +519,7 @@ _CURRENT_SOURCE_GUARDS = {
 }
 
 
-def _source_guard_predecessors(connection):
+def _source_guard_predecessors(connection, *, legacy_operator_grants=True):
     """Normalize bounded frozen source guards/retirements and their dependent triggers."""
     from .migrations import ALEMBIC_DIR
     from .native_function_signatures import function_signature
@@ -546,7 +528,9 @@ def _source_guard_predecessors(connection):
     owner = semantic_namespace_owner(connection)
     if owner is None:
         raise NativeAuthoringError("source guard authoring requires its semantic owner")
+    operator = connection.scalar(text("SELECT session_user"))
     inventory, functions, triggers = {}, {}, {}
+    operator_grants = set()
     selected = (
         _RETIRED_SOURCE_FUNCTIONS
         | set(_CURRENT_SOURCE_GUARDS)
@@ -555,6 +539,9 @@ def _source_guard_predecessors(connection):
     for path in sorted(ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")):
         sql = path.read_text().replace("__MIGRATION_OWNER__", owner)
         prepared = update_function_inventory(inventory, sql, owner=owner)
+        if path.name in {"semantic_0031_kernels.sql", "semantic_0032_kernels.sql", "semantic_0033_kernels.sql"}:
+            # The frozen Python wrappers execute this after their SQL files.
+            operator_grants.update(signature for signature in inventory if signature.startswith("sem."))
         for index, raw in enumerate(prepared.statements):
             stmt = raw.stmt
             if isinstance(stmt, ast.CreateFunctionStmt):
@@ -612,31 +599,37 @@ def _source_guard_predecessors(connection):
             owner=facts["owner"],
             grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]),
         )
-        if (definition.identity.schema, definition.identity.name) in {
-            ("sem", "require_archive_bytes"),
-            ("sem", "require_execution_projection"),
-            ("sem", "require_execution_operation"),
-        }:
-            # Frozen0033 creates these under the migration owner before the later
-            # publisher-owned replacements; CREATE OR REPLACE retains that EXECUTE.
+        if legacy_operator_grants and signature in operator_grants:
+            # This predecessor belongs to the acquired deployment: retain the
+            # wrapper's operator grant as a literal, separate from namespace owner.
+            # It must remain the same when runtime purpose sessions inspect it.
             definition = replace(
-                definition,
-                grants=(*definition.grants, (owner, "EXECUTE", False)),
-                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+                definition, grants=(*definition.grants, (operator, "EXECUTE", False)),
+                bind_owner=False, role_bindings=(),
             )
-        if definition.owner == owner:
-            definition = replace(
-                definition,
-                bind_owner=True,
-                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
-            )
+        else:
+            if (definition.identity.schema, definition.identity.name) in {
+                ("sem", "require_archive_bytes"),
+                ("sem", "require_execution_projection"),
+                ("sem", "require_execution_operation"),
+            }:
+                definition = replace(
+                    definition, grants=(*definition.grants, (owner, "EXECUTE", False)),
+                    role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+                )
+            if definition.owner == owner:
+                definition = replace(
+                    definition, bind_owner=True,
+                    role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+                )
         definitions.append(definition)
     definitions.extend(item for _, item in triggers.values())
     return tuple(definitions), triggers
 
 
 def _current_source_guard_definitions(connection):
-    predecessors, triggers = _source_guard_predecessors(connection)
+    # Current declaration profiles are independent of legacy wrapper grants.
+    predecessors, triggers = _source_guard_predecessors(connection, legacy_operator_grants=False)
     result = []
     for item in predecessors:
         key = (item.identity.schema, item.identity.name)
@@ -1912,10 +1905,8 @@ def _prepare_series_authoring(
         desired = {item.identity for item in products}
         newly_managed = tuple(
             item
-            for item in (
-                *_declared_function_predecessors(connection, products),
-                *series_predecessor_definitions(connection),
-            )
+            for item in (*_declared_function_predecessors(connection, products),
+                         *series_predecessor_definitions(connection))
             if item.identity not in known
             and item.identity in desired
             and source.permits_backfill(item.identity)
