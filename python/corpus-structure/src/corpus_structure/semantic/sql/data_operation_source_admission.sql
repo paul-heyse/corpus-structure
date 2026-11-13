@@ -60,7 +60,7 @@ BEGIN
  PERFORM ops.validate_structural_source(p_reference);
  SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(p_reference->>'source_view_id')::bigint;
  SELECT * INTO STRICT document_ FROM kb.document WHERE id=view_.document_id AND project_id=p_reference->>'project_id';
- PERFORM sem.require_execution_operation(p_reference->>'release_id','read_published_items');
+ PERFORM sem.require_execution_operation(p_reference->>'release_id','read_native_source');
  SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(view_.native_task_id,view_.native_product_key,view_.native_content_digest);
  IF (placement.task_id,placement.product_key,placement.logical_digest) IS DISTINCT FROM (view_.native_task_id,view_.native_product_key,view_.native_content_digest)
  OR view_.native_build_id IS DISTINCT FROM placement.build_id OR view_.native_revision_id IS DISTINCT FROM placement.build_id THEN RAISE EXCEPTION 'original source view escaped its published native placement'; END IF;
