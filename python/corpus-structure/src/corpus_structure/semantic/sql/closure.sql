@@ -542,6 +542,16 @@ BEGIN
  OR (SELECT count(*) FROM sem.input WHERE release_id=r)<>jsonb_array_length(manifest->'sources')+jsonb_array_length(manifest->'dependencies')+3
  OR (SELECT count(*) FROM sem.input WHERE release_id=r AND (input_kind,input_name) IN (('profile','profile'),('vocabulary','vocabulary'),('ontology_sources','ontology_sources')))<>3 THEN
   RAISE EXCEPTION 'archive product or input closure differs' USING ERRCODE='23514'; END IF;
+ IF manifest ? 'data_operation_model' THEN
+  IF manifest ? 'execution_model_id' OR document->'products' ? 'execution_model_id'
+  OR NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
+      AND content_digest=manifest->>'data_operation_model')
+  OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=r AND input_kind='dependency'
+      AND input_name='data-operations/manifest.json')
+  OR EXISTS(SELECT FROM sem.input WHERE release_id=r AND input_kind='dependency'
+      AND input_name LIKE 'execution/%') THEN
+   RAISE EXCEPTION 'target operation archive binding differs' USING ERRCODE='23514'; END IF;
+ END IF;
 END
 $body$;
 REVOKE ALL ON FUNCTION sem.require_archive_bytes(text) FROM PUBLIC;

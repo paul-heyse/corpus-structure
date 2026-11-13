@@ -564,7 +564,10 @@ def series_native_definitions(connection, *, include_selected=True):
         + "\n"
         + observation_publication_sql()
     )
+    from .data_operation_storage import data_operation_native_definitions
+
     definitions = [
+        *data_operation_native_definitions(connection),
         *_release_guard_definitions(
             connection,
             Path(__file__).with_name("sql").joinpath("closure.sql").read_text()
@@ -598,6 +601,11 @@ def series_native_definitions(connection, *, include_selected=True):
             source="execution task:forward",
         )
     )
+    for guard_name in ('guard_source_selection', 'guard_task_lifecycle'):
+        definitions.append(_task_call_definition(
+            connection, Path(__file__).with_name('sql').joinpath('execution_guards.sql').read_text(),
+            name=guard_name, source='dual legacy/data task custody:forward', grants=(),
+        ))
     execution_projection = (
         Path(__file__).with_name("sql").joinpath("execution_projection.sql").read_text()
     )
@@ -629,7 +637,7 @@ def series_native_definitions(connection, *, include_selected=True):
     runtime_sql = Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_text()
     for schema, name, grants in (
         ("sem", "validate_runtime_binding", ()),
-        ("sem", "register_runtime_binding", (("corpus_sem_writer", "EXECUTE", False),)),
+        ("sem", "register_runtime_binding", (("corpus_sem_writer", "EXECUTE", False), ("corpus_sem_admitter", "EXECUTE", False))),
         ("sem", "require_runtime_binding", ()),
         ("ops", "create_run", (("corpus_sem_writer", "EXECUTE", False),)),
     ):
@@ -1897,6 +1905,11 @@ def prepare_series_candidate(
     try:
         previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
         previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
+        task = target_metadata.tables.get('ops.task')
+        if task is not None and 'data_request_id' in task.c:
+            for name, native_type in (('data_request_id', 'text'), ('data_generation', 'bigint')):
+                if connection.scalar(text("SELECT NOT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.task'::regclass AND attname=:name AND NOT attisdropped)"), {'name': name}):
+                    connection.exec_driver_sql('ALTER TABLE ops.task ADD COLUMN ' + name + ' ' + native_type)
         for relation in new_tables:
             # Migration authority creates cross-owner foreign keys, including
             # evaluator tables referencing ops cuts; runtime roles need no DDL ACLs.

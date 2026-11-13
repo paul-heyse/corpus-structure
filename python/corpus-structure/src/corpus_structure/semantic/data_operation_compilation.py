@@ -16,9 +16,11 @@ from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
 from .data_operation_model import (
+    ARCHIVED_MODEL_VERSION,
     MODEL_VERSION,
     BindingExpression,
     BindingField,
+    BindingOperand,
     EffectContract,
     EffectiveDataOperationModel,
     EffectiveIdentity,
@@ -79,6 +81,8 @@ _BINDING_OPERATORS = {
     "optional",
     "forall",
     "absent",
+    "range",
+    "membership",
 }
 _METADATA_FIELDS = {
     "id",
@@ -92,6 +96,7 @@ _METADATA_FIELDS = {
     "outcomes",
     "precision",
     "dependencies",
+    "potential_dependencies",
     "state_dimensions",
     "transitions",
     "effects",
@@ -171,6 +176,8 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
             "selected",
             "population",
             "impact",
+            "operands",
+            "choice_parameter",
         },
     )
     operator = value.get("operator")
@@ -197,14 +204,16 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         )
     if operator in {"same", "distinct", "join"} and len(selected_roles) < 2:
         _fail(operation, operator + " requires at least two explicit roles")
-    if operator in {"join", "equal"} and len(fields) < 2:
+    if operator in {"join", "equal"} and len(fields) < 2 and not value.get("operands"):
         _fail(operation, operator + " requires qualified projection fields")
     if operator == "literal" and (len(fields) != 1 or "value" not in value):
         _fail(operation, "literal predicates require one field and a typed literal")
     if operator in {"forall", "absent"} and not value.get("population"):
         _fail(operation, "absence/quantification requires an explicitly closed population")
-    if operator == "choice" and not value.get("selected"):
+    if operator == "choice" and not (value.get("selected") or value.get("choice_parameter")):
         _fail(operation, "alternatives require an explicit selected alternative")
+    if operator == "choice" and value.get("selected") and value.get("choice_parameter"):
+        _fail(operation, "alternatives require exactly one static or frozen demand selector")
     minimum, maximum = value.get("minimum"), value.get("maximum")
     if minimum is not None and (type(minimum) is not int or minimum < 0):
         _fail(operation, "invalid minimum cardinality")
@@ -214,14 +223,63 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     if collection is not None and collection not in {"scalar", "sequence", "bag", "set"}:
         _fail(operation, "unsupported collection meaning")
     children = tuple(_expression(child, operation, roles) for child in value.get("children", []))
-    if operator in {"all", "choice", "optional", "forall"} and not children:
+    if operator in {"choice", "optional", "forall"} and not children:
         _fail(operation, operator + " requires a nested binding")
+    from .value_codec import value_meaning
+
     literal = None
     if "value" in value:
         # Typed semantic codec, including explicit float/decimal lexical representations.
         from .value_codec import value_meaning
 
         literal = canonical_bytes(value_meaning(value["value"]))
+    operands = []
+    for operand in value.get("operands", []):
+        operand = _mapping(
+            operand, operation + "/operand", {"kind", "value_type", "field", "name", "value"}
+        )
+        kind = operand.get("kind")
+        if kind not in {"field", "literal", "parameter", "population"}:
+            _fail(operation, "unsupported binding operand")
+        value_type = _text(operand.get("value_type"), operation + "/operand/type")
+        allowed = {
+            "kind",
+            "value_type",
+            "field" if kind == "field" else "value" if kind == "literal" else "name",
+        }
+        if set(operand) != allowed:
+            _fail(operation, "operand fields do not match its declared source kind")
+        field = None
+        if kind == "field":
+            raw_field = _mapping(operand.get("field"), operation, {"role", "projection", "field"})
+            if raw_field.get("role") not in roles:
+                _fail(operation, "binding operand uses an undeclared role")
+            field = BindingField(
+                *(_text(raw_field.get(key), operation) for key in ("role", "projection", "field"))
+            )
+        if kind in {"parameter", "population"} and not operand.get("name"):
+            _fail(operation, "named operand requires a frozen demand key")
+        if kind == "literal" and "value" not in operand:
+            _fail(operation, "literal operand requires a value")
+        if kind != "literal" and "value" in operand:
+            _fail(operation, "only literal operands may contain a value")
+        operands.append(
+            BindingOperand(
+                cast(Any, kind),
+                value_type,
+                field,
+                operand.get("name"),
+                canonical_bytes(value_meaning(operand["value"])) if kind == "literal" else None,
+            )
+        )
+    if operator == "range" and len(operands) != 3:
+        _fail(operation, "range requires typed value, inclusive lower and upper operands")
+    if operator == "membership" and len(operands) != 2:
+        _fail(operation, "membership requires typed value and collection operands")
+    if operator == "membership" and operands[1].kind == "field":
+        _fail(operation, "membership universe requires a frozen sequence or population")
+    if operator in {"equal", "join"} and operands and len(operands) < 2:
+        _fail(operation, "equality requires two or more operands")
     return BindingExpression(
         cast(Any, operator),
         selected_roles,
@@ -234,6 +292,8 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         value.get("selected"),
         value.get("population"),
         impact,
+        tuple(operands),
+        value.get("choice_parameter"),
     )
 
 
@@ -440,7 +500,10 @@ def _validate_binding_fields(
     owner: str,
 ) -> None:
     ranges = []
-    for field in expression.fields:
+    for field in (
+        *expression.fields,
+        *(operand.field for operand in expression.operands if operand.field is not None),
+    ):
         projection = aliases.get(field.projection, field.projection)
         if projection not in kinds:
             _fail(owner, "unresolved binding projection " + field.projection)
@@ -450,6 +513,51 @@ def _validate_binding_fields(
         if property_id not in kinds:
             _fail(owner, "unresolved binding projection field " + property_id)
         ranges.append(json.loads(kinds[property_id].facts)["range"])
+    for operand in expression.operands:
+        expected = aliases.get(operand.value_type, operand.value_type)
+        if expected not in kinds:
+            _fail(owner, "unresolved operand type " + operand.value_type)
+        if operand.kind == "literal":
+            many = expression.operator == "membership" and operand is expression.operands[-1]
+            synthetic = EffectiveKind(
+                owner + "/literal",
+                "literal",
+                "property",
+                canonical_bytes(
+                    asdict(
+                        PropertyDefinition(
+                            "value",
+                            owner + "/literal",
+                            expected,
+                            True,
+                            many,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            False,
+                        )
+                    )
+                ),
+            )
+            _validate_literal(
+                BindingExpression("literal", value=operand.value), kinds[expected], synthetic, owner
+            )
+        if operand.field is not None:
+            property_id = (
+                aliases.get(operand.field.projection, operand.field.projection)
+                + "/property/"
+                + operand.field.field
+            )
+            if json.loads(kinds[property_id].facts)["range"] != expected:
+                _fail(owner, "operand type differs from projected field range")
+    if expression.operator in {"equal", "join", "range", "membership"} and expression.operands:
+        types = {
+            aliases.get(operand.value_type, operand.value_type) for operand in expression.operands
+        }
+        if len(types) != 1:
+            _fail(owner, "binding operands require compatible element types")
     if expression.operator == "literal":
         _validate_literal(
             expression,
@@ -473,7 +581,11 @@ def _validate_binding_fields(
         _fail(owner, "collection predicates require explicit collection meaning")
     if expression.operator == "scan" and not expression.roles:
         _fail(owner, "role scans require explicit roles")
-    if expression.operator == "choice" and expression.selected not in roles:
+    if (
+        expression.operator == "choice"
+        and expression.selected is not None
+        and expression.selected not in roles
+    ):
         _fail(owner, "selected alternative must name a declared role")
     for child in expression.children:
         _validate_binding_fields(child, roles, kinds, aliases, owner)
@@ -584,7 +696,7 @@ def compile_data_operations(
         except (ValueError, yaml.YAMLError) as exc:
             _fail(source.name, str(exc))
         raw = _mapping(raw, source.name, {"version", "operations", "kinds"})
-        if raw.get("version") != MODEL_VERSION:
+        if raw.get("version") not in {MODEL_VERSION, ARCHIVED_MODEL_VERSION}:
             _fail(source.name, "unsupported operation declaration version")
         for value in raw.get("operations", []):
             value = dict(_mapping(value, source.name))
@@ -665,6 +777,83 @@ def compile_data_operations(
             for target in record.get("references", []):
                 edges.append(SemanticEdge(semantic_id, target, "type_reference"))
     _materialize_json_schema_properties(kinds, nodes, edges)
+    # Python and schema authoring share the same property graph. Annotation text
+    # remains evidence; only this closed type vocabulary acquires a resolved range.
+    python_types = {
+        json.loads(kind.facts).get("python"): kind.semantic_id
+        for kind in kinds.values()
+        if json.loads(kind.facts).get("python")
+    }
+    primitive_types = {
+        "str": "string",
+        "int": "integer",
+        "bool": "boolean",
+        "float": "float",
+        "bytes": "bytes",
+        "Decimal": "decimal",
+        "date": "date",
+        "datetime": "datetime",
+    }
+    for kind in tuple(kinds.values()):
+        for field in json.loads(kind.facts).get("effective_python", {}).get("fields", []):
+            annotation = field["annotation"] or ""
+            multivalued = annotation.startswith(("list[", "tuple[", "set[", "frozenset["))
+            element = annotation.split("[", 1)[1].rsplit("]", 1)[0] if multivalued else annotation
+            element = element.replace(", ...", "")
+            nullable = element.endswith(" | None")
+            element = element.removesuffix(" | None")
+            target = (
+                python_types.get(element)
+                or aliases.get(element)
+                or ("primitive:" + primitive_types[element] if element in primitive_types else None)
+            )
+            if target is None:
+                unknown = SourceUnknown(
+                    str(json.loads(kind.facts).get("python")),
+                    field["owner"],
+                    "unresolved Python kind field annotation: " + annotation,
+                    True,
+                )
+                kinds[kind.semantic_id] = replace(
+                    kinds[kind.semantic_id],
+                    complete=False,
+                    unknowns=(*kinds[kind.semantic_id].unknowns, unknown),
+                )
+                continue
+            property_id = kind.semantic_id + "/property/" + field["name"]
+            kinds[property_id] = EffectiveKind(
+                property_id,
+                field["name"],
+                "property",
+                canonical_bytes(
+                    {
+                        **asdict(
+                            PropertyDefinition(
+                                field["name"],
+                                property_id,
+                                target,
+                                not nullable and field["default"] is None,
+                                multivalued,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                False,
+                            )
+                        ),
+                        "default": field["default"],
+                        "python_owner": field["owner"],
+                    }
+                ),
+                kind.origins,
+            )
+            edges.extend(
+                (
+                    SemanticEdge(kind.semantic_id, property_id, "property"),
+                    SemanticEdge(property_id, target, "range"),
+                )
+            )
     operations = []
     bindings = []
     for raw, surfaces, origins, implementation_root in authored:
@@ -759,7 +948,9 @@ def compile_data_operations(
                 _fail(semantic_id, "support requirements belong to input roles")
             alternatives = _strings(record.get("alternatives", []), semantic_id)
             selected = record.get("selected")
-            if presence == "alternative" and (not alternatives or selected not in alternatives):
+            if presence == "alternative" and (
+                not alternatives or (selected is not None and selected not in alternatives)
+            ):
                 _fail(semantic_id, "alternative roles require a selected declared alternative")
             if presence != "alternative" and (alternatives or selected is not None):
                 _fail(semantic_id, "only alternative roles carry a selected alternative")
@@ -782,6 +973,39 @@ def compile_data_operations(
             _fail(semantic_id, "semantic operation identity collides with another owned fact")
         if not roles:
             _fail(semantic_id, "operation requires named input/output roles")
+
+        def annotation_kind(annotation, role, owner=semantic_id):
+            text = annotation or ""
+            if text.endswith(" | None"):
+                if role.presence != "optional":
+                    _fail(owner, "nullable callable input requires optional role presence")
+                text = text.removesuffix(" | None")
+            collection_annotation = text.startswith(("list[", "tuple[", "set[", "frozenset["))
+            if collection_annotation:
+                if role.collection == "scalar":
+                    _fail(owner, "scalar role differs from callable collection annotation")
+                text = text.split("[", 1)[1].rsplit("]", 1)[0].replace(", ...", "")
+            elif role.collection != "scalar":
+                if text in primitive_types or text in aliases:
+                    _fail(owner, "collection role requires a callable collection annotation")
+                # An unresolved/bundle return is not relabelled as a primitive
+                # collection. Its existing kind/implementation unknowns remain.
+                return
+            target = (
+                python_types.get(text)
+                or aliases.get(text)
+                or ("primitive:" + primitive_types[text] if text in primitive_types else None)
+            )
+            if target is None:
+                candidates = [
+                    identity
+                    for python, identity in python_types.items()
+                    if python.rsplit(".", 1)[-1] == text
+                ]
+                target = candidates[0] if len(candidates) == 1 else None
+            if target is not None and target != role.kind:
+                _fail(owner, "semantic role kind differs from callable annotation")
+
         for surface in surfaces:
             parameters = {p.name for p in surface.parameters if p.name not in {"self", "cls"}}
             mapped = {role.parameter for role in roles if role.parameter is not None}
@@ -800,6 +1024,13 @@ def compile_data_operations(
                 _fail(
                     surface.exposed, "supported operation invocation requires a return annotation"
                 )
+            by_parameter = {parameter.name: parameter for parameter in surface.parameters}
+            for role in roles:
+                if role.parameter is not None and role.direction == "input":
+                    annotation_kind(by_parameter[role.parameter].annotation, role)
+            outputs = [role for role in roles if role.direction == "output"]
+            if len(outputs) == 1:
+                annotation_kind(surface.returns, outputs[0])
         dimensions = []
         for record in raw.get("state_dimensions", []):
             record = _mapping(record, semantic_id, {"name", "values"})
@@ -916,6 +1147,7 @@ def compile_data_operations(
             binding_id,
             _text(raw.get("replicate_policy", "deterministic-single-result"), semantic_id),
             _text(raw.get("support_policy", "all-declared-input-support"), semantic_id),
+            _strings(raw.get("potential_dependencies", []), semantic_id),
         )
         operations.append(operation)
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)
@@ -925,6 +1157,13 @@ def compile_data_operations(
         def binding_payload(expression):
             data = asdict(expression)
             data["value"] = json.loads(expression.value) if expression.value is not None else None
+            data["operands"] = [
+                {
+                    **asdict(operand),
+                    "value": json.loads(operand.value) if operand.value is not None else None,
+                }
+                for operand in expression.operands
+            ]
             data["children"] = [binding_payload(child) for child in expression.children]
             return data
 
@@ -943,6 +1182,8 @@ def compile_data_operations(
             )
         for dependency in operation.dependencies:
             edges.append(SemanticEdge(semantic_id, dependency, "operation_dependency"))
+        for dependency in operation.potential_dependencies:
+            edges.append(SemanticEdge(semantic_id, dependency, "potential_operation_dependency"))
     for semantic_id, kind in kinds.items():
         nodes[semantic_id] = SemanticNode(semantic_id, "kind:" + kind.category, kind.facts)
     for edge in edges:
@@ -977,6 +1218,13 @@ def _binding_record(expression: BindingExpression, *, result_only: bool = False)
         return None
     data: dict[str, Any] = asdict(expression)
     data["value"] = json.loads(expression.value) if expression.value is not None else None
+    data["operands"] = [
+        {
+            **asdict(operand),
+            "value": json.loads(operand.value) if operand.value is not None else None,
+        }
+        for operand in expression.operands
+    ]
     data["children"] = [
         record
         for child in expression.children

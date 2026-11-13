@@ -1,6 +1,26 @@
 CREATE OR REPLACE FUNCTION ops.guard_execution_task() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$
 DECLARE prior text; result text; agent boolean;
 BEGIN
+ IF NEW.data_request_id IS NOT NULL THEN
+  IF current_user<>'corpus_sem_publisher' OR NOT EXISTS(SELECT FROM ops.data_request r
+    WHERE r.id=NEW.data_request_id AND r.release_id=NEW.release_id AND r.generation=NEW.data_generation) THEN
+   RAISE EXCEPTION 'data task requires protected admitted request generation' USING ERRCODE='23514'; END IF;
+  IF TG_OP='INSERT' THEN
+   IF NEW.status<>'pending' OR NEW.attempt<>0 OR NEW.claimed_by IS NOT NULL OR NEW.lease_until IS NOT NULL THEN RAISE EXCEPTION 'invalid initial data task'; END IF;
+  ELSE
+   IF (NEW.data_request_id,NEW.data_generation,NEW.release_id,NEW.invocation_key) IS DISTINCT FROM
+      (OLD.data_request_id,OLD.data_generation,OLD.release_id,OLD.invocation_key) OR OLD.status IN ('done','empty','failed','cancelled') THEN RAISE EXCEPTION 'data task association/terminal state immutable'; END IF;
+   IF NEW.attempt<>OLD.attempt THEN
+    IF NEW.attempt<>OLD.attempt+1 OR NEW.status<>'running' OR nullif(NEW.claimed_by,'') IS NULL OR NEW.lease_until<=clock_timestamp()
+    OR OLD.status NOT IN ('pending','running') OR (OLD.status='running' AND OLD.lease_until>clock_timestamp()) THEN RAISE EXCEPTION 'invalid data claim fence'; END IF;
+   ELSIF NEW.claimed_by IS DISTINCT FROM OLD.claimed_by THEN RAISE EXCEPTION 'data holder requires new attempt';
+   ELSIF NEW.status<>OLD.status AND NOT (OLD.status='running' AND NEW.status IN ('done','empty','failed','cancelled')) THEN RAISE EXCEPTION 'invalid data task transition'; END IF;
+  END IF;
+  IF NEW.status='running' AND (NEW.attempt<=0 OR NEW.claimed_by IS NULL OR NEW.lease_until IS NULL) THEN RAISE EXCEPTION 'data running task requires exact fence'; END IF;
+  IF NEW.status<>'running' AND NEW.lease_until IS NOT NULL THEN RAISE EXCEPTION 'data terminal task retains lease'; END IF;
+  IF NEW.status IN ('done','empty','failed') AND NEW.result_digest IS NULL THEN RAISE EXCEPTION 'data completion requires receipt'; END IF;
+  RETURN NEW;
+ END IF;
  IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  result:=ops.execution_task_state(NEW);
  SELECT (m.tier='agent' OR m.family='agent') INTO STRICT agent FROM ops.method_config c JOIN ops.method m ON m.id=c.method_id WHERE c.id=NEW.method_config_id;
@@ -160,6 +180,7 @@ REVOKE UPDATE(status,attempt,claimed_by,lease_until,started_at,finished_at) ON o
 CREATE OR REPLACE FUNCTION ops.guard_source_selection() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$
 DECLARE bound ops.run; document bigint;
 BEGIN
+ IF TG_TABLE_NAME='task' AND to_jsonb(NEW)->>'data_request_id' IS NOT NULL THEN RETURN NEW; END IF;
  bound := ops.lock_execution_run(NEW.run_id,'schedule');
  IF TG_TABLE_NAME='task' THEN
    IF TG_OP='UPDATE' AND NEW.trigger IS DISTINCT FROM OLD.trigger THEN
@@ -179,6 +200,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.guard_task_lifecycle() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$
 DECLARE bound ops.run;
 BEGIN
+ IF NEW.data_request_id IS NOT NULL THEN RETURN NEW; END IF;
  bound := ops.lock_execution_run(NEW.run_id,'schedule');
  IF TG_OP='UPDATE' AND OLD.status IN ('done','empty','failed','reused','skipped','cancelled') AND NEW IS DISTINCT FROM OLD THEN
    RAISE EXCEPTION 'terminal source task is immutable';

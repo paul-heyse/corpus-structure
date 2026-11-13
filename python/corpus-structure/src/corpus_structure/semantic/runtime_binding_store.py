@@ -21,6 +21,28 @@ def persist_runtime_binding(
     from ._operation_calls import ReleaseId, RuntimeId, register_runtime_binding
 
     validate_runtime_binding(binding, prepared)
+    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
+        from sqlalchemy import bindparam, func
+
+        acquired = conn.scalar(
+            select(
+                func.sem.register_runtime_binding(
+                    bindparam("release"),
+                    bindparam("runtime"),
+                    bindparam("manifest"),
+                    bindparam("archive"),
+                )
+            ),
+            {
+                "release": binding.release_id,
+                "runtime": binding.runtime_id,
+                "manifest": binding.manifest,
+                "archive": binding.archive,
+            },
+        )
+        if acquired != binding.runtime_id:
+            raise RuntimeBindingError("native registration returned a different runtime identity")
+        return RuntimeId(acquired)
     return register_runtime_binding(
         conn,
         release_id=ReleaseId(binding.release_id),

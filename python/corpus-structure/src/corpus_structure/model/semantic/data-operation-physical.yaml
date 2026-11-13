@@ -1,0 +1,420 @@
+id: https://corpus-structure.org/model/semantic/data-operation-physical
+name: data_operation_physical
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ph: https://corpus-structure.org/physical/
+imports: [linkml:types]
+default_range: string
+classes:
+  data_kind_contract:
+    in_subset: [sem]
+    attributes:
+      kind_contract: {range: string, required: true}
+      kind: {range: string, required: true}
+      body_schema: {range: json_payload, required: true}
+      meaning_schema: {range: json_payload, required: true}
+      member_schema: {range: json_payload, required: true}
+      families: {range: json_payload, required: true}
+      universe: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [kind_contract]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:checks: '["universe IN (''ordinary'',''source'',''evaluator'')"]'
+  data_operation_definition:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      recipe: {range: string, required: true}
+      profile: {range: string, required: true}
+      implementation_revision: {range: string, required: true}
+      input_roles: {range: json_payload, required: true}
+      output_roles: {range: json_payload, required: true}
+      support_contract: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, operation_id]}
+      unique_0: {unique_key_slots: [release_id, recipe]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  data_kind_release:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      kind_contract: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, kind_contract]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns": ["kind_contract"], "target": "sem.data_kind_contract.kind_contract"}]'
+  data_trust_scope:
+    in_subset: [ops]
+    attributes:
+      scope: {range: string, required: true}
+      project_id: {range: string, required: true}
+      epoch: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [scope]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:checks: '["epoch >= 0"]'
+  data_demand:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      project_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      root: {range: json_payload, required: true}
+      selection: {range: json_payload, required: true}
+      strength: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["release_id", "runtime_id"], "target": "sem.runtime_binding.release_id,runtime_id"}]'
+  data_obligation:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      demand_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      subject: {range: string, required: true}
+      original_source: {range: string, required: true}
+      analyzed_scope: {range: json_payload, required: true}
+      parameters: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'
+  data_request:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      request_key: {range: string, required: true}
+      project_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      recipe: {range: string, required: true}
+      subject: {range: string, required: true}
+      original_source: {range: string, required: true}
+      analyzed_scope: {range: json_payload, required: true}
+      binding: {range: json_payload, required: true}
+      replicate: {range: string, required: false}
+      generation: {range: integer, required: true}
+      live_task_id: {range: integer, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [request_key]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["release_id", "operation_id"], "target": "sem.data_operation_definition.release_id,operation_id"}]'
+      ph:checks: '["generation > 0"]'
+  data_request_generation:
+    in_subset: [ops]
+    attributes:
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [request_id, generation]}
+      unique_0: {unique_key_slots: [task_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["request_id"], "target": "ops.data_request.id"}, {"columns": ["task_id"], "target": "ops.task.id"}]'
+  data_product:
+    in_subset: [kb]
+    attributes:
+      id: {range: string, required: true}
+      kind_contract: {range: string, required: true}
+      project_id: {range: string, required: true}
+      subject: {range: string, required: true}
+      original_source: {range: string, required: true}
+      analyzed_scope: {range: json_payload, required: true}
+      canonical_body: {range: json_payload, required: true}
+      body_digest: {range: string, required: true}
+      artifact_digest: {range: string, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [kind_contract, project_id, subject, original_source, body_digest]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["kind_contract"], "target": "sem.data_kind_contract.kind_contract"}]'
+  data_product_member:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: true}
+      body: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, member_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "kb.data_product.id"}]'
+  data_member_coordinate:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      original_source: {range: string, required: true}
+      start: {range: integer, required: true}
+      end: {range: integer, required: true}
+      page: {range: integer, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["ordinal >= 0", "\"end\" >= start", "start >= 0"]'
+  data_member_role:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      multiplicity: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["ordinal >= 0", "position >= 0", "multiplicity > 0"]'
+  data_member_endpoint:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      role: {range: string, required: true}
+      endpoint_product: {range: string, required: true}
+      endpoint_member: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}, {"columns": ["endpoint_product", "endpoint_member"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["ordinal >= 0"]'
+  data_member_coverage:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      scope: {range: string, required: true}
+      start: {range: integer, required: true}
+      end: {range: integer, required: true}
+      complete: {range: boolean, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["ordinal >= 0", "\"end\" >= start", "start >= 0"]'
+  data_member_choice:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      choice_group: {range: string, required: true}
+      alternative: {range: string, required: true}
+      selected: {range: boolean, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["ordinal >= 0"]'
+  data_completion_intent:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      producer_task_id: {range: integer, required: true}
+      producer_attempt: {range: integer, required: true}
+      producer_holder: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      payload: {range: json_payload, required: true}
+      payload_digest: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [request_id, generation, producer_task_id, producer_attempt]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["request_id", "generation"], "target": "ops.data_request_generation.request_id,generation"}]'
+  data_intent_adoption:
+    in_subset: [ops]
+    attributes:
+      intent_id: {range: string, required: true}
+      task_id: {range: integer, required: true}
+      attempt: {range: integer, required: true}
+      holder: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [intent_id, task_id, attempt]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["intent_id"], "target": "ops.data_completion_intent.id"}, {"columns": ["task_id"], "target": "ops.task.id"}]'
+  data_derivation:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      intent_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      recipe: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      producer_task_id: {range: integer, required: true}
+      producer_attempt: {range: integer, required: true}
+      outcome: {range: string, required: true}
+      completed_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [intent_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["intent_id"], "target": "ops.data_completion_intent.id"}, {"columns": ["request_id", "generation"], "target": "ops.data_request_generation.request_id,generation"}]'
+  data_derivation_input:
+    in_subset: [ops]
+    attributes:
+      derivation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      multiplicity: {range: integer, required: true}
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [derivation_id, role, position]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["product_id"], "target": "kb.data_product.id"}, {"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["position >= 0", "multiplicity > 0"]'
+  data_derivation_output:
+    in_subset: [ops]
+    attributes:
+      derivation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      multiplicity: {range: integer, required: true}
+      product_id: {range: string, required: true}
+      member_id: {range: string, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [derivation_id, role, position]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["product_id"], "target": "kb.data_product.id"}, {"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
+      ph:checks: '["position >= 0", "multiplicity > 0"]'
+  data_derivation_support:
+    in_subset: [ops]
+    attributes:
+      derivation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      support_derivation_id: {range: string, required: true}
+      scope: {range: string, required: true}
+      epoch: {range: integer, required: true}
+      admission_use_id: {range: string, required: false}
+      occurrence: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [derivation_id, occurrence]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["support_derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["scope"], "target": "ops.data_trust_scope.scope"}, {"columns": ["admission_use_id"], "target": "ops.demand_use.id"}]'
+  data_publication_receipt:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      intent_id: {range: string, required: true}
+      derivation_id: {range: string, required: true}
+      publishing_task_id: {range: integer, required: true}
+      publishing_attempt: {range: integer, required: true}
+      trust_snapshot: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [intent_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["intent_id"], "target": "ops.data_completion_intent.id"}, {"columns": ["derivation_id"], "target": "ops.data_derivation.id"}]'
+  demand_use:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      demand_id: {range: string, required: true}
+      obligation_id: {range: string, required: true}
+      fate: {range: string, required: true}
+      request_id: {range: string, required: false}
+      generation: {range: integer, required: false}
+      derivation_id: {range: string, required: false}
+      selection: {range: json_payload, required: true}
+      trust_snapshot: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}, {"columns": ["obligation_id"], "target": "ops.data_obligation.id"}, {"columns": ["request_id"], "target": "ops.data_request.id"}, {"columns": ["derivation_id"], "target": "ops.data_derivation.id"}]'
+      ph:checks: '["fate IN (''waiting'',''attached'',''fulfilled'',''known-absent'',''unknown'',''unavailable'',''invalid'',''closed'',''awaiting-discovery'',''awaiting-inputs'',''awaiting-population'',''not-applicable'',''failed'',''cancelled'',''partial'')"]'
+  data_revocation:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      scope: {range: string, required: true}
+      epoch: {range: integer, required: true}
+      selector_kind: {range: string, required: true}
+      selector: {range: string, required: true}
+      reason: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [scope, epoch]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["scope"], "target": "ops.data_trust_scope.scope"}]'
+      ph:checks: '["selector_kind IN (''derivation'',''recipe'',''runtime'',''product'')"]'
+  data_population:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      demand_id: {range: string, required: true}
+      name: {range: string, required: true}
+      members: {range: json_payload, required: true}
+      complete: {range: boolean, required: true}
+      evidence: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [demand_id, name]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'

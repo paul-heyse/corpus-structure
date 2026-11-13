@@ -3,9 +3,59 @@ CREATE OR REPLACE FUNCTION sem.validate_runtime_binding(r text,runtime text,mani
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $runtime$
 DECLARE manifest jsonb; archive jsonb; model jsonb; expected jsonb; actual jsonb; item jsonb;
 BEGIN
- PERFORM sem.require_execution_operation(r,'start_run');
  manifest:=convert_from(manifest_content,'UTF8')::jsonb;
  archive:=convert_from(archive_content,'UTF8')::jsonb;
+ IF manifest->>'version'='data-operation-runtime-binding-v1' THEN
+  PERFORM sem.require_admission_caller();
+  PERFORM ops.ddo_fields(manifest,ARRAY['version','release_id','model_digest','python_version',
+   'semantic_inputs','implementation_inputs','runtime_artifact','runtime_meaning','attestation',
+   'attestation_meaning','execution_profile','observed']);
+  PERFORM ops.ddo_fields(archive,ARRAY['version','inputs']);
+  IF manifest_content IS DISTINCT FROM convert_to(data.canonical_json(manifest),'UTF8')
+   OR archive_content IS DISTINCT FROM convert_to(data.canonical_json(archive),'UTF8')
+   OR runtime IS DISTINCT FROM 'runtime:'||encode(sha256(manifest_content),'hex')
+   OR manifest->>'release_id' IS DISTINCT FROM r
+   OR archive->>'version' IS DISTINCT FROM 'runtime-source-archive-1'
+   OR nullif(manifest->>'python_version','') IS NULL
+   OR nullif(manifest->>'execution_profile','') IS NULL
+   OR NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
+                 AND content_digest=manifest->>'model_digest') THEN
+   RAISE EXCEPTION 'target runtime identity or release differs' USING ERRCODE='23514'; END IF;
+  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT expected FROM sem.artifact
+   WHERE release_id=r AND artifact_name='data_operation_runtime_inputs.json';
+  IF manifest->'semantic_inputs' IS DISTINCT FROM expected
+   OR jsonb_typeof(archive->'inputs') IS DISTINCT FROM 'array'
+   OR jsonb_typeof(manifest->'implementation_inputs') IS DISTINCT FROM 'array' THEN
+   RAISE EXCEPTION 'target runtime input requirements differ' USING ERRCODE='23514'; END IF;
+  FOR item IN SELECT value FROM jsonb_array_elements(archive->'inputs') LOOP
+   PERFORM ops.ddo_fields(item,ARRAY['name','sha256','content_hex']);
+   IF nullif(item->>'name','') IS NULL OR item->>'content_hex' !~ '^([0-9a-f]{2})*$'
+    OR item->>'sha256' IS DISTINCT FROM encode(sha256(decode(item->>'content_hex','hex')),'hex') THEN
+    RAISE EXCEPTION 'target runtime source bytes differ' USING ERRCODE='23514'; END IF;
+  END LOOP;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('name',value->>'name','sha256',value->>'sha256')
+    ORDER BY value->>'name' COLLATE "C"),'[]') INTO actual FROM jsonb_array_elements(archive->'inputs');
+  IF actual IS DISTINCT FROM manifest->'implementation_inputs'
+   OR (SELECT count(*)<>count(DISTINCT value->>'name') FROM jsonb_array_elements(actual))
+   OR NOT actual @> expected THEN
+   RAISE EXCEPTION 'target runtime source closure differs' USING ERRCODE='23514'; END IF;
+  IF manifest->'runtime_meaning'->0 IS DISTINCT FROM '"ddo"'::jsonb
+   OR manifest->'runtime_meaning'->1 IS DISTINCT FROM '"runtime-artifact"'::jsonb
+   OR manifest->'runtime_meaning'->2 IS DISTINCT FROM '"1"'::jsonb
+   OR data.ddo_identity('runtime-artifact',manifest->'runtime_meaning'->3) IS DISTINCT FROM manifest->>'runtime_artifact'
+   OR data.ddo_json(manifest->'runtime_meaning'->3) IS DISTINCT FROM
+      jsonb_build_object('python',manifest->>'python_version','inputs',actual)
+   OR manifest->'attestation_meaning'->0 IS DISTINCT FROM '"ddo"'::jsonb
+   OR manifest->'attestation_meaning'->1 IS DISTINCT FROM '"execution-attestation"'::jsonb
+   OR manifest->'attestation_meaning'->2 IS DISTINCT FROM '"1"'::jsonb
+   OR data.ddo_identity('execution-attestation',manifest->'attestation_meaning'->3) IS DISTINCT FROM manifest->>'attestation'
+   OR data.ddo_json(manifest->'attestation_meaning'->3) IS DISTINCT FROM jsonb_build_object(
+      'runtime_artifact',manifest->>'runtime_artifact','release',r,
+      'execution_profile',manifest->>'execution_profile','observed',manifest->'observed') THEN
+   RAISE EXCEPTION 'target runtime artifact or attestation differs' USING ERRCODE='23514'; END IF;
+  RETURN;
+ END IF;
+ PERFORM sem.require_execution_operation(r,'start_run');
  IF manifest_content IS DISTINCT FROM convert_to(data.canonical_json(manifest),'UTF8')
  OR archive_content IS DISTINCT FROM convert_to(data.canonical_json(archive),'UTF8')
  OR runtime IS DISTINCT FROM 'runtime:'||encode(sha256(manifest_content),'hex') THEN

@@ -928,6 +928,43 @@ def _prepare_release_uncached(
     ]
     if data_operations is not None:
         artifacts.append(PreparedArtifact("data_operations.json", data_operations.content))
+        artifacts.append(
+            PreparedArtifact(
+                "data_operation_runtime_inputs.json",
+                canonical_bytes(
+                    [
+                        {"name": item.name, "sha256": item.digest}
+                        for item in sorted(dependencies.artifacts, key=lambda item: item.name)
+                        if item.name.startswith(
+                            (
+                                "native/",
+                                "generator/",
+                                "data-operations/python/",
+                                "data-operations/contracts/",
+                            )
+                        )
+                    ]
+                ),
+            )
+        )
+        if any(
+            item.name == "native/data-operation-protocol.yaml" for item in dependencies.artifacts
+        ):
+            from .data_operation_artifacts import compile_data_operation_artifacts
+            from .data_operation_storage import (
+                native_calls_from_dependencies,
+                native_digest_from_dependencies,
+            )
+
+            generated = compile_data_operation_artifacts(
+                data_operations,
+                native_calls_from_dependencies(data_operations, dependencies),
+                native_source_digest=native_digest_from_dependencies(dependencies),
+                generator_sources=tuple(
+                    item for item in dependencies.artifacts if item.name.startswith("generator/")
+                ),
+            )
+            artifacts.extend(PreparedArtifact(name, content) for name, content in generated.files)
     from .inspection_metadata import prepare_inspection
 
     artifacts.append(prepare_inspection(inspection_index, view, tuple(definitions)))
@@ -1270,6 +1307,26 @@ def _prepare_release_uncached(
         execution.model_id if execution is not None else None,
         _boundary_models=boundary_models,
     )
+    if data_operations is not None and any(
+        artifact.kind == "data_operation_ports.json" for artifact in prepared.artifacts
+    ):
+        from dataclasses import replace
+
+        from .data_operation_storage import (
+            data_operation_definition_projection,
+            native_digest_from_dependencies,
+        )
+
+        projection = data_operation_definition_projection(
+            prepared, data_operations, native_digest=native_digest_from_dependencies(dependencies)
+        )
+        prepared = replace(
+            prepared,
+            artifacts=(
+                *prepared.artifacts,
+                PreparedArtifact("data_operation_native_definitions.json", projection),
+            ),
+        )
 
     # Admission must not archive an operation artifact whose required rules cannot execute.
     # The policy constructor compiles only immutable release products and performs no I/O.

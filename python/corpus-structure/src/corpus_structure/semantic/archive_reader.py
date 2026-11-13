@@ -262,15 +262,6 @@ def open_release_parts(
             # resolved vocabularies, including enums authored in the source schema.
             "vocabularies": [product_dict(v) for v in products.vocabularies],
         }
-        execution_id = products.execution_model_id
-        if profile.version == "semantic-2":
-            if not execution_id:
-                raise ReleaseConflict("composed archive lacks execution identity")
-            expected["execution_model_id"] = execution_id
-        elif execution_id is not None:
-            raise ReleaseConflict("execution model requires semantic-2")
-        if canonical_bytes(expected) != manifest_bytes:
-            raise ReleaseConflict("archived input manifest differs")
         artifacts: list[PreparedArtifact] = []
         for item in artifact_rows:
             content = bytes(item["content"])
@@ -291,6 +282,23 @@ def open_release_parts(
         ordered = tuple(by_name[item.kind] for item in products.artifacts)
         if len(ordered) != len(artifacts):
             raise ReleaseConflict("unexpected archived artifacts")
+        execution_id = products.execution_model_id
+        target_artifacts = [a for a in ordered if a.kind == "data_operations.json"]
+        if profile.version == "semantic-2" and not target_artifacts:
+            if not execution_id:
+                raise ReleaseConflict("composed archive lacks execution identity")
+            expected["execution_model_id"] = execution_id
+        elif execution_id is not None:
+            raise ReleaseConflict("execution model requires semantic-2")
+        if target_artifacts:
+            if execution_id is not None or len(target_artifacts) != 1:
+                raise ReleaseConflict("ambiguous archived operation model")
+            from .data_operation_model import read_effective_data_operations
+
+            read_effective_data_operations(target_artifacts[0].content)
+            expected["data_operation_model"] = _digest(target_artifacts[0].content)
+        if canonical_bytes(expected) != manifest_bytes:
+            raise ReleaseConflict("archived input manifest differs")
         prepared = reconstruct_release(products, manifest_bytes, bundle, profile, ordered)
         supplied = decode_vocabularies(json.loads(source["vocabulary", "vocabulary"]))
         if len({item.enum for item in supplied}) != len(supplied):

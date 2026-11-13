@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION sem.require_execution_projection(r text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
-DECLARE document jsonb; model jsonb; actual jsonb; expected jsonb;
+DECLARE document jsonb; model jsonb; actual jsonb; expected jsonb; target boolean;
 BEGIN
  SELECT convert_from(prepared_bytes,'UTF8')::jsonb INTO STRICT document FROM sem.release WHERE release_id=r;
  IF (SELECT convert_from(manifest_bytes,'UTF8')::jsonb->'profile'->>'compiler_version' FROM sem.release WHERE release_id=r)IS DISTINCT FROM '22' THEN RAISE EXCEPTION 'execution projection requires current compiler ABI; regenerate' USING ERRCODE='23514'; END IF;
@@ -8,6 +8,15 @@ BEGIN
  SELECT COALESCE(jsonb_agg(value ORDER BY value->>'kind',value->>'name'),'[]'::jsonb) INTO expected FROM jsonb_array_elements(document->'products'->'registry_rows');
  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived registry projection differs' USING ERRCODE='23514'; END IF;
  SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row WHERE release_id=r AND kind='execution_model';
+ target:=EXISTS(SELECT FROM sem.release WHERE release_id=r AND convert_from(manifest_bytes,'UTF8')::jsonb ? 'data_operation_model');
+ IF target AND model IS NOT NULL THEN
+  RAISE EXCEPTION 'target archive contains legacy execution projection' USING ERRCODE='23514'; END IF;
+ IF target THEN
+  PERFORM sem.require_archive_bytes(r);
+  IF NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
+      AND convert_from(content,'UTF8')::jsonb->>'version' IN ('data-operation-model-v1','data-operation-model-v2')) THEN
+   RAISE EXCEPTION 'unsupported target operation archive' USING ERRCODE='23514'; END IF;
+ END IF;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,o->>'id' operation_id,o->>'implementation' implementation_id,b->>'version' implementation_version FROM jsonb_array_elements(model->'operations') o JOIN jsonb_array_elements(model->'implementations') b ON b->>'id'=o->>'implementation') x;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_operation x WHERE release_id=r;
  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_operation projection differs' USING ERRCODE='23514'; END IF;
