@@ -211,6 +211,8 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         _fail(operation, "absence/quantification requires an explicitly closed population")
     if operator == "choice" and not (value.get("selected") or value.get("choice_parameter")):
         _fail(operation, "alternatives require an explicit selected alternative")
+    if operator == "choice" and value.get("selected") and value.get("choice_parameter"):
+        _fail(operation, "alternatives require exactly one static or frozen demand selector")
     minimum, maximum = value.get("minimum"), value.get("maximum")
     if minimum is not None and (type(minimum) is not int or minimum < 0):
         _fail(operation, "invalid minimum cardinality")
@@ -239,6 +241,13 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         if kind not in {"field", "literal", "parameter", "population"}:
             _fail(operation, "unsupported binding operand")
         value_type = _text(operand.get("value_type"), operation + "/operand/type")
+        allowed = {
+            "kind",
+            "value_type",
+            "field" if kind == "field" else "value" if kind == "literal" else "name",
+        }
+        if set(operand) != allowed:
+            _fail(operation, "operand fields do not match its declared source kind")
         field = None
         if kind == "field":
             raw_field = _mapping(operand.get("field"), operation, {"role", "projection", "field"})
@@ -266,6 +275,8 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         _fail(operation, "range requires typed value, inclusive lower and upper operands")
     if operator == "membership" and len(operands) != 2:
         _fail(operation, "membership requires typed value and collection operands")
+    if operator == "membership" and operands[1].kind == "field":
+        _fail(operation, "membership universe requires a frozen sequence or population")
     if operator in {"equal", "join"} and operands and len(operands) < 2:
         _fail(operation, "equality requires two or more operands")
     return BindingExpression(

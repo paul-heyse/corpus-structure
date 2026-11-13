@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from itertools import pairwise
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import and_, func, literal, not_, or_, select, true
 from sqlalchemy.sql import ColumnElement, FromClause, Select
@@ -274,6 +274,8 @@ def compile_binding(
         )
         if selected is None:
             raise ValueError("missing frozen branch choice: " + str(node.choice_parameter))
+        if node.selected is not None and node.choice_parameter is not None:
+            raise ValueError("choice must have one static or demand selector")
         matching = tuple(child for child in node.children if selected in child.roles)
         if len(matching) != 1:
             raise ValueError("choice must select exactly one declared branch")
@@ -289,6 +291,8 @@ def compile_binding(
     visit_choices(expression)
     for name, role in roles.items():
         if name in inactive:
+            if role.presence == "required":
+                raise ValueError("required role cannot be an unselected branch")
             continue
         projection = projected.get(role.kind)
         if projection is None or not projection.available:
@@ -380,6 +384,8 @@ def compile_binding(
                 raise ValueError("native projected field type mismatch")
             return field_value(operand.field)
         if operand.kind == "population":
+            if operand.name is None:
+                raise ValueError("population operand lacks frozen name")
             population = population_map.get(operand.name)
             if population is None:
                 raise ValueError("missing frozen population operand")
@@ -405,6 +411,29 @@ def compile_binding(
 
     def predicate(node: BindingExpression):
         children = selected_children(node)
+        if node.operator == "optional":
+
+            def missing_parameters(child):
+                missing = {
+                    operand.name
+                    for operand in child.operands
+                    if operand.kind == "parameter" and operand.name not in params
+                }
+                for descendant in selected_children(child):
+                    missing.update(missing_parameters(descendant))
+                return missing
+
+            missing = set().union(*(missing_parameters(child) for child in children))
+            if missing:
+                if any(
+                    not isinstance(definitions.get(name), dict)
+                    or definitions[name].get("required", True)
+                    for name in missing
+                ):
+                    raise ValueError("optional predicate refers to undeclared required parameter")
+                # An explicitly optional, absent demand filter means no restriction.
+                # Explicit null/value is not absence and still gets typed validation.
+                return true()
         nested = and_(true(), *(predicate(child) for child in children))
         fields = [field_value(field) for field in node.fields]
         if node.operator in {"equal", "join"}:
@@ -416,6 +445,8 @@ def compile_binding(
             ]
             return and_(nested, *(left == right for left, right in pairwise(values)))
         if node.operator == "literal":
+            if node.value is None:
+                raise ValueError("literal predicate lacks a typed value")
             return and_(nested, fields[0] == _decode_value(node.value))
         if node.operator == "range":
             value, lower, upper = [operand_value(operand) for operand in node.operands]
@@ -424,7 +455,9 @@ def compile_binding(
         if node.operator == "membership":
             value = operand_value(node.operands[0])
             value = value if isinstance(value, ColumnElement) else literal(value)
-            members = operand_value(node.operands[1], many=True)
+            if node.operands[1].kind == "field":
+                raise ValueError("membership universe must be a frozen sequence or population")
+            members = cast(tuple[Any, ...], operand_value(node.operands[1], many=True))
             return and_(nested, value.in_(members))
         if node.operator in {"same", "distinct"}:
             values = [aliases[name] for name in node.roles]
@@ -563,7 +596,9 @@ def compile_binding(
                 if node.collection != roles[name].collection:
                     raise ValueError("expression collection differs from role")
             elif node.operator in {"forall", "absent"}:
-                population = population_map.get(node.population)
+                population = (
+                    population_map.get(node.population) if node.population is not None else None
+                )
                 if population is None or not population.complete:
                     initial.append(
                         BindingReason(
@@ -760,7 +795,7 @@ def decode_binding_rows(
                 json.loads(compiled.choices).get(role.name, role.selected),
             )
         )
-    priority = (
+    priority: tuple[BindingStatus, ...] = (
         "invalid",
         "unavailable",
         "unknown",
@@ -768,7 +803,7 @@ def decode_binding_rows(
         "awaiting-inputs",
         "not-applicable",
     )
-    status = next((state for state in priority if state in statuses), "ready")
+    status = cast(BindingStatus, next((state for state in priority if state in statuses), "ready"))
     identities = {
         (identity.owner, identity.domain): identity.key for identity in compiled.model.identities
     }
