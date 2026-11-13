@@ -298,6 +298,13 @@ capabilities remain available where declared, so the port does not force scalar 
 provider preparation. Physical selectors only execute the declared relational query; `select`,
 `input_digest`, `plan` and `close` cannot survive as independently discovered semantic conventions.
 
+The typed pull-stream port belongs to DDO-03: each item has an admitted typed envelope and ordinal,
+and termination/cancellation closes the iterator explicitly. Native stream scheduling and settlement
+belong to DDO-06. They require owned pulling, bounded physical cancellation/drain and a declared
+mapping of items plus terminal state to a logical completion or discovery population. A per-item
+port envelope grants no publication-per-chunk authority. The current native executor refuses this
+unsupported execution form; inline pulls alone provide no interruption guarantee for a hung `next`.
+
 ### Relational lowering and the Python result
 
 Lower the typed binding specification to parameterized SQLAlchemy Core expressions over shared

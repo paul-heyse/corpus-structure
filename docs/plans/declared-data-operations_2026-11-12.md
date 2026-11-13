@@ -612,7 +612,8 @@ and root qualification supplies the accepted replacement scope.
    alternatives and dependency-derived frontier with the native implementation and real consumer
    shapes, including resume/continuation and typed downstream handoff. A frozen Python declaration
    or synthetic planner storage double alone does not establish these native journeys.
-4. Keep DDO-06 execution ownership/drain, DDO-07 staged artifacts/provider identity, DDO-08 remaining
+4. Keep DDO-06 execution ownership/drain and native stream item/terminal-to-completion mapping,
+   DDO-07 staged artifacts/provider identity, DDO-08 remaining
    adapters/effects, DDO-09/10 independent-strength grouping and selected reuse/read policy,
    DDO-11 adoption/retirement and DDO-12 assembled qualification with their existing owners.
    Refused generic-schema/member or provider features need admission before a dependent consumer;
@@ -890,6 +891,9 @@ The assembled implementation now includes:
   and exact native hydration for the four required immediate consumer forms. Python normal
   returns and prepared-family completions select the declared unambiguous successful outcome;
   `claim_source_item` keeps its actual `addressed`/`invalid-index` contract.
+  DDO-03's pull-stream port is delivered; native owned stream pulling, bounded physical retirement
+  and declared item/terminal settlement remain DDO-06. No current production stream declaration
+  or native publication-per-item behavior is claimed.
 - Native admitted discovery, child expansion, closed fan-in, explicit dependency selection,
   support substitution/invalid-intent generation recovery and pinned continuation controls.
   Runtime/native evidence is required before their package obligations close.
