@@ -24,6 +24,7 @@ from corpus_structure.schema.physical import (
     physical_source_closure,
     physical_sources_id,
 )
+from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import DeploymentProfile
@@ -118,6 +119,8 @@ class ChangePreview(BaseModel):
     authoring_target: str | None = None
     target_identity: StorageTarget | None = None
     authoring_identity: StorageTarget | None = None
+    native_base: NativeMigrationBase | None = None
+    deployment_base: NativeMigrationBase | None = None
     effects: ChangeEffects
     comparison: dict | None = None
     local_release: str | None = None
@@ -250,6 +253,8 @@ def prepare_preview(
     authoring_target: str | None = None,
     target_identity: StorageTarget | None = None,
     authoring_identity: StorageTarget | None = None,
+    native_base: NativeMigrationBase | None = None,
+    deployment_base: NativeMigrationBase | None = None,
     comparison: dict | None = None,
     local_release: str | None = None,
     release_manifest_sha256: str | None = None,
@@ -439,6 +444,8 @@ def prepare_preview(
         authoring_target=authoring_target,
         target_identity=target_identity,
         authoring_identity=authoring_identity,
+        native_base=native_base,
+        deployment_base=deployment_base,
         effects=ChangeEffects(
             compatibility={
                 kind: tuple(sorted(set(elements))) for kind, elements in compatibility.items()

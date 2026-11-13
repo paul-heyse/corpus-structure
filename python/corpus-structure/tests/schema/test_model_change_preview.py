@@ -202,11 +202,15 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         update={"database": "approved-destination", "database_oid": 20}
     )
 
-    def verify_predecessor(source, target, predecessor):
+    def capture_authoring_base(source, target, predecessor):
         checked.append((source.database.url, target, predecessor))
-        return source_identity
+        return (
+            source_identity
+            if source.database.url == settings.database.url else destination_identity,
+            None,
+        )
 
-    monkeypatch.setattr(model_deployment, "verify_predecessor", verify_predecessor)
+    monkeypatch.setattr(model_deployment, "capture_authoring_base", capture_authoring_base)
     monkeypatch.setattr(model_deployment, "capture_target", lambda *_, **__: destination_identity)
     monkeypatch.setattr(
         model_deployment, "predecessor_fence", lambda *_: nullcontext(source_identity)
@@ -279,7 +283,10 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert preview["selection"]["profile"] == "deployment"
     assert preview["selection"]["standing"] == "configured_unobserved"
     assert preview["acquired_target"] == destination_identity.model_dump(mode="json")
-    assert checked == [(settings.database.url, development, "before")]
+    assert checked == [
+        (settings.database.url, development, "before"),
+        (settings.deployment.url, destination, "before"),
+    ]
     assert physical_path.read_bytes() == before
     assert run(["candidate", preview["result_id"]], settings).exit_code == 1
     applied = run(["apply", preview["result_id"]], settings)

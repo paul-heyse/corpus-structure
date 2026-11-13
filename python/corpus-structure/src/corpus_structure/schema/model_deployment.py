@@ -23,6 +23,11 @@ from corpus_structure.schema.model_change import (
     generator_fingerprint,
     verify_release_products,
 )
+from corpus_structure.semantic.migration_chain import (
+    NativeMigrationBase,
+    registered_base,
+    verify_registered_base,
+)
 from corpus_structure.semantic.runtime import Purpose
 from corpus_structure.semantic.storage_target import (
     StorageTarget,
@@ -57,6 +62,8 @@ class Candidate(BaseModel):
     authoring_target: str | None = None
     target_identity: StorageTarget | None = None
     authoring_identity: StorageTarget | None = None
+    native_base: NativeMigrationBase | None = None
+    deployment_base: NativeMigrationBase | None = None
     release: str
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
@@ -96,6 +103,8 @@ class Candidate(BaseModel):
             authoring_target=preview.authoring_target,
             target_identity=preview.target_identity,
             authoring_identity=preview.authoring_identity,
+            native_base=preview.native_base,
+            deployment_base=preview.deployment_base,
             release=prepared.release_id,
             release_manifest_sha256=preview.release_manifest_sha256,
             release_artifacts_sha256=preview.release_artifacts_sha256,
@@ -168,7 +177,8 @@ def capture_target(settings: Settings, *, purpose: Purpose) -> StorageTarget:
 
 @contextmanager
 def predecessor_fence(
-    settings: Settings, target: str, predecessor: str, identity: StorageTarget | None = None
+    settings: Settings, target: str, predecessor: str, identity: StorageTarget | None = None,
+    *, native_base: NativeMigrationBase | None = None,
 ) -> Generator[StorageTarget]:
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -187,7 +197,12 @@ def predecessor_fence(
             else verify_target(conn, identity, purpose="maintenance")
         )
         migration_fence(conn)
-        if current_revision(conn) != predecessor:
+        if native_base is not None:
+            if native_base.predecessor != predecessor:
+                raise ModelError(["native authoring base has a different predecessor"])
+            verify_registered_base(_versions().parent, native_base)
+        expected = predecessor if native_base is None else native_base.acquired_revision
+        if current_revision(conn) != expected:
             raise ModelError(["installed native predecessor differs from the model preview"])
         yield actual
 
@@ -196,6 +211,33 @@ def verify_predecessor(settings: Settings, target: str, predecessor: str) -> Sto
     with predecessor_fence(settings, target, predecessor) as actual:
         return actual
 
+
+
+def capture_authoring_base(
+    settings: Settings, target: str, predecessor: str
+) -> tuple[StorageTarget, NativeMigrationBase | None]:
+    """Bind the acquired database and a registered, still undeployed forward base."""
+    from corpus_structure.semantic.migrations import current_revision, migration_fence
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    if target_fingerprint(settings) != target:
+        raise ModelError(["configured target differs from the model preview"])
+    assert_explicit_route(settings)
+    with (
+        open_runtime_engine(settings, "ci-model-predecessor", purpose="maintenance") as engine,
+        engine.begin() as conn,
+    ):
+        verify_declared_route(conn, settings)
+        identity = acquired_target(conn, purpose="maintenance")
+        migration_fence(conn)
+        actual = current_revision(conn)
+        if actual is None:
+            raise ModelError(["native authoring requires a migrated database"])
+        base = (
+            None if actual == predecessor
+            else registered_base(_versions().parent, actual, predecessor)
+        )
+        return identity, base
 
 def _migration_names(binding: Candidate) -> dict[str, str]:
     if not binding.revision or not re.fullmatch(r"[A-Za-z0-9_]{1,32}", binding.revision):
@@ -436,6 +478,17 @@ def _verify_installed_revision(root: Path, binding: Candidate) -> dict[str, byte
 @contextmanager
 def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path | None]:
     frozen = _verify_installed_revision(root, binding)
+    if binding.deployment_base is not None:
+        if binding.deployment_base.predecessor != binding.predecessor:
+            raise ModelError(["deployment base has a different candidate predecessor"])
+        verify_registered_base(_versions().parent, binding.deployment_base)
+        for relative, digest in binding.deployment_base.files:
+            if relative == "env.py":
+                continue
+            content = (_versions().parent / relative).read_bytes()
+            if sha256(content).hexdigest() != digest:
+                raise ModelError(["registered native chain changed during acquisition"])
+            frozen[Path(relative).name] = content
     if not frozen:
         yield None
         return
@@ -446,9 +499,14 @@ def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path 
         location = Path(directory)
         versions = location / "versions"
         versions.mkdir()
-        (location / "env.py").symlink_to(source.parent / "env.py")
+        environment = (source.parent / "env.py").read_bytes()
+        if (binding.deployment_base is not None
+            and sha256(environment).hexdigest() != dict(binding.deployment_base.files)["env.py"]):
+            raise ModelError(["registered migration environment changed during acquisition"])
+        (location / "env.py").write_bytes(environment)
         for file in source.iterdir():
-            if file.name not in frozen and file.is_file():
+            if (binding.deployment_base is None
+                and file.name not in frozen and file.is_file()):
                 (versions / file.name).symlink_to(file)
         for name, content in frozen.items():
             (versions / name).write_bytes(content)
@@ -578,6 +636,10 @@ def deploy_candidate(
         raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
     assert_explicit_route(destination)
     sql_inputs = prepare_release_sql(prepared, deps)
+    starting_revision = (
+        binding.predecessor if binding.deployment_base is None
+        else binding.deployment_base.acquired_revision
+    )
 
     def verify(conn: Connection, purpose: Purpose) -> StorageTarget:
         verify_declared_route(conn, destination)
@@ -608,7 +670,7 @@ def deploy_candidate(
                 verify(recovery, "maintenance")
                 migration_fence(recovery)
                 observed = current_revision(recovery)
-                if observed is None or observed not in {binding.predecessor, binding.revision}:
+                if observed is None or observed not in {starting_revision, binding.revision}:
                     return None
                 verify_deployment_catalog(recovery, revision=observed, versions=versions)
                 return observed == binding.revision
@@ -645,7 +707,7 @@ def deploy_candidate(
                 target = verify(conn, "maintenance")
                 migration_fence(conn)
                 actual = current_revision(conn)
-                if actual is None or actual not in {binding.predecessor, binding.revision}:
+                if actual is None or actual not in {starting_revision, binding.revision}:
                     raise ModelError(["acquired revision differs from the approved predecessor"])
                 verify_deployment_catalog(conn, revision=actual, versions=versions)
                 if checkpoint is not None and actual != binding.revision:
@@ -653,7 +715,7 @@ def deploy_candidate(
                 upgrade(
                     conn,
                     binding.revision,
-                    expected_predecessor=binding.predecessor,
+                    expected_predecessor=starting_revision,
                     script_location=script_location,
                 )
                 if current_revision(conn) != binding.revision:
