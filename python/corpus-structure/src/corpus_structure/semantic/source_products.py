@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import yaml
@@ -61,7 +62,7 @@ def _values(model: BaseModel) -> dict[str, Any]:
     return model.model_dump(mode="json", exclude_unset=True)
 
 
-def native_projection_identity(text: str, pieces, items, recognition=()) -> str:
+def native_projection_identity(text: str, pieces, items, recognition=(), ancestors=()) -> str:
     """Hash actual projected source meaning, excluding legacy diagnostic/task custody."""
     return sha256(
         canonical_bytes(
@@ -69,6 +70,7 @@ def native_projection_identity(text: str, pieces, items, recognition=()) -> str:
                 "text": text,
                 "pieces": list(pieces),
                 "items": list(items),
+                "ancestors": list(ancestors),
                 "recognition": list(recognition),
             }
         )
@@ -78,6 +80,107 @@ def native_projection_identity(text: str, pieces, items, recognition=()) -> str:
 def source_subject(source: Mapping[str, Any]) -> str:
     """One original source address shared by independent characterization producers."""
     return "source-native:" + sha256(canonical_bytes(source)).hexdigest()
+
+
+def _native_atoms(items):
+    """Retain declared language/hierarchy/grid context; PDF geometry stays original-owned."""
+    atoms = []
+    for item in items:
+        atom = {
+            name: item[name]
+            for name in (
+                "self_ref",
+                "label",
+                "text",
+                "orig",
+                "name",
+                "level",
+                "content_layer",
+                "marker",
+                "enumerated",
+            )
+            if name in item
+        }
+        if isinstance(item.get("parent"), dict) and "$ref" in item["parent"]:
+            atom["parent"] = item["parent"]["$ref"]
+        for name in ("children", "captions", "footnotes", "references"):
+            if name in item:
+                atom[name] = [reference["$ref"] for reference in item[name]]
+        atom["prov"] = [
+            {"page_no": row["page_no"]} for row in item.get("prov", ()) if "page_no" in row
+        ]
+        if "data" in item and "table_cells" in item["data"]:
+            data = item["data"]
+            cells = []
+            for cell in data["table_cells"]:
+                retained = {
+                    name: cell[name]
+                    for name in (
+                        "text",
+                        "row_span",
+                        "col_span",
+                        "start_row_offset_idx",
+                        "end_row_offset_idx",
+                        "start_col_offset_idx",
+                        "end_col_offset_idx",
+                        "column_header",
+                        "row_header",
+                        "row_section",
+                        "fillable",
+                    )
+                    if name in cell
+                }
+                if cell.get("ref") is not None:
+                    retained["ref"] = cell["ref"]["$ref"]
+                cells.append(retained)
+            atom["data"] = {
+                **{
+                    name: data[name]
+                    for name in ("num_rows", "num_cols", "orientation")
+                    if name in data
+                },
+                "table_cells": cells,
+            }
+        atoms.append(atom)
+    return atoms
+
+
+@dataclass(frozen=True)
+class NativeSourceSelectorIndex:
+    """One immutable parent lookup; unknown ancestry never becomes non-membership."""
+
+    parents: Mapping[str, str | None]
+    selected: frozenset[str]
+
+    @classmethod
+    def from_value(cls, value):
+        return cls(
+            MappingProxyType(
+                {
+                    item["self_ref"]: item.get("parent")
+                    for item in (*value["items"], *value.get("ancestors", []))
+                }
+            ),
+            frozenset(item["self_ref"] for item in value["items"]),
+        )
+
+    def matches(self, selector: Mapping[str, Any], pointer: str) -> bool | None:
+        """Only captured selected atoms are candidates; ancestry is context, never expansion."""
+        if pointer not in self.selected:
+            raise ValueError("native selector candidate is outside captured selected items")
+        target = selector.get("native_pointer")
+        if target is None:
+            return True
+        seen = set()
+        current = pointer
+        while current is not None:
+            if current == target:
+                return True
+            if current in seen or current not in self.parents:
+                return None
+            seen.add(current)
+            current = self.parents[current]
+        return False
 
 
 @dataclass(frozen=True)
@@ -90,6 +193,15 @@ class FrozenNativeSource:
     def acquire(cls, prepared: PreparedRelease, value: Mapping[str, Any]) -> FrozenNativeSource:
         checked = _values(prepared.validate_json("DdoSelectedNativeSource", canonical_bytes(value)))
         text, pieces, items = checked["text"], checked.get("pieces", []), checked.get("items", [])
+        ancestors = checked.get("ancestors", [])
+        if len({item["self_ref"] for item in ancestors}) != len(ancestors):
+            raise ValueError("selected native source repeats an ancestor")
+        shared = {item["self_ref"]: item for item in items}
+        if any(
+            item["self_ref"] in shared and shared[item["self_ref"]] != item for item in ancestors
+        ):
+            raise ValueError("selected native ancestor differs from original atom")
+        checked["ancestors"] = ancestors
         pointers = {item["self_ref"] for item in items}
         if len(pointers) != len(items):
             raise ValueError("selected native source repeats a native atom")
@@ -111,16 +223,19 @@ class FrozenNativeSource:
         ):
             raise ValueError("selected native recognition must name distinct original atoms")
         checked["recognition"] = recognition
-        projection = native_projection_identity(text, pieces, items, recognition)
+        projection = native_projection_identity(text, pieces, items, recognition, ancestors)
         if checked["source"]["projection"] != projection:
             raise ValueError("selected native projection differs from actual source meaning")
+        ancestry = NativeSourceSelectorIndex.from_value(checked)
         for selector in checked["selectors"]:
             if selector["projection"] != projection:
                 raise ValueError("selected native scope has another projection")
             if not 0 <= selector.get("start", 0) <= selector.get("end", len(text)) <= len(text):
                 raise ValueError("selected native scope exceeds original text")
-            if "native_pointer" in selector and selector["native_pointer"] not in pointers:
-                raise ValueError("selected native scope names no original atom")
+            if "native_pointer" in selector and not any(
+                ancestry.matches(selector, pointer) is True for pointer in pointers
+            ):
+                raise ValueError("selected native scope names no captured atom/ancestor descendant")
         return cls(canonical_bytes(checked))
 
     @classmethod
@@ -132,27 +247,8 @@ class FrozenNativeSource:
         ``document`` is its authenticated semantic source identity supplied by the
         acquisition owner. The physical legacy ref remains with that owner's custody.
         """
-        atoms = []
-        for item in view.items:
-            atoms.append(
-                {
-                    **{
-                        name: item[name]
-                        for name in ("self_ref", "label", "text", "orig")
-                        if name in item
-                    },
-                    **(
-                        {"parent": item["parent"]["$ref"]}
-                        if isinstance(item.get("parent"), dict) and "$ref" in item["parent"]
-                        else {}
-                    ),
-                    "prov": [
-                        {"page_no": row["page_no"]}
-                        for row in item.get("prov", ())
-                        if "page_no" in row
-                    ],
-                }
-            )
+        atoms = _native_atoms(view.items)
+        ancestors = _native_atoms(view.ancestors)
         pieces = [
             {
                 name: piece[name]
@@ -165,7 +261,7 @@ class FrozenNativeSource:
             {"pointer": row["pointer"], "outcome": row["outcome"]}
             for row in view.health.get("formula_outcomes", ())
         ]
-        projection = native_projection_identity(view.text, pieces, atoms, recognition)
+        projection = native_projection_identity(view.text, pieces, atoms, recognition, ancestors)
         if any(selector["projection"] != view.ref.projection_digest for selector in selectors):
             raise ValueError("selected native scope differs from acquired legacy projection")
         selected = [{**selector, "projection": projection} for selector in selectors]
@@ -181,10 +277,38 @@ class FrozenNativeSource:
                 text=view.text,
                 pieces=pieces,
                 items=atoms,
+                ancestors=ancestors,
                 recognition=recognition,
                 selectors=selected,
             ),
         )
+
+    def selector_index(self) -> NativeSourceSelectorIndex:
+        return NativeSourceSelectorIndex.from_value(self.value)
+
+    def native_items(self) -> tuple[dict[str, Any], ...]:
+        """Exact retained original items/ancestor context for pure native owners."""
+        value = self.value
+        by_pointer = {item["self_ref"]: item for item in (*value["items"], *value["ancestors"])}
+        rows: list[dict[str, Any]] = []
+        for item in by_pointer.values():
+            restored = {
+                **item,
+                **({"parent": {"$ref": item["parent"]}} if "parent" in item else {}),
+            }
+            for name in ("children", "captions", "footnotes", "references"):
+                if name in item:
+                    restored[name] = [{"$ref": pointer} for pointer in item[name]]
+            if "data" in item:
+                restored["data"] = {
+                    **item["data"],
+                    "table_cells": [
+                        {**cell, **({"ref": {"$ref": cell["ref"]}} if "ref" in cell else {})}
+                        for cell in item["data"]["table_cells"]
+                    ],
+                }
+            rows.append(restored)
+        return tuple(rows)
 
     @property
     def value(self) -> dict[str, Any]:

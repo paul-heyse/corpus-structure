@@ -107,6 +107,7 @@ def test_original_source_identity_excludes_legacy_task_recipe_and_diagnostic_sal
                 )
             ],
             health={"formula_outcomes": [], "diagnostic_ref": {"task_id": number}},
+            ancestors=[],
         )
         views.append(
             FrozenNativeSource.from_source_view(
@@ -425,3 +426,34 @@ def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace():
         for token in tokens
     )
     assert standing["attributes"]["LEMMA"] == "absent"
+
+
+def test_flat_original_formula_parent_preserves_protected_inline_atom(profile):
+    from corpus_structure.semantic.sentence_products import _blocks
+
+    value = selected(profile, "Let x = 2.").value
+    value["items"] = [
+        dict(self_ref="#/texts/0", label="text", text="Let x = 2.", orig="Let x = 2."),
+        dict(self_ref="#/groups/inline", label="inline", parent="#/texts/0"),
+        dict(
+            self_ref="#/texts/formula",
+            label="formula",
+            text="x",
+            orig="x",
+            parent="#/groups/inline",
+        ),
+    ]
+    value["pieces"] = [
+        dict(kind="native_text", start=0, end=4, item_ref="#/texts/0", source_field="text"),
+        dict(kind="native_text", start=4, end=5, item_ref="#/texts/formula", source_field="text"),
+        dict(kind="native_text", start=5, end=10, item_ref="#/texts/0", source_field="text"),
+    ]
+    projection = native_projection_identity(value["text"], value["pieces"], value["items"], [])
+    value["source"]["projection"] = projection
+    value["selectors"][0]["projection"] = projection
+    source = FrozenNativeSource.acquire(profile.prepared, value)
+    (block,), coverage = _blocks(source)
+    assert block.block.inline == ((4, 5),) and block.block.display == ()
+    assert block.block_id == "#/texts/0"
+    assert coverage == [dict(block_id="#/texts/0", start=0, end=10, outcome="complete")]
+    assert source.value["items"][2]["parent"] == "#/groups/inline"

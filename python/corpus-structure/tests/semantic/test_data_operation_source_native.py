@@ -70,7 +70,7 @@ def inputs() -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
             )
         ],
         items=["#/texts/0"],
-        ancestors=["#/groups/0"],
+        ancestors=[],
         health={"formula_outcomes": [], "diagnostic_ref": {"task_id": 1}},
     )
     selectors = [dict(projection="b" * 64, native_pointer="#/texts/0", start=0, end=len(text_))]
@@ -118,6 +118,7 @@ def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_sa
         pieces=projection["pieces"],
         items=[atom],
         health=projection["health"],
+        ancestors=[],
     )
     expected = FrozenNativeSource.from_source_view(
         source_prepared, view, document="document:semantic", selectors=selectors
@@ -194,3 +195,90 @@ def test_authenticated_original_source_read_matches_original_published_custody(
             }
         finally:
             transaction.rollback()
+
+
+def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
+    source_prepared, source_builder_connection
+):
+    atom, projection, selectors = inputs()
+    atom.update(
+        content_layer="body",
+        children=[],
+        captions=[{"$ref": "#/texts/caption"}],
+        footnotes=[],
+        references=[],
+        marker="1.",
+        enumerated=True,
+    )
+    atom["data"] = dict(
+        num_rows=1,
+        num_cols=1,
+        orientation="horizontal",
+        table_cells=[
+            dict(
+                text="A valve opens.",
+                row_span=1,
+                col_span=1,
+                start_row_offset_idx=0,
+                end_row_offset_idx=1,
+                start_col_offset_idx=0,
+                end_col_offset_idx=1,
+                column_header=False,
+                row_header=True,
+                row_section=False,
+                fillable=False,
+                ref={"$ref": "#/texts/cell"},
+                bbox={"l": 1.5},
+            )
+        ],
+    )
+    # Native Docling fields are plain integers; retain invalid grid values as
+    # original facts for later geometry assessment rather than coercing/refusing them.
+    atom["data"]["table_cells"][0]["row_span"] = -1
+    ancestor: dict[str, Any] = dict(
+        self_ref="#/groups/0",
+        label="section",
+        name="Actual section",
+        level=1,
+        content_layer="body",
+        children=[{"$ref": "#/texts/0"}],
+    )
+    selectors[0]["native_pointer"] = "#/groups/0"
+    projection["ancestors"] = [ancestor["self_ref"]]
+    view = SimpleNamespace(
+        ref=SimpleNamespace(
+            section_pointer="#/groups/0", membership="descendants", projection_digest="b" * 64
+        ),
+        text=projection["text"],
+        pieces=projection["pieces"],
+        items=[atom],
+        ancestors=[ancestor],
+        health=projection["health"],
+    )
+    expected = FrozenNativeSource.from_source_view(
+        source_prepared, view, document="document:semantic", selectors=selectors
+    )
+    actual = build(source_builder_connection, projection, [ancestor, atom], selectors)
+    assert canonical_bytes(actual) == expected.content
+    assert actual["ancestors"][0]["children"] == ["#/texts/0"]
+    assert actual["items"][0]["data"]["table_cells"][0]["row_header"] is True
+    assert actual["items"][0]["data"]["table_cells"][0]["row_span"] == -1
+    assert "bbox" not in actual["items"][0]["data"]["table_cells"][0]
+    native = {item["self_ref"]: item for item in expected.native_items()}
+    assert native["#/groups/0"]["children"] == [{"$ref": "#/texts/0"}]
+    assert native["#/texts/0"]["data"]["table_cells"][0]["ref"] == {"$ref": "#/texts/cell"}
+    index = expected.selector_index()
+    assert index.matches({"native_pointer": "#/groups/0"}, "#/texts/0") is True
+    assert index.matches({"native_pointer": "#/different"}, "#/texts/0") is False
+    ancestor["parent"] = {"$ref": "#/unretained"}
+    unresolved = FrozenNativeSource.from_source_view(
+        source_prepared, view, document="document:semantic", selectors=selectors
+    )
+    assert (
+        unresolved.selector_index().matches({"native_pointer": "#/different"}, "#/texts/0") is None
+    )
+    ancestor.pop("parent")
+    before = actual["source"]["projection"]
+    ancestor["name"] = "Different original section"
+    changed = build(source_builder_connection, projection, [atom, ancestor], selectors)
+    assert changed["source"]["projection"] != before
