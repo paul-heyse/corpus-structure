@@ -282,3 +282,35 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
     ancestor["name"] = "Different original section"
     changed = build(source_builder_connection, projection, [atom, ancestor], selectors)
     assert changed["source"]["projection"] != before
+
+
+def test_computed_projection_uses_same_language_value_without_legacy_source_identity(
+    source_prepared,
+):
+    atom, projection, selectors = inputs()
+    native = FrozenNativeSource.from_projection(
+        source_prepared, document="document:semantic", section_pointer="#/groups/0",
+        membership="descendants", text=projection["text"], pieces=projection["pieces"],
+        items=[atom], ancestors=[], recognition=[],
+    )
+    selectors = [{**selector, "projection": native.value["source"]["projection"]}
+                 for selector in selectors]
+    native = FrozenNativeSource.from_projection(
+        source_prepared, document="document:semantic", section_pointer="#/groups/0",
+        membership="descendants", text=projection["text"], pieces=projection["pieces"],
+        items=[atom], ancestors=[], recognition=[], selectors=selectors,
+    )
+    view = SimpleNamespace(
+        ref=SimpleNamespace(section_pointer="#/groups/0", membership="descendants",
+                            projection_digest="b" * 64),
+        text=projection["text"], pieces=projection["pieces"], items=[atom],
+        ancestors=[], health=projection["health"],
+    )
+    original = FrozenNativeSource.from_source_view(
+        source_prepared, view, document="document:semantic",
+        selectors=[{**selector, "projection": "b" * 64} for selector in selectors],
+    )
+    assert native.content == original.content
+    assert native.value["source"]["document"] == "document:semantic"
+    assert native.value["items"][0]["prov"] == [{"page_no": 1}]
+    assert b"task_id" not in native.content and b"bbox" not in native.content

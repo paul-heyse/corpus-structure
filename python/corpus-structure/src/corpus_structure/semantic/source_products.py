@@ -183,6 +183,28 @@ class NativeSourceSelectorIndex:
         return False
 
 
+def _projection_body(*, document, section_pointer, membership, text, pieces,
+                     items, ancestors=(), recognition=()):
+    atoms = _native_atoms(items)
+    context = _native_atoms(ancestors)
+    narrowed_pieces = [
+        {
+            name: piece[name]
+            for name in ("kind", "start", "end", "item_ref", "source_field", "cell_index")
+            if name in piece
+        }
+        for piece in pieces
+    ]
+    outcomes = [{"pointer": row["pointer"], "outcome": row["outcome"]} for row in recognition]
+    projection = native_projection_identity(text, narrowed_pieces, atoms, outcomes, context)
+    return dict(
+        source=dict(document=document, section_pointer=section_pointer,
+                    membership=membership, projection=projection),
+        text=text, pieces=narrowed_pieces, items=atoms, ancestors=context,
+        recognition=outcomes,
+    )
+
+
 @dataclass(frozen=True)
 class FrozenNativeSource:
     """Owned source bytes validated against the acquired nominal declaration."""
@@ -239,49 +261,41 @@ class FrozenNativeSource:
         return cls(canonical_bytes(checked))
 
     @classmethod
+    def from_projection(
+        cls, prepared: PreparedRelease, *, document: str, section_pointer: str,
+        membership: str, text: str, pieces, items, ancestors=(), recognition=(), selectors=None,
+    ) -> FrozenNativeSource:
+        """Build from an authenticated original or computed native projection.
+
+        This constructor grants no source-fact admission or computation provenance.
+        Its caller retains that origin separately; the language value is identical.
+        """
+        value = _projection_body(
+            document=document, section_pointer=section_pointer, membership=membership,
+            text=text, pieces=pieces, items=items, ancestors=ancestors, recognition=recognition,
+        )
+        value["selectors"] = list(selectors) if selectors is not None else [
+            {"projection": value["source"]["projection"]}
+        ]
+        return cls.acquire(prepared, value)
+
+    @classmethod
     def from_source_view(
         cls, prepared: PreparedRelease, view, *, document: str, selectors
     ) -> FrozenNativeSource:
-        """Narrow an already acquired original view; this performs no selection/read.
-
-        ``document`` is its authenticated semantic source identity supplied by the
-        acquisition owner. The physical legacy ref remains with that owner's custody.
-        """
-        atoms = _native_atoms(view.items)
-        ancestors = _native_atoms(view.ancestors)
-        pieces = [
-            {
-                name: piece[name]
-                for name in ("kind", "start", "end", "item_ref", "source_field", "cell_index")
-                if name in piece
-            }
-            for piece in view.pieces
-        ]
-        recognition = [
-            {"pointer": row["pointer"], "outcome": row["outcome"]}
-            for row in view.health.get("formula_outcomes", ())
-        ]
-        projection = native_projection_identity(view.text, pieces, atoms, recognition, ancestors)
+        """Adapt exact selected legacy custody into the shared source-value boundary."""
         if any(selector["projection"] != view.ref.projection_digest for selector in selectors):
             raise ValueError("selected native scope differs from acquired legacy projection")
-        selected = [{**selector, "projection": projection} for selector in selectors]
-        return cls.acquire(
-            prepared,
-            dict(
-                source=dict(
-                    document=document,
-                    section_pointer=view.ref.section_pointer,
-                    membership=view.ref.membership,
-                    projection=projection,
-                ),
-                text=view.text,
-                pieces=pieces,
-                items=atoms,
-                ancestors=ancestors,
-                recognition=recognition,
-                selectors=selected,
-            ),
+        value = _projection_body(
+            document=document, section_pointer=view.ref.section_pointer,
+            membership=view.ref.membership, text=view.text, pieces=view.pieces,
+            items=view.items, ancestors=view.ancestors,
+            recognition=view.health.get("formula_outcomes", ()),
         )
+        value["selectors"] = [
+            {**selector, "projection": value["source"]["projection"]} for selector in selectors
+        ]
+        return cls.acquire(prepared, value)
 
     def selector_index(self) -> NativeSourceSelectorIndex:
         return NativeSourceSelectorIndex.from_value(self.value)
