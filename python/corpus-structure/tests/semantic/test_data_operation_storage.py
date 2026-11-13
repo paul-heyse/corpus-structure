@@ -63,6 +63,29 @@ def _declaration():
     }
 
 
+def _sample_declaration():
+    value = _declaration()
+    value['id'] = 'urn:ddo-test:sample'
+    value['roles'][0].update(kind='Sample', maximum=1, collection='scalar')
+    return value
+
+
+def _consumer_declaration():
+    value = _declaration()
+    value['id'] = 'urn:ddo-test:consumer'
+    value['roles'].insert(0, {'name': 'source', 'kind': 'Sample', 'direction': 'input',
+        'minimum': 1, 'maximum': 1, 'collection': 'scalar', 'presence': 'required',
+        'support': {'provenance': 'exact', 'source': 'same-original', 'coverage': 'selected-scope',
+                    'identity_requirements': ['episode']}})
+    value['binding'] = {'operator': 'range', 'operands': [
+        {'kind': 'field', 'value_type': 'integer',
+         'field': {'role': 'source', 'projection': 'Sample', 'field': 'value'}},
+        {'kind': 'literal', 'value_type': 'integer', 'value': 10},
+        {'kind': 'literal', 'value_type': 'integer', 'value': 20},
+    ]}
+    return value
+
+
 @pytest.fixture(scope='module')
 def ddo_kernel_template(native_server, semantic_head_template):
     """Install once through normal candidate authoring; genuine sessions share its clone."""
@@ -95,10 +118,10 @@ def ddo_kernel_engine(native_server, ddo_kernel_template):
 
 @pytest.fixture
 def kernel(ddo_kernel_engine, tmp_path):
-    """A real target release/runtime, admitted by the normal owners in the installed DB."""
+    """Real archived target/runtime under the explicitly verified acquired native candidate."""
     from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
     from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
-    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release, bound_data_operation_model
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 
@@ -106,10 +129,17 @@ def kernel(ddo_kernel_engine, tmp_path):
 name: target
 prefixes: {t: 'urn:ddo-test:'}
 default_prefix: t
-classes: {Thing: {}}
+types:
+  integer: {base: int, uri: 'http://www.w3.org/2001/XMLSchema#integer'}
+  string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
+classes:
+  Thing: {}
+  Sample:
+    attributes:
+      value: {range: integer, required: true}
 ''')
     (tmp_path / 'operations.yaml').write_bytes(canonical_bytes({
-        'version': 'data-operation-model-v1', 'operations': [_declaration()], 'kinds': [],
+        'version': 'data-operation-model-v1', 'operations': [_declaration(), _sample_declaration(), _consumer_declaration()], 'kinds': [],
     }))
     (tmp_path / 'target.yaml').write_text('''version: data-operation-inputs-v1
 root: target
@@ -122,25 +152,31 @@ declarations: [{name: test-operations, path: operations.yaml}]
         execution_profile='execution:test', observed={})
     with ddo_kernel_engine.begin() as connection:
         persist_release(connection, bundle, dependencies, profile, prepared)
-        admit_data_operation_release(connection, prepared)
+        # The module fixture authenticated the *acquired* candidate catalog with
+        # admit_native before commit. Frozen Python admission is a separate root
+        # qualification after registration; native enforcement is exercised here.
+        native = next(a for a in prepared.artifacts if a.kind == 'data_operation_native_definitions.json')
+        connection.execute(text('SELECT sem.admit_data_operation_definitions(CAST(:p AS jsonb))'),
+            {'p': json.dumps({**json.loads(native.content), 'release_id': prepared.release_id})})
         persist_runtime_binding(connection, prepared, runtime)
         connection.execute(insert(table('data.project')).values(project_id='ddo-test'))
     identities = {(item.owner, item.domain): item.key for item in model.identities}
     return {
         'engine': ddo_kernel_engine, 'prepared': prepared, 'model': model,
-        'runtime': runtime.runtime_id, 'recipe': identities['urn:ddo-test:source', 'recipe'],
+        'runtime': runtime.runtime_id, 'identities': identities, 'recipe': identities['urn:ddo-test:source', 'recipe'],
         'kind': identities['primitive:integer', 'kind'] if ('primitive:integer', 'kind') in identities
                 else next(i.key for i in model.identities if i.domain == 'kind' and
                      any(k.semantic_id == i.owner and k.name == 'integer' for k in model.kinds)),
     }
 
 
-def attach(kernel, *, subject='subject:one', inference='inference:test'):
+def attach(kernel, *, subject='subject:one', inference='inference:test',
+           operation='urn:ddo-test:source', targets=None):
     from corpus_structure.semantic.data_operation_demands import freeze_demand, RootSubject
 
     root = {'subject': subject, 'original_source': 'source:test', 'analyzed_scope': {'page': 1}}
     selected = freeze_demand(kernel['model'], roots=(RootSubject(subject, 'source:test',
-        canonical_bytes(root['analyzed_scope'])),), targets=('urn:ddo-test:source',),
+        canonical_bytes(root['analyzed_scope'])),), targets=targets or (operation,),
         inference=inference, execution_profile='execution:test').record
     with kernel['engine'].begin() as connection:
         storage = DataOperationStorage(connection)
@@ -148,16 +184,18 @@ def attach(kernel, *, subject='subject:one', inference='inference:test'):
             'release_id': kernel['prepared'].release_id, 'runtime_id': kernel['runtime'],
             'root': [root], 'selection': selected, 'strength': 'value'})
         obligation = storage.invoke('expand_data_obligation', {
-            'demand_id': demand['demand_id'], 'operation_id': 'urn:ddo-test:source',
+            'demand_id': demand['demand_id'], 'operation_id': operation,
             **root, 'parameters': {},
         })
-        request = SemanticRequestKey(kernel['recipe'], subject, {},
+        acquired = storage.invoke('read_demand_result', {'demand_id': demand['demand_id']})
+        request = SemanticRequestKey(kernel['identities'][operation, 'recipe'], subject, {},
                                     {'parameters': {}, 'replicate': None}, inference)
         wire = {'obligation_id': obligation['obligation_id'],
             'request_meaning': json.loads(request.identity.canonical_input),
             'request_key': request.identity.key, 'binding': {'inputs': [], 'support': [],
                 'parameters': semantic_value(request.parameters),
-                'request_inputs': semantic_value({}), 'inference': inference}, 'replicate': None}
+                'request_inputs': semantic_value({}), 'inference': inference,
+                'populations': [], 'read_id': acquired['read_id']}, 'replicate': None}
         attached = storage.invoke('attach_data_request', wire)
     return demand, obligation, wire, attached
 
@@ -201,7 +239,7 @@ def test_native_atomic_publication_and_exact_receipt_replay(kernel):
     second = publish(kernel, fence, intent)
     assert second == {**first, 'replayed': True}
     with kernel['engine'].connect() as connection:
-        result = DataOperationStorage(connection).invoke('read_demand_result', demand)
+        result = DataOperationStorage(connection).invoke('read_demand_result', {**demand, 'view': 'products'})
         assert result['intent']['root_operations'] == ['urn:ddo-test:source']
         assert result['uses'][0]['fate'] == 'fulfilled'
         assert [p['body'] for p in result['uses'][0]['products']] == [['integer', '1'], ['integer', '2']]
@@ -319,11 +357,11 @@ def test_revoked_receipt_stays_inspectable_while_current_admission_changes_gener
 def test_native_discovery_refuses_arbitrary_member_and_completeness_injection(kernel):
     demand, _, _, _ = attach(kernel)
     with kernel['engine'].begin() as connection:
-        with pytest.raises(DBAPIError, match='wire fields'):
-            DataOperationStorage(connection).invoke('close_data_population', {
+        with pytest.raises(DBAPIError, match='wire'):
+            connection.execute(text('SELECT ops.close_data_population(CAST(:p AS jsonb))'), {'p': json.dumps({
                 'demand_id': demand['demand_id'], 'name': 'sentences',
                 'members': ['invented'], 'complete': True, 'evidence': {'trust': 'me'},
-            })
+            })})
 
 
 def test_native_frozen_scope_refuses_unrelated_subject(kernel):
@@ -335,3 +373,227 @@ def test_native_frozen_scope_refuses_unrelated_subject(kernel):
                 'subject': 'invented', 'original_source': 'source:test',
                 'analyzed_scope': {'page': 99}, 'parameters': {},
             })
+
+
+def test_global_independent_strength_refuses_without_a_group_contract(kernel):
+    from corpus_structure.semantic.data_operation_demands import freeze_demand, RootSubject
+    selected = freeze_demand(kernel['model'], roots=(RootSubject('subject:independent',
+        'source:test', b'{}'),), targets=('urn:ddo-test:source',),
+        inference='inference:test', execution_profile='execution:test').record
+    with kernel['engine'].begin() as connection:
+        with pytest.raises(DBAPIError, match='distinct-episode'):
+            DataOperationStorage(connection).invoke('register_data_demand', {
+                'project_id': 'ddo-test', 'release_id': kernel['prepared'].release_id,
+                'runtime_id': kernel['runtime'], 'root': selected['roots'],
+                'selection': selected, 'strength': 'independent',
+            })
+
+
+def test_native_normalized_values_match_independent_exact_vectors(kernel):
+    vectors = [
+        ('["integer","+001"]', '["integer","1"]'),
+        ('["decimal","-0.000"]', '["decimal","0"]'),
+        ('["decimal","1.200e+1"]', '["decimal","12"]'),
+        ('["float","-0x0.0p+0"]', '["float","-0x0.0p+0"]'),
+        ('["float","0x0.0000000000001p-1022"]', '["float","0x0.0000000000001p-1022"]'),
+        ('["float","0x1.fffffffffffffp+1023"]', '["float","0x1.fffffffffffffp+1023"]'),
+        ('["datetime","2026-11-13T12:34:56.123456+00:00"]', '["datetime","2026-11-13T12:34:56.123456+00:00"]'),
+    ]
+    with kernel['engine'].connect() as connection:
+        for supplied, expected in vectors:
+            actual = connection.scalar(text('SELECT data.ddo_normalize(CAST(:v AS jsonb))'), {'v': supplied})
+            assert actual == json.loads(expected)
+        for malformed in ('["float","0x1.0p+0"]', '["float","0x1.0000000000000p-0"]',
+                          '["float","0x1.0000000000000p+1024"]',
+                          '["datetime","invalid+00:00"]',
+                          '["datetime","2026-02-30T00:00:00+00:00"]',
+                          '["datetime","2026-11-13T12:34:56.000000+00:00"]'):
+            with connection.begin_nested() as savepoint:
+                with pytest.raises(DBAPIError):
+                    connection.execute(text('SELECT data.ddo_normalize(CAST(:v AS jsonb))'), {'v': malformed})
+                savepoint.rollback()
+
+
+def test_integer_kind_rejects_equivalent_json_number_with_wrong_meaning_tag(kernel):
+    _, _, _, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence, mutate=lambda completion:
+        completion['outputs'][0]['product'].update(body=['decimal', '1']))
+    with pytest.raises(DBAPIError, match='body violates'):
+        publish(kernel, fence, intent)
+
+
+def test_directly_revoked_producer_cannot_be_rehabilitated_by_rebinding(kernel):
+    _, _, wire, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence)
+    receipt = publish(kernel, fence, intent)
+    with kernel['engine'].begin() as connection:
+        DataOperationStorage(connection).invoke('revoke_data_support', {
+            'project_id': 'ddo-test', 'original_source': 'source:test',
+            'selector_kind': 'derivation', 'selector': receipt['derivation_id'],
+            'reason': 'producer behavior is defective',
+        })
+    with kernel['engine'].begin() as connection:
+        with pytest.raises(DBAPIError, match='rehabilitate'):
+            DataOperationStorage(connection).invoke('attach_data_request', {
+                **wire, 'rebind_derivation': receipt['derivation_id'],
+            })
+
+
+def test_failed_completion_is_historical_but_never_reusable_fulfillment(kernel):
+    demand, _, wire, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence, outputs=(), outcome='failed')
+    receipt = publish(kernel, fence, intent)
+    with kernel['engine'].begin() as connection:
+        storage = DataOperationStorage(connection)
+        current = storage.invoke('attach_data_request', wire)
+        assert current['fate'] == 'attached'
+        assert current['derivation_id'] is None
+        assert current['generation'] == attached['generation'] + 1
+        historical = storage.invoke('inspect_data_completion', {
+            'demand_id': demand['demand_id'], 'intent_id': intent['intent_id'],
+        })
+        assert historical['state'] == 'committed'
+        assert historical['receipt_id'] == receipt['receipt_id']
+
+
+def test_direct_writer_cannot_bypass_admitted_binding_predicate_with_real_inputs(kernel):
+    from corpus_structure.semantic.data_operation_compilation import project_operation_binding
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding, ResolvedOperationBinding
+
+    targets = ('urn:ddo-test:sample', 'urn:ddo-test:consumer')
+    demand, _, _, attached = attach(kernel, operation='urn:ddo-test:sample', targets=targets)
+    fence = claim(kernel, attached)
+    sample_kind = next(i.key for i in kernel['model'].identities if i.domain == 'kind' and
+                      any(k.semantic_id == i.owner and k.name == 'Sample' for k in kernel['model'].kinds))
+    completion = {'outcome': 'success', 'inputs': [], 'support': [],
+        'implementation_revision': 'native-test-source-v1',
+        'outputs': [{'role': 'result', 'position': 0, 'multiplicity': 1,
+                     'product': {'kind_contract': sample_kind, 'body': semantic_value({'value': 5}), 'members': []}}]}
+    with kernel['engine'].begin() as connection:
+        intent = DataOperationStorage(connection).invoke('retain_data_completion_intent', {
+            **fence, 'runtime_id': kernel['runtime'], 'completion': completion})
+    receipt = publish(kernel, fence, intent)
+    with kernel['engine'].begin() as connection:
+        storage = DataOperationStorage(connection)
+        result = storage.invoke('read_demand_result', demand)
+        use = result['uses'][0]
+        product = use['products'][0]['product_id']
+        # This row really is admitted and available; its value (5) violates 10<=x<=20.
+        native_row = connection.execute(text('SELECT body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb))'),
+            {'d': demand['demand_id'], 'o': 'urn:ddo-test:consumer', 't': json.dumps(result['trust_snapshot'])}).scalar_one()
+        assert native_row == {'value': 5}
+        obligation = storage.invoke('expand_data_obligation', {
+            'demand_id': demand['demand_id'], 'operation_id': 'urn:ddo-test:consumer',
+            'subject': 'subject:one', 'original_source': 'source:test',
+            'analyzed_scope': {'page': 1}, 'parameters': {},
+        })
+        member = BoundRoleMember(product, sample_kind, 'subject:one', 'source:test',
+            b'{"page":1}', b'[]', (receipt['derivation_id'],),
+            canonical_bytes({'demand_id': demand['demand_id'], 'use_id': use['use_id'],
+                             'trust_snapshot': result['trust_snapshot']}), position=0)
+        resolved = ResolvedOperationBinding('urn:ddo-test:consumer', 'subject:one',
+            (ResolvedRoleBinding('source', 'present', (member,)),), b'{}',
+            'inference:test', b'{}', canonical_bytes(result['trust_snapshot']), 'execution:test')
+        request, _ = project_operation_binding(kernel['model'], resolved)
+        payload = {'obligation_id': obligation['obligation_id'], 'replicate': None,
+            'request_key': request.identity.key,
+            'request_meaning': json.loads(request.identity.canonical_input),
+            'binding': {'inputs': [{'role': 'source', 'position': 0, 'multiplicity': 1,
+                                  'product_id': product, 'member_id': None,
+                                  'support_derivation_id': receipt['derivation_id']}],
+                        'support': [{'role': 'source', 'position': 0,
+                                     'derivation_id': receipt['derivation_id'], 'admission_use_id': use['use_id']}],
+                        'parameters': semantic_value(request.parameters),
+                        'request_inputs': semantic_value(request.inputs), 'inference': 'inference:test',
+                        'populations': [], 'read_id': result['read_id']}}
+        with pytest.raises(DBAPIError, match='binding'):
+            # Bypass the Python validator deliberately: PostgreSQL must enforce the AST.
+            connection.execute(text('SELECT ops.attach_data_request(CAST(:p AS jsonb))'),
+                               {'p': json.dumps(payload)})
+
+
+def test_read_receipt_excludes_pre_cut_uncommitted_insert_after_it_commits(kernel):
+    from corpus_structure.semantic.data_operation_demands import freeze_demand, RootSubject
+
+    roots = tuple(RootSubject('subject:' + name, 'source:test', b'{}') for name in ('a', 'b', 'c'))
+    selected = freeze_demand(kernel['model'], roots=roots, targets=('urn:ddo-test:source',),
+        inference='inference:test', execution_profile='execution:test').record
+    with kernel['engine'].begin() as connection:
+        storage = DataOperationStorage(connection)
+        demand = storage.invoke('register_data_demand', {'project_id': 'ddo-test',
+            'release_id': kernel['prepared'].release_id, 'runtime_id': kernel['runtime'],
+            'root': selected['roots'], 'selection': selected, 'strength': 'value'})
+        baseline = [storage.invoke('expand_data_obligation', {'demand_id': demand['demand_id'],
+            'operation_id': 'urn:ddo-test:source', **root, 'parameters': {}})['obligation_id']
+            for root in selected['roots'][:2]]
+    with kernel['engine'].connect() as unpublished:
+        pending = unpublished.begin()
+        later = DataOperationStorage(unpublished).invoke('expand_data_obligation', {
+            'demand_id': demand['demand_id'], 'operation_id': 'urn:ddo-test:source',
+            **selected['roots'][2], 'parameters': {}})['obligation_id']
+        with kernel['engine'].begin() as reader:
+            first = DataOperationStorage(reader).invoke('read_demand_result', {
+                **demand, 'limit': 1})
+        assert first['continuation'] is not None
+        pending.commit()
+    with kernel['engine'].connect() as connection:
+        assert connection.scalar(text('SELECT created_at<=CAST(:cut AS timestamptz) FROM ops.data_obligation WHERE id=:id'),
+            {'cut': first['frontier_at'], 'id': later}) is True
+    collected = [row['obligation_id'] for row in first['obligations']]
+    continuation = first['continuation']
+    while continuation:
+        with kernel['engine'].begin() as reader:
+            page = DataOperationStorage(reader).invoke('read_demand_result', continuation)
+        assert page['read_id'] == first['read_id']
+        collected.extend(row['obligation_id'] for row in page['obligations'])
+        continuation = page['continuation']
+    assert collected == sorted(baseline)
+    with kernel['engine'].begin() as reader:
+        fresh = DataOperationStorage(reader).invoke('read_demand_result', demand)
+    assert {row['obligation_id'] for row in fresh['obligations']} == {*baseline, later}
+
+
+def test_read_receipt_excludes_future_writes_in_its_own_transaction(kernel):
+    from corpus_structure.semantic.data_operation_demands import freeze_demand, RootSubject
+
+    selected = freeze_demand(kernel['model'],
+        roots=(RootSubject('subject:before', 'source:test', b'{}'),
+               RootSubject('subject:after', 'source:test', b'{}')),
+        targets=('urn:ddo-test:source',), inference='inference:test',
+        execution_profile='execution:test').record
+    with kernel['engine'].begin() as connection:
+        storage = DataOperationStorage(connection)
+        demand = storage.invoke('register_data_demand', {'project_id': 'ddo-test',
+            'release_id': kernel['prepared'].release_id, 'runtime_id': kernel['runtime'],
+            'root': selected['roots'], 'selection': selected, 'strength': 'value'})
+        before = storage.invoke('expand_data_obligation', {'demand_id': demand['demand_id'],
+            'operation_id': 'urn:ddo-test:source', **selected['roots'][0], 'parameters': {}})
+        first = storage.invoke('read_demand_result', demand)
+        after = storage.invoke('expand_data_obligation', {'demand_id': demand['demand_id'],
+            'operation_id': 'urn:ddo-test:source', **selected['roots'][1], 'parameters': {}})
+        pinned = storage.invoke('read_demand_result', {**demand, 'read_id': first['read_id']})
+        assert [row['obligation_id'] for row in pinned['obligations']] == [before['obligation_id']]
+        fresh = storage.invoke('read_demand_result', demand)
+        assert {row['obligation_id'] for row in fresh['obligations']} == {
+            before['obligation_id'], after['obligation_id']}
+
+
+def test_frontier_view_defers_bodies_and_same_receipt_can_read_products(kernel):
+    demand, _, _, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence)
+    publish(kernel, fence, intent)
+    with kernel['engine'].begin() as connection:
+        storage = DataOperationStorage(connection)
+        frontier = storage.invoke('read_demand_result', demand)
+        assert frontier['view'] == 'frontier'
+        product = frontier['uses'][0]['products'][0]
+        assert product['body_state'] == 'not_requested' and 'body' not in product
+        hydrated = storage.invoke('read_demand_result', {
+            **demand, 'read_id': frontier['read_id'], 'view': 'products'})
+        assert hydrated['read_id'] == frontier['read_id']
+        assert hydrated['uses'][0]['products'][0]['body_state'] == 'present'
+        assert hydrated['uses'][0]['products'][0]['body'] == ['integer', '1']
