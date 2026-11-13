@@ -297,6 +297,31 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     )
 
 
+_KIND_UNIVERSES = frozenset({"ordinary", "source", "evaluator"})
+_PROJECTION_FAMILIES = frozenset({"coordinate", "role", "endpoint", "coverage", "choice"})
+
+
+def _kind_policies(universe: Any, families: Any, owner: str) -> dict[str, Any]:
+    """Normalize explicit kind-owned access/projection capabilities once."""
+    if not isinstance(universe, str) or universe not in _KIND_UNIVERSES:
+        _fail(owner, "kind universe must be ordinary, source or evaluator")
+    if not isinstance(families, (list, tuple)) or any(
+        not isinstance(family, str) or family not in _PROJECTION_FAMILIES for family in families
+    ):
+        _fail(owner, "projection_families must be an array of supported projection family names")
+    if len(set(families)) != len(families):
+        _fail(owner, "projection_families must not contain duplicates")
+    return {"universe": universe, "projection_families": sorted(families)}
+
+
+def _annotation_kind_policies(annotations: dict[str, str], owner: str) -> dict[str, Any]:
+    try:
+        families = json.loads(annotations.get("cs:projection_families", "[]"))
+    except (ValueError, TypeError) as exc:
+        _fail(owner, "cs:projection_families must be a JSON array string: " + str(exc))
+    return _kind_policies(annotations.get("cs:data_universe", "ordinary"), families, owner)
+
+
 def _kind_products(
     bundle: SourceBundle | None,
     definitions: tuple[ClassDefinition, ...] | None,
@@ -315,7 +340,12 @@ def _kind_products(
     for name in sorted(_PRIMITIVES):
         semantic_id = "primitive:" + name
         add_kind(
-            EffectiveKind(semantic_id, name, "primitive", canonical_bytes({"primitive": name}))
+            EffectiveKind(
+                semantic_id,
+                name,
+                "primitive",
+                canonical_bytes({"primitive": name, **_kind_policies("ordinary", [], semantic_id)}),
+            )
         )
         aliases[name] = semantic_id
     if bundle is not None:
@@ -361,7 +391,12 @@ def _kind_products(
             annotations = _annotations(view.get_class(definition.name))
             facts["source_scope"] = annotations.get("cs:scope", "global")
             facts["case_policy"] = annotations.get("cs:case", "preserve")
-            facts["policies"] = annotations
+            facts.update(_annotation_kind_policies(annotations, definition.iri))
+            facts["policies"] = {
+                key: value
+                for key, value in annotations.items()
+                if key not in {"cs:data_universe", "cs:projection_families"}
+            }
             if definition.name in rule_fragments:
                 facts["conditional_rules"] = rule_fragments[definition.name]
                 facts["conditional_interpretation"] = CONDITIONAL_RULE_OPTIONS
@@ -761,6 +796,8 @@ def compile_data_operations(
                     "interpretation",
                     "references",
                     "json_schema",
+                    "universe",
+                    "projection_families",
                 },
             )
             semantic_id = _text(record.get("id"), "kind/id")
@@ -774,7 +811,14 @@ def compile_data_operations(
                         semantic_id,
                         "wire schema kind cannot claim a second representation authority",
                     )
-            facts = dict(record)
+            facts = {
+                **record,
+                **_kind_policies(
+                    record.get("universe", "ordinary"),
+                    record.get("projection_families", []),
+                    semantic_id,
+                ),
+            }
             if record.get("python"):
                 if frontend is None:
                     _fail(semantic_id, "Python kind facts require supplied Python sources")
@@ -884,6 +928,22 @@ def compile_data_operations(
                 )
             )
     _materialize_json_schema_properties(kinds, nodes, edges)
+    # A property projection shares its owning kind's access/projection policy.
+    # It never infers a capability from a name or a field's representation.
+    for kind_id, kind in tuple(kinds.items()):
+        if kind.category != "property":
+            continue
+        owner = kinds.get(kind_id.rsplit("/property/", 1)[0])
+        if owner is not None:
+            owner_facts = json.loads(owner.facts)
+            policy = _kind_policies(
+                owner_facts.get("universe", "ordinary"),
+                owner_facts.get("projection_families", []),
+                owner.semantic_id,
+            )
+            kinds[kind_id] = replace(
+                kind, facts=canonical_bytes({**json.loads(kind.facts), **policy})
+            )
     operations = []
     bindings = []
     for raw, surfaces, origins, implementation_root in authored:

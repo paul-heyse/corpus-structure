@@ -84,6 +84,8 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:functional",
         "cs:scope",
         "cs:reference_role",
+        "cs:data_universe",
+        "cs:projection_families",
     }
 )
 _PRIMITIVES: dict[str, Any] = {
@@ -230,11 +232,23 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                         "cs:scope",
                         "cs:case",
                         "cs:extract",
+                        "cs:data_universe",
+                        "cs:projection_families",
                     }:
                         _fail(
                             "unsupported_annotation_placement",
                             child,
                             str(annotation),
+                            "unsupported",
+                        )
+                    if (
+                        annotation in {"cs:data_universe", "cs:projection_families"}
+                        and parent != "classes"
+                    ):
+                        _fail(
+                            "unsupported_annotation_placement",
+                            child,
+                            "native kind policies belong to classes",
                             "unsupported",
                         )
                     if annotation not in _SAFE_ANNOTATIONS and annotation != "cp:source":
