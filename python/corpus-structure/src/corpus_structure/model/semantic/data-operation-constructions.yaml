@@ -1,0 +1,303 @@
+id: https://corpus-structure.dev/semantic/data-operation-constructions
+name: data_operation_constructions
+prefixes:
+  dco: https://corpus-structure.dev/semantic/data-operation-constructions/
+  cs: https://corpus-structure.dev/semantic/
+default_prefix: dco
+default_range: string
+classes:
+  DdoInterpretedMember:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      record_type:
+        required: true
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedExtent:
+    is_a: DdoFormalExtent
+  DdoInterpretedOccurrence:
+    is_a: DdoInterpretedMember
+    attributes:
+      local_id:
+        required: true
+        pattern: ^.+$
+      extents:
+        range: DdoInterpretedExtent
+        inlined: true
+        multivalued: true
+        required: true
+      record_type:
+        equals_string: occurrence
+        required: true
+  DdoInterpretedNestedChoiceMember:
+    is_a: CharacterizationChoiceMember
+    slot_usage:
+      external_premises:
+        range: DdoSemanticMemberReference
+      required_external_choices:
+        range: DdoSemanticMemberReference
+  DdoInterpretedAnnotation:
+    is_a: CharacterizationAnnotation
+    mixins:
+    - DdoInterpretedMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: annotation
+    slot_usage:
+      external_premises:
+        range: DdoSemanticMemberReference
+      required_external_choices:
+        range: DdoSemanticMemberReference
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedMembership:
+    is_a: CharacterizationMembership
+    mixins:
+    - DdoInterpretedMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: membership
+    slot_usage:
+      external_premises:
+        range: DdoSemanticMemberReference
+      required_external_choices:
+        range: DdoSemanticMemberReference
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedRole:
+    is_a: CharacterizationRole
+    mixins:
+    - DdoInterpretedMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: role
+    slot_usage:
+      required_external_choices:
+        range: DdoSemanticMemberReference
+      basis:
+        range: DdoSemanticAttachmentBasis
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedTerm:
+    is_a: CharacterizationTerm
+    mixins:
+    - DdoInterpretedMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: term
+    slot_usage:
+      external_premises:
+        range: DdoSemanticMemberReference
+      required_external_choices:
+        range: DdoSemanticMemberReference
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedChoiceGroup:
+    is_a: CharacterizationChoiceGroup
+    mixins:
+    - DdoInterpretedMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: choice
+    slot_usage:
+      members:
+        range: DdoInterpretedNestedChoiceMember
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+        pattern: ^.+$
+      kind_contract:
+        required: true
+        pattern: ^.+$
+      context:
+        range: DdoFormalMemberContext
+        required: true
+        inlined: true
+      body:
+        range: DdoInterpretedMember
+        required: true
+        inlined: true
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedCoverage:
+    is_a: CharacterizationFamilyCoverage
+    mixins:
+    - DdoCharacterizationCoverage
+    annotations:
+      cs:data_universe: ordinary
+  DdoConstructionProduct:
+    is_a: DdoInterpretedProduct
+    annotations:
+      cs:data_universe: ordinary
+  DdoContextualMeaningProduct:
+    is_a: DdoInterpretedProduct
+    description: Exact selected symbolic products evaluated under explicitly selected
+      environments; proposals retain private standing and unresolved sites remain
+      unknown.
+    annotations:
+      cs:data_universe: ordinary
+    attributes:
+      roots:
+        range: DdoSemanticMemberReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      environment:
+        range: DdoMeaningEnvironment
+        required: true
+        inlined: true
+  DdoInterpretedChoiceMember:
+    is_a: DdoInterpretedNestedChoiceMember
+    mixins:
+    - DdoInterpretedMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: choice_member
+      group_id:
+        required: true
+        pattern: ^.+$
+    annotations:
+      cs:data_universe: ordinary
+  DdoMeaningBinding:
+    is_a: SourceRecordProduct
+    attributes:
+      variable:
+        range: DdoSemanticMemberReference
+        required: true
+        inlined: true
+      binder:
+        range: DdoSemanticMemberReference
+        required: true
+        inlined: true
+  DdoMeaningEnvironment:
+    is_a: SourceRecordProduct
+    attributes:
+      context_products:
+        range: DdoSemanticProductReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      hypotheses:
+        range: DdoSemanticMemberReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      proposals:
+        range: DdoSemanticMemberReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      choices:
+        range: DdoSemanticMemberReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      bindings:
+        range: DdoMeaningBinding
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      attribution:
+        range: DdoSemanticMemberReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+  DdoDocumentFamilyStanding:
+    is_a: SourceRecordProduct
+    attributes:
+      family:
+        required: true
+        pattern: ^.+$
+      availability:
+        required: true
+        pattern: ^(available|unknown|unavailable|unsupported)$
+      outcome:
+        required: true
+        pattern: ^(complete|empty|partial|unknown|failed|unsupported)$
+      products:
+        range: DdoSemanticProductReference
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 0
+      reason: {}
+      source:
+        range: DdoNativeSourceCoordinate
+        required: true
+        inlined: true
+  DdoEnrichedDocumentView:
+    is_a: SourceRecordProduct
+    attributes:
+      profile:
+        required: true
+        pattern: ^(source_only|selected_layers|full_characterization)$
+      products:
+        range: DdoSemanticProductReference
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      active:
+        range: DdoSemanticProductReference
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      coverage:
+        range: DdoDocumentFamilyStanding
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      outcome:
+        required: true
+        pattern: ^(complete|partial)$
+      original_document:
+        required: true
+        pattern: ^.+$
+      sources:
+        range: DdoSelectedNativeSource
+        multivalued: true
+        inlined: true
+        required: true
+    annotations:
+      cs:data_universe: ordinary
+  DdoInterpretedProduct:
+    is_a: DdoCharacterizedProduct
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        required: true
+        inlined: true
+      selectors:
+        range: CharacterizationSourceSelector
+        required: true
+        inlined: true
+        multivalued: true
+      dependencies:
+        range: DdoSemanticProductReference
+        inlined: true
+        multivalued: true
+      outcome:
+        required: true
+        pattern: ^(complete|partial|failed)$
+      coverage:
+        range: DdoInterpretedCoverage
+        inlined: true
+        multivalued: true
+        required: true
+      members:
+        range: DdoInterpretedPacket
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+    annotations:
+      cs:data_universe: ordinary
+    abstract: true

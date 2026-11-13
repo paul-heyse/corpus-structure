@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
+from corpus_structure.semantic.source_products import FrozenNativeSource
+from corpus_structure.semantic.formal_products import FormalEvidenceProduct
+from corpus_structure.semantic.construction_products import ConstructionProduct
+from corpus_structure.semantic.construction_products import ContextualMeaningProduct
+from corpus_structure.semantic.characterization_ports import execute_contextual_profile
+
 import time
 from typing import Any, Literal
 
@@ -71,7 +79,7 @@ class ContextualInterpretationConfig(BaseModel):
                 *self.selected_choices,
             )
         )
-        if not set(context) <= set(pins) or any(r.layer not in pins for r in refs):
+        if not set(context) <= set(pins) or any(r.product not in pins for r in refs):
             raise ValueError("contextual selections are outside declared exact input layers")
         return (
             ProductReference(**self.characterization_base_document),
@@ -182,3 +190,125 @@ class ContextualInterpretationMethod:
                 )
             )
         return tuple(results)
+
+
+class ContextualEvaluationOperation:
+    __data_operation__: ClassVar[dict] = {'id': 'text.contextual_evaluation/source-native',
+     'profile': 'derivation',
+     'subject': 'original-source-view',
+     'context': ['original-source', 'selected-scope'],
+     'entrypoints': ['run'],
+     'roles': [{'name': 'source',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource',
+                'direction': 'input',
+                'minimum': 1,
+                'maximum': 1,
+                'collection': 'scalar',
+                'presence': 'required',
+                'parameter': 'source',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation', 'original-source'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'formal',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct',
+                'direction': 'input',
+                'minimum': 1,
+                'maximum': None,
+                'collection': 'sequence',
+                'presence': 'required',
+                'parameter': 'formal',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'constructions',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct',
+                'direction': 'input',
+                'minimum': 1,
+                'maximum': None,
+                'collection': 'sequence',
+                'presence': 'required',
+                'parameter': 'constructions',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'supporting',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct',
+                'direction': 'input',
+                'minimum': 0,
+                'maximum': None,
+                'collection': 'sequence',
+                'presence': 'optional',
+                'parameter': 'supporting',
+                'support': {'provenance': 'value_substitution',
+                            'identity_requirements': [],
+                            'origins': ['computation'],
+                            'source': 'original-source',
+                            'coverage': 'selected-scope'}},
+               {'name': 'result',
+                'kind': 'https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct',
+                'direction': 'output',
+                'minimum': 1,
+                'maximum': 1,
+                'collection': 'scalar',
+                'presence': 'required'}],
+     'applicability': ['acquired-contextual-profile'],
+     'invariants': ['original-source-coordinates',
+                    'governed-semantic-member-references',
+                    'explicit-coverage-and-private-standing'],
+     'coverage': 'exact-selected-source-scope',
+     'outcomes': ['success', 'failed'],
+     'precision': 'retained-positioned-characterization',
+     'dependencies': [],
+     'effects': [],
+     'capabilities': {'forms': ['scalar'],
+                      'preparation': 'resource',
+                      'cancellation': 'cooperative',
+                      'ownership': 'immutable'},
+     'behavior': 'compose retained typed contextual products without upstream language '
+                 'reacquisition',
+     'parameters': {},
+     'binding': {'operator': 'all',
+                 'children': [{'operator': 'scan', 'roles': ['source']},
+                              {'operator': 'collection',
+                               'roles': ['formal'],
+                               'collection': 'sequence'},
+                              {'operator': 'collection',
+                               'roles': ['constructions'],
+                               'collection': 'sequence'},
+                              {'operator': 'collection',
+                               'roles': ['supporting'],
+                               'collection': 'sequence'}]},
+     'opaque': [{'reference': 'corpus_structure.semantic.characterization_ports.execute_contextual_profile',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'prepared-contextual-resources'},
+                {'reference': 'corpus_structure.semantic.source_products.FrozenNativeSource',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.formal_products.FormalEvidenceProduct',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.construction_products.ConstructionProduct',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.construction_products.ContextualMeaningProduct',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'nominal-boundary'},
+                {'reference': 'corpus_structure.semantic.enriched_document_products.RetainedCharacterizationProduct',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'nominal-boundary'}],
+     'assets': [{'reference': 'contextual-profile',
+                 'contract': 'characterization/contextual-assets',
+                 'role': 'semantic-implementation-and-schema-assets'}]}
+
+    def __init__(self, profile, check_active):
+        self.profile=profile
+        self.check_active=check_active
+
+    def run(self, source: FrozenNativeSource, formal: tuple[FormalEvidenceProduct, ...], constructions: tuple[ConstructionProduct, ...], supporting:tuple[RetainedCharacterizationProduct,...]=()) -> ContextualMeaningProduct:
+        return execute_contextual_profile(self, source, formal, constructions,supporting)

@@ -61,8 +61,8 @@ def selected(profile, text="Quantity: 2 kg\nusing the equation x = 2.", **change
         ],
         recognition=[],
         selectors=[dict(projection="b" * 64, native_pointer="#/texts/0", start=0, end=len(text))],
-        **changes,
     )
+    value.update(changes)
     return acquire_source(profile, value)
 
 
@@ -389,7 +389,7 @@ def test_prepared_formal_profile_rejects_changed_source_assets_and_nominal_input
         "formal_profile_assets",
         lambda: SourceArtifact("formal/profile-assets", b"changed actual parser"),
     )
-    with pytest.raises(PortRefusal, match="assets differ"):
+    with pytest.raises(PortRefusal, match=r"resources differ|assets differ"):
         port._verify()
 
 
@@ -495,6 +495,7 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
             "DdoFormalMembership",
             "DdoFormalTerm",
             "DdoFormalChoice",
+        "DdoFormalAlternative",
         )
     }
     projected = json.loads(
@@ -503,7 +504,7 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
         )
     )
     contract = next(row for row in projected["kinds"] if row["kind"] == kind)
-    assert len(contract["member_contracts"]) == 5
+    assert len(contract["member_contracts"]) == 6
     assert contract["member_schema"] != {"not": {}}
     assert contract["universe"] == "source"
     for member in members:
@@ -605,7 +606,7 @@ def test_prepared_formal_refuses_monkeypatched_loaded_original_endpoint(profile,
 
     port = admitted_port(profile)
     monkeypatch.setattr(FormalEvidenceOperation, "run", lambda self, source: "invented result")
-    with pytest.raises(PortRefusal, match="loaded formal endpoint"):
+    with pytest.raises(PortRefusal, match=r"callable owner|loaded|qualified"):
         port._verify()
 
 
@@ -782,3 +783,18 @@ def test_primary_lexicon_protects_fields_and_rejects_forged_slices(profile):
     body["lexicon"][0]["terminals"][0]["text"] = "forged"
     with pytest.raises(ValueError, match="original unprotected slice"):
         validate_formal_product(profile.prepared, body, source, model=profile.model)
+
+
+def test_each_retained_formal_choice_has_an_addressable_exact_member_packet(profile):
+    from corpus_structure.semantic.formal_products import validate_formal_product
+    source=selected(profile,"f(x)",items=[dict(self_ref="#/texts/0",label="formula",text="f(x)",orig="f(x)",prov=[dict(page_no=1)])],recognition=[dict(pointer="#/texts/0",outcome="succeeded")])
+    product=profile.run(source,FormalEvidenceOptions())
+    body=product.value.model_dump(mode="json",exclude_unset=True)
+    groups=[packet["body"] for packet in body["members"] if packet["body"]["record_type"]=="choice"]
+    alternatives={packet["member_id"]:packet["body"] for packet in body["members"] if packet["body"]["record_type"]=="choice_member"}
+    assert groups and alternatives
+    assert alternatives=={member["local_id"]:dict(record_type="choice_member",group_id=group["local_id"],**member) for group in groups for member in group["members"]}
+    body["members"]= [packet for packet in body["members"] if packet["body"]["record_type"]!="choice_member"]
+    with pytest.raises(ValueError,match="owning packed group"):
+        validate_formal_product(profile.prepared,body,source,model=profile.model)
+

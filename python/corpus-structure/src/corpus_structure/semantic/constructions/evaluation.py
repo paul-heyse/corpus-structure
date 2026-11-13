@@ -13,16 +13,23 @@ from hashlib import sha256
 from typing import Any
 
 from corpus_structure.semantic.characterization import (
-    AnnotationReference,
+    AnnotationReference as LegacyMemberReference,
     LayerReport,
     validate_layer,
     validate_reading_choices,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference as LegacyProductPin
+from corpus_structure.semantic.data_product_reference import (
+    DataProductReference, DataProductMemberReference, member_reference, read_member_reference,
+)
 
 from .nodes import identity
+
+type MemberReference = LegacyMemberReference | DataProductMemberReference
+type ProductPin = LegacyProductPin | DataProductReference
+
 
 EVALUATION_REVISION = "primary-contextual-evaluation-1"
 EVALUATION_FAMILIES = (
@@ -35,18 +42,18 @@ EVALUATION_FAMILIES = (
 )
 
 
-def reference(value: Mapping[str, Any]) -> AnnotationReference:
-    return AnnotationReference(ProductReference(**value["layer"]), value["local_id"])
+def reference(value: Mapping[str, Any]) -> MemberReference:
+    return read_member_reference(value)
 
 
-def _ordered(refs: Sequence[AnnotationReference]) -> tuple[AnnotationReference, ...]:
+def _ordered(refs: Sequence[MemberReference]) -> tuple[MemberReference, ...]:
     return tuple(sorted(set(refs), key=lambda r: canonical_bytes(r.values())))
 
 
 @dataclass(frozen=True, slots=True)
 class Binding:
-    variable: AnnotationReference
-    binder: AnnotationReference
+    variable: MemberReference
+    binder: MemberReference
 
     def values(self):
         return dict(variable=self.variable.values(), binder=self.binder.values())
@@ -54,12 +61,12 @@ class Binding:
 
 @dataclass(frozen=True, slots=True)
 class Environment:
-    context_layers: tuple[ProductReference, ...] = ()
-    hypotheses: tuple[AnnotationReference, ...] = ()
-    proposals: tuple[AnnotationReference, ...] = ()
-    choices: tuple[AnnotationReference, ...] = ()
+    context_layers: tuple[ProductPin, ...] = ()
+    hypotheses: tuple[MemberReference, ...] = ()
+    proposals: tuple[MemberReference, ...] = ()
+    choices: tuple[MemberReference, ...] = ()
     bindings: tuple[Binding, ...] = ()
-    attribution: tuple[AnnotationReference, ...] = ()
+    attribution: tuple[MemberReference, ...] = ()
 
     def values(self):
         return dict(
@@ -93,36 +100,62 @@ def environment(*, context_layers=(), hypotheses=(), proposals=(), choices=()) -
 class ContextualEvaluator:
     def __init__(
         self,
-        layers: Mapping[ProductReference, LayerReport],
+        layers: Mapping[LegacyProductPin, LayerReport],
         *,
         check_active=lambda: None,
         max_nodes=20000,
         symbolic_layers=None,
     ):
-        self.layers = dict(layers)
-        self.symbolic_layers = frozenset(layers if symbolic_layers is None else symbolic_layers)
-        if not self.symbolic_layers <= layers.keys():
+        bases=set()
+        for pin,report in layers.items():
+            if report.reference(pin.task_id)!=pin:
+                raise ValueError("evaluation requires exact retained layer pins")
+            bases.add(report.base_document)
+        if len(bases)!=1:
+            raise ValueError("evaluation requires one immutable source base")
+        self._initialize(layers,{pin:report.payload for pin,report in layers.items()},next(iter(bases)),check_active=check_active,max_nodes=max_nodes,symbolic_layers=symbolic_layers)
+
+    @classmethod
+    def from_products(cls,source,products,*,check_active=lambda:None,max_nodes=20000,symbolic_products=None):
+        coordinate=source.value["source"]
+        inputs={}
+        payloads={}
+        for product in products:
+            body=json.loads(product.content)
+            if body["source"]!=coordinate:
+                raise ValueError("contextual inputs belong to another original source")
+            pin=DataProductReference(product.semantic_id)
+            if pin in inputs:
+                raise ValueError("contextual inputs repeat a governed semantic product")
+            inputs[pin]=product
+            payloads[pin]={**product.inventory(),"coverage":body["coverage"]}
+        if not inputs:
+            raise ValueError("contextual evaluation requires explicit retained symbolic products")
+        instance=cls.__new__(cls)
+        instance._initialize(inputs,payloads,coordinate,check_active=check_active,max_nodes=max_nodes,symbolic_layers=symbolic_products)
+        return instance
+
+    def _initialize(self,layers,payloads,base,*,check_active,max_nodes,symbolic_layers):
+        self.layers=dict(layers)
+        self.payloads=dict(payloads)
+        self.base=base
+        self.symbolic_layers=frozenset(layers if symbolic_layers is None else symbolic_layers)
+        if not self.symbolic_layers<=layers.keys():
             raise ValueError("symbolic selection is outside retained dependency closure")
-        self.payloads = {pin: report.payload for pin, report in layers.items()}
         self.nodes = {}
         self.occurrences = {}
         self.choices = {}
         self._model_questions = {}
         self._model_proposals = {}
-        bases = set()
         membership_members = {}
         referent_members = {}
-        for pin, report in layers.items():
-            if report.reference(pin.task_id) != pin:
-                raise ValueError("evaluation requires exact retained layer pins")
-            bases.add(report.base_document)
-            payload = self.payloads[pin]
+        for pin,payload in self.payloads.items():
             for inventory in ("annotations", "memberships", "roles", "terms"):
                 for node in payload[inventory]:
-                    self.nodes[AnnotationReference(pin, node["local_id"])] = (inventory, node)
+                    self.nodes[member_reference(pin, node["local_id"])] = (inventory, node)
                     if inventory == "memberships":
-                        group = AnnotationReference(pin, node["group"])
-                        member = AnnotationReference(pin, node["member"])
+                        group = member_reference(pin, node["group"])
+                        member = member_reference(pin, node["member"])
                         membership_members.setdefault((group, node["role"]), set()).add(member)
                         if node["role"] in {"native_member", "candidate_member"}:
                             referent_members.setdefault(group, set()).add(member)
@@ -133,22 +166,21 @@ class ContextualEvaluator:
                     elif inventory == "annotations" and node.get("kind") == "model.span_proposal":
                         for premise in node.get("premises", ()):
                             self._model_proposals.setdefault((pin, premise), []).append(node)
+            for packet in payload.get("source_facts",()):
+                self.nodes[member_reference(pin,packet["member_id"])]=("source_facts",packet["body"])
             for occurrence in payload["occurrences"]:
                 self.occurrences[occurrence["local_id"]] = occurrence
             for group in payload["choices"]:
                 for member in group["members"]:
-                    self.choices[AnnotationReference(pin, member["local_id"])] = (group, member)
+                    self.choices[member_reference(pin, member["local_id"])] = (group, member)
         self._membership_members = {
             key: frozenset(values) for key, values in membership_members.items()
         }
         self._referent_members = {
             key: frozenset(values) for key, values in referent_members.items()
         }
-        if len(bases) != 1:
-            raise ValueError("evaluation requires one immutable source base")
-        self.base = next(iter(bases))
         self.check_active, self.max_nodes = check_active, max_nodes
-        self.memo: dict[tuple[AnnotationReference, Environment], str] = {}
+        self.memo: dict[tuple[MemberReference, Environment], str] = {}
         self.terms: dict[str, dict[str, Any]] = {}
         self.groups: dict[str, dict[str, Any]] = {}
         self.roles: dict[str, dict[str, Any]] = {}
@@ -157,8 +189,8 @@ class ContextualEvaluator:
         self.family_diagnostics = {family: set() for family in EVALUATION_FAMILIES}
         self.unavailable_families = set()
         self._verified: set[Environment] = set()
-        self._active: set[tuple[AnnotationReference, Environment]] = set()
-        self._attached: set[tuple[str, AnnotationReference]] = set()
+        self._active: set[tuple[MemberReference, Environment]] = set()
+        self._attached: set[tuple[str, MemberReference]] = set()
         self._available_cache = {}
         self._available_owners = {}
         self._available_addresses = {}
@@ -172,13 +204,13 @@ class ContextualEvaluator:
             for pin in env.context_layers:
                 body = self.payloads[pin]
                 roles.extend(
-                    AnnotationReference(pin, row["local_id"])
+                    member_reference(pin, row["local_id"])
                     for row in body["roles"]
                     if row["basis"]["kind"] == "contextual_proposal"
                     and row["basis"]["status"] == "private_proposal"
                 )
                 proposals.extend(
-                    AnnotationReference(pin, row["local_id"])
+                    member_reference(pin, row["local_id"])
                     for row in body["annotations"]
                     if row.get("kind") in {"model.span_proposal", "model.choice_proposal"}
                     and row["status"] == "private_proposal"
@@ -223,7 +255,7 @@ class ContextualEvaluator:
                 member["root"] for group in body["choices"] for member in group["members"]
             )
             result.extend(
-                AnnotationReference(pin, node["local_id"])
+                member_reference(pin, node["local_id"])
                 for node in body["terms"]
                 if node["local_id"] not in incoming
                 and node["value"] not in {"@sequence", "clause", "start", "predication", "nominal"}
@@ -234,7 +266,7 @@ class ContextualEvaluator:
         self.diagnostics.add(reason)
         self.family_diagnostics[family].add(reason)
 
-    def resolve(self, ref: AnnotationReference, inventory=None):
+    def resolve(self, ref: MemberReference, inventory=None):
         found = self.nodes.get(ref)
         if found is None or (inventory is not None and found[0] != inventory):
             raise ValueError(
@@ -245,7 +277,7 @@ class ContextualEvaluator:
     def _requirements(self, ref, node):
         return _ordered(
             (
-                *[AnnotationReference(ref.layer, key) for key in node.get("required_choices", ())],
+                *[member_reference(ref.product, key) for key in node.get("required_choices", ())],
                 *[reference(value) for value in node.get("required_external_choices", ())],
             )
         )
@@ -259,7 +291,7 @@ class ContextualEvaluator:
             found = self.choices.get(choice)
             if found is None:
                 raise ValueError("environment selection is not a retained analytical choice member")
-            by_layer.setdefault(choice.layer, []).append(choice.local_id)
+            by_layer.setdefault(choice.product, []).append(choice.local_id)
             _, member = found
             if not set(self._requirements(choice, member)) <= selected:
                 raise ValueError("environment is missing a jointly required upstream choice")
@@ -301,7 +333,7 @@ class ContextualEvaluator:
         raise ValueError("context endpoint proxy cycle")
 
     def _authenticate_role(self, ref, env, *, strict_choices=True):
-        if ref.layer not in env.context_layers:
+        if ref.product not in env.context_layers:
             raise ValueError("selected hypothesis is outside selected context revisions")
         if ref in self._role_proofs:
             proof = self._role_proofs[ref]
@@ -314,7 +346,7 @@ class ContextualEvaluator:
             raise ValueError("context selection must preserve private hypothesis standing")
 
         def local(key):
-            return AnnotationReference(ref.layer, key)
+            return member_reference(ref.product, key)
 
         owner, member = local(role["owner"]), local(role["member"])
         self._endpoint(owner)
@@ -339,7 +371,7 @@ class ContextualEvaluator:
             model_requirements = self._authenticate_model_role(ref, role, premises)
         required = set(self._requirements(ref, role)) | set(self._requirements(ref, basis))
         required.update(model_requirements)
-        required.update(AnnotationReference(ref.layer, key) for key in basis.get("choice_refs", ()))
+        required.update(member_reference(ref.product, key) for key in basis.get("choice_refs", ()))
         for endpoint in (owner, member):
             required.update(self._requirements(endpoint, self.resolve(endpoint)))
             original = self._endpoint(endpoint)
@@ -348,7 +380,7 @@ class ContextualEvaluator:
         original = self.resolve(original_owner)
         if role["role"] == "declared_binding_site" and not (
             original.get("kind") == "binder"
-            and original_owner.layer == original_member.layer
+            and original_owner.product == original_member.product
             and any(
                 edge["role"] == "variable" and edge.get("target") == original_member.local_id
                 for edge in original.get("children", ())
@@ -359,7 +391,7 @@ class ContextualEvaluator:
             )
         if role["role"].startswith("attribution_") and not (
             original.get("kind") == "attribution"
-            and original_owner.layer == original_member.layer
+            and original_owner.product == original_member.product
             and any(
                 edge["role"] == role["role"].removeprefix("attribution_")
                 and edge.get("target") == original_member.local_id
@@ -373,7 +405,7 @@ class ContextualEvaluator:
             original.get("kind") == "native.mention"
             and original.get("native_mention", {}).get("mapping_status") == "mapped"
             and self.resolve(original_member).get("kind") == "native.coreference_cluster"
-            and original_owner.layer == original_member.layer
+            and original_owner.product == original_member.product
             and original_owner
             in self._membership_members.get((original_member, "native_member"), ())
         ):
@@ -392,8 +424,8 @@ class ContextualEvaluator:
         proposals = [p for p in premises if p.get("kind") == "model.choice_proposal"]
         if not questions:
             raise ValueError("context role has no authenticated hypothesis or model question")
-        owner = self.resolve(AnnotationReference(ref.layer, role["owner"]))
-        member = self.resolve(AnnotationReference(ref.layer, role["member"]))
+        owner = self.resolve(member_reference(ref.product, role["owner"]))
+        member = self.resolve(member_reference(ref.product, role["member"]))
         if owner.get("kind") == "model.focus" and member.get("kind") == "model.candidate":
             if len(questions) != 1 or len(proposals) != 1:
                 raise ValueError("model candidate role requires one retained question and proposal")
@@ -477,7 +509,7 @@ class ContextualEvaluator:
                         )
                         witnesses.append(proof)
                 focus_ref = reference(frozen["focus"]["reference"])
-                member_ref = self._endpoint(AnnotationReference(ref.layer, role["member"]))
+                member_ref = self._endpoint(member_reference(ref.product, role["member"]))
 
                 def supported(proof):
                     _row, source, target, _choices = proof
@@ -485,7 +517,7 @@ class ContextualEvaluator:
                     if source != focus_ref:
                         return False
                     return target == member_ref or (
-                        target.layer == member_ref.layer
+                        target.product == member_ref.product
                         and member_ref in self._referent_members.get(target, ())
                     )
 
@@ -497,7 +529,7 @@ class ContextualEvaluator:
             "kind"
         ) in {"model.span_proposal", "model.choice_proposal"}:
             for endpoint in (owner, member):
-                self._authenticate_proposal(AnnotationReference(ref.layer, endpoint["local_id"]))
+                self._authenticate_proposal(member_reference(ref.product, endpoint["local_id"]))
             if not any(q["model_answer"]["state"] == "proposed" for q in questions):
                 raise ValueError("source-first relation has no proposed question answer")
         else:
@@ -512,7 +544,7 @@ class ContextualEvaluator:
         ):
             raise ValueError("selected model proposal has no private source-language standing")
         questions = [
-            self.resolve(AnnotationReference(ref.layer, key)) for key in node.get("premises", ())
+            self.resolve(member_reference(ref.product, key)) for key in node.get("premises", ())
         ]
         questions = [q for q in questions if q.get("kind") == "model.question"]
         if len(questions) != 1:
@@ -541,7 +573,7 @@ class ContextualEvaluator:
         for role in env.hypotheses:
             self._authenticate_role(role, env)
         for proposal in env.proposals:
-            if proposal.layer not in env.context_layers:
+            if proposal.product not in env.context_layers:
                 raise ValueError("model proposal is outside selected context revisions")
             self._authenticate_proposal(proposal)
             if not set(self._requirements(proposal, self.resolve(proposal))) <= set(env.choices):
@@ -550,7 +582,7 @@ class ContextualEvaluator:
             binder = self.resolve(binding.binder, "terms")
             if (
                 binder["kind"] != "binder"
-                or binding.variable.layer != binding.binder.layer
+                or binding.variable.product != binding.binder.product
                 or not any(
                     e["role"] == "variable" and e.get("target") == binding.variable.local_id
                     for e in binder["children"]
@@ -644,7 +676,7 @@ class ContextualEvaluator:
         cue_ids = {
             key
             for key in direct
-            if self.resolve(AnnotationReference(proposal.layer, key))
+            if self.resolve(member_reference(proposal.product, key))
             .get("model_answer", {})
             .get("question_key", "")
             .endswith("cue")
@@ -667,17 +699,17 @@ class ContextualEvaluator:
         }
         fields = {}
         for prior in self._model_questions.get(
-            (proposal.layer, question["model_answer"]["family"]), ()
+            (proposal.product, question["model_answer"]["family"]), ()
         ):
             answer = prior["model_answer"]
             if answer["question_key"] not in roles:
                 continue
             if prior["local_id"] not in direct and not set(answer.get("depends_on", ())) & anchors:
                 continue
-            offered = self._model_proposals.get((proposal.layer, prior["local_id"]), ())
+            offered = self._model_proposals.get((proposal.product, prior["local_id"]), ())
             if len(offered) != 1:
                 continue
-            ref = AnnotationReference(proposal.layer, offered[0]["local_id"])
+            ref = member_reference(proposal.product, offered[0]["local_id"])
             self._authenticate_proposal(ref)
             applicable = self._assuming(env, self._requirements(ref, offered[0]))
             self.authenticate(applicable)
@@ -769,7 +801,7 @@ class ContextualEvaluator:
         )
         return key
 
-    def evaluate(self, ref: AnnotationReference, env: Environment, *, depth=0) -> str:
+    def evaluate(self, ref: MemberReference, env: Environment, *, depth=0) -> str:
         self.authenticate(env)
         self.check_active()
         cache = (ref, env)
@@ -798,7 +830,7 @@ class ContextualEvaluator:
                     env,
                     bindings=(
                         *env.bindings,
-                        Binding(AnnotationReference(ref.layer, variable), ref),
+                        Binding(member_reference(ref.product, variable), ref),
                     ),
                 )
             attribution_env = (
@@ -816,7 +848,7 @@ class ContextualEvaluator:
                     else env
                 )
                 if "target" in edge:
-                    target = AnnotationReference(ref.layer, edge["target"])
+                    target = member_reference(ref.product, edge["target"])
                     child = self.evaluate(target, inherited, depth=depth + 1)
                     children.append(
                         dict(
@@ -829,19 +861,19 @@ class ContextualEvaluator:
                 else:
                     group = next(
                         g
-                        for g in self.payloads[ref.layer]["choices"]
+                        for g in self.payloads[ref.product]["choices"]
                         if g["local_id"] == edge["choice_group"]
                     )
                     selected = [
                         m
                         for m in group["members"]
-                        if AnnotationReference(ref.layer, m["local_id"]) in env.choices
+                        if member_reference(ref.product, m["local_id"]) in env.choices
                     ]
                     if len(selected) > 1:
                         raise ValueError("single-valued symbolic site has several selected roots")
                     if selected:
                         child = self.evaluate(
-                            AnnotationReference(ref.layer, selected[0]["root"]),
+                            member_reference(ref.product, selected[0]["root"]),
                             inherited,
                             depth=depth + 1,
                         )
@@ -849,17 +881,17 @@ class ContextualEvaluator:
                     else:
                         gid = identity(
                             "evaluated-site",
-                            [ref.layer.values(), group["local_id"], inherited.values()],
+                            [ref.product.values(), group["local_id"], inherited.values()],
                         )
                         members = []
                         for member in group["members"]:
-                            upstream = AnnotationReference(ref.layer, member["local_id"])
+                            upstream = member_reference(ref.product, member["local_id"])
                             branch = self._assuming(
                                 inherited, (upstream, *self._requirements(upstream, member))
                             )
                             try:
                                 child = self.evaluate(
-                                    AnnotationReference(ref.layer, member["root"]),
+                                    member_reference(ref.product, member["root"]),
                                     branch,
                                     depth=depth + 1,
                                 )
@@ -990,7 +1022,7 @@ class ContextualEvaluator:
             original_owner = self._endpoint(owner)
             owner_node = self.resolve(original_owner)
             matches = original_owner == ref or (
-                original_owner.layer == ref.layer
+                original_owner.product == ref.product
                 and owner_node.get("kind") == "construction"
                 and ref in self._membership_members.get((original_owner, "meaning"), ())
             )
@@ -1046,7 +1078,7 @@ class ContextualEvaluator:
                     else "meaning.reference",
                 )
 
-    def payload(self, release_id, scope, operation, roots, env):
+    def facts(self, scope, operation, roots, env):
         self.authenticate(env)
         if not roots:
             roots = self.default_roots(env)
@@ -1110,9 +1142,9 @@ class ContextualEvaluator:
             )
             self.terms[term]["family"] = target_family
             question = next(
-                self.resolve(AnnotationReference(proposal.layer, key))
+                self.resolve(member_reference(proposal.product, key))
                 for key in node["premises"]
-                if self.resolve(AnnotationReference(proposal.layer, key)).get("kind")
+                if self.resolve(member_reference(proposal.product, key)).get("kind")
                 == "model.question"
             )
             answer = question["model_answer"]
@@ -1166,7 +1198,7 @@ class ContextualEvaluator:
             for pin, body in self.payloads.items()
             if pin in self.symbolic_layers
             and pin not in env.context_layers
-            and body["operation"]["key"] == "text.constructions"
+            and (isinstance(pin,DataProductReference) or body["operation"]["key"] == "text.constructions")
         ]
         if not symbolic and not roots:
             self._mark(
@@ -1232,21 +1264,7 @@ class ContextualEvaluator:
                 )
             )
         return dict(
-            format="characterization-layer-v1",
-            base_document=self.base.values(),
-            release_id=release_id,
-            source_scope=scope,
-            operation={
-                **operation,
-                "produced_families": list(EVALUATION_FAMILIES),
-                "required_layers": [p.values() for p in self.layers],
-                "outcomes": ["complete", "partial", "failed"],
-                "preconditions": ["exact-symbolic-context-and-choice-closure"],
-                "effects": ["retain-primary-contextual-meaning; preserve-private-standing"],
-                "result_determinants": ["runtime", "grammar", "configuration", "input", "context"],
-            },
             outcome="partial" if self.diagnostics else "complete",
-            dependencies=[p.values() for p in self.layers],
             coverage=rows,
             occurrences=list(self.output_occurrences.values()),
             terms=list(self.terms.values()),
@@ -1254,6 +1272,17 @@ class ContextualEvaluator:
             annotations=[],
             memberships=[],
             roles=list(self.roles.values()),
+        )
+
+    def payload(self,release_id,scope,operation,roots,env):
+        if not isinstance(self.base,LegacyProductPin):
+            raise ValueError("source-native evaluator facts require their nominal product projection")
+        return dict(
+            format="characterization-layer-v1",base_document=self.base.values(),release_id=release_id,
+            source_scope=scope,
+            operation={**operation,"produced_families":list(EVALUATION_FAMILIES),"required_layers":[pin.values() for pin in self.layers],"outcomes":["complete","partial","failed"],"preconditions":["exact-symbolic-context-and-choice-closure"],"effects":["retain-primary-contextual-meaning; preserve-private-standing"],"result_determinants":["runtime","grammar","configuration","input","context"]},
+            dependencies=[pin.values() for pin in self.layers],
+            **self.facts(scope,operation,roots,env),
         )
 
     def finish(self, prepared, scope, operation, roots, env, *, releases=None):

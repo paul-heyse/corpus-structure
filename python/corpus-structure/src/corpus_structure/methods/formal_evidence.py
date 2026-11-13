@@ -265,7 +265,7 @@ class FormalEvidenceOperation:
                 "support": {
                     "provenance": "value_substitution",
                     "identity_requirements": [],
-                    "origins": ["original-source"],
+                    "origins": ["computation", "original-source"],
                     "source": "original-source",
                     "coverage": "selected-scope",
                 },
