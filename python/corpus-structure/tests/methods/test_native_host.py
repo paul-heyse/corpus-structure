@@ -660,3 +660,35 @@ def test_parser_startup_pool_roster_is_observation_but_thread_count_is_a_contrac
     unknown = deepcopy(observed)
     unknown["native_threads"]["new_semantic_thread_field"] = 4
     assert not admitted_startup_matches(unknown, admitted)
+
+
+def test_real_host_result_retains_matched_physical_execution_identity(physical_host):
+    from hashlib import sha256
+    selected = selection()
+    host = physical_host(selected)
+    first = host.infer_result(selected, {"value": "one"}, check_active=lambda: None)
+    second = host.infer_result(selected, {"value": "two"}, check_active=lambda: None)
+    assert first.payload == {"value": "one"}
+    assert first.receipt.host_generation == second.receipt.host_generation == host.generation
+    assert first.receipt.request_id != second.receipt.request_id
+    assert first.receipt.provider == selected.provider
+    assert first.receipt.profile == selected.native.fingerprint
+    assert first.receipt.runtime == sha256(selected.runtime).hexdigest()
+    assert first.receipt.input_digest == native_host.payload_digest({"value": "one"})
+    assert first.receipt.output_digest == native_host.payload_digest(first.payload)
+
+
+def test_host_receipt_hashes_written_frame_even_if_caller_changes_payload(physical_host):
+    selected = selection()
+    host = physical_host(selected)
+    payload = {"value": "original"}
+    checks = []
+
+    def active():
+        checks.append(True)
+        if len(checks) > 1:
+            payload["value"] = "changed after submission"
+
+    result = host.infer_result(selected, payload, check_active=active)
+    assert result.payload == {"value": "original"}
+    assert result.receipt.input_digest == native_host.payload_digest({"value": "original"})

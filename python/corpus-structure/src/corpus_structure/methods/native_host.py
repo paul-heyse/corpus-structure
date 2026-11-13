@@ -11,6 +11,7 @@ import time
 from concurrent.futures import CancelledError, Future, TimeoutError
 from contextlib import ExitStack, suppress
 from dataclasses import dataclass
+from hashlib import sha256
 from queue import Queue
 from threading import BoundedSemaphore, Event, Lock, Thread, current_thread
 from uuid import uuid4
@@ -55,6 +56,31 @@ def host_request_frame_size(selection, payload, limit):
     # Generation/request IDs have fixed-width ASCII representations; admission uses
     # the exact encoder and full header before any transport buffer is allocated.
     return len(encode_host_frame(inference_frame("0" * 32, "0" * 32, selection, payload), limit))
+
+
+def payload_digest(payload) -> str:
+    return sha256(json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class NativeExecutionReceipt:
+    """Matched private-host response custody, separate from semantic request identity."""
+
+    host_generation: str
+    request_id: str
+    provider: str
+    profile: str
+    runtime: str
+    input_digest: str
+    output_digest: str
+
+
+@dataclass(frozen=True)
+class NativeHostResult:
+    """One native payload with its exact authenticated transport association."""
+
+    payload: dict
+    receipt: NativeExecutionReceipt
 
 
 @dataclass
@@ -283,6 +309,9 @@ class NativeHost:
             pending.future.set_exception(kind(str(message.get("message", message["kind"]))[:1800]))
 
     def infer(self, selection, payload, *, check_active, timeout=120.0):
+        return self.infer_result(selection, payload, check_active=check_active, timeout=timeout).payload
+
+    def infer_result(self, selection, payload, *, check_active, timeout=120.0):
         check_active()
         permit = self._permits[selection.provider]
         if not permit.acquire(blocking=False):
@@ -293,6 +322,15 @@ class NativeHost:
                 inference_frame(self.generation, request_id, selection, payload),
                 self.policy.max_native_request_bytes,
             )
+            # Payload is the final field of the owned frame schema. Hash its
+            # actual encoded slice, rather than caller-owned objects after wait.
+            prefix = encode_host_frame(
+                inference_frame(self.generation, request_id, selection, None),
+                self.policy.max_native_request_bytes,
+            )[:-6]
+            if not frame.startswith(prefix):
+                raise Pm2WorkerError("native inference frame header differs from its receipt")
+            input_digest = sha256(memoryview(frame)[len(prefix):-2]).hexdigest()
         except BaseException:
             permit.release()
             raise
@@ -319,7 +357,11 @@ class NativeHost:
                     reply = future.result(timeout=0.1)
                     if cancelled is not None:
                         raise cancelled
-                    return reply
+                    return NativeHostResult(reply, NativeExecutionReceipt(
+                        self.generation, request_id, selection.provider,
+                        selection.native.fingerprint, sha256(selection.runtime).hexdigest(),
+                        input_digest, payload_digest(reply),
+                    ))
                 except TimeoutError:
                     if time.monotonic() >= deadline:
                         raise Pm2WorkerError("native host inference timed out") from None
@@ -504,6 +546,12 @@ class NativeHostGroup:
     def infer(self, selection, payload, check_active, *, timeout=120.0):
         self.startup(selection, check_active)
         return self._hosts[selection.native.host].infer(
+            selection, payload, check_active=check_active, timeout=timeout
+        )
+
+    def infer_result(self, selection, payload, check_active, *, timeout=120.0):
+        self.startup(selection, check_active)
+        return self._hosts[selection.native.host].infer_result(
             selection, payload, check_active=check_active, timeout=timeout
         )
 

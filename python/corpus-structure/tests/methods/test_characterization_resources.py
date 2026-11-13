@@ -46,6 +46,7 @@ def runtime(monkeypatch):
         def __init__(self, policy):
             self._selections, self.workers = {}, {}
             self._serving, self.endpoint = False, None
+            self.receipt_count = 0
 
         def declare(self, selections):
             for selected in selections:
@@ -69,6 +70,17 @@ def runtime(monkeypatch):
         def infer(self, selected, payload, active):
             self.startup(selected, active)
             return self.workers[selected.native.fingerprint].infer(payload, check_active=active)
+
+        def infer_result(self, selected, payload, active):
+            from hashlib import sha256
+            from corpus_structure.methods.native_host import NativeExecutionReceipt, NativeHostResult, payload_digest
+            result = self.infer(selected, payload, active)
+            self.receipt_count += 1
+            return NativeHostResult(result, NativeExecutionReceipt(
+                "controlled-test-generation", str(self.receipt_count),
+                selected.provider, selected.native.fingerprint, sha256(selected.runtime).hexdigest(),
+                payload_digest(payload), payload_digest(result),
+            ))
 
         def close(self):
             for worker in self.workers.values():
@@ -312,7 +324,7 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
 
         def prepare_members(self, pack, inputs, **kwargs):
             calls.append(("prepare", tuple(item.context_id for item in inputs)))
-            return tuple(
+            result = tuple(
                 GlinerAdmission(
                     i,
                     item.context_id,
@@ -322,9 +334,21 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
                 )
                 for i, item in enumerate(inputs)
             )
+            self.receipt("prepare", inputs, kwargs)
+            return result
+
+        def receipt(self, phase, inputs, options):
+            from corpus_structure.methods.native_host import NativeExecutionReceipt, payload_digest
+            from hashlib import sha256
+            sink = options.get("receipt_sink")
+            if sink is not None:
+                sink(NativeExecutionReceipt("controlled-gliner-generation", phase, "gliner",
+                    self.selection.native.fingerprint, sha256(self.selection.runtime).hexdigest(),
+                    payload_digest([item.context_id for item in inputs]), payload_digest({"phase": phase})))
 
         def extract(self, pack, inputs, **kwargs):
             calls.append(("infer", tuple(item.context_id for item in inputs)))
+            self.receipt("infer", inputs, kwargs)
             return tuple(Report(item.context_id) for item in inputs)
 
         def close(self):
@@ -375,6 +399,11 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
     good.future.result(timeout=5)
     assert native_bad.collect().error_type == "GlinerRefused"
     assert good.collect().reports == (Report("good"),)
+    receipt = good.collect().execution_receipt
+    assert receipt is not None
+    assert receipt.member_offset == 1 and receipt.member_count == 1
+    assert len(receipt.cohort_members) == 2
+    assert [physical.request_id for physical in receipt.physical] == ["prepare", "infer"]
     assert calls == [("prepare", ("native-refused", "good")), ("infer", ("good",))]
     native_bad.retire()
     good.retire()
@@ -708,3 +737,83 @@ def test_host_frame_fits_full_multiplex_identity_at_exact_boundary(runtime):
     handles[0].flush()
     assert [result(handle)["batch"][0]["state"] for handle in handles] == ["a" * 2000, "b" * 2000]
     assert len(opened[0].requests) == 1
+
+
+def test_logical_provider_member_receipt_keeps_native_order_and_exact_fence(runtime):
+    execution, _, _ = runtime
+    selected = selection("d1")
+    from corpus_structure.methods.native_host import payload_digest
+    members = [dict(state={"value": 2}), dict(state={"value": 1})]
+    logical = resources.LogicalProviderMember("request:one", 3, 17, 2, "member:one", 0, 2, payload_digest(members))
+    work = resources.PM2Work(selected, resources.ordered_native_bytes({"batch": members}), "correlation:one", (), (logical,))
+    handle = execution.try_submit(work)
+    assert handle is not None
+    handle.flush()
+    handle.future.result(timeout=5)
+    reply = handle.collect()
+    assert reply is not None
+    receipt = reply.execution_receipt
+    assert receipt is not None
+    assert receipt.logical_members == (logical,)
+    assert receipt.member_offset == 0 and receipt.member_count == 2
+    assert receipt.native_member_digests == tuple(payload_digest(member) for member in members)
+    assert receipt.physical[0].profile == selected.native.fingerprint
+    bad = replace(receipt, member_offset=1)
+    with pytest.raises(ValueError, match="member range"):
+        resources._execution_receipt(work, bad.physical, cohort=bad.cohort_digest, offset=bad.member_offset,
+            cohort_members=bad.cohort_members, work_members=bad.work_members)
+    handle.retire()
+    with pytest.raises(ValueError, match="ordered native input"):
+        execution.try_submit(replace(work, logical_members=(replace(logical, input_digest=payload_digest(list(reversed(members)))),)))
+
+
+@pytest.mark.parametrize("field", ["profile", "input_digest", "output_digest"])
+def test_provider_lane_refuses_mismatched_physical_receipt(runtime, monkeypatch, field):
+    execution, _, _ = runtime
+    actual = execution.native_group.infer_result
+
+    def changed(*args, **kwargs):
+        result = actual(*args, **kwargs)
+        return replace(result, receipt=replace(result.receipt, **{field: "foreign"}))
+
+    monkeypatch.setattr(execution.native_group, "infer_result", changed)
+    work = resources.PM2Work(selection(), b'{"input":"retained"}', "original", ())
+    handle = execution.try_submit(work)
+    assert handle is not None
+    handle.flush()
+    handle.future.result(timeout=5)
+    reply = handle.collect()
+    assert reply is not None
+    with pytest.raises(resources.Pm2WorkerError, match="receipt differs"):
+        _ = reply.payload
+    handle.retire()
+
+
+def test_coalesced_logical_requests_share_host_receipt_with_distinct_exact_ranges(runtime):
+    execution, _, _ = runtime
+    from corpus_structure.methods.native_host import payload_digest
+    selected = selection("d1")
+    handles = []
+    for ordinal in (2, 1):
+        value = [{"state": {"ordinal": ordinal}}]
+        member = resources.LogicalProviderMember(f"request:{ordinal}", 1, ordinal, 1, "one", 0, 1, payload_digest(value))
+        work = resources.PM2Work(selected, resources.ordered_native_bytes({"batch": value}), f"work:{ordinal}", (), (member,))
+        handle = execution.try_submit(work)
+        assert handle is not None
+        handles.append(handle)
+    handles[0].flush()
+    for handle in handles:
+        handle.future.result(timeout=5)
+    receipts = []
+    for handle in handles:
+        reply = handle.collect()
+        assert reply is not None
+        receipt = reply.execution_receipt
+        assert receipt is not None
+        receipts.append(receipt)
+    assert [receipt.member_offset for receipt in receipts] == [0, 1]
+    assert receipts[0].physical == receipts[1].physical
+    assert receipts[0].cohort_digest == receipts[1].cohort_digest
+    assert receipts[0].native_member_digests != receipts[1].native_member_digests
+    for handle in handles:
+        handle.retire()
