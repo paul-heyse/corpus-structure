@@ -409,3 +409,23 @@ classes:
       local_id:
         required: true
         pattern: ^.+$
+  DdoFormalAlternative:
+    is_a: DdoFormalChoiceMember
+    mixins:
+    - DdoFormalMember
+    attributes:
+      record_type:
+        required: true
+        equals_string: choice_member
+      group_id:
+        required: true
+        pattern: ^.+$
+    slot_usage:
+      external_premises:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+      required_external_choices:
+        minimum_cardinality: 0
+        maximum_cardinality: 0
+    annotations:
+      cs:data_universe: source

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+import json
 from typing import Any
 
 from corpus_structure.semantic.characterization import occurrence_id, validate_layer
@@ -10,6 +12,46 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 from .declarations import DECLARATIONS, FAMILIES, GRAMMAR_FAMILIES, MODAL_FORCES, REVISION
 from .forest import ProtectedAtom, identity, recognize
+from .lexical import PositionedTerminal
+
+
+@dataclass(frozen=True)
+class ConstructionSource:
+    """An owned source-coordinate snapshot; no physical source-view/task surrogate."""
+    content: bytes
+
+    @classmethod
+    def from_native(cls, source):
+        return cls(canonical_bytes(source.value))
+
+    @property
+    def value(self):
+        return json.loads(self.content)
+
+    @property
+    def text(self):
+        return self.value["text"]
+
+    @property
+    def pieces(self):
+        return tuple(self.value["pieces"])
+
+    @property
+    def projection(self):
+        return self.value["source"]["projection"]
+
+    @property
+    def key(self):
+        from ..source_products import source_subject
+        return source_subject(self.value["source"])
+
+
+def _source_projection(view):
+    return view.projection if isinstance(view,ConstructionSource) else view.ref.projection_digest
+
+
+def _source_key(view):
+    return view.key if isinstance(view,ConstructionSource) else view.ref.id
 
 
 class ConstructionLayer:
@@ -20,8 +62,10 @@ class ConstructionLayer:
         operation: Mapping[str, Any],
         *,
         families=FAMILIES,
+        semantic: bool = False,
     ):
         self.base, self.scope = dict(base), dict(scope)
+        self.semantic = semantic
         self.families = tuple(families)
         self.operation = {
             **operation,
@@ -42,7 +86,7 @@ class ConstructionLayer:
     def occurrence(self, view, start: int, end: int) -> str:
         if not 0 <= start <= end <= len(view.text):
             raise ValueError("construction extent lies outside its source projection")
-        extents = []
+        extents: list[dict[str,Any]] = []
         for piece in view.pieces:
             a, b = max(start, piece["start"]), min(end, piece["end"])
             if a < b or (start == end and piece["start"] <= start <= piece["end"]):
@@ -55,8 +99,8 @@ class ConstructionLayer:
                 if pointer is None:
                     raise ValueError("construction source piece has no native address")
                 extent = dict(
-                    projection=view.ref.projection_digest,
-                    source_view_id=view.ref.id,
+                    projection=_source_projection(view),
+                    **({} if self.semantic else {"source_view_id":_source_key(view)}),
                     native_pointer=pointer,
                     start=a,
                     end=b,
@@ -103,16 +147,18 @@ class ConstructionLayer:
         atoms: Sequence[ProtectedAtom] = (),
         *,
         max_chars: int = 4096,
+        terminals: tuple[PositionedTerminal, ...] | None = None,
         parse_seconds: float = 2.0,
         check_active=lambda: None,
     ):
-        selector = dict(projection=view.ref.projection_digest, start=start, end=end)
+        selector = dict(projection=_source_projection(view), start=start, end=end)
         result = recognize(
             view.text[start:end],
             tuple(atoms),
-            region=f"{view.ref.id}:{start}:{end}",
+            region=f"{_source_key(view)}:{start}:{end}",
             offset=start,
             max_chars=max_chars,
+            terminals=terminals,
             parse_seconds=parse_seconds,
             check_active=check_active,
         )
@@ -244,7 +290,7 @@ class ConstructionLayer:
                     )
         if result.root:
             root = identity(
-                "root", [view.ref.id, start, end, result.root.target, result.root.choice_group]
+                "root", [_source_key(view), start, end, result.root.target, result.root.choice_group]
             )
             self.terms[root] = dict(
                 local_id=root,
@@ -725,7 +771,8 @@ class ConstructionLayer:
                         external_premises=external,
                     )
 
-    def payload(self, release_id: str, dependencies=()):
+    def facts(self):
+        """Shared semantic inventory; released legacy envelope is a separate projection."""
         grouped = {}
         for row in self.coverage:
             grouped.setdefault(row["family"], []).append(row)
@@ -805,11 +852,6 @@ class ConstructionLayer:
                 )
             )
         return dict(
-            format="characterization-layer-v1",
-            base_document=self.base,
-            release_id=release_id,
-            operation=self.operation,
-            source_scope=self.scope,
             outcome="complete"
             if all(r["outcome"] in {"complete", "empty"} for r in coverage)
             else "partial",
@@ -820,7 +862,17 @@ class ConstructionLayer:
             terms=list(self.terms.values()),
             choices=list(self.choices.values()),
             coverage=coverage,
+        )
+
+    def payload(self, release_id: str, dependencies=()):
+        return dict(
+            format="characterization-layer-v1",
+            base_document=self.base,
+            release_id=release_id,
+            operation=self.operation,
+            source_scope=self.scope,
             dependencies=list(dependencies),
+            **self.facts(),
         )
 
     def finish(self, prepared, *, dependencies=None, releases=None):

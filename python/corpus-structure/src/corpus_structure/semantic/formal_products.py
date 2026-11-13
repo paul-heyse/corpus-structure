@@ -57,6 +57,8 @@ _INVENTORIES = (
     ("choices", "choice"),
 )
 
+_MEMBER_VARIANTS = (*_INVENTORIES, ("choice_members", "choice_member"))
+
 
 def formal_product_inputs(
     bundle: SourceBundle, *, model_content: bytes | None = None
@@ -152,7 +154,7 @@ class FormalEvidenceProduct:
 
     @property
     def members(self) -> tuple[FormalMember, ...]:
-        inventory = {kind: name for name, kind in _INVENTORIES}
+        inventory = {kind: name for name, kind in _MEMBER_VARIANTS}
         return tuple(
             FormalMember(
                 row.member_id,
@@ -171,7 +173,8 @@ class FormalEvidenceProduct:
         result = {name: [] for name, _ in _INVENTORIES}
         by_kind = {kind: name for name, kind in _INVENTORIES}
         for packet in body["members"]:
-            result[by_kind[packet["body"]["record_type"]]].append(packet["body"])
+            if packet["body"]["record_type"] != "choice_member":
+                result[by_kind[packet["body"]["record_type"]]].append(packet["body"])
         return {**result, "coverage": body["coverage"]}
 
 
@@ -208,7 +211,12 @@ def validate_formal_product(
         if packet["member_id"] in seen:
             raise ValueError("formal packet repeats member identity")
         seen.add(packet["member_id"])
-        data[by_kind[packet["body"]["record_type"]]].append(packet["body"])
+        if packet["body"]["record_type"] != "choice_member":
+            data[by_kind[packet["body"]["record_type"]]].append(packet["body"])
+    expected_alternatives={member["local_id"]:dict(record_type="choice_member",group_id=group["local_id"],**member) for group in data["choices"] for member in group["members"]}
+    actual_alternatives={packet["member_id"]:packet["body"] for packet in checked["members"] if packet["body"]["record_type"]=="choice_member"}
+    if actual_alternatives!=expected_alternatives:
+        raise ValueError("formal alternative member projection differs from its owning packed group")
     indexes = {name: {row["local_id"]: row for row in rows} for name, rows in data.items()}
     all_nodes = {key: row for index in indexes.values() for key, row in index.items()}
     choices = {}
@@ -369,7 +377,7 @@ def formal_member_contracts(
         if discriminator is None or discriminator in result:
             raise ValueError("formal packet variants require unique declared kind correspondence")
         result[discriminator] = identities[definition.iri, "kind"]
-    if set(result) != {kind for _, kind in _INVENTORIES}:
+    if set(result) != {kind for _, kind in _MEMBER_VARIANTS}:
         raise ValueError("formal member contracts differ from the actual produced inventories")
     return result
 
@@ -531,8 +539,10 @@ def formal_product_values(
         for family in FAMILIES
     ]
     members = []
-    for inventory, kind in _INVENTORIES:
-        values = getattr(builder, inventory)
+    records={name:getattr(builder,name) for name,_ in _INVENTORIES}
+    records["choice_members"]=[dict(group_id=group["local_id"],**member) for group in builder.choices.values() for member in group["members"]]
+    for inventory, kind in _MEMBER_VARIANTS:
+        values = records[inventory]
         rows = values.values() if isinstance(values, dict) else values
         for row in rows:
             members.append(
@@ -658,6 +668,7 @@ def formal_profile_assets() -> SourceArtifact:
             Path(__file__).read_bytes(),
             (
                 "_INVENTORIES",
+                "_MEMBER_VARIANTS",
                 "_RecognizerSource",
                 "FormalEvidenceOptions",
                 "FormalEvidenceProduct",

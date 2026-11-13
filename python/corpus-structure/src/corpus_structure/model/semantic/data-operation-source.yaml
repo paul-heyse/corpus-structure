@@ -87,3 +87,19 @@ classes:
       items: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
       recognition: {range: DdoNativeSourceRecognition, inlined: true, multivalued: true}
       selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoCharacterizedProduct:
+    is_a: SourceRecordProduct
+    abstract: true
+    description: Retained factual or interpreted characterization over one original
+      source and an explicit selected scope. Concrete nominal products own their
+      source or ordinary authority and their actual constituent representation.
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
