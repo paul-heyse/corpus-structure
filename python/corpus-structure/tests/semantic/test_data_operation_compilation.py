@@ -14,6 +14,7 @@ from corpus_structure.semantic.data_operation_compilation import (
     compile_data_operations,
     project_operation_binding,
 )
+from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
     BoundRoleMember,
@@ -409,7 +410,7 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         "urn:test:derive",
         "subject:one",
         (ResolvedRoleBinding("source", "present", (member,), witness),),
-        canonical_bytes({}),
+        canonical_bytes(semantic_value({})),
         "inference:one",
         canonical_bytes({"permission": "admitted"}),
         canonical_bytes({"trust": "selected"}),

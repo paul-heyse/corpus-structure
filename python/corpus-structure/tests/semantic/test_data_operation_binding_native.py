@@ -79,7 +79,14 @@ def row(value: Any, *, product=None, member=None, kind="integer") -> dict[str, A
         "position": value if isinstance(value, int) else 0,
         "multiplicity": 1,
         "body": {"value": value, "base": "b", "member": member or f"m{value}"},
-        "meaning_body": ["mapping", [["base", ["string", "b"]], ["value", value_tag]]],
+        "meaning_body": [
+            "mapping",
+            [
+                ["base", ["string", "b"]],
+                ["member", ["string", member or f"m{value}"]],
+                ["value", value_tag],
+            ],
+        ],
     }
 
 
@@ -375,3 +382,38 @@ def test_native_population_projection_separates_semantics_and_receipt(binding_na
     exact = connection.scalar(query, {"w": json.dumps(witness), "exact": True})
     assert plain == {"identity": "population:stable", "complete": True, "members": ["m2"]}
     assert exact == {**plain, "support_episodes": ["episode:one"]}
+
+
+@pytest.mark.db
+def test_native_declared_property_wins_over_physical_header_and_typed_parameters(
+    binding_native_connection,
+):
+    connection = binding_native_connection
+    facts = context(2)
+    facts["model"]["kinds"].append(
+        {
+            "semantic_id": "urn:item/property/subject",
+            "category": "property",
+            "facts": {"json": {"range": "primitive:string"}},
+        }
+    )
+    facts["roles"]["items"][0]["meaning_body"][1].append(
+        ["subject", ["string", "linguistic-subject"]]
+    )
+    node = {
+        "operator": "literal",
+        "fields": [field(name="subject", value_type="string")["field"]],
+        "value": {"json": ["string", "linguistic-subject"]},
+    }
+    assert facts["roles"]["items"][0]["subject"] == "doc"
+    assert evaluate(connection, node, facts) is True
+    facts["parameters"] = {"sign": 0.0}
+    facts["parameter_meaning"] = ["mapping", [["sign", ["float", "-0x0.0p+0"]]]]
+    values = connection.scalar(
+        text("SELECT ops.ddo_binding_values(CAST(:operand AS jsonb),CAST(:facts AS jsonb))"),
+        {
+            "operand": json.dumps({"kind": "parameter", "name": "sign", "value_type": "float"}),
+            "facts": json.dumps(facts),
+        },
+    )
+    assert values == [["float", "-0x0.0p+0"]]
