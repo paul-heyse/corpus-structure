@@ -205,18 +205,28 @@ class _InvocationExecution:
         )
         self.native_hosts = NativeHostResidency(executor.policy, executor.nemotron_endpoint)
         self.executor = executor
+        self._selected_operations = None
 
     def __enter__(self):
         try:
             self.cpu.prepare()
-            # Declare the frozen resident closure before any host starts serving.
-            for operation in self.executor.capability_factories:
-                port = self.executor._port(operation)
-                self.native_hosts.declare(port.native_selections)
         except BaseException:
             self.__exit__()
             raise
         return self
+
+    def select_operations(self, operations):
+        """Declare only the native-admitted demand closure, before first serving."""
+        selected = tuple(sorted(operations))
+        if self._selected_operations is not None:
+            if selected != self._selected_operations:
+                raise PortRefusal("native demand changed its frozen operation closure")
+            return
+        for operation in selected:
+            if operation in self.executor.capability_factories:
+                port = self.executor._port(operation)
+                self.native_hosts.declare(port.native_selections)
+        self._selected_operations = selected
 
     def __exit__(self, *error):
         failures = []
@@ -847,6 +857,9 @@ class NativeDemandExecutor:
                                             )
                                             seen_discovered.add(identity)
                                             progress = True
+                        physical.select_operations(
+                            item["operation"] for item in page["selection"]["operations"]
+                        )
                         settled, selected, fulfilled, errors = self._drive_page(
                             page, authorization, owner
                         )

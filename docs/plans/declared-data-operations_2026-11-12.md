@@ -489,11 +489,51 @@ execution of the approved remaining DDO-03–05, DDO-06 and DDO-07 scope.
   four-field member packets. The spaCy product retains available language columns from the same
   inference; a separate declared canonical-sentence projection excludes native-label-only changes
   from canonical downstream input identity. Actual CUDA profile controls passed 67/67,
-  `8bf9402cc7a7458281a5a1fcc6e4df78`, with retained source/context. Full ancestry/table context,
-  independent HanLP, constructions/context/composition and the other DDO-07 families remain active.
+  `8bf9402cc7a7458281a5a1fcc6e4df78`, with retained source/context. Full ancestry/table context
+  is integrated. Independent HanLP, constructions/context/composition and the other DDO-07
+  families remain active.
 
-Frozen `semantic_ddo_population_v1` follows `semantic_ddo_renewal_v1` through the normal
-rollback-only chain; [authoring custody](../design_review/evidence/2026-11-13_ddo-population-and-cancellation/README.md).
+- **Continuing execution · 2026-11-13.** The scalar CPU path and prepared kernels share the
+  actual owned CPU process scope, including cooperative cancellation. Native callback concurrency
+  uses its configured provider limit independently of CPU worker count. Reversible NLP residency
+  drains real host generations before a PDF GPU borrower and allows later generations; unproven
+  PDF retirement cannot be cleared by successful NLP teardown. Actual process/capacity handoff
+  controls **passed 2/2**, `801e7e0c939c4014a4edea45aaa13871`; byte-credit controls **passed 2/2**,
+  `15940a8fe8e14ff5bc894b7c30583bc9`. Neither establishes complete GPU/provider qualification.
+- Native admission projection now preserves the exact archived role representation, including
+  modern default support origins; historical v1 keeps its original omission. Actual isolated
+  execution exposed the omission (`612d252855234670a3200e9a470efd69`) after a callable fixture's
+  nominal integer mismatch was corrected. These are retained failures, not native closure.
+- Complete original-source target publication also exposed a whole-archive JSONB transport object
+  exceeding PostgreSQL's aggregate limit (`7aec18be673345d1b3804674864fc53e`). The model remains
+  complete. [ADR-0098](../adr/0098-typed-release-archive.md) owns model-declared binary COPY staging
+  and atomic native finalization; the existing durable archive and reader meaning are preserved.
+  The [combined successor](../design_review/evidence/2026-11-13_ddo-archive-composition/README.md)
+  owns normal authoring and affected native retesting. Generated call/column outputs were derived
+  through their actual owning generators; model-change preview owns the canonical model outputs,
+  not those separate call wrappers.
+- [ADR-0097](../adr/0097-ddo-native-composition.md) supplies concrete nominal input refinement
+  from captured inheritance and owned identifier paths such as `/source/document`. Queries,
+  request identities and native population selection retain actual concrete kind contracts.
+  Pure binding/identity/source/consumer union **passed 78/78**, `e01d3b0e4212488b9417349bbe5dbf1f`;
+  nested owned-path controls **passed 6/6**, `fdf1c487d0574f1e8769ae91456dd63a`. Native refusal and
+  actual heterogeneous multi-source composition remain open.
+- Learned native spaCy columns and cheap canonical token/sentence products now have separate
+  nominal member contracts. Normalized family coverage remains distinct from native block/column
+  availability. The acquired CUDA/spawned canonical CPU union **passed 20/20**,
+  `1e17a92561984ec894654aa577290276`. The common prepared verifier checks the expected qualified
+  callable owner before code/source correspondence; substituted functions cannot authenticate
+  against themselves. Source profiling reuses one interval/layout algorithm in its target and
+  existing immediate consumer. These integrations do not close all DDO-07 families.
+- [ADR-0099](../adr/0099-runless-pdf-source-ownership.md) accepts actual raw-asset factual support,
+  genuine runless PDF claim context and sealed publisher custody separate from later admission.
+  Typed original-asset/context foundations and the completion envelope are integrated in source.
+  Native retention/publication must validate actual sealed PDF proof using the original intent
+  producer fence on adoption. The PDF-domain contract facet, actual raw-source-to-capture pipeline,
+  recognition and source discovery remain active; no legacy execution model or run is fabricated.
+
+Frozen `semantic_ddo_original_v1` follows `semantic_ddo_population_v1` through the normal
+rollback-only chain; [authoring custody](../design_review/evidence/2026-11-13_ddo-original-source-and-execution/README.md).
 The persistent database remains at `semantic_bep_located_v2`, unchanged until DDO-11.
 Candidate registration is not adoption, and later source changes require fresh adoption custody.
 

@@ -13,8 +13,8 @@ def reference_inputs(bundle):
     """Capture the shared nominal address shapes alongside their existing schema owner."""
     import yaml
 
-    from .types import SourceArtifact, SourceBundle
     from .observations import observation_inputs
+    from .types import SourceArtifact, SourceBundle
 
     if "observations" not in {source.name for source in bundle.sources}:
         bundle = observation_inputs(bundle)

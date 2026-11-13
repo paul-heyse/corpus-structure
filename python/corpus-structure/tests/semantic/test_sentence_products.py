@@ -197,13 +197,33 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     )
     original_tokens = product.inventory("token")
     assert all(
-        {"lemma", "pos", "tag", "morphology", "dependency", "lower", "is_alpha", "is_space", "is_punct", "is_quote", "like_num"}
+        {
+            "lemma",
+            "pos",
+            "tag",
+            "morphology",
+            "dependency",
+            "lower",
+            "is_alpha",
+            "is_space",
+            "is_punct",
+            "is_quote",
+            "like_num",
+        }
         <= token.keys()
         for token in original_tokens
     )
-    assert all(token["lower"] == text[token["start"] : token["end"]].lower() for token in original_tokens)
-    assert all(token["is_alpha"] == text[token["start"] : token["end"]].isalpha() for token in original_tokens)
-    assert all("lower" not in packet["body"] and "is_alpha" not in packet["body"] for packet in canonical["members"])
+    assert all(
+        token["lower"] == text[token["start"] : token["end"]].lower() for token in original_tokens
+    )
+    assert all(
+        token["is_alpha"] == text[token["start"] : token["end"]].isalpha()
+        for token in original_tokens
+    )
+    assert all(
+        "lower" not in packet["body"] and "is_alpha" not in packet["body"]
+        for packet in canonical["members"]
+    )
     assert all(token.get("head_ref") for token in original_tokens if token["dependency"])
     assert any(token["lemma"] for token in original_tokens)
     assert all(
