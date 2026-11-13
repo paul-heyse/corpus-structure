@@ -214,7 +214,26 @@ def effective_binding_parameters(
     """Apply declared defaults once, preserving missing versus explicit null."""
     params = dict(parameters or {})
     definitions = json.loads(operation.parameters)
+    nominal = any(
+        isinstance(definition, dict) and "kind" in definition for definition in definitions.values()
+    )
+    if nominal and params.keys() - definitions.keys():
+        raise ValueError("undeclared frozen nominal operation parameter")
     for name, definition in definitions.items():
+        if isinstance(definition, dict) and "kind" in definition:
+            from .data_operation_parameters import validate_nominal_parameter
+
+            if name not in params:
+                if "default" in definition:
+                    import copy
+
+                    params[name] = copy.deepcopy(definition["default"])
+                elif definition["required"]:
+                    raise ValueError("missing frozen demand parameter: " + name)
+                else:
+                    continue
+            validate_nominal_parameter(definition, params[name])
+            continue
         if not isinstance(definition, dict) or "value_type" not in definition:
             continue
         if name not in params and "default" in definition:

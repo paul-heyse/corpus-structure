@@ -417,11 +417,11 @@ def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:
     raise ValueError(f"no native body schema for effective kind {kind.semantic_id}")
 
 
-def _meaning_schema(prepared, kind, model) -> dict[str, Any]:
+def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> dict[str, Any]:
     """Constrain the typed meaning before JSON projection can erase numeric/type tags."""
     definitions: dict[str, Any] = {}
-    kinds = {item.semantic_id: item for item in model.kinds}
-    kinds.update({item.name: item for item in model.kinds})
+    kinds = {item.semantic_id: item for item in kind_records}
+    kinds.update({item.name: item for item in kind_records})
 
     def array(*items):
         return {
@@ -489,17 +489,26 @@ def _meaning_schema(prepared, kind, model) -> dict[str, Any]:
         }:
             return primitive(primitive_name)
         if current.category == "enum":
-            return tagged(
-                "string", {"type": "string", "enum": sorted(prepared.enum_members(current.name))}
-            )
-        if current.category != "class" or current.name not in prepared.index.definitions:
+            return tagged("string", {"type": "string", "enum": sorted(enum_members(current.name))})
+        if current.category != "class" or current.name not in class_definitions:
             raise ValueError(f"no native tagged body contract for {current.semantic_id}")
         key = current.name
         if key in definitions:
             return {"$ref": "#/definitions/" + key}
         definitions[key] = {}
+        definition = class_definitions[current.name]
+        if definition.abstract:
+            concrete = [
+                child
+                for child in class_definitions.values()
+                if current.name in child.ancestors and not child.abstract
+            ]
+            if not concrete:
+                raise ValueError("abstract meaning range has no concrete nominal members")
+            definitions[key] = {"anyOf": [build(kinds[child.iri]) for child in concrete]}
+            return {"$ref": "#/definitions/" + key}
         choices, required = [], []
-        for prop in prepared.index.definitions[current.name].properties:
+        for prop in definition.properties:
             target = kinds.get(prop.range)
             value = (
                 tagged("string", {"type": "string"})
@@ -536,6 +545,10 @@ def _meaning_schema(prepared, kind, model) -> dict[str, Any]:
         **body,
         "definitions": definitions,
     }
+
+
+def _meaning_schema(prepared, kind, model) -> dict[str, Any]:
+    return kind_meaning_schema(kind, model.kinds, prepared.index.definitions, prepared.enum_members)
 
 
 def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
@@ -599,6 +612,12 @@ def data_operation_definition_projection(
     from .data_operation_member_contracts import derive_member_kinds
 
     used = {role.kind for operation in model.operations for role in operation.roles}
+    used.update(
+        parameter["kind"]
+        for operation in model.operations
+        for parameter in json.loads(operation.parameters).values()
+        if isinstance(parameter, dict) and "kind" in parameter
+    )
     input_roots = {
         role.kind
         for operation in model.operations

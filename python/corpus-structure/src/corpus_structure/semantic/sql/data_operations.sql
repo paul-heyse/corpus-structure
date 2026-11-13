@@ -314,6 +314,10 @@ BEGIN
  WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operation_native_definitions.json'
  AND op->>'operation_id'=selected->>'operation' AND op->>'recipe'=selected->>'recipe'
  AND op->>'definition'=selected->>'definition' AND op->>'eligibility'=selected->>'eligibility')) THEN RAISE EXCEPTION 'demand differs from authenticated effective model/selection'; END IF;
+ PERFORM ops.ddo_validate_parameters(op,selected,convert_from(a.content,'UTF8')::jsonb)
+ FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') op
+ JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=op->>'semantic_id'
+ WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json';
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(p->'selection'->'operations') selected JOIN sem.data_operation_definition operation ON operation.release_id=p->>'release_id' AND operation.operation_id=selected->>'operation' CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF p->>'strength'='independent' THEN RAISE EXCEPTION 'independent strength requires declared distinct-episode replicate obligations' USING ERRCODE='23514'; END IF;
  IF p->>'strength'='episode' AND EXISTS(SELECT FROM sem.data_operation_definition op

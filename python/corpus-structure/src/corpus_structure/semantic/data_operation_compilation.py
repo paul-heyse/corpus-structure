@@ -1241,6 +1241,27 @@ def compile_data_operations(
                     surface.exposed, "supported operation invocation requires a return annotation"
                 )
             by_parameter = {parameter.name: parameter for parameter in surface.parameters}
+            for name, parameter in raw.get("parameters", {}).items():
+                if not isinstance(parameter, dict) or "kind" not in parameter:
+                    continue
+                if name not in by_parameter or name in mapped:
+                    _fail(
+                        surface.exposed,
+                        "nominal semantic parameter lacks a distinct callable parameter",
+                    )
+                parameter_kind = aliases.get(parameter["kind"], parameter["kind"])
+                annotation_kind(
+                    by_parameter[name].annotation,
+                    OperationRole(
+                        name,
+                        parameter_kind,
+                        "input",
+                        0,
+                        None,
+                        parameter.get("collection", "scalar"),
+                        "optional",
+                    ),
+                )
             for role in roles:
                 if role.parameter is not None and role.direction == "input":
                     annotation_kind(
@@ -1360,6 +1381,21 @@ def compile_data_operations(
                 validate_opaque_boundary(asdict(asset))
             except ValueError as exc:
                 _fail(semantic_id, "invalid captured semantic asset: " + str(exc))
+        from .data_operation_parameters import compile_nominal_parameters
+
+        try:
+            parameter_definitions = compile_nominal_parameters(
+                _mapping(raw.get("parameters", {}), semantic_id),
+                schema=schema,
+                definitions=definitions,
+                vocabularies=vocabularies,
+                kinds=kinds,
+            )
+        except (ValueError, TypeError) as exc:
+            _fail(semantic_id, "invalid nominal parameters: " + str(exc))
+        for name, parameter in parameter_definitions.items():
+            if isinstance(parameter, dict) and "kind" in parameter:
+                edges.append(SemanticEdge(semantic_id, parameter["kind"], "parameter-kind", name))
         operation = EffectiveOperation(
             semantic_id,
             raw["profile"],
@@ -1377,7 +1413,7 @@ def compile_data_operations(
             tuple(effects),
             capability,
             _text(raw.get("behavior"), semantic_id),
-            canonical_bytes(_mapping(raw.get("parameters", {}), semantic_id)),
+            canonical_bytes(parameter_definitions),
             assets,
             surfaces,
             implementation_root,
@@ -1512,6 +1548,14 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
     bindings = {binding.semantic_id: binding for binding in model.bindings}
     for operation in model.operations:
         binding = bindings[operation.binding]
+        parameter_kinds = {
+            name: parameter["kind"]
+            for name, parameter in json.loads(operation.parameters).items()
+            if isinstance(parameter, dict) and "kind" in parameter
+        }
+        if any(kind not in kinds for kind in parameter_kinds.values()):
+            continue
+        parameter_contracts = {name: kinds[kind] for name, kind in parameter_kinds.items()}
         if any(role.kind not in kinds for role in operation.roles):
             continue
         kind_contracts = {role.name: kinds[role.kind] for role in operation.roles}
@@ -1520,6 +1564,9 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
                 "definition": json.loads(operation.definition),
                 "binding": _binding_record(binding.expression),
                 "kind_contracts": kind_contracts,
+                **(
+                    {"parameter_kind_contracts": parameter_contracts} if parameter_contracts else {}
+                ),
             }
         )
         eligibility = eligibility_fingerprint(
@@ -1548,6 +1595,9 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
             {
                 "recipe": json.loads(operation.recipe),
                 "kind_contracts": kind_contracts,
+                **(
+                    {"parameter_kind_contracts": parameter_contracts} if parameter_contracts else {}
+                ),
                 "binding": _binding_record(binding.expression, result_only=True),
             },
             implementation_slices=implementation_slices,

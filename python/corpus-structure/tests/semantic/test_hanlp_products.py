@@ -281,3 +281,22 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         receipt["provider"] == "hanlp" for receipt in json.loads(completion.execution_evidence)
     )
     assert len(completion.outputs[0].members) == len(value["members"])
+    from corpus_structure.semantic.data_operation_storage import (
+        data_operation_definition_projection,
+    )
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+
+    projection = json.loads(
+        data_operation_definition_projection(
+            profile.prepared, profile.model, native_digest="native:meaning-control"
+        )
+    )
+    contracts = {kind["kind_contract"]: kind for kind in projection["kinds"]}
+    assert completion.outputs[0].meaning is not None
+    validate_wire_schema(
+        contracts[completion.outputs[0].kind_contract]["meaning_schema"],
+        json.loads(completion.outputs[0].meaning),
+    )
+    for packet in completion.outputs[0].members:
+        member = json.loads(packet)
+        validate_wire_schema(contracts[member["kind_contract"]]["meaning_schema"], member["body"])
