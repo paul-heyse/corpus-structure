@@ -24,10 +24,10 @@ preserve useful bulk access. `semantic/metadata.py:1–44` and `schema/relationa
 | Relation / representation | Meaning and key |
 |---|---|
 | Released operation/kind projections | Definition revision, recipe, binding and kind-contract fingerprints from DDO-01–03; immutable registry ordinals name fingerprints |
-| kb.data_product | Unique kind-contract fingerprint, subject identity and canonical semantic-body digest; exact encoded artifact is separately authenticated |
+| kb.data_product | Unique kind-contract fingerprint, complete qualified subject context and canonical semantic-body digest; exact encoded artifact is separately authenticated |
 | kb.data_product_member | Product-qualified stable local member ID; typed family projections preserve endpoints, occurrence multiplicity, source coordinates, coverage and choices |
 | ops.data_demand | Immutable native demand identity, definition/release, target strength and frozen root/discovery/selection binding |
-| ops.data_request | Unique recipe+subject+ordered/role-qualified inputs/support/population+replicate logical key; current execution generation/live task association |
+| ops.data_request | Unique recipe+complete qualified subject context+ordered/role-qualified inputs/support/population+replicate logical key; current execution generation/live task association |
 | ops.task | Existing physical queue/attempt/lease/holder owner, extended with request/generation binding; do not add a second independent attempt state machine |
 | ops.data_derivation | Append-only authentic execution ID, request/generation, exact completion/outcome and definition/runtime attestation; distinct episodes remain distinct |
 | ops.derivation_input/output/support | Role-qualified product/member and support/selection references; order/multiplicity explicitly retained; canonical manifest identity matches rows |

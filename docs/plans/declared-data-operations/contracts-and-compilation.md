@@ -390,7 +390,7 @@ opaque JSON port or private imperative policy.
 ### Shared key/admission projection
 
 DDO-02 compiles two explicit projections of a resolved binding. SemanticRequestKey contains recipe,
-subject, semantic value references, ordered/multiplicity/population witnesses, support requirements,
+complete qualified subject context (project, local subject, original source and analyzed scope), semantic value references, ordered/multiplicity/population witnesses, support requirements,
 only contract-required episode/provider/alternative selections, and replicate. The AdmissionManifest
 additionally retains actual selected episodes, definition/eligibility revision, permissions and
 trust evidence. Those incidental admission fields are not hashed into SemanticRequestKey unless
