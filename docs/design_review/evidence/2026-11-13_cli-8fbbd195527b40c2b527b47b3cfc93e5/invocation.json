@@ -1,0 +1,11 @@
+{
+  "id": "8fbbd195527b40c2b527b47b3cfc93e5",
+  "action": "test",
+  "stage": "ordinary",
+  "started": 1794593798.2678938,
+  "settled": 1794593822.4633827,
+  "outcome": "passed",
+  "artifact_role": "ordinary",
+  "custody": "settled",
+  "operation_account": null
+}

@@ -1,6 +1,7 @@
 # Declared data operations — contracts and compilation
 
-**Status:** DDO-01/02 foundations complete with targeted qualification passed, 2026-11-12;
+**Status:** DDO-01/02 foundations reopened by completion-audit finding DDO-CA-01;
+historical targeted qualification passed, 2026-11-12;
 DDO-03 and assembled qualification remain open. The coordinator owns actual package state.
 **Authored:** 2026-11-12. **Packages:** DDO-01–DDO-03.
 
@@ -24,6 +25,11 @@ production reuse/caller cutover are not established by pure preparation or frami
 implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
 owns delivered behavior, exact qualification and all remaining functional scope. The target below
 continues to govern unfinished work; this companion is not a second completion ledger.
+
+The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
+owns disposition: admitted source reflection can change results without changing a reusable recipe.
+The source frontend and identity consumer must refuse or model those observed determinants.
+DDO-CA-05 also requires complete root source/scope identity through binding and native attachment.
 
 ## Responsibility and delivered contracts
 

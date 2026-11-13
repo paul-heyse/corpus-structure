@@ -10,6 +10,9 @@ implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12
 owns delivered behavior, exact qualification and all remaining functional scope. The target below
 continues to govern unfinished work; this companion is not a second completion ledger.
 
+The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
+owns the remaining delivered-capability gaps: DDO-CA-02/04 identify overlapping publication replay and missing purpose enforcement in native transitions.
+
 ## Target and representation
 
 Extend the trusted physical LinkML model and its SQLAlchemy metadata. Candidate semantic releases

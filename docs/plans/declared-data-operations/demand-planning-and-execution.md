@@ -22,6 +22,10 @@ implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12
 owns delivered behavior, exact qualification and all remaining functional scope. The target below
 continues to govern unfinished work; this companion is not a second completion ledger.
 
+The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
+owns the remaining delivered-capability gaps: DDO-CA-03 identifies an in-flight batch that fails to observe loss of every member claim.
+DDO-CA-05 also tracks the root-context identity collision during native attachment.
+
 ## Outcome and foundation assessment
 
 A native Demand is the authoritative immutable request. It selects target contracts and explicit

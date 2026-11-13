@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "ddo.source-reflection-collision",
+  "title": "Source-reflection recipe collision",
+  "group": null,
+  "package": "DDO-02",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can source-observing code receive equal reusable recipes after observable source-position changes?",
+  "answers": [],
+  "method": "Compile two synthetic captured definitions and independently execute their original Python source.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-13_ddo-completion-audit/reflection_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "reflection_probe.py",
+      "role": "probe",
+      "sha256": "01d06a59ce6c57f24cde4d8d6e12b85574530b0262f0e0d0d97a6912a1b934d9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "reflection-result.json",
+      "role": "result",
+      "sha256": "7e58d24229979c6b87d7ad5c3695e248b96298cdf52d8898fb8dde049735d1f9"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "recipes_equal",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Both slices complete without unknowns; independent values differ: 1 and 3."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The bounded investigation reproduced an admitted reusable-identity collision. DDO-01/02 must refuse source reflection or bind its observed source determinants. This is not a production repair or native/provider qualification.",
+  "consumed_by": [
+    "DDO-01",
+    "DDO-02"
+  ]
+}

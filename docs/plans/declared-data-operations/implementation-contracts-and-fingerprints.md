@@ -1,6 +1,6 @@
 # Implementation-owned contracts and operation fingerprints
 
-**Accepted target with implemented DDO-01/02 foundations · 2026-11-12.** Integrates the
+**Accepted target with implemented DDO-01/02 foundations; completion reopened · 2026-11-13.** Integrates the
 [Python-introspection review](../../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md)
 at `0907dcc23`, I01–I07. Its source-qualified RC01–03 were explicitly accepted by the operator on
 2026-11-12. These differ from the original review's RC01–09 and the NetworkX I01–I07. The
@@ -170,6 +170,10 @@ not a second authored domain catalog.
 [extensions](https://pylint.pycqa.org/projects/astroid/en/stable/extending.html).
 
 <a id="I03"></a>
+The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
+owns DDO-CA-01: source-position reflection currently receives an unsound complete reusable slice.
+The policy below remains required; its implementation needs refusal or exact-source coverage.
+
 ## Implementation slice and identity policy — I03
 
 DDO-01/02 compile a finite dependency graph rooted at the actual operation's semantic entry points.
