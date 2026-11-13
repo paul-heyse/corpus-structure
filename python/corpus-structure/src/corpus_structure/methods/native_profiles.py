@@ -70,6 +70,29 @@ def spacy_observation_policy() -> dict[str, Any]:
     }
 
 
+def hanlp_observation_policy() -> dict[str, Any]:
+    """Actual MTL heads over canonical words; independent fresh runs are replicas."""
+    return {
+        "version": "hanlp-native-observation-v1",
+        "provider": "hanlp",
+        "native_input_order": "preserve-canonical-sentence-nonblank-token-order",
+        "native_output": "actual-lemma-pos-dependency-constituency-srl-heads-with-availability",
+        "native_heads": ["lem", "pos", "dep", "srl", "con"],
+        "tokenization": "canonical-pretokenized-no-hanlp-retokenization",
+        "dependency_convention": "native-one-based-head-zero-root",
+        "srl_convention": "native-ordered-role-groups-pred-marker-half-open-word-spans",
+        "constituency_convention": "native-ordered-labelled-tree-with-exact-prepared-word-yield",
+        "confidence": "none-produced-none-invented",
+        "reuse": "authentic-retained-observation-not-bitwise-fresh-execution-equivalence",
+        "fresh_execution": "independent-replicate-requires-explicit-contract",
+        "device": "cuda",
+        "dtype": "float32",
+        "backend": "sdpa",
+        "matmul_precision": "highest",
+        "cudnn_allow_tf32": False,
+    }
+
+
 def _observation_policy(profile: NativeProfile, policy: Mapping[str, Any]) -> dict[str, Any]:
     """Select the supported released numerical meaning, never installed defaults.
 
@@ -88,6 +111,16 @@ def _observation_policy(profile: NativeProfile, policy: Mapping[str, Any]) -> di
         ):
             raise ValueError("spaCy differs from admitted native numerical intent")
         return expected_spacy
+    if profile.provider == "hanlp":
+        expected_hanlp = hanlp_observation_policy()
+        if canonical_bytes(dict(policy)) != canonical_bytes(expected_hanlp):
+            raise ValueError("HanLP requires its supported native-head observation policy")
+        if any(
+            getattr(profile, name) != expected_hanlp[name]
+            for name in ("device", "dtype", "backend", "matmul_precision", "cudnn_allow_tf32")
+        ):
+            raise ValueError("HanLP differs from admitted native numerical intent")
+        return expected_hanlp
     if profile.provider not in {"d1", "gliner"}:
         raise ValueError("provider has no supported qualified numerical contract")
     expected = {
