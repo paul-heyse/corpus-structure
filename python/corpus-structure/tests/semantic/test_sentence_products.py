@@ -137,7 +137,7 @@ def test_empty_and_partial_block_scope_never_invent_canonical_sentences(profile,
     value["selectors"][0]["start"] = 4
     partial = profile.run(FrozenNativeSource.acquire(profile.prepared, value))
     assert partial.inventory("sentence") == () and partial.value.outcome == "partial"
-    assert partial.value.coverage[0].outcome == "unsupported"
+    assert partial.value.block_coverage[0].outcome == "unsupported"
 
 
 @pytest.fixture(scope="module")
@@ -164,17 +164,37 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         part.strip() + "." for part in text.split(".") if part.strip()
     ]
     assert product.value.outcome == "complete"
-    from corpus_structure.semantic.canonical_sentences import canonical_sentence_values
+    from corpus_structure.semantic.canonical_sentences import (
+        canonical_packet_values,
+        canonical_projection_spec,
+    )
 
     complete = json.loads(product.content)
-    canonical = canonical_sentence_values(complete)
+    canonical_kind = profile.prepared.index.definitions["DdoCanonicalSentences"].iri
+    projection = canonical_projection_spec(profile.model, canonical_kind)
+    canonical = canonical_packet_values(complete, projection)
     relabeled = json.loads(product.content)
     for packet in relabeled["members"]:
         if packet["body"]["record_type"] == "token":
             packet["body"]["lemma"] = "another-native-label"
-    assert canonical_sentence_values(relabeled) == canonical
+    assert canonical_packet_values(relabeled, projection) == canonical
     assert canonical_bytes(relabeled) != product.content
     profile.prepared.validate_json("DdoCanonicalSentences", canonical_bytes(canonical))
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+
+    port = canonical_port(profile)
+    input_kind = next(
+        item.key
+        for item in port.profile.model.identities
+        if item.owner == port.operation.roles[0].kind and item.domain == "kind"
+    )
+    completion = port.invoke_python((PythonRoleValue("inventory", input_kind, complete),))
+    assert len(completion.outputs[0].members) == len(complete["members"])
+    native_contracts = {packet["kind_contract"] for packet in complete["members"]}
+    assert all(
+        json.loads(member)["kind_contract"] not in native_contracts
+        for member in completion.outputs[0].members
+    )
     original_tokens = product.inventory("token")
     assert all(
         {"lemma", "pos", "tag", "morphology", "dependency"} <= token.keys()
@@ -319,24 +339,21 @@ def test_sentence_members_derive_from_actual_nominal_body_graph(profile):
     assert set(derive_member_kinds(profile.model, container)) == expected
 
 
-def test_declared_canonical_projection_stops_native_label_only_changes(profile):
-    from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
-    from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
+def canonical_port(profile, extra_sources=()):
+    from dataclasses import asdict, replace
 
-    bundle = sentence_product_inputs(
-        SourceBundle(
-            "core",
-            (
-                SourceArtifact(
-                    "core",
-                    (
-                        Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-                    ).read_bytes(),
-                ),
-            ),
-        )
+    from corpus_structure.semantic.canonical_sentences import (
+        canonical_sentence_operation_sources,
+        resolve_canonical_sentence_port,
     )
-    sources = canonical_sentence_operation_sources()
+    from corpus_structure.semantic.data_operation_admission import PreparedCapabilityIdentity
+
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    bundle = sentence_product_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
+    own_sources = canonical_sentence_operation_sources()
+    sources = replace(own_sources, sources=(*own_sources.sources, *extra_sources))
     model = compile_data_operations(
         schema=bundle,
         python_sources=sources,
@@ -344,25 +361,62 @@ def test_declared_canonical_projection_stops_native_label_only_changes(profile):
         vocabularies=profile.prepared.vocabularies,
     )
     operation = model.operation("segment.sentences/canonical-projection")
-    port = resolve_python_port(
-        model,
-        sources,
+    assert operation.implementation_root is not None
+    ids = {(item.owner, item.domain): item.key for item in model.identities}
+    boundaries = (
+        *operation.assets,
+        *(
+            boundary
+            for impl in model.implementation_slices
+            if impl.root == operation.implementation_root
+            for boundary in impl.boundaries
+        ),
+    )
+    identity = PreparedCapabilityIdentity(
+        sha256(model.content).hexdigest(),
         operation.semantic_id,
-        schema=bundle,
-        prepared=profile.prepared,
+        ids[operation.semantic_id, "definition"],
+        ids[operation.semantic_id, "recipe"],
+        ids[operation.implementation_root, "implementation-slice"],
+        operation.callable_surfaces[0].declaration,
+        sha256(
+            canonical_bytes(
+                tuple(
+                    (source.module, sha256(source.content).hexdigest())
+                    for source in sources.sources
+                )
+            )
+        ).hexdigest(),
+        canonical_bytes(asdict(operation.capabilities)),
+        ids[operation.semantic_id, "eligibility"],
+        "runtime:test",
+        canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)),
+    )
+    return resolve_canonical_sentence_port(
+        profile.prepared,
+        model,
+        operation.semantic_id,
+        identity=identity,
         authorize=lambda _: None,
+        custody=sources.boundary_contracts,
+        sources=sources,
     )
-    source = selected(profile, "")
-    value = json.loads(profile.run(source).content)
+
+
+def test_declared_canonical_projection_has_actual_independent_member_contracts(profile):
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+
+    port = canonical_port(profile)
+    inventory = json.loads(profile.run(selected(profile, "")).content)
     kind = next(
-        identity.key
-        for identity in model.identities
-        if identity.owner == operation.roles[0].kind and identity.domain == "kind"
+        item.key
+        for item in port.profile.model.identities
+        if item.owner == port.operation.roles[0].kind and item.domain == "kind"
     )
-    result = port.invoke_python((PythonRoleValue("inventory", kind, value),))
-    expected = {key: value[key] for key in ("source", "selectors", "outcome", "coverage")}
-    expected["sentences"] = []
-    assert json.loads(result.outputs[0].content) == expected
+    result = port.invoke_python((PythonRoleValue("inventory", kind, inventory),))
+    value = json.loads(result.outputs[0].content)
+    assert value["members"] == [] and result.outputs[0].members == ()
+    assert {row["family"] for row in value["coverage"]} == {"spacy.tokens", "spacy.sentences"}
     profile.prepared.validate_json("DdoCanonicalSentences", result.outputs[0].content)
 
 
@@ -455,5 +509,73 @@ def test_flat_original_formula_parent_preserves_protected_inline_atom(profile):
     (block,), coverage = _blocks(source)
     assert block.block.inline == ((4, 5),) and block.block.display == ()
     assert block.block_id == "#/texts/0"
-    assert coverage == [dict(block_id="#/texts/0", start=0, end=10, outcome="complete")]
+    assert coverage == [
+        dict(block_id="#/texts/0", native_pointer="#/texts/0", start=0, end=10, outcome="complete")
+    ]
     assert source.value["items"][2]["parent"] == "#/groups/inline"
+
+
+def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
+    import os
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+
+    port = canonical_port(profile)
+    inventory = json.loads(profile.run(selected(profile, "")).content)
+    kind = next(
+        item.key
+        for item in port.profile.model.identities
+        if item.owner == port.operation.roles[0].kind and item.domain == "kind"
+    )
+    cpu = CPUExecutionScope(
+        profile.prepared,
+        CharacterizationExecutionPolicy(workers=1, max_submissions=1),
+        retain_schema=False,
+    )
+    try:
+        result = drive_prepared_work(
+            port.plan_python(
+                (PythonRoleValue("inventory", kind, inventory),),
+                execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+            ),
+            lambda: None,
+        )
+        evidence = json.loads(result.cpu_execution_evidence)
+        assert evidence["pid"] != os.getpid() and evidence["main_thread"] is True
+        assert cpu._capsule_bytes == 0
+        assert json.loads(result.outputs[0].content)["members"] == []
+    finally:
+        cpu.close()
+    assert cpu.budget.used_bytes == 0
+
+
+def test_prepared_canonical_full_source_digest_accepts_authenticated_required_subset(
+    profile, tmp_path
+):
+    from corpus_structure.semantic.python_operation_sources import PythonSource
+
+    path = tmp_path / "extra_original.py"
+    path.write_text("PASSIVE = 1\n")
+    port = canonical_port(profile, (PythonSource("extra_original", path.read_bytes(), str(path)),))
+    assert len(port.sources.sources) == 2
+    port._verify()
+
+
+def test_unprojected_requested_native_text_is_unknown_instead_of_empty_language(
+    profile, monkeypatch
+):
+    value = selected(profile, "").value
+    value["items"] = [dict(self_ref="#/texts/raw", label="formula", text="", orig="x + 1")]
+    projection = native_projection_identity("", [], value["items"], [])
+    value["source"]["projection"] = projection
+    value["selectors"][0]["projection"] = projection
+    monkeypatch.setattr(
+        "corpus_structure.semantic.sentence_products.pipeline",
+        lambda *_: pytest.fail("unprojected source invoked NLP"),
+    )
+    result = profile.run(FrozenNativeSource.acquire(profile.prepared, value))
+    assert result.value.outcome == "partial" and result.inventory("token") == ()
+    assert all(row.outcome == "unsupported" and row.unexamined for row in result.value.coverage)

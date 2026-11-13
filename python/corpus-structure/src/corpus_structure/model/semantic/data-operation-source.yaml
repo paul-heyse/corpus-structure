@@ -96,3 +96,57 @@ classes:
       items: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
       recognition: {range: DdoNativeSourceRecognition, inlined: true, multivalued: true}
       selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoCharacterizedProduct:
+    is_a: SourceRecordProduct
+    abstract: true
+    description: Retained factual or interpreted characterization over one original
+      source and an explicit selected scope. Concrete nominal products own their
+      source or ordinary authority and their actual constituent representation.
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+      coverage:
+        range: DdoCharacterizationCoverage
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  DdoCharacterizationCoverage:
+    is_a: SourceRecordProduct
+    description: A family standing over explicitly eligible, examined and unexamined
+      original source scope. Concrete producers own the evidence for each standing.
+    attributes:
+      family:
+        required: true
+        pattern: ^\S+$
+      eligible:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      examined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      unexamined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      availability:
+        required: true
+        pattern: ^(available|unknown|unsupported|unavailable)$
+      outcome:
+        required: true
+        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+      reason: {}
