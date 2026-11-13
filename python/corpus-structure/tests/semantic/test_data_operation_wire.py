@@ -158,3 +158,58 @@ def test_wire_predicate_literals_reuse_the_exact_constrained_field_authority(fie
         wire_model(captured(), binding)
     binding["value"] = valid
     assert wire_model(captured(), binding).operations
+
+
+def test_acquisition_read_declares_its_effect_profile_and_purposes_explicitly():
+    from corpus_structure.semantic.data_operation_wire import wire_operations
+    operations = {operation["name"]: operation for operation in wire_operations(captured())}
+    read = operations["read_demand_result"]
+    assert read["profile"] == "command"
+    assert read["purposes"] == ["read", "write", "evaluate"]
+    assert operations["inspect_data_completion"]["profile"] == "read"
+    assert operations["inspect_data_completion"]["purposes"] == ["read", "write", "evaluate"]
+    assert operations["publish_data_derivation"]["purposes"] == ["write", "evaluate"]
+    document = yaml.safe_load(captured()[0].content)
+    document["operations"][0]["purposes"] = []
+    with pytest.raises(ValueError, match="purpose"):
+        wire_operations(captured(yaml.safe_dump(document).encode()))
+
+
+def frozen_selection():
+    return {
+        "version": "data-demand-intent-v1", "model": "a" * 64, "roots": [], "targets": ["operation:x"],
+        "operations": [{"operation": "operation:x", "parameters": {}, "parameter_meaning": ["mapping", []],
+            "choices": {}, "replicate": None, "dependencies": [], "definition": "definition:x",
+            "recipe": "recipe:x", "eligibility": "eligibility:x"}],
+        "root_operations": ["operation:x"], "discovery": [], "inference": "inference:x",
+        "execution_profile": "execution:x",
+    }
+
+
+def test_read_receipt_lookup_and_cursor_pins_have_distinct_explicit_shapes():
+    assert validate_native_wire("read_demand_result", "input", {"demand_id": "demand:x", "read_id": "read:x"})["read_id"] == "read:x"
+    with pytest.raises(ValueError):
+        validate_native_wire("read_demand_result", "input", {"demand_id": "demand:x", "read_snapshot": "1:1:"})
+    cursor = {"demand_id": "demand:x", "read_id": "read:x", "after": "obligation:x",
+        "selection": frozen_selection(), "trust_snapshot": {}, "limit": 5}
+    assert validate_native_wire("read_demand_result", "input", cursor)["limit"] == 5
+    cursor.pop("read_id")
+    with pytest.raises(ValueError):
+        validate_native_wire("read_demand_result", "input", cursor)
+    result: dict[str, Any] = {"demand_id": "demand:x", "selection": frozen_selection(), "intent": frozen_selection(),
+        "root": [], "project_id": "project:x", "release_id": "release:x", "runtime_id": "runtime:x",
+        "trust_snapshot": {}, "uses": [], "obligations": [], "populations": [], "continuation": None}
+    with pytest.raises(ValueError):
+        validate_native_wire("read_demand_result", "output", result)
+    result.update(read_id="read:x", read_snapshot="1:1:", frontier_at="2026-11-13T12:00:00+00:00")
+    assert validate_native_wire("read_demand_result", "output", result)["read_snapshot"] == "1:1:"
+
+
+def test_native_attachment_binding_requires_the_authenticated_read_receipt_reference():
+    binding = {"inputs": [], "support": [], "parameters": ["mapping", []], "request_inputs": ["mapping", []],
+        "inference": "inference:x", "populations": []}
+    request = {"obligation_id": "obligation:x", "request_meaning": ["mapping", []], "binding": binding, "replicate": None}
+    with pytest.raises(ValueError):
+        validate_native_wire("attach_data_request", "input", request)
+    binding["read_id"] = "read:x"
+    assert validate_native_wire("attach_data_request", "input", request)["binding"]["read_id"] == "read:x"
