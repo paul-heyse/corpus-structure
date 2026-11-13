@@ -435,6 +435,47 @@ the accepted target or close multi-package findings from source reviews.
   refusal for missing legacy fields. Selected legacy producers/readers remain until their actual
   coordinated replacement; this regeneration is not production migration or activation.
 
+### DDO-03/06 execution increment · 2026-11-13
+
+**Implemented; bounded qualification:** explicit `result_fields` maps declared output roles to
+fields of an admitted `dict[str, T]` return. Compiler checks complete/distinct correspondence and
+nominal value kinds; ports validate the whole return and exact field set before exposing outputs.
+The mapping enters recipe/definition meaning when present; archived v1/v2 absence preserves the
+previous interpretation. Generated-class/TypedDict, receiver, batch/stream and effectful profiles
+remain open. This is an atomic mapping-bundle primitive, not completion of DDO-03.
+
+Claim lifetime now separates active-owner checks, exact-claim uncertainty and exit custody.
+Healthy siblings renew and settle while one claim is uncertain. Exact retained callback replay
+can reconcile that claim; a different callback cannot replace it. Normal and exceptional exits
+report unresolved siblings while preserving the primary error. This is still process-local
+settlement machinery; durable native-intent execution and demand-level cancellation remain open.
+
+`renew_data_request` binds request/generation/task/attempt/holder, support/trust, current producer
+runtime/recipe and latest attached demand interest. It preserves the attempt and never shortens
+an existing lease. Frozen `semantic_ddo_renewal_v1` is registered after
+`semantic_ddo_recovery_v1`; [authoring receipt](../design_review/evidence/2026-11-13_ddo-request-renewal/README.md).
+The persistent database remains at `semantic_bep_located_v2`. Atomic cancellation must serialize
+interest detachment on the same request lock; renewal alone does not implement that transition.
+
+Root assembled port/compiler/identity/wire/claim-owner union **passed**, 183/183,
+`43dfffb3f3f64207a0b1ec4ab43d4497`; its
+[retained receipt](../design_review/evidence/2026-11-13_cli-43dfffb3f3f64207a0b1ec4ab43d4497/README.md)
+precedes the final exceptional-exit addition. Earlier root claim-owner 13/13
+`950644a7a8c947baa1bac06cb6215d3c` and worker port/compiler/identity 141/141
+`19b0839bd385413d9ba04425918dd6b1` are retained with their exact source/context;
+worker evidence was committed and merged before worktree removal this increment.
+Final Pyrefly **passed** `84b0ce23c0754e9492a435f72976e09e`; Ruff **passed**
+`93d141e9b1264b5f9e06863326f94e48`. Native successor/exit-custody qualification **passed**, 22/22,
+`d8b1d561275843cda53b427d28a7056c`, through
+`uv run ci test --workers 2 --json -- python/corpus-structure/tests/semantic/test_claim_owner_native.py python/corpus-structure/tests/semantic/test_data_operation_storage.py -k 'claim_owner or renewal or atomic_publication'`.
+Its [durable receipt](../design_review/evidence/2026-11-13_cli-d8b1d561275843cda53b427d28a7056c/README.md)
+includes real frozen-head runless renewal, stale/expired fences, shared demand interest and final
+exceptional-exit controls. Docs check **passed** `32a9a8717f304ed79afb3dd9bc1bde4b` (zero link errors).
+These scoped receipts do not constitute complete series qualification. DDO-03–05 remain partial, DDO-06 remains partial/open and DDO-07 remains open.
+The approved next work remains real consumer projections/bindings, admitted receiver/prepared
+batch/stream profiles, demand cancellation, the shared production execution owner and DDO-07
+family migrations. No provider or full-series qualification follows from this increment.
+
 ### Remaining functional scope and next execution
 
 These are concrete unfinished obligations, not merely a request to run a final test suite:

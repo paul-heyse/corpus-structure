@@ -20,3 +20,10 @@ working database at its acquired predecessor. The coordinator owns qualification
 
 Native renewal checks use the installed frozen successor in isolated databases. No persistent
 migration, deployment, activation or provider-model execution is performed by this work.
+
+## Native qualification
+
+**Passed:** 22 selected controls, `d8b1d561275843cda53b427d28a7056c`, normal installed
+frozen-head/native-admission fixtures. The coordinator records the exact two-path selection.
+`uv run ci db status --maintenance --json` confirms corpus_structure_dev remains at
+`semantic_bep_located_v2`, with repository head `semantic_ddo_renewal_v1`.
