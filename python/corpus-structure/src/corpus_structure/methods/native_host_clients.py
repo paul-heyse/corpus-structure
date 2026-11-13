@@ -143,15 +143,18 @@ class HostedGliner:
             self._closed = True
             raise GlinerWorkerError(str(error)) from error
         reply = response.payload
-        if (response.receipt.provider != self.selection.provider
+        if (
+            response.receipt.provider != self.selection.provider
             or response.receipt.profile != self.selection.native.fingerprint
             or response.receipt.runtime != sha256(self.selection.runtime).hexdigest()
             or response.receipt.input_digest != payload_digest(payload)
-            or response.receipt.output_digest != payload_digest(reply)):
+            or response.receipt.output_digest != payload_digest(reply)
+        ):
             raise GlinerWorkerError("native GLiNER receipt differs from admitted exchange")
         decoded = (
             TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
-            if prepare_only else TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
+            if prepare_only
+            else TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
         )
         if receipt_sink is not None:
             receipt_sink(response.receipt)

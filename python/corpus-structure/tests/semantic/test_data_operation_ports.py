@@ -572,12 +572,15 @@ def test_plain_inherited_receiver_is_authenticated_and_keeps_nominal_outputs(tmp
     monkeypatch.syspath_prepend(str(tmp_path))
     inputs = PythonSourceCollection((PythonSource(name, source.encode(), str(path)),))
     model = compile_data_operations(python_sources=inputs)
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     value = PythonRoleValue("index", kind(model, "index"), 3)
     result = port.invoke_python((value,))
     assert result.outputs[0].value() == "child:3"
     assert result.outputs[0].meaning == b'["string","child:3"]'
     import inspect
+
     assert inspect.ismethod(port.function)
     monkeypatch.setattr(type(port.function.__self__), "prefix", "changed:")
     with pytest.raises(PortRefusal, match="constant determinant"):
@@ -590,27 +593,50 @@ def test_native_batch_invokes_one_original_call_and_retains_order(tmp_path, monk
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["batch"]
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, "index: tuple[int, ...]",
-        "return tuple(str(item) for item in index)", metadata=metadata, returns="tuple[str, ...]",
+        tmp_path,
+        monkeypatch,
+        "index: tuple[int, ...]",
+        "return tuple(str(item) for item in index)",
+        metadata=metadata,
+        returns="tuple[str, ...]",
     )
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    members = tuple(PythonBatchMember(name, (PythonRoleValue("index", kind(model, "index"), value),)) for name, value in (("second", 2), ("first", 1)))
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    members = tuple(
+        PythonBatchMember(name, (PythonRoleValue("index", kind(model, "index"), value),))
+        for name, value in (("second", 2), ("first", 1))
+    )
     result = port.invoke_batch_python(members)
-    assert [(key, completed.outputs[0].value()) for key, completed in result.members] == [("second", "2"), ("first", "1")]
+    assert [(key, completed.outputs[0].value()) for key, completed in result.members] == [
+        ("second", "2"),
+        ("first", "1"),
+    ]
     with pytest.raises(PortRefusal, match="distinct"):
         port.invoke_batch_python((members[0], members[0]))
     with pytest.raises(PortRefusal, match="explicit member"):
         port.invoke_python(members[0].values)
 
 
-@pytest.mark.parametrize("body", ["return tuple(str(item) for item in index[:-1])", "return tuple(index)"])
+@pytest.mark.parametrize(
+    "body", ["return tuple(str(item) for item in index[:-1])", "return tuple(index)"]
+)
 def test_native_batch_refuses_incomplete_or_wrong_typed_whole_result(tmp_path, monkeypatch, body):
     from corpus_structure.semantic.data_operation_ports import PythonBatchMember
+
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["batch"]
-    model, inputs = fixture_source(tmp_path, monkeypatch, "index: tuple[int, ...]", body,
-        metadata=metadata, returns="tuple[str, ...]")
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: tuple[int, ...]",
+        body,
+        metadata=metadata,
+        returns="tuple[str, ...]",
+    )
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     members = (PythonBatchMember("one", (PythonRoleValue("index", kind(model, "index"), 1),)),)
     with pytest.raises((PortRefusal, ValidationError)):
         port.invoke_batch_python(members)
@@ -618,15 +644,28 @@ def test_native_batch_refuses_incomplete_or_wrong_typed_whole_result(tmp_path, m
 
 def test_native_batch_json_uses_strict_individual_ingress(tmp_path, monkeypatch):
     from corpus_structure.semantic.data_operation_ports import JSONBatchMember
+
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["batch"]
-    model, inputs = fixture_source(tmp_path, monkeypatch, "index: tuple[int, ...]",
-        "return tuple(str(item) for item in index)", metadata=metadata, returns="tuple[str, ...]")
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    result = port.invoke_batch_json((JSONBatchMember("one", (RoleValue("index", kind(model, "index"), b"1"),)),))
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: tuple[int, ...]",
+        "return tuple(str(item) for item in index)",
+        metadata=metadata,
+        returns="tuple[str, ...]",
+    )
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    result = port.invoke_batch_json(
+        (JSONBatchMember("one", (RoleValue("index", kind(model, "index"), b"1"),)),)
+    )
     assert result.members[0][1].outputs[0].meaning == b'["string","1"]'
     with pytest.raises(ValidationError):
-        port.invoke_batch_json((JSONBatchMember("one", (RoleValue("index", kind(model, "index"), b"true"),)),))
+        port.invoke_batch_json(
+            (JSONBatchMember("one", (RoleValue("index", kind(model, "index"), b"true"),)),)
+        )
 
 
 def test_receiver_refuses_unmodeled_custom_construction(tmp_path, monkeypatch):
@@ -644,36 +683,42 @@ def test_receiver_refuses_unmodeled_custom_construction(tmp_path, monkeypatch):
     inputs = PythonSourceCollection((PythonSource(name, source.encode(), str(path)),))
     model = compile_data_operations(python_sources=inputs)
     with pytest.raises(PortRefusal, match="construction"):
-        resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+        resolve_python_port(
+            model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+        )
 
 
 def test_logical_archive_origin_can_resolve_exact_relocated_runtime(tmp_path, monkeypatch):
     model, inputs = fixture_source(tmp_path, monkeypatch)
     source = inputs.sources[0]
-    archived = replace(source, filename='captured/operation.py')
+    archived = replace(source, filename="captured/operation.py")
     sources = replace(inputs, sources=(archived,))
     model = compile_data_operations(python_sources=sources)
     port = resolve_python_port(
-        model, sources, model.operations[0].semantic_id, authorize=lambda identity: None,
+        model,
+        sources,
+        model.operations[0].semantic_id,
+        authorize=lambda identity: None,
         runtime_locations={source.module: Path(source.filename)},
     )
-    assert port.invoke_python(()).outputs[0].value() == '2'
+    assert port.invoke_python(()).outputs[0].value() == "2"
     Path(source.filename).write_text('def derive(index: int = 2) -> str:\n    return "wrong"\n')
-    with pytest.raises(PortRefusal, match='source changed'):
+    with pytest.raises(PortRefusal, match="source changed"):
         port.invoke_python(())
 
 
 def test_execution_admission_serializes_capability_meaning_and_checks_exact_identity():
     from corpus_structure.semantic.data_operation_admission import (
-        AcquiredPythonExecution, _source_identity_bytes,
+        AcquiredPythonExecution,
+        _source_identity_bytes,
     )
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     model, sources = actual()
     identity = python_port_identity(model, sources, model.operations[0].semantic_id)
     captured = _source_identity_bytes(identity)
-    assert json.loads(captured)['capabilities']['forms'] == ['scalar']
-    admission = AcquiredPythonExecution(captured, 'release', 'runtime', 'attestation')
+    assert json.loads(captured)["capabilities"]["forms"] == ["scalar"]
+    admission = AcquiredPythonExecution(captured, "release", "runtime", "attestation")
     admission.authorize(identity)
-    with pytest.raises(SemanticRefusal, match='differs'):
-        admission.authorize(replace(identity, implementation='wrong'))
+    with pytest.raises(SemanticRefusal, match="differs"):
+        admission.authorize(replace(identity, implementation="wrong"))

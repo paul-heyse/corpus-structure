@@ -69,10 +69,10 @@ classes:
     consumer.update(id="urn:consumer", dependencies=["urn:discover"])
     consumer["roles"].insert(0, {
         "name": "items", "kind": "Sample", "direction": "input",
-        "minimum": 0, "maximum": None, "collection": "set", "presence": "required",
+        "minimum": 1, "maximum": None, "collection": "set", "presence": "required",
         "subject_field": "document_subject",
         "support": {"provenance": "exact", "source": "same-original",
-                    "coverage": "selected-scope", "identity_requirements": []},
+                    "coverage": "selected-scope", "identity_requirements": ["episode"]},
     })
     consumer["binding"] = {
         "operator": "forall", "roles": ["items"], "population": "selected-items",
@@ -116,13 +116,15 @@ def population_kernel(ddo_kernel_engine, tmp_path):
     }
 
 
-def discover(kernel, *, complete=True):
+def discover(kernel, *, complete=True, ambiguous=False):
     scope = {"page": 1}
     root = {"subject": "doc", "original_source": "source:test", "analyzed_scope": scope}
     selection = freeze_demand(
         kernel["model"], roots=(RootSubject("doc", "source:test", canonical_bytes(scope)),),
         targets=("urn:consumer",), inference="inference:test", execution_profile="execution:test",
-        discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),),
+        discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),)
+        + ((DiscoverySelection("urn:discover", "result", "urn:child", "other-items"),)
+           if ambiguous else ()),
     ).record
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
@@ -184,6 +186,11 @@ def discover(kernel, *, complete=True):
             **demand, "name": "all-items", "product_id": product["product_id"],
             "derivation_id": receipt["derivation_id"], "member_role": "result",
         })
+        if ambiguous:
+            storage.invoke("close_data_population", {
+                **demand, "name": "other-items", "product_id": product["product_id"],
+                "derivation_id": receipt["derivation_id"], "member_role": "result",
+            })
     return demand, consumer, parent
 
 
@@ -221,3 +228,38 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
             assert all(population["evidence"]["selection"]["obligation_id"] in exposed
                        for population in single["populations"]
                        if "selection" in population["evidence"])
+
+
+def test_native_planner_selects_on_one_read_and_attaches_only_after_fresh_read(population_kernel):
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+
+    kernel = population_kernel
+    demand, consumer, _ = discover(kernel)
+    with kernel["engine"].begin() as connection:
+        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+        snapshot = planner.resume(demand["demand_id"])
+        assert planner.ready(snapshot, authorization=b"{}") == ()
+        assert len(planner.selected_population_ids) == 1
+        refreshed = planner.resume(demand["demand_id"])
+        assert refreshed["read_id"] != snapshot["read_id"]
+        ready = planner.ready(refreshed, authorization=b"{}")
+        assert planner.selected_population_ids == ()
+        assert len(ready) == 1
+        assert ready[0].obligation == consumer["obligation_id"]
+
+
+def test_native_planner_preserves_ambiguous_authentic_parent_populations(population_kernel):
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+
+    kernel = population_kernel
+    demand, consumer, _ = discover(kernel, ambiguous=True)
+    with kernel["engine"].begin() as connection:
+        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+        snapshot = planner.resume(demand["demand_id"])
+        assert planner.ready(snapshot, authorization=b"{}") == ()
+        assert planner.selected_population_ids == ()
+        current = planner.resume(demand["demand_id"])
+        use = next(use for use in current["uses"]
+                   if use["obligation_id"] == consumer["obligation_id"])
+        assert use["fate"] == "awaiting-population"
+        assert use["selection"]["reasons"][0]["code"] == "ambiguous-population"

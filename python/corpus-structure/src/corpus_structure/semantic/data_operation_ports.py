@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_or
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
+    from .types import PreparedRelease, SourceBundle
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
@@ -107,9 +108,14 @@ class RoleValue:
     members: tuple[bytes, ...] = ()
 
     def __post_init__(self) -> None:
-        if (type(self.content) is not bytes or not self.role or not self.kind_contract
+        if (
+            type(self.content) is not bytes
+            or not self.role
+            or not self.kind_contract
             or (self.meaning is not None and type(self.meaning) is not bytes)
-            or type(self.members) is not tuple or any(type(member) is not bytes for member in self.members)):
+            or type(self.members) is not tuple
+            or any(type(member) is not bytes for member in self.members)
+        ):
             raise TypeError("role values require nominal role/kind and owned immutable bytes")
 
     def value(self) -> Any:
@@ -284,21 +290,47 @@ class ResolvedPythonPort:
         signature = self.logical_signature
         if self.operation.capabilities.forms != ("batch",) or signature is None:
             raise PortRefusal("operation has no admitted native batch capability")
-        if not members or any(not item.member for item in members) or len({item.member for item in members}) != len(members):
+        if (
+            not members
+            or any(not item.member for item in members)
+            or len({item.member for item in members}) != len(members)
+        ):
             raise PortRefusal("batch requires distinct explicit logical member identities")
         self.verify_runtime()
-        rows = tuple(self._arguments(item.values, route=route, binding=item.binding, signature=signature, verify=False) for item in members)
-        arguments = {name: tuple(row.arguments[name] for row in rows) for name in signature.parameters}
-        positional = tuple(arguments[p.name] for p in self.signature.parameters.values() if p.kind == inspect.Parameter.POSITIONAL_ONLY)
-        keywords = {name: value for name, value in arguments.items() if self.signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY}
+        rows = tuple(
+            self._arguments(
+                item.values, route=route, binding=item.binding, signature=signature, verify=False
+            )
+            for item in members
+        )
+        arguments = {
+            name: tuple(row.arguments[name] for row in rows) for name in signature.parameters
+        }
+        positional = tuple(
+            arguments[p.name]
+            for p in self.signature.parameters.values()
+            if p.kind == inspect.Parameter.POSITIONAL_ONLY
+        )
+        keywords = {
+            name: value
+            for name, value in arguments.items()
+            if self.signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
+        }
         bound = self.signature.bind(*positional, **keywords)
         result = self.function(*bound.args, **bound.kwargs)
         self.verify_runtime()
-        checked = TypeAdapter(self.signature.return_annotation).validate_python(_untrusted_value(result), strict=True)
+        checked = TypeAdapter(self.signature.return_annotation).validate_python(
+            _untrusted_value(result), strict=True
+        )
         if len(checked) != len(members):
             raise PortRefusal("native batch result cardinality differs from logical membership")
         completions = tuple(self._complete(value, signature.return_annotation) for value in checked)
-        return BatchPortCompletion(tuple((member.member, completion) for member, completion in zip(members, completions, strict=True)))
+        return BatchPortCompletion(
+            tuple(
+                (member.member, completion)
+                for member, completion in zip(members, completions, strict=True)
+            )
+        )
 
     def _complete(self, result, return_annotation) -> PortCompletion:
         contracts = dict(self.kind_contracts)
@@ -332,8 +364,15 @@ class ResolvedPythonPort:
         output = outputs[0]
         encoded = TypeAdapter(return_annotation).dump_json(checked)
         return PortCompletion(
-            self.operation.semantic_id, (RoleValue(output.name, contracts[output.kind], encoded,
-                canonical_bytes(semantic_value(checked))),)
+            self.operation.semantic_id,
+            (
+                RoleValue(
+                    output.name,
+                    contracts[output.kind],
+                    encoded,
+                    canonical_bytes(semantic_value(checked)),
+                ),
+            ),
         )
 
 
@@ -351,7 +390,12 @@ def _untrusted_value(value: Any) -> Any:
 
 
 def python_port_identity(
-    model: EffectiveDataOperationModel, sources: PythonSourceCollection, operation: str
+    model: EffectiveDataOperationModel,
+    sources: PythonSourceCollection,
+    operation: str,
+    *,
+    schema: SourceBundle | None = None,
+    prepared: PreparedRelease | None = None,
 ) -> PythonPortIdentity:
     """Prepare a correspondence statically; no import and no execution permission."""
     from dataclasses import asdict
@@ -363,7 +407,12 @@ def python_port_identity(
         raise PortRefusal("operation has no single closed original callable surface")
     # Re-extract the exact supplied source instead of trusting a caller-created
     # EffectiveOperation or a matching signature alone.
-    observed = compile_data_operations(python_sources=sources)
+    observed = compile_data_operations(
+        schema,
+        python_sources=sources,
+        definitions=prepared.definitions if prepared is not None else None,
+        vocabularies=prepared.vocabularies if prepared is not None else (),
+    )
     expected = {(i.owner, i.domain): i.key for i in model.identities}
     actual = {(i.owner, i.domain): i.key for i in observed.identities}
     required = (
@@ -405,6 +454,8 @@ def resolve_python_port(
     authorize: Callable[[PythonPortIdentity], None],
     receiver: object | None = None,
     runtime_locations: Mapping[str, Path] | None = None,
+    schema: SourceBundle | None = None,
+    prepared: PreparedRelease | None = None,
 ) -> ResolvedPythonPort:
     """Acquire the original callable after explicit execution-owner authorization.
 
@@ -416,7 +467,7 @@ def resolve_python_port(
     the model and refuse here until their implementation capability is admitted.
     There is no scalar fallback for them and no ambient Reader parameter.
     """
-    identity = python_port_identity(model, sources, operation)
+    identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
     selected = model.operation(operation)
     if (
         selected.effects
@@ -434,10 +485,14 @@ def resolve_python_port(
             "multi-output completion requires an explicit admitted result correspondence"
         )
     authorize(identity)
-    if runtime_locations is not None and set(runtime_locations) - {s.module for s in sources.sources}:
+    if runtime_locations is not None and set(runtime_locations) - {
+        s.module for s in sources.sources
+    }:
         raise PortRefusal("runtime locations name a module outside the captured source collection")
     paths = {
-        source.module: Path((runtime_locations or {}).get(source.module, Path(source.filename))).resolve()
+        source.module: Path(
+            (runtime_locations or {}).get(source.module, Path(source.filename))
+        ).resolve()
         for source in sources.sources
     }
     for source in sources.sources:
@@ -458,22 +513,45 @@ def resolve_python_port(
     surface = selected.callable_surfaces[0]
     expected_parameters = tuple(p.name for p in surface.parameters)
     if "." in member:
-        exposed_module = max((name for name in modules if surface.exposed.startswith(name + ".")), key=len)
+        exposed_module = max(
+            (name for name in modules if surface.exposed.startswith(name + ".")), key=len
+        )
         exposed_path = surface.exposed.removeprefix(exposed_module + ".").split(".")
         owner = modules[exposed_module]
         for name in exposed_path[:-1]:
             owner = inspect.getattr_static(owner, name)
         if not isinstance(owner, type) or type(owner) is not type:
             raise PortRefusal("receiver requires a supplied plain class")
-        if any("__init__" in cls.__dict__ or "__new__" in cls.__dict__ for cls in owner.__mro__[:-1]):
-            raise PortRefusal("receiver construction requires an explicit admitted preparation capability")
-        allowed_magic = {"__module__", "__qualname__", "__dict__", "__weakref__", "__doc__", "__firstlineno__", "__static_attributes__", "__annotations__", "__annotate_func__", "__data_operation__"}
-        if any(name.startswith("__") and name.endswith("__") and name not in allowed_magic for cls in owner.__mro__[:-1] for name in vars(cls)):
+        if any(
+            "__init__" in cls.__dict__ or "__new__" in cls.__dict__ for cls in owner.__mro__[:-1]
+        ):
+            raise PortRefusal(
+                "receiver construction requires an explicit admitted preparation capability"
+            )
+        allowed_magic = {
+            "__module__",
+            "__qualname__",
+            "__dict__",
+            "__weakref__",
+            "__doc__",
+            "__firstlineno__",
+            "__static_attributes__",
+            "__annotations__",
+            "__annotate_func__",
+            "__data_operation__",
+        }
+        if any(
+            name.startswith("__") and name.endswith("__") and name not in allowed_magic
+            for cls in owner.__mro__[:-1]
+            for name in vars(cls)
+        ):
             raise PortRefusal("receiver magic methods require an admitted dispatch model")
         if receiver is None:
             receiver = object.__new__(owner)
         if type(receiver) is not owner or vars(receiver):
-            raise PortRefusal("receiver must match its exposed class with no unbound instance state")
+            raise PortRefusal(
+                "receiver must match its exposed class with no unbound instance state"
+            )
         function = getattr(receiver, exposed_path[-1])
         if not inspect.ismethod(function) or function.__self__ is not receiver:
             raise PortRefusal("receiver entrypoint must be an original instance method")
@@ -489,15 +567,21 @@ def resolve_python_port(
     signature = inspect.signature(function, eval_str=True)
     logical_signature = None
     if selected.capabilities.forms == ("batch",):
+
         def element(annotation):
             args = get_args(annotation)
             if get_origin(annotation) is not tuple or len(args) != 2 or args[1] is not Ellipsis:
                 raise PortRefusal("native batch fields require tuple[T, ...] annotations")
             return args[0]
+
         if any(p.default is not inspect.Parameter.empty for p in signature.parameters.values()):
-            raise PortRefusal("native batch callable defaults require explicit per-member correspondence")
+            raise PortRefusal(
+                "native batch callable defaults require explicit per-member correspondence"
+            )
         logical_signature = signature.replace(
-            parameters=[p.replace(annotation=element(p.annotation)) for p in signature.parameters.values()],
+            parameters=[
+                p.replace(annotation=element(p.annotation)) for p in signature.parameters.values()
+            ],
             return_annotation=element(signature.return_annotation),
         )
     logical_return = (logical_signature or signature).return_annotation
@@ -538,7 +622,14 @@ def resolve_python_port(
                 _untrusted_value(parameter.default), strict=True
             )
     return ResolvedPythonPort(
-        identity, selected, contracts, function, signature, authorize, verify_runtime, logical_signature
+        identity,
+        selected,
+        contracts,
+        function,
+        signature,
+        authorize,
+        verify_runtime,
+        logical_signature,
     )
 
 
@@ -566,7 +657,12 @@ def _runtime_members(statements, owner, code, prefix):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             for target in targets:
                 if isinstance(target, ast.Name) and hasattr(owner, target.id):
-                    yield prefix + "." + target.id, node, inspect.getattr_static(owner, target.id), None
+                    yield (
+                        prefix + "." + target.id,
+                        node,
+                        inspect.getattr_static(owner, target.id),
+                        None,
+                    )
 
 
 def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> None:
@@ -585,7 +681,9 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
             raise PortRefusal("runtime source changed after acquisition")
         code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
         tree = ast.parse(source.content)
-        for path, node, value, expected_code in _runtime_members(tree.body, module, code, source.module):
+        for path, node, value, expected_code in _runtime_members(
+            tree.body, module, code, source.module
+        ):
             if path not in expected_nodes:
                 continue
             name = path.removeprefix(source.module + ".")
@@ -679,12 +777,29 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
                 if type(value) is not type(expected) or value != expected:
                     raise PortRefusal("runtime constant determinant differs: " + name)
             elif isinstance(node, ast.ClassDef):
-                if not isinstance(value, type) or type(value) is not type or node.decorator_list or node.keywords:
+                if (
+                    not isinstance(value, type)
+                    or type(value) is not type
+                    or node.decorator_list
+                    or node.keywords
+                ):
                     raise PortRefusal("runtime class requires a plain supplied owner: " + name)
-                expected_bases = tuple(_source_reference(base, module) for base in node.bases) or (object,)
+                expected_bases = tuple(_source_reference(base, module) for base in node.bases) or (
+                    object,
+                )
                 if value.__bases__ != expected_bases:
                     raise PortRefusal("runtime class bases differ: " + name)
-                allowed = {"__module__", "__dict__", "__weakref__", "__doc__", "__firstlineno__", "__static_attributes__", "__annotations__", "__annotate_func__", "__data_operation__"}
+                allowed = {
+                    "__module__",
+                    "__dict__",
+                    "__weakref__",
+                    "__doc__",
+                    "__firstlineno__",
+                    "__static_attributes__",
+                    "__annotations__",
+                    "__annotate_func__",
+                    "__data_operation__",
+                }
                 for item in node.body:
                     if isinstance(item, (ast.FunctionDef, ast.ClassDef)):
                         allowed.add(item.name)
@@ -694,7 +809,9 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
                 if set(vars(value)) - allowed:
                     raise PortRefusal("runtime class acquired undeclared members: " + name)
             else:
-                raise PortRefusal("runtime owner needs an explicit acquired correspondence: " + name)
+                raise PortRefusal(
+                    "runtime owner needs an explicit acquired correspondence: " + name
+                )
 
 
 def _code_globals(code: CodeType) -> set[str]:
@@ -804,15 +921,32 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
         code = compile(source.content, source.filename, "exec", dont_inherit=True)
         for path, node, value, _ in _runtime_members(tree.body, module, code, source.module):
             if path in expected_nodes and isinstance(node, ast.ClassDef):
-                uses.extend((source.module, item.id) for base in node.bases for item in ast.walk(base) if isinstance(item, ast.Name))
-            if path not in expected_nodes or not isinstance(node, ast.FunctionDef) or path.count(".") <= source.module.count(".") + 1:
+                uses.extend(
+                    (source.module, item.id)
+                    for base in node.bases
+                    for item in ast.walk(base)
+                    if isinstance(item, ast.Name)
+                )
+            if (
+                path not in expected_nodes
+                or not isinstance(node, ast.FunctionDef)
+                or path.count(".") <= source.module.count(".") + 1
+            ):
                 continue
             if not inspect.isfunction(value):
                 raise PortRefusal("runtime method differs: " + path)
             names = _code_globals(value.__code__)
-            for annotation in (*[arg.annotation for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)], node.returns):
+            for annotation in (
+                *[
+                    arg.annotation
+                    for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+                ],
+                node.returns,
+            ):
                 if annotation is not None:
-                    names.update(item.id for item in ast.walk(annotation) if isinstance(item, ast.Name))
+                    names.update(
+                        item.id for item in ast.walk(annotation) if isinstance(item, ast.Name)
+                    )
             uses.extend((source.module, name) for name in names)
             for attribute in ast.walk(node):
                 if not isinstance(attribute, ast.Attribute):
