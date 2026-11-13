@@ -24,8 +24,8 @@ from .characterization import (
 )
 from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
-from .data_operation_identity import body_identity, product_identity
-from .data_operation_model import EffectiveDataOperationModel
+from .data_operation_identity import body_identity, contextual_product_identity
+from .data_operation_model import SubjectContext, EffectiveDataOperationModel
 from .data_product_reference import DataProductReference, member_reference, reference_inputs
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
@@ -159,6 +159,12 @@ class InterpretedProduct:
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
+    subject_context: SubjectContext | None = None
+
+    def _publication_context(self):
+        if self.subject_context is None:
+            raise ValueError("native product identity requires an explicit acquired subject context")
+        return self.subject_context
 
     @property
     def value(self):
@@ -173,8 +179,8 @@ class InterpretedProduct:
             and item.domain == "kind"
         )
         value = self.value.model_dump(mode="python", exclude_unset=True)
-        return product_identity(
-            kind=kind, subject=source_subject(value["source"]), body=body_identity(value).key
+        return contextual_product_identity(
+            kind=kind, context=self._publication_context(), body=body_identity(value).key
         ).key
 
     @property
@@ -436,7 +442,7 @@ def construction_product_values(
 
 
 def validate_interpreted_product(
-    prepared, model, value, source, formal, *, product_type=ConstructionProduct
+    prepared, model, value, source, formal, *, product_type=ConstructionProduct, subject_context=None
 ):
     checked = prepared.validate_json(product_type.kind_name, canonical_bytes(value)).model_dump(
         mode="json", exclude_unset=True
@@ -535,16 +541,16 @@ def validate_interpreted_product(
         )
 
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
-    return product_type(canonical_bytes(checked), prepared, model)
+    return product_type(canonical_bytes(checked), prepared, model, subject_context)
 
 
-def validate_construction_product(prepared, model, value, source, formal):
+def validate_construction_product(prepared, model, value, source, formal, *, subject_context=None):
     available = {product.semantic_id: product for product in formal}
     requested = [row["product_id"] for row in value.get("dependencies", ())]
     if len(set(requested)) != len(requested) or any(key not in available for key in requested):
         raise ValueError("construction lacks its exact retained dependency closure")
     selected = tuple(available[key] for key in requested)
-    return validate_interpreted_product(prepared, model, value, source, selected)
+    return validate_interpreted_product(prepared, model, value, source, selected, subject_context=subject_context)
 
 
 @dataclass(frozen=True)
@@ -560,6 +566,7 @@ class PreparedConstructionProfile:
         *,
         sentences: SentenceInventory | None = None,
         check_active: Callable[[], None] = lambda: None,
+        subject_context: SubjectContext | None = None,
     ):
         options = ConstructionOptions() if options is None else options
         source = FrozenNativeSource.acquire(self.prepared, source.value)
@@ -585,6 +592,7 @@ class PreparedConstructionProfile:
             value,
             source,
             (*formal, *((sentences,) if sentences is not None else ())),
+            subject_context=subject_context,
         )
 
 
@@ -608,6 +616,7 @@ class PreparedContextualProfile:
         env=None,
         supporting=(),
         check_active=lambda: None,
+        subject_context: SubjectContext | None = None,
         max_nodes=20000,
     ):
         source = FrozenNativeSource.acquire(self.prepared, source.value)
@@ -625,6 +634,7 @@ class PreparedContextualProfile:
                 json.loads(product.content),
                 source,
                 (*formal, *supporting),
+                subject_context=product.subject_context,
             )
             for product in constructions
         )
@@ -650,6 +660,7 @@ class PreparedContextualProfile:
             source,
             products,
             product_type=ContextualMeaningProduct,
+            subject_context=subject_context,
         )
 
 

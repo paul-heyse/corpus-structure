@@ -32,8 +32,10 @@ from .enriched_document_products import (
     compose_enriched_document,
 )
 from .formal_products import FormalEvidenceProduct, _semantic_nodes, validate_formal_product
+from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
+from .sentence_products import SentenceInventory
 from .source_products import FrozenNativeSource, source_subject
 from .types import PreparedRelease, SourceArtifact
 
@@ -280,6 +282,8 @@ def execute_view_profile(receiver, sources, products, active):
 
 
 def _body(prepared, name, value):
+    if isinstance(value, (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SentenceInventory)):
+        value = value.value
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="python", exclude_unset=True)
 
@@ -405,14 +409,37 @@ class PreparedCharacterizationPort(ABC):
             raise PortRefusal("characterization ingress differs from acquired binding")
         return result
 
-    def _formal(self, source, values):
+    def _selected_product(self, product, binding, role_name, index):
+        """Restore the exact publication address from an admitted role member."""
+        from .data_operation_ports import PortRefusal
+        if binding is None:
+            product._publication_context()
+            return product
+        if binding.subject_context is None:
+            raise PortRefusal("product references require an explicit acquired subject context")
+        role = next(role for role in binding.roles if role.role == role_name)
+        members = tuple(member for member in role.members for _ in range(member.multiplicity))
+        member = members[index]
+        if member.member is not None:
+            raise PortRefusal("whole family product cannot substitute for a selected member")
+        context = SubjectContext(binding.subject_context.project_id, member.subject,
+                                 member.original_source, member.analyzed_scope)
+        product = replace(product, subject_context=context)
+        if product.semantic_id != member.product:
+            raise PortRefusal("family body differs from its selected native product identity")
+        return product
+
+    def _formal(self, source, values, binding):
         result = []
         for value in values:
             body = _body(self.prepared, "DdoFormalProduct", value)
             original = FrozenNativeSource.acquire(
                 self.prepared, {**source.value, "selectors": body["selectors"]}
             )
-            result.append(validate_formal_product(self.prepared, body, original, model=self.model))
+            result.append(self._selected_product(
+                validate_formal_product(self.prepared, body, original, model=self.model,
+                    subject_context=value.subject_context if isinstance(value, FormalEvidenceProduct) else None),
+                binding, "formal", len(result)))
         return tuple(result)
 
     def _retained(self, raw, binding, name):
@@ -425,7 +452,8 @@ class PreparedCharacterizationPort(ABC):
                 raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
             return tuple(
                 RetainedCharacterizationProduct.acquire(
-                    self.prepared, self.model, value.kind, value.content
+                    self.prepared, self.model, value.kind, value.content,
+                    subject_context=value.subject_context,
                 )
                 for value in raw
             )
@@ -452,9 +480,7 @@ class PreparedCharacterizationPort(ABC):
                 kind,
                 canonical_bytes(_body(self.prepared, definition.name, value)),
             )
-            if product.semantic_id != member.product or member.member is not None:
-                raise PortRefusal("view requires an exact whole governed product")
-            products.append(product)
+            products.append(self._selected_product(product, binding, name, len(products)))
         return tuple(products)
 
     def _inputs(self, values, binding):
@@ -486,7 +512,7 @@ class PreparedCharacterizationPort(ABC):
             raise PortRefusal(
                 "characterization subject differs from exact original source coordinate"
             )
-        formal = self._formal(source, roles["formal"])
+        formal = self._formal(source, roles["formal"], binding)
         if self.family == "construction":
             from .sentence_products import validate_sentence_inventory
 
@@ -500,21 +526,28 @@ class PreparedCharacterizationPort(ABC):
                     source,
                 )
             )
+            if native is not None:
+                native = self._selected_product(native, binding, "sentences", 0)
             return _ConstructionInputs(source, formal, native)
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = tuple(
-            validate_construction_product(
+            self._selected_product(validate_construction_product(
                 self.prepared,
                 self.model,
                 _body(self.prepared, "DdoConstructionProduct", value),
                 source,
                 (*formal, *supporting),
-            )
-            for value in roles["constructions"]
+                subject_context=value.subject_context if isinstance(value, ConstructionProduct) else None,
+            ), binding, "constructions", index)
+            for index, value in enumerate(roles["constructions"])
         )
         return _ContextualInputs(source, formal, constructions, supporting)
 
-    def _completion(self, product):
+    def _completion(self, product, binding=None):
+        if binding is not None:
+            if binding.subject_context is None:
+                raise ValueError("publication requires acquired output subject context")
+            product = replace(product, subject_context=binding.subject_context)
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
 
         output = next(role for role in self.operation.roles if role.direction == "output")
@@ -565,7 +598,7 @@ class PreparedCharacterizationPort(ABC):
             )
         check_active()
         self._verify()
-        return self._completion(product)
+        return self._completion(product, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .construction_products import validate_interpreted_product
@@ -651,7 +684,7 @@ class PreparedCharacterizationPort(ABC):
             )
         self._verify()
         return replace(
-            self._completion(product),
+            self._completion(product, binding),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

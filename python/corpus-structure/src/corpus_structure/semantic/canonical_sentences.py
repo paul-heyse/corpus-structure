@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -24,6 +25,12 @@ class CanonicalProduct:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     kind: str
+    subject_context: SubjectContext | None = None
+
+    def _publication_context(self):
+        if self.subject_context is None:
+            raise ValueError("native product identity requires an explicit acquired subject context")
+        return self.subject_context
 
     @property
     def value(self):
@@ -36,7 +43,7 @@ class CanonicalProduct:
 
     @property
     def reference(self):
-        from .data_operation_identity import body_identity, product_identity
+        from .data_operation_identity import body_identity, contextual_product_identity
         from .data_product_reference import DataProductReference
         from .source_products import source_subject
 
@@ -47,8 +54,8 @@ class CanonicalProduct:
             if item.owner == self.kind and item.domain == "kind"
         )
         return DataProductReference(
-            product_identity(
-                kind=kind, subject=source_subject(value["source"]), body=body_identity(value).key
+            contextual_product_identity(
+                kind=kind, context=self._publication_context(), body=body_identity(value).key
             ).key
         )
 
@@ -123,7 +130,7 @@ class PreparedCanonicalProfile:
             mode="json", exclude_unset=True
         )
 
-    def validate_output(self, value):
+    def validate_output(self, value, *, subject_context=None):
         result = self.prepared.validate_json(self.output_name, canonical_bytes(value))
         rows = result.model_dump(mode="python", exclude_unset=True)["members"]
         by_id = {row["member_id"]: row["body"] for row in rows}
@@ -142,11 +149,12 @@ class PreparedCanonicalProfile:
             self.prepared,
             self.model,
             next(role.kind for role in self.operation.roles if role.direction == "output"),
+            subject_context,
         )
 
-    def project(self, inventory):
+    def project(self, inventory, *, subject_context=None):
         actual = self.validate_input(inventory)
-        return self.validate_output(canonical_packet_values(actual, json.loads(self.projection)))
+        return self.validate_output(canonical_packet_values(actual, json.loads(self.projection)), subject_context=subject_context)
 
 
 def execute_canonical_projection(receiver, inventory):
@@ -289,7 +297,9 @@ class PreparedCanonicalPort:
             raise PortRefusal("canonical inventory differs from frozen selected binding")
         return value
 
-    def _complete(self, value):
+    def _complete(self, value, binding=None):
+        if binding is not None:
+            value = replace(value, subject_context=binding.subject_context)
         from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
 
@@ -322,7 +332,7 @@ class PreparedCanonicalPort:
         check_active()
         result = CanonicalSentenceProjection(self.profile).run(inventory)
         self._verify()
-        return self._complete(result)
+        return self._complete(result, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
@@ -348,7 +358,7 @@ class PreparedCanonicalPort:
         )
         result = self.profile.validate_output(json.loads(reply.content))
         return replace(
-            self._complete(result),
+            self._complete(result, binding),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

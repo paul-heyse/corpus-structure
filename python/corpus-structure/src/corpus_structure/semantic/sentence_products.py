@@ -12,7 +12,7 @@ import inspect
 import json
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
@@ -30,6 +30,7 @@ from corpus_structure.ingest.sentences import (
     prepare_layout,
 )
 
+from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource, source_product_inputs, source_subject
 from .types import PreparedRelease, SourceArtifact, SourceBundle
@@ -84,10 +85,16 @@ class SentenceInventory:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     execution_receipts: tuple[bytes, ...] = ()
+    subject_context: SubjectContext | None = None
+
+    def _publication_context(self):
+        if self.subject_context is None:
+            raise ValueError("native product identity requires an explicit acquired subject context")
+        return self.subject_context
 
     @property
     def semantic_id(self) -> str:
-        from .data_operation_identity import body_identity, product_identity
+        from .data_operation_identity import body_identity, contextual_product_identity
 
         kind = next(
             identity.key
@@ -96,9 +103,9 @@ class SentenceInventory:
             and identity.domain == "kind"
         )
         value = self.value.model_dump(mode="python", exclude_unset=True)
-        return product_identity(
+        return contextual_product_identity(
             kind=kind,
-            subject=source_subject(json.loads(self.content)["source"]),
+            context=self._publication_context(),
             body=body_identity(value).key,
         ).key
 
@@ -123,6 +130,7 @@ def validate_sentence_inventory(
     source: FrozenNativeSource,
     *,
     receipts: tuple[bytes, ...] = (),
+    subject_context: SubjectContext | None = None,
 ) -> SentenceInventory:
     checked = prepared.validate_json("DdoSentenceInventory", canonical_bytes(value)).model_dump(
         mode="json", exclude_unset=True
@@ -232,7 +240,7 @@ def validate_sentence_inventory(
         else "partial"
     ):
         raise ValueError("native product outcome differs from actual family coverage")
-    return SentenceInventory(canonical_bytes(checked), prepared, model, receipts)
+    return SentenceInventory(canonical_bytes(checked), prepared, model, receipts, subject_context)
 
 
 @dataclass(frozen=True)
@@ -532,6 +540,7 @@ class PreparedSentenceProfile:
         source: FrozenNativeSource,
         *,
         check_active: Callable[[], None] = lambda: None,
+        subject_context: SubjectContext | None = None,
         host: NativeHostGroup | None = None,
     ) -> SentenceInventory:
         from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
@@ -629,7 +638,7 @@ class PreparedSentenceProfile:
         )
         check_active()
         return validate_sentence_inventory(
-            self.prepared, self.model, value, source, receipts=tuple(receipts)
+            self.prepared, self.model, value, source, receipts=tuple(receipts), subject_context=subject_context
         )
 
 
@@ -1013,7 +1022,9 @@ class PreparedSentencePort:
             raise PortRefusal("sentence input differs from the frozen source binding")
         return source
 
-    def _completion(self, product):
+    def _completion(self, product, binding=None):
+        if binding is not None:
+            product = replace(product, subject_context=binding.subject_context)
         from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue
 
@@ -1071,7 +1082,7 @@ class PreparedSentencePort:
                 self.profile, check_active, execution_owner.native_hosts
             ).run(source)
             self._verify()
-            return self._completion(product)
+            return self._completion(product, binding)
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()
@@ -1091,7 +1102,7 @@ class PreparedSentencePort:
         source = self._source(values, binding)
         product = SentenceEvidenceOperation(self.profile, check_active, self.host).run(source)
         self._verify()
-        return self._completion(product)
+        return self._completion(product, binding)
 
 
 def resolve_sentence_port(

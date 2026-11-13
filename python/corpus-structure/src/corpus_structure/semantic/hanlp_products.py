@@ -613,12 +613,24 @@ class PreparedHanlpPort:
         source = FrozenNativeSource.acquire(
             self.profile.prepared, _untrusted_value(selected["source"].value)
         )
-        canonical = CanonicalProduct(
-            canonical_bytes(_untrusted_value(selected["canonical"].value)),
-            self.profile.prepared,
-            self.profile.model,
-            self.profile.prepared.index.definitions["DdoCanonicalSentences"].iri,
-        )
+        supplied = selected["canonical"].value
+        content = supplied.content if isinstance(supplied, CanonicalProduct) else canonical_bytes(_untrusted_value(supplied))
+        context = supplied.subject_context if isinstance(supplied, CanonicalProduct) else None
+        member = None
+        if binding is not None:
+            from .data_operation_model import SubjectContext
+            if binding.subject_context is None:
+                raise PortRefusal("HanLP canonical input requires acquired context")
+            role = next(role for role in binding.roles if role.role == "canonical")
+            if len(role.members) != 1 or role.members[0].member is not None:
+                raise PortRefusal("HanLP requires one whole canonical product")
+            member = role.members[0]
+            context = SubjectContext(binding.subject_context.project_id, member.subject,
+                                     member.original_source, member.analyzed_scope)
+        canonical = CanonicalProduct(content, self.profile.prepared, self.profile.model,
+            self.profile.prepared.index.definitions["DdoCanonicalSentences"].iri, context)
+        if member is not None and canonical.reference.product_id != member.product:
+            raise PortRefusal("HanLP canonical body differs from selected native product")
         canonical_hanlp_rows(source, canonical)
         if binding is not None and (
             not binding.sufficient

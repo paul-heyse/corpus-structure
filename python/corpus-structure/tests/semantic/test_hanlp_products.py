@@ -133,6 +133,7 @@ def inputs(profile):
         profile.prepared,
         profile.model,
         profile.prepared.index.definitions["DdoCanonicalSentences"].iri,
+        _publication_context(source),
     )
     _ = canonical.value
     return (
@@ -246,7 +247,7 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         PythonRoleValue(
             role.name,
             ids[role.kind, "kind"],
-            source.value if role.name == "source" else canonical.value,
+            source.value if role.name == "source" else canonical,
         )
         for role in operation.roles
         if role.direction == "input"
@@ -300,3 +301,11 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
     for packet in completion.outputs[0].members:
         member = json.loads(packet)
         validate_wire_schema(contracts[member["kind_contract"]]["meaning_schema"], member["body"])
+
+
+def _publication_context(source):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.source_products import source_subject
+    value = source.value
+    return SubjectContext("family-test", source_subject(value["source"]), value["source"]["document"],
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}))

@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from .characterization import characterization_profiles
-from .data_operation_identity import body_identity, product_identity
-from .data_operation_model import EffectiveDataOperationModel
+from .data_operation_identity import body_identity, contextual_product_identity
+from .data_operation_model import SubjectContext, EffectiveDataOperationModel
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource, source_subject
@@ -23,9 +23,10 @@ class RetainedCharacterizationProduct:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     kind: str
+    subject_context: SubjectContext | None = None
 
     @classmethod
-    def acquire(cls, prepared, model, kind, content):
+    def acquire(cls, prepared, model, kind, content, *, subject_context=None):
         definition = next((row for row in prepared.definitions if row.iri == kind), None)
         if (
             definition is None
@@ -42,7 +43,13 @@ class RetainedCharacterizationProduct:
             prepared,
             model,
             kind,
+            subject_context,
         )
+
+    def _publication_context(self):
+        if self.subject_context is None:
+            raise ValueError("native product identity requires an explicit acquired subject context")
+        return self.subject_context
 
     @property
     def value(self):
@@ -57,8 +64,8 @@ class RetainedCharacterizationProduct:
             if row.owner == self.kind and row.domain == "kind"
         )
         value = self.value.model_dump(mode="python", exclude_unset=True)
-        return product_identity(
-            kind=kind, subject=source_subject(value["source"]), body=body_identity(value).key
+        return contextual_product_identity(
+            kind=kind, context=self._publication_context(), body=body_identity(value).key
         ).key
 
 
@@ -68,6 +75,12 @@ class EnrichedDocumentProduct:
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
+    subject_context: SubjectContext | None = None
+
+    def _publication_context(self):
+        if self.subject_context is None:
+            raise ValueError("native product identity requires an explicit acquired subject context")
+        return self.subject_context
 
     @property
     def value(self):
@@ -82,8 +95,8 @@ class EnrichedDocumentProduct:
             if item.owner == self.prepared.index.definitions[self.kind_name].iri
             and item.domain == "kind"
         )
-        return product_identity(
-            kind=kind, subject=value["original_document"], body=body_identity(value).key
+        return contextual_product_identity(
+            kind=kind, context=self._publication_context(), body=body_identity(value).key
         ).key
 
     @property
@@ -135,6 +148,7 @@ def compose_enriched_document(
     *,
     active=(),
     profile="selected_layers",
+    subject_context=None,
 ):
     """Compose exact retained inputs with original local offsets and source identities."""
     sources = tuple(FrozenNativeSource.acquire(prepared, source.value) for source in sources)
@@ -238,7 +252,7 @@ def compose_enriched_document(
     )
     checked = prepared.validate_json("DdoEnrichedDocumentView", canonical_bytes(value))
     return EnrichedDocumentProduct(
-        canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)), prepared, model
+        canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)), prepared, model, subject_context
     )
 
 
@@ -264,6 +278,7 @@ class EnrichedDocumentReadings:
             self.products,
             active=tuple(DataProductReference(row["product_id"]) for row in body.get("active", ())),
             profile=body["profile"],
+            subject_context=self.view.subject_context,
         )
         if checked.content != self.view.content:
             raise ValueError("combined document differs from its exact retained composition")

@@ -24,7 +24,7 @@ from .characterization import (
     validate_inventory_graph,
 )
 from .characterization_evidence import validate_evidence
-from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
+from .data_operation_model import SubjectContext, EffectiveDataOperationModel, EffectiveOperation
 from .formal_evidence import (
     FAMILIES,
     FormalIdentity,
@@ -129,6 +129,12 @@ class FormalEvidenceProduct:
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
+    subject_context: SubjectContext | None = None
+
+    def _publication_context(self):
+        if self.subject_context is None:
+            raise ValueError("native product identity requires an explicit acquired subject context")
+        return self.subject_context
 
     @property
     def value(self) -> BaseModel:
@@ -137,7 +143,7 @@ class FormalEvidenceProduct:
     @property
     def semantic_id(self) -> str:
         """Use the same body/kind/subject identity as native publication."""
-        from .data_operation_identity import body_identity, product_identity
+        from .data_operation_identity import body_identity, contextual_product_identity
 
         definition = self.prepared.index.definitions["DdoFormalProduct"]
         contract = next(
@@ -146,9 +152,9 @@ class FormalEvidenceProduct:
             if (identity.owner, identity.domain) == (definition.iri, "kind")
         )
         value = self.value.model_dump(mode="python", exclude_unset=True)
-        return product_identity(
+        return contextual_product_identity(
             kind=contract,
-            subject=source_subject(value["source"]),
+            context=self._publication_context(),
             body=body_identity(value).key,
         ).key
 
@@ -184,6 +190,7 @@ def validate_formal_product(
     source: FrozenFormalSource,
     *,
     model: EffectiveDataOperationModel,
+    subject_context: SubjectContext | None = None,
 ) -> FormalEvidenceProduct:
     checked = _values(prepared.validate_json("DdoFormalProduct", canonical_bytes(value)))
     selected = source.value
@@ -326,7 +333,7 @@ def validate_formal_product(
         row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]
     ):
         raise ValueError("complete formal product contains incomplete family coverage")
-    return FormalEvidenceProduct(canonical_bytes(checked), prepared, model)
+    return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
 
 
 @dataclass(frozen=True)
@@ -343,6 +350,7 @@ class PreparedFormalEvidence:
         options: FormalEvidenceOptions,
         *,
         check_active: Callable[[], None] = lambda: None,
+        subject_context: SubjectContext | None = None,
     ) -> FormalEvidenceProduct:
         # Revalidate owned boundary bytes; model_construct/hand-created wrappers are not authority.
         source = FrozenFormalSource.acquire(self.prepared, source.value)
@@ -355,7 +363,7 @@ class PreparedFormalEvidence:
             formal_member_contracts(self.prepared, self.model),
             check_active=check_active,
         )
-        return validate_formal_product(self.prepared, value, source, model=self.model)
+        return validate_formal_product(self.prepared, value, source, model=self.model, subject_context=subject_context)
 
 
 def formal_member_contracts(
@@ -798,7 +806,9 @@ class PreparedFormalEvidencePort:
             raise PortRefusal("formal input differs from the frozen source binding")
         return source
 
-    def _completion(self, product):
+    def _completion(self, product, binding=None):
+        if binding is not None:
+            product = replace(product, subject_context=binding.subject_context)
         from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
 
@@ -836,7 +846,7 @@ class PreparedFormalEvidencePort:
             source
         )
         self._verify()
-        return self._completion(product)
+        return self._completion(product, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         """Yield admitted source-native CPU work under the invocation's one pool/credit."""
@@ -881,7 +891,7 @@ class PreparedFormalEvidencePort:
         )
         self._verify()
         return replace(
-            self._completion(product),
+            self._completion(product, binding),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

@@ -80,7 +80,7 @@ def acquire_source(profile, value):
 
 def test_actual_formal_product_retains_positioned_rules_symbols_terms_and_witnesses(profile):
     source = selected(profile)
-    product = profile.run(source, FormalEvidenceOptions())
+    product = profile.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
     body = product.inventory()
     assert {row["kind"] for row in body["annotations"]} >= {
         "formal.input",
@@ -114,11 +114,11 @@ def test_actual_formal_product_retains_positioned_rules_symbols_terms_and_witnes
 
 def test_formal_semantics_do_not_depend_on_execution_limits_or_receipt_placement(profile):
     source = selected(profile, "Quantity: 2 kg")
-    left = profile.run(source, FormalEvidenceOptions(parse_seconds=2, max_forest_nodes=20000))
+    left = profile.run(source, FormalEvidenceOptions(parse_seconds=2, max_forest_nodes=20000), subject_context = _publication_context(source))
     right = profile.run(
         source,
         FormalEvidenceOptions(parse_seconds=3, max_forest_nodes=30000, max_inline_chars=4096),
-    )
+    subject_context = _publication_context(source))
     assert left.content == right.content
     assert left.semantic_id == right.semantic_id
     assert b"release_id" not in left.content and b"task_id" not in left.content
@@ -130,14 +130,14 @@ def test_formal_source_identity_and_exact_scope_change_meaning(profile):
     changed = full.value
     changed["source"]["document"] = "document:another-original"
     other = FrozenFormalSource.acquire(profile.prepared, changed)
-    first = profile.run(full, FormalEvidenceOptions())
-    second = profile.run(other, FormalEvidenceOptions())
+    first = profile.run(full, FormalEvidenceOptions(), subject_context = _publication_context(full))
+    second = profile.run(other, FormalEvidenceOptions(), subject_context = _publication_context(other))
     assert {m.member_id for m in first.members}.isdisjoint({m.member_id for m in second.members})
     scoped = full.value
     scoped["selectors"][0]["end"] = 8
     result = profile.run(
-        FrozenFormalSource.acquire(profile.prepared, scoped), FormalEvidenceOptions()
-    )
+        FrozenFormalSource.acquire(profile.prepared, scoped), FormalEvidenceOptions(),
+    subject_context = _publication_context(FrozenFormalSource.acquire(profile.prepared, scoped)))
     assert all(
         extent.get("end", 0) <= 8
         for row in result.inventory()["occurrences"]
@@ -177,7 +177,7 @@ def test_unprojected_recognized_formula_preserves_atom_and_unknown_correspondenc
         recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
         selectors=[dict(projection="b" * 64, native_pointer="#/texts/0")],
     )
-    product = profile.run(acquire_source(profile, value), FormalEvidenceOptions())
+    product = profile.run(acquire_source(profile, value), FormalEvidenceOptions(), subject_context = _publication_context(acquire_source(profile, value)))
     inputs = [
         row["formal_input"] for row in product.inventory()["annotations"] if "formal_input" in row
     ]
@@ -196,7 +196,7 @@ def test_cooperative_cancellation_prevents_complete_product(profile):
         raise RuntimeError("cancelled original request")
 
     with pytest.raises(RuntimeError, match="cancelled original request"):
-        profile.run(selected(profile), FormalEvidenceOptions(), check_active=cancel)
+        profile.run(selected(profile), FormalEvidenceOptions(), check_active=cancel, subject_context = _publication_context(selected(profile)))
 
 
 def test_immediate_construction_boundary_reuses_formal_facts_without_parser(profile, monkeypatch):
@@ -205,7 +205,7 @@ def test_immediate_construction_boundary_reuses_formal_facts_without_parser(prof
     from corpus_structure.semantic.formal_readings import FormalSourceReadings
 
     source = selected(profile, "Quantity: 2 kg")
-    product = profile.run(source, FormalEvidenceOptions())
+    product = profile.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
     monkeypatch.setattr(
         formal_evidence,
         "formal_field_grammar",
@@ -462,8 +462,8 @@ def test_target_preserves_packed_alternatives_and_original_source_custody_is_not
     monkeypatch.setattr(
         grammar, "to_sympy", lambda *a, **k: pytest.fail("constructed native algebra")
     )
-    left = profile.run(first, FormalEvidenceOptions())
-    right = profile.run(second, FormalEvidenceOptions())
+    left = profile.run(first, FormalEvidenceOptions(), subject_context = _publication_context(first))
+    right = profile.run(second, FormalEvidenceOptions(), subject_context = _publication_context(second))
     assert left.content == right.content
     body = left.inventory()
     assert body["choices"]
@@ -616,7 +616,7 @@ def test_formal_product_cannot_relabel_typed_member_contract(profile):
     from corpus_structure.semantic.formal_products import validate_formal_product
 
     source = selected(profile, "Quantity: 2 kg")
-    product = profile.run(source, FormalEvidenceOptions())
+    product = profile.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
     value = json.loads(product.content)
     nominal = profile.prepared.index.definitions["DdoFormalAnnotation"].iri
     value["members"][0]["kind_contract"] = next(
@@ -687,7 +687,7 @@ def test_target_formal_source_kind_rejects_generic_private_or_contextual_authori
     )
     from corpus_structure.semantic.identity import canonical_bytes
 
-    product = profile.run(selected(profile, "Quantity: 2 kg"), FormalEvidenceOptions())
+    product = profile.run(selected(profile, "Quantity: 2 kg"), FormalEvidenceOptions(), subject_context = _publication_context(selected(profile, "Quantity: 2 kg")))
     original = product.inventory()["annotations"][0]
     candidate = {**original, **changed}
     # These fields/states are legal in the shared broader released record. The
@@ -746,7 +746,7 @@ def test_primary_lexicon_is_consumed_without_reclassification(profile, monkeypat
     from corpus_structure.semantic.formal_readings import FormalSourceReadings
 
     source = selected(profile, "All samples are finite.")
-    product = profile.run(source, FormalEvidenceOptions())
+    product = profile.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
     readings = FormalSourceReadings.from_products((product,), source)
     atoms, terminals = readings.positioned(start=0, end=len(source.value["text"]))
     assert not atoms
@@ -771,7 +771,7 @@ def test_primary_lexicon_protects_fields_and_rejects_forged_slices(profile):
     from corpus_structure.semantic.formal_readings import FormalSourceReadings
 
     source = selected(profile, "All samples use Quantity: 2 kg.")
-    product = profile.run(source, FormalEvidenceOptions())
+    product = profile.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
     atoms, terminals = FormalSourceReadings.from_products((product,), source).positioned(
         start=0, end=len(source.value["text"])
     )
@@ -802,7 +802,7 @@ def test_each_retained_formal_choice_has_an_addressable_exact_member_packet(prof
         ],
         recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
     )
-    product = profile.run(source, FormalEvidenceOptions())
+    product = profile.run(source, FormalEvidenceOptions(), subject_context = _publication_context(source))
     body = product.value.model_dump(mode="json", exclude_unset=True)
     groups = [
         packet["body"] for packet in body["members"] if packet["body"]["record_type"] == "choice"
@@ -823,3 +823,24 @@ def test_each_retained_formal_choice_has_an_addressable_exact_member_packet(prof
     ]
     with pytest.raises(ValueError, match="owning packed group"):
         validate_formal_product(profile.prepared, body, source, model=profile.model)
+
+
+def _publication_context(source, *, document=False):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.source_products import source_subject
+    value = source.value
+    return SubjectContext("family-test", value["source"]["document"] if document else source_subject(value["source"]),
+                          value["source"]["document"], canonical_bytes({"source": value["source"], "selectors": value["selectors"]}))
+
+
+def test_publication_identity_requires_context_and_distinguishes_authority_scope(profile):
+    from dataclasses import replace
+    source = selected(profile, 'All samples are finite.')
+    context = _publication_context(source)
+    product = profile.run(source, FormalEvidenceOptions(), subject_context=context)
+    other = replace(product, subject_context=replace(context, project_id='another-project'))
+    assert other.content == product.content
+    assert other.semantic_id != product.semantic_id
+    with pytest.raises(ValueError, match='explicit acquired subject context'):
+        replace(product, subject_context=None).semantic_id

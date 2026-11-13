@@ -93,7 +93,8 @@ class FormalSourceReadings:
             original = FrozenFormalSource.acquire(
                 product.prepared, {**selected, "selectors": body["selectors"]}
             )
-            checked = validate_formal_product(product.prepared, body, original, model=product.model)
+            checked = validate_formal_product(product.prepared, body, original, model=product.model,
+                subject_context=product.subject_context)
             retained.append((DataProductReference(checked.semantic_id), checked.inventory()))
             lexical.extend(body["lexicon"])
         return cls._from_retained(selected, retained, lexical)
