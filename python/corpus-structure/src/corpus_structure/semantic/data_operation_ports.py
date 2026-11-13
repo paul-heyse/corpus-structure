@@ -136,6 +136,7 @@ class PortCompletion:
     operation: str
     outputs: tuple[RoleValue, ...]
     execution_evidence: bytes | None = None
+    cpu_execution_evidence: bytes | None = None
     outcome: str = "success"
 
     def __post_init__(self) -> None:
@@ -143,6 +144,11 @@ class PortCompletion:
             raise TypeError("completion requires an explicit semantic outcome")
         if self.execution_evidence is not None and type(self.execution_evidence) is not bytes:
             raise TypeError("execution evidence requires owned immutable bytes")
+        if (
+            self.cpu_execution_evidence is not None
+            and type(self.cpu_execution_evidence) is not bytes
+        ):
+            raise TypeError("CPU execution evidence requires owned immutable bytes")
 
 
 @dataclass(frozen=True)

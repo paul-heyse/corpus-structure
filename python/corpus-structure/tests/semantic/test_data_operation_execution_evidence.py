@@ -99,3 +99,19 @@ def test_captured_companion_schema_is_required_and_owns_wire_interpretation():
     }
     with pytest.raises(ValueError, match="only-this-runtime"):
         validate_wire_schema(completion, request)
+
+
+def test_cpu_receipt_keeps_matched_process_facts_without_product_or_reply_copy():
+    from corpus_structure.semantic.cpu_receipts import CPUExecutionReceipt
+
+    original = CPUExecutionReceipt('a' * 64, 23, True, 1,
+                                   b'[{"num_threads":1,"user_api":"blas"}]')
+    value = bind_execution_evidence(None, cpu_content=canonical_bytes(original.record()),
+        fence=dict(request_id='r', generation=1, task_id=2, attempt=3, holder='h'),
+        runtime_id='runtime')
+    assert value['host_receipts'] == []
+    assert value['cpu_receipts'][0] == original.record()
+    assert 'content' not in value['cpu_receipts'][0]
+    decoded = original.native_pools()
+    decoded[0]['num_threads'] = 99
+    assert original.native_pools()[0]['num_threads'] == 1

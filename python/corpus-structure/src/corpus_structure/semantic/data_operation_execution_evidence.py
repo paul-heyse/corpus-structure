@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 
+from .cpu_receipts import CPUExecutionReceipt
 from .identity import canonical_bytes
 
 SOURCE = "native/data-operation-execution-evidence.schema.json"
@@ -21,7 +22,7 @@ _Positive = Annotated[int, Field(strict=True, ge=1)]
 class NativeExecutionEvidence(BaseModel):
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
 
-    version: Literal["native-execution-evidence-v1"] = "native-execution-evidence-v1"
+    version: Literal["native-execution-evidence-v1"]
     request_id: _Identifier
     generation: _Positive
     task_id: _Positive
@@ -29,6 +30,7 @@ class NativeExecutionEvidence(BaseModel):
     holder: _Identifier
     runtime_id: _Identifier
     host_receipts: tuple[NativeExecutionReceipt, ...]
+    cpu_receipts: tuple[CPUExecutionReceipt, ...]
 
 
 @cache
@@ -56,13 +58,20 @@ def execution_evidence_schema() -> bytes:
     return canonical_bytes(schema)
 
 
-def bind_execution_evidence(content: bytes, *, fence: dict, runtime_id: str) -> dict:
+def bind_execution_evidence(
+    content: bytes | None,
+    *,
+    fence: dict,
+    runtime_id: str,
+    cpu_content: bytes | None = None,
+) -> dict:
     """Bind the capability's original matched host receipts to its native attempt."""
     value = {
         "version": "native-execution-evidence-v1",
         **fence,
         "runtime_id": runtime_id,
-        "host_receipts": json.loads(content),
+        "host_receipts": json.loads(content) if content is not None else [],
+        "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
     }
     Draft7Validator(json.loads(execution_evidence_schema())).validate(value)
     checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
