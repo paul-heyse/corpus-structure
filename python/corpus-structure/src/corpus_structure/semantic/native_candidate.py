@@ -1191,6 +1191,10 @@ def series_native_definitions(connection, *, include_selected=True):
     # the view's composite type during CREATE, after the managed scope was dropped.
     providers = (
         "read_pdf_published_revision",
+        # Coverage views and SQL-standard readers bind these functions during
+        # CREATE. Hoist their complete source-owned prerequisites with the views.
+        "pdf_companion_field_bytes",
+        "pdf_companion_body",
         "pdf_selected_product",
         "pdf_published_item",
         "pdf_published_region",
