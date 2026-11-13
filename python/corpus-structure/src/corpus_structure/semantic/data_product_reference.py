@@ -4,8 +4,45 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import Path
 
 from .identity import canonical_bytes
+
+
+def reference_inputs(bundle):
+    """Capture the shared nominal address shapes alongside their existing schema owner."""
+    import yaml
+
+    from .types import SourceArtifact, SourceBundle
+
+    content = (
+        Path(__file__).parents[1] / "model/semantic/data-operation-references.yaml"
+    ).read_bytes()
+    name, root = "data_operation_references", "data_operation_references_root"
+    existing = {source.name: source.content for source in bundle.sources}
+    if name in existing:
+        if existing[name] != content:
+            raise ValueError("shared semantic reference model differs from installed owner")
+        return bundle
+    if root in existing:
+        raise ValueError("semantic reference model uses a reserved root name")
+    return SourceBundle(
+        root,
+        (
+            *bundle.sources,
+            SourceArtifact(name, content),
+            SourceArtifact(
+                root,
+                yaml.safe_dump(
+                    dict(
+                        id="urn:corpus:data-operation-references-root",
+                        name=root,
+                        imports=[bundle.root, name],
+                    )
+                ).encode(),
+            ),
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)

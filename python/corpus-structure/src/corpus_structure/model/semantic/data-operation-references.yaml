@@ -1,0 +1,16 @@
+id: https://corpus-structure.dev/semantic/data-operation-references
+name: data_operation_references
+prefixes:
+  dsr: https://corpus-structure.dev/semantic/data-operation-references/
+default_prefix: dsr
+default_range: string
+classes:
+  DdoSemanticProductReference:
+    description: Governed semantic product address, independent of physical task and receipt custody.
+    attributes:
+      product_id: {required: true, pattern: '^.+$'}
+  DdoSemanticMemberReference:
+    is_a: DdoSemanticProductReference
+    description: Exact member address qualified by its authentic governing product.
+    attributes:
+      member_id: {required: true, pattern: '^.+$'}
