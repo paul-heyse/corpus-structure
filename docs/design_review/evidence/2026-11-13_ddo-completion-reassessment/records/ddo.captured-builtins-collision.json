@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "ddo.captured-builtins-collision",
+  "title": "Captured builtins recipe and runtime-authentication escape",
+  "group": null,
+  "package": "DDO-02",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an admitted function's captured builtins change its behavior without changing its reusable recipe or refusing runtime acquisition?",
+  "answers": [],
+  "method": "Compile two closed synthetic source modules, independently acquire their original-callable ports, then mutate only each function's isolated captured builtin mapping.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-13_ddo-completion-reassessment/builtins_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "builtins_probe.py",
+      "role": "probe",
+      "sha256": "0c2ba2282dea844fb7c1addfecb05124bde1fd1dfe6cec629a17c5ca8523be2e"
+    },
+    {
+      "path": "source-baseline.json",
+      "role": "source-boundary",
+      "sha256": "18b7aecd5df7e60d65d817f57d412e1f155907dafc095feca6d60fa7c0c1d004"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "builtins-result.json",
+      "role": "result",
+      "sha256": "ee89e07c447f41c00dc910a9351e5fda7cb419cbf0e81c269449a4c5e1e323bf"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "same_recipe",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Complete slices without unknowns independently return 7 and 8."
+    },
+    {
+      "name": "post_acquisition_mutation_admitted",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Both acquired ports return 9 after changing only their function's isolated captured len binding."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "DDO-CA-01 remains implementation-incomplete: static builtin namespace closure and runtime authentication do not cover the callable's actual captured builtin bindings. This bounded probe reproduces the defect and performs no production repair or native/provider qualification.",
+  "consumed_by": [
+    "DDO-01",
+    "DDO-02",
+    "DDO-03"
+  ]
+}

@@ -22,6 +22,11 @@ the governing contracts; it does not maintain a second completion ledger.
 
 ## Projection contract and physical route — I01
 
+**Accepted target; current completion boundary:** the pure typed graph kernels, dependency records
+and member `projection_families` policies cover useful subsets. They do not yet deliver the
+governing projection interpretation below. The coordinator's completion audit owns CA-06 and
+the remaining DDO-01/03 prerequisite; later runtime/serving consumers keep their package owners.
+
 The effective governing model, compiled from declaration-owned and admitted implementation-owned
 definitions, contains a typed GraphProjection specification, not arbitrary Python
 callbacks, SQL text or a separately edited graph registry. It declares source contracts and exact

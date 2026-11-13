@@ -13,6 +13,8 @@ the governing contracts; it does not maintain a second completion ledger.
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
 introduced DDO-CA-02/04 for overlapping publication replay and purpose enforcement.
 Their current disposition belongs to the coordinator's findings table.
+CA-05 also retains the complete-context discovery closure gap. Successful member/product admission
+does not establish that native population closure accepts every valid distinct scoped member.
 
 ## Target and representation
 

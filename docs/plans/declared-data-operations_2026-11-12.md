@@ -1,8 +1,9 @@
 # Declared data operations — total governing model
 
-**Status: Execution paused at the operator's request · 2026-11-13. DDO-00 preparation complete.
-Audit repairs and DDO-03–05 implementation are integrated; finding/package acceptance remains open
-because final qualification was interrupted. DDO-06–12 retain their broader open scope.**
+**Status: Completion reassessment found remaining implementation and qualification gaps · 2026-11-13.
+DDO-00 preparation is complete. DDO-01/02 and DDO-03–05 remain partially implemented;
+DDO-CA-01/05 have residual defects, CA-06/07 record missing projection/retirement obligations.
+DDO-06–12 retain their broader open scope. Implementation remains paused at the operator's request.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no product scope or acceptance limits. Later operator-accepted test-system dependencies are
@@ -175,9 +176,9 @@ actual duplicated mappings/lists with consumers, while DDO-11 preserves archived
 
 ## Execution queue and readiness
 
-DDO-00 is **complete at its scoped preparation boundary**. The DDO-01/02 source-reflection
-repair and the remaining DDO-03–05 implementation are integrated, with bounded passing controls.
-Their scoped acceptance remains **open pending final qualification**. The completion-audit table
+DDO-00 is **complete at its scoped preparation boundary**. DDO-01/02 and DDO-03–05 are
+**partially implemented**, with remaining source closure, scoped discovery, projection-definition
+and retirement obligations (CA-01/05/06/07), as well as incomplete final qualification. The completion-audit table
 below owns all five findings' current disposition, and [Audit repair execution](#audit-repair-execution--2026-11-13)
 owns implementation and remaining acceptance. DDO-06–12 remain **open**. Execution is paused;
 no automatic test restart or continuation is scheduled.
@@ -811,74 +812,109 @@ retirement. Full qualification belongs to this series, never inherited from an o
 
 ## Completion audit · 2026-11-13
 
-**Tested / source-inspected · 2026-11-13.** Inspected production baseline
-`01375f9f7cf5caa67c3fe341db6275bed8ec8b60` on main, with concurrent evidence-index
-and retained-receipt closeout changes preserved. A later concurrent `native_objects.py`
-duplicate-identity diagnostic edit was inspected; it changes error detail, not these findings. Scope is DDO-00–02 plus each explicitly
-delivered capability in later open packages across all nine companions. Three independent
-read-only implementation reviewers assessed compiler/identity/ports, native/demand, and
-execution/immediate-consumer seams; the coordinator reconciled decisions, inventory,
-preservation and receipts. This is a bounded completion audit, not assembled qualification.
+**Reassessed / source-inspected; one bounded defect reproduction Tested · 2026-11-13.**
+This reassessment covers every complete/delivered claim in this coordinator and all nine
+companions, including increments inside open packages. It also traces legacy/compatibility
+machinery through their immediate execution, admission, selector, CPU, PDF and read consumers.
+Inspected coordinator baseline `b1b4a4de0`, production/test source `561634814`; later checkout
+`08dfd8d83` contains concurrent documentation changes, with no production/test change.
+Three fresh read-only reviewers independently assessed compiler/identity/ports/projections,
+native product/demand/purpose/recovery, and execution/prepared-family/consumer boundaries.
+The coordinator separately checked decisions, metadata preservation and adjacent runtime readers.
+Concurrent test-system planning and agent-reference edits are preserved.
+Test-infrastructure implementation that started after this baseline is outside this semantic audit;
+its eventual harness changes must be included in later qualification-context reconciliation.
 
-**Implementation:** DDO-00's decision/owner updates, declared operation/consumer census and
-metadata preservation classification meet their preparation boundary. The original 101-protocol,
-34-phase0/17-M1 and declared local-owner universes are dated acquisition boundaries, not current
-population counts or proof of universal plugin discovery. The 417 manifest and 73 historical-ID
-dispositions preserve sealed custody. Byte integrity, replay/recovery, writer freeze and actual
-correspondence remain DDO-11 obligations; their absence does not reopen metadata classification.
-DDO-01/02 implementation is substantial but their claimed complete foundation is reopened by
-DDO-CA-01. DDO-03–07 remain partial/open, with the concrete native and batch defects below.
-Other inspected delivered mechanisms retain their bounded claims; this judgment does not admit
-unfinished production adapters or close any multi-package F01–F14/C1–C7 obligation.
+**Conclusion: incomplete implementation, not only incomplete qualification.** DDO-00 meets its
+bounded preparation boundary. Much of DDO-01–05 and the delivered DDO-06/07 increments exists,
+but DDO-CA-01 still permits an unsound reusable recipe, DDO-CA-05 still loses a valid discovery
+case, the accepted compiled projection-definition prerequisite is missing (DDO-CA-06), and
+avoidable compatibility remains (DDO-CA-07). The earlier source-position repair and other passing
+controls remain valid within their stated scope; they did not establish universal closure.
+No production repair, migration, provider run or cancelled campaign was resumed by this audit.
 
-| Audit finding | Missing obligation, evidence and package owner | Required closure; current disposition |
+### Claimed capability and bounded judgment
+
+| Claimed scope | Current assessment |
+|---|---|
+| DDO-00 decisions, operation/consumer inventory and metadata preservation classification | **Complete at the dated preparation boundary.** ADR-0092–0095 and D1–D8 carry accepted targets. The inventory accounts for its 101-protocol, 34-phase0/17-M1 and declared local-owner universe; all 417 pending manifests and 73 historical-ID occurrences have conservative sealed dispositions. This is neither universal plugin discovery nor byte/replay/adoption verification. DDO-11 retains those operational obligations. |
+| DDO-01/02 effective facts, identities and source-sensitive recipes | **Partially implemented.** The common IR, typed canonical codec and finite semantic graph/kernel exist. The customized captured-builtin counterexample reopens closure/runtime authentication under DDO-CA-01; compiled projection interpretation and obsolete compatibility remain CA-06/07. |
+| DDO-03 binding, suitable direct/prepared/stream/command ports and four native consumer forms | **Implemented bounded capabilities, not complete package acceptance.** Strict ingress, typed pull ordinals/terminal standing, prepared ownership, acquired receipt-bearing publication commands and exact native hydration exist. Source authentication remains incomplete under CA-01 and projection declarations under CA-06. Native stream settlement and general effectful execution remain DDO-06/08; ordinary caller migration remains DDO-07/08. |
+| DDO-04 native products, support, exact intent/replay, purpose and pinned reads | **Substantial native implementation; qualification incomplete.** CA-02's post-lock receipt reread and CA-04's affected-universe enforcement are present. Actual bounded native controls exist; the final required union was interrupted. Registration is not deployment or adoption. |
+| DDO-05 frozen demand, discovery, selected dependencies, support rebind/recovery and fan-in | **Partially implemented.** Pinned planning/expansion/recovery mechanisms exist, but population closure incorrectly requires unique local subject strings (CA-05). A valid same-local-subject/different-scope population cannot reach child attachment. |
+| Delivered DDO-06/07 execution and family increments | **Bounded APIs/foundations, broader packages open.** Claim/intent/publication execution, CPU custody and prepared family kernels exist; ordinary production execution has not switched to these target routes. CA-03's batch-loss repair is present. Native stream execution and complete provider/cutover work remain open. |
+| NetworkX amendment | **Pure kernels delivered; projection-definition prerequisite incomplete.** Canonical typed edge occurrences, root-inclusive closure, SCC distinction, faithful multiplicity and explicit core dispatch remain useful. They do not supply the absent owned projection interpretation required by I01/DDO-01–03. Later runtime/serving integration retains its existing owners. |
+| DDO-06–12 wider replacement, reuse, serving, preservation/adoption and assembled qualification | **Open; no enclosing completion certified.** Existing migration/retirement obligations remain required. APIs or tests calling target helpers do not establish that ordinary entry points migrated. |
+
+### Finding disposition
+
+This table owns current disposition. DDO-CA-01–05 retain their original identities and source-review
+mapping; the original [reflection probe](../design_review/evidence/2026-11-13_ddo-completion-audit/README.md)
+and all earlier receipts remain unchanged. New findings are plan-local CA-06/07, not new broad
+design-audit findings.
+
+| Audit finding | Current source evidence and consequence | Required closure and package owner |
 |---|---|---|
-| DDO-CA-01 (F04/F12) | DDO-01/02 source-sensitive recipe closure: `python_operation_sources.py:187–203,1168–1179` `_syntax` removes positions while `References.visit_Attribute` admits reflective `__code__.co_firstlineno`; identity compilation trusts the complete slice. Adding two blank lines changes actual output from `1` to `3` with the same reusable recipe and no unknowns. | **Implemented; acceptance open.** Qualified reference/escape analysis refuses unsupported reflection; generated runtime authentication preserves admitted constructor/field behavior. Source/compiler/ports/CPU union passed 296/296 (`b0a886ec084441fab287c5b2644f0786`), including the independent source-change controls. DDO-01/02 closure awaits reconciliation of interrupted final qualification. |
-| DDO-CA-02 (F07/F13) | DDO-04 exact publication replay: `semantic/sql/data_operations.sql`, `publish_data_derivation` (:955–959), checks the receipt before support/request locking, then calls `ddo_claim` without checking again. Two overlapping calls can both miss the receipt; after the first commits, the second sees a terminal task and raises a stale-fence error. Existing storage replay control is sequential. | **Implemented; acceptance open.** Publication rereads the exact receipt after support/request serialization before requiring a live claim. Overlapping exact replay and atomic publication passed in the seven-case native/production selection (`78a4a3930af741adb9f2e40f51043418`); differing same-attempt intents retain immutable refusal. Final required union was interrupted. |
-| DDO-CA-03 (F13/F14) | DDO-06 bounded retirement after lost interest: `NativeDemandExecutor._execute_batch` (`orchestrate/data_operations.py:648–671`) supplies `check_active=owner` after a one-time member check. `ClaimOwner.__call__` observes global failure but not per-claim losses; CPU polling therefore misses loss of every batch member. A hung callable can occupy invocation/capacity indefinitely. Native fences still prevent stale publication. | **Implemented; scoped controls Tested, 2026-11-13; acceptance open.** Activity checks keep useful siblings and cancel/drain once all claims are lost. Actual hung-process controls passed 3/3 (`8efecb9296e1459ca10a66fdd2191bcb`), broader CPU/activity 9/9 (`515f429636594afe8aa5cf6c99b64675`). This does not complete broader DDO-06 or native stream execution; assembled qualification is paused. |
-| DDO-CA-04 (F11/F13) | DDO-04 purpose enforcement: `semantic/sql/data_operations.sql:394–429,1036–1060`: write/evaluate-granted `record_data_fate` and `expand_data_obligation` lack kind-universe authorization, as does `revoke_data_support`. A writer knowing evaluator IDs can alter protected obligation fate or revoke protected support. Existing purpose tests cover attach/read/inspection/direct table access, not these transitions. | **Implemented; acceptance open.** Fate, expansion, revocation and pending/zero-output reads enforce every affected kind universe, including broad mixed-purpose selectors. Repaired valid typed probes reached actual writer/evaluator guards in native 10/10 (`8dc2c54a9a8f44cfa38f40302d5eec15`); final required union was interrupted. |
-| DDO-CA-05 (F05) | DDO-02/03/05 root-context identity: `freeze_demand` accepts one subject/source with distinct analyzed scopes (`test_data_operation_demands.py:451`), but `ResolvedOperationBinding` and `project_operation_binding` omit root scope/source. Equal no-input bindings therefore have the same request key; native attachment rejects the second scope against the first request. | **Implemented under ADR-0100; acceptance open.** Complete context reaches binding/request/product identity and native custody; exact numeric JSON, bool/string/null distinctions remain explicit. Critical precise/null native journeys passed (`78a4a3930af741adb9f2e40f51043418`). V5 removes the obsolete context-incomplete uniqueness constraint and fixes full pinned multi-root trust; final native context/recovery qualification remains incomplete after interruption. |
+| DDO-CA-01 (F04/F12) | **Still implementation-incomplete.** `python_operation_sources.py:1851–1856` excludes builtin references from captured dependencies. `data_operation_ports.py:1069–1073,1135–1141,1716–1723` authenticates code/module globals or assumes the standard builtin, without checking the callable's actual captured `function.__builtins__`. The [bounded probe](../design_review/evidence/2026-11-13_ddo-completion-reassessment/README.md) receives complete slices/no unknowns and the same recipe for results `7`/`8`; isolated post-acquisition builtin-map mutation changes both admitted results to `9`. The original source-position case is repaired, but this residual invalidates the general closure claim. | **Open; DDO-01/02/03.** Refuse unsupported customized builtin environments or model their actual determinants; authenticate each consumed captured builtin binding at runtime. Independent helper-change and isolated mapping-mutation controls must distinguish irrelevant edits from behavior changes. Do not substitute a broad runtime salt for a complete semantic recipe. |
+| DDO-CA-02 (F07/F13) | **Repair present; final acceptance open.** `sql/data_operations.sql:1054–1069` rereads the exact committed receipt after support/request serialization, before requiring a live claim. Atomic/overlapping exact publication passed in `78a4a3930af741adb9f2e40f51043418`; differing same-attempt intents retain immutable refusal. | DDO-04 retains final-source/context qualification and exact differing-intent/attribution protection. The interrupted union is not a complete replacement receipt. |
+| DDO-CA-03 (F13/F14) | **Repair present; scoped Tested; acceptance open.** `_check_batch_active`, `orchestrate/data_operations.py:98–111,688–690`, retains useful siblings and cancels/drains when none has confirmed authority. `8efecb9296e1459ca10a66fdd2191bcb` passed three batch-activity controls: two ownership-state controls and **one actual hung spawned-process retirement case**, not three physical cases. Broader CPU/activity passed 9/9, `515f429636594afe8aa5cf6c99b64675`. | DDO-06 retains assembled qualification and its other execution/stream obligations. No source evidence found that reopens the original batch defect; do not overstate the physical-case count. |
+| DDO-CA-04 (F11/F13) | **Repair present; final acceptance open.** Native fate/expansion/revocation/pending read branches enforce affected kind universes (`sql/data_operations.sql:483–487,512–516,1159–1172,1184–1188`). Valid typed writer/evaluator probes reached the guards in native 10/10, `8dc2c54a9a8f44cfa38f40302d5eec15`; broad selector authorization remains explicit. | DDO-04 retains actual principal, unchanged-fate/trust and final-source qualification. No additional purpose defect was established in this inspection. |
+| DDO-CA-05 (F05) | **Still implementation-incomplete in discovery.** Request/product context and exact numeric/null controls are implemented under ADR-0100, but `close_data_population`, `sql/data_operations.sql:543–544`, groups only by `member->>'subject'`. Publication accepts distinct member IDs/full contexts (`:917–942`); closure rejects members named `local` with scopes page1/page2. Native expansion (`:493–503`) and planner forwarding (`data_operation_demands.py:402–413`) already retain complete context. | **Open; DDO-02/03/04/05.** Qualify ambiguity by complete authenticated context with JSONB scope meaning; retain refusal of truly duplicate complete contexts. Exercise native publish→close→expand→attach→publish for both scopes. Use normal forward native authoring; leave frozen v5 unchanged. |
+| DDO-CA-06 (NetworkX I01; F01/F02) | **Missing accepted projection-definition prerequisite.** Graph companion §I01 requires compiled source/selection, node/relationship/orientation, unresolved-reference/completeness and analysis interpretation. `EffectiveDataOperationModel`, `data_operation_model.py:378–387`, has no equivalent projection definition. Kind `projection_families` validates packet access, while `SemanticGraph`, `data_operation_identity.py:194–337`, supplies pure authenticated topology kernels. `freeze_demand`, `data_operation_demands.py:107–118,177`, chooses dependency connectivity directly. Those useful subsets do not supply the governing projection contract. | **Open; DDO-01/03.** Compile/admit/archive the named projection interpretation in the effective model and have graph construction/analysis consume it, with independent fidelity/completeness controls. This does not pull later DDO-04/08/09/10 consumers forward or require a separate graph registry/service. |
+| DDO-CA-07 (hard-target retirement; Python I05) | **Avoidable compatibility remains.** Current authoring accepts `ARCHIVED_MODEL_VERSION` then emits current v2 (`data_operation_compilation.py:770,1480`). Context-incomplete `subject_identity`/`product_identity` (`data_operation_identity.py:407–434`) have only mechanism tests, and `trusted_data_operation_calls = native_operation_calls` (`data_operation_storage.py:303`) has no repository caller. No concrete retained v1-model instance was identified in the inspected authored-source/preservation owners; synthetic v1 tests are not such a consumer. | **Open; DDO-01/02/03 retirement.** Move declaration fixtures/examples to the current version; remove old-version authoring acceptance, obsolete helpers/alias and mechanism-only controls while preserving useful independent expectations against current identities. Reconcile TS-19's existing helper-deletion handover without duplicating status. Retain a historical decoder only for a specifically identified retained reader/recovery obligation; otherwise retire it too. Frozen migration/evidence bytes stay immutable. |
 
-**Verification and qualification:** current focused compiler/identity/port selection **passed**,
-151/151, managed `8fbbd195527b40c2b527b47b3cfc93e5` ([durable receipt](../design_review/evidence/2026-11-13_cli-8fbbd195527b40c2b527b47b3cfc93e5/README.md)):
+### Hard-target retirement and closely related adjacent code
 
-```sh
-uv run ci test --workers 2 --json -- \
-  python/corpus-structure/tests/semantic/test_data_operation_compilation.py \
-  python/corpus-structure/tests/semantic/test_data_operation_identity.py \
-  python/corpus-structure/tests/semantic/test_data_operation_ports.py
-```
+Actual old consumers explain what must migrate; they do not grant permanent compatibility.
+The completed replacement must have one current authority, with obsolete routes and their
+mechanism-only tests removed. Shared useful algorithms, protected native fences and preserved
+historical bytes are not obsolete merely because the former route also uses them. The following
+is the concrete remaining footprint within the inspected DDO/immediate-adjacent boundary, owned
+by existing packages rather than a second retirement plan.
 
-The synthetic reflection probe **passed as a defect reproduction**, not a correctness pass.
-Historical 436-, 442- and 61-case receipts retain their exact dates, dirty-source observations,
-selections and execution contexts; none covers the new counterexample or establishes the current
-full union. Later source changes require affected reassessment. The concurrent retained-source
-fixture failure `ea24324264934258989cdc463fb42df5` (8 failed) has a separate closeout replacement
-`846a8499e0f34c9db12fecbd768b2c98` (8 passed); these are inspected receipts from the other session,
-not audit-run checks. Earlier original-source/native failures and open authoring/consumer/provider
-obligations remain as recorded above. Full native/provider/book/fault/series qualification is
-**not_run** by this audit; DDO-12 remains its owner. No persistent migration, activation,
-protected answer read or production repair was performed.
+| Remaining mechanism and ordinary consumer | Source evidence | Existing owner / completion requirement |
+|---|---|---|
+| Registry/method selection and former four selectors | `orchestrate/phase0.py:122–130`; `orchestrate/semantic.py:805,1744`; old selector/digest paths in `methods/native_evidence.py:408–423`, `m1_source.py:496–510`, `structural_products.py:1625–1631`, `contextual_candidates.py:969–1005`. The target hydration APIs are real, but no production caller of those four APIs or `NativeDemandExecutor` was found in the searched Python tree. | DDO-06/07/08: migrate ordinary callers, then remove private selector/digest and registry authority. Preserve conformance kernels, not the old routing. |
+| Handwritten dependencies, stage sequencing and freshness recovery | `orchestrate/characterization.py:354–379,527–546,780–817`; `characterization_recovery.py:38–88`; `orchestrate/semantic.py:715–744`. | DDO-06/07: native Demand and compiled declarations replace name maps, first-stage anchors, freshness salts and `SourceOperationLink`; replacement reporting must carry required lineage first. |
+| Legacy CPU packets/Reader facade/dispatch default | `semantic/cpu_execution.py:164–175,299–340,395–428,834–859`; actual callers `methods/formal_evidence.py:114–132`, `construction_characterization.py:134–159`. | DDO-06/07: switch callers to acquired target plans; retain shared process/capacity custody and remove the legacy packet, fake Reader/run facade and default branch. |
+| Dynamic capability discovery and stage permits | `orchestrate/semantic.py:197–202,1876–1884`; `orchestrate/ready.py:39–42,167–172`. | DDO-06/08: admitted typed ownership replaces `getattr(plan/close)` and stage-run capacity mechanisms. |
+| Combined former spaCy/HanLP producer | `methods/native_evidence.py:428–491,670–710` still conditionally invokes HanLP inside the former combined layer route. Separate target family declarations/kernels do not remove that caller. | DDO-07: migrate independent native producers and immediate consumers, then remove combined compatibility routing. |
+| Dual admission/task/PDF runtime branches | `semantic/execution_admission.py:52–91`; `sql/execution_guards.sql:4–24` and old lifecycle branches; `pdf_staging_native.py:55–74,87–103,114–139`. | DDO-06/07/08/11: authenticate transition of actual live task/build custody, migrate callers and remove executable legacy branches. They are not frozen historical artifacts. |
+| Task/run-origin serving, reuse and fallback projections | `runtime_binding_store.py:56–84` is reached by `serve/selected_source.py:338–384`; DDO-09/10 already name copied reuse/task-dependency/currentness and pinned-reader/export migration. | DDO-09/10/11: move actual readers and durable references, then retire current runtime fallback paths. Archive-only `legacy_runtime_binding` refuses current execution compilers (`runtime_bindings.py:259–277`); preserve necessary original interpretation through concrete frozen custody/import, not a second current execution authority. |
+| Authored graph cycle misclassification | `semantic/domain_operations.py:1646–1658` labels every unprocessed `TopologicalSorter` node cyclic, including a tail blocked by a cycle. | Existing DDO-08 / NetworkX I02–I03: SCC/condensation distinguishes actual cycle members, blocked descendants, self-loops and unrelated work. This known open obligation is not renamed as a new finding. |
+| Dead current helpers and v1 authoring compatibility | CA-07 above. Historical v1 reader/re-export branches are `data_operation_model.py:423–440,583–640`; no concrete retained target-v1 consumer was established in this bounded search. | CA-07 owns immediate retirement; identify an actual historical interpretation need before retaining decoder machinery. TS-19's proposed deletion work is a handover, not proof of completion. |
+| Frozen native revisions / rejected never-deployed archive-v1 evidence | The registered v2–v5 wrappers and payloads implement exact predecessor custody; rejected v1 is preserved outside active Alembic discovery. | Keep immutable historical bytes and required retained evidence. Their retention does not justify a current fallback API, and audit authorization does not permit rewriting migrations or dropping preserved data. |
 
-**Audit publication checks:** `uv run ci docs check --json` **passed**,
-`3af34ff2285448a58cd7d05e2348e676` (1129 canonical pages, zero link errors);
-`uv run ci evidence check --json` **passed**, `3028611d5579454d9daed5bac418cabf`
-(zero errors, 42 historical warnings). Initial failures `642badc47bbe49059762209429ac71af`
-and `bc5da6b1e937419d80f9aea9c7617f1a` exposed an audit evidence relative link and stale
-generated indices; both were corrected. `just turn-end` **passed** without production changes.
-These checks establish publication/evidence consistency, not product qualification.
+### Verification, qualification and benefit limits
 
-**Benefit evidence:** expected preparation reuse and work reduction remain qualitative. No
-quantitative performance/capacity improvement is established; missing benchmarks are not a
-completion defect. The batch liveness finding concerns promised retirement, not a speed claim.
+The new synthetic builtin probe **passed as a defect reproduction**, record
+`ddo.captured-builtins-collision`, using
+`uv run python docs/design_review/evidence/2026-11-13_ddo-completion-reassessment/builtins_probe.py`.
+It performs no provider/database work and does not resume the cancelled campaign. Source
+inspection establishes the population/projection/retirement findings without a new test campaign.
 
-**Current follow-up:** operator-authorized repairs are integrated under the execution account below;
-its final qualification is paused. The table above owns current disposition. Broader DDO-06–12
-obligations and conditional capability triggers remain open.
+The retained final attempted union remains **failed due to operator-requested interruption**:
+`2a1fdebfd77749378ce7d4598cba5d68`, 651 selected, 452 passed, 195 not_run, 4 incomplete,
+with settled/drained custody. It does not establish full qualification. Earlier receipts preserve
+their actual source, scope and context; none covers the new builtin counterexample or same-local-
+subject members in one scoped discovery population. The successful repository check
+`ef31917fa4ae44cca9aad5b7ae96d0f1` is not proof that the intended semantic scope is complete.
+
+Two evidence descriptions are corrected: batch activity has **one actual hung-process case among
+three controls**; the 57-case prepared-family receipt `bfe48e3b290748e091f3cf2b296bdf13`
+also includes **bounded actual CUDA HanLP head retention**, not only controlled HanLP behavior.
+The real test reaches `hanlp.load` through the default native host. This is neither native family
+publication nor complete provider/production-cutover qualification. Authentic execution, retained
+fidelity and linguistic correctness remain distinct.
+
+Expected reuse/preparation/work-reduction benefits remain qualitative; no quantitative performance
+improvement is established. Missing benchmarks alone are not an incompleteness finding. The audit
+has not certified unrelated legacy code outside the named subsystem/adjacent routes. No production
+repair or adoption is authorized by these corrections. Implementation remains paused.
 
 ## Audit repair execution · 2026-11-13
 
-**Implemented / qualification paused · 2026-11-13.** The current operator-selected execution is to close
+**Partial implementation / qualification paused · 2026-11-13.** The operator-selected execution is to close
 DDO-CA-01–05 and remaining DDO-03–05. It does not imply completion of DDO-06–12. ADR-0100
 owns complete subject context through binding, request and product identity: project, local
 subject, original source and analyzed scope. Scope JSON numbers retain JSONB decimal value
@@ -887,19 +923,22 @@ retain their existing tagged meanings and encoding version.
 
 The assembled implementation now includes:
 
-- Qualified source-reference and escape classification using captured LibCST/Astroid/Griffe
-  facts. Unsupported function/class reflection withholds a reusable recipe; known data fields
+- Source-reference and escape classification using captured LibCST/Astroid/Griffe facts refuses
+  the inspected function/class-reflection cases. Captured builtin namespaces remain unsound
+  under CA-01; the frontend is not generally complete. Known data fields
   and explicit opaque provider bridges retain their appropriate profiles. Generated dataclass
   invocation preserves the real signature, keyword-only/default/factory facts and strict ingress;
   runtime acquisition must authenticate the generated constructor and its admitted methods.
 - Explicit context in resolved bindings and all migrated product families. Native request and
-  product keys use that same qualified context; discovery association uses typed JSON meaning.
+  product keys use that same qualified context; discovery association uses typed JSON meaning,
+  but population closure still rejects distinct scoped members sharing a local subject (CA-05).
   Local subject headers and original producer/support evidence remain independently retained.
 - Native post-lock exact-receipt replay, protected-purpose checks for fate/expansion/revocation
   and pending/zero-output reads, and complete target checks for broad revocation selectors.
 - Batch activity checks that retain useful siblings, distinguish uncertain completion custody
-  and retire/drain physical work when every claim is lost. The actual hung-process controls
-  **passed 3/3**, `8efecb9296e1459ca10a66fdd2191bcb`; broader CPU/activity **passed 9/9**,
+  and retire/drain physical work when every claim is lost. The batch-activity selection
+  **passed 3/3 controls, including one actual hung-process case**,
+  `8efecb9296e1459ca10a66fdd2191bcb`; broader CPU/activity **passed 9/9**,
   `515f429636594afe8aa5cf6c99b64675`.
 - Pull-stream closure, prepared-resource ownership, receipt-bearing native command acquisition,
   and exact native hydration for the four required immediate consumer forms. Python normal
@@ -915,7 +954,8 @@ The assembled implementation now includes:
 **Current assembled checks · 2026-11-13:** source/compiler/identity/binding/ports/planner/CPU
 checks **passed 296/296**, `b0a886ec084441fab287c5b2644f0786`. Prepared product families
 **passed 57/57**, `bfe48e3b290748e091f3cf2b296bdf13`, including actual spaCy and canonical
-CPU controls; controlled HanLP behavior does not establish actual provider execution. Wire,
+CPU controls and bounded actual CUDA HanLP native-head retention. Controlled adapter tests
+within that suite do not gain actual-provider status; native family publication remains open. Wire,
 parameters, source-set, preparation and consumer checks **passed 50/50**,
 `dfac6b0e387049d19d0629fc0a71fc4c`. Current binding, null-context, command/authoring and
 checker controls **passed 73/73**, `f7fe163768034b33ba2ae3014652b2ec`. Full repository
@@ -954,7 +994,7 @@ persistent deployment/adoption/activation.
 
 ### V5 qualification baseline
 
-**Implemented / final qualification interrupted; execution paused · 2026-11-13.** Ordinary forward archive-v5
+**Frozen native baseline; final qualification interrupted; implementation remains incomplete · 2026-11-13.** Ordinary forward archive-v5
 preview `f85b42104df544b68c292fc3e9e0c9b7`, rollback-only candidate
 `fa5eaba6351647c581bfec47520baac5` and registration `140d3537f7014c2786f42815cb9ba27e`
 **passed**. The [authoring account](../design_review/evidence/2026-11-13_ddo-archive-composition/README.md#accepted-v5-authoring)
@@ -1006,15 +1046,18 @@ The acceptance details and commands are in the qualification companion. Record e
 D1–D8 and accepted decision records, preserving exact old review/evidence history. Never delete plan
 or evidence files. Authoring publication checks are separate from product qualification.
 
-**Paused. On the operator's resumption:** retain source `561634814` as the implementation baseline,
-then run `uv run ci test retry 2a1fdebfd77749378ce7d4598cba5d68 --lane ordinary --workers 4 --json`.
-Use `uv run ci test coverage 2a1fdebfd77749378ce7d4598cba5d68 RETRY_ID --view unresolved --json`
-to reconcile the 651 required identities, source/context differences and native reporting health.
-The 452 passes retain their original scope; reassess affected coverage if implementation or environment
-changes. Repair any actual failure, then reconcile findings/package acceptance and the earlier v4
-native selection. Do not restart while the operator's pause remains in effect.
-The current execution owns DDO-CA-01–05 and remaining DDO-03–05; the preceding historical
-incremental obligations are realized by the current assembled implementation, subject to that acceptance.
+**Implementation remains paused.** The current audit records outstanding work; it does not restart
+repairs or the cancelled campaign. On the operator's resumption, address CA-01's captured builtin
+closure/authentication, CA-05's complete-context discovery, CA-06's compiled projection prerequisite
+and CA-07's avoidable compatibility. Native changes require normal successor authoring after frozen
+v5. Migrate ordinary consumers and remove the adjacent legacy footprint under their existing
+DDO-06–11 owners before claiming those replacements complete.
+
+After repairs, reassess affected evidence against final source/context and qualify the required
+union; do not merely retry 199 unresolved identities while assuming the 452 old passes cover changed
+semantics. Preserve `2a1fdebfd77749378ce7d4598cba5d68` and earlier failed receipts. Use `ci test coverage`
+for explicit selection/source/context reconciliation. No finding/package closes from source presence,
+a generic recipe name, a test count or this audit alone.
 DDO-07/08 production profiles must close their
 required kind/implementation/context facts before invoking or reusing target results. DDO-11
 preservation remains a prerequisite for adoption effects; DDO-12 owns the final required union.

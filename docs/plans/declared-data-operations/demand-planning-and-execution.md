@@ -26,6 +26,9 @@ the governing contracts; it does not maintain a second completion ledger.
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
 introduced DDO-CA-03 (batch retirement after every claim is lost) and DDO-CA-05
 (qualified root-context identity). Their current disposition belongs to the coordinator's findings table.
+Complete context applies within one discovery population: equal local subject strings with distinct
+authenticated source/scope contexts remain distinct members. Current native population closure still
+groups only by local subject; CA-05 owns that residual repair and its close→expand→attach control.
 
 ## Outcome and foundation assessment
 

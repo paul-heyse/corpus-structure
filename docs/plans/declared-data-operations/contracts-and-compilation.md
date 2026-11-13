@@ -26,10 +26,12 @@ owns delivered behavior, dated qualification and remaining package scope. This c
 the governing contracts; it does not maintain a second completion ledger.
 
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
-introduced DDO-CA-01 (source-observing determinants) and DDO-CA-05 (complete root context).
-Their current disposition belongs to the coordinator's findings table. The contracts require
-unsupported reflection refusal or modeled determinants, and complete source/scope identity
-through binding and native attachment.
+owns DDO-CA-01 (including the residual captured-builtin namespace), DDO-CA-05 (including
+complete-context population closure), and CA-06/07 (projection definitions and retirement).
+Their current disposition belongs to the coordinator's findings table. Complete source closure
+includes the callable's actual builtin lookup environment; complete source/scope identity also
+applies to distinct members of one discovery population. Pure topology kernels and member-family
+policies do not by themselves supply the accepted compiled graph projection interpretation.
 
 ## Responsibility and delivered contracts
 

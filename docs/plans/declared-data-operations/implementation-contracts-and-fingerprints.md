@@ -171,8 +171,12 @@ not a second authored domain catalog.
 
 <a id="I03"></a>
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
-introduced DDO-CA-01 for unsound source-position reflection. Current disposition belongs to
-the coordinator's findings table. The policy below requires refusal or explicit determinant coverage.
+owns DDO-CA-01, including the residual captured-builtin namespace escape after source-position
+reflection was repaired. Current disposition belongs to the coordinator's findings table.
+The policy below requires refusal or explicit determinant coverage. Runtime correspondence must
+authenticate the actual builtin bindings consumed by each captured function; assuming the
+process's standard builtin module is insufficient. CA-07 owns avoidable authoring/identity
+compatibility retirement, distinct from a concrete retained historical interpretation.
 
 ## Implementation slice and identity policy — I03
 

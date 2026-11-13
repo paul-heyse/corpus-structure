@@ -1,0 +1,29 @@
+{
+  "variants": [
+    {
+      "source_value": 7,
+      "complete": true,
+      "unknowns": [],
+      "nodes": [
+        "interpretation:closed-python-operations-v1",
+        "python:ddo_builtin_probe.derive"
+      ],
+      "recipe": "recipe:2fa38320f11d28d2e71de94ab27fac8a7e2c90cba9190fdbbede9ba1f7e71396",
+      "output": "7",
+      "after_builtin_mutation": "9"
+    },
+    {
+      "source_value": 8,
+      "complete": true,
+      "unknowns": [],
+      "nodes": [
+        "interpretation:closed-python-operations-v1",
+        "python:ddo_builtin_probe.derive"
+      ],
+      "recipe": "recipe:2fa38320f11d28d2e71de94ab27fac8a7e2c90cba9190fdbbede9ba1f7e71396",
+      "output": "8",
+      "after_builtin_mutation": "9"
+    }
+  ],
+  "same_recipe": true
+}
