@@ -47,8 +47,11 @@ def _checked_protocol(content: bytes) -> bytes:
         raise ValueError("native wire definitions and operations are required")
     names = []
     for operation in result["operations"]:
-        if not isinstance(operation, dict) or set(operation) != {"name", "profile", "request", "result"} or operation["profile"] not in {"command", "read"}:
+        if not isinstance(operation, dict) or set(operation) != {"name", "profile", "request", "result", "purposes"} or operation["profile"] not in {"command", "read"}:
             raise ValueError("invalid native wire operation")
+        purposes = operation["purposes"]
+        if not isinstance(purposes, list) or not purposes or any(not isinstance(p, str) or p not in {"read", "write", "evaluate"} for p in purposes) or len(purposes) != len(set(purposes)):
+            raise ValueError("native wire operation requires unique explicit purpose capabilities")
         names.append(operation["name"])
         for direction in ("request", "result"):
             if operation[direction] not in result["definitions"]:
@@ -139,6 +142,11 @@ def _wire_contract_bytes(content: bytes) -> bytes:
         }
         for operation in protocol["operations"]
     })
+
+
+def wire_operations(sources: tuple[SourceArtifact, ...] | None = None) -> tuple[dict[str, Any], ...]:
+    """Detached operation facts, including explicit purpose capabilities, from one parser."""
+    return tuple(_protocol(sources)["operations"])
 
 
 def wire_contracts(sources: tuple[SourceArtifact, ...] | None = None) -> dict[str, Any]:

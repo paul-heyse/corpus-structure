@@ -340,6 +340,8 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/population_reference'
+      read_id:
+        $ref: '#/definitions/read_id'
     required:
     - inputs
     - support
@@ -347,6 +349,7 @@ definitions:
     - request_inputs
     - inference
     - populations
+    - read_id
     additionalProperties: false
   coordinate:
     type: object
@@ -777,6 +780,8 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/population_reference'
+      read_id:
+        $ref: '#/definitions/read_id'
     required:
     - inputs
     - support
@@ -785,6 +790,7 @@ definitions:
     - inference
     - execution_profile
     - populations
+    - read_id
     additionalProperties: false
   result_obligation:
     type: object
@@ -853,12 +859,21 @@ definitions:
         type: integer
         minimum: 1
         maximum: 1000
+      read_id:
+        $ref: '#/definitions/read_id'
+      read_snapshot:
+        $ref: '#/definitions/read_snapshot'
+      frontier_at:
+        $ref: '#/definitions/frontier_at'
     required:
     - demand_id
     - selection
     - trust_snapshot
     - after
     - limit
+    - read_id
+    - read_snapshot
+    - frontier_at
     additionalProperties: false
   register_data_demand_request:
     type: object
@@ -1403,6 +1418,12 @@ definitions:
         maximum: 1000
       trust_snapshot:
         $ref: '#/definitions/trust_snapshot'
+      read_id:
+        $ref: '#/definitions/read_id'
+      read_snapshot:
+        $ref: '#/definitions/read_snapshot'
+      frontier_at:
+        $ref: '#/definitions/frontier_at'
     required:
     - demand_id
     additionalProperties: false
@@ -1410,6 +1431,11 @@ definitions:
       after:
       - selection
       - trust_snapshot
+      - read_id
+      read_snapshot:
+      - read_id
+      frontier_at:
+      - read_id
   read_demand_result_result:
     type: object
     properties:
@@ -1451,6 +1477,12 @@ definitions:
         anyOf:
         - $ref: '#/definitions/continuation'
         - type: 'null'
+      read_id:
+        $ref: '#/definitions/read_id'
+      read_snapshot:
+        $ref: '#/definitions/read_snapshot'
+      frontier_at:
+        $ref: '#/definitions/frontier_at'
     required:
     - demand_id
     - selection
@@ -1464,6 +1496,9 @@ definitions:
     - obligations
     - populations
     - continuation
+    - read_id
+    - read_snapshot
+    - frontier_at
     additionalProperties: false
   population_reference:
     type: object
@@ -1479,52 +1514,102 @@ definitions:
     - name
     - population_id
     additionalProperties: false
+  read_id:
+    type: string
+    minLength: 1
+    description: Authenticated server-owned demand read receipt identity.
+  read_snapshot:
+    type: string
+    minLength: 1
+    description: Opaque PostgreSQL visibility snapshot pinned by the authenticated read receipt.
+  frontier_at:
+    type: string
+    minLength: 1
+    description: Server-selected cutoff timestamp pinned by the authenticated read receipt.
 operations:
 - name: register_data_demand
   profile: command
   request: register_data_demand_request
   result: register_data_demand_result
+  purposes:
+  - write
+  - evaluate
 - name: expand_data_obligation
   profile: command
   request: expand_data_obligation_request
   result: expand_data_obligation_result
+  purposes:
+  - write
+  - evaluate
 - name: record_data_fate
   profile: command
   request: record_data_fate_request
   result: record_data_fate_result
+  purposes:
+  - write
+  - evaluate
 - name: close_data_population
   profile: command
   request: close_data_population_request
   result: close_data_population_result
+  purposes:
+  - write
+  - evaluate
 - name: attach_data_request
   profile: command
   request: attach_data_request_request
   result: attach_data_request_result
+  purposes:
+  - write
+  - evaluate
 - name: claim_data_request
   profile: command
   request: claim_data_request_request
   result: claim_data_request_result
+  purposes:
+  - write
+  - evaluate
 - name: retain_data_completion_intent
   profile: command
   request: retain_data_completion_intent_request
   result: retain_data_completion_intent_result
+  purposes:
+  - write
+  - evaluate
 - name: adopt_data_completion_intent
   profile: command
   request: adopt_data_completion_intent_request
   result: adopt_data_completion_intent_result
+  purposes:
+  - write
+  - evaluate
 - name: publish_data_derivation
   profile: command
   request: publish_data_derivation_request
   result: publish_data_derivation_result
+  purposes:
+  - write
+  - evaluate
 - name: inspect_data_completion
   profile: read
   request: inspect_data_completion_request
   result: inspect_data_completion_result
+  purposes:
+  - read
+  - write
+  - evaluate
 - name: revoke_data_support
   profile: command
   request: revoke_data_support_request
   result: revoke_data_support_result
+  purposes:
+  - write
+  - evaluate
 - name: read_demand_result
-  profile: read
+  profile: command
   request: read_demand_result_request
   result: read_demand_result_result
+  purposes:
+  - read
+  - write
+  - evaluate
