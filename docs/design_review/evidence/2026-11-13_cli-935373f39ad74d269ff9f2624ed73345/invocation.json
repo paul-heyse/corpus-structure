@@ -1,0 +1,29 @@
+{
+  "id": "935373f39ad74d269ff9f2624ed73345",
+  "action": "model.candidate",
+  "stage": "bind and publish candidate",
+  "started": 1794602730.0623353,
+  "settled": 1794602802.7018669,
+  "outcome": "passed",
+  "artifact_role": "inspection",
+  "custody": "settled",
+  "operation_account": {
+    "version": 1,
+    "outcome": "passed",
+    "cleanup": "established",
+    "failure": null,
+    "known_effects": [],
+    "acquired_target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    },
+    "predecessor": "semantic_bep_located_v2",
+    "reached_revision": null,
+    "release": "release:612a15fb97da0414263b1d7ad9b0aa665d69e93f8731b52e742cf71fbac1cf48",
+    "routing": null
+  }
+}
