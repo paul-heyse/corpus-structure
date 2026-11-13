@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from hashlib import sha256
 from itertools import pairwise
-from typing import Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field, model_validator
 
@@ -1327,7 +1327,7 @@ class StructuralComparisonMethod:
     Config = StructuralComparisonConfig
     resources = Resources()
 
-    __selection_operation__ = {
+    __selection_operation__: ClassVar[dict[str, Any]] = {
         "id": "structure.compare/selection",
         "profile": "selection",
         "subject": "authored-structural-input",

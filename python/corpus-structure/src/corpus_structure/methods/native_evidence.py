@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from hashlib import sha256
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -302,7 +302,7 @@ class NativeEvidenceMethod:
     Config = NativeEvidenceConfig
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__ = {
+    __selection_operation__: ClassVar[dict[str, Any]] = {
         "id": "text.native_evidence/selection",
         "profile": "selection",
         "subject": "original-document",

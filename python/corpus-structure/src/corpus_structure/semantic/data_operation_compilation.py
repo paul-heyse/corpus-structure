@@ -1057,7 +1057,8 @@ def compile_data_operations(
                     )
                     prop = kinds.get(kind + "/property/" + source_reference_field)
                     facts = json.loads(prop.facts) if prop is not None else {}
-                    target = kinds.get(facts.get("range"))
+                    range_id = facts.get("range")
+                    target = kinds.get(range_id) if isinstance(range_id, str) else None
                     target_facts = json.loads(target.facts) if target is not None else {}
                     primitive = target_facts.get(
                         "primitive", target_facts.get("effective_primitive")

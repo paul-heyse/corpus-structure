@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -309,7 +309,7 @@ class M1Candidates:
     Config = M1Config
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__ = {
+    __selection_operation__: ClassVar[dict[str, Any]] = {
         "id": "extract.m1_candidates/selection",
         "profile": "selection",
         "subject": "original-document",

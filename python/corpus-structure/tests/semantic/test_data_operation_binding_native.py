@@ -458,7 +458,7 @@ def test_native_covers_requires_every_requested_value(binding_native_connection)
     facts["parameters"]["allowed"] = [2, 2]
     assert evaluate(binding_native_connection, node, facts) is True
     facts["parameters"]["allowed"] = [True]
-    with pytest.raises(DBAPIError, match="type|boolean|integer"):
+    with pytest.raises(DBAPIError, match=r"type|boolean|integer"):
         evaluate(binding_native_connection, node, facts)
 
 
@@ -507,7 +507,8 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
     }
     roledef = {"support": {"source_set": "inputs", "source_reference_field": "source_ref"}}
     query = text(
-        "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),'analysis-root',CAST(:sets AS jsonb))"
+        "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),"
+        "'analysis-root',CAST(:sets AS jsonb))"
     )
 
     def admitted(row):
@@ -530,3 +531,39 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
             text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project')"),
             {"sets": json.dumps(forged)},
         )
+
+
+def test_native_population_local_member_collision_cannot_satisfy_closed_scope(
+    binding_native_connection,
+):
+    facts = context(2)
+    facts["populations"]["retained"]["evidence"]["product_id"] = "actual-container"
+    population = facts["populations"]["retained"]
+    facts["witnesses"]["items"] = population
+    node = {
+        "operator": "forall",
+        "roles": ["items"],
+        "population": "retained",
+        "children": [{"operator": "scan", "roles": ["items"]}],
+    }
+    assert evaluate(binding_native_connection, node, facts) is False
+    facts["roles"]["items"][0]["product"] = "actual-container"
+    assert evaluate(binding_native_connection, node, facts) is True
+    facts["roles"]["items"][0]["product"] = "different-container"
+    membership = {
+        "operator": "membership",
+        "operands": [
+            field(name="member", value_type="string"),
+            {"kind": "population", "name": "retained", "value_type": "string"},
+        ],
+    }
+    assert evaluate(binding_native_connection, membership, facts) is False
+    facts["roles"]["items"] = []
+    absent = {
+        "operator": "absent",
+        "roles": ["items"],
+        "population": "retained",
+        "children": [{"operator": "scan", "roles": ["items"]}],
+    }
+    with pytest.raises(DBAPIError, match="lacks admitted candidate facts"):
+        evaluate(binding_native_connection, absent, facts)

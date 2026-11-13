@@ -339,7 +339,7 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
         product="product:one",
     )
     scope = FrozenSourceSet("inputs", (entry,))
-    with pytest.raises(ValueError, match="lacks.*source set"):
+    with pytest.raises(ValueError, match=r"lacks.*source set"):
         freeze(compiled)
     frozen = freeze(compiled, source_sets=(scope,))
     assert frozen.record["source_sets"]["inputs"][0]["original_source"] == "source:foreign"

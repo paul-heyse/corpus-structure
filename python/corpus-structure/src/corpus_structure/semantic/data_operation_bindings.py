@@ -536,6 +536,15 @@ def compile_binding(
             primitive, primitive
         )
 
+    def population_product(name: str, population: PopulationBinding):
+        evidence = json.loads(population.evidence)
+        product = evidence.get("product_id")
+        if product is None:
+            return true()
+        if not isinstance(product, str) or not product:
+            raise ValueError("population product identity must be a nonempty native pin")
+        return aliases[name].c.product == product
+
     def operand_value(operand: BindingOperand, *, many=False):
         if operand.kind == "field":
             if operand.field is None:
@@ -638,7 +647,16 @@ def compile_binding(
             if node.operands[1].kind == "field":
                 raise ValueError("membership universe must be a frozen sequence or population")
             members = cast(tuple[Any, ...], operand_value(node.operands[1], many=True))
-            return and_(nested, value.in_(members))
+            product_scopes = []
+            if node.operands[1].kind == "population":
+                population_name = node.operands[1].name
+                if population_name is None:
+                    raise ValueError("population operand lacks its frozen name")
+                population = population_map[population_name]
+                product_scopes = [
+                    population_product(name, population) for name in referenced_roles(node)
+                ]
+            return and_(nested, value.in_(members), *product_scopes)
         if node.operator in {"same", "distinct"}:
             values = [aliases[name] for name in node.roles]
             clauses = [
@@ -679,6 +697,7 @@ def compile_binding(
                         aliases[name].c.member.in_(population.members)
                         if population is not None
                         else true(),
+                        population_product(name, population) if population is not None else true(),
                     )
                     for name in names
                 ),
@@ -697,7 +716,10 @@ def compile_binding(
                 nested = and_(
                     nested,
                     *(
-                        aliases[name].c.member.in_(population.members)
+                        and_(
+                            aliases[name].c.member.in_(population.members),
+                            population_product(name, population),
+                        )
                         for name in (node.roles or tuple(aliases))
                     ),
                 )
@@ -805,6 +827,7 @@ def compile_binding(
                 subject_condition(name),
                 alias.c.kind_contract == identities[roles[name].kind, "kind"],
                 alias.c.member.in_(population.members),
+                population_product(name, population),
             )
             .scalar_subquery()
         )

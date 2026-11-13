@@ -172,7 +172,9 @@ def test_actual_colocated_consumer_contracts_are_captured_without_imports(tmp_pa
         (root / (name + ".py")).write_bytes((methods / (name + ".py")).read_bytes())
     with (root / "target.yaml").open("a") as stream:
         stream.write(
-            "consumer_bindings: true\npython:\n  interpreter: python-3.14\n  interpretation: closed-python-operations-v1\n  stub_policy: source-authoritative\n  sources:\n"
+            "consumer_bindings: true\npython:\n  interpreter: python-3.14\n"
+            "  interpretation: closed-python-operations-v1\n"
+            "  stub_policy: source-authoritative\n  sources:\n"
         )
         for name in names:
             stream.write(f"    - {{module: 'consumer.{name}', path: '{name}.py'}}\n")

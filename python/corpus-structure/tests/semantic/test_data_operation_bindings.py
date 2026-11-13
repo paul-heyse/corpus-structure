@@ -1044,10 +1044,12 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
     )
     schema = model(BindingExpression("scan", roles=("items",)))
     operation = schema.operations[0]
+    support = operation.roles[0].support
+    assert support is not None
     role = replace(
         operation.roles[0],
         support=replace(
-            operation.roles[0].support,
+            support,
             source="frozen-source-set",
             source_set="inputs",
             source_reference_field="base",
@@ -1069,7 +1071,7 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         for member in result.roles[0].members
     ] == [("p2", "m2", "foreign-source")]
     assert json.loads(result.source_sets)["inputs"][0]["source_reference"] == reference.identity
-    with pytest.raises(ValueError, match="lacks.*source set"):
+    with pytest.raises(ValueError, match=r"lacks.*source set"):
         compile_binding(schema, "urn:op", (projection,), subject="doc")
     wrong = replace(frozen, analyzed_scope=b'{"page":2}')
     assert (
@@ -1085,3 +1087,77 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         ).status
         == "awaiting-inputs"
     )
+
+
+def test_native_population_member_ids_are_qualified_by_owning_product(storage):
+    connection, table, projection = storage
+    original = dict(
+        connection.execute(table.select().where(table.c.product == "p2")).mappings().one()
+    )
+    connection.execute(table.insert(), {**original, "product": "foreign-container"})
+    population = PopulationBinding("retained", "closed", True, ("m2",), b'{"product_id":"p2"}')
+    expression = BindingExpression(
+        "forall",
+        roles=("items",),
+        population="retained",
+        children=(BindingExpression("scan", roles=("items",)),),
+    )
+    schema = model(expression)
+    result = execute_binding(
+        connection,
+        compile_binding(schema, "urn:op", (projection,), subject="doc", populations=(population,)),
+    )
+    assert result.status == "ready"
+    assert [member.product for member in result.roles[0].members] == ["p2"]
+    connection.execute(table.delete().where(table.c.product == "p2"))
+    assert (
+        execute_binding(
+            connection,
+            compile_binding(
+                schema, "urn:op", (projection,), subject="doc", populations=(population,)
+            ),
+        ).status
+        != "ready"
+    )
+
+
+def test_native_membership_and_absence_cannot_use_another_containers_local_member(storage):
+    connection, table, projection = storage
+    population = PopulationBinding("retained", "closed", True, ("b",), b'{"product_id":"p2"}')
+    membership = BindingExpression(
+        "membership",
+        operands=(
+            BindingOperand("field", "string", BindingField("items", "urn:item", "base")),
+            BindingOperand("population", "string", name="retained"),
+        ),
+    )
+    result = execute_binding(
+        connection,
+        compile_binding(
+            model(membership), "urn:op", (projection,), subject="doc", populations=(population,)
+        ),
+    )
+    assert [member.product for member in result.roles[0].members] == ["p2"]
+    original = dict(
+        connection.execute(table.select().where(table.c.product == "p2")).mappings().one()
+    )
+    connection.execute(table.insert(), {**original, "product": "foreign-container"})
+    connection.execute(table.delete().where(table.c.product == "p2"))
+    population = PopulationBinding("retained", "closed", True, ("m2",), b'{"product_id":"p2"}')
+    absent = BindingExpression(
+        "absent",
+        roles=("items",),
+        population="retained",
+        children=(BindingExpression("scan", roles=("items",)),),
+    )
+    result = execute_binding(
+        connection,
+        compile_binding(
+            model(absent, minimum=0, presence="optional"),
+            "urn:op",
+            (projection,),
+            subject="doc",
+            populations=(population,),
+        ),
+    )
+    assert result.status == "awaiting-inputs"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Annotated, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import DBAPIError
@@ -731,7 +731,7 @@ class ContextualCandidates:
     Config = ContextualCandidateConfig
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__ = {
+    __selection_operation__: ClassVar[dict[str, Any]] = {
         "id": "retrieve.contextual/selection",
         "profile": "selection",
         "subject": "original-source-view",

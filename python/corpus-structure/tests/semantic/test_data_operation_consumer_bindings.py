@@ -6,9 +6,11 @@ or a replacement publisher. Closed population membership is explicit in each cas
 
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy import JSON, Boolean, Column, Integer, MetaData, String, Table, create_engine
+from sqlalchemy.types import TypeEngine
 
 from corpus_structure.semantic.data_operation_bindings import (
     PopulationBinding,
@@ -26,13 +28,38 @@ from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 PREFIX = "https://corpus-structure.dev/semantic/data-operation-consumers/"
 FIELDS = {
-    "DdoSourceViewBinding": ["document_subject", "base_product", "view_key", "projection_digest", "source_recipe", "analysis_eligible"],
+    "DdoSourceViewBinding": [
+        "document_subject",
+        "base_product",
+        "view_key",
+        "projection_digest",
+        "source_recipe",
+        "analysis_eligible",
+    ],
     "DdoPassageBinding": ["input_subject", "passage_id", "source_ref", "start", "end"],
-    "DdoReadingBinding": ["input_subject", "passage_id", "contribution_id", "source_ref", "producer_operation"],
-    "DdoOccurrenceBinding": ["view_subject", "occurrence_id", "contribution_id", "semantic_type", "contribution_kind", "anchors_valid", "exact_context"],
+    "DdoReadingBinding": [
+        "input_subject",
+        "passage_id",
+        "contribution_id",
+        "source_ref",
+        "producer_operation",
+    ],
+    "DdoOccurrenceBinding": [
+        "view_subject",
+        "occurrence_id",
+        "contribution_id",
+        "semantic_type",
+        "contribution_kind",
+        "anchors_valid",
+        "exact_context",
+    ],
 }
 BOOLEANS = {"analysis_eligible", "anchors_valid", "exact_context"}
 INTEGERS = {"start", "end"}
+
+
+def native_type(name: str) -> TypeEngine[Any]:
+    return Boolean() if name in BOOLEANS else Integer() if name in INTEGERS else String()
 
 
 @pytest.fixture(scope="module")
@@ -83,12 +110,7 @@ def admitted(model, groups):
             ),
             Column("position", Integer),
             Column("multiplicity", Integer),
-            *(
-                Column(
-                    name, Boolean if name in BOOLEANS else Integer if name in INTEGERS else String
-                )
-                for name in FIELDS[kind]
-            ),
+            *(Column(name, native_type(name)) for name in FIELDS[kind]),
         )
     metadata.create_all(engine)
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
@@ -302,7 +324,7 @@ def test_structural_consumer_keeps_two_original_sources_and_reading_associations
     passages, readings, entries = [], [], []
     for side, source in zip(("left", "right"), references, strict=True):
         actual_source = "original:" + side
-        passage = dict(
+        passage: dict[str, Any] = dict(
             id="passage:" + side,
             subject="passage:" + side,
             source=actual_source,
@@ -312,7 +334,7 @@ def test_structural_consumer_keeps_two_original_sources_and_reading_associations
             start=0,
             end=5,
         )
-        reading = dict(
+        reading: dict[str, Any] = dict(
             id="reading:" + side,
             subject="reading:" + side,
             source=actual_source,
