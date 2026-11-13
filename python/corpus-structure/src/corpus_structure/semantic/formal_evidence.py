@@ -530,8 +530,10 @@ class _LayerBuilder:
         parent = self.occurrence(piece, start, end)
         if self.identity.semantic:
             grammar = (
-                "formal-math" if family == "formal.math"
-                else "formal-lexical" if family == "formal.lexical"
+                "formal-math"
+                if family == "formal.math"
+                else "formal-lexical"
+                if family == "formal.lexical"
                 else "formal-field"
             )
         identity = _identity(
@@ -1401,9 +1403,15 @@ def build_formal_layer(
         raise ValueError("formal producer requires authoritative operation determinants")
     if math_start not in math_grammar.STARTS or parse_seconds <= 0 or max_forest_nodes < 1:
         raise ValueError("invalid formal parser request")
-    builder = _LayerBuilder(view, operation, FormalIdentity(
-        canonical_bytes(view.ref.native_product.values()), view.ref.projection_digest, view.ref.id,
-    ))
+    builder = _LayerBuilder(
+        view,
+        operation,
+        FormalIdentity(
+            canonical_bytes(view.ref.native_product.values()),
+            view.ref.projection_digest,
+            view.ref.id,
+        ),
+    )
     builder.macros = dict(macros or {})
     selected: list[dict[str, Any]]
     if source_scope is not None:
@@ -1428,8 +1436,12 @@ def build_formal_layer(
     else:
         selected = [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))]
     selectors = extract_formal_facts(
-        builder, selected, math_start=math_start, parse_seconds=parse_seconds,
-        max_forest_nodes=max_forest_nodes, max_inline_chars=max_inline_chars,
+        builder,
+        selected,
+        math_start=math_start,
+        parse_seconds=parse_seconds,
+        max_forest_nodes=max_forest_nodes,
+        max_inline_chars=max_inline_chars,
         check_active=check_active,
     )
     scope = dict(

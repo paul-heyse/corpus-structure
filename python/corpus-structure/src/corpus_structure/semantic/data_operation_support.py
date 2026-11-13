@@ -55,8 +55,10 @@ class OriginalSourceSelection:
     def __post_init__(self) -> None:
         from .structural_products import ExternalSourceRef
 
-        if type(self.name) is not str or not self.name or any(
-            type(value) is not bytes for value in (self.reference, self.selectors)
+        if (
+            type(self.name) is not str
+            or not self.name
+            or any(type(value) is not bytes for value in (self.reference, self.selectors))
         ):
             raise TypeError("original source selections require immutable named canonical bytes")
         reference = ExternalSourceRef.model_validate_json(self.reference)
@@ -64,7 +66,8 @@ class OriginalSourceSelection:
             raise ValueError("original source reference must preserve its exact canonical pins")
         selectors = json.loads(self.selectors)
         if (
-            not isinstance(selectors, list) or not selectors
+            not isinstance(selectors, list)
+            or not selectors
             or canonical_bytes(selectors) != self.selectors
         ):
             raise ValueError("original source selectors require a nonempty canonical JSON array")

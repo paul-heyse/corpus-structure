@@ -1074,7 +1074,8 @@ def decode_binding_rows(
                     row["provider_identity"],
                     row["alternative_identity"],
                     read_support_references(row["support_references"])
-                    if "support_references" in row else (),
+                    if "support_references" in row
+                    else (),
                 )
             )
         expected_kind = next(
@@ -1113,18 +1114,23 @@ def decode_binding_rows(
                 or (
                     role.support is not None
                     and "episode" in role.support.identity_requirements
-                    and (not member.support_references or "computation" in {
-                        reference.kind for reference in member.support_references
-                    })
+                    and (
+                        not member.support_references
+                        or "computation"
+                        in {reference.kind for reference in member.support_references}
+                    )
                     and not member.support_episodes
                 )
                 or (
                     role.support is not None
-                    and (not {reference.kind for reference in member.support_references}
-                         <= set(role.support.origins) or (
-                             not member.support_references
-                             and role.support.origins != ("computation",)
-                         ))
+                    and (
+                        not {reference.kind for reference in member.support_references}
+                        <= set(role.support.origins)
+                        or (
+                            not member.support_references
+                            and role.support.origins != ("computation",)
+                        )
+                    )
                 )
                 or (
                     role.support is not None

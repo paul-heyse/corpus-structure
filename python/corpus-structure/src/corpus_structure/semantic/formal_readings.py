@@ -92,7 +92,9 @@ class FormalSourceReadings:
 
         selected = source.value
         coordinate = selected["source"]
-        prepared_source = SemanticFormalSource(canonical_bytes(coordinate), coordinate["projection"])
+        prepared_source = SemanticFormalSource(
+            canonical_bytes(coordinate), coordinate["projection"]
+        )
         retained = []
         for product in products:
             # The product's retained examined scope is validated under the same original
@@ -100,7 +102,9 @@ class FormalSourceReadings:
             body = product.value.model_dump(mode="json", exclude_unset=True)
             if body["source"] != coordinate:
                 raise ValueError("formal construction input belongs to another original source")
-            original = FrozenFormalSource.acquire(product.prepared, {**selected, "selectors": body["selectors"]})
+            original = FrozenFormalSource.acquire(
+                product.prepared, {**selected, "selectors": body["selectors"]}
+            )
             checked = validate_formal_product(product.prepared, body, original, model=product.model)
             retained.append((SemanticFormalPin(checked.semantic_id), checked.inventory()))
         instance = cls.__new__(cls)
@@ -152,8 +156,11 @@ def _extent(row, occurrences, source):
     part = parts[0]
     if (
         part.get("synthetic")
-        or ("source_view_id" in part if isinstance(source, SemanticFormalSource)
-            else part["source_view_id"] != source.source_view_id)
+        or (
+            "source_view_id" in part
+            if isinstance(source, SemanticFormalSource)
+            else part["source_view_id"] != source.source_view_id
+        )
         or part["projection"] != source.projection_digest
         or not isinstance(part.get("text"), str)
     ):

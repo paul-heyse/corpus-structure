@@ -233,3 +233,44 @@ def test_role_metadata_changes_no_legacy_profile_bytes_defaults_or_hashes():
     )
     assert asdict(profile)["threads"] == 4 and asdict(profile)["max_words"] == 512
     assert asdict(profile)["snapshot"] == Path("/captured-model")
+
+
+def test_spacy_native_observation_projection_has_its_own_qualified_standing():
+    from corpus_structure.methods.native_profiles import spacy_observation_policy
+
+    values: dict[str, Any] = dict(
+        provider="spacy",
+        runtime_identity={"torch": "runtime-a"},
+        artifacts={"model": "a" * 64},
+        parameters={"exclude": ["ner"]},
+        dtype="float32",
+        backend="cupy",
+    )
+    original = NativeProfile(**values)
+    changed_values: dict[str, Any] = {
+        **values,
+        "runtime_identity": {"torch": "runtime-b"},
+        "threads": 8,
+    }
+    changed = NativeProfile(**changed_values)
+    a = original.identity_projections(inference_policy=spacy_observation_policy())
+    b = changed.identity_projections(inference_policy=spacy_observation_policy())
+    assert a.inference == b.inference and a.execution != b.execution
+    updates: tuple[dict[str, Any], ...] = (
+        {"artifacts": {"model": "b" * 64}},
+        {"parameters": {"exclude": ["ner", "lemmatizer"]}},
+    )
+    for update in updates:
+        assert (
+            NativeProfile(**{**values, **update})
+            .identity_projections(inference_policy=spacy_observation_policy())
+            .inference
+            != a.inference
+        )
+    with pytest.raises(ValueError, match="native-label"):
+        original.identity_projections(inference_policy=policy())
+    with pytest.raises(ValueError, match="numerical contract"):
+        unsupported: dict[str, Any] = {**values, "provider": "hanlp"}
+        NativeProfile(**unsupported).identity_projections(
+            inference_policy=spacy_observation_policy()
+        )

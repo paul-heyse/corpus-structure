@@ -61,6 +61,33 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             raise ValueError("native execution evidence definition collides with protocol")
         document["definitions"].update(definitions)
         content = canonical_bytes(document)
+    intent_properties = (
+        document.get("definitions", {}).get("demand_intent", {}).get("properties", {})
+    )
+    if "original_sources" in intent_properties:
+        from .data_operation_support import (
+            ORIGINAL_REFERENCE_SCHEMA,
+            original_source_reference_schema,
+        )
+
+        if sources is None:
+            captured = original_source_reference_schema()
+        else:
+            values = [
+                source.content for source in sources if source.name == ORIGINAL_REFERENCE_SCHEMA
+            ]
+            if len(values) != 1:
+                raise ValueError("original source references require their captured schema")
+            captured = values[0]
+        extension = checked_json_schema(json.loads(captured))
+        definitions = dict(extension.get("definitions", {}))
+        definitions["external_source_reference"] = {
+            key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+        }
+        if definitions.keys() & document["definitions"].keys():
+            raise ValueError("original source reference definition collides with protocol")
+        document["definitions"].update(definitions)
+        content = canonical_bytes(document)
     return content
 
 

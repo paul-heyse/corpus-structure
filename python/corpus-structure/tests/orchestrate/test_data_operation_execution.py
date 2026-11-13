@@ -5,7 +5,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import insert, text
 
-from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
+from corpus_structure.orchestrate.data_operations import (
+    NativeDemandExecutionError,
+    NativeDemandExecutor,
+)
 from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
@@ -38,6 +41,11 @@ def executable(ddo_kernel_engine, tmp_path, monkeypatch):
     source = (
         "def answer(*, value: int = 7) -> int:\n    return value\n"
         f"answer__data_operation__ = {metadata!r}\n"
+    )
+    failed_metadata = {**metadata, "id": "urn:ddo-execution:broken"}
+    source += (
+        "def broken(*, value: int = 7) -> int:\n    raise ValueError('calculation failed')\n"
+        f"broken__data_operation__ = {failed_metadata!r}\n"
     )
     path = tmp_path / (name + ".py")
     path.write_text(source)
@@ -105,3 +113,43 @@ def test_actual_callable_publishes_and_settled_resume_does_not_recompute(executa
         assert conn.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
         assert conn.scalar(text("SELECT canonical_body FROM kb.data_product")) == ["integer", "7"]
         assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id IS NOT NULL")) == 0
+
+
+def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(executable):
+    engine, prepared, runtime, sources, locations, bundle = executable
+    model = bound_data_operation_model(prepared)
+    intent = freeze_demand(
+        model,
+        roots=(
+            RootSubject("subject:one", "source:one", b"{}"),
+            RootSubject("subject:two", "source:two", b"{}"),
+        ),
+        targets=("urn:ddo-execution:answer", "urn:ddo-execution:broken"),
+        inference="exact",
+        execution_profile="execution:test",
+    )
+    with engine.begin() as conn:
+        demand = DemandPlanner(model, DataOperationStorage(conn)).register(
+            intent,
+            project="execution",
+            release=prepared.release_id,
+            runtime=runtime.runtime_id,
+        )["demand_id"]
+    executor = NativeDemandExecutor(
+        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle
+    )
+    with pytest.raises(NativeDemandExecutionError) as caught:
+        executor.run(demand, limit=1)
+    result = caught.value.result
+    assert result.receipt_count == 2
+    assert len(result.receipts) == 1 and result.receipts_truncated
+    assert result.snapshot_standing == "fresh-read"
+    assert len(caught.value.failures) == 2
+    assert executor.budget.used_bytes == 0
+    with engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
+        assert conn.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 2
+        assert conn.scalar(text("SELECT count(*) FROM ops.data_attempt_failure")) == 2
+        # Failed infrastructure attempts remain retryable; they did not publish
+        # a fabricated domain-level failure outcome or destroy the good answers.
+        assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE status='failed'")) == 0

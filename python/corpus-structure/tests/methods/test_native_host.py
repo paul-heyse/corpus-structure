@@ -517,6 +517,27 @@ def test_real_host_peer_failure_fences_and_proves_process_death(physical_host, m
     assert not native_host._live_group(host._process.pid)
 
 
+def test_inference_failure_with_unproven_cleanup_is_typed_and_stays_owned(
+    physical_host, monkeypatch
+):
+    selected = selection()
+    host = physical_host(selected)
+
+    def cannot_retire(**kwargs):
+        raise RuntimeError("controlled retirement refusal")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(host, "close", cannot_retire)
+        with pytest.raises(native_host.NativeRetirementUncertain, match="retirement") as caught:
+            host.infer(selected, {"mode": "hang"}, check_active=lambda: None, timeout=0.2)
+        assert isinstance(caught.value.__cause__, BaseExceptionGroup)
+        assert native_host._live_group(host._process.pid)
+    # The original physical owner can retry; a completed failed future was never
+    # mistaken for process-group death.
+    host.close(grace_seconds=0)
+    assert not native_host._live_group(host._process.pid)
+
+
 def test_real_host_cancelled_member_preserves_other_provider_result(physical_host):
     from concurrent.futures import CancelledError, ThreadPoolExecutor
     from threading import Event
