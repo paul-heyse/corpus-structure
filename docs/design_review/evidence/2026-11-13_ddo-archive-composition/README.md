@@ -1,6 +1,6 @@
 # Typed archive and declared input composition
 
-**Registered; native qualification in progress · 2026-11-13.** This normal forward successor follows
+**Registered v2; native runtime correction authoring · 2026-11-13.** This normal forward successor follows
 `semantic_ddo_original_v1`, retaining complete original-source model content while replacing
 the oversized whole-archive JSONB transport. It also integrates concrete nominal input
 refinement, owned nested subject paths and genuine runless PDF staging foundations.
@@ -57,3 +57,18 @@ generated path changes. Rollback-only candidate **passed**,
 `uv run ci db status --maintenance --json` confirmed the persistent revision remains
 `semantic_bep_located_v2`, with checkout head `semantic_ddo_archive_v2`. Native consumer
 qualification is running in isolated databases; registration does not establish those results.
+
+
+## Runtime guard correction
+
+Native selection `bc8830741008498da5f364caec09166f` **failed** at actual demand
+registration: PostgreSQL grouped an unparenthesized right JSON extraction after containment,
+attempting `boolean -> text`. The campaign was interrupted after the common failure was
+established (109 required, 2 passed, 20 failed; remaining nodes unrun). Its complete receipt
+is retained. This is a runtime SQL defect, separate from the repaired predecessor metadata.
+
+The source guard now explicitly groups containment and alternative membership. Seven real
+PostgreSQL controls against the production predicate **passed**,
+`d637175a193b4c9595392ebf8c90caac`. Normal `correction.yaml` authoring follows v2 with
+`semantic_ddo_archive_v3`; v2's frozen bytes remain unchanged. V2 applies cleanly and its faulty
+query is not invoked during migration replay. No persistent database reached v2.

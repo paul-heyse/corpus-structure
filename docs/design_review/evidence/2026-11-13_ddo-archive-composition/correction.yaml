@@ -1,0 +1,6 @@
+baseline: 8c548bc2289db64532408a82cf05a05daa975349
+packs: [statistics]
+native_predecessor: semantic_ddo_archive_v2
+native_revision: semantic_ddo_archive_v3
+deployment: true
+deployment_profile: development
