@@ -19,9 +19,85 @@ from corpus_structure.semantic.identity import canonical_bytes
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from .gliner_worker import validate_request
 from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_member_digest
-from .native_host import NativeHostGroup, host_request_frame_size
+from .native_host import NativeExecutionReceipt, NativeHostGroup, host_request_frame_size, payload_digest
 from .native_profiles import NativeSelection, pm2_selection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
+
+
+@dataclass(frozen=True)
+class LogicalProviderMember:
+    """Exact producing attempt and contiguous ordered native-input membership."""
+
+    request_id: str
+    generation: int
+    task_id: int
+    attempt: int
+    member: str
+    start: int
+    count: int
+    input_digest: str
+
+
+@dataclass(frozen=True)
+class ProviderExecutionReceipt:
+    """Immutable original-work/cohort scatter and physical exchange correspondence."""
+
+    correlation: str
+    cohort_digest: str
+    member_offset: int
+    member_count: int
+    native_member_digests: tuple[str, ...]
+    logical_members: tuple[LogicalProviderMember, ...]
+    physical: tuple[NativeExecutionReceipt, ...]
+    cohort_members: tuple[str, ...]
+    work_members: tuple[tuple[str, int, int], ...]
+
+
+def _native_members(request):
+    if isinstance(request, GLiNERWork):
+        return [asdict(item) for item in request.inputs]
+    if request.payload is None:
+        return []
+    value = json.loads(request.payload)
+    key = {"d1": "batch", "hanlp": "sentences", "spacy": "documents"}.get(request.selection.provider)
+    return value[key] if key is not None else [value]
+
+
+def _validate_logical_members(request):
+    if not request.logical_members:
+        return
+    values = _native_members(request)
+    cursor = 0
+    keys = set()
+    for member in request.logical_members:
+        key = (member.request_id, member.generation, member.task_id, member.attempt, member.member)
+        if (not member.request_id or not member.member or key in keys
+            or any(type(value) is not int or value < 1 for value in (member.generation, member.task_id, member.attempt, member.count))
+            or type(member.start) is not int or member.start != cursor
+            or member.input_digest != payload_digest(values[member.start:member.start + member.count])):
+            raise ValueError("logical provider member differs from its ordered native input")
+        keys.add(key)
+        cursor += member.count
+    if cursor != len(values):
+        raise ValueError("logical provider members do not cover native input population")
+
+
+def _execution_receipt(request, physical, *, cohort=None, offset=0, cohort_members=None, work_members=None):
+    _validate_logical_members(request)
+    values = _native_members(request)
+    local = tuple(payload_digest(item) for item in values)
+    population = local if cohort_members is None else tuple(cohort_members)
+    works = ((request.correlation, 0, len(values)),) if work_members is None else tuple(work_members)
+    if (type(offset) is not int or offset < 0 or population[offset:offset + len(local)] != local
+        or (request.correlation, offset, len(local)) not in works):
+        raise ValueError("provider scatter receipt differs from original native member range")
+    digest = payload_digest({"works": works, "members": population})
+    if cohort is not None and cohort != digest:
+        raise ValueError("provider cohort identity differs from original ordered membership")
+    return ProviderExecutionReceipt(
+        request.correlation, digest, offset, len(values), local, request.logical_members,
+        tuple(physical), population, works,
+    )
 
 
 @dataclass(frozen=True)
@@ -30,6 +106,7 @@ class PM2Work:
     payload: bytes | None
     correlation: str
     borrowers: tuple[Callable[[], None], ...]
+    logical_members: tuple[LogicalProviderMember, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -43,6 +120,7 @@ class GLiNERWork:
     borrowers: tuple[Callable[[], None], ...]
     evaluation: bool = False
     logical_sizes: tuple[int, ...] = ()
+    logical_members: tuple[LogicalProviderMember, ...] = ()
 
 
 def validate_gliner_policy(profile: GlinerProfile, policy: CharacterizationExecutionPolicy):
@@ -62,6 +140,7 @@ class ProviderReply:
     admissions: tuple = ()
     error_type: str | None = None
     error_message: str | None = None
+    execution_receipt: ProviderExecutionReceipt | None = None
 
     @property
     def startup(self):
@@ -118,6 +197,13 @@ class ProviderHandle:
         reply = self.future.result()
         if reply.correlation != self.request.correlation:
             raise ValueError("native response correlation differs from admitted request")
+        receipt = reply.execution_receipt
+        if receipt is not None:
+            expected = _execution_receipt(self.request, receipt.physical, cohort=receipt.cohort_digest, offset=receipt.member_offset, cohort_members=receipt.cohort_members, work_members=receipt.work_members)
+            if receipt != expected:
+                raise ValueError("native execution receipt differs from admitted logical membership")
+        if reply.error_type is None and self.request.logical_members and (receipt is None or not receipt.physical):
+            raise ValueError("logical request lacks authenticated physical execution receipt")
         return reply
 
     def cancel(self):
@@ -173,8 +259,10 @@ class _Lane:
         self.current = handle
         request = handle.request
         startup = {}
+        physical = []
         try:
             handle.active()
+            _validate_logical_members(request)
             if self.broken is not None:
                 raise Pm2WorkerError("native lane has unresolved teardown failure") from self.broken
             if isinstance(request, PM2Work):
@@ -182,13 +270,20 @@ class _Lane:
                 group = self.owner.native_group
                 group.declare((selection,))
                 startup = group.startup(selection, self.active)
-                payload = (
-                    {}
-                    if request.payload is None
-                    else group.infer(selection, json.loads(request.payload), self.active)
-                )
+                payload = {}
+                if request.payload is not None:
+                    response = group.infer_result(selection, json.loads(request.payload), self.active)
+                    payload = response.payload
+                    if (response.receipt.provider != selection.provider
+                        or response.receipt.profile != selection.native.fingerprint
+                        or response.receipt.runtime != sha256(selection.runtime).hexdigest()
+                        or response.receipt.input_digest != payload_digest(json.loads(request.payload))
+                        or response.receipt.output_digest != payload_digest(payload)):
+                        raise ValueError("native host execution receipt differs from admitted exchange")
+                    physical.append(response.receipt)
                 reply = ProviderReply(
-                    request.correlation, canonical_bytes(startup), ordered_native_bytes(payload)
+                    request.correlation, canonical_bytes(startup), ordered_native_bytes(payload),
+                    execution_receipt=_execution_receipt(request, physical),
                 )
             else:
                 key = request.profile
@@ -206,6 +301,7 @@ class _Lane:
                     overlap_policy=request.overlap_policy,
                     evaluation=request.evaluation,
                     check_active=self.active,
+                    receipt_sink=physical.append,
                 )
                 sizes = request.logical_sizes or (len(request.inputs),)
                 admitted = []
@@ -227,17 +323,19 @@ class _Lane:
                         overlap_policy=request.overlap_policy,
                         evaluation=request.evaluation,
                         check_active=self.active,
+                        receipt_sink=physical.append,
                     )
                     if admitted
                     else ()
                 )
-                reply = ProviderReply(request.correlation, reports=reports, admissions=admissions)
+                reply = ProviderReply(request.correlation, reports=reports, admissions=admissions, execution_receipt=_execution_receipt(request, physical))
             handle.active()
             size = (
                 len(reply.startup_content)
                 + len(reply.payload_content)
                 + len(canonical_bytes([asdict(report) for report in reply.reports]))
                 + len(canonical_bytes([asdict(member) for member in reply.admissions]))
+                + (0 if reply.execution_receipt is None else len(canonical_bytes(asdict(reply.execution_receipt))))
             )
             if size > self.owner.policy.max_native_reply_bytes:
                 from corpus_structure.semantic.cpu_execution import CapacityExceeded
@@ -374,6 +472,7 @@ class ProviderExecution:
         self.native_group.declare(tuple(selections))
 
     def _request_size(self, request):
+        _validate_logical_members(request)
         if isinstance(request, GLiNERWork):
             validate_gliner_policy(request.profile, self.policy)
             if request.logical_sizes and (
@@ -443,7 +542,7 @@ class ProviderExecution:
                 from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
                 raise CapacityExceeded(str(error)) from error
-        return size
+        return size + (len(canonical_bytes([asdict(member) for member in request.logical_members])) if request.logical_members else 0)
 
     @staticmethod
     def _pm2_payload(payloads, provider):
@@ -667,6 +766,20 @@ class ProviderExecution:
                 for handle in group
             ]
         replies, offset = [], 0
+        physical = () if reply.execution_receipt is None else reply.execution_receipt.physical
+        cohort_members = tuple(payload_digest(item) for item in _native_members(combined))
+        work_members = []
+        position = 0
+        for handle, count in zip(group, lengths, strict=True):
+            work_members.append((handle.request.correlation, position, count))
+            position += count
+        def scattered(replies):
+            cursor = 0
+            result = []
+            for handle, count, part in zip(group, lengths, replies, strict=True):
+                result.append(replace(part, execution_receipt=_execution_receipt(handle.request, physical, offset=cursor, cohort_members=cohort_members, work_members=work_members)))
+                cursor += count
+            return result
         if isinstance(first, GLiNERWork):
             if len(reply.admissions) != sum(lengths):
                 raise Pm2WorkerError("native admission changed original logical population")
@@ -708,7 +821,7 @@ class ProviderExecution:
                 offset += length
             if report_offset != len(reply.reports):
                 raise Pm2WorkerError("native inference added an unadmitted logical member")
-            return replies
+            return scattered(replies)
         body = reply.payload
         flattened = [value for payload in payloads for value in payload[key]]
         if first.selection.provider == "spacy":
@@ -724,7 +837,7 @@ class ProviderExecution:
                     )
                 )
                 offset += length
-            return replies
+            return scattered(replies)
         header = dict(
             provider=first.selection.provider,
             profile=sha256(first.selection.profile).hexdigest(),
@@ -786,7 +899,7 @@ class ProviderExecution:
                 )
             )
             offset += length
-        return replies
+        return scattered(replies)
 
     def _try_lazy(self, factory, lane_key):
         from corpus_structure.semantic.cpu_execution import CapacityExceeded

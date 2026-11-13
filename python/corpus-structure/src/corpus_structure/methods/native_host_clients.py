@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict
+from hashlib import sha256
 from typing import cast
 
 from pydantic import TypeAdapter
@@ -12,7 +13,7 @@ from corpus_structure.core.execution_policy import CharacterizationExecutionPoli
 
 from .gliner import MAX_DIAGNOSTIC_SPANS, GlinerInput, GlinerPack, GlinerRefused, GlinerReport
 from .gliner_worker import GlinerAdmission, GlinerWorkerError, _Diagnostic, validate_request
-from .native_host import NativeHostGroup, host_request_frame_size
+from .native_host import NativeHostGroup, host_request_frame_size, payload_digest
 from .native_profiles import (
     NativeProfile,
     NativeSelection,
@@ -104,6 +105,7 @@ class HostedGliner:
         check_active=None,
         prepare_only=False,
         diagnostic=None,
+        receipt_sink=None,
     ):
         if self._closed:
             raise GlinerWorkerError("native GLiNER owner is closed")
@@ -132,7 +134,7 @@ class HostedGliner:
                     self.group.policy.max_native_request_bytes, self.profile.max_request_frame_bytes
                 ),
             )
-            reply = self.group.infer(
+            response = self.group.infer_result(
                 self.selection, payload, active, timeout=self.profile.timeout_seconds
             )
         except Pm2WorkerRefused as error:
@@ -140,9 +142,20 @@ class HostedGliner:
         except Pm2WorkerError as error:
             self._closed = True
             raise GlinerWorkerError(str(error)) from error
-        if prepare_only:
-            return TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
-        return TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
+        reply = response.payload
+        if (response.receipt.provider != self.selection.provider
+            or response.receipt.profile != self.selection.native.fingerprint
+            or response.receipt.runtime != sha256(self.selection.runtime).hexdigest()
+            or response.receipt.input_digest != payload_digest(payload)
+            or response.receipt.output_digest != payload_digest(reply)):
+            raise GlinerWorkerError("native GLiNER receipt differs from admitted exchange")
+        decoded = (
+            TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
+            if prepare_only else TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
+        )
+        if receipt_sink is not None:
+            receipt_sink(response.receipt)
+        return decoded
 
     def prepare_members(self, pack, inputs, **kwargs) -> tuple[GlinerAdmission, ...]:
         # _exchange's prepare-only branch decodes exactly this existing DTO.
