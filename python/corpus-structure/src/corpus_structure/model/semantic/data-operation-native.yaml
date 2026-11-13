@@ -1,0 +1,14 @@
+version: data-operation-native-v1
+operations:
+- {name: register_data_demand, profile: command}
+- {name: expand_data_obligation, profile: command}
+- {name: record_data_fate, profile: command}
+- {name: close_data_population, profile: command}
+- {name: attach_data_request, profile: command}
+- {name: claim_data_request, profile: command}
+- {name: retain_data_completion_intent, profile: command}
+- {name: adopt_data_completion_intent, profile: command}
+- {name: publish_data_derivation, profile: command}
+- {name: inspect_data_completion, profile: read}
+- {name: revoke_data_support, profile: command}
+- {name: read_demand_result, profile: read}
