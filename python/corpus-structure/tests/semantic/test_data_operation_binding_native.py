@@ -147,7 +147,13 @@ def context(*values: Any) -> dict[str, Any]:
             ]
         },
         "roledefs": [
-            {"name": name, "kind": "urn:item", "kind_contract": "kind:item", "collection": "set"}
+            {
+                "name": name,
+                "kind": "urn:item",
+                "kind_contract": "kind:item",
+                "accepted_kind_contracts": ["kind:item"],
+                "collection": "set",
+            }
             for name in ("items", "left", "right", "shared")
         ],
         "roles": {"items": members, "left": [], "right": [], "shared": []},

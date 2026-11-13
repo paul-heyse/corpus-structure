@@ -159,6 +159,40 @@ BEGIN
  RETURN data.ddo_normalize(value);
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_validate_parameters(operation jsonb,selection jsonb,model jsonb) RETURNS void
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE definitions jsonb:=operation->'parameters'->'json'; name text; definition jsonb; value jsonb; item jsonb; kind text;
+BEGIN
+ IF jsonb_typeof(selection->'parameters') IS DISTINCT FROM 'object'
+ OR selection->'parameter_meaning' IS NULL
+ OR data.ddo_json(data.ddo_normalize(selection->'parameter_meaning')) IS DISTINCT FROM selection->'parameters' THEN
+ RAISE EXCEPTION 'frozen parameter display differs from exact typed meaning'; END IF;
+ IF EXISTS(SELECT FROM jsonb_each(definitions) d WHERE d.value ? 'kind')
+ AND EXISTS(SELECT FROM jsonb_each(selection->'parameters') p WHERE NOT definitions ? p.key) THEN
+ RAISE EXCEPTION 'undeclared frozen nominal operation parameter'; END IF;
+ FOR name,definition IN SELECT entry.key,entry.value FROM jsonb_each(definitions) entry LOOP
+ IF NOT (definition ? 'kind' OR definition ? 'value_type') THEN CONTINUE; END IF;
+ IF NOT selection->'parameters' ? name THEN
+ IF definition ? 'default' OR coalesce(definition->>'required','true')='true' THEN
+ RAISE EXCEPTION 'missing frozen demand parameter %',name; END IF;
+ CONTINUE; END IF;
+ value:=data.ddo_field(selection->'parameter_meaning',name);
+ IF definition ? 'kind' THEN
+ IF jsonb_typeof(definition->'body_schema') IS DISTINCT FROM 'object'
+ OR jsonb_typeof(definition->'meaning_schema') IS DISTINCT FROM 'object'
+ OR NOT public.json_matches_schema((definition->'body_schema')::json,(selection->'parameters'->name)::json)
+ OR NOT public.json_matches_schema((definition->'meaning_schema')::json,value::json) THEN
+ RAISE EXCEPTION 'nominal frozen parameter violates captured schema: %',name; END IF;
+ ELSE
+ kind:=ops.ddo_binding_type(jsonb_build_object('model',model),definition->>'value_type');
+ IF coalesce(definition->>'many','false')='true' THEN
+ IF value->>0 IS DISTINCT FROM 'sequence' THEN RAISE EXCEPTION 'frozen parameter must be a typed sequence'; END IF;
+ FOR item IN SELECT entry.value FROM jsonb_array_elements(value->1) entry LOOP PERFORM ops.ddo_binding_typed(item,kind); END LOOP;
+ ELSE PERFORM ops.ddo_binding_typed(value,kind); END IF;
+ END IF;
+ END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_binding_values(operand jsonb,context jsonb) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE source text:=operand->>'kind'; kind text; item jsonb; roledef jsonb; field jsonb; raw jsonb; property jsonb; result jsonb:='[]'; population jsonb; selected jsonb; expected text;
@@ -453,6 +487,7 @@ BEGIN
  SELECT value INTO STRICT compiled FROM jsonb_array_elements(projection->'operations') WHERE value->>'operation_id'=p_operation;
  IF EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]'))) SELECT FROM nodes WHERE n->>'operator' IS NULL OR n->>'operator' NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership','covers')) THEN RAISE EXCEPTION 'authenticated native binding is outside the closed operator vocabulary'; END IF;
  SELECT value INTO STRICT selection FROM jsonb_array_elements(demand.selection->'operations') WHERE value->>'operation'=p_operation;
+ PERFORM ops.ddo_validate_parameters(operation,selection,archived);
  IF compiled->'binding' IS DISTINCT FROM expression OR compiled->>'definition' IS DISTINCT FROM selection->>'definition' OR compiled->>'eligibility' IS DISTINCT FROM selection->>'eligibility'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') v WHERE v->>'owner'=p_operation AND v->>'domain'='definition' AND v->>'key'=compiled->>'definition')
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') v WHERE v->>'owner'=p_operation AND v->>'domain'='eligibility' AND v->>'key'=compiled->>'eligibility') THEN RAISE EXCEPTION 'binding differs from authenticated frozen definition'; END IF;
