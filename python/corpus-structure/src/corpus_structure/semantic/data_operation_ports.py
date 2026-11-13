@@ -171,9 +171,73 @@ class BatchPortCompletion:
     members: tuple[tuple[str, PortCompletion], ...]
 
 
+def project_product_members(
+    model: EffectiveDataOperationModel, kind: str, value: Any
+) -> tuple[bytes, ...]:
+    """Copy actual declared packet facts; this grants no native publication authority."""
+    from .data_operation_identity import semantic_value
+    from .data_operation_member_contracts import derive_member_kinds
+
+    raw = _untrusted_value(value)
+    members = raw.get("members") if isinstance(raw, dict) else None
+    allowed = derive_member_kinds(model, kind)
+    if not allowed:
+        if isinstance(members, (list, tuple)) and any(
+            isinstance(packet, dict) and {"member_id", "kind_contract"} & packet.keys()
+            for packet in members
+        ):
+            raise PortRefusal("noncontainer kind cannot project nominal members")
+        return ()
+    if not isinstance(members, (list, tuple)):
+        raise PortRefusal("nominal member container lacks its actual packet array")
+    contracts = {(item.owner, item.domain): item.key for item in model.identities}
+    nominal = {contracts[owner, "kind"]: owner for owner in allowed}
+    kind_facts = {item.semantic_id: json.loads(item.facts) for item in model.kinds}
+    constants = {owner: [] for owner in allowed}
+    for edge in model.edges:
+        if edge.source in constants and edge.relation == "property":
+            prop = kind_facts[edge.target]
+            if prop.get("equals_string") is not None:
+                constants[edge.source].append((prop["name"], prop["equals_string"]))
+    seen, result = set(), []
+    for packet in members:
+        if not isinstance(packet, dict) or set(packet) != {
+            "member_id",
+            "kind_contract",
+            "context",
+            "body",
+        }:
+            raise PortRefusal("native member packet requires its exact four actual fields")
+        identifier = packet["member_id"]
+        if type(identifier) is not str or not identifier or identifier in seen:
+            raise PortRefusal("native member packet has absent/repeated local identity")
+        seen.add(identifier)
+        owner = nominal.get(packet["kind_contract"])
+        if owner is None:
+            raise PortRefusal("native member packet has an undeclared nominal contract")
+        context = packet["context"]
+        if (
+            not isinstance(context, dict)
+            or set(context) != {"subject", "original_source", "analyzed_scope"}
+            or any(
+                type(context[name]) is not str or not context[name]
+                for name in ("subject", "original_source")
+            )
+        ):
+            raise PortRefusal("native member packet lacks its exact source/subject/scope context")
+        if any(
+            not isinstance(packet["body"], dict) or packet["body"].get(name) != value
+            for name, value in constants[owner]
+        ):
+            raise PortRefusal("member body differs from its actual nominal discriminator")
+        result.append(canonical_bytes({**packet, "body": semantic_value(packet["body"])}))
+    return tuple(result)
+
+
 @dataclass(frozen=True)
 class ResolvedPythonPort:
     identity: PythonPortIdentity
+    model: EffectiveDataOperationModel
     operation: EffectiveOperation
     kind_contracts: tuple[tuple[str, str], ...]
     function: Callable[..., Any]
@@ -432,6 +496,9 @@ class ResolvedPythonPort:
                     contracts[role.kind],
                     adapter.dump_json(checked[correspondence[role.name]]),
                     canonical_bytes(semantic_value(checked[correspondence[role.name]])),
+                    project_product_members(
+                        self.model, role.kind, checked[correspondence[role.name]]
+                    ),
                 )
                 for role in outputs
             )
@@ -449,6 +516,7 @@ class ResolvedPythonPort:
                     contracts[output.kind],
                     encoded,
                     canonical_bytes(semantic_value(checked)),
+                    project_product_members(self.model, output.kind, checked),
                 ),
             ),
         )
@@ -701,6 +769,7 @@ def resolve_python_port(
             )
     return ResolvedPythonPort(
         identity,
+        model,
         selected,
         contracts,
         function,
