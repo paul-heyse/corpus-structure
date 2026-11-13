@@ -61,7 +61,7 @@ classes:
   Population:
     attributes:
       complete: {range: boolean, required: true}
-      members: {range: Packet, required: true, multivalued: true, inlined_as_list: true}
+      members: {range: Packet, minimum_cardinality: 0, multivalued: true, inlined_as_list: true}
 """)
     producer = _declaration()
     producer.update(id="urn:discover", profile="discovery")
@@ -400,7 +400,11 @@ def test_native_planner_preserves_ambiguous_authentic_parent_populations(populat
             use for use in current["uses"] if use["obligation_id"] == consumer["obligation_id"]
         )
         assert use["fate"] == "awaiting-population"
-        assert use["selection"]["reasons"][0]["code"] == "ambiguous-population"
+        assert use["selection"]["reasons"] == [{
+            "code": "ambiguous-population",
+            "location": "urn:consumer/items",
+            "detail": "more than one authenticated population fits the declared role",
+        }]
 
 
 def _complete_ready(kernel, ready, value=1):

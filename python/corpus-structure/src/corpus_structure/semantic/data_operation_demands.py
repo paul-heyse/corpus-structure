@@ -459,7 +459,12 @@ class DemandPlanner:
         if snapshot.get("state") == "cancelled":
             return ()
 
-        from .data_operation_bindings import PopulationBinding, compile_binding, execute_binding
+        from .data_operation_bindings import (
+            BindingReason,
+            PopulationBinding,
+            compile_binding,
+            execute_binding,
+        )
         from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_storage import admitted_data_projection
 
@@ -614,14 +619,14 @@ class DemandPlanner:
                         "fate": "awaiting-population",
                         "selection": {
                             "reasons": [
-                                {
-                                    "code": "ambiguous-population",
-                                    "location": operation["operation"] + "/" + role_name,
-                                    "message": (
+                                asdict(BindingReason(
+                                    "ambiguous-population",
+                                    operation["operation"] + "/" + role_name,
+                                    (
                                         "more than one authenticated population "
                                         "fits the declared role"
                                     ),
-                                }
+                                ))
                                 for role_name in ambiguities
                             ]
                         },
