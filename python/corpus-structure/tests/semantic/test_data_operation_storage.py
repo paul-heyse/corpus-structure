@@ -70,6 +70,20 @@ def _sample_declaration():
     return value
 
 
+def _evaluator_declaration():
+    value = _declaration()
+    value['id'] = 'urn:ddo-test:evaluator'
+    value['roles'][0]['kind'] = 'urn:ddo-test:evaluator-integer'
+    return value
+
+
+def _set_declaration():
+    value = _declaration()
+    value['id'] = 'urn:ddo-test:set'
+    value['roles'][0]['collection'] = 'set'
+    return value
+
+
 def _consumer_declaration():
     value = _declaration()
     value['id'] = 'urn:ddo-test:consumer'
@@ -139,7 +153,8 @@ classes:
       value: {range: integer, required: true}
 ''')
     (tmp_path / 'operations.yaml').write_bytes(canonical_bytes({
-        'version': 'data-operation-model-v1', 'operations': [_declaration(), _sample_declaration(), _consumer_declaration()], 'kinds': [],
+        'version': 'data-operation-model-v1', 'operations': [_declaration(), _sample_declaration(), _consumer_declaration(), _set_declaration(), _evaluator_declaration()],
+        'kinds': [{'id': 'urn:ddo-test:evaluator-integer', 'primitive': 'integer', 'universe': 'evaluator'}],
     }))
     (tmp_path / 'target.yaml').write_text('''version: data-operation-inputs-v1
 root: target
@@ -171,14 +186,14 @@ declarations: [{name: test-operations, path: operations.yaml}]
 
 
 def attach(kernel, *, subject='subject:one', inference='inference:test',
-           operation='urn:ddo-test:source', targets=None):
+           operation='urn:ddo-test:source', targets=None, engine=None):
     from corpus_structure.semantic.data_operation_demands import freeze_demand, RootSubject
 
     root = {'subject': subject, 'original_source': 'source:test', 'analyzed_scope': {'page': 1}}
     selected = freeze_demand(kernel['model'], roots=(RootSubject(subject, 'source:test',
         canonical_bytes(root['analyzed_scope'])),), targets=targets or (operation,),
         inference=inference, execution_profile='execution:test').record
-    with kernel['engine'].begin() as connection:
+    with (engine or kernel['engine']).begin() as connection:
         storage = DataOperationStorage(connection)
         demand = storage.invoke('register_data_demand', {'project_id': 'ddo-test',
             'release_id': kernel['prepared'].release_id, 'runtime_id': kernel['runtime'],
@@ -597,3 +612,72 @@ def test_frontier_view_defers_bodies_and_same_receipt_can_read_products(kernel):
         assert hydrated['read_id'] == frontier['read_id']
         assert hydrated['uses'][0]['products'][0]['body_state'] == 'present'
         assert hydrated['uses'][0]['products'][0]['body'] == ['integer', '1']
+
+
+def test_set_output_rejects_duplicate_values_atomically(kernel):
+    _, _, _, attached = attach(kernel, operation='urn:ddo-test:set')
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence, outputs=(1, 1))
+    with pytest.raises(DBAPIError, match='set output'):
+        publish(kernel, fence, intent)
+    with kernel['engine'].connect() as connection:
+        assert connection.scalar(text('SELECT count(*) FROM kb.data_product')) == 0
+        assert connection.scalar(text('SELECT count(*) FROM ops.data_derivation_output')) == 0
+
+
+def test_native_immutability_is_an_installed_enforcement_not_only_metadata(kernel):
+    _, _, _, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence)
+    publish(kernel, fence, intent)
+    with kernel['engine'].begin() as connection:
+        with pytest.raises(DBAPIError, match='immutable semantic content'):
+            connection.execute(text("UPDATE kb.data_product SET body_digest='forged'"))
+
+
+def test_unbacked_artifact_hash_is_explicitly_refused(kernel):
+    _, _, _, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence, mutate=lambda completion:
+        completion['outputs'][0]['product'].update(artifact_digest='f' * 64))
+    with pytest.raises(DBAPIError, match='authenticated staged receipt'):
+        publish(kernel, fence, intent)
+
+
+def test_real_purpose_principals_cannot_cross_evaluator_kind_boundary(kernel, native_settings):
+    from native_test_support import principal_engine
+
+    writer = principal_engine(native_settings, 'write', kernel['engine'].url.database)
+    evaluator = principal_engine(native_settings, 'evaluate', kernel['engine'].url.database)
+    reader = principal_engine(native_settings, 'read', kernel['engine'].url.database)
+    try:
+        with pytest.raises(DBAPIError, match='evaluator'):
+            attach(kernel, operation='urn:ddo-test:evaluator', engine=writer)
+        demand, _, _, attached = attach(kernel, operation='urn:ddo-test:evaluator', engine=evaluator)
+        with evaluator.begin() as connection:
+            storage = DataOperationStorage(connection)
+            owned = storage.invoke('claim_data_request', {'request_id': attached['request_id'],
+                'holder': 'evaluator', 'lease_seconds': 30})
+            fence = {name: owned[name] for name in ('request_id','generation','task_id','attempt','holder')}
+            kind = kernel['identities']['urn:ddo-test:evaluator-integer', 'kind']
+            intent = storage.invoke('retain_data_completion_intent', {**fence,
+                'runtime_id': kernel['runtime'], 'completion': {'outcome': 'success',
+                    'implementation_revision': 'native-test-source-v1', 'inputs': [], 'support': [],
+                    'outputs': [{'role':'result','position':0,'multiplicity':1,
+                        'product':{'kind_contract':kind,'body':['integer','1'],'members':[]}}]}})
+            storage.invoke('publish_data_derivation', {**fence,'intent_id':intent['intent_id']})
+        with reader.begin() as connection:
+            with pytest.raises(DBAPIError, match='evaluator'):
+                DataOperationStorage(connection).invoke('read_demand_result', demand)
+        with reader.begin() as connection:
+            with pytest.raises(DBAPIError, match='evaluator'):
+                DataOperationStorage(connection).invoke('inspect_data_completion', {
+                    'request_id':fence['request_id'],'generation':fence['generation'],
+                    'intent_id':intent['intent_id']})
+        with writer.begin() as connection:
+            with pytest.raises(DBAPIError, match='permission denied'):
+                connection.execute(text('SELECT * FROM kb.data_product'))
+    finally:
+        writer.dispose()
+        evaluator.dispose()
+        reader.dispose()
