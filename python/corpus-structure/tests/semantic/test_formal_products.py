@@ -495,7 +495,7 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
             "DdoFormalMembership",
             "DdoFormalTerm",
             "DdoFormalChoice",
-        "DdoFormalAlternative",
+            "DdoFormalAlternative",
         )
     }
     projected = json.loads(
@@ -787,14 +787,39 @@ def test_primary_lexicon_protects_fields_and_rejects_forged_slices(profile):
 
 def test_each_retained_formal_choice_has_an_addressable_exact_member_packet(profile):
     from corpus_structure.semantic.formal_products import validate_formal_product
-    source=selected(profile,"f(x)",items=[dict(self_ref="#/texts/0",label="formula",text="f(x)",orig="f(x)",prov=[dict(page_no=1)])],recognition=[dict(pointer="#/texts/0",outcome="succeeded")])
-    product=profile.run(source,FormalEvidenceOptions())
-    body=product.value.model_dump(mode="json",exclude_unset=True)
-    groups=[packet["body"] for packet in body["members"] if packet["body"]["record_type"]=="choice"]
-    alternatives={packet["member_id"]:packet["body"] for packet in body["members"] if packet["body"]["record_type"]=="choice_member"}
-    assert groups and alternatives
-    assert alternatives=={member["local_id"]:dict(record_type="choice_member",group_id=group["local_id"],**member) for group in groups for member in group["members"]}
-    body["members"]= [packet for packet in body["members"] if packet["body"]["record_type"]!="choice_member"]
-    with pytest.raises(ValueError,match="owning packed group"):
-        validate_formal_product(profile.prepared,body,source,model=profile.model)
 
+    source = selected(
+        profile,
+        "f(x)",
+        items=[
+            dict(
+                self_ref="#/texts/0",
+                label="formula",
+                text="f(x)",
+                orig="f(x)",
+                prov=[dict(page_no=1)],
+            )
+        ],
+        recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
+    )
+    product = profile.run(source, FormalEvidenceOptions())
+    body = product.value.model_dump(mode="json", exclude_unset=True)
+    groups = [
+        packet["body"] for packet in body["members"] if packet["body"]["record_type"] == "choice"
+    ]
+    alternatives = {
+        packet["member_id"]: packet["body"]
+        for packet in body["members"]
+        if packet["body"]["record_type"] == "choice_member"
+    }
+    assert groups and alternatives
+    assert alternatives == {
+        member["local_id"]: dict(record_type="choice_member", group_id=group["local_id"], **member)
+        for group in groups
+        for member in group["members"]
+    }
+    body["members"] = [
+        packet for packet in body["members"] if packet["body"]["record_type"] != "choice_member"
+    ]
+    with pytest.raises(ValueError, match="owning packed group"):
+        validate_formal_product(profile.prepared, body, source, model=profile.model)

@@ -2,11 +2,12 @@
 
 from concurrent.futures import Future
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
-from corpus_structure.methods.native_host import NativeRetirementUncertain
+from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
 from corpus_structure.orchestrate.data_operations import _InvocationExecution, _PythonWork
 from corpus_structure.semantic.cpu_execution import OwnedByteBudget
 
@@ -45,7 +46,7 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
         capability_factories={"selected-provider": object(), "unrequested-provider": object()},
         _port=acquire,
     )
-    scope.native_hosts = SimpleNamespace(declare=declared.append)
+    scope.native_hosts = cast(NativeHostResidency, SimpleNamespace(declare=declared.append))
     scope._selected_operations = None
     scope.select_operations(("pure-cpu", "selected-provider"))
     scope.select_operations(("selected-provider", "pure-cpu"))

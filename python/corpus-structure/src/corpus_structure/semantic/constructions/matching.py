@@ -246,13 +246,13 @@ def retained_documents(layers, view, vocab):
             ):
                 raise ValueError("retained native block differs from selected source")
             start, end = min(e["start"] for e in bounds), max(e["end"] for e in bounds)
-            doc,doc_to_annotation=_working_document(view.text,start,end,rows,vocab)
+            doc, doc_to_annotation = _working_document(view.text, start, end, rows, vocab)
             yield pin, container, doc, doc_to_annotation, start, end
 
 
-def _working_document(text,start,end,rows,vocab):
+def _working_document(text, start, end, rows, vocab):
     """One whitespace/head reconstruction owner for released and native projections."""
-    words,spaces,owners,native_to_doc,doc_to_annotation=[],[],[],{},{}
+    words, spaces, owners, native_to_doc, doc_to_annotation = [], [], [], {}, {}
     cursor = start
     for annotation, a, b in rows:
         if a < cursor or text[a:b] != annotation["native_token"]["text"]:
@@ -260,9 +260,7 @@ def _working_document(text,start,end,rows,vocab):
         if a > cursor:
             gap = text[cursor:a]
             if not gap.isspace():
-                raise ValueError(
-                    "retained native columns leave non-whitespace source unexamined"
-                )
+                raise ValueError("retained native columns leave non-whitespace source unexamined")
             if gap == " " and words:
                 spaces[-1] = True
             else:
@@ -321,67 +319,85 @@ def _working_document(text,start,end,rows,vocab):
         ]
         kwargs["deps"] = [a["native_token"]["dependency"] if a else "dep" for a in owners]
     if all("sent_start" in row[0]["native_token"] for row in rows):
-        kwargs["sent_starts"]=[a["native_token"]["sent_start"] if a else None for a in owners]
+        kwargs["sent_starts"] = [a["native_token"]["sent_start"] if a else None for a in owners]
     doc = Doc(vocab, words=words, spaces=spaces, **kwargs)
     if doc.text != text[start:end]:
         raise ValueError("retained native working Doc changed arbitrary whitespace")
-    return doc,doc_to_annotation
+    return doc, doc_to_annotation
 
 
-def retained_native_vocab(source,native):
+def retained_native_vocab(source, native):
     """Seed source lexemes from retained primary values before enabling pattern getters."""
     import json
+
     from spacy.lang.en import English
     from spacy.vocab import Vocab
-    body=json.loads(native.content)
-    text=source.value["text"]
-    vocab:Any=Vocab(lex_attr_getters={})
-    seen={}
-    attributes=(("LOWER","lower"),("IS_ALPHA","is_alpha"),("IS_SPACE","is_space"),("IS_PUNCT","is_punct"),("IS_QUOTE","is_quote"),("LIKE_NUM","like_num"))
+
+    body = json.loads(native.content)
+    text = source.value["text"]
+    vocab: Any = Vocab(lex_attr_getters={})
+    seen = {}
+    attributes = (
+        ("LOWER", "lower"),
+        ("IS_ALPHA", "is_alpha"),
+        ("IS_SPACE", "is_space"),
+        ("IS_PUNCT", "is_punct"),
+        ("IS_QUOTE", "is_quote"),
+        ("LIKE_NUM", "like_num"),
+    )
     for packet in body["members"]:
-        token=packet["body"]
-        if token["record_type"]!="token":
+        token = packet["body"]
+        if token["record_type"] != "token":
             continue
-        spelling=text[token["start"]:token["end"]]
-        values={name:token[field] for name,field in attributes}
-        if spelling in seen and seen[spelling]!=values:
+        spelling = text[token["start"] : token["end"]]
+        values = {name: token[field] for name, field in attributes}
+        if spelling in seen and seen[spelling] != values:
             raise ValueError("retained native lexeme attributes disagree for one original spelling")
-        seen[spelling]=values
+        seen[spelling] = values
         vocab[spelling].set_attrs(**values)
     # Only new authored pattern words use language getters; every original source
     # token lexeme was already acquired above without running those getters.
-    vocab.lex_attr_getters=cast(Any,English().vocab).lex_attr_getters
+    vocab.lex_attr_getters = cast(Any, English().vocab).lex_attr_getters
     return vocab
 
 
-def retained_native_documents(source,native,vocab):
+def retained_native_documents(source, native, vocab):
     """Materialize actual retained token columns; no tokenization or NLP call."""
     import json
-    body=json.loads(native.content)
-    text=source.value["text"]
-    groups={}
+
+    body = json.loads(native.content)
+    text = source.value["text"]
+    groups = {}
     for packet in body["members"]:
-        token=packet["body"]
-        if token["record_type"]=="token":
-            groups.setdefault(token["block_id"],[]).append(token)
+        token = packet["body"]
+        if token["record_type"] == "token":
+            groups.setdefault(token["block_id"], []).append(token)
     for block in body["annotation_columns"]:
-        tokens=sorted(groups.get(block["block_id"],()),key=lambda row:row["ordinal"])
+        tokens = sorted(groups.get(block["block_id"], ()), key=lambda row: row["ordinal"])
         if not tokens:
             continue
-        if [row["ordinal"] for row in tokens]!=list(range(len(tokens))):
+        if [row["ordinal"] for row in tokens] != list(range(len(tokens))):
             raise ValueError("retained native token ordinals do not form their actual block")
-        by_id={row["local_id"]:row["ordinal"] for row in tokens}
-        rows=[]
+        by_id = {row["local_id"]: row["ordinal"] for row in tokens}
+        rows = []
         for token in tokens:
-            columns=dict(index=token["ordinal"],text=text[token["start"]:token["end"]],**{key:token[key] for key in ("lemma","pos","tag","morphology","dependency","sent_start") if key in token})
+            columns = dict(
+                index=token["ordinal"],
+                text=text[token["start"] : token["end"]],
+                **{
+                    key: token[key]
+                    for key in ("lemma", "pos", "tag", "morphology", "dependency", "sent_start")
+                    if key in token
+                },
+            )
             if token.get("head_ref") is not None:
                 if token["head_ref"] not in by_id:
                     raise ValueError("retained native dependency head leaves its original block")
-                columns["native_head"]=by_id[token["head_ref"]]
+                columns["native_head"] = by_id[token["head_ref"]]
             # This is an internal column view for the shared working-Doc owner,
             # never a fabricated released annotation or published member packet.
-            evidence=dict(local_id=token["local_id"],native_token=columns)
-            rows.append((evidence,token["start"],token["end"]))
-        start,end=block["start"],block["end"]
-        doc,annotations=_working_document(text,start,end,rows,vocab)
-        yield block["block_id"],doc,annotations,start,end
+            evidence = dict(local_id=token["local_id"], native_token=columns)
+            rows.append((evidence, token["start"], token["end"]))
+        start, end = block["start"], block["end"]
+        doc, annotations = _working_document(text, start, end, rows, vocab)
+        yield block["block_id"], doc, annotations, start, end

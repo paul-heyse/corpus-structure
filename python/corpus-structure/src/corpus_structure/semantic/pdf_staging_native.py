@@ -42,7 +42,9 @@ def native_payload_size_sql(relation, *, alias="s") -> str:
 def stage_native_sql() -> str:
     from .pdf_domain_native import pdf_domain_native_sql
 
-    sql = pdf_domain_native_sql() + """
+    sql = (
+        pdf_domain_native_sql()
+        + """
 CREATE OR REPLACE FUNCTION ops.pdf_task_context(p_task bigint)
 RETURNS TABLE(project_id text,release_id text,run_id bigint,request_id text,generation bigint,
  document_id bigint,source_digest text)
@@ -255,6 +257,7 @@ BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
  PERFORM ops.require_pdf_operation(build.release_id,'adopt_pdf_batch');
 """
+    )
     relations = [metadata.tables[name] for name in STAGE_FAMILIES.values()]
     pg = dialect()
     for relation in relations:

@@ -1,165 +1,336 @@
 """Acquired semantic characterization profiles on the invocation's existing CPU owner."""
+
 from __future__ import annotations
 
 import inspect
 import json
-from dataclasses import dataclass,replace
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any,ClassVar
-from collections.abc import Callable
-from abc import ABC,abstractmethod
+from typing import Any, ClassVar
 
 from pydantic import BaseModel
 
 from .construction_products import (
-    CharacterizationSnapshot,ConstructionOptions,ConstructionProduct,ContextualMeaningProduct,
-    PreparedConstructionProfile,PreparedContextualProfile,construction_product_values,contextual_product_values,
-    interpreted_member_contracts,validate_construction_product,
+    CharacterizationSnapshot,
+    ConstructionOptions,
+    ConstructionProduct,
+    ContextualMeaningProduct,
+    PreparedConstructionProfile,
+    PreparedContextualProfile,
+    construction_product_values,
+    contextual_product_values,
+    interpreted_member_contracts,
+    validate_construction_product,
 )
-from .data_operation_identity import decode_semantic_value,semantic_value
+from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
-    RetainedCharacterizationProduct,compose_enriched_document,
+    RetainedCharacterizationProduct,
+    compose_enriched_document,
 )
-from .formal_products import FormalEvidenceProduct,validate_formal_product,_semantic_nodes
+from .formal_products import FormalEvidenceProduct, _semantic_nodes, validate_formal_product
 from .identity import canonical_bytes
-from .python_operation_sources import PythonSource,PythonSourceCollection
-from .source_products import FrozenNativeSource,source_subject
-from .types import PreparedRelease,SourceArtifact
+from .python_operation_sources import PythonSource, PythonSourceCollection
+from .source_products import FrozenNativeSource, source_subject
+from .types import PreparedRelease, SourceArtifact
 
 
-def _semantic_assets(profile:str)->SourceArtifact:
-    root=Path(__file__).parent
-    common=("characterization.py","characterization_evidence.py","constructions/declarations.py","constructions/nodes.py")
-    files={
-        "construction":(*common,"formal_readings.py","constructions/forest.py","constructions/lexical.py","constructions/layers.py","constructions/reuse.py","constructions/grammars/prose.lark"),
-        "contextual":(*common,"constructions/evaluation.py"),
-        "view":("enriched_document_products.py",),
+def _semantic_assets(profile: str) -> SourceArtifact:
+    root = Path(__file__).parent
+    common = (
+        "characterization.py",
+        "characterization_evidence.py",
+        "constructions/declarations.py",
+        "constructions/nodes.py",
+    )
+    files = {
+        "construction": (
+            *common,
+            "formal_readings.py",
+            "constructions/forest.py",
+            "constructions/lexical.py",
+            "constructions/layers.py",
+            "constructions/reuse.py",
+            "constructions/grammars/prose.lark",
+        ),
+        "contextual": (*common, "constructions/evaluation.py"),
+        "view": ("enriched_document_products.py",),
     }
-    selected={
-        "construction":("_INVENTORIES","_MEMBER_VARIANTS","ConstructionOptions","CharacterizationSnapshot","InterpretedProduct","construction_product_values","_requested_regions","interpreted_member_contracts","ConstructionProduct","validate_interpreted_product","validate_construction_product","PreparedConstructionProfile"),
-        "contextual":("_INVENTORIES","_MEMBER_VARIANTS","CharacterizationSnapshot","InterpretedProduct","ConstructionProduct","ContextualMeaningProduct","PreparedContextualProfile","contextual_product_values","interpreted_member_contracts","validate_interpreted_product"),
-        "view":(),
+    selected = {
+        "construction": (
+            "_INVENTORIES",
+            "_MEMBER_VARIANTS",
+            "ConstructionOptions",
+            "CharacterizationSnapshot",
+            "InterpretedProduct",
+            "construction_product_values",
+            "_requested_regions",
+            "interpreted_member_contracts",
+            "ConstructionProduct",
+            "validate_interpreted_product",
+            "validate_construction_product",
+            "PreparedConstructionProfile",
+        ),
+        "contextual": (
+            "_INVENTORIES",
+            "_MEMBER_VARIANTS",
+            "CharacterizationSnapshot",
+            "InterpretedProduct",
+            "ConstructionProduct",
+            "ContextualMeaningProduct",
+            "PreparedContextualProfile",
+            "contextual_product_values",
+            "interpreted_member_contracts",
+            "validate_interpreted_product",
+        ),
+        "view": (),
     }
     if profile not in files:
         raise ValueError("unknown concrete characterization asset profile")
-    return SourceArtifact("characterization/"+profile+"-assets",canonical_bytes(dict(
-        source_files=[(name,(root/name).read_bytes().hex()) for name in files[profile]],
-        native_working=_semantic_nodes((root/"constructions/matching.py").read_bytes(),("RAW_GROUP","Match","PreparedConstructions","_working_document","retained_native_vocab","retained_native_documents")) if profile=="construction" else (),
-        typed_profile=_semantic_nodes((root/"construction_products.py").read_bytes(),selected[profile]),
-        kernel=_semantic_nodes(Path(__file__).read_bytes(),("_semantic_assets","_body","_ConstructionInputs","_ContextualInputs","_DocumentInputs","PreparedCharacterizationPort._inputs","PreparedCharacterizationPort._roles","PreparedCharacterizationPort._formal","PreparedCharacterizationPort._retained","execute_"+profile+"_profile",*(("execute_"+profile+"_kernel",) if profile!="view" else ()))),
-        references=_semantic_nodes((root/"data_product_reference.py").read_bytes(),("DataProductReference","DataProductMemberReference","member_reference","read_member_reference")),
-        source_access=_semantic_nodes((root/"source_products.py").read_bytes(),("NativeSourceSelectorIndex","FrozenNativeSource.value","FrozenNativeSource.selector_index")),
-        model=(root.parent/"model/semantic/data-operation-constructions.yaml").read_bytes().hex(),
-        libraries={name:version(name) for name in (("lark","pydantic","spacy") if profile=="construction" else ("pydantic",))},
-    )))
+    return SourceArtifact(
+        "characterization/" + profile + "-assets",
+        canonical_bytes(
+            dict(
+                source_files=[(name, (root / name).read_bytes().hex()) for name in files[profile]],
+                native_working=_semantic_nodes(
+                    (root / "constructions/matching.py").read_bytes(),
+                    (
+                        "RAW_GROUP",
+                        "Match",
+                        "PreparedConstructions",
+                        "_working_document",
+                        "retained_native_vocab",
+                        "retained_native_documents",
+                    ),
+                )
+                if profile == "construction"
+                else (),
+                typed_profile=_semantic_nodes(
+                    (root / "construction_products.py").read_bytes(), selected[profile]
+                ),
+                kernel=_semantic_nodes(
+                    Path(__file__).read_bytes(),
+                    (
+                        "_semantic_assets",
+                        "_body",
+                        "_ConstructionInputs",
+                        "_ContextualInputs",
+                        "_DocumentInputs",
+                        "PreparedCharacterizationPort._inputs",
+                        "PreparedCharacterizationPort._roles",
+                        "PreparedCharacterizationPort._formal",
+                        "PreparedCharacterizationPort._retained",
+                        "execute_" + profile + "_profile",
+                        *(("execute_" + profile + "_kernel",) if profile != "view" else ()),
+                    ),
+                ),
+                references=_semantic_nodes(
+                    (root / "data_product_reference.py").read_bytes(),
+                    (
+                        "DataProductReference",
+                        "DataProductMemberReference",
+                        "member_reference",
+                        "read_member_reference",
+                    ),
+                ),
+                source_access=_semantic_nodes(
+                    (root / "source_products.py").read_bytes(),
+                    (
+                        "NativeSourceSelectorIndex",
+                        "FrozenNativeSource.value",
+                        "FrozenNativeSource.selector_index",
+                    ),
+                ),
+                model=(root.parent / "model/semantic/data-operation-constructions.yaml")
+                .read_bytes()
+                .hex(),
+                libraries={
+                    name: version(name)
+                    for name in (
+                        ("lark", "pydantic", "spacy")
+                        if profile == "construction"
+                        else ("pydantic",)
+                    )
+                },
+            )
+        ),
+    )
 
 
-def _execution_custody()->SourceArtifact:
-    root=Path(__file__).parent
-    names=("characterization_ports.py","construction_products.py","enriched_document_products.py","formal_readings.py","formal_products.py","source_products.py","data_product_reference.py","data_operation_cpu.py","data_operation_prepared_products.py","cpu_receipts.py","cpu_execution.py","constructions/forest.py","constructions/lexical.py","constructions/layers.py","constructions/reuse.py","constructions/nodes.py","constructions/declarations.py","constructions/evaluation.py","constructions/matching.py")
-    return SourceArtifact("characterization/execution-custody",canonical_bytes(dict(files=[(name,(root/name).read_bytes().hex()) for name in names])))
+def _execution_custody() -> SourceArtifact:
+    root = Path(__file__).parent
+    names = (
+        "characterization_ports.py",
+        "construction_products.py",
+        "enriched_document_products.py",
+        "formal_readings.py",
+        "formal_products.py",
+        "source_products.py",
+        "data_product_reference.py",
+        "data_operation_cpu.py",
+        "data_operation_prepared_products.py",
+        "cpu_receipts.py",
+        "cpu_execution.py",
+        "constructions/forest.py",
+        "constructions/lexical.py",
+        "constructions/layers.py",
+        "constructions/reuse.py",
+        "constructions/nodes.py",
+        "constructions/declarations.py",
+        "constructions/evaluation.py",
+        "constructions/matching.py",
+    )
+    return SourceArtifact(
+        "characterization/execution-custody",
+        canonical_bytes(dict(files=[(name, (root / name).read_bytes().hex()) for name in names])),
+    )
 
 
-def _operation_sources(module:str,profile:str)->PythonSourceCollection:
-    path=Path(__file__).parents[1]/"methods"/(module+".py")
-    return PythonSourceCollection((PythonSource("corpus_structure.methods."+module,path.read_bytes(),str(path)),),boundary_contracts=(_semantic_assets(profile),_execution_custody()))
+def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
+    path = Path(__file__).parents[1] / "methods" / (module + ".py")
+    return PythonSourceCollection(
+        (PythonSource("corpus_structure.methods." + module, path.read_bytes(), str(path)),),
+        boundary_contracts=(_semantic_assets(profile), _execution_custody()),
+    )
 
 
-def construction_operation_sources()->PythonSourceCollection:
-    return _operation_sources("construction_characterization","construction")
+def construction_operation_sources() -> PythonSourceCollection:
+    return _operation_sources("construction_characterization", "construction")
 
 
-def contextual_operation_sources()->PythonSourceCollection:
-    return _operation_sources("contextual_interpretation","contextual")
+def contextual_operation_sources() -> PythonSourceCollection:
+    return _operation_sources("contextual_interpretation", "contextual")
 
 
-def document_view_operation_sources()->PythonSourceCollection:
-    return _operation_sources("characterization","view")
+def document_view_operation_sources() -> PythonSourceCollection:
+    return _operation_sources("characterization", "view")
 
 
-def characterization_operation_sources()->PythonSourceCollection:
-    collections=(construction_operation_sources(),contextual_operation_sources(),document_view_operation_sources())
-    assets={asset.name:asset for collection in collections for asset in collection.boundary_contracts}
-    return PythonSourceCollection(tuple(source for collection in collections for source in collection.sources),boundary_contracts=tuple(assets.values()))
+def characterization_operation_sources() -> PythonSourceCollection:
+    collections = (
+        construction_operation_sources(),
+        contextual_operation_sources(),
+        document_view_operation_sources(),
+    )
+    assets = {
+        asset.name: asset for collection in collections for asset in collection.boundary_contracts
+    }
+    return PythonSourceCollection(
+        tuple(source for collection in collections for source in collection.sources),
+        boundary_contracts=tuple(assets.values()),
+    )
 
 
-def execute_construction_kernel(source:FrozenNativeSource,formal:tuple[CharacterizationSnapshot,...],options:ConstructionOptions,contracts:dict[str,str],assets:str,native:CharacterizationSnapshot|None,*,check_active:Callable[[],None])->dict[str,Any]:
-    if assets!=_semantic_assets("construction").digest:
+def execute_construction_kernel(
+    source: FrozenNativeSource,
+    formal: tuple[CharacterizationSnapshot, ...],
+    options: ConstructionOptions,
+    contracts: dict[str, str],
+    assets: str,
+    native: CharacterizationSnapshot | None,
+    *,
+    check_active: Callable[[], None],
+) -> dict[str, Any]:
+    if assets != _semantic_assets("construction").digest:
         raise ValueError("construction child lacks acquired semantic assets")
-    return construction_product_values(source,formal,options,contracts,native=native,check_active=check_active)
+    return construction_product_values(
+        source, formal, options, contracts, native=native, check_active=check_active
+    )
 
 
-def execute_contextual_kernel(source:FrozenNativeSource,products:tuple[CharacterizationSnapshot,...],symbolic:tuple[DataProductReference,...],contracts:dict[str,str],assets:str,*,check_active:Callable[[],None])->dict[str,Any]:
-    if assets!=_semantic_assets("contextual").digest:
+def execute_contextual_kernel(
+    source: FrozenNativeSource,
+    products: tuple[CharacterizationSnapshot, ...],
+    symbolic: tuple[DataProductReference, ...],
+    contracts: dict[str, str],
+    assets: str,
+    *,
+    check_active: Callable[[], None],
+) -> dict[str, Any]:
+    if assets != _semantic_assets("contextual").digest:
         raise ValueError("contextual child lacks acquired semantic assets")
-    return contextual_product_values(source,products,symbolic,contracts,check_active=check_active)
+    return contextual_product_values(
+        source, products, symbolic, contracts, check_active=check_active
+    )
 
 
-
-def execute_construction_profile(receiver,source,formal,sentences=None):
-    return receiver.profile.run(source,formal,sentences=sentences,check_active=receiver.check_active)
-
-
-def execute_contextual_profile(receiver,source,formal,constructions,supporting=()):
-    return receiver.profile.run(source,constructions,formal,supporting=supporting,check_active=receiver.check_active)
+def execute_construction_profile(receiver, source, formal, sentences=None):
+    return receiver.profile.run(
+        source, formal, sentences=sentences, check_active=receiver.check_active
+    )
 
 
-def execute_view_profile(receiver,sources,products,active):
-    return compose_enriched_document(receiver.profile.prepared,receiver.profile.model,sources,products,active=tuple(DataProductReference(product.semantic_id) for product in active))
+def execute_contextual_profile(receiver, source, formal, constructions, supporting=()):
+    return receiver.profile.run(
+        source, constructions, formal, supporting=supporting, check_active=receiver.check_active
+    )
 
 
-def _body(prepared,name,value):
-    if isinstance(value,BaseModel):
-        value=value.model_dump(mode="python",exclude_unset=True)
+def execute_view_profile(receiver, sources, products, active):
+    return compose_enriched_document(
+        receiver.profile.prepared,
+        receiver.profile.model,
+        sources,
+        products,
+        active=tuple(DataProductReference(product.semantic_id) for product in active),
+    )
+
+
+def _body(prepared, name, value):
+    if isinstance(value, BaseModel):
+        value = value.model_dump(mode="python", exclude_unset=True)
+
     def freeze_sequences(item):
-        if isinstance(item,dict):
-            return {key:freeze_sequences(member) for key,member in item.items()}
-        if isinstance(item,(list,tuple)):
+        if isinstance(item, dict):
+            return {key: freeze_sequences(member) for key, member in item.items()}
+        if isinstance(item, (list, tuple)):
             return tuple(freeze_sequences(member) for member in item)
         return item
-    checked=prepared.validate_python(name,freeze_sequences(value))
-    return checked.model_dump(mode="json",exclude_unset=True)
+
+    checked = prepared.validate_python(name, freeze_sequences(value))
+    return checked.model_dump(mode="json", exclude_unset=True)
 
 
 @dataclass(frozen=True)
 class _ConstructionInputs:
-    source:FrozenNativeSource
-    formal:tuple[FormalEvidenceProduct,...]
-    native:Any=None
+    source: FrozenNativeSource
+    formal: tuple[FormalEvidenceProduct, ...]
+    native: Any = None
 
 
 @dataclass(frozen=True)
 class _ContextualInputs:
-    source:FrozenNativeSource
-    formal:tuple[FormalEvidenceProduct,...]
-    constructions:tuple[ConstructionProduct,...]
-    supporting:tuple[RetainedCharacterizationProduct,...]=()
+    source: FrozenNativeSource
+    formal: tuple[FormalEvidenceProduct, ...]
+    constructions: tuple[ConstructionProduct, ...]
+    supporting: tuple[RetainedCharacterizationProduct, ...] = ()
 
 
 @dataclass(frozen=True)
 class _DocumentInputs:
-    sources:tuple[FrozenNativeSource,...]
-    products:tuple[RetainedCharacterizationProduct,...]
-    active:tuple[RetainedCharacterizationProduct,...]
+    sources: tuple[FrozenNativeSource, ...]
+    products: tuple[RetainedCharacterizationProduct, ...]
+    active: tuple[RetainedCharacterizationProduct, ...]
 
 
 @dataclass(frozen=True)
 class PreparedCharacterizationPort(ABC):
-    identity:Any
-    operation:Any
-    prepared:PreparedRelease
-    model:Any
-    authorize:Callable
-    custody:tuple[SourceArtifact,...]
-    sources:PythonSourceCollection
+    identity: Any
+    operation: Any
+    prepared: PreparedRelease
+    model: Any
+    authorize: Callable
+    custody: tuple[SourceArtifact, ...]
+    sources: PythonSourceCollection
 
-    native_selections:ClassVar[tuple]=()
-    family:ClassVar[str]
-    bridge:ClassVar[Callable]
-    kernel:ClassVar[Callable]
-    operation_sources:ClassVar[Callable]
+    native_selections: ClassVar[tuple] = ()
+    family: ClassVar[str]
+    bridge: ClassVar[Callable]
+    kernel: ClassVar[Callable]
+    operation_sources: ClassVar[Callable]
 
     @property
     @abstractmethod
@@ -168,197 +339,396 @@ class PreparedCharacterizationPort(ABC):
 
     @property
     def logical_signature(self):
-        signature=inspect.signature(self.endpoint.run,eval_str=True)
+        signature = inspect.signature(self.endpoint.run, eval_str=True)
         return signature.replace(parameters=tuple(signature.parameters.values())[1:])
 
     def _verify(self):
-        from .data_operation_prepared_products import verify_prepared_product
         import sys
-        from .data_operation_ports import PortRefusal
-        bridge_name="execute_"+self.family+"_profile"
-        if getattr(sys.modules[self.endpoint.__module__],bridge_name) is not self.bridge:
-            raise PortRefusal("prepared endpoint no longer binds its admitted resource bridge")
-        functions=((self.operation.callable_surfaces[0].declaration,self.endpoint.run),("corpus_structure.semantic.characterization_ports."+bridge_name,self.bridge))
-        if self.family!="view":
-            functions=(*functions,("corpus_structure.semantic.characterization_ports.execute_"+self.family+"_kernel",self.kernel))
-        verify_prepared_product(self.identity,self.model,self.operation,self.sources,self.custody,assets=(_semantic_assets(self.family),_execution_custody()),functions=functions,authorize=self.authorize,required_sources=self.operation_sources())
 
-    def _roles(self,values,binding):
-        from .data_operation_ports import PortRefusal,PythonRoleValue
-        declared={role.name:role for role in self.operation.roles if role.direction=="input"}
-        contracts={(item.owner,item.domain):item.key for item in self.model.identities}
-        result={}
+        from .data_operation_ports import PortRefusal
+        from .data_operation_prepared_products import verify_prepared_product
+
+        bridge_name = "execute_" + self.family + "_profile"
+        if getattr(sys.modules[self.endpoint.__module__], bridge_name) is not self.bridge:
+            raise PortRefusal("prepared endpoint no longer binds its admitted resource bridge")
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, self.endpoint.run),
+            ("corpus_structure.semantic.characterization_ports." + bridge_name, self.bridge),
+        )
+        if self.family != "view":
+            functions = (
+                *functions,
+                (
+                    "corpus_structure.semantic.characterization_ports.execute_"
+                    + self.family
+                    + "_kernel",
+                    self.kernel,
+                ),
+            )
+        verify_prepared_product(
+            self.identity,
+            self.model,
+            self.operation,
+            self.sources,
+            self.custody,
+            assets=(_semantic_assets(self.family), _execution_custody()),
+            functions=functions,
+            authorize=self.authorize,
+            required_sources=self.operation_sources(),
+        )
+
+    def _roles(self, values, binding):
+        from .data_operation_ports import PortRefusal, PythonRoleValue
+
+        declared = {role.name: role for role in self.operation.roles if role.direction == "input"}
+        contracts = {(item.owner, item.domain): item.key for item in self.model.identities}
+        result = {}
         for value in values:
-            if not isinstance(value,PythonRoleValue) or value.role not in declared or value.role in result or value.kind_contract!=contracts[declared[value.role].kind,"kind"]:
+            if (
+                not isinstance(value, PythonRoleValue)
+                or value.role not in declared
+                or value.role in result
+                or value.kind_contract != contracts[declared[value.role].kind, "kind"]
+            ):
                 raise PortRefusal("characterization ingress changes declared role/kind")
-            result[value.role]=value.value
-        for name,role in declared.items():
+            result[value.role] = value.value
+        for name, role in declared.items():
             if name not in result:
                 if role.minimum:
                     raise PortRefusal("characterization ingress omits a required typed role")
-                result[name]=() if role.collection!="scalar" else None
-        if binding is not None and (not binding.sufficient or binding.operation!=self.operation.semantic_id or decode_semantic_value(json.loads(binding.parameters))!={}):
+                result[name] = () if role.collection != "scalar" else None
+        if binding is not None and (
+            not binding.sufficient
+            or binding.operation != self.operation.semantic_id
+            or decode_semantic_value(json.loads(binding.parameters)) != {}
+        ):
             raise PortRefusal("characterization ingress differs from acquired binding")
         return result
 
-    def _formal(self,source,values):
-        result=[]
+    def _formal(self, source, values):
+        result = []
         for value in values:
-            body=_body(self.prepared,"DdoFormalProduct",value)
-            original=FrozenNativeSource.acquire(self.prepared,{**source.value,"selectors":body["selectors"]})
-            result.append(validate_formal_product(self.prepared,body,original,model=self.model))
+            body = _body(self.prepared, "DdoFormalProduct", value)
+            original = FrozenNativeSource.acquire(
+                self.prepared, {**source.value, "selectors": body["selectors"]}
+            )
+            result.append(validate_formal_product(self.prepared, body, original, model=self.model))
         return tuple(result)
 
-    def _retained(self,raw,binding,name):
+    def _retained(self, raw, binding, name):
         from .data_operation_ports import PortRefusal
+
         if not raw:
             return ()
         if binding is None:
-            if not all(isinstance(value,RetainedCharacterizationProduct) for value in raw):
+            if not all(isinstance(value, RetainedCharacterizationProduct) for value in raw):
                 raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
-            return tuple(RetainedCharacterizationProduct.acquire(self.prepared,self.model,value.kind,value.content) for value in raw)
-        selected=next(role for role in binding.roles if role.role==name)
-        members=tuple(member for member in selected.members for _ in range(member.multiplicity))
-        if len(members)!=len(raw):
+            return tuple(
+                RetainedCharacterizationProduct.acquire(
+                    self.prepared, self.model, value.kind, value.content
+                )
+                for value in raw
+            )
+        selected = next(role for role in binding.roles if role.role == name)
+        members = tuple(member for member in selected.members for _ in range(member.multiplicity))
+        if len(members) != len(raw):
             raise PortRefusal("view value count differs from native logical members")
-        products=[]
-        for value,member in zip(raw,members,strict=True):
-            kind=next((item.owner for item in self.model.identities if item.domain=="kind" and item.key==member.kind_contract),None)
+        products = []
+        for value, member in zip(raw, members, strict=True):
+            kind = next(
+                (
+                    item.owner
+                    for item in self.model.identities
+                    if item.domain == "kind" and item.key == member.kind_contract
+                ),
+                None,
+            )
             if kind is None:
                 raise PortRefusal("view member has no admitted concrete nominal kind")
-            definition=next(row for row in self.prepared.definitions if row.iri==kind)
-            product=RetainedCharacterizationProduct.acquire(self.prepared,self.model,kind,canonical_bytes(_body(self.prepared,definition.name,value)))
-            if product.semantic_id!=member.product or member.member is not None:
+            definition = next(row for row in self.prepared.definitions if row.iri == kind)
+            product = RetainedCharacterizationProduct.acquire(
+                self.prepared,
+                self.model,
+                kind,
+                canonical_bytes(_body(self.prepared, definition.name, value)),
+            )
+            if product.semantic_id != member.product or member.member is not None:
                 raise PortRefusal("view requires an exact whole governed product")
             products.append(product)
         return tuple(products)
 
-    def _inputs(self,values,binding):
+    def _inputs(self, values, binding):
         from .data_operation_ports import PortRefusal
-        roles=self._roles(values,binding)
-        if self.family=="view":
+
+        roles = self._roles(values, binding)
+        if self.family == "view":
             if binding is None:
-                raise PortRefusal("heterogeneous view inputs require exact native member kind lineage")
-            sources=tuple(FrozenNativeSource.acquire(self.prepared,_body(self.prepared,"DdoSelectedNativeSource",value)) for value in roles["sources"])
-            if not sources or binding.subject!=sources[0].value["source"]["document"]:
+                raise PortRefusal(
+                    "heterogeneous view inputs require exact native member kind lineage"
+                )
+            sources = tuple(
+                FrozenNativeSource.acquire(
+                    self.prepared, _body(self.prepared, "DdoSelectedNativeSource", value)
+                )
+                for value in roles["sources"]
+            )
+            if not sources or binding.subject != sources[0].value["source"]["document"]:
                 raise PortRefusal("view subject is not its explicitly bound original document")
-            return _DocumentInputs(sources,self._retained(roles["products"],binding,"products"),self._retained(roles["active"],binding,"active"))
-        source=FrozenNativeSource.acquire(self.prepared,_body(self.prepared,"DdoSelectedNativeSource",roles["source"]))
-        if binding is not None and binding.subject!=source_subject(source.value["source"]):
-            raise PortRefusal("characterization subject differs from exact original source coordinate")
-        formal=self._formal(source,roles["formal"])
-        if self.family=="construction":
+            return _DocumentInputs(
+                sources,
+                self._retained(roles["products"], binding, "products"),
+                self._retained(roles["active"], binding, "active"),
+            )
+        source = FrozenNativeSource.acquire(
+            self.prepared, _body(self.prepared, "DdoSelectedNativeSource", roles["source"])
+        )
+        if binding is not None and binding.subject != source_subject(source.value["source"]):
+            raise PortRefusal(
+                "characterization subject differs from exact original source coordinate"
+            )
+        formal = self._formal(source, roles["formal"])
+        if self.family == "construction":
             from .sentence_products import validate_sentence_inventory
-            native=None if roles["sentences"] is None else validate_sentence_inventory(self.prepared,self.model,_body(self.prepared,"DdoSentenceInventory",roles["sentences"]),source)
-            return _ConstructionInputs(source,formal,native)
-        supporting=self._retained(roles["supporting"],binding,"supporting")
-        constructions=tuple(validate_construction_product(self.prepared,self.model,_body(self.prepared,"DdoConstructionProduct",value),source,(*formal,*supporting)) for value in roles["constructions"])
-        return _ContextualInputs(source,formal,constructions,supporting)
 
-    def _completion(self,product):
-        from .data_operation_ports import PortCompletion,RoleValue
-        from .data_operation_ports import project_product_members
-        output=next(role for role in self.operation.roles if role.direction=="output")
-        kind=next(item.key for item in self.model.identities if item.owner==output.kind and item.domain=="kind")
-        value=product.value.model_dump(mode="python",exclude_unset=True)
-        return PortCompletion(self.operation.semantic_id,(RoleValue(output.name,kind,product.content,canonical_bytes(semantic_value(value)),project_product_members(self.model,output.kind,value)),))
+            native = (
+                None
+                if roles["sentences"] is None
+                else validate_sentence_inventory(
+                    self.prepared,
+                    self.model,
+                    _body(self.prepared, "DdoSentenceInventory", roles["sentences"]),
+                    source,
+                )
+            )
+            return _ConstructionInputs(source, formal, native)
+        supporting = self._retained(roles["supporting"], binding, "supporting")
+        constructions = tuple(
+            validate_construction_product(
+                self.prepared,
+                self.model,
+                _body(self.prepared, "DdoConstructionProduct", value),
+                source,
+                (*formal, *supporting),
+            )
+            for value in roles["constructions"]
+        )
+        return _ContextualInputs(source, formal, constructions, supporting)
 
-    def invoke_python(self,values,*,binding=None,check_active=lambda:None):
+    def _completion(self, product):
+        from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+
+        output = next(role for role in self.operation.roles if role.direction == "output")
+        kind = next(
+            item.key
+            for item in self.model.identities
+            if item.owner == output.kind and item.domain == "kind"
+        )
+        value = product.value.model_dump(mode="python", exclude_unset=True)
+        return PortCompletion(
+            self.operation.semantic_id,
+            (
+                RoleValue(
+                    output.name,
+                    kind,
+                    product.content,
+                    canonical_bytes(semantic_value(value)),
+                    project_product_members(self.model, output.kind, value),
+                ),
+            ),
+        )
+
+    def invoke_python(self, values, *, binding=None, check_active=lambda: None):
         self._verify()
         check_active()
-        inputs=self._inputs(values,binding)
-        if isinstance(inputs,_ConstructionInputs):
-            product=PreparedConstructionProfile(self.prepared,self.model).run(inputs.source,inputs.formal,sentences=inputs.native,check_active=check_active)
-        elif isinstance(inputs,_ContextualInputs):
-            product=PreparedContextualProfile(self.prepared,self.model).run(inputs.source,inputs.constructions,inputs.formal,supporting=inputs.supporting,check_active=check_active)
+        inputs = self._inputs(values, binding)
+        if isinstance(inputs, _ConstructionInputs):
+            product = PreparedConstructionProfile(self.prepared, self.model).run(
+                inputs.source, inputs.formal, sentences=inputs.native, check_active=check_active
+            )
+        elif isinstance(inputs, _ContextualInputs):
+            product = PreparedContextualProfile(self.prepared, self.model).run(
+                inputs.source,
+                inputs.constructions,
+                inputs.formal,
+                supporting=inputs.supporting,
+                check_active=check_active,
+            )
         else:
-            product=compose_enriched_document(self.prepared,self.model,inputs.sources,inputs.products,active=tuple(DataProductReference(product.semantic_id) for product in inputs.active))
+            product = compose_enriched_document(
+                self.prepared,
+                self.model,
+                inputs.sources,
+                inputs.products,
+                active=tuple(
+                    DataProductReference(product.semantic_id) for product in inputs.active
+                ),
+            )
         check_active()
         self._verify()
         return self._completion(product)
 
-    def plan_python(self,values,*,binding=None,check_active=lambda:None,execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor,plan_cpu_call
+    def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .construction_products import validate_interpreted_product
+        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+
         self._verify()
-        inputs=self._inputs(values,binding)
-        if isinstance(inputs,_DocumentInputs):
-            return self.invoke_python(values,binding=binding,check_active=check_active)
-        source,formal=inputs.source,inputs.formal
-        products=()
-        if isinstance(inputs,_ConstructionInputs):
-            arguments=dict(source=source,formal=tuple(CharacterizationSnapshot(product.semantic_id,product.content) for product in formal),options=ConstructionOptions(),contracts=interpreted_member_contracts(self.prepared,self.model),assets=_semantic_assets(self.family).digest,native=None if inputs.native is None else CharacterizationSnapshot(inputs.native.semantic_id,inputs.native.content),check_active=check_active)
+        inputs = self._inputs(values, binding)
+        if isinstance(inputs, _DocumentInputs):
+            return self.invoke_python(values, binding=binding, check_active=check_active)
+        source, formal = inputs.source, inputs.formal
+        products = ()
+        if isinstance(inputs, _ConstructionInputs):
+            arguments = dict(
+                source=source,
+                formal=tuple(
+                    CharacterizationSnapshot(product.semantic_id, product.content)
+                    for product in formal
+                ),
+                options=ConstructionOptions(),
+                contracts=interpreted_member_contracts(self.prepared, self.model),
+                assets=_semantic_assets(self.family).digest,
+                native=None
+                if inputs.native is None
+                else CharacterizationSnapshot(inputs.native.semantic_id, inputs.native.content),
+                check_active=check_active,
+            )
         else:
-            constructions=inputs.constructions
-            products=(*formal,*inputs.supporting,*constructions)
-            arguments=dict(source=source,products=tuple(CharacterizationSnapshot(product.semantic_id,product.content) for product in products),symbolic=tuple(product.reference for product in constructions),contracts=interpreted_member_contracts(self.prepared,self.model),assets=_semantic_assets(self.family).digest,check_active=check_active)
-        signature=inspect.signature(self.kernel,eval_str=True)
-        owned=json.loads(_execution_custody().content)["files"]
-        root=Path(__file__).parent
-        sources=tuple(("corpus_structure.semantic."+name.removesuffix(".py").replace("/","."),str((root/name).resolve()),bytes.fromhex(content)) for name,content in owned)
-        descriptor=PythonCPUDescriptor(sources,self.kernel.__module__+"."+self.kernel.__name__,(),verification="prepared-kernel",control_parameter="check_active")
-        reply=yield from plan_cpu_call(descriptor,signature.bind(**arguments),signature,verify=self._verify,execution_owner=execution_owner,check_active=check_active)
-        if isinstance(inputs,_ConstructionInputs):
-            product=validate_construction_product(self.prepared,self.model,json.loads(reply.content),source,(*formal,*((inputs.native,) if inputs.native is not None else ())))
+            constructions = inputs.constructions
+            products = (*formal, *inputs.supporting, *constructions)
+            arguments = dict(
+                source=source,
+                products=tuple(
+                    CharacterizationSnapshot(product.semantic_id, product.content)
+                    for product in products
+                ),
+                symbolic=tuple(product.reference for product in constructions),
+                contracts=interpreted_member_contracts(self.prepared, self.model),
+                assets=_semantic_assets(self.family).digest,
+                check_active=check_active,
+            )
+        signature = inspect.signature(self.kernel, eval_str=True)
+        owned = json.loads(_execution_custody().content)["files"]
+        root = Path(__file__).parent
+        sources = tuple(
+            (
+                "corpus_structure.semantic." + name.removesuffix(".py").replace("/", "."),
+                str((root / name).resolve()),
+                bytes.fromhex(content),
+            )
+            for name, content in owned
+        )
+        descriptor = PythonCPUDescriptor(
+            sources,
+            self.kernel.__module__ + "." + self.kernel.__name__,
+            (),
+            verification="prepared-kernel",
+            control_parameter="check_active",
+        )
+        reply = yield from plan_cpu_call(
+            descriptor,
+            signature.bind(**arguments),
+            signature,
+            verify=self._verify,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        if isinstance(inputs, _ConstructionInputs):
+            product = validate_construction_product(
+                self.prepared,
+                self.model,
+                json.loads(reply.content),
+                source,
+                (*formal, *((inputs.native,) if inputs.native is not None else ())),
+            )
         else:
-            product=validate_interpreted_product(self.prepared,self.model,json.loads(reply.content),source,products,product_type=ContextualMeaningProduct)
+            product = validate_interpreted_product(
+                self.prepared,
+                self.model,
+                json.loads(reply.content),
+                source,
+                products,
+                product_type=ContextualMeaningProduct,
+            )
         self._verify()
-        return replace(self._completion(product),cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        return replace(
+            self._completion(product),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
 
 class PreparedConstructionPort(PreparedCharacterizationPort):
-    family="construction"
-    operation_sources=staticmethod(construction_operation_sources)
-    bridge=staticmethod(execute_construction_profile)
-    kernel=staticmethod(execute_construction_kernel)
+    family = "construction"
+    operation_sources = staticmethod(construction_operation_sources)
+    bridge = staticmethod(execute_construction_profile)
+    kernel = staticmethod(execute_construction_kernel)
 
     @property
     def endpoint(self):
         from corpus_structure.methods.construction_characterization import ConstructionOperation
+
         return ConstructionOperation
 
 
 class PreparedContextualPort(PreparedCharacterizationPort):
-    family="contextual"
-    operation_sources=staticmethod(contextual_operation_sources)
-    bridge=staticmethod(execute_contextual_profile)
-    kernel=staticmethod(execute_contextual_kernel)
+    family = "contextual"
+    operation_sources = staticmethod(contextual_operation_sources)
+    bridge = staticmethod(execute_contextual_profile)
+    kernel = staticmethod(execute_contextual_kernel)
 
     @property
     def endpoint(self):
         from corpus_structure.methods.contextual_interpretation import ContextualEvaluationOperation
+
         return ContextualEvaluationOperation
 
 
 class PreparedDocumentViewPort(PreparedCharacterizationPort):
-    family="view"
-    operation_sources=staticmethod(document_view_operation_sources)
-    bridge=staticmethod(execute_view_profile)
+    family = "view"
+    operation_sources = staticmethod(document_view_operation_sources)
+    bridge = staticmethod(execute_view_profile)
 
     @property
     def endpoint(self):
         from corpus_structure.methods.characterization import ComposeEnrichedDocumentOperation
+
         return ComposeEnrichedDocumentOperation
 
 
-def _resolve(port_type,prepared,model,operation,*,identity,authorize,custody,sources=None):
+def _resolve(port_type, prepared, model, operation, *, identity, authorize, custody, sources=None):
     from .data_operation_ports import PortRefusal
-    selected=model.operation(operation)
-    port=port_type(identity,selected,prepared,model,authorize,custody,port_type.operation_sources() if sources is None else sources)
-    declaration=port.endpoint.__module__+"."+port.endpoint.__qualname__+".run"
-    if selected.capabilities.forms!=("scalar",) or selected.capabilities.preparation!="resource" or selected.capabilities.cancellation!="cooperative" or selected.capabilities.ownership!="immutable" or selected.effects or len(selected.callable_surfaces)!=1 or selected.callable_surfaces[0].declaration!=declaration:
+
+    selected = model.operation(operation)
+    port = port_type(
+        identity,
+        selected,
+        prepared,
+        model,
+        authorize,
+        custody,
+        port_type.operation_sources() if sources is None else sources,
+    )
+    declaration = port.endpoint.__module__ + "." + port.endpoint.__qualname__ + ".run"
+    if (
+        selected.capabilities.forms != ("scalar",)
+        or selected.capabilities.preparation != "resource"
+        or selected.capabilities.cancellation != "cooperative"
+        or selected.capabilities.ownership != "immutable"
+        or selected.effects
+        or len(selected.callable_surfaces) != 1
+        or selected.callable_surfaces[0].declaration != declaration
+    ):
         raise PortRefusal("operation is outside its concrete acquired characterization profile")
     port._verify()
     return port
 
 
-def resolve_construction_port(prepared,model,operation,**admission):
-    return _resolve(PreparedConstructionPort,prepared,model,operation,**admission)
+def resolve_construction_port(prepared, model, operation, **admission):
+    return _resolve(PreparedConstructionPort, prepared, model, operation, **admission)
 
 
-def resolve_contextual_port(prepared,model,operation,**admission):
-    return _resolve(PreparedContextualPort,prepared,model,operation,**admission)
+def resolve_contextual_port(prepared, model, operation, **admission):
+    return _resolve(PreparedContextualPort, prepared, model, operation, **admission)
 
 
-def resolve_document_view_port(prepared,model,operation,**admission):
-    return _resolve(PreparedDocumentViewPort,prepared,model,operation,**admission)
+def resolve_document_view_port(prepared, model, operation, **admission):
+    return _resolve(PreparedDocumentViewPort, prepared, model, operation, **admission)

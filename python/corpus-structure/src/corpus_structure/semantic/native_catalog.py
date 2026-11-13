@@ -259,10 +259,17 @@ def native_scope_dependencies(records):
     """
     from sqlalchemy import and_, values
 
-    scope = values(
-        column("position", Integer()), column("kind", Text()), column("qualified", Text()),
-        column("parent", Text()), column("name", Text()),
-    ).data(records).cte("native_scope")
+    scope = (
+        values(
+            column("position", Integer()),
+            column("kind", Text()),
+            column("qualified", Text()),
+            column("parent", Text()),
+            column("name", Text()),
+        )
+        .data(records)
+        .cte("native_scope")
+    )
     rewrite = _catalog("pg_rewrite", oid=OID, ev_class=OID)
     types = _catalog("pg_type", oid=OID, typrelid=OID)
     own_type, reference_type = types.alias("own_type"), types.alias("reference_type")
@@ -270,14 +277,20 @@ def native_scope_dependencies(records):
     def catalog(name):
         return cast(literal("pg_catalog." + name), REGCLASS).cast(OID)
 
-    trigger_id = select(trigger.c.oid).where(
-        trigger.c.tgrelid == pg.to_regclass(scope.c.parent), trigger.c.tgname == scope.c.name,
-    ).scalar_subquery()
+    trigger_id = (
+        select(trigger.c.oid)
+        .where(
+            trigger.c.tgrelid == pg.to_regclass(scope.c.parent),
+            trigger.c.tgname == scope.c.name,
+        )
+        .scalar_subquery()
+    )
     addresses = select(
         scope.c.position,
         case(
             (scope.c.kind == "function", catalog("pg_proc")),
-            (scope.c.kind == "trigger", catalog("pg_trigger")), else_=catalog("pg_class"),
+            (scope.c.kind == "trigger", catalog("pg_trigger")),
+            else_=catalog("pg_class"),
         ).label("classid"),
         case(
             (scope.c.kind == "function", cast(pg.to_regprocedure(scope.c.qualified), OID)),
@@ -292,7 +305,8 @@ def native_scope_dependencies(records):
     )
     own_id = case(
         (depend.c.classid == catalog("pg_rewrite"), rewrite.c.ev_class),
-        (depend.c.classid == catalog("pg_type"), own_type.c.typrelid), else_=depend.c.objid,
+        (depend.c.classid == catalog("pg_type"), own_type.c.typrelid),
+        else_=depend.c.objid,
     )
     reference_class = case(
         (depend.c.refclassid == catalog("pg_type"), catalog("pg_class")),
@@ -302,14 +316,30 @@ def native_scope_dependencies(records):
         (depend.c.refclassid == catalog("pg_type"), reference_type.c.typrelid),
         else_=depend.c.refobjid,
     )
-    return select(dependent.c.position, prerequisite.c.position).select_from(
-        depend.outerjoin(rewrite, and_(depend.c.classid == catalog("pg_rewrite"),
-                                      depend.c.objid == rewrite.c.oid))
-        .outerjoin(own_type, and_(depend.c.classid == catalog("pg_type"),
-                                 depend.c.objid == own_type.c.oid))
-        .outerjoin(reference_type, and_(depend.c.refclassid == catalog("pg_type"),
-                                       depend.c.refobjid == reference_type.c.oid))
-        .join(dependent, and_(dependent.c.classid == own_class, dependent.c.oid == own_id))
-        .join(prerequisite, and_(prerequisite.c.classid == reference_class,
-                                 prerequisite.c.oid == reference_id))
-    ).where(dependent.c.position != prerequisite.c.position).distinct()
+    return (
+        select(dependent.c.position, prerequisite.c.position)
+        .select_from(
+            depend.outerjoin(
+                rewrite,
+                and_(depend.c.classid == catalog("pg_rewrite"), depend.c.objid == rewrite.c.oid),
+            )
+            .outerjoin(
+                own_type,
+                and_(depend.c.classid == catalog("pg_type"), depend.c.objid == own_type.c.oid),
+            )
+            .outerjoin(
+                reference_type,
+                and_(
+                    depend.c.refclassid == catalog("pg_type"),
+                    depend.c.refobjid == reference_type.c.oid,
+                ),
+            )
+            .join(dependent, and_(dependent.c.classid == own_class, dependent.c.oid == own_id))
+            .join(
+                prerequisite,
+                and_(prerequisite.c.classid == reference_class, prerequisite.c.oid == reference_id),
+            )
+        )
+        .where(dependent.c.position != prerequisite.c.position)
+        .distinct()
+    )

@@ -763,7 +763,9 @@ def test_provenance_only_symbol_layer_is_not_an_implicit_reading(release):
     source = validate_layer(release, data, dependencies={old_pin: old})
     pin = source.reference(102)
     evaluator = ContextualEvaluator({old_pin: old, pin: source}, symbolic_layers=(pin,))
-    assert {ref.layer for ref in evaluator.default_roots(environment())} == {pin}
+    roots = evaluator.default_roots(environment())
+    assert roots and all(isinstance(ref, AnnotationReference) for ref in roots)
+    assert {ref.product for ref in roots} == {pin}
     result = evaluator.finish(release, data["source_scope"], data["operation"], [], environment())
     assert {ref["task_id"] for ref in result.payload["dependencies"]} == {101, 102}
     assert all(

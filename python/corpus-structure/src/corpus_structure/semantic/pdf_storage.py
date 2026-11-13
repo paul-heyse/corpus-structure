@@ -328,7 +328,8 @@ def _record_product_identity(conn, task_id, product_key, content_digest, record_
     if context.domain is None:
         operation = context.execution.require_operation("read_pdf_product")
         binding = next(
-            item for item in context.execution.implementations
+            item
+            for item in context.execution.implementations
             if item.id == operation.implementation
         )
         owner, symbol = binding.owner, binding.symbol

@@ -5,7 +5,8 @@ from .pdf_domain import CONTRACT, PREFIX, pdf_domain_sources
 
 def pdf_domain_native_sql() -> str:
     digest = next(source.digest for source in pdf_domain_sources() if source.name == CONTRACT)
-    return """
+    return (
+        """
 CREATE OR REPLACE FUNCTION ops.pdf_contract_input(p_release text,p_name text) RETURNS bytea
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $pdf$
 DECLARE content_ bytea; expected_ jsonb;
@@ -53,4 +54,7 @@ END $pdf$;
 REVOKE ALL ON FUNCTION ops.require_pdf_operation(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.require_pdf_operation(text,text)
 TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;
-""".replace("PDF_CONTRACT", CONTRACT).replace("PDF_PREFIX", PREFIX).replace("PDF_DIGEST", digest)
+""".replace("PDF_CONTRACT", CONTRACT)
+        .replace("PDF_PREFIX", PREFIX)
+        .replace("PDF_DIGEST", digest)
+    )

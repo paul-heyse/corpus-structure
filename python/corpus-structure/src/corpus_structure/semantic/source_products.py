@@ -183,8 +183,9 @@ class NativeSourceSelectorIndex:
         return False
 
 
-def _projection_body(*, document, section_pointer, membership, text, pieces,
-                     items, ancestors=(), recognition=()):
+def _projection_body(
+    *, document, section_pointer, membership, text, pieces, items, ancestors=(), recognition=()
+):
     atoms = _native_atoms(items)
     context = _native_atoms(ancestors)
     narrowed_pieces = [
@@ -198,9 +199,16 @@ def _projection_body(*, document, section_pointer, membership, text, pieces,
     outcomes = [{"pointer": row["pointer"], "outcome": row["outcome"]} for row in recognition]
     projection = native_projection_identity(text, narrowed_pieces, atoms, outcomes, context)
     return dict(
-        source=dict(document=document, section_pointer=section_pointer,
-                    membership=membership, projection=projection),
-        text=text, pieces=narrowed_pieces, items=atoms, ancestors=context,
+        source=dict(
+            document=document,
+            section_pointer=section_pointer,
+            membership=membership,
+            projection=projection,
+        ),
+        text=text,
+        pieces=narrowed_pieces,
+        items=atoms,
+        ancestors=context,
         recognition=outcomes,
     )
 
@@ -262,8 +270,18 @@ class FrozenNativeSource:
 
     @classmethod
     def from_projection(
-        cls, prepared: PreparedRelease, *, document: str, section_pointer: str,
-        membership: str, text: str, pieces, items, ancestors=(), recognition=(), selectors=None,
+        cls,
+        prepared: PreparedRelease,
+        *,
+        document: str,
+        section_pointer: str,
+        membership: str,
+        text: str,
+        pieces,
+        items,
+        ancestors=(),
+        recognition=(),
+        selectors=None,
     ) -> FrozenNativeSource:
         """Build from an authenticated original or computed native projection.
 
@@ -271,12 +289,20 @@ class FrozenNativeSource:
         Its caller retains that origin separately; the language value is identical.
         """
         value = _projection_body(
-            document=document, section_pointer=section_pointer, membership=membership,
-            text=text, pieces=pieces, items=items, ancestors=ancestors, recognition=recognition,
+            document=document,
+            section_pointer=section_pointer,
+            membership=membership,
+            text=text,
+            pieces=pieces,
+            items=items,
+            ancestors=ancestors,
+            recognition=recognition,
         )
-        value["selectors"] = list(selectors) if selectors is not None else [
-            {"projection": value["source"]["projection"]}
-        ]
+        value["selectors"] = (
+            list(selectors)
+            if selectors is not None
+            else [{"projection": value["source"]["projection"]}]
+        )
         return cls.acquire(prepared, value)
 
     @classmethod
@@ -287,9 +313,13 @@ class FrozenNativeSource:
         if any(selector["projection"] != view.ref.projection_digest for selector in selectors):
             raise ValueError("selected native scope differs from acquired legacy projection")
         value = _projection_body(
-            document=document, section_pointer=view.ref.section_pointer,
-            membership=view.ref.membership, text=view.text, pieces=view.pieces,
-            items=view.items, ancestors=view.ancestors,
+            document=document,
+            section_pointer=view.ref.section_pointer,
+            membership=view.ref.membership,
+            text=view.text,
+            pieces=view.pieces,
+            items=view.items,
+            ancestors=view.ancestors,
             recognition=view.health.get("formula_outcomes", ()),
         )
         value["selectors"] = [

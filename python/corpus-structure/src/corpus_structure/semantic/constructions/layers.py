@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-import json
 from typing import Any
 
 from corpus_structure.semantic.characterization import occurrence_id, validate_layer
 from corpus_structure.semantic.identity import canonical_bytes
 
+from ..data_product_reference import member_reference
 from .declarations import DECLARATIONS, FAMILIES, GRAMMAR_FAMILIES, MODAL_FORCES, REVISION
 from .forest import ProtectedAtom, identity, recognize
 from .lexical import PositionedTerminal
-from ..data_product_reference import member_reference
 
 
 @dataclass(frozen=True)
 class ConstructionSource:
     """An owned source-coordinate snapshot; no physical source-view/task surrogate."""
+
     content: bytes
 
     @classmethod
@@ -44,15 +45,16 @@ class ConstructionSource:
     @property
     def key(self):
         from ..source_products import source_subject
+
         return source_subject(self.value["source"])
 
 
 def _source_projection(view):
-    return view.projection if isinstance(view,ConstructionSource) else view.ref.projection_digest
+    return view.projection if isinstance(view, ConstructionSource) else view.ref.projection_digest
 
 
 def _source_key(view):
-    return view.key if isinstance(view,ConstructionSource) else view.ref.id
+    return view.key if isinstance(view, ConstructionSource) else view.ref.id
 
 
 class ConstructionLayer:
@@ -87,7 +89,7 @@ class ConstructionLayer:
     def occurrence(self, view, start: int, end: int) -> str:
         if not 0 <= start <= end <= len(view.text):
             raise ValueError("construction extent lies outside its source projection")
-        extents: list[dict[str,Any]] = []
+        extents: list[dict[str, Any]] = []
         for piece in view.pieces:
             a, b = max(start, piece["start"]), min(end, piece["end"])
             if a < b or (start == end and piece["start"] <= start <= piece["end"]):
@@ -101,7 +103,7 @@ class ConstructionLayer:
                     raise ValueError("construction source piece has no native address")
                 extent = dict(
                     projection=_source_projection(view),
-                    **({} if self.semantic else {"source_view_id":_source_key(view)}),
+                    **({} if self.semantic else {"source_view_id": _source_key(view)}),
                     native_pointer=pointer,
                     start=a,
                     end=b,
@@ -291,7 +293,8 @@ class ConstructionLayer:
                     )
         if result.root:
             root = identity(
-                "root", [_source_key(view), start, end, result.root.target, result.root.choice_group]
+                "root",
+                [_source_key(view), start, end, result.root.target, result.root.choice_group],
             )
             self.terms[root] = dict(
                 local_id=root,
@@ -308,10 +311,17 @@ class ConstructionLayer:
     def native(self, view, pin, container, doc, annotations, offset, prepared):
         """Keep native matches and their actual members separate from grammar claims."""
         matches, unavailable = prepared.match(doc)
-        admitted=tuple(match for match in matches if all(index in annotations for _,indices in match.bindings for index in indices))
-        if len(admitted)!=len(matches):
-            unavailable=(*unavailable,"native construction match crosses selected characterized scope")
-        matches=admitted
+        admitted = tuple(
+            match
+            for match in matches
+            if all(index in annotations for _, indices in match.bindings for index in indices)
+        )
+        if len(admitted) != len(matches):
+            unavailable = (
+                *unavailable,
+                "native construction match crosses selected characterized scope",
+            )
+        matches = admitted
         participant_ids = {}
         for index, annotation in annotations.items():
             token = doc[index]
@@ -325,7 +335,7 @@ class ConstructionLayer:
             # newlines; their original bytes remain in occurrences/native premises.
             label = " ".join(lexical.split()) or " ".join(token.text.split())
             occurrence = self.occurrence(view, offset + token.idx, offset + token.idx + len(token))
-            external = member_reference(pin,annotation["local_id"]).values()
+            external = member_reference(pin, annotation["local_id"]).values()
             key = identity("native-participant", [pin.values(), annotation["local_id"]])
             participant_ids[index] = key
             self.terms[key] = dict(
@@ -390,7 +400,7 @@ class ConstructionLayer:
                 children=children,
                 occurrences=self.terms[participant_ids[index]]["occurrences"],
                 provenance=["grammatical-role-scheme:spacy-english-dependency-1"],
-                external_premises=[member_reference(pin,annotation["local_id"]).values()],
+                external_premises=[member_reference(pin, annotation["local_id"]).values()],
             )
             morph = token.morph.to_dict()
             for feature, values in morph.items():
@@ -442,7 +452,7 @@ class ConstructionLayer:
             if not members:
                 continue
             premises = [
-                member_reference(pin,annotations[i]["local_id"]).values()
+                member_reference(pin, annotations[i]["local_id"]).values()
                 for i in dict.fromkeys(members)
             ]
             occurrences = list(
@@ -656,7 +666,7 @@ class ConstructionLayer:
                     status="unknown",
                     occurrences=[],
                 )
-            external = [member_reference(pin,annotation["local_id"]).values()]
+            external = [member_reference(pin, annotation["local_id"]).values()]
             cue = participants[index]
             occurrences = self.terms[cue]["occurrences"]
             if word in {"every", "all", "each", "some", "any", "no"}:

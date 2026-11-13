@@ -880,7 +880,7 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
         execution = context.execution
         return replace(
             context,
-            execution=replace(
+            _execution=replace(
                 execution,
                 implementation_digests=tuple(
                     (name, "0" * 64 if name in {"pdf/storage.py", "pdf/integrated.py"} else digest)

@@ -289,25 +289,45 @@ def test_computed_projection_uses_same_language_value_without_legacy_source_iden
 ):
     atom, projection, selectors = inputs()
     native = FrozenNativeSource.from_projection(
-        source_prepared, document="document:semantic", section_pointer="#/groups/0",
-        membership="descendants", text=projection["text"], pieces=projection["pieces"],
-        items=[atom], ancestors=[], recognition=[],
+        source_prepared,
+        document="document:semantic",
+        section_pointer="#/groups/0",
+        membership="descendants",
+        text=projection["text"],
+        pieces=projection["pieces"],
+        items=[atom],
+        ancestors=[],
+        recognition=[],
     )
-    selectors = [{**selector, "projection": native.value["source"]["projection"]}
-                 for selector in selectors]
+    selectors = [
+        {**selector, "projection": native.value["source"]["projection"]} for selector in selectors
+    ]
     native = FrozenNativeSource.from_projection(
-        source_prepared, document="document:semantic", section_pointer="#/groups/0",
-        membership="descendants", text=projection["text"], pieces=projection["pieces"],
-        items=[atom], ancestors=[], recognition=[], selectors=selectors,
+        source_prepared,
+        document="document:semantic",
+        section_pointer="#/groups/0",
+        membership="descendants",
+        text=projection["text"],
+        pieces=projection["pieces"],
+        items=[atom],
+        ancestors=[],
+        recognition=[],
+        selectors=selectors,
     )
     view = SimpleNamespace(
-        ref=SimpleNamespace(section_pointer="#/groups/0", membership="descendants",
-                            projection_digest="b" * 64),
-        text=projection["text"], pieces=projection["pieces"], items=[atom],
-        ancestors=[], health=projection["health"],
+        ref=SimpleNamespace(
+            section_pointer="#/groups/0", membership="descendants", projection_digest="b" * 64
+        ),
+        text=projection["text"],
+        pieces=projection["pieces"],
+        items=[atom],
+        ancestors=[],
+        health=projection["health"],
     )
     original = FrozenNativeSource.from_source_view(
-        source_prepared, view, document="document:semantic",
+        source_prepared,
+        view,
+        document="document:semantic",
         selectors=[{**selector, "projection": "b" * 64} for selector in selectors],
     )
     assert native.content == original.content

@@ -228,7 +228,7 @@ def test_record_identity_requires_qualified_producer_archive(monkeypatch, change
     if change == "helper_bytes":
         context = replace(
             context,
-            execution=replace(
+            _execution=replace(
                 context.execution,
                 implementation_digests=tuple(
                     (name, "0" * 64 if name in {"pdf/storage.py", "pdf/integrated.py"} else digest)
@@ -239,7 +239,7 @@ def test_record_identity_requires_qualified_producer_archive(monkeypatch, change
     elif change == "abi":
         context = replace(
             context,
-            execution=replace(
+            _execution=replace(
                 context.execution,
                 implementations=tuple(
                     replace(binding, version="unsupported")

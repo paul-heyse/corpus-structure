@@ -38,16 +38,21 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
         domain.require_operation("archive")
     assert all(not source.name.startswith("execution/") for source in domain.sources)
     context = PreparedPdfContext(
-        "release:pdf", _boundary(domain.schema), None,
+        "release:pdf",
+        _boundary(domain.schema),
+        None,
         domain.source("schema/pdf_products").digest,
         SourceArtifact(
             "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
         ),
         domain,
     )
-    assert context.native_schema_digest == sha256(
-        domain.source("implementation/pdf/docling-validation.schema.json").content
-    ).hexdigest()
+    assert (
+        context.native_schema_digest
+        == sha256(
+            domain.source("implementation/pdf/docling-validation.schema.json").content
+        ).hexdigest()
+    )
     action = context.require_operation("prepare_native_document")
     assert isinstance(action, dict)
     assert action["contract"]["id"] == "prepare_native_document"
@@ -59,20 +64,25 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
 def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain):
     from corpus_structure.semantic._operation_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
 
-    dependencies = ResolvedDependencies((
-        SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources,
-    ))
+    dependencies = ResolvedDependencies(
+        (
+            SourceArtifact("pdf-domain/contract.json", domain.content),
+            *domain.sources,
+        )
+    )
     artifacts = pdf_domain_artifacts(dependencies)
     prepared = prepare_release(source_bundle(), ResolvedDependencies(), PreparationProfile())
     prepared = replace(prepared, artifacts=(*prepared.artifacts, *artifacts))
     assert prepared.execution_model_id is None
-    require_call_context(prepared, "retain_pdf_original", "retain_pdf_original",
-                         RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST)
+    require_call_context(
+        prepared, "retain_pdf_original", "retain_pdf_original", RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
+    )
     with pytest.raises(SemanticRefusal, match="incompatible consumer"):
         require_call_context(prepared, "retain_pdf_original", "retain_pdf_original", "changed")
     with pytest.raises(SemanticRefusal, match="incompatible consumer"):
-        require_call_context(prepared, "archive", "publish_release_archive",
-                             RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST)
+        require_call_context(
+            prepared, "archive", "publish_release_archive", RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
+        )
     changed = json.loads(domain.content)
     changed["inputs"][0]["sha256"] = "0" * 64
     with pytest.raises(ValueError, match="custody differs"):

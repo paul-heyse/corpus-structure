@@ -213,10 +213,20 @@ def validate_formal_product(
         seen.add(packet["member_id"])
         if packet["body"]["record_type"] != "choice_member":
             data[by_kind[packet["body"]["record_type"]]].append(packet["body"])
-    expected_alternatives={member["local_id"]:dict(record_type="choice_member",group_id=group["local_id"],**member) for group in data["choices"] for member in group["members"]}
-    actual_alternatives={packet["member_id"]:packet["body"] for packet in checked["members"] if packet["body"]["record_type"]=="choice_member"}
-    if actual_alternatives!=expected_alternatives:
-        raise ValueError("formal alternative member projection differs from its owning packed group")
+    expected_alternatives = {
+        member["local_id"]: dict(record_type="choice_member", group_id=group["local_id"], **member)
+        for group in data["choices"]
+        for member in group["members"]
+    }
+    actual_alternatives = {
+        packet["member_id"]: packet["body"]
+        for packet in checked["members"]
+        if packet["body"]["record_type"] == "choice_member"
+    }
+    if actual_alternatives != expected_alternatives:
+        raise ValueError(
+            "formal alternative member projection differs from its owning packed group"
+        )
     indexes = {name: {row["local_id"]: row for row in rows} for name, rows in data.items()}
     all_nodes = {key: row for index in indexes.values() for key, row in index.items()}
     choices = {}
@@ -258,7 +268,7 @@ def validate_formal_product(
                     raise ValueError("formal occurrence escapes its original native piece")
 
                 if not any(
-                    source.selector_index().matches(selector,pointer) is True
+                    source.selector_index().matches(selector, pointer) is True
                     and selector.get("start", 0)
                     <= a
                     < b
@@ -407,7 +417,7 @@ def formal_positioned_lexicon(builder, selected):
         for piece in builder.view.pieces:
             if piece["kind"] != "native_text":
                 continue
-            if builder.selector_match(selector,piece["item_ref"]) is not True:
+            if builder.selector_match(selector, piece["item_ref"]) is not True:
                 continue
             a, b = max(lower, piece["start"]), min(upper, piece["end"])
             if a < b:
@@ -519,8 +529,12 @@ def formal_product_values(
         for family in FAMILIES
     ]
     members = []
-    records={name:getattr(builder,name) for name,_ in _INVENTORIES}
-    records["choice_members"]=[dict(group_id=group["local_id"],**member) for group in builder.choices.values() for member in group["members"]]
+    records = {name: getattr(builder, name) for name, _ in _INVENTORIES}
+    records["choice_members"] = [
+        dict(group_id=group["local_id"], **member)
+        for group in builder.choices.values()
+        for member in group["members"]
+    ]
     for inventory, kind in _MEMBER_VARIANTS:
         values = records[inventory]
         rows = values.values() if isinstance(values, dict) else values
@@ -722,22 +736,37 @@ class PreparedFormalEvidencePort:
 
     def _verify(self) -> None:
         from corpus_structure.methods import formal_evidence as endpoint
+
         from .data_operation_ports import PortRefusal
         from .data_operation_prepared_products import verify_prepared_product
 
         if endpoint.execute_formal_profile is not execute_formal_profile:
             raise PortRefusal("loaded formal resource bridge differs from acquired implementation")
-        required=formal_operation_sources()
-        sources=required if self.sources is None else self.sources
+        required = formal_operation_sources()
+        sources = required if self.sources is None else self.sources
         verify_prepared_product(
-            self.identity,self.profile.model,self.operation,sources,self.custody,
-            assets=(formal_profile_assets(),formal_execution_custody()),
+            self.identity,
+            self.profile.model,
+            self.operation,
+            sources,
+            self.custody,
+            assets=(formal_profile_assets(), formal_execution_custody()),
             functions=(
-                ("corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",endpoint.FormalEvidenceOperation.run),
-                ("corpus_structure.semantic.formal_products.execute_formal_profile",execute_formal_profile),
-                ("corpus_structure.semantic.formal_products.PreparedFormalEvidence.run",self.profile.run.__func__),
+                (
+                    "corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",
+                    endpoint.FormalEvidenceOperation.run,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.execute_formal_profile",
+                    execute_formal_profile,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.PreparedFormalEvidence.run",
+                    self.profile.run.__func__,
+                ),
             ),
-            authorize=self.authorize,required_sources=required,
+            authorize=self.authorize,
+            required_sources=required,
         )
 
     def _source(self, values, binding):
@@ -773,7 +802,7 @@ class PreparedFormalEvidencePort:
         from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
 
-        model_value=product.value.model_dump(mode="python",exclude_unset=True)
+        model_value = product.value.model_dump(mode="python", exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
         return PortCompletion(
@@ -784,7 +813,7 @@ class PreparedFormalEvidencePort:
                     contracts[output.kind, "kind"],
                     product.content,
                     canonical_bytes(semantic_value(model_value)),
-                    project_product_members(self.profile.model,output.kind,model_value),
+                    project_product_members(self.profile.model, output.kind, model_value),
                 ),
             ),
         )

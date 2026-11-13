@@ -135,7 +135,8 @@ def require_call_context(
         if len(artifacts) != 1:
             raise SemanticRefusal("release lacks an unambiguous native call correspondence")
         calls = [
-            call for owner, call in json.loads(artifacts[0].content)
+            call
+            for owner, call in json.loads(artifacts[0].content)
             if owner == operation and call["id"] == variant
         ]
         if len(calls) != 1 or sha256(canonical_bytes(calls)).hexdigest() != expected_digest:

@@ -1767,7 +1767,8 @@ def _prepare_series_authoring(
             # Normalization uses frozen declarations, never adoption of deployed
             # bodies. The transition still refuses an unexpected live predecessor.
             normalized = normalize_native_backfill(
-                connection, newly_managed,
+                connection,
+                newly_managed,
                 context=cast(tuple[NativeObject, ...], product_predecessor),
                 owned_authoring=owned_authoring,
             )
@@ -1782,7 +1783,9 @@ def _prepare_series_authoring(
         )
         if extra:
             normalized = normalize_native_backfill(
-                connection, extra, context=cast(tuple[NativeObject, ...], product_predecessor),
+                connection,
+                extra,
+                context=cast(tuple[NativeObject, ...], product_predecessor),
                 owned_authoring=owned_authoring,
             )
             product_predecessor = (*product_predecessor, *normalized)

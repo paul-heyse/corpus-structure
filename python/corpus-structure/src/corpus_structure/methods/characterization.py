@@ -2,14 +2,8 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-from corpus_structure.semantic.source_products import FrozenNativeSource
-from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
-from corpus_structure.semantic.enriched_document_products import EnrichedDocumentProduct
-from corpus_structure.semantic.characterization_ports import execute_view_profile
-
 from collections.abc import Iterable, Sequence
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -24,8 +18,14 @@ from corpus_structure.core.method import (
 )
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.characterization import validate_published_view
+from corpus_structure.semantic.characterization_ports import execute_view_profile
+from corpus_structure.semantic.enriched_document_products import (
+    EnrichedDocumentProduct,
+    RetainedCharacterizationProduct,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.source_products import FrozenNativeSource
 
 
 class ComposeViewConfig(BaseModel):
@@ -151,104 +151,150 @@ class ComposeViewMethod:
 
 
 class ComposeEnrichedDocumentOperation:
-    __data_operation__: ClassVar[dict] = {'id': 'text.compose_view/source-native',
-     'profile': 'derivation',
-     'subject': 'original-document',
-     'context': ['original-source', 'selected-scope'],
-     'entrypoints': ['run'],
-     'roles': [{'name': 'sources',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource',
-                'direction': 'input',
-                'minimum': 1,
-                'maximum': None,
-                'collection': 'sequence',
-                'presence': 'required',
-                'parameter': 'sources',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation', 'original-source'],
-                            'source': 'original-source',
-                            'coverage': 'selected-scope'},
-                'subject_field': '/source/document'},
-               {'name': 'products',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct',
-                'direction': 'input',
-                'minimum': 0,
-                'maximum': None,
-                'collection': 'sequence',
-                'presence': 'optional',
-                'parameter': 'products',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation'],
-                            'source': 'original-source',
-                            'coverage': 'selected-scope'},
-                'subject_field': '/source/document'},
-               {'name': 'active',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct',
-                'direction': 'input',
-                'minimum': 0,
-                'maximum': None,
-                'collection': 'sequence',
-                'presence': 'optional',
-                'parameter': 'active',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation'],
-                            'source': 'original-source',
-                            'coverage': 'selected-scope'},
-                'subject_field': '/source/document'},
-               {'name': 'result',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-constructions/DdoEnrichedDocumentView',
-                'direction': 'output',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required'}],
-     'applicability': ['acquired-view-profile'],
-     'invariants': ['original-source-coordinates',
-                    'governed-semantic-member-references',
-                    'explicit-coverage-and-private-standing'],
-     'coverage': 'exact-selected-source-scope',
-     'outcomes': ['success', 'failed'],
-     'precision': 'retained-positioned-characterization',
-     'dependencies': [],
-     'effects': [],
-     'capabilities': {'forms': ['scalar'],
-                      'preparation': 'resource',
-                      'cancellation': 'cooperative',
-                      'ownership': 'immutable'},
-     'behavior': 'compose retained typed view products without upstream language reacquisition',
-     'parameters': {},
-     'binding': {'operator': 'all',
-                 'children': [{'operator': 'collection',
-                               'roles': ['sources'],
-                               'collection': 'sequence'},
-                              {'operator': 'collection',
-                               'roles': ['products'],
-                               'collection': 'sequence'},
-                              {'operator': 'collection',
-                               'roles': ['active'],
-                               'collection': 'sequence'}]},
-     'opaque': [{'reference': 'corpus_structure.semantic.characterization_ports.execute_view_profile',
-                 'contract': 'characterization/view-assets',
-                 'role': 'prepared-view-resources'},
-                {'reference': 'corpus_structure.semantic.source_products.FrozenNativeSource',
-                 'contract': 'characterization/view-assets',
-                 'role': 'nominal-boundary'},
-                {'reference': 'corpus_structure.semantic.enriched_document_products.RetainedCharacterizationProduct',
-                 'contract': 'characterization/view-assets',
-                 'role': 'nominal-boundary'},
-                {'reference': 'corpus_structure.semantic.enriched_document_products.EnrichedDocumentProduct',
-                 'contract': 'characterization/view-assets',
-                 'role': 'nominal-boundary'}],
-     'assets': [{'reference': 'view-profile',
-                 'contract': 'characterization/view-assets',
-                 'role': 'semantic-implementation-and-schema-assets'}]}
+    __data_operation__: ClassVar[dict] = {
+        "id": "text.compose_view/source-native",
+        "profile": "derivation",
+        "subject": "original-document",
+        "context": ["original-source", "selected-scope"],
+        "entrypoints": ["run"],
+        "roles": [
+            {
+                "name": "sources",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "required",
+                "parameter": "sources",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation", "original-source"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document",
+            },
+            {
+                "name": "products",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "optional",
+                "parameter": "products",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document",
+            },
+            {
+                "name": "active",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "optional",
+                "parameter": "active",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document",
+            },
+            {
+                "name": "result",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoEnrichedDocumentView",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "applicability": ["acquired-view-profile"],
+        "invariants": [
+            "original-source-coordinates",
+            "governed-semantic-member-references",
+            "explicit-coverage-and-private-standing",
+        ],
+        "coverage": "exact-selected-source-scope",
+        "outcomes": ["success", "failed"],
+        "precision": "retained-positioned-characterization",
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "resource",
+            "cancellation": "cooperative",
+            "ownership": "immutable",
+        },
+        "behavior": "compose retained typed view products without upstream language reacquisition",
+        "parameters": {},
+        "binding": {
+            "operator": "all",
+            "children": [
+                {"operator": "collection", "roles": ["sources"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["products"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["active"], "collection": "sequence"},
+            ],
+        },
+        "opaque": [
+            {
+                "reference": (
+                    "corpus_structure.semantic.characterization_ports.execute_view_profile"
+                ),
+                "contract": "characterization/view-assets",
+                "role": "prepared-view-resources",
+            },
+            {
+                "reference": "corpus_structure.semantic.source_products.FrozenNativeSource",
+                "contract": "characterization/view-assets",
+                "role": "nominal-boundary",
+            },
+            {
+                "reference": (
+                    "corpus_structure.semantic.enriched_document_products."
+                    "RetainedCharacterizationProduct"
+                ),
+                "contract": "characterization/view-assets",
+                "role": "nominal-boundary",
+            },
+            {
+                "reference": (
+                    "corpus_structure.semantic.enriched_document_products.EnrichedDocumentProduct"
+                ),
+                "contract": "characterization/view-assets",
+                "role": "nominal-boundary",
+            },
+        ],
+        "assets": [
+            {
+                "reference": "view-profile",
+                "contract": "characterization/view-assets",
+                "role": "semantic-implementation-and-schema-assets",
+            }
+        ],
+    }
 
     def __init__(self, profile, check_active):
-        self.profile=profile
-        self.check_active=check_active
+        self.profile = profile
+        self.check_active = check_active
 
-    def run(self, sources: tuple[FrozenNativeSource,...], products: tuple[RetainedCharacterizationProduct,...], active: tuple[RetainedCharacterizationProduct,...]) -> EnrichedDocumentProduct:
-        return execute_view_profile(self,sources,products,active)
+    def run(
+        self,
+        sources: tuple[FrozenNativeSource, ...],
+        products: tuple[RetainedCharacterizationProduct, ...],
+        active: tuple[RetainedCharacterizationProduct, ...],
+    ) -> EnrichedDocumentProduct:
+        return execute_view_profile(self, sources, products, active)

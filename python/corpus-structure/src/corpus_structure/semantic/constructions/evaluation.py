@@ -14,16 +14,21 @@ from typing import Any
 
 from corpus_structure.semantic.characterization import (
     AnnotationReference as LegacyMemberReference,
+)
+from corpus_structure.semantic.characterization import (
     LayerReport,
     validate_layer,
     validate_reading_choices,
 )
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+    member_reference,
+    read_member_reference,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.product_reference import ProductReference as LegacyProductPin
-from corpus_structure.semantic.data_product_reference import (
-    DataProductReference, DataProductMemberReference, member_reference, read_member_reference,
-)
 
 from .nodes import identity
 
@@ -106,41 +111,57 @@ class ContextualEvaluator:
         max_nodes=20000,
         symbolic_layers=None,
     ):
-        bases=set()
-        for pin,report in layers.items():
-            if report.reference(pin.task_id)!=pin:
+        bases = set()
+        for pin, report in layers.items():
+            if report.reference(pin.task_id) != pin:
                 raise ValueError("evaluation requires exact retained layer pins")
             bases.add(report.base_document)
-        if len(bases)!=1:
+        if len(bases) != 1:
             raise ValueError("evaluation requires one immutable source base")
-        self._initialize(layers,{pin:report.payload for pin,report in layers.items()},next(iter(bases)),check_active=check_active,max_nodes=max_nodes,symbolic_layers=symbolic_layers)
+        self._initialize(
+            layers,
+            {pin: report.payload for pin, report in layers.items()},
+            next(iter(bases)),
+            check_active=check_active,
+            max_nodes=max_nodes,
+            symbolic_layers=symbolic_layers,
+        )
 
     @classmethod
-    def from_products(cls,source,products,*,check_active=lambda:None,max_nodes=20000,symbolic_products=None):
-        coordinate=source.value["source"]
-        inputs={}
-        payloads={}
+    def from_products(
+        cls, source, products, *, check_active=lambda: None, max_nodes=20000, symbolic_products=None
+    ):
+        coordinate = source.value["source"]
+        inputs = {}
+        payloads = {}
         for product in products:
-            body=json.loads(product.content)
-            if body["source"]!=coordinate:
+            body = json.loads(product.content)
+            if body["source"] != coordinate:
                 raise ValueError("contextual inputs belong to another original source")
-            pin=DataProductReference(product.semantic_id)
+            pin = DataProductReference(product.semantic_id)
             if pin in inputs:
                 raise ValueError("contextual inputs repeat a governed semantic product")
-            inputs[pin]=product
-            payloads[pin]={**product.inventory(),"coverage":body["coverage"]}
+            inputs[pin] = product
+            payloads[pin] = {**product.inventory(), "coverage": body["coverage"]}
         if not inputs:
             raise ValueError("contextual evaluation requires explicit retained symbolic products")
-        instance=cls.__new__(cls)
-        instance._initialize(inputs,payloads,coordinate,check_active=check_active,max_nodes=max_nodes,symbolic_layers=symbolic_products)
+        instance = cls.__new__(cls)
+        instance._initialize(
+            inputs,
+            payloads,
+            coordinate,
+            check_active=check_active,
+            max_nodes=max_nodes,
+            symbolic_layers=symbolic_products,
+        )
         return instance
 
-    def _initialize(self,layers,payloads,base,*,check_active,max_nodes,symbolic_layers):
-        self.layers=dict(layers)
-        self.payloads=dict(payloads)
-        self.base=base
-        self.symbolic_layers=frozenset(layers if symbolic_layers is None else symbolic_layers)
-        if not self.symbolic_layers<=layers.keys():
+    def _initialize(self, layers, payloads, base, *, check_active, max_nodes, symbolic_layers):
+        self.layers = dict(layers)
+        self.payloads = dict(payloads)
+        self.base = base
+        self.symbolic_layers = frozenset(layers if symbolic_layers is None else symbolic_layers)
+        if not self.symbolic_layers <= layers.keys():
             raise ValueError("symbolic selection is outside retained dependency closure")
         self.nodes = {}
         self.occurrences = {}
@@ -149,7 +170,7 @@ class ContextualEvaluator:
         self._model_proposals = {}
         membership_members = {}
         referent_members = {}
-        for pin,payload in self.payloads.items():
+        for pin, payload in self.payloads.items():
             for inventory in ("annotations", "memberships", "roles", "terms"):
                 for node in payload[inventory]:
                     self.nodes[member_reference(pin, node["local_id"])] = (inventory, node)
@@ -166,8 +187,11 @@ class ContextualEvaluator:
                     elif inventory == "annotations" and node.get("kind") == "model.span_proposal":
                         for premise in node.get("premises", ()):
                             self._model_proposals.setdefault((pin, premise), []).append(node)
-            for packet in payload.get("source_facts",()):
-                self.nodes[member_reference(pin,packet["member_id"])]=("source_facts",packet["body"])
+            for packet in payload.get("source_facts", ()):
+                self.nodes[member_reference(pin, packet["member_id"])] = (
+                    "source_facts",
+                    packet["body"],
+                )
             for occurrence in payload["occurrences"]:
                 self.occurrences[occurrence["local_id"]] = occurrence
             for group in payload["choices"]:
@@ -1198,7 +1222,10 @@ class ContextualEvaluator:
             for pin, body in self.payloads.items()
             if pin in self.symbolic_layers
             and pin not in env.context_layers
-            and (isinstance(pin,DataProductReference) or body["operation"]["key"] == "text.constructions")
+            and (
+                isinstance(pin, DataProductReference)
+                or body["operation"]["key"] == "text.constructions"
+            )
         ]
         if not symbolic and not roots:
             self._mark(
@@ -1274,15 +1301,27 @@ class ContextualEvaluator:
             roles=list(self.roles.values()),
         )
 
-    def payload(self,release_id,scope,operation,roots,env):
-        if not isinstance(self.base,LegacyProductPin):
-            raise ValueError("source-native evaluator facts require their nominal product projection")
+    def payload(self, release_id, scope, operation, roots, env):
+        if not isinstance(self.base, LegacyProductPin):
+            raise ValueError(
+                "source-native evaluator facts require their nominal product projection"
+            )
         return dict(
-            format="characterization-layer-v1",base_document=self.base.values(),release_id=release_id,
+            format="characterization-layer-v1",
+            base_document=self.base.values(),
+            release_id=release_id,
             source_scope=scope,
-            operation={**operation,"produced_families":list(EVALUATION_FAMILIES),"required_layers":[pin.values() for pin in self.layers],"outcomes":["complete","partial","failed"],"preconditions":["exact-symbolic-context-and-choice-closure"],"effects":["retain-primary-contextual-meaning; preserve-private-standing"],"result_determinants":["runtime","grammar","configuration","input","context"]},
+            operation={
+                **operation,
+                "produced_families": list(EVALUATION_FAMILIES),
+                "required_layers": [pin.values() for pin in self.layers],
+                "outcomes": ["complete", "partial", "failed"],
+                "preconditions": ["exact-symbolic-context-and-choice-closure"],
+                "effects": ["retain-primary-contextual-meaning; preserve-private-standing"],
+                "result_determinants": ["runtime", "grammar", "configuration", "input", "context"],
+            },
             dependencies=[pin.values() for pin in self.layers],
-            **self.facts(scope,operation,roots,env),
+            **self.facts(scope, operation, roots, env),
         )
 
     def finish(self, prepared, scope, operation, roots, env, *, releases=None):

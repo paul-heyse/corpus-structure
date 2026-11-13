@@ -164,8 +164,12 @@ def pdf_context_for_release(conn: Connection, prepared: PreparedRelease) -> Prep
         schema = domain.source("schema/pdf_products")
         staging = domain.source("implementation/pdf/staging-model.yaml")
         return PreparedPdfContext(
-            release_id, _boundary(domain.schema), None, schema.digest,
-            SourceArtifact("pdf/staging-model.yaml", staging.content), domain,
+            release_id,
+            _boundary(domain.schema),
+            None,
+            schema.digest,
+            SourceArtifact("pdf/staging-model.yaml", staging.content),
+            domain,
         )
     payload = execution_payload(prepared)
     if payload is None:

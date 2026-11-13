@@ -439,7 +439,14 @@ class FormalIdentity:
 
 
 class _LayerBuilder:
-    def __init__(self, view: FormalSource, operation: Mapping[str, Any], identity: FormalIdentity, *, selector_match=None):
+    def __init__(
+        self,
+        view: FormalSource,
+        operation: Mapping[str, Any],
+        identity: FormalIdentity,
+        *,
+        selector_match=None,
+    ):
         self.view = view
         self.selector_match = selector_match
         self.identity = identity
@@ -1008,11 +1015,13 @@ def extract_formal_facts(
 
     def matches(piece, selector):
         if builder.selector_match is not None:
-            selected = builder.selector_match(selector,piece["item_ref"])
+            selected = builder.selector_match(selector, piece["item_ref"])
             if selected is not True:
                 if selected is None:
                     for family in FAMILIES:
-                        builder.problems[family].append("Selected source ancestry is unavailable; membership is unknown.")
+                        builder.problems[family].append(
+                            "Selected source ancestry is unavailable; membership is unknown."
+                        )
                 return False
         else:
             selected_pointer = selector.get("native_pointer")

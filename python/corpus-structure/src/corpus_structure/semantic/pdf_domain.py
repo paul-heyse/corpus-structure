@@ -38,7 +38,8 @@ def pdf_domain_sources() -> tuple[SourceArtifact, ...]:
             "contract": asdict(model.require_operation(operation.id)),
             "implementation": asdict(bindings[operation.implementation]),
         }
-        for operation in model.operations if operation.implementation in bindings
+        for operation in model.operations
+        if operation.implementation in bindings
     }
     # Native PDF has its own standalone nominal envelope and retained staging policy.
     schema = next(source for source in inputs.schema.sources if source.name == "pdf_products")
@@ -52,24 +53,39 @@ def pdf_domain_sources() -> tuple[SourceArtifact, ...]:
         raise ValueError("PDF domain contract inputs are incomplete")
     sources = (
         SourceArtifact(PREFIX + "schema/pdf_products", schema.content),
-        SourceArtifact(PREFIX + "schema/core", (
-            Path(__file__).resolve().parents[1] / "model/semantic/core.yaml"
-        ).read_bytes()),
-        SourceArtifact(PREFIX + "schema/pdf_domain_schema", canonical_bytes({
-            "id": "urn:corpus:pdf-domain-schema", "name": "pdf_domain_schema",
-            "imports": ["pdf_products", "core"],
-        })),
-        *(SourceArtifact(PREFIX + "implementation/" + name, source.content)
-          for name, source in sorted(implementations.items())),
+        SourceArtifact(
+            PREFIX + "schema/core",
+            (Path(__file__).resolve().parents[1] / "model/semantic/core.yaml").read_bytes(),
+        ),
+        SourceArtifact(
+            PREFIX + "schema/pdf_domain_schema",
+            canonical_bytes(
+                {
+                    "id": "urn:corpus:pdf-domain-schema",
+                    "name": "pdf_domain_schema",
+                    "imports": ["pdf_products", "core"],
+                }
+            ),
+        ),
+        *(
+            SourceArtifact(PREFIX + "implementation/" + name, source.content)
+            for name, source in sorted(implementations.items())
+        ),
     )
-    contract = SourceArtifact(CONTRACT, canonical_bytes({
-        "version": "pdf-domain-contract-v1",
-        "schema": {
-            "root": "pdf_domain_schema", "sources": ["pdf_products", "core", "pdf_domain_schema"]
-        },
-        "actions": actions,
-        "inputs": [{"name": source.name, "sha256": source.digest} for source in sources],
-    }))
+    contract = SourceArtifact(
+        CONTRACT,
+        canonical_bytes(
+            {
+                "version": "pdf-domain-contract-v1",
+                "schema": {
+                    "root": "pdf_domain_schema",
+                    "sources": ["pdf_products", "core", "pdf_domain_schema"],
+                },
+                "actions": actions,
+                "inputs": [{"name": source.name, "sha256": source.digest} for source in sources],
+            }
+        ),
+    )
     return (contract, *sources)
 
 
@@ -79,7 +95,8 @@ def pdf_domain_dependencies(dependencies: ResolvedDependencies) -> ResolvedDepen
     if any(source.name.startswith(PREFIX) for source in dependencies.artifacts):
         raise ValueError("PDF domain inputs use an already supplied reserved namespace")
     return ResolvedDependencies(
-        (*dependencies.artifacts, *pdf_domain_sources()), dependencies.vocabularies,
+        (*dependencies.artifacts, *pdf_domain_sources()),
+        dependencies.vocabularies,
         dependencies.ontology_sources,
     )
 
@@ -118,10 +135,13 @@ class PdfDomainContract:
     @property
     def schema(self) -> SourceBundle:
         contract = json.loads(self.content)
-        return SourceBundle(contract["schema"]["root"], tuple(
-            SourceArtifact(name, self.source("schema/" + name).content)
-            for name in contract["schema"]["sources"]
-        ))
+        return SourceBundle(
+            contract["schema"]["root"],
+            tuple(
+                SourceArtifact(name, self.source("schema/" + name).content)
+                for name in contract["schema"]["sources"]
+            ),
+        )
 
 
 def read_pdf_domain(connection, release_id: str) -> PdfDomainContract:
@@ -130,10 +150,15 @@ def read_pdf_domain(connection, release_id: str) -> PdfDomainContract:
     from .metadata import table
 
     inputs = table("sem.input")
-    rows = tuple(connection.execute(select(inputs.c.input_name, inputs.c.content).where(
-        inputs.c.release_id == release_id, inputs.c.input_kind == "dependency",
-        inputs.c.input_name.startswith(PREFIX),
-    )))
+    rows = tuple(
+        connection.execute(
+            select(inputs.c.input_name, inputs.c.content).where(
+                inputs.c.release_id == release_id,
+                inputs.c.input_kind == "dependency",
+                inputs.c.input_name.startswith(PREFIX),
+            )
+        )
+    )
     retained = {row.input_name: bytes(row.content) for row in rows}
     content = retained.pop(CONTRACT, None)
     if content is None:
@@ -175,7 +200,11 @@ def require_pdf_database_action(connection, release_id: str, action: str) -> Non
     """Ask the PDF owner to enforce its archived action/capability correspondence."""
     from sqlalchemy import Text, bindparam, func, select
 
-    connection.execute(select(func.ops.require_pdf_operation(
-        bindparam("_pdf_release", release_id, type_=Text()),
-        bindparam("_pdf_action", action, type_=Text()),
-    ))).scalar_one()
+    connection.execute(
+        select(
+            func.ops.require_pdf_operation(
+                bindparam("_pdf_release", release_id, type_=Text()),
+                bindparam("_pdf_action", action, type_=Text()),
+            )
+        )
+    ).scalar_one()

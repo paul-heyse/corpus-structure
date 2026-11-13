@@ -564,10 +564,15 @@ def native_dependency_graph(connection: Connection, identities):
     if not identities:
         return graph
     records = [
-        (position, identity.kind,
-         identity.qualified if identity.kind != "trigger" else "",
-         (_quote(identity.schema) + "." + _quote(identity.relation or ""))
-         if identity.kind == "trigger" else None, identity.name)
+        (
+            position,
+            identity.kind,
+            identity.qualified if identity.kind != "trigger" else "",
+            (_quote(identity.schema) + "." + _quote(identity.relation or ""))
+            if identity.kind == "trigger"
+            else None,
+            identity.name,
+        )
         for position, identity in enumerate(identities)
     ]
     dependencies = connection.execute(catalog_queries.native_scope_dependencies(records))
@@ -582,15 +587,19 @@ def native_dependency_order(connection: Connection, identities):
     graph = native_dependency_graph(connection, identities)
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
-        return tuple(nx.lexicographical_topological_sort(
-            graph, key=declared.__getitem__, backend="networkx"))
+        return tuple(
+            nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx")
+        )
     except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError("declared native dependency scope is cyclic") from error
 
 
 def normalize_native_backfill(
-    connection: Connection, definitions: tuple[NativeDefinition, ...],
-    *, context: tuple[NativeObject, ...], owned_authoring: bool = False,
+    connection: Connection,
+    definitions: tuple[NativeDefinition, ...],
+    *,
+    context: tuple[NativeObject, ...],
+    owned_authoring: bool = False,
 ) -> tuple[NativeObject, ...]:
     """Normalize old source with only its authenticated dependent context removed.
 
@@ -607,12 +616,15 @@ def normalize_native_backfill(
     selected = {item.identity for item in definitions}
     identities = tuple(dict.fromkeys((*frozen, *(item.identity for item in definitions))))
     graph = native_dependency_graph(connection, identities)
-    dependents = set().union(*(nx.descendants(graph, identity, backend="networkx")
-                               for identity in selected)) - selected
+    dependents = (
+        set().union(*(nx.descendants(graph, identity, backend="networkx") for identity in selected))
+        - selected
+    )
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
-        order = tuple(nx.lexicographical_topological_sort(
-            graph, key=declared.__getitem__, backend="networkx"))
+        order = tuple(
+            nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx")
+        )
     except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError("declared native dependency scope is cyclic") from error
     savepoint = connection.begin_nested()
