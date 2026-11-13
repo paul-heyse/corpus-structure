@@ -362,7 +362,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.attach_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; o ops.data_obligation; d ops.data_demand; def sem.data_operation_definition;
- r ops.data_request; key text; snapshot jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint; retained_id text;
+ r ops.data_request; key text; snapshot jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint; retained_id text; retained ops.data_completion_intent; current_task ops.task; invalid_retained boolean;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['obligation_id','request_meaning','binding','replicate'],ARRAY['rebind_derivation','request_key']);
  IF p->'request_meaning'->>0='ddo' THEN
@@ -419,8 +419,32 @@ BEGIN
  END IF;
  IF episode IS NULL THEN
  IF r.live_task_id IS NOT NULL THEN
- PERFORM 1 FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- IF EXISTS(SELECT FROM ops.task WHERE id=r.live_task_id AND status IN ('done','empty','failed','cancelled')) THEN
+ SELECT * INTO STRICT current_task FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
+ SELECT * INTO retained FROM ops.data_completion_intent intent
+ WHERE intent.request_id=r.id AND intent.generation=r.generation
+ AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
+ invalid_retained:=retained.id IS NOT NULL AND (
+ EXISTS(SELECT FROM jsonb_array_elements(retained.payload->'support') old_support
+ WHERE CASE WHEN old_support->>'admission_use_id' IS NULL
+ THEN NOT ops.ddo_support_valid(old_support->>'derivation_id')
+ ELSE NOT EXISTS(SELECT FROM ops.demand_use selected
+ WHERE selected.id=old_support->>'admission_use_id'
+ AND selected.derivation_id=old_support->>'derivation_id' AND ops.ddo_use_valid(selected)) END)
+ OR EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(r.project_id,r.original_source)
+ AND ((v.selector_kind='runtime' AND v.selector=retained.runtime_id)
+ OR (v.selector_kind='recipe' AND v.selector=r.recipe))));
+ IF invalid_retained AND current_task.status='running'
+ AND (current_task.lease_until IS NULL OR current_task.lease_until>clock_timestamp()) THEN
+ RAISE EXCEPTION 'invalid retained intent still has an active producer lease'; END IF;
+ IF current_task.status IN ('done','empty','failed','cancelled')
+ OR (invalid_retained AND (current_task.status='pending'
+ OR (current_task.status='running' AND current_task.lease_until<=clock_timestamp()))) THEN
+ IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(d.project_id,o.original_source)
+ AND ((v.selector_kind='runtime' AND v.selector=d.runtime_id)
+ OR (v.selector_kind='recipe' AND v.selector=def.recipe))) THEN
+ RAISE EXCEPTION 'replacement runtime or recipe was directly revoked'; END IF;
+ -- The old intent/generation and task remain immutable history. Losing the
+ -- publication fence does not assert that an old physical child has retired.
  UPDATE ops.data_request SET generation=generation+1,live_task_id=NULL,binding=(p->'binding')||jsonb_build_object('execution_profile',d.selection->'execution_profile'),release_id=d.release_id,runtime_id=d.runtime_id WHERE id=r.id RETURNING * INTO r;
  END IF; END IF;
  IF r.live_task_id IS NULL THEN

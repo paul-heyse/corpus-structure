@@ -226,6 +226,7 @@ declarations: [{name: test-operations, path: operations.yaml}]
         "prepared": prepared,
         "model": model,
         "runtime": runtime.runtime_id,
+        "runtime_inputs": dependencies.artifacts,
         "identities": identities,
         "recipe": identities["urn:ddo-test:source", "recipe"],
         "kind": identities[
@@ -479,6 +480,76 @@ def test_expired_owner_cannot_publish_but_exact_intent_can_be_adopted(kernel):
         )
         assert inspected["receipt_id"] == receipt["receipt_id"]
         assert inspected["state"] == "committed"
+
+
+@pytest.mark.parametrize("active", [False, True])
+def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(kernel, active):
+    from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
+    from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
+
+    # Revocation has a real scoped producing episode; the unresolved intent is
+    # another execution under that same runtime, rather than forged test state.
+    _, _, _, prior = attach(kernel, subject="subject:published")
+    prior_fence = claim(kernel, prior)
+    publish(kernel, prior_fence, retain(kernel, prior_fence))
+    demand, _, wire, attached = attach(kernel)
+    first = claim(kernel, attached, seconds=30 if active else 1)
+    intent = retain(kernel, first)
+    replacement = prepare_data_operation_runtime(
+        kernel["prepared"], kernel["runtime_inputs"], execution_profile="execution:test",
+        observed={"host": "replacement"},
+    )
+    with kernel["engine"].begin() as connection:
+        persist_runtime_binding(connection, kernel["prepared"], replacement)
+        DataOperationStorage(connection).invoke("revoke_data_support", {
+            "project_id": "ddo-test", "original_source": "source:test",
+            "selector_kind": "runtime", "selector": kernel["runtime"],
+            "reason": "producer runtime defect",
+        })
+    updated = {**kernel, "runtime": replacement.runtime_id}
+    if active:
+        with pytest.raises(DBAPIError, match="active producer lease"):
+            attach(updated)
+        with kernel["engine"].connect() as connection:
+            assert connection.scalar(text("SELECT generation FROM ops.data_request WHERE id=:r"),
+                {"r": first["request_id"]}) == first["generation"]
+        return
+    time.sleep(1.05)
+    # A directly revoked runtime cannot rescue its own immutable answer.
+    with pytest.raises(DBAPIError, match="replacement runtime or recipe"):
+        attach(kernel)
+    _, _, _, current = attach(updated)
+    assert current["request_id"] == first["request_id"]
+    assert current["generation"] == first["generation"] + 1
+    assert current["task_id"] != first["task_id"]
+    assert current["action"] == "compute"
+    assert current["retained_intent_id"] is None
+    with kernel["engine"].connect() as connection:
+        storage = DataOperationStorage(connection)
+        historical = storage.invoke("inspect_data_completion", {
+            "demand_id": demand["demand_id"], "request_id": first["request_id"],
+            "generation": first["generation"], "intent_id": intent["intent_id"],
+        })
+        assert historical["state"] == "known-uncommitted"
+        assert historical["intent_retained"] is True
+        # Publication authority was replaced; physical retirement was not asserted.
+        assert connection.scalar(text("SELECT status FROM ops.task WHERE id=:t"),
+            {"t": first["task_id"]}) == "running"
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_request_generation WHERE request_id=:r"),
+            {"r": first["request_id"]}) == 2
+    successor = claim(updated, current, holder="replacement")
+    with pytest.raises(DBAPIError, match="stale"):
+        publish(kernel, first, intent)
+    next_intent = retain(updated, successor, outputs=(2,))
+    receipt = publish(updated, successor, next_intent)
+    assert receipt["replayed"] is False
+    with kernel["engine"].begin() as connection:
+        again = DataOperationStorage(connection).invoke("attach_data_request", {
+            **wire, "binding": {**wire["binding"], "read_id": DataOperationStorage(connection).invoke(
+                "read_demand_result", demand)["read_id"]},
+        })
+        assert again["generation"] == current["generation"]
+        assert again["fate"] == "fulfilled"
 
 
 @pytest.mark.parametrize("bad", ["body", "kind", "role", "member"])
