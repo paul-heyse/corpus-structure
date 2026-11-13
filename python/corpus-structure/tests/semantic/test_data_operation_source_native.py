@@ -205,7 +205,8 @@ def test_authenticated_original_source_read_matches_original_published_custody(
             )
             actual = connection.execute(
                 text(
-                    "SELECT ops.ddo_original_source_view(CAST(:reference AS jsonb),CAST(:selectors AS jsonb))"
+                    "SELECT ops.ddo_original_source_view("
+                    "CAST(:reference AS jsonb),CAST(:selectors AS jsonb))"
                 ),
                 dict(reference=reference.model_dump_json(), selectors=json.dumps(selectors)),
             ).scalar_one()
@@ -216,7 +217,8 @@ def test_authenticated_original_source_read_matches_original_published_custody(
             assert actual["meaning_body"] == semantic_value(acquired.source.value)
             assert actual["original_source"] == acquired.source.value["source"]["document"]
             assert actual["original_source"] != acquired.original_content_hash
-            assert acquired.selection().record() == {
+            frozen_selection = acquired.selection().record()
+            assert frozen_selection == {
                 "reference": reference.model_dump(mode="json"),
                 "selectors": selectors,
             }
