@@ -183,11 +183,8 @@ def data_operation_dependencies(
     )
 
 
-def data_operations_from_dependencies(
-    bundle: SourceBundle, dependencies: ResolvedDependencies, definitions, vocabularies=()
-):
-    """Compile one closed supplied manifest, or return None when the feature is absent."""
-    from .data_operation_compilation import compile_data_operations
+def read_data_operation_inputs(dependencies: ResolvedDependencies):
+    """Decode the closed captured manifest without imports or source discovery."""
     from .data_operation_model import MODEL_VERSION
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
@@ -286,6 +283,19 @@ def data_operations_from_dependencies(
         )
     if set(supplied) != expected:
         raise ValueError("data-operation input set differs from manifest")
+    return declarations, inputs
+
+
+def data_operations_from_dependencies(
+    bundle: SourceBundle, dependencies: ResolvedDependencies, definitions, vocabularies=()
+):
+    """Compile one closed supplied manifest, or return None when the feature is absent."""
+    from .data_operation_compilation import compile_data_operations
+
+    captured = read_data_operation_inputs(dependencies)
+    if captured is None:
+        return None
+    declarations, inputs = captured
     return compile_data_operations(
         bundle, declarations, inputs, definitions=definitions, vocabularies=tuple(vocabularies)
     )

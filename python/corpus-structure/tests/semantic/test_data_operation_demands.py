@@ -358,41 +358,91 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
     from corpus_structure.semantic.data_operation_demands import _population_context_matches
 
     obligation = {
-        "obligation_id": "o:one", "operation_id": "op:consumer", "subject": "comparison:one",
-        "original_source": "source:analysis", "analyzed_scope": {"pair": 1},
+        "obligation_id": "o:one",
+        "operation_id": "op:consumer",
+        "subject": "comparison:one",
+        "original_source": "source:analysis",
+        "analyzed_scope": {"pair": 1},
     }
     selected = {"evidence": {"selection": dict(obligation)}, "members": []}
     arguments = {"source_set": None, "source_sets": {}, "project": "project:one"}
     assert _population_context_matches(selected, obligation, **arguments)
     assert not _population_context_matches(
-        selected, {**obligation, "obligation_id": "o:other"}, **arguments,
+        selected,
+        {**obligation, "obligation_id": "o:other"},
+        **arguments,
     )
     assert not _population_context_matches(
-        selected, {**obligation, "analyzed_scope": {"pair": 2}}, **arguments,
+        selected,
+        {**obligation, "analyzed_scope": {"pair": 2}},
+        **arguments,
     )
-    base = {"evidence": {"product_id": "product:one", "producer_context": {
-        "operation_id": "op:discover", "subject": "document:one",
-        "original_source": "source:original", "analyzed_scope": {"page": 1},
-    }}, "members": [{"member_id": "m:one", "subject": "passage:one",
-                     "original_source": "source:original", "analyzed_scope": {"page": 1}}]}
+    base = {
+        "evidence": {
+            "product_id": "product:one",
+            "producer_context": {
+                "operation_id": "op:discover",
+                "subject": "document:one",
+                "original_source": "source:original",
+                "analyzed_scope": {"page": 1},
+            },
+        },
+        "members": [
+            {
+                "member_id": "m:one",
+                "subject": "passage:one",
+                "original_source": "source:original",
+                "analyzed_scope": {"page": 1},
+            }
+        ],
+    }
     assert not _population_context_matches(base, obligation, **arguments)
-    assert _population_context_matches(base, {
-        **obligation, "subject": "document:one", "original_source": "source:original",
+    assert _population_context_matches(
+        base,
+        {
+            **obligation,
+            "subject": "document:one",
+            "original_source": "source:original",
+            "analyzed_scope": {"page": 1},
+        },
+        **arguments,
+    )
+    entry = {
+        "project_id": "project:one",
+        "product": "product:one",
+        "member": "m:one",
+        "subject": "passage:one",
+        "original_source": "source:original",
         "analyzed_scope": {"page": 1},
-    }, **arguments)
-    entry = {"project_id": "project:one", "product": "product:one", "member": "m:one",
-             "subject": "passage:one", "original_source": "source:original",
-             "analyzed_scope": {"page": 1}}
-    arguments = {"source_set": "originals", "source_sets": {"originals": [entry]},
-                 "project": "project:one"}
+    }
+    arguments = {
+        "source_set": "originals",
+        "source_sets": {"originals": [entry]},
+        "project": "project:one",
+    }
     assert _population_context_matches(base, obligation, **arguments)
-    for field, replacement in (("project_id", "project:other"), ("product", "product:other"),
-                               ("member", "m:other"), ("subject", "passage:other"),
-                               ("original_source", "source:other"), ("analyzed_scope", {})):
-        assert not _population_context_matches(base, obligation, **{
-            **arguments, "source_sets": {"originals": [{**entry, field: replacement}]},
-        })
-    assert not _population_context_matches(base, obligation, **{
-        **arguments, "source_set": "undeclared",
-    })
+    for field, replacement in (
+        ("project_id", "project:other"),
+        ("product", "product:other"),
+        ("member", "m:other"),
+        ("subject", "passage:other"),
+        ("original_source", "source:other"),
+        ("analyzed_scope", {}),
+    ):
+        assert not _population_context_matches(
+            base,
+            obligation,
+            **{
+                **arguments,
+                "source_sets": {"originals": [{**entry, field: replacement}]},
+            },
+        )
+    assert not _population_context_matches(
+        base,
+        obligation,
+        **{
+            **arguments,
+            "source_set": "undeclared",
+        },
+    )
     assert not _population_context_matches({"evidence": {}, "members": []}, obligation, **arguments)

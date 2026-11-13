@@ -135,6 +135,11 @@ class PythonRoleValue:
 class PortCompletion:
     operation: str
     outputs: tuple[RoleValue, ...]
+    execution_evidence: bytes | None = None
+
+    def __post_init__(self) -> None:
+        if self.execution_evidence is not None and type(self.execution_evidence) is not bytes:
+            raise TypeError("execution evidence requires owned immutable bytes")
 
 
 @dataclass(frozen=True)

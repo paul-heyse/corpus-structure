@@ -1,0 +1,120 @@
+"""Routing tests only: native demand semantics are exercised by native kernel tests."""
+
+from __future__ import annotations
+
+import json
+from contextlib import contextmanager
+
+import pytest
+
+from corpus_structure.cli import demands
+from corpus_structure.semantic.storage_target import StorageTarget
+
+
+@pytest.fixture
+def routing(monkeypatch):
+    opened = []
+    connection = object()
+
+    class Engine:
+        @contextmanager
+        def begin(self):
+            yield connection
+
+    @contextmanager
+    def engine(settings, *, purpose):
+        opened.append(purpose)
+        yield Engine()
+
+    monkeypatch.setattr(demands, "ENGINE", engine)
+    monkeypatch.setattr(demands, "acquired_target", lambda conn, *, purpose: StorageTarget(
+        database="routing-only", database_oid=1, system_identifier="routing-only",
+        host="localhost", port=5434, purpose=purpose,
+    ))
+    return opened, connection
+
+
+def test_demand_help_has_no_settings_or_database_effects(cli):
+    def refuse():
+        raise AssertionError("help must not resolve settings")
+
+    for action in ((), ("create",), ("read",), ("cancel",)):
+        result = cli("demands", *action, "--help", settings=refuse)
+        assert result.exit_code == 0, result.output
+
+
+def test_create_routes_closed_request_to_service_and_records_managed_result(
+    cli, tmp_path, monkeypatch, routing,
+):
+    opened, connection = routing
+    request = {"project_id": "project:one", "release_id": "release:one",
+               "runtime_id": "runtime:one", "intent": {"model": "frozen:one"}}
+    source = tmp_path / "request.json"
+    source.write_text(json.dumps(request))
+    seen = []
+
+    def create(conn, value):
+        assert conn is connection
+        seen.append(value)
+        return {"demand_id": "demand:one", "release_id": value.release_id,
+                "runtime_id": value.runtime_id, "continuation": None}
+
+    monkeypatch.setattr(demands, "create_data_demand", create)
+    results = tmp_path / "results"
+    result = cli("demands", "create", "--request", str(source), "--json",
+                 env={"CORPUS_CI_RESULTS": str(results)})
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert opened == ["write"]
+    assert seen[0].intent == request["intent"]
+    assert report["native"]["runtime_id"] == "runtime:one"
+    manifest = json.loads((results / report["id"] / "manifest.json").read_text())
+    assert manifest["outcome"] == "passed"
+    assert manifest["operation_account"]["known_effects"] == ["native demand create:demand:one"]
+    assert set(manifest["artifacts"]) >= {"request", "native"}
+
+
+def test_read_routes_complete_native_continuation_without_semantic_defaults(
+    cli, tmp_path, monkeypatch, routing,
+):
+    opened, connection = routing
+    pins = {"demand_id": "demand:one", "read_id": "read:one", "after": "obligation:one",
+            "selection": {"retained": "meaning"}, "trust_snapshot": {"scope": 3},
+            "view": "frontier", "limit": 7}
+    source = tmp_path / "continuation.json"
+    source.write_text(json.dumps(pins))
+    seen = []
+
+    def read(conn, demand, **options):
+        assert conn is connection
+        seen.append((demand, options))
+        return {"demand_id": demand, "read_id": pins["read_id"], "continuation": pins}
+
+    monkeypatch.setattr(demands, "read_data_demand", read)
+    result = cli("demands", "read", "demand:one", "--continuation", str(source), "--json")
+    assert result.exit_code == 0, result.output
+    assert opened == ["read"]
+    assert seen == [("demand:one", {"continuation": pins, "limit": None, "view": None})]
+    assert json.loads(result.stdout)["continuation"] == pins
+
+
+def test_cancel_routes_original_demand_and_reason_and_retains_shared_status(
+    cli, tmp_path, monkeypatch, routing,
+):
+    opened, connection = routing
+    seen = []
+
+    def cancel(conn, demand, *, reason):
+        assert conn is connection
+        seen.append((demand, reason))
+        return {"demand_id": demand, "state": "cancelled", "requests": [
+            {"interest": "shared", "physical_retirement": "unconfirmed"},
+        ]}
+
+    monkeypatch.setattr(demands, "cancel_data_demand", cancel)
+    result = cli("demands", "cancel", "demand:one", "--reason", "operator stopped",
+                 "--json", env={"CORPUS_CI_RESULTS": str(tmp_path / "results")})
+    assert result.exit_code == 0, result.output
+    assert opened == ["write"]
+    assert seen == [("demand:one", "operator stopped")]
+    assert json.loads(result.stdout)["native"]["requests"][0]["interest"] == "shared"

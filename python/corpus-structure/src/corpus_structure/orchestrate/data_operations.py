@@ -226,6 +226,10 @@ class NativeDemandExecutor:
                         relation.c.product == member.product,
                         relation.c.member.is_not_distinct_from(member.member),
                         relation.c.subject == member.subject,
+                        relation.c.support_evidence == json.loads(member.support_evidence),
+                        relation.c.support_episodes == list(member.support_episodes),
+                        relation.c.position.is_not_distinct_from(member.position),
+                        relation.c.multiplicity == member.multiplicity,
                     )
                     rows = connection.execute(query).scalars().all()
                     if len(rows) != 1:
@@ -483,6 +487,7 @@ class NativeDemandExecutor:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
             ready = planner.ready(snapshot, authorization=authorization)
             selected = tuple(getattr(planner, "selected_population_ids", ()))
+            fulfilled = planner.fulfilled_request_ids
         receipts = []
 
         def plan():
@@ -535,81 +540,79 @@ class NativeDemandExecutor:
         seen_discovered = set()
         seen_fulfilled = set()
         try:
-            with maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner:
-                with ThreadPoolExecutor(max_workers=self.policy.workers) as pool:
-                    for _ in range(max_rounds):
-                        progress = False
-                        continuation = None
-                        while True:
-                            with self.engine.begin() as connection:
-                                planner = DemandPlanner(
-                                    self.model, DataOperationStorage(connection)
+            with (
+                maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
+                ThreadPoolExecutor(max_workers=self.policy.workers) as pool,
+            ):
+                for _ in range(max_rounds):
+                    progress = False
+                    continuation = None
+                    while True:
+                        with self.engine.begin() as connection:
+                            planner = DemandPlanner(self.model, DataOperationStorage(connection))
+                            page = planner.resume(
+                                demand,
+                                limit=min(limit, self.capacity),
+                                **(
+                                    {
+                                        key: continuation[key]
+                                        for key in (
+                                            "selection",
+                                            "after",
+                                            "trust_snapshot",
+                                            "read_id",
+                                        )
+                                    }
+                                    if continuation
+                                    else {}
+                                ),
+                            )
+                            if page.get("state") == "cancelled":
+                                return DemandAdvance(demand, canonical_bytes(page), tuple(receipts))
+                            for use in page["uses"]:
+                                if use["fate"] != "fulfilled":
+                                    continue
+                                obligation = next(
+                                    item
+                                    for item in page["obligations"]
+                                    if item["obligation_id"] == use["obligation_id"]
                                 )
-                                page = planner.resume(
-                                    demand,
-                                    limit=min(limit, self.capacity),
-                                    **(
-                                        {
-                                            key: continuation[key]
-                                            for key in (
-                                                "selection",
-                                                "after",
-                                                "trust_snapshot",
-                                                "read_id",
-                                            )
-                                        }
-                                        if continuation
-                                        else {}
-                                    ),
-                                )
-                                if page.get("state") == "cancelled":
-                                    return DemandAdvance(
-                                        demand, canonical_bytes(page), tuple(receipts)
-                                    )
-                                for use in page["uses"]:
-                                    if use["fate"] != "fulfilled":
+                                for relation in page["intent"]["discovery"]:
+                                    if relation["producer"] != obligation["operation_id"]:
                                         continue
-                                    obligation = next(
-                                        item
-                                        for item in page["obligations"]
-                                        if item["obligation_id"] == use["obligation_id"]
-                                    )
-                                    for relation in page["intent"]["discovery"]:
-                                        if relation["producer"] != obligation["operation_id"]:
+                                    for product in use["products"]:
+                                        if product["role"] != relation["output_role"]:
                                             continue
-                                        for product in use["products"]:
-                                            if product["role"] != relation["output_role"]:
-                                                continue
-                                            identity = (
-                                                relation["population"],
-                                                product["product_id"],
-                                                use["derivation_id"],
+                                        identity = (
+                                            relation["population"],
+                                            product["product_id"],
+                                            use["derivation_id"],
+                                        )
+                                        if identity not in seen_discovered:
+                                            planner.expand_discovery(
+                                                page,
+                                                population=identity[0],
+                                                product=identity[1],
+                                                derivation=identity[2],
                                             )
-                                            if identity not in seen_discovered:
-                                                planner.expand_discovery(
-                                                    page,
-                                                    population=identity[0],
-                                                    product=identity[1],
-                                                    derivation=identity[2],
-                                                )
-                                                seen_discovered.add(identity)
-                                                progress = True
-                            settled, selected, fulfilled = self._drive_page(
-                                page, authorization, owner, pool
-                            )
-                            receipts.extend(settled)
-                            progress = (
-                                progress
-                                or bool(settled)
-                                or bool(selected)
-                                or bool(set(fulfilled) - seen_fulfilled)
-                            )
-                            seen_fulfilled.update(fulfilled)
-                            continuation = page.get("continuation")
-                            if continuation is None:
-                                break
-                        if not progress:
+                                            seen_discovered.add(identity)
+                                            progress = True
+                        settled, selected, fulfilled = self._drive_page(
+                            page, authorization, owner, pool
+                        )
+                        receipts.extend(settled)
+                        progress = (
+                            progress
+                            or bool(settled)
+                            or bool(selected)
+                            or bool(set(fulfilled) - seen_fulfilled)
+                        )
+                        seen_fulfilled.update(fulfilled)
+                        continuation = page.get("continuation")
+                        if continuation is None:
                             break
+                    if not progress:
+                        break
             with self.engine.begin() as connection:
                 final = DemandPlanner(self.model, DataOperationStorage(connection)).resume(
                     demand, limit=limit

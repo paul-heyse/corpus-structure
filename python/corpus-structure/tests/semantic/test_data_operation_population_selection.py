@@ -36,7 +36,8 @@ def selection_connection(binding_native_connection):
         if (
             isinstance(raw.stmt, ast.CreateFunctionStmt)
             and raw.stmt.funcname is not None
-            and raw.stmt.funcname[-1].sval in {
+            and raw.stmt.funcname[-1].sval
+            in {
                 "ddo_population_filter",
                 "ddo_population_producer_context",
                 "ddo_population_scope",
@@ -68,9 +69,14 @@ def within(role="items"):
 def test_population_filter_keeps_row_qualification_and_defers_cardinality(selection_connection):
     connection = selection_connection
     node = {
-        "operator": "forall", "roles": ["items"], "population": "selected-items",
-        "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1},
-                     {"operator": "covers", "operands": [field(), literal(15)]}],
+        "operator": "forall",
+        "roles": ["items"],
+        "population": "selected-items",
+        "children": [
+            within(),
+            {"operator": "cardinality", "roles": ["items"], "maximum": 1},
+            {"operator": "covers", "operands": [field(), literal(15)]},
+        ],
     }
     predicate = project(connection, node)
     assert evaluate(connection, predicate, context(15)) is True
@@ -88,7 +94,8 @@ def test_population_filter_keeps_constraints_outside_forall_and_cross_role_child
 ):
     connection = selection_connection
     node: dict[str, Any] = {
-        "operator": "all", "children": [
+        "operator": "all",
+        "children": [
             {"operator": "forall", "roles": ["items"], "population": "selected-items"},
             {"operator": "equal", "operands": [field(), field("right")], "children": [within()]},
         ],
@@ -103,7 +110,8 @@ def test_population_filter_keeps_constraints_outside_forall_and_cross_role_child
 @pytest.mark.db
 def test_population_filter_uses_only_frozen_active_choice(selection_connection):
     node = {
-        "operator": "choice", "choice_parameter": "which",
+        "operator": "choice",
+        "choice_parameter": "which",
         "children": [within(), within("right")],
     }
     predicate = project(selection_connection, node, choices={"which": "items"})
@@ -119,10 +127,18 @@ def test_population_filter_uses_only_frozen_active_choice(selection_connection):
 def test_population_filter_optional_parameter_absence_preserves_native_semantics(
     selection_connection,
 ):
-    node = {"operator": "optional", "children": [{
-        "operator": "membership",
-        "operands": [field(), {"kind": "parameter", "name": "allowed", "value_type": "integer"}],
-    }]}
+    node = {
+        "operator": "optional",
+        "children": [
+            {
+                "operator": "membership",
+                "operands": [
+                    field(),
+                    {"kind": "parameter", "name": "allowed", "value_type": "integer"},
+                ],
+            }
+        ],
+    }
     predicate = project(selection_connection, node)
     facts = context(15)
     assert evaluate(selection_connection, predicate, facts) is False
@@ -132,18 +148,21 @@ def test_population_filter_optional_parameter_absence_preserves_native_semantics
 
 
 @pytest.mark.db
-@pytest.mark.parametrize("node", [
-    {"operator": "unreviewed", "roles": ["items"]},
-    {"operator": "absent", "roles": ["items"], "population": "selected-items"},
-    {
-        "operator": "membership",
-        "operands": [field(), {"kind": "population", "name": "selected-items"}],
-    },
-    {
-        "operator": "optional",
-        "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1}],
-    },
-])
+@pytest.mark.parametrize(
+    "node",
+    [
+        {"operator": "unreviewed", "roles": ["items"]},
+        {"operator": "absent", "roles": ["items"], "population": "selected-items"},
+        {
+            "operator": "membership",
+            "operands": [field(), {"kind": "population", "name": "selected-items"}],
+        },
+        {
+            "operator": "optional",
+            "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1}],
+        },
+    ],
+)
 def test_population_filter_refuses_unrepresentable_role_qualification(selection_connection, node):
     with selection_connection.begin_nested() as savepoint:
         with pytest.raises(DBAPIError):
@@ -156,23 +175,29 @@ def test_population_scope_uses_selected_context_without_relabelling_source_episo
     selection_connection,
 ):
     selected_context = {
-        "operation_id": "urn:consumer", "subject": "comparison:one",
-        "original_source": "source:analysis", "analyzed_scope": {"pair": 1},
+        "operation_id": "urn:consumer",
+        "subject": "comparison:one",
+        "original_source": "source:analysis",
+        "analyzed_scope": {"pair": 1},
     }
     population = {
         "evidence": {"selection": selected_context, "derivation_id": "absent:episode"},
     }
     actual = selection_connection.scalar(
-        text("SELECT ops.ddo_population_scope("
-             "jsonb_populate_record(NULL::ops.data_population,CAST(:population AS jsonb)))"),
+        text(
+            "SELECT ops.ddo_population_scope("
+            "jsonb_populate_record(NULL::ops.data_population,CAST(:population AS jsonb)))"
+        ),
         {"population": json.dumps(population)},
     )
     assert actual == selected_context
     # Original producing context cannot be inferred from consumer labels or a
     # forged evidence field when its authenticated episode is not present.
     producer = selection_connection.scalar(
-        text("SELECT ops.ddo_population_producer_context("
-             "jsonb_populate_record(NULL::ops.data_population,CAST(:population AS jsonb)))"),
+        text(
+            "SELECT ops.ddo_population_producer_context("
+            "jsonb_populate_record(NULL::ops.data_population,CAST(:population AS jsonb)))"
+        ),
         {"population": json.dumps(population)},
     )
     assert producer is None
@@ -182,11 +207,22 @@ def test_population_scope_uses_selected_context_without_relabelling_source_episo
 def test_population_filter_defers_optional_global_coverage_with_original_missing_semantics(
     selection_connection,
 ):
-    aggregate = {"operator": "optional", "children": [{
-        "operator": "covers", "operands": [field(), {
-            "kind": "parameter", "name": "required", "value_type": "integer",
-        }],
-    }]}
+    aggregate = {
+        "operator": "optional",
+        "children": [
+            {
+                "operator": "covers",
+                "operands": [
+                    field(),
+                    {
+                        "kind": "parameter",
+                        "name": "required",
+                        "value_type": "integer",
+                    },
+                ],
+            }
+        ],
+    }
     node = {"operator": "all", "children": [within(), aggregate]}
     predicate = project(selection_connection, node)
     facts = context(15)
