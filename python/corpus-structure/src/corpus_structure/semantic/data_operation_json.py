@@ -57,8 +57,8 @@ class ContextJSONB(TypeDecorator):
     impl = Text
     cache_ok = True
 
-    def bind_expression(self, bindvalue):
-        return cast(bindvalue, JSONB)
+    def bind_expression(self, bindparam):
+        return cast(bindparam, JSONB)
 
     def column_expression(self, column):
         return cast(column, self)

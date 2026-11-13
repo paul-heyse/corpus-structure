@@ -1388,7 +1388,7 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
             for attribute in ("init", "repr", "compare", "hash", "metadata")
         ):
             raise PortRefusal("generated dataclass field behavior differs")
-    if value.__match_args__ != expected.__match_args__:
+    if inspect.getattr_static(value, "__match_args__") != expected.__match_args__:
         raise PortRefusal("generated dataclass positional pattern fields differ")
     if value.__init__.__code__ != expected.__init__.__code__:
         raise PortRefusal("generated dataclass constructor implementation differs")
