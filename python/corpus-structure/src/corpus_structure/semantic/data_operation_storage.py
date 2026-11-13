@@ -680,6 +680,7 @@ def data_operation_definition_projection(
                     "state_dimensions": [asdict(value) for value in operation.state_dimensions],
                     "transitions": [asdict(value) for value in operation.transitions],
                     "effects": [asdict(value) for value in operation.effects],
+                    "capabilities": asdict(operation.capabilities),
                     "provenance": (
                         "value_substitution"
                         if all(

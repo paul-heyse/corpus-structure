@@ -8,7 +8,7 @@ transactions own database connections; no connection enters native computation.
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
-from contextlib import AbstractContextManager, ExitStack, closing, contextmanager
+from contextlib import AbstractContextManager, ExitStack, closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol
@@ -17,8 +17,7 @@ import pyarrow as pa
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
-from corpus_structure.semantic.claim_lifetime import maintained_claims
-from corpus_structure.semantic.operation_results import ClaimedTask
+from corpus_structure.semantic.claim_lifetime import OwnedClaim, maintained_claims
 from corpus_structure.semantic.product_reference import ProductReference
 
 if TYPE_CHECKING:
@@ -123,7 +122,7 @@ def adopt_pdf_companions(
 
 def run_private_pdf_build(
     engine: Engine,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     *,
     source_digest: str,
@@ -133,6 +132,7 @@ def run_private_pdf_build(
     producer: PrivatePdfProducer,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
     cancellation: BorrowerCancellation | None = None,
+    owned_check: Callable[[], None] | None = None,
 ) -> PdfBuildRef:
     """Adopt bounded producer batches under existing fences, leaving the build private.
 
@@ -143,7 +143,10 @@ def run_private_pdf_build(
     from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, begin_pdf_build
 
     cancellation = cancellation or BorrowerCancellation()
-    with maintained_claims(engine, [claim], holder) as check_claim_active:
+    with (
+            maintained_claims(engine, [claim], holder)
+            if owned_check is None else nullcontext(owned_check)
+        ) as check_claim_active:
 
         def check_active():
             cancellation.check_active()
@@ -208,7 +211,7 @@ def ipc_replay_batches(
 
 def run_private_native_pdf_build(
     engine: Engine,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     *,
     original: Path,
@@ -225,6 +228,7 @@ def run_private_native_pdf_build(
     integration_policy: dict[str, Any] | None = None,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
     cancellation: BorrowerCancellation | None = None,
+    owned_check: Callable[[], None] | None = None,
 ) -> PdfBuildRef:
     """Run the actual finite native worker into protected private record custody.
 
@@ -255,7 +259,10 @@ def run_private_native_pdf_build(
     entered = False
     try:
         worker = PdfWorker(recipe, assets=assets)
-        with maintained_claims(engine, [claim], holder) as check_claim_active:
+        with (
+            maintained_claims(engine, [claim], holder)
+            if owned_check is None else nullcontext(owned_check)
+        ) as check_claim_active:
 
             def check_active():
                 cancellation.check_active()
@@ -532,12 +539,13 @@ def run_private_native_pdf_build(
 def replay_private_pdf_build(
     engine: Engine,
     build: PdfBuildRef,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     replays: Iterable[PdfReplayRef],
     *,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
     cancellation: BorrowerCancellation | None = None,
+    owned_check: Callable[[], None] | None = None,
 ) -> PdfBuildRef:
     """Explicitly resume exact durable IPC output without invoking recognition again."""
     from corpus_structure.semantic.contracts import require_database_operation
@@ -546,7 +554,10 @@ def replay_private_pdf_build(
     cancellation = cancellation or BorrowerCancellation()
     if build.task_id != claim.task_id or build.release_id != claim.release_id:
         raise ValueError("private PDF replay task/release differs from original build")
-    with maintained_claims(engine, [claim], holder) as check_claim_active:
+    with (
+            maintained_claims(engine, [claim], holder)
+            if owned_check is None else nullcontext(owned_check)
+        ) as check_claim_active:
 
         def check_active():
             cancellation.check_active()
@@ -577,7 +588,7 @@ def replay_private_pdf_build(
 
 def publish_pdf_record_draft(
     engine: Engine,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     draft: PdfRecordPublicationDraft,
     *,
@@ -768,7 +779,7 @@ def publish_pdf_record_draft(
 
 def produce_published_pdf_records(
     engine: Engine,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     request: PdfRecordProducerRequest,
     *,
@@ -854,6 +865,7 @@ def produce_published_pdf_records(
         nemotron_endpoint=request.nemotron_endpoint,
         require_nemotron_handoff=request.require_nemotron_handoff,
         cancellation=cancellation,
+        owned_check=check_active,
     )
     check_active()
     with _pdf_transaction(engine, cancellation) as connection:
@@ -868,7 +880,7 @@ def produce_published_pdf_records(
 
 def migrate_retained_pdf_envelope(
     engine: Engine,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     *,
     path: Path,
@@ -1058,7 +1070,7 @@ def _adopt_retained_serialization(
 
 def _check_pdf_build_premises(
     state: PdfBuildState,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     source_digest: str,
     recipe_digest: str,
     schema_digest: str,
@@ -1118,7 +1130,7 @@ def _finish_frozen_pdf(
 
 def resume_pdf_publication(
     engine: Engine,
-    claim: ClaimedTask,
+    claim: OwnedClaim,
     holder: str,
     *,
     product_key: str,

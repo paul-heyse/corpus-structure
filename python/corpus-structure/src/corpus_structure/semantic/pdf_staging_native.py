@@ -41,53 +41,123 @@ def native_payload_size_sql(relation, *, alias="s") -> str:
 
 def stage_native_sql() -> str:
     sql = """
-CREATE OR REPLACE FUNCTION ops.require_pdf_stage_owner(p_task bigint,p_attempt bigint,p_holder
- text)
-RETURNS ops.run LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE job ops.task; run ops.run;
+CREATE OR REPLACE FUNCTION ops.pdf_task_context(p_task bigint)
+RETURNS TABLE(project_id text,release_id text,run_id bigint,request_id text,generation bigint,
+ document_id bigint,source_digest text)
+LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
+DECLARE job ops.task; legacy ops.run; request ops.data_request; document kb.document;
+BEGIN
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
+ IF job.data_request_id IS NOT NULL THEN
+ SELECT * INTO STRICT request FROM ops.data_request WHERE id=job.data_request_id;
+ SELECT * INTO STRICT document FROM kb.document d WHERE d.project_id=request.project_id
+ AND d.key=request.original_source AND d.mime='application/pdf';
+ RETURN QUERY SELECT request.project_id,job.release_id,NULL::bigint,request.id,
+ job.data_generation::bigint,document.id,document.content_hash;
+ ELSE
+ SELECT * INTO STRICT legacy FROM ops.run WHERE id=job.run_id;
+ IF job.unit_type='document' THEN
+ SELECT * INTO STRICT document FROM kb.document d WHERE d.id=job.unit_id
+ AND d.project_id=legacy.project_id;
+ ELSIF job.unit_type='source_view' THEN
+ SELECT d.* INTO STRICT document FROM kb.document d
+ JOIN kb.source_view view ON view.document_id=d.id
+ JOIN ops.run_source_view selected ON selected.source_view_id=view.id
+ WHERE view.id=job.unit_id AND selected.run_id=legacy.id AND d.project_id=legacy.project_id;
+ ELSE RAISE EXCEPTION 'PDF task has no original document context' USING ERRCODE='23514'; END IF;
+ RETURN QUERY SELECT legacy.project_id,legacy.release_id,legacy.id,NULL::text,NULL::bigint,
+ document.id,document.content_hash;
+ END IF;
+END $stage$;
+REVOKE ALL ON FUNCTION ops.pdf_task_context(bigint) FROM PUBLIC;
+CREATE OR REPLACE FUNCTION ops.pdf_stage_owner_current(p_task bigint,p_attempt bigint,p_holder text)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp AS $stage$
+DECLARE job ops.task; request ops.data_request; legacy ops.run;
+BEGIN
+ SELECT * INTO job FROM ops.task WHERE id=p_task;
+ IF NOT FOUND OR p_attempt IS NULL OR nullif(p_holder,'') IS NULL
+ OR job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder
+ OR job.status<>'running' OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp() THEN
+ RETURN false; END IF;
+ IF job.data_request_id IS NULL THEN
+ SELECT * INTO legacy FROM ops.run WHERE id=job.run_id;
+ RETURN FOUND AND NOT legacy.sealed AND legacy.status IN ('created','running');
+ END IF;
+ SELECT * INTO request FROM ops.data_request WHERE id=job.data_request_id;
+ IF NOT FOUND THEN RETURN false; END IF;
+ PERFORM ops.ddo_authorize_request(request);
+ RETURN request.generation IS NOT DISTINCT FROM job.data_generation
+ AND request.live_task_id IS NOT DISTINCT FROM job.id
+ AND request.release_id IS NOT DISTINCT FROM job.release_id
+ AND EXISTS(SELECT FROM sem.data_operation_definition definition
+ WHERE definition.release_id=request.release_id AND definition.operation_id=request.operation_id
+ AND definition.support_contract->'capabilities'->>'preparation'='pdf-native')
+ AND EXISTS(SELECT FROM ops.demand_use use_ WHERE use_.request_id=request.id
+ AND use_.generation=request.generation AND use_.fate='attached'
+ AND ops.ddo_demand_active(use_.demand_id))
+ AND ops.ddo_support_available(request,request.binding->'support')
+ AND NOT EXISTS(SELECT FROM ops.data_revocation revoked
+ WHERE revoked.scope=ops.ddo_scope(request.project_id,request.original_source)
+ AND ((revoked.selector_kind='runtime' AND revoked.selector=request.runtime_id)
+ OR (revoked.selector_kind='recipe' AND revoked.selector=request.recipe)));
+END $stage$;
+REVOKE ALL ON FUNCTION ops.pdf_stage_owner_current(bigint,bigint,text) FROM PUBLIC;
+CREATE OR REPLACE FUNCTION ops.require_pdf_stage_owner(p_task bigint,p_attempt bigint,p_holder text)
+RETURNS TABLE(project_id text,release_id text,run_id bigint,request_id text,generation bigint,
+ document_id bigint,source_digest text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
+DECLARE job ops.task; legacy ops.run; request ops.data_request; context record;
 BEGIN
  IF p_task IS NULL OR p_attempt IS NULL OR p_holder IS NULL OR p_holder='' THEN
  RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
- SELECT r.* INTO STRICT run FROM ops.run r JOIN ops.task t ON t.run_id=r.id WHERE t.id=p_task
- FOR SHARE OF r;
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=run.id FOR UPDATE;
- IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder
- OR job.status<>'running'
- OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp() OR run.sealed OR run.status
- NOT IN ('created','running') THEN
-  RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
- RETURN run;
+ SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
+ IF context.request_id IS NOT NULL THEN
+ SELECT * INTO STRICT request FROM ops.data_request WHERE id=context.request_id;
+ PERFORM ops.ddo_lock_support(request.project_id,request.original_source,
+ request.binding->'support');
+ PERFORM 1 FROM ops.data_demand demand WHERE EXISTS(SELECT FROM ops.demand_use use_
+ WHERE use_.demand_id=demand.id AND use_.request_id=request.id
+ AND use_.generation=request.generation
+ AND use_.fate='attached') ORDER BY demand.id FOR SHARE;
+ SELECT * INTO STRICT request FROM ops.data_request WHERE id=context.request_id FOR UPDATE;
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
+ ELSE
+ SELECT * INTO STRICT legacy FROM ops.run WHERE id=context.run_id FOR SHARE;
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=legacy.id FOR UPDATE;
+ END IF;
+ IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
+ RAISE EXCEPTION 'stale private PDF build owner/capability/support' USING ERRCODE='P0004'; END IF;
+ RETURN QUERY SELECT context.project_id,context.release_id,context.run_id,context.request_id,
+ context.generation,context.document_id,context.source_digest;
 END $stage$;
 REVOKE ALL ON FUNCTION ops.require_pdf_stage_owner(bigint,bigint,text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.begin_pdf_build(p_task bigint,p_attempt bigint,p_holder text,
  p_source text,p_recipe text,p_schema text,p_key text)
 RETURNS SETOF ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,
  pg_temp AS $stage$
-DECLARE run ops.run; build ops.pdf_stage_build; id text;
+DECLARE owner record; build ops.pdf_stage_build; id text;
 BEGIN
- run:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(run.release_id,'begin_pdf_build');
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ PERFORM sem.require_execution_operation(owner.release_id,'begin_pdf_build');
  IF p_source IS NULL OR p_recipe IS NULL OR NOT EXISTS(
- SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency'
+ SELECT FROM sem.input WHERE release_id=owner.release_id AND input_kind='dependency'
  AND input_name='execution/implementation/pdf/docling-validation.schema.json'
  AND content_digest=p_schema AND encode(sha256(content),'hex')=p_schema)
  OR p_key IS NULL OR p_key=''
  OR octet_length(p_key)>1024 OR NOT
  EXISTS(SELECT FROM ops.source_build s WHERE s.task_id=p_task
- AND s.release_id=run.release_id AND s.artifact_digest=p_source
+ AND s.release_id=owner.release_id AND s.artifact_digest=p_source
  AND (s.recipe_digest=p_recipe OR EXISTS(SELECT FROM ops.pdf_stage_recipe sr
  WHERE sr.task_id=p_task AND sr.source_digest=p_source
  AND sr.root_recipe_digest=s.recipe_digest AND sr.stage_recipe_digest=p_recipe)))
- OR NOT EXISTS(SELECT FROM kb.document d JOIN ops.task t ON t.id=p_task WHERE
- d.project_id=run.project_id
- AND d.content_hash=p_source AND ((t.unit_type='document' AND d.id=t.unit_id) OR
- (t.unit_type='source_view' AND EXISTS(
- SELECT FROM kb.source_view v JOIN ops.run_source_view s ON s.source_view_id=v.id WHERE
- v.id=t.unit_id AND s.run_id=run.id AND v.document_id=d.id)))) THEN
+ OR p_source IS DISTINCT FROM owner.source_digest
+ OR NOT EXISTS(SELECT FROM kb.document d WHERE d.id=owner.document_id
+ AND d.project_id=owner.project_id AND d.content_hash=p_source) THEN
  RAISE EXCEPTION 'private PDF build source custody differs' USING ERRCODE='23514'; END IF;
  id:=encode(sha256(convert_to(jsonb_build_array(p_task,p_source,p_recipe,p_schema,p_key)::text,
  'UTF8')),'hex');
- INSERT INTO ops.pdf_stage_build VALUES(id,p_task,run.id,run.release_id,p_source,p_recipe,
+ INSERT INTO ops.pdf_stage_build VALUES(id,p_task,owner.run_id,owner.release_id,p_source,p_recipe,
  p_schema,p_key,p_attempt,p_holder,'open')
  ON CONFLICT(task_id,replay_key) DO NOTHING;
  SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE task_id=p_task AND replay_key=p_key;
@@ -102,14 +172,14 @@ CREATE OR REPLACE FUNCTION ops.require_pdf_build(p_build text,p_task bigint,p_at
  p_holder text)
 RETURNS ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,
  pg_temp AS $stage$
-DECLARE run ops.run; build ops.pdf_stage_build;
+DECLARE owner record; build ops.pdf_stage_build;
 BEGIN
- run:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
  IF p_build IS NULL THEN RAISE EXCEPTION 'private PDF build is not owned/open'
  USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task
  FOR UPDATE;
- IF build.release_id IS DISTINCT FROM run.release_id OR build.attempt IS DISTINCT FROM p_attempt
+ IF build.release_id IS DISTINCT FROM owner.release_id OR build.attempt IS DISTINCT FROM p_attempt
  OR build.holder IS DISTINCT FROM p_holder OR
  build.state<>'open' THEN
  RAISE EXCEPTION 'private PDF build is not owned/open' USING ERRCODE='P0004'; END IF;
@@ -249,15 +319,15 @@ END $stage$;
 CREATE OR REPLACE FUNCTION ops.resume_pdf_build(p_build text,p_task bigint,p_attempt bigint,
  p_holder text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE run ops.run; build ops.pdf_stage_build;
+DECLARE owner record; build ops.pdf_stage_build;
 BEGIN
- run:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(run.release_id,'resume_pdf_build');
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ PERFORM sem.require_execution_operation(owner.release_id,'resume_pdf_build');
  IF p_build IS NULL THEN RAISE EXCEPTION 'private PDF resume binding differs'
  USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task
  FOR UPDATE;
- IF build.release_id IS DISTINCT FROM run.release_id OR build.state NOT IN ('open','frozen')
+ IF build.release_id IS DISTINCT FROM owner.release_id OR build.state NOT IN ('open','frozen')
  OR build.attempt>p_attempt OR (build.state='frozen' AND NOT EXISTS(
  SELECT FROM ops.pdf_frozen_build f WHERE f.build_id=build.build_id)) THEN
  RAISE EXCEPTION 'private PDF resume binding differs' USING ERRCODE='23514'; END IF;
