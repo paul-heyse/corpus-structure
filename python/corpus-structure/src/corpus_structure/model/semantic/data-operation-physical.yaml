@@ -445,6 +445,27 @@ classes:
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"},{"columns":["selected_obligation_id"],"target":"ops.data_obligation.id"}]'
       ph:checks: '["selected_obligation_id IS NOT DISTINCT FROM (evidence->''selection''->>''obligation_id'')"]'
+  data_attempt_failure:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+      attempt: {range: integer, required: true}
+      holder: {range: string, required: true}
+      failure: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      exact_attempt: {unique_key_slots: [request_id, generation, task_id, attempt, holder]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["request_id"],"target":"ops.data_request.id"},{"columns":["task_id"],"target":"ops.task.id"}]'
+      ph:checks: '["generation > 0", "attempt > 0"]'
+      ph:indexes: '[["request_id","generation","attempt"]]'
   data_demand_read:
     in_subset: [ops]
     attributes:

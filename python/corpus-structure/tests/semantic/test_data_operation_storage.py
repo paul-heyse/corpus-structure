@@ -35,7 +35,7 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
     assert {owner for owner, _ in calls} == {
         operation.semantic_id for operation in model.operations
     }
-    assert len(calls) == 15
+    assert len(calls) == 16
     assert all(call.parameters[0].native_parameter == "p_payload" for _, call in calls)
     assert all(call.result_fields[0].native_field == "payload" for _, call in calls)
     assert all(call.source_digest == native_source_digest(captured) for _, call in calls)
@@ -1223,10 +1223,11 @@ def test_native_request_renewal_uses_exact_runless_fence_and_does_not_shorten_le
         assert {name: renewed[name] for name in fence} == fence
         assert after >= before.lease_until
     publish(kernel, fence, retain(kernel, fence))
-    with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="stale"):
-        DataOperationStorage(connection).invoke(
+    with kernel["engine"].begin() as connection:
+        lost = DataOperationStorage(connection).invoke(
             "renew_data_request", {**fence, "lease_seconds": 30}
         )
+        assert lost == {**fence, "state": "lost", "reason": "fence"}
 
 
 @pytest.mark.parametrize("field", ["generation", "task_id", "attempt", "holder"])
@@ -1234,20 +1235,22 @@ def test_native_request_renewal_refuses_a_different_fence(kernel, field):
     _, _, _, attached = attach(kernel)
     fence = claim(kernel, attached)
     altered = {**fence, field: "different" if field == "holder" else fence[field] + 1}
-    with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="stale"):
-        DataOperationStorage(connection).invoke(
+    with kernel["engine"].begin() as connection:
+        lost = DataOperationStorage(connection).invoke(
             "renew_data_request", {**altered, "lease_seconds": 30}
         )
+        assert lost == {**altered, "state": "lost", "reason": "fence"}
 
 
 def test_native_request_renewal_cannot_revive_an_expired_attempt(kernel):
     _, _, _, attached = attach(kernel)
     fence = claim(kernel, attached, seconds=1)
     time.sleep(1.05)
-    with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="stale"):
-        DataOperationStorage(connection).invoke(
+    with kernel["engine"].begin() as connection:
+        lost = DataOperationStorage(connection).invoke(
             "renew_data_request", {**fence, "lease_seconds": 30}
         )
+        assert lost == {**fence, "state": "lost", "reason": "fence"}
 
 
 def test_native_request_renewal_preserves_a_shared_demand_after_one_detaches(kernel):
@@ -1278,13 +1281,11 @@ def test_native_request_renewal_preserves_a_shared_demand_after_one_detaches(ker
                 "selection": {},
             },
         )
-    with (
-        kernel["engine"].begin() as connection,
-        pytest.raises(DBAPIError, match="no attached demand"),
-    ):
-        DataOperationStorage(connection).invoke(
+    with kernel["engine"].begin() as connection:
+        lost = DataOperationStorage(connection).invoke(
             "renew_data_request", {**fence, "lease_seconds": 30}
         )
+        assert lost == {**fence, "state": "lost", "reason": "cancelled"}
 
 
 def cancel_demand(kernel, demand, reason="operator stopped this demand"):
@@ -1338,7 +1339,6 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
             },
         ) == {"state": "no-work"}
     for name, payload in [
-        ("renew_data_request", {**fence, "lease_seconds": 30}),
         ("publish_data_derivation", {**fence, "intent_id": intent["intent_id"]}),
         ("attach_data_request", wire),
         (
@@ -1512,3 +1512,100 @@ def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
             )
             == replacement.runtime_id
         )
+
+
+@pytest.mark.parametrize("retained", [False, True])
+def test_native_release_retired_failed_attempt_preserves_intent_and_physical_history(
+    kernel, retained,
+):
+    demand, _, _, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence) if retained else None
+    payload = {**fence, "physical_retirement": "confirmed",
+               "failure": {"code": "compute-error", "message": "known retired computation"}}
+    with kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
+        before = storage.invoke("read_demand_result", demand)
+        released = storage.invoke("release_data_attempt", payload)
+        assert released["state"] == "released" and released["replayed"] is False
+        assert released["retained_intent_id"] == (intent["intent_id"] if intent else None)
+        physical = connection.execute(
+            text("SELECT status,claimed_by,lease_until,error FROM ops.task WHERE id=:id"),
+            {"id": fence["task_id"]},
+        ).one()
+        assert physical.status == "pending"
+        assert physical.claimed_by is None and physical.lease_until is None
+        assert physical.error["data_attempt_failure"] == released["failure_id"]
+        current = storage.invoke("read_demand_result", demand)
+        assert current["uses"][0]["fate"] == "attached"
+        assert current["attempt_failures"] == [{
+            **fence, "failure_id": released["failure_id"], "failure": payload["failure"],
+        }]
+        pinned = storage.invoke("read_demand_result", {
+            "demand_id": demand["demand_id"], "read_id": before["read_id"],
+        })
+        assert pinned["attempt_failures"] == []
+        replacement = storage.invoke("claim_data_request", {
+            "request_id": fence["request_id"], "holder": "replacement", "lease_seconds": 30,
+        })
+        assert replacement["action"] == ("reconcile" if retained else "compute")
+        assert replacement["attempt"] == fence["attempt"] + 1
+        replay = storage.invoke("release_data_attempt", payload)
+        assert replay == {**released, "replayed": True}
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_attempt_failure")) == 1
+        assert connection.scalar(text("SELECT status FROM ops.task WHERE id=:id"),
+                                 {"id": fence["task_id"]}) == "running"
+        lost = storage.invoke("renew_data_request", {**fence, "lease_seconds": 30})
+        assert lost == {**fence, "state": "lost", "reason": "fence"}
+
+
+def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sibling(kernel):
+    from datetime import datetime
+    from threading import Event
+
+    from corpus_structure.orchestrate.data_operations import NativeRequestClaim
+    from corpus_structure.semantic.claim_lifetime import ClaimFenceLost, maintained_claims
+
+    first, _, _, first_request = attach(kernel, subject="subject:first")
+    _, _, _, second_request = attach(kernel, subject="subject:second")
+    claims = []
+    with kernel["engine"].begin() as connection:
+        for request in (first_request, second_request):
+            response = DataOperationStorage(connection).invoke("claim_data_request", {
+                "request_id": request["request_id"], "holder": "owner", "lease_seconds": 30,
+            })
+            claims.append(NativeRequestClaim(
+                response["request_id"], response["generation"], response["task_id"],
+                response["attempt"], response["holder"], kernel["prepared"].release_id,
+                datetime.fromisoformat(response["lease_until"].replace("Z", "+00:00")),
+            ))
+    sibling_renewed = Event()
+
+    def renew(connection, claim):
+        response = DataOperationStorage(connection).invoke("renew_data_request", {
+            **claim.fence, "lease_seconds": 30,
+        })
+        if response["state"] == "lost":
+            raise ClaimFenceLost(claim, response["reason"])
+        if claim == claims[1]:
+            sibling_renewed.set()
+
+    cancel_demand(kernel, first)
+    with pytest.raises(ClaimFenceLost), maintained_claims(
+        kernel["engine"], tuple(claims), "owner", interval=0.01, renew=renew,
+    ) as owner:
+        assert sibling_renewed.wait(10)
+        owner()
+        owner.check_claim(claims[1])
+        with pytest.raises(ClaimFenceLost) as loss:
+            owner.check_claim(claims[0])
+        assert loss.value.reason == "cancelled"
+        intent = retain(kernel, claims[1].fence)
+        receipt = owner.settle(
+            claims[1], lambda connection: DataOperationStorage(connection).invoke(
+                "publish_data_derivation", {**claims[1].fence, "intent_id": intent["intent_id"]},
+            ),
+        )
+        assert isinstance(receipt, dict)
+        assert receipt["derivation_id"]
+        assert not owner.active

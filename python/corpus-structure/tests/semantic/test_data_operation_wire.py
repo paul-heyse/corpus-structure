@@ -100,7 +100,7 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 15
+    assert len(contracts) == 16
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)
@@ -786,3 +786,35 @@ def test_selected_population_wire_accepts_only_authenticated_parent_and_frozen_f
     del selection["parent_population_id"]
     with pytest.raises(ValueError):
         validate_native_wire("select_data_population", "output", result)
+
+
+def test_renewal_loss_is_typed_and_cannot_claim_a_renewed_lease():
+    from corpus_structure.semantic.data_operation_wire import validate_native_wire
+
+    fence = {"request_id": "request:one", "generation": 1, "task_id": 2,
+             "attempt": 3, "holder": "owner"}
+    for reason in ("fence", "cancelled", "revoked", "support-unavailable"):
+        result = {**fence, "state": "lost", "reason": reason}
+        assert validate_native_wire("renew_data_request", "output", result) == result
+        with pytest.raises(ValueError):
+            validate_native_wire("renew_data_request", "output", {**result, "lease_until": "now"})
+    with pytest.raises(ValueError):
+        validate_native_wire("renew_data_request", "output", {**fence, "state": "lost"})
+
+
+def test_attempt_release_requires_confirmed_physical_retirement_and_closed_failure():
+    from corpus_structure.semantic.data_operation_wire import validate_native_wire
+
+    request = {"request_id": "request:one", "generation": 1, "task_id": 2,
+               "attempt": 3, "holder": "owner", "physical_retirement": "confirmed",
+               "failure": {"code": "compute-error", "message": "input rejected"}}
+    assert validate_native_wire("release_data_attempt", "input", request) == request
+    for state in ("unknown", "unconfirmed", "in-flight"):
+        with pytest.raises(ValueError):
+            validate_native_wire("release_data_attempt", "input", {
+                **request, "physical_retirement": state,
+            })
+    with pytest.raises(ValueError):
+        validate_native_wire("release_data_attempt", "input", {
+            **request, "failure": {"code": "compute-error"},
+        })

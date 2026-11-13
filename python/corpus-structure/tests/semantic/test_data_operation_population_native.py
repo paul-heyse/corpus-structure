@@ -181,7 +181,7 @@ def discover(kernel, *, complete=True, ambiguous=False):
         producer = storage.invoke(
             "expand_data_obligation",
             {
-                **demand,
+                "demand_id": demand["demand_id"],
                 "operation_id": "urn:discover",
                 **root,
                 "parameters": {},
@@ -190,7 +190,7 @@ def discover(kernel, *, complete=True, ambiguous=False):
         consumer = storage.invoke(
             "expand_data_obligation",
             {
-                **demand,
+                "demand_id": demand["demand_id"],
                 "operation_id": "urn:consumer",
                 **root,
                 "parameters": {},
@@ -274,12 +274,14 @@ def discover(kernel, *, complete=True, ambiguous=False):
     receipt = publish(kernel, fence, intent)
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        products = storage.invoke("read_demand_result", {**demand, "view": "products"})
+        products = storage.invoke(
+            "read_demand_result", {"demand_id": demand["demand_id"], "view": "products"},
+        )
         product = next(use["products"][0] for use in products["uses"] if use["products"])
         parent = storage.invoke(
             "close_data_population",
             {
-                **demand,
+                "demand_id": demand["demand_id"],
                 "name": "all-items",
                 "product_id": product["product_id"],
                 "derivation_id": receipt["derivation_id"],
@@ -290,7 +292,7 @@ def discover(kernel, *, complete=True, ambiguous=False):
             storage.invoke(
                 "close_data_population",
                 {
-                    **demand,
+                    "demand_id": demand["demand_id"],
                     "name": "other-items",
                     "product_id": product["product_id"],
                     "derivation_id": receipt["derivation_id"],
@@ -336,7 +338,7 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
             single = storage.invoke(
                 "read_demand_result",
                 {
-                    **demand,
+                    "demand_id": demand["demand_id"],
                     "limit": 1,
                     **(
                         {
