@@ -572,6 +572,7 @@ def series_predecessor_definitions(connection):
 
 def series_native_definitions(connection, *, include_selected=True):
     from .archive_native import archive_native_definitions
+    from .pdf_completion_native import pdf_completion_native_sql
     from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import (
         _native_shape_guard,
@@ -597,6 +598,8 @@ def series_native_definitions(connection, *, include_selected=True):
         + source_view_sql()
         + "\n"
         + observation_publication_sql()
+        + "\n"
+        + pdf_completion_native_sql()
     )
     from .data_operation_storage import data_operation_native_definitions
 
