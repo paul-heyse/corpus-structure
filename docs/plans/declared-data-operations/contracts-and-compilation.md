@@ -1,8 +1,7 @@
 # Declared data operations — contracts and compilation
 
-**Status:** DDO-01/02 foundations reopened by completion-audit finding DDO-CA-01;
-historical targeted qualification passed, 2026-11-12;
-DDO-03 and assembled qualification remain open. The coordinator owns actual package state.
+**Status:** the [coordinator](../declared-data-operations_2026-11-12.md) owns current package
+state, completion-audit dispositions and dated qualification.
 **Authored:** 2026-11-12. **Packages:** DDO-01–DDO-03.
 
 This companion specifies the governing model, semantic identities and generated binding/port
@@ -21,15 +20,16 @@ distinguishes implemented compiler/identity foundations and actual targeted test
 2026-11-12**, at product source `8c0f4f951`. Generated ports, native normalization/admission and
 production reuse/caller cutover are not established by pure preparation or framing parity.
 
-**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
-implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
-owns delivered behavior, exact qualification and all remaining functional scope. The target below
-continues to govern unfinished work; this companion is not a second completion ledger.
+**Execution owner · 2026-11-13:** the
+[coordinator execution account](../declared-data-operations_2026-11-12.md#audit-repair-execution--2026-11-13)
+owns delivered behavior, dated qualification and remaining package scope. This companion keeps
+the governing contracts; it does not maintain a second completion ledger.
 
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
-owns disposition: admitted source reflection can change results without changing a reusable recipe.
-The source frontend and identity consumer must refuse or model those observed determinants.
-DDO-CA-05 also requires complete root source/scope identity through binding and native attachment.
+introduced DDO-CA-01 (source-observing determinants) and DDO-CA-05 (complete root context).
+Their current disposition belongs to the coordinator's findings table. The contracts require
+unsupported reflection refusal or modeled determinants, and complete source/scope identity
+through binding and native attachment.
 
 ## Responsibility and delivered contracts
 

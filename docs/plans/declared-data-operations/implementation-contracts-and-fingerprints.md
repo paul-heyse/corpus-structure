@@ -20,10 +20,10 @@ unknowns withhold reuse identity. The coordinator distinguishes the successful r
 from actual inherited-family extraction/refusal and future production admission.
 
 <a id="I01"></a>
-**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
-implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
-owns delivered behavior, exact qualification and all remaining functional scope. The target below
-continues to govern unfinished work; this companion is not a second completion ledger.
+**Execution owner · 2026-11-13:** the
+[coordinator execution account](../declared-data-operations_2026-11-12.md#audit-repair-execution--2026-11-13)
+owns delivered behavior, dated qualification and remaining package scope. This companion keeps
+the governing contracts; it does not maintain a second completion ledger.
 
 ## Authoring authority and effective model — I01
 
@@ -171,8 +171,8 @@ not a second authored domain catalog.
 
 <a id="I03"></a>
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
-owns DDO-CA-01: source-position reflection currently receives an unsound complete reusable slice.
-The policy below remains required; its implementation needs refusal or exact-source coverage.
+introduced DDO-CA-01 for unsound source-position reflection. Current disposition belongs to
+the coordinator's findings table. The policy below requires refusal or explicit determinant coverage.
 
 ## Implementation slice and identity policy — I03
 

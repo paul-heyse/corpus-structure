@@ -15,10 +15,10 @@ admission; demand execution owns actual readiness; interfaces owns public result
 link here rather than independently defining graph policy. Apply core 3.3, heuristics,
 code-intelligence 1.4 and test-assessment 1.2. Expected benefits are Proposed and qualitative.
 
-**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
-implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
-owns delivered behavior, exact qualification and all remaining functional scope. The target below
-continues to govern unfinished work; this companion is not a second completion ledger.
+**Execution owner · 2026-11-13:** the
+[coordinator execution account](../declared-data-operations_2026-11-12.md#audit-repair-execution--2026-11-13)
+owns delivered behavior, dated qualification and remaining package scope. This companion keeps
+the governing contracts; it does not maintain a second completion ledger.
 
 ## Projection contract and physical route — I01
 

@@ -5,13 +5,14 @@
 Consumes DDO-01–03 contracts and provides the actual native interfaces for DDO-05–11.
 No native objects described below exist merely because this document names them.
 
-**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
-implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
-owns delivered behavior, exact qualification and all remaining functional scope. The target below
-continues to govern unfinished work; this companion is not a second completion ledger.
+**Execution owner · 2026-11-13:** the
+[coordinator execution account](../declared-data-operations_2026-11-12.md#audit-repair-execution--2026-11-13)
+owns delivered behavior, dated qualification and remaining package scope. This companion keeps
+the governing contracts; it does not maintain a second completion ledger.
 
 The [completion audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-13)
-owns the remaining delivered-capability gaps: DDO-CA-02/04 identify overlapping publication replay and missing purpose enforcement in native transitions.
+introduced DDO-CA-02/04 for overlapping publication replay and purpose enforcement.
+Their current disposition belongs to the coordinator's findings table.
 
 ## Target and representation
 
