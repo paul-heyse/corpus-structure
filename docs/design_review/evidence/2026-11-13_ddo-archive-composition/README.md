@@ -99,3 +99,14 @@ in-comment overrides and leaves frozen predecessor interpretation alone. Seven a
 controls **passed**, `f99afd352f5b4e3091822a4a10ab546b`. Static coverage remains bounded for
 dynamic SQL and unknown records; functional qualification remains required. No persistent extension
 installation is added. `publication-correction.yaml` authors normal archive-v4 after unchanged v3.
+
+
+The first v4 candidate `f8dc3b2f01214f6ca1b2d531a6ffc82c` **refused before registration**,
+with established rollback cleanup: active checking found an ambiguous PL/pgSQL `reference`
+variable versus SQL support aliases in `ddo_validate_binding`. The local population variable is
+now qualified by a distinct name. Investigation also corrected episode-ID aggregates to project
+only computational references while preserving the full original/computational support list and
+both authenticity checks. Five real PL/pgSQL controls **passed**,
+`a364c4c2afd24f8a8e365817c2817c3b`, including mixed origins and forged-original refusal.
+Checker diagnostics now collect bounded errors across selected functions; nine controls **passed**,
+`d0238fe821a3401db105b74f93d49873`. V4 remains unregistered until the refreshed candidate passes.
