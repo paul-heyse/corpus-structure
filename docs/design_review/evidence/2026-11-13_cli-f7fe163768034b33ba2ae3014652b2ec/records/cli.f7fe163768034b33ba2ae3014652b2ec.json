@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.f7fe163768034b33ba2ae3014652b2ec",
+  "title": "Retained CLI invocation f7fe163768034b33ba2ae3014652b2ec",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for DDO-03?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "8b490bc1b6c51dcf173d6593d5057620a17a2f769d855bacaace0f5f6b6b4702"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "f91daea0f9ad8a43504809773e51010831c7360d7281f90e7477fd3933d353b7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The retained invocation settled as passed.",
+  "consumed_by": [
+    "DDO-03"
+  ]
+}
