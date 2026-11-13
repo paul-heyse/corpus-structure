@@ -107,7 +107,8 @@ def test_finite_policy_and_encoded_capacity():
     assert budget.used_bytes == 0
 
 
-def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prepared):
+def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prepared, monkeypatch):
+    import multiprocessing
     policy = CharacterizationExecutionPolicy(max_packet_bytes=64)
     execution = CPUExecutionScope(prepared, policy)
     try:
@@ -117,23 +118,38 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
         execution.close()
     assert execution.budget.used_bytes == 0
     execution = CPUExecutionScope(prepared)
-    checks = 0
-
-    def cancel_while_waiting():
-        nonlocal checks
-        checks += 1
-        if checks >= 3:
-            raise RuntimeError("lost exact claim")
-
     try:
-        with (
-            pytest.raises(RuntimeError, match="lost exact claim"),
-            execution.execute(packet(prepared), {}, cancel_while_waiting),
-        ):
-            pytest.fail("cancelled claim returned a usable result")
-        assert not execution._stop.is_set()
-        with execution.execute(packet(prepared), {}, lambda: None) as sibling:
-            assert sibling.content
+        with multiprocessing.get_context("spawn").Manager() as manager:
+            started, release = manager.Event(), manager.Event()
+            pool = execution._executor()
+            submit = pool.submit
+            submissions = 0
+
+            def submit_gated(fn, *args):
+                nonlocal submissions
+                submissions += 1
+                if submissions == 1:
+                    return submit(_gated_compute, *args, started, release)
+                return submit(fn, *args)
+
+            monkeypatch.setattr(pool, "submit", submit_gated)
+
+            def cancel_while_waiting():
+                if started.is_set():
+                    raise RuntimeError("lost exact claim")
+
+            try:
+                with (
+                    pytest.raises(RuntimeError, match="lost exact claim"),
+                    execution.execute(_identified_packet(prepared, "slow"), {}, cancel_while_waiting),
+                ):
+                    pytest.fail("cancelled claim returned a usable result")
+                assert started.is_set(), "cancellation did not reach the running child"
+                assert not execution._stop.is_set()
+            finally:
+                release.set()
+            with execution.execute(packet(prepared), {}, lambda: None) as sibling:
+                assert sibling.content
     finally:
         execution.close()
     assert execution.budget.used_bytes == 0
