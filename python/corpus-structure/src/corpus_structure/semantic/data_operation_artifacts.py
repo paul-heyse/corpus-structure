@@ -19,7 +19,7 @@ from .operation_call_generation import render_call_bindings, render_call_identif
 from .types import SourceArtifact
 
 GENERATOR_VERSION = "data-operation-ports-v1"
-_GENERATOR_FILES = ("data_operation_artifacts.py", "operation_call_generation.py", "data_operation_ports.py")
+_GENERATOR_FILES = ("data_operation_artifacts.py", "operation_call_generation.py", "data_operation_ports.py", "data_operation_wire.py")
 
 
 def capture_port_generator_sources() -> tuple[SourceArtifact, ...]:
@@ -82,6 +82,10 @@ def compile_data_operation_artifacts(
         _validate_native_correspondence(model, operation, call)
         if call.source_digest != native_source_digest:
             raise ValueError("native correspondence source identity differs from captured source")
+    wire_schemas = {
+        call.id: _wire_boundary_schemas(model, model.operation(owner), call)
+        for owner, call in calls
+    }
     records = tuple((owner, asdict(call)) for owner, call in calls)
     correspondence = sha256(canonical_bytes(records)).hexdigest()
     source = render_call_bindings(
@@ -90,6 +94,7 @@ def compile_data_operation_artifacts(
         context_validator=(".data_operation_admission", "require_data_operation_call_context"),
         value_base=(".data_operation_ports", "DataOperationWireValue"),
         row_base=(".data_operation_ports", "DataOperationNativeRow"),
+        wire_schemas=wire_schemas,
     ).encode()
     identifiers = render_call_identifiers(calls).encode()
     manifest = canonical_bytes(
@@ -161,7 +166,8 @@ def _validate_native_role(
 ) -> None:
     kind = next(k for k in model.kinds if k.semantic_id == role.kind)
     facts = json.loads(kind.facts)
-    primitive = facts.get("primitive") if kind.category == "primitive" else None
+    schema = facts.get("json_schema")
+    primitive = "json" if schema is not None else facts.get("primitive") if kind.category == "primitive" else None
     native = _NATIVE_PRIMITIVES.get(primitive) if isinstance(primitive, str) else None
     resolved = field.resolved
     if native is None or resolved is None or resolved.kind != native:
@@ -176,3 +182,29 @@ def _validate_native_role(
         raise ValueError("native nullability or collection differs from required scalar role")
     if field.default_json is not None:
         raise ValueError("native default requires a declared semantic parameter/default correspondence")
+
+
+
+def _wire_boundary_schemas(model, operation, call) -> dict[str, bytes]:
+    """Lift local references into the captured wrapper document, never reread YAML."""
+    result = {}
+    for direction, fields in (("input", call.parameters), ("output", call.result_fields)):
+        properties, definitions = {}, {}
+        for role in (r for r in operation.roles if r.direction == direction):
+            kind = next(k for k in model.kinds if k.semantic_id == role.kind)
+            schema = json.loads(kind.facts).get("json_schema")
+            if schema is None:
+                continue
+            for name, definition in schema.get("definitions", {}).items():
+                if name in definitions and definitions[name] != definition:
+                    raise ValueError("wire definitions require an explicit collision-free namespace")
+                definitions[name] = definition
+            properties[role.parameter or role.name] = {key: value for key, value in schema.items() if key not in {"definitions", "$schema"}}
+        if properties:
+            if len(properties) != len(fields):
+                raise ValueError("mixed wire-schema and primitive fields need an explicit typed boundary lowering")
+            body = {"$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+            if definitions:
+                body["definitions"] = definitions
+            result[direction] = canonical_bytes(body)
+    return result

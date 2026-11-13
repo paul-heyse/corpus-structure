@@ -20,12 +20,12 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from types import CodeType, ModuleType
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .identity import canonical_bytes
@@ -43,6 +43,16 @@ class DataOperationWireValue(BaseModel):
     model_config = ConfigDict(
         frozen=True, strict=True, extra="forbid", validate_default=True, revalidate_instances="always"
     )
+
+    __wire_schema__: ClassVar[bytes | None] = None
+
+    @model_validator(mode="after")
+    def validate_captured_wire(self) -> Self:
+        schema = type(self).__wire_schema__
+        if schema is not None:
+            from .data_operation_wire import validate_wire_schema
+            validate_wire_schema(schema, self.model_dump(mode="python"))
+        return self
 
     def model_post_init(self, context: Any) -> None:
         for name in type(self).model_fields:
