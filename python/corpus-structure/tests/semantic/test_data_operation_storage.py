@@ -1411,11 +1411,23 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(kernel):
 
 
 def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
+    from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
+    from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
+
     first, _, _, attached = attach(kernel)
     old_claim = claim(kernel, attached)
     old_intent = retain(kernel, old_claim)
     cancel_demand(kernel, first)
-    _, _, _, current = attach(kernel, targets=("urn:ddo-test:source", "urn:ddo-test:sample"))
+    replacement = prepare_data_operation_runtime(
+        kernel["prepared"], kernel["runtime_inputs"], execution_profile="execution:test",
+        observed={"host": "new-demand-owner"},
+    )
+    with kernel["engine"].begin() as connection:
+        persist_runtime_binding(connection, kernel["prepared"], replacement)
+    updated = {**kernel, "runtime": replacement.runtime_id}
+    _, _, current_binding, current = attach(
+        updated, targets=("urn:ddo-test:source", "urn:ddo-test:sample")
+    )
     assert current["request_id"] == old_claim["request_id"]
     assert current["generation"] == old_claim["generation"] + 1
     assert current["task_id"] != old_claim["task_id"]
@@ -1426,5 +1438,20 @@ def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
         assert connection.scalar(
             text("SELECT status FROM ops.task WHERE id=:id"), {"id": old_claim["task_id"]}
         ) == "running"
-    receipt = publish(kernel, current_claim, retain(kernel, current_claim, outputs=(2,)))
+        current_request = connection.execute(
+            text("SELECT runtime_id,release_id,binding FROM ops.data_request WHERE id=:id"),
+            {"id": current["request_id"]},
+        ).one()
+        assert current_request.runtime_id == replacement.runtime_id
+        assert current_request.release_id == updated["prepared"].release_id
+        assert current_request.binding["read_id"] == current_binding["binding"]["read_id"]
+        assert connection.scalar(
+            text("SELECT release_id FROM ops.task WHERE id=:id"), {"id": current["task_id"]}
+        ) == current_request.release_id
+    receipt = publish(updated, current_claim, retain(updated, current_claim, outputs=(2,)))
     assert receipt["replayed"] is False
+    with kernel["engine"].connect() as connection:
+        assert connection.scalar(
+            text("SELECT runtime_id FROM ops.data_derivation WHERE id=:id"),
+            {"id": receipt["derivation_id"]},
+        ) == replacement.runtime_id
