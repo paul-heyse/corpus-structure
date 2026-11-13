@@ -145,9 +145,13 @@ def _pdf_payload_definitions(connection, sql, *, source, current_source=False):
         if len(name) != 2 or name[0] != "ops":
             continue
         if current_source:
-            # Current payload sources own their complete function closure. These
-            # two independent generators are already added once by the series.
-            if name[1] in {"pdf_native_record_shape", "pdf_record_context_rows"}:
+            # Current payload sources own their full closure except functions
+            # already governed by the series' dedicated source/shape generators.
+            if name in _CURRENT_SOURCE_GUARDS or name[1] in {
+                "pdf_native_record_shape",
+                "pdf_record_context_rows",
+                "select_source_view",
+            }:
                 continue
         elif name[1] not in _PDF_PAYLOAD_FUNCTIONS:
             continue

@@ -308,6 +308,14 @@ def test_current_pdf_payload_owns_new_helpers_without_expanding_historical_selec
     CREATE FUNCTION ops.pdf_native_record_shape(text) RETURNS boolean
       LANGUAGE sql AS $$ SELECT true $$;
     CREATE FUNCTION ops.pdf_record_context_rows(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
+    CREATE FUNCTION ops.select_source_view(bigint,bigint,bigint) RETURNS void
+      LANGUAGE sql AS $$ SELECT NULL::void $$;
+    CREATE FUNCTION ops.select_reused_source_views(bigint,bigint) RETURNS void
+      LANGUAGE sql AS $$ SELECT NULL::void $$;
+    CREATE FUNCTION ops.add_source_task_dependency(bigint,bigint) RETURNS void
+      LANGUAGE sql AS $$ SELECT NULL::void $$;
+    CREATE FUNCTION ops.validate_measurement_definition() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
     CREATE FUNCTION eval.unrelated(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
     REVOKE ALL ON FUNCTION ops.new_pdf_helper(text) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION ops.new_pdf_helper(text) TO corpus_sem_writer;

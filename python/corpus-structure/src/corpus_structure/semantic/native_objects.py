@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -527,7 +528,15 @@ class NativeAuthoring:
         desired = {item.identity for item in self.desired}
         before = {item.identity for item in self.predecessor}
         if len(desired) != len(self.desired) or len(before) != len(self.predecessor):
-            raise NativeAuthoringError("duplicate managed native identity")
+            duplicates = [
+                f"{part} {identity.kind} {identity.qualified}"
+                for part, items in (("desired", self.desired), ("predecessor", self.predecessor))
+                for identity, count in Counter(item.identity for item in items).items()
+                if count > 1
+            ]
+            raise NativeAuthoringError(
+                "duplicate managed native identity: " + "; ".join(duplicates[:12])
+            )
         if before - desired != self.retire:
             raise NativeAuthoringError(
                 "native retirement must explicitly equal removed predecessor identities"
