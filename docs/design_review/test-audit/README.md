@@ -254,8 +254,10 @@ campaign was imposed.
 | [Retirement and transfer](retirement-transfer.md) | Open: DTA-030 (footprint extended 2026-11-13) and new DTA-035, 036. 004 and 014 reconciled |
 
 Thirty-six DTA identities exist; none is retired or reused. DTA-031–036 and the footprints
-added on 2026-11-13 are unscheduled: no plan has selected them, and the 2026-11-12 design review
-left its own dispositions deferred to plan creation. DTA-031, 033, 035 and 036 concern tests of
+added on 2026-11-13 were unscheduled at publication. Since 2026-11-13 the
+[test system target design plan](../../plans/test-system-target-design_2026-11-13.md) owns the
+scheduled disposition of every open finding here (DTA-001, 006, 009, 018, 024–036) and of the
+review findings F01–F05; its findings table is the single owner of their status. DTA-031, 033, 035 and 036 concern tests of
 the declared-data-operations work; if that plan takes them up, its findings table becomes their
 disposition owner and this account links to it. The
 [test audit resolution coordinator](../../plans/test-audit-resolution_2026-11-05.md) is complete

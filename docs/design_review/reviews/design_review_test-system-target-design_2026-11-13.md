@@ -1399,6 +1399,14 @@ coordinator: the library behaviors taken from the library-mechanics report, the 
 classifications in the supporting document, and line citations inside the DDO test modules, which
 were under concurrent edit.
 
+**Dispositions, 2026-11-13.** The [test system target design plan](../../plans/test-system-target-design_2026-11-13.md)
+now owns the scheduled disposition of every finding in §14, and records the operator's decisions
+on RC01–RC04. Two of its decisions differ from this review's text and were made by the operator
+on evidence gathered during plan authoring: the deployment key is the chain plus its
+module-level import closure with a verification step, because the full closure covers 531 of the
+package's 566 modules; and a seed may hold completed attempts but no unfinished task. The review
+text above is unchanged.
+
 The two refinements this review returns to the test audit (DTA-032 covers the prepared branch;
 DTA-036's lists are accurate receipts) are recorded in the
 [account](../test-audit/README.md#refinements-returned-2026-11-13) with this attribution.
