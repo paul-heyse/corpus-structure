@@ -91,9 +91,11 @@ def operation_role_record(role: OperationRole) -> dict:
     if role.subject_field is None:
         record.pop("subject_field")
     if role.support is not None:
+        support = asdict(role.support)
         for name in ("source_set", "source_reference_field"):
-            if record["support"][name] is None:
-                record["support"].pop(name)
+            if support[name] is None:
+                support.pop(name)
+        record["support"] = support
     return record
 
 

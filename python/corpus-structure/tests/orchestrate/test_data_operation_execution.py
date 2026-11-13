@@ -34,12 +34,23 @@ def executable(ddo_kernel_engine, tmp_path, monkeypatch):
     metadata["id"] = "urn:ddo-execution:answer"
     metadata["parameters"] = {"value": {"value_type": "integer", "default": 7}}
     metadata["capabilities"]["cancellation"] = "call-boundary"
-    source = f"def answer(*, value: int = 7) -> int:\n    return value\nanswer__data_operation__ = {metadata!r}\n"
+    source = (
+        "def answer(*, value: int = 7) -> int:\n    return value\n"
+        f"answer__data_operation__ = {metadata!r}\n"
+    )
     path = tmp_path / (name + ".py")
     path.write_text(source)
     monkeypatch.syspath_prepend(str(tmp_path))
     (tmp_path / "schema.yaml").write_text(
-        'id: urn:exec\nname: target\nprefixes: {x: "urn:exec:"}\ndefault_prefix: x\ntypes:\n  integer: {base: int, uri: "http://www.w3.org/2001/XMLSchema#integer"}\nclasses:\n  Thing: {}\n'
+        """id: urn:exec
+name: target
+prefixes: {x: "urn:exec:"}
+default_prefix: x
+types:
+  integer: {base: int, uri: "http://www.w3.org/2001/XMLSchema#integer"}
+classes:
+  Thing: {}
+"""
     )
     (tmp_path / "target.yaml").write_text(f"""version: data-operation-inputs-v1
 root: target
