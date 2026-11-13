@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .data_operation_model import SubjectContext
+from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -326,7 +327,7 @@ class PreparedCanonicalPort:
                     project_product_members(self.profile.model, output.kind, typed),
                 ),
             ),
-        )
+        outcome = successful_return_outcome(self.operation))
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
         from corpus_structure.methods.canonical_sentences import CanonicalSentenceProjection

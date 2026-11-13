@@ -12,6 +12,7 @@ from typing import Any
 
 from .canonical_sentences import CanonicalProduct
 from .data_product_reference import DataProductMemberReference, reference_inputs
+from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource, source_subject
 from .types import SourceArtifact, SourceBundle
@@ -682,7 +683,7 @@ class PreparedHanlpPort:
             execution_evidence=canonical_bytes(
                 [json.loads(receipt) for receipt in product.execution_receipts]
             ),
-        )
+        outcome = successful_return_outcome(self.operation))
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
         from corpus_structure.methods.hanlp_evidence import HanlpEvidenceOperation

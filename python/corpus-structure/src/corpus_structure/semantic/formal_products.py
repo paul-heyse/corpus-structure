@@ -32,6 +32,7 @@ from .formal_evidence import (
     extract_formal_facts,
     grammar_identity,
 )
+from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSourceCollection
 from .source_products import (
@@ -830,7 +831,7 @@ class PreparedFormalEvidencePort:
                     project_product_members(self.profile.model, output.kind, model_value),
                 ),
             ),
-        )
+        outcome = successful_return_outcome(self.operation))
 
     def invoke_python(
         self,

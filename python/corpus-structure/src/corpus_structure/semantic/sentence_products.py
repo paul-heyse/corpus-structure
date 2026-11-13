@@ -31,6 +31,7 @@ from corpus_structure.ingest.sentences import (
 )
 
 from .data_operation_model import SubjectContext
+from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource, source_product_inputs, source_subject
 from .types import PreparedRelease, SourceArtifact, SourceBundle
@@ -1066,7 +1067,7 @@ class PreparedSentencePort:
             execution_evidence=canonical_bytes(
                 [json.loads(receipt) for receipt in product.execution_receipts]
             ),
-        )
+        outcome = successful_return_outcome(self.operation))
 
     @property
     def native_selections(self):
