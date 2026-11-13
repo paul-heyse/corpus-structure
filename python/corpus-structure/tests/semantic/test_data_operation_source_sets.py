@@ -65,6 +65,7 @@ def test_source_set_normalizes_exact_fraction_and_exponent_scope_without_float_r
     first = replace(entry(), analyzed_scope=b'{"coordinate":0.123456789012345678901,"scale":1e+30}')
     encoded = source_sets_record((FrozenSourceSet("inputs", (first,)),))
     assert encoded["inputs"][0]["analyzed_scope"] == {
-        "coordinate": Decimal("0.123456789012345678901"), "scale": Decimal("1e30"),
+        "coordinate": Decimal("0.123456789012345678901"),
+        "scale": Decimal("1e30"),
     }
     assert read_source_sets(encoded)[0].entries == (first,)

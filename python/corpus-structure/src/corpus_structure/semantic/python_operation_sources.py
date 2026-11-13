@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Never
@@ -1246,18 +1247,85 @@ class ClosedPythonSources:
 
             extractor = self
             value_methods = {
-                "builtins.str": {**dict.fromkeys(("lower", "upper", "casefold", "strip", "lstrip", "rstrip", "replace", "join", "removeprefix", "removesuffix", "capitalize", "title", "swapcase", "format", "format_map"), "builtins.str"),
-                    **dict.fromkeys(("startswith", "endswith", "isalpha", "isalnum", "isdigit", "isspace", "isdecimal", "isnumeric", "islower", "isupper"), "builtins.bool"),
+                "builtins.str": {
+                    **dict.fromkeys(
+                        (
+                            "lower",
+                            "upper",
+                            "casefold",
+                            "strip",
+                            "lstrip",
+                            "rstrip",
+                            "replace",
+                            "join",
+                            "removeprefix",
+                            "removesuffix",
+                            "capitalize",
+                            "title",
+                            "swapcase",
+                            "format",
+                            "format_map",
+                        ),
+                        "builtins.str",
+                    ),
+                    **dict.fromkeys(
+                        (
+                            "startswith",
+                            "endswith",
+                            "isalpha",
+                            "isalnum",
+                            "isdigit",
+                            "isspace",
+                            "isdecimal",
+                            "isnumeric",
+                            "islower",
+                            "isupper",
+                        ),
+                        "builtins.bool",
+                    ),
                     **dict.fromkeys(("find", "rfind", "index", "rindex", "count"), "builtins.int"),
                     **dict.fromkeys(("split", "rsplit", "splitlines"), "builtins.list"),
-                    "partition": "builtins.tuple", "rpartition": "builtins.tuple", "encode": "builtins.bytes"},
-                "builtins.bytes": {"decode": "builtins.str", "hex": "builtins.str", "count": "builtins.int", "find": "builtins.int"},
-                "builtins.int": {"bit_count": "builtins.int", "bit_length": "builtins.int", "to_bytes": "builtins.bytes"},
-                "builtins.float": {"hex": "builtins.str", "is_integer": "builtins.bool", "as_integer_ratio": "builtins.tuple"},
+                    "partition": "builtins.tuple",
+                    "rpartition": "builtins.tuple",
+                    "encode": "builtins.bytes",
+                },
+                "builtins.bytes": {
+                    "decode": "builtins.str",
+                    "hex": "builtins.str",
+                    "count": "builtins.int",
+                    "find": "builtins.int",
+                },
+                "builtins.int": {
+                    "bit_count": "builtins.int",
+                    "bit_length": "builtins.int",
+                    "to_bytes": "builtins.bytes",
+                },
+                "builtins.float": {
+                    "hex": "builtins.str",
+                    "is_integer": "builtins.bool",
+                    "as_integer_ratio": "builtins.tuple",
+                },
                 "builtins.tuple": {"count": "builtins.int", "index": "builtins.int"},
-                "builtins.list": {"count": "builtins.int", "index": "builtins.int", "copy": "builtins.list"},
-                "builtins.dict": {"get": None, "items": None, "keys": None, "values": None, "copy": "builtins.dict"},
-                "builtins.set": {"issubset": "builtins.bool", "issuperset": "builtins.bool", "isdisjoint": "builtins.bool", "union": "builtins.set", "intersection": "builtins.set", "difference": "builtins.set"},
+                "builtins.list": {
+                    "count": "builtins.int",
+                    "index": "builtins.int",
+                    "copy": "builtins.list",
+                },
+                "builtins.dict": {
+                    "get": None,
+                    "items": None,
+                    "keys": None,
+                    "values": None,
+                    "copy": "builtins.dict",
+                },
+                "builtins.set": {
+                    "issubset": "builtins.bool",
+                    "issuperset": "builtins.bool",
+                    "isdisjoint": "builtins.bool",
+                    "union": "builtins.set",
+                    "intersection": "builtins.set",
+                    "difference": "builtins.set",
+                },
             }
 
             def annotated_value(annotation):
@@ -1267,17 +1335,21 @@ class ClosedPythonSources:
                 if isinstance(annotation, cst.Annotation):
                     annotation = annotation.annotation
                 if isinstance(annotation, cst.CSTNode):
-                    lookup = annotation.value if isinstance(annotation, cst.Subscript) else annotation
+                    lookup = (
+                        annotation.value if isinstance(annotation, cst.Subscript) else annotation
+                    )
                     candidates = module.names.get(lookup, set())
                     candidates = candidates() if callable(candidates) else candidates
-                    names = [candidate.name if candidate.source != QualifiedNameSource.LOCAL
-                             else module_name + "." + candidate.name for candidate in candidates]
+                    names = [
+                        candidate.name
+                        if candidate.source != QualifiedNameSource.LOCAL
+                        else module_name + "." + candidate.name
+                        for candidate in candidates
+                    ]
                     if not names:
                         text = module.wrapper.module.code_for_node(annotation)
-                        try:
+                        with suppress(ValueError, SyntaxError):
                             text = ast.literal_eval(text)
-                        except (ValueError, SyntaxError):
-                            pass
                         names = [text] if isinstance(text, str) else []
                 else:
                     names = [getattr(annotation, "canonical_path", None) or str(annotation)]
@@ -1287,7 +1359,18 @@ class ClosedPythonSources:
                     # Generic containers retain container operations, not arbitrary
                     # attributes of an unknown element returned by indexing/get.
                     primitive = name.split("[", 1)[0]
-                    if primitive in {"str", "int", "float", "bool", "bytes", "tuple", "list", "dict", "set", "frozenset"}:
+                    if primitive in {
+                        "str",
+                        "int",
+                        "float",
+                        "bool",
+                        "bytes",
+                        "tuple",
+                        "list",
+                        "dict",
+                        "set",
+                        "frozenset",
+                    }:
                         outcomes.append(("value", ("builtins." + primitive,)))
                         continue
                     try:
@@ -1297,7 +1380,11 @@ class ClosedPythonSources:
                     if not isinstance(obj, griffe.Class):
                         return "unknown", ()
                     outcomes.append(("instance", (obj.path,)))
-                return outcomes[0] if outcomes and all(item == outcomes[0] for item in outcomes) else ("unknown", ())
+                return (
+                    outcomes[0]
+                    if outcomes and all(item == outcomes[0] for item in outcomes)
+                    else ("unknown", ())
+                )
 
             def expression_binding(expression, active=frozenset()):
                 """Resolve supported receiver provenance, never arbitrary object inference.
@@ -1400,18 +1487,31 @@ class ClosedPythonSources:
                                 member = cls.all_members.get(expression.attr.value)
                                 if isinstance(member, griffe.Alias):
                                     member = member.final_target
-                            except (PreparationError, griffe.AliasResolutionError):
+                            except PreparationError, griffe.AliasResolutionError:
                                 return "unknown", ()
                             if isinstance(member, griffe.Function):
-                                unknowns.add(SourceUnknown(path, location,
-                                    "nominal input method dispatch requires an admitted concrete receiver model"))
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path,
+                                        location,
+                                        "nominal input method dispatch requires "
+                                        "an admitted concrete receiver model",
+                                    )
+                                )
                                 results.append(("callable", (member.path,)))
-                            elif isinstance(member, griffe.Attribute) and "property" not in member.labels:
+                            elif (
+                                isinstance(member, griffe.Attribute)
+                                and "property" not in member.labels
+                            ):
                                 reference(path, member.path, "implementation_determinant", location)
                                 results.append(annotated_value(member.annotation))
                             else:
                                 return "unknown", ()
-                        return results[0] if results and all(item == results[0] for item in results) else ("unknown", ())
+                        return (
+                            results[0]
+                            if results and all(item == results[0] for item in results)
+                            else ("unknown", ())
+                        )
                     if kind in {"module", "class", "receiver"}:
                         results = []
                         for target in targets:
@@ -1433,12 +1533,21 @@ class ClosedPythonSources:
                                 )
                             )
                         categories = {k for k, _ in results}
-                        return (next(iter(categories)), tuple(t for _, t in results)) if len(categories) == 1 else ("unknown", ())
+                        return (
+                            (next(iter(categories)), tuple(t for _, t in results))
+                            if len(categories) == 1
+                            else ("unknown", ())
+                        )
                     if kind == "value" and targets:
-                        returns = [value_methods.get(target, {}).get(expression.attr.value, "unsupported") for target in targets]
+                        returns = [
+                            value_methods.get(target, {}).get(expression.attr.value, "unsupported")
+                            for target in targets
+                        ]
                         if any(result == "unsupported" for result in returns):
                             return "unknown", ()
-                        return "value-callable", tuple(result for result in returns if result is not None)
+                        return "value-callable", tuple(
+                            result for result in returns if result is not None
+                        )
                     return "unknown", ()
                 if isinstance(expression, cst.Call):
                     kind, targets = expression_binding(expression.func, active)
@@ -1447,8 +1556,12 @@ class ClosedPythonSources:
                     if kind == "opaque":
                         return "opaque", targets
                     return ("value", targets) if kind == "value-callable" else ("unknown", ())
-                for syntax, typename in ((cst.Integer, "int"), (cst.Float, "float"),
-                                         (cst.SimpleString, "str"), (cst.Tuple, "tuple")):
+                for syntax, typename in (
+                    (cst.Integer, "int"),
+                    (cst.Float, "float"),
+                    (cst.SimpleString, "str"),
+                    (cst.Tuple, "tuple"),
+                ):
                     if isinstance(expression, syntax):
                         return "value", ("builtins." + typename,)
                 return "unknown", ()
@@ -1492,9 +1605,26 @@ class ClosedPythonSources:
                                 allowed = True
                                 break
                             ancestor_for_use = module.parent_nodes.get(ancestor_for_use)
-                        if kind in {"callable", "class", "module", "opaque", "receiver", "value-callable"} and not allowed and not isinstance(parent, cst.Arg):
-                            unknowns.add(SourceUnknown(path, location,
-                                "callable/object escape requires an admitted use model"))
+                        if (
+                            kind
+                            in {
+                                "callable",
+                                "class",
+                                "module",
+                                "opaque",
+                                "receiver",
+                                "value-callable",
+                            }
+                            and not allowed
+                            and not isinstance(parent, cst.Arg)
+                        ):
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "callable/object escape requires an admitted use model",
+                                )
+                            )
                     relation = "resolved_definition"
                     ancestor = parent
                     while ancestor is not None:
@@ -1538,9 +1668,14 @@ class ClosedPythonSources:
                     if module.contexts.get(node) == ExpressionContext.LOAD:
                         kind, targets = expression_binding(node)
                         if kind == "unknown":
-                            unknowns.add(SourceUnknown(path, location,
-                                "unsupported observable attribute access "
-                                + module.wrapper.module.code_for_node(node)))
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "unsupported observable attribute access "
+                                    + module.wrapper.module.code_for_node(node),
+                                )
+                            )
                         if kind != "value-callable":
                             for target in targets:
                                 if not target.startswith("builtins."):
@@ -1624,9 +1759,23 @@ class ClosedPythonSources:
 
                         def visit_Attribute(self, node):
                             kind, _ = expression_binding(node)
-                            if kind in {"callable", "class", "module", "opaque", "receiver", "value-callable", "instance"}:
-                                unknowns.add(SourceUnknown(path, location,
-                                    "callable/object escape requires an admitted argument model"))
+                            if kind in {
+                                "callable",
+                                "class",
+                                "module",
+                                "opaque",
+                                "receiver",
+                                "value-callable",
+                                "instance",
+                            }:
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path,
+                                        location,
+                                        "callable/object escape requires "
+                                        "an admitted argument model",
+                                    )
+                                )
                             return False
 
                         def visit_Name(self, node):
@@ -1638,7 +1787,15 @@ class ClosedPythonSources:
                                 # resource/configuration contract; this is not a
                                 # callable escape into an arbitrary observer.
                                 return
-                            if kind in {"callable", "class", "module", "opaque", "receiver", "value-callable", "instance"}:
+                            if kind in {
+                                "callable",
+                                "class",
+                                "module",
+                                "opaque",
+                                "receiver",
+                                "value-callable",
+                                "instance",
+                            }:
                                 # Class predicates have an explicit, nonescaping type argument.
                                 if text in {"isinstance", "issubclass"} and kind == "class":
                                     return
@@ -1747,8 +1904,11 @@ class ClosedPythonSources:
                         elif first not in {"self", "cls"} and first not in bound_inputs:
                             kind, targets = expression_binding(expression)
                             if kind not in {"opaque", "callable", "value-callable"}:
-                                unknowns.add(SourceUnknown(path, location,
-                                    "unsupported member dispatch " + text))
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path, location, "unsupported member dispatch " + text
+                                    )
+                                )
                             if kind != "value-callable":
                                 for target in targets:
                                     reference(path, target, "possible_call", location)

@@ -1267,6 +1267,7 @@ def _verify_generated_typeddict(value, node, module):
 
 def _verify_generated_dataclass(value, node, module, *, qualname):
     """Check the selected standard transformation without running a factory."""
+
     def same_default(actual: Any, modeled: Any) -> bool:
         # Generated factory defaults use the standard singleton sentinel. Literal
         # defaults need recursive type equality: (True,) must not match (1,).
@@ -1354,8 +1355,11 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
                     raise PortRefusal("unsupported dataclass field option")
         elif declaration.value is not None:
             default = ast.literal_eval(declaration.value)
-        if (actual.default_factory is not factory or actual.kw_only != kw_only
-                or not same_default(actual.default, default)):
+        if (
+            actual.default_factory is not factory
+            or actual.kw_only != kw_only
+            or not same_default(actual.default, default)
+        ):
             raise PortRefusal("dataclass default or factory correspondence differs")
     if set(actual_fields) != set(expected_names):
         raise PortRefusal("generated dataclass acquired undeclared fields")

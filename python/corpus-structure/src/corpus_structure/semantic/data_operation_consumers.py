@@ -189,8 +189,14 @@ def hydrate_consumer_selection(
     if type(max_bytes) is not int or max_bytes <= 0:
         raise ValueError("native hydration requires explicit positive packet capacity")
     projections = admitted_data_projection(
-        connection, demand_id, binding.operation, trust_snapshot, model, read_id=read_id,
-        subject=context.subject, original_source=context.original_source,
+        connection,
+        demand_id,
+        binding.operation,
+        trust_snapshot,
+        model,
+        read_id=read_id,
+        subject=context.subject,
+        original_source=context.original_source,
         analyzed_scope=json_loads(context.analyzed_scope),
     )
     if set(binding.admission_evidence) != {
