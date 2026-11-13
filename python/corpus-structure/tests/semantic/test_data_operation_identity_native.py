@@ -83,3 +83,34 @@ def test_native_frame_matches_independent_literal_vectors(semantic_db_engine):
                 savepoint.rollback()
         finally:
             transaction.rollback()
+
+
+@pytest.mark.db
+def test_json_subject_context_encoding_matches_literals_and_python(semantic_db_engine):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
+    start = source.index("CREATE OR REPLACE FUNCTION data.ddo_json_meaning(")
+    end = source.index("CREATE OR REPLACE FUNCTION data.ddo_identity(", start)
+    helper = source[start:end].replace("data.ddo_json_meaning", "pg_temp.ddo_json_meaning")
+    vectors = [
+        ("null", ["null"]), ("true", ["boolean", True]),
+        ('"1"', ["string", "1"]), ("1", ["decimal", "1"]),
+        ("1.0", ["decimal", "1"]), ("1e6", ["decimal", "1000000"]),
+        ("-0.0", ["decimal", "0"]),
+        ('{"page":1,"slots":[false,"x",null]}', ["mapping", [
+            ["page", ["decimal", "1"]],
+            ["slots", ["sequence", [["boolean", False], ["string", "x"], ["null"]]]],
+        ]]),
+    ]
+    with semantic_db_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            connection.exec_driver_sql(helper)
+            for value, expected in vectors:
+                assert connection.execute(text("SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb))"), {"value": value}).scalar_one() == expected
+                context = SubjectContext("project", "local", "original", value.encode())
+                actual = connection.execute(text("SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb))"), {"value": json.dumps(context.record)}).scalar_one()
+                assert actual == semantic_value(context.identity_record)
+        finally:
+            transaction.rollback()
