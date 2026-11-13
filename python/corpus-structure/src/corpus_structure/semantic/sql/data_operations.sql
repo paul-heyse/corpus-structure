@@ -540,7 +540,7 @@ CREATE OR REPLACE FUNCTION data.ddo_field(v jsonb,k text) RETURNS jsonb
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$ SELECT value->1 FROM jsonb_array_elements(v->1) WHERE value->>0=k $$;
 CREATE OR REPLACE FUNCTION ops.ddo_validate_binding(r ops.data_request,o ops.data_obligation,def sem.data_operation_definition,b jsonb,meaning jsonb,replicate text) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; witness jsonb; role_meaning jsonb; state text; reference jsonb; lexical_alternative text;
+DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; witness jsonb; role_meaning jsonb; state text; population_reference jsonb; lexical_alternative text;
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=o.demand_id;
  IF b->>'inference' IS DISTINCT FROM d.selection->>'inference'
@@ -563,16 +563,16 @@ BEGIN
  IF state NOT IN ('present','known-absent') OR (state='known-absent' AND roledef->>'presence'='required') THEN RAISE EXCEPTION 'incomplete input cannot attach runnable request'; END IF;
  witness:=rv->'population_witness';
  pop:=NULL;
- SELECT value INTO reference FROM jsonb_array_elements(b->'populations') ref WHERE ref->>'role'=roledef->>'name';
+ SELECT value INTO population_reference FROM jsonb_array_elements(b->'populations') ref WHERE ref->>'role'=roledef->>'name';
  IF witness IS NOT NULL AND witness<>'null'::jsonb AND witness ? 'identity' THEN
- IF reference IS NULL THEN RAISE EXCEPTION 'population witness lacks authenticated native receipt reference'; END IF;
- SELECT * INTO STRICT pop FROM ops.data_population WHERE id=reference->>'population_id' AND demand_id=d.id AND name=reference->>'name';
+ IF population_reference IS NULL THEN RAISE EXCEPTION 'population witness lacks authenticated native receipt reference'; END IF;
+ SELECT * INTO STRICT pop FROM ops.data_population WHERE id=population_reference->>'population_id' AND demand_id=d.id AND name=population_reference->>'name';
  IF NOT ops.ddo_population_valid(pop) THEN RAISE EXCEPTION 'population witness is historical or revoked'; END IF;
  IF pop.evidence ? 'selection' AND (pop.evidence->'selection'->>'obligation_id',pop.evidence->'selection'->>'operation_id',pop.evidence->'selection'->>'subject',pop.evidence->'selection'->>'original_source') IS DISTINCT FROM (o.id,o.operation_id,o.subject,o.original_source) THEN RAISE EXCEPTION 'selected population belongs to another binding context'; END IF;
  expected:=ops.ddo_binding_population_meaning(jsonb_build_object('identity',pop.semantic_key,'complete',pop.complete,'members',(SELECT coalesce(jsonb_agg(value->'member_id' ORDER BY n),'[]') FROM jsonb_array_elements(pop.members) WITH ORDINALITY entry(value,n)),'evidence',pop.evidence),roledef->'identity_requirements' ? 'episode');
  IF witness IS DISTINCT FROM expected THEN RAISE EXCEPTION 'population semantic witness differs from native closure value'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(b->'support') selected WHERE selected->>'role'='population:'||pop.name AND selected->>'derivation_id'=pop.evidence->>'derivation_id' AND selected->>'admission_use_id'=pop.evidence->>'admission_use_id') THEN RAISE EXCEPTION 'population closure lacks authentic derivation support'; END IF;
- ELSIF reference IS NOT NULL THEN RAISE EXCEPTION 'unexpected native population receipt for unwitnessed role';
+ ELSIF population_reference IS NOT NULL THEN RAISE EXCEPTION 'unexpected native population receipt for unwitnessed role';
  END IF;
  IF state='known-absent' AND EXISTS(SELECT FROM jsonb_array_elements(b->'inputs') i WHERE i->>'role'=roledef->>'name') THEN RAISE EXCEPTION 'absent role cannot carry native inputs'; END IF;
  IF state='known-absent' AND pop.id IS NOT NULL AND NOT pop.complete THEN RAISE EXCEPTION 'open population cannot establish absence'; END IF;
