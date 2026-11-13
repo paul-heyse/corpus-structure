@@ -263,8 +263,9 @@ class FormalEvidenceOperation:
                 "presence": "required",
                 "parameter": "source",
                 "support": {
-                    "provenance": "exact",
-                    "identity_requirements": ["episode"],
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["original-source"],
                     "source": "original-source",
                     "coverage": "selected-scope",
                 },
