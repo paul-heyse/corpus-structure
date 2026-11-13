@@ -266,6 +266,7 @@ class EffectiveOperation:
     replicate_policy: str = "deterministic-single-result"
     support_policy: str = "all-declared-input-support"
     potential_dependencies: tuple[str, ...] = ()
+    result_fields: tuple[tuple[str, str], ...] = ()
 
     @property
     def recipe(self) -> bytes:
@@ -288,6 +289,7 @@ class EffectiveOperation:
                 "effects": [asdict(effect) for effect in self.effects],
                 "replicate_policy": self.replicate_policy,
                 "support_policy": self.support_policy,
+                **({"result_fields": dict(self.result_fields)} if self.result_fields else {}),
             }
         )
 
@@ -363,6 +365,9 @@ class EffectiveDataOperationModel:
             return value
 
         record = asdict(self)
+        for operation in record["operations"]:
+            if not operation["result_fields"]:
+                operation.pop("result_fields")
         if self.version == ARCHIVED_MODEL_VERSION:
             # Re-export the v1 shape, including its absence of v2 constructs.
             def historical_expression(expression):
@@ -455,6 +460,10 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
         archived_fields = expected - historical.keys() if archived_v1 else expected
 
         def structure(value, _):
+            if cls is EffectiveOperation and isinstance(value, dict):
+                if archived_v1 and "result_fields" in value:
+                    raise ValueError("v1 operation cannot declare result correspondence")
+                value = {"result_fields": [], **value}
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
             return build({**value, **historical} if archived_v1 else value, cls)
