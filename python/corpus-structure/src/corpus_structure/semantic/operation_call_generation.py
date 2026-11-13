@@ -640,18 +640,21 @@ def _all_call_fields(call):
 
 
 def render_operation_identifiers(model):
-    """Keep semantic identifiers importable without SQL, models, or Arrow initialization."""
+    """Render legacy inputs through the shared, model-independent emitter."""
+    return render_call_identifiers(tuple((op.id, call) for op in model.operations for call in op.calls))
+
+
+def render_call_identifiers(calls):
+    """Keep identifiers importable without inventing another semantic model."""
     aliases = {
         field.semantic_type: _PRIMITIVES[field.resolved.kind]
-        for operation in model.operations
-        for call in operation.calls
+        for _, call in calls
         for field in _all_call_fields(call)
         if field.semantic_type
     }
     enums = {
         _enum_alias(field): field.resolved.enum_values
-        for operation in model.operations
-        for call in operation.calls
+        for _, call in calls
         for field in _all_call_fields(call)
         if field.resolved.enum_values
     }
@@ -673,8 +676,17 @@ def render_operation_identifiers(model):
 
 
 def render_operation_calls(model, metadata=None):
-    """Emit fixed callable signatures, Core invocations and positional materializers."""
-    calls = [(operation.id, call) for operation in model.operations for call in operation.calls]
+    """Render legacy inputs through the shared, model-independent emitter."""
+    return render_call_bindings(
+        tuple((operation.id, call) for operation in model.operations for call in operation.calls),
+        metadata,
+    )
+
+
+def render_call_bindings(
+    calls, metadata=None, *, identifiers_module="._operation_ids", context_validator=None, value_base=None
+):
+    """Emit already resolved immutable correspondences, irrespective of their model owner."""
     out = [
         '"""Generated from execution call correspondences; do not edit."""',
         "from __future__ import annotations",
@@ -695,9 +707,17 @@ def render_operation_calls(model, metadata=None):
         "from .types import PreparedRelease",
         "from .metadata import table as _core_table",
         "from .operation_value_types import (HeldProgress, NativeResultViolation, "
-        "OperationResult, NativeRowResult, held_progress, require_call_context, "
-        "native_result_scope, native_result_value, SQL_NULL, SqlNull)",
+        + ("OperationResult, " if value_base is None else "")
+        + "NativeRowResult, held_progress, "
+        + ("require_call_context, " if context_validator is None else "")
+        + "native_result_scope, native_result_value, SQL_NULL, SqlNull)",
     ]
+    if value_base is not None:
+        module, symbol = value_base
+        out += [f"from {module} import {symbol} as OperationResult"]
+    if context_validator is not None:
+        module, symbol = context_validator
+        out += [f"from {module} import {symbol} as require_call_context"]
     aliases, emitted = {}, set()
     enum_aliases = {
         field.source: _enum_alias(field)
@@ -807,9 +827,9 @@ def render_operation_calls(model, metadata=None):
         for field in _all_call_fields(call):
             if field.semantic_type:
                 aliases[field.semantic_type] = _PRIMITIVES[field.resolved.kind]
-    out += [f"from ._operation_ids import {name} as {name}" for name in sorted(aliases)]
+    out += [f"from {identifiers_module} import {name} as {name}" for name in sorted(aliases)]
     out += [
-        f"from ._operation_ids import {name} as {name}"
+        f"from {identifiers_module} import {name} as {name}"
         for name in sorted(set(enum_aliases.values()))
     ]
     out += [
