@@ -1,6 +1,6 @@
 # Test system target design
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13. **Revised:** 2026-11-13.
+**Status:** Execution in progress; qualification remains open. **Created:** 2026-11-13. **Revised:** 2026-11-13.
 This coordinator owns the series' combined target, shared contracts, package queue, rule-change
 record and the scheduled disposition of every finding it lists. Companion plans own the detailed
 designs and package descriptions. Architecture pages and accepted ADRs remain the authority;
@@ -160,23 +160,23 @@ binds. A package is not automatically one worker's assignment.
 
 | Package | Delivers | Needs | Findings | State |
 |---|---|---|---|---|
-| TS-00 | Baseline reconciliation; superseding ADRs including infrastructure RC05, with design sections amended | Operator decisions above | RC01, RC04, RC05 | Not started |
-| TS-01 | One naming, lease and sweep authority; superseded lifecycle machinery removed; sweep skips residue still in use | — | DTA-030, F01, F04 | Not started |
+| TS-00 | Baseline reconciliation; superseding ADRs including infrastructure RC05, with design sections amended | Operator decisions above | RC01, RC04, RC05 | Delivered; ADR lint passed |
+| TS-01 | One naming, lease and sweep authority; superseded lifecycle machinery removed; sweep skips residue still in use | — | DTA-030, F01, F04 | In progress |
 | TS-02 | Keyed, verified head deployment; run-private heads for qualification; receipts record the head | TS-00, TS-01 | DTA-024 | Not started |
-| TS-03 | Implementation snapshot with override; fixtures moved off monkeypatched readers | — | DTA-032 | Not started |
-| TS-04 | Workers sized to explicit selections | — | F05, RC02 | Not started |
+| TS-03 | Implementation snapshot with override; fixtures moved off monkeypatched readers | — | DTA-032 | In progress |
+| TS-04 | Workers sized to explicit selections | — | F05, RC02 | Delivered; targeted checks passed |
 | TS-05 | Isolation classes, infrastructure base and commit fixture migration | TS-00, TS-01, TS-02 acquisition slice | (enables DTA-025, DTA-031) | Not started |
 | TS-06 | Support modules and import rules; recipe values and their builder registry replace fixture-name overrides; the statistics-pack fixtures merged into one support owner | — | DTA-009 | Not started |
 | TS-07 | Staged builders; focused consumers request only what they read; preparation-specific recipe memo | TS-03 override scope, TS-05, TS-06 | DTA-018 | Not started |
 | TS-08 | The seed operation; the serving seed migrated onto it | TS-00, TS-01, TS-02 acquisition slice, TS-03, TS-06 | F03 | Not started |
-| TS-09 | Refusal contract helper and the named weak sites | — | DTA-001 | Not started |
+| TS-09 | Refusal contract helper and the named weak sites | — | DTA-001 | In progress |
 | TS-10 | Rollback families on seeds; pure SQL checks in the read class | TS-05, TS-07, TS-08, TS-09 per family | DTA-025 | Not started |
 | TS-11 | Commit-class consumers clone recipe seeds | TS-07, TS-08 | F03 | Not started |
 | TS-12 | Affinity by distinctive shared fixture names and consumer-qualified local fixtures; deduplicate equal groups | — | F02 | Not started |
 | TS-13 | Provider-only selection, controlled identities and aggregated prerequisites before setup; complete receipt/retry projection | — | DTA-028, DTA-018 (skips) | Not started |
 | TS-14 | Preservation assertions, redaction-order control, exact task state for stdio modes | TS-08 for the two-run comparison | DTA-006, DTA-027, DTA-016 residue | Not started |
 | TS-15 | One owner of the primary-layer assembly | — | DTA-029 | Not started |
-| TS-16 | CPU lifecycle controls without real grace waits or private initializer writes | — | DTA-026 | Not started |
+| TS-16 | CPU lifecycle controls without real grace waits or private initializer writes | — | DTA-026 | Implemented; targeted checks running |
 | TS-17 | DDO support modules, declaration builders, kernel recipes, `admit_kernel`, an interim per-test kernel fixture | TS-06 | DTA-031, DTA-009 (DDO) | Not started |
 | TS-18 | Kernel/source-function seeds, forged-graph rollback family and deterministic lease expiry | TS-05, TS-08, TS-09 per refusal family, TS-17; TS-07 for the two original recipes | DTA-031, DTA-018 (forged graph) | Not started |
 | TS-19 | Literal vectors for the contextual product identity; uncalled helpers removed | — | DTA-033 | Not started |
@@ -238,7 +238,7 @@ Deferred rows and the audit link here. Dispositions use the binding's vocabulary
 | F02 (review) | TS-12 | Open | Each designated preparation runs on one worker per run |
 | F03 (review) | TS-08, TS-11 | Open | The builder of each recipe TS-11 lists runs once per worker; the serving seed uses the common operation |
 | F04 (review) | TS-01 | Open | A sweep that meets connected residue completes and reports the skip |
-| F05 (review) | TS-04 | Open | A one-test managed run records zero workers |
+| F05 (review) | TS-04 | Closed, 2026-11-13 | Real one-ID receipt fd2b0feb1cea417cb05b5ce4cbf81198 requested/actual zero; capped three-ID receipt 7e09a210f721489e90d3972044ca2c67; root CLI integration f725721fa9624957973caccff0a6176c passed 18/18 |
 
 DTA-001–023 as they stood on 2026-11-05 remain with the completed
 [test audit resolution](test-audit-resolution_2026-11-05.md); the rows above cover current-source
@@ -351,3 +351,17 @@ no package and closes no DTA/F/I finding. Architecture and ADR changes remain TS
   `c4768dba59644b45ba16964d7bcd5402`, 1,245 canonical pages and zero link errors.
 - **not_run:** `uv run ci test`, `uv run ci check`, native/provider probes and benchmarks;
   only plan/review navigation and checkpoint documentation changed.
+
+## Execution checkpoint · 2026-11-13
+
+TS-00 delivered ADR-0101/0102 and governing D3/DESIGN/D9 target updates. The one-time legacy
+authentication query found no legacy candidates; the baseline PgAdmin sweep returned no drops.
+ADR lint passed `709f24d15cd147ecbb2fc493a357e60a`; initial stale-index refusal
+`248547f59d57400886694bca4b5f774a` is retained and resolved by index regeneration.
+Doctor passed `5f17c96c61d14541aed2d3e43624222d`. No deployment, activation or frozen archive edit.
+
+TS-04 supervisor controls passed 49 targeted tests, `c53a42bca53644149afa32d60cdf4c1d`.
+A real single-ID run recorded requested/actual zero (`fd2b0feb1cea417cb05b5ce4cbf81198`);
+a real three-ID run recorded auto/cap-three/actual-three (`7e09a210f721489e90d3972044ca2c67`).
+Root CLI provisional facts/help integration passed 18/18 affected checks, `f725721fa9624957973caccff0a6176c`.
+Other packages remain open; these bounded results are not TS-23 qualification.

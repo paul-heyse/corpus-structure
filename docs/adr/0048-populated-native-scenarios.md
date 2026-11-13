@@ -1,10 +1,10 @@
 ---
 id: ADR-0048
 title: Read-only serving scenarios clone a session-local populated seed
-status: accepted
+status: superseded
 date: 2026-11-02
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0102
 design: [§B4]
 evidence: Proposed
 revisit: The default serving population changes, seeding ceases to remove repeated publication, or a consumer needs publication/lifecycle evidence rather than prepared read state.

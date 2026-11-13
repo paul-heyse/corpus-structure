@@ -1,10 +1,10 @@
 ---
 id: ADR-0032
 title: Fresh native tests clone a session deployment with explicit database policy replay
-status: accepted
+status: superseded
 date: 2026-10-29
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0101
 design: [§B4]
 evidence: Proposed
 revisit: Native consumers require deployment changes that cannot be faithfully replayed on a fresh clone, or session preparation ceases to fit the supported test workload.

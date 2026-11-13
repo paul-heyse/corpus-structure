@@ -688,7 +688,8 @@ does not preserve these policies. Restricted purpose credentials and independent
 expectations remain. Cold bootstrap, CLI initialization and historical era-shaped upgrades run
 the real deployment independently. The existing leased lifecycle owns authenticated test
 databases, closes resources and waits boundedly for backend exit without FORCE or new terminate
-rights. Semantic templates expire with the session; the legacy cache keeps its existing lifetime.
+rights. The prior session-only head lifetime is superseded by the accepted target below; its replacement
+is not yet implemented.
 
 **Implemented; bounded Tested (2026-11-02; TA-01–04 acceptance owned by the
 [test architecture coordinator](../plans/test-architecture-and-evidence_2026-11-02.md#native-increment-execution--2026-11-02)).**
@@ -702,16 +703,24 @@ events distinguish requested configuration from observed database, deployment an
 context, with missing native provenance explicit. Private-cluster/plugin alternatives remain
 unselected; the bounded comparison does not change the production cluster arrangement.
 
-**Accepted target, Proposed implementation (2026-11-02).** The repeated default completed
-serving population may be prepared once in an owned session-local populated source, bound to
-its immutable preparation/population recipe. Settle clients and seal it; each read consumer
-receives a fresh PgAdmin clone with exact policy replay and actual purpose connections. Variants
-and tests of publication/deployment/write lifecycle remain cold. No persistent scenario cache,
-shared mutable database or additional janitor is introduced. TA-05/12 own tested acceptance.
+**Accepted target, Proposed implementation (2026-11-13).** Narrowed runs reuse a keyed sealed
+head and verify frozen catalog expectations on the process's first useful clone before effects.
+Fresh-in-run qualification/replacement heads are exempt; qualification builds run-private heads.
+Construction identity, build-name leases, publication and count retention remain under PgAdmin.
+Policy replay, real authentication, cold migration controls and authenticated unforced cleanup
+remain required. Driver-only connection tests use extension-ready infrastructure, with isolated
+clones for durable writes. Shared semantic read/rollback cases expose no writable engine.
 
-> Decision: ADR-0048
+Eligible recipes build worker-local sealed committed seeds keyed by recipe and head. Claims
+occur after the seed boundary. No claimed/running task or implementation override is seedable;
+expired leases do not waive task status. Fresh commit clones and compatible rollback-family clones
+preserve their respective claims, independent expectations and separate seed/acquisition provenance.
+The [test-system series](../plans/test-system-target-design_2026-11-13.md) owns implementation,
+consumer migration, preserved cold/actual-purpose controls and final applicable qualification.
 
-> Decision: ADR-0032
+> Decision: ADR-0102
+
+> Decision: ADR-0101
 
 ## Composed-model admission fence
 

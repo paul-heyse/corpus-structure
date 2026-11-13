@@ -626,22 +626,22 @@ owns the detailed compatibility and authority boundaries.
 
 > Decision: ADR-0031, ADR-0033
 
-**Native test contract implemented (2026-10-30; scoped verification owned by SP-I08).**
-Fresh consumer databases clone a session-built frozen semantic deployment, with explicit
-database ACL/default replay and equality checks. Actual restricted logins and commits remain.
-Cold bootstrap and era-shaped forward upgrades still execute deployment from bare. One leased
-test lifecycle owns acknowledged nonce/OID/owner cleanup without forced termination, including
-reserved CLI initialization; [D3](D3-database.md) owns this boundary.
+**Native test target accepted; implementation remains with TS-00–25 (2026-11-13).**
+Narrowed tests reuse a keyed sealed head, verified on each process's first useful consumer clone
+before effects; qualification builds a run-private head. Policy replay, real logins, independent
+cold deployment and nonce/OID/owner cleanup remain. Read and rollback classes expose no writable
+shared semantic engine. Driver-only controls use extension-ready infrastructure clones; durable
+writes use isolated clones. [D3](D3-database.md#native-test-deployment-equivalence) owns detail.
 
-> Decision: ADR-0032
+> Decision: ADR-0101
 
-**Implemented, 2026-11-02; qualification is scoped at the test-architecture coordinator.**
-Named default serving readers clone a sealed session-local populated source through that same
-native lifecycle. Each consumer retains fresh committed isolation, policy replay and actual
-purpose authentication; recipe/preparation mismatch refuses reuse. Varied and producer/lifecycle
-cases retain independent preparation. This extends preparation without changing native ownership.
+**Scenario seed target accepted; implementation and qualification remain scoped (2026-11-13).**
+Eligible committed recipes use worker-local sealed seeds through the same native lifecycle.
+Nothing built under an implementation override or holding a claimed/running task is seedable,
+even with an expired lease. Committing readers receive fresh clones; compatible rollback families
+share only rollback-safe state. Independent expectations and actual acquisition context remain.
 
-> Decision: ADR-0048
+> Decision: ADR-0102
 
 **Implemented; scoped Tested (2026-10-29).** The transitioned composed-model boundary now
 uses finite trusted lifecycle/conditional guards and protected terminal effects. Completed output
