@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import time
 from uuid import uuid4
+from typing import Any
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from hashlib import sha256
@@ -48,7 +49,7 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
         native_operation_calls(model, sources=())
 
 
-def _declaration():
+def _declaration() -> dict[str, Any]:
     return {
         'id': 'urn:ddo-test:source', 'profile': 'derivation', 'subject': 'original-occurrence',
         'context': ['project', 'source', 'analyzed-scope'],
@@ -63,28 +64,28 @@ def _declaration():
     }
 
 
-def _sample_declaration():
+def _sample_declaration() -> dict[str, Any]:
     value = _declaration()
     value['id'] = 'urn:ddo-test:sample'
     value['roles'][0].update(kind='Sample', maximum=1, collection='scalar')
     return value
 
 
-def _evaluator_declaration():
+def _evaluator_declaration() -> dict[str, Any]:
     value = _declaration()
     value['id'] = 'urn:ddo-test:evaluator'
     value['roles'][0]['kind'] = 'urn:ddo-test:evaluator-integer'
     return value
 
 
-def _set_declaration():
+def _set_declaration() -> dict[str, Any]:
     value = _declaration()
     value['id'] = 'urn:ddo-test:set'
     value['roles'][0]['collection'] = 'set'
     return value
 
 
-def _consumer_declaration():
+def _consumer_declaration() -> dict[str, Any]:
     value = _declaration()
     value['id'] = 'urn:ddo-test:consumer'
     value['roles'].insert(0, {'name': 'source', 'kind': 'Sample', 'direction': 'input',
@@ -115,8 +116,15 @@ def ddo_kernel_template(native_server, semantic_head_template):
         with engine.begin() as connection:
             candidate, authoring = prepare_series_candidate(connection, owned_authoring=True)
             assert candidate.upgrade_ops is not None
-            for operation in candidate.upgrade_ops.ops:
-                Operations(MigrationContext.configure(connection)).invoke(operation)
+            from alembic.operations.ops import OpContainer
+            operations = Operations(MigrationContext.configure(connection))
+            def apply(operation):
+                if isinstance(operation, OpContainer):
+                    for child in operation.ops:
+                        apply(child)
+                else:
+                    operations.invoke(operation)
+            apply(candidate.upgrade_ops)
             admit_native(connection, authoring.desired)
         engine.dispose()
         yield SemanticTemplate(name, native_server.policy(name))
@@ -301,12 +309,18 @@ def test_conflicting_same_attempt_intent_is_rejected(kernel):
 
 
 def test_expired_owner_cannot_publish_but_exact_intent_can_be_adopted(kernel):
-    _, _, _, attached = attach(kernel)
+    _, _, wire, attached = attach(kernel)
     first = claim(kernel, attached, seconds=1)
     intent = retain(kernel, first)
+    with kernel['engine'].begin() as connection:
+        reconciliation = DataOperationStorage(connection).invoke('attach_data_request', wire)
+        assert reconciliation['action'] == 'reconcile'
+        assert reconciliation['retained_intent_id'] == intent['intent_id']
     time.sleep(1.05)
     second = claim(kernel, attached, holder='successor')
     assert second['attempt'] == first['attempt'] + 1
+    with pytest.raises(DBAPIError, match='adopted'):
+        retain(kernel, second, outputs=(2,))
     with pytest.raises(DBAPIError, match='stale'):
         publish(kernel, first, intent)
     with kernel['engine'].begin() as connection:
