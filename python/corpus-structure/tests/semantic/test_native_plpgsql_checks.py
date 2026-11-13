@@ -168,15 +168,25 @@ def test_all_selected_function_errors_reported_together(semantic_bare_engine):
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
         before = checker(connection)
         first = definition(
-            connection, "first_bad", "n integer", "integer", "BEGIN RETURN n->'bad'; END",
+            connection,
+            "first_bad",
+            "n integer",
+            "integer",
+            "BEGIN RETURN n->'bad'; END",
         )
         valid = definition(connection, "valid", "n integer", "integer", "BEGIN RETURN n; END")
         second = definition(
-            connection, "second_bad", "n integer", "integer", "BEGIN RETURN n->'wrong'; END",
+            connection,
+            "second_bad",
+            "n integer",
+            "integer",
+            "BEGIN RETURN n->'wrong'; END",
         )
         with pytest.raises(NativeAuthoringError) as caught:
             prepare_native_authoring(
-                connection, (first, valid, second), owned_authoring=True,
+                connection,
+                (first, valid, second),
+                owned_authoring=True,
                 check_plpgsql=frozenset({first.identity, valid.identity, second.identity}),
             )
         message = str(caught.value)
@@ -186,7 +196,9 @@ def test_all_selected_function_errors_reported_together(semantic_bare_engine):
         assert "checker_test.valid" not in message
         assert "unexamined" not in message
         assert checker(connection) == before
-        assert connection.scalar(text("SELECT to_regprocedure('checker_test.valid(integer)')")) is None
+        assert (
+            connection.scalar(text("SELECT to_regprocedure('checker_test.valid(integer)')")) is None
+        )
 
 
 def test_error_limits_disclose_truncation_and_unexamined_functions(semantic_bare_engine):
@@ -194,14 +206,19 @@ def test_error_limits_disclose_truncation_and_unexamined_functions(semantic_bare
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
         selected = tuple(
             definition(
-                connection, f"many_bad_{index}", "n integer", "integer",
+                connection,
+                f"many_bad_{index}",
+                "n integer",
+                "integer",
                 "BEGIN " + "PERFORM n->'bad'; " * 12 + "RETURN n; END",
             )
             for index in range(5)
         )
         with pytest.raises(NativeAuthoringError) as caught:
             prepare_native_authoring(
-                connection, selected, owned_authoring=True,
+                connection,
+                selected,
+                owned_authoring=True,
                 check_plpgsql=frozenset(item.identity for item in selected),
             )
         message = str(caught.value)
