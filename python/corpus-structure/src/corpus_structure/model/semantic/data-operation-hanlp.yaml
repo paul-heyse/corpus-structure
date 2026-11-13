@@ -1,0 +1,85 @@
+id: https://corpus-structure.dev/semantic/data-operation-hanlp
+name: data_operation_hanlp
+prefixes:
+  dsh: https://corpus-structure.dev/semantic/data-operation-hanlp/
+default_prefix: dsh
+default_range: string
+classes:
+  DdoHanlpSubwords:
+    is_a: SourceRecordProduct
+    attributes:
+      positions: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoHanlpAlignment:
+    is_a: SourceRecordProduct
+    attributes:
+      sentence: {range: DdoSemanticMemberReference, inlined: true, required: true}
+      prepared_words: {multivalued: true, required: true, minimum_cardinality: 1}
+      word_subwords: {range: DdoHanlpSubwords, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      token_id_standing: {required: true, pattern: '^(authenticated-vocabulary|execution-only-no-authenticated-vocabulary-namespace)$'}
+      vocabulary_namespace: {}
+      input_ids: {range: integer, multivalued: true, minimum_cardinality: 1}
+  DdoHanlpUnit:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      record_type: {required: true}
+      local_id: {required: true}
+      sentence: {range: DdoSemanticMemberReference, inlined: true, required: true}
+  DdoHanlpToken:
+    is_a: DdoHanlpUnit
+    annotations: {cs:data_universe: source}
+    attributes:
+      record_type: {required: true, equals_string: token}
+      token: {range: DdoSemanticMemberReference, inlined: true, required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      lemma: {}
+      pos: {}
+      dependency_head: {range: integer, minimum_value: 0}
+      dependency_label: {}
+  DdoHanlpConstituent:
+    is_a: DdoHanlpUnit
+    annotations: {cs:data_universe: source}
+    attributes:
+      record_type: {required: true, equals_string: constituent}
+      path: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      label: {required: true}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      children: {range: DdoHanlpChild, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      tokens: {range: DdoSemanticMemberReference, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoHanlpChild:
+    is_a: SourceRecordProduct
+    attributes:
+      kind: {required: true, pattern: '^(token|constituent)$'}
+      constituent: {}
+      token: {range: DdoSemanticMemberReference, inlined: true}
+  DdoHanlpSrlRole:
+    is_a: SourceRecordProduct
+    attributes:
+      native_text: {value_presence: PRESENT}
+      label: {required: true}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      tokens: {range: DdoSemanticMemberReference, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoHanlpSrlGroup:
+    is_a: DdoHanlpUnit
+    annotations: {cs:data_universe: source}
+    attributes:
+      record_type: {required: true, equals_string: srl_group}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      roles: {range: DdoHanlpSrlRole, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoHanlpPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSentenceContext, inlined: true, required: true}
+      body: {range: DdoHanlpUnit, inlined: true, required: true}
+  DdoHanlpInventory:
+    is_a: DdoCharacterizedProduct
+    annotations: {cs:data_universe: source}
+    attributes:
+      canonical: {range: DdoSemanticProductReference, inlined: true, required: true}
+      outcome: {required: true, pattern: '^(complete|partial)$'}
+      alignments: {range: DdoHanlpAlignment, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      members: {range: DdoHanlpPacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
