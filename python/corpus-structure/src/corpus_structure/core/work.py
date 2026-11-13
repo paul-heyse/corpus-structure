@@ -7,6 +7,10 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
+class PhysicalRetirementUncertain(RuntimeError):
+    """A physical borrower remains unproven; logical completion cannot release its custody."""
+
+
 class WorkHandle[T](Protocol):
     @property
     def future(self) -> Future[Any]: ...

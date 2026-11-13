@@ -149,14 +149,9 @@ class IngestPdf:
             key: worker for key, worker in self._workers.items() if worker.pid is not None
         }
         if errors:
-            primary = next(
-                (error for error in errors if not isinstance(error, Exception)), errors[0]
-            )
-            for error in errors:
-                if error is primary:
-                    continue
-                primary.add_note("additional PDF child teardown failure: " + str(error)[:1800])
-            raise primary
+            if len(errors) == 1:
+                raise errors[0]
+            raise BaseExceptionGroup("PDF ingestion child teardown failed", errors)
 
     def original_recipe(self, cfg: PdfIngestConfig) -> bytes:
         """Preparation only; orchestration commits original custody before calling run."""
