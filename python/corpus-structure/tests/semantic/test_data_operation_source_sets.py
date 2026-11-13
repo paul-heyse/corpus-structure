@@ -1,6 +1,7 @@
 """Frozen cross-source pins retain original references and reject widened custody."""
 
 from dataclasses import replace
+from decimal import Decimal
 
 import pytest
 
@@ -58,3 +59,12 @@ def test_source_set_keeps_exact_original_reference_and_roundtrips():
         replace(first, source_reference="forged")
     with pytest.raises(ValueError, match="canonical"):
         replace(first, analyzed_scope=canonical_bytes([1]))
+
+
+def test_source_set_normalizes_exact_fraction_and_exponent_scope_without_float_roundtrip():
+    first = replace(entry(), analyzed_scope=b'{"coordinate":0.123456789012345678901,"scale":1e+30}')
+    encoded = source_sets_record((FrozenSourceSet("inputs", (first,)),))
+    assert encoded["inputs"][0]["analyzed_scope"] == {
+        "coordinate": Decimal("0.123456789012345678901"), "scale": Decimal("1e30"),
+    }
+    assert read_source_sets(encoded)[0].entries == (first,)

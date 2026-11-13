@@ -56,11 +56,10 @@ class SourceSetEntry:
             raise ValueError("source-set entries require exact qualified original custody")
         if self.member is not None and not self.member:
             raise ValueError("source-set member is null or a nonempty original identifier")
-        if (
-            not isinstance(json_loads(self.analyzed_scope), dict)
-            or json_bytes(json_loads(self.analyzed_scope)) != self.analyzed_scope
-        ):
-            raise ValueError("source-set scope must be canonical JSON")
+        scope = json_loads(self.analyzed_scope)
+        if not isinstance(scope, dict):
+            raise ValueError("source-set scope must be a canonical JSON object")
+        object.__setattr__(self, "analyzed_scope", json_bytes(scope))
         if canonical_bytes(reference.model_dump(mode="json", exclude_none=True)) != self.reference:
             raise ValueError("source-set original reference must be canonical")
 
