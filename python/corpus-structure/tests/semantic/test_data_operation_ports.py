@@ -764,7 +764,7 @@ def test_data_stream_is_pull_bounded_typed_and_has_terminal_standing(tmp_path, m
     with pytest.raises(StopIteration):
         next(stream)
     assert stream.terminal is not None
-    assert (stream.terminal.state, stream.terminal.items) == ('complete', 2)
+    assert (stream.terminal.state, stream.terminal.items) == ("complete", 2)
     stream.close()
     assert stream.terminal.state == "complete"
 
@@ -796,7 +796,7 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
     with port.open_stream_python((value,)) as stream:
         assert next(stream)[0] == 0
     assert stream.terminal is not None
-    assert (stream.terminal.state, stream.terminal.items) == ('cancelled', 1)
+    assert (stream.terminal.state, stream.terminal.items) == ("cancelled", 1)
     calls = []
 
     def active():
@@ -809,8 +809,9 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
     with pytest.raises(RuntimeError, match="cancelled"):
         next(stream)
     assert stream.terminal is not None
-    assert stream.terminal.state == 'failed'
+    assert stream.terminal.state == "failed"
     import inspect
+
     assert inspect.isgenerator(stream._iterator)
     assert stream._iterator.gi_frame is None
 
@@ -921,7 +922,10 @@ def test_generated_typeddict_ingress_preserves_original_kwargs_signature(tmp_pat
         "**kwargs: Unpack[Options]",
         "return str(kwargs['value'])",
         metadata=metadata,
-        header="from typing import TypedDict, Unpack, NotRequired\nclass Options(TypedDict):\n    value: int\n    label: NotRequired[str]",
+        header=(
+            "from typing import TypedDict, Unpack, NotRequired\n"
+            "class Options(TypedDict):\n    value: int\n    label: NotRequired[str]"
+        ),
         profiles=("unpack-typeddict-runtime",),
     )
     port = resolve_python_port(
@@ -950,7 +954,10 @@ def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch)
         "index: Item",
         "return index",
         metadata=metadata,
-        header="from dataclasses import dataclass\n@dataclass(kw_only=True)\nclass Item:\n    value: int",
+        header=(
+            "from dataclasses import dataclass\n@dataclass(kw_only=True)\n"
+            "class Item:\n    value: int"
+        ),
         returns="Item",
         profiles=("dataclasses-runtime",),
     )

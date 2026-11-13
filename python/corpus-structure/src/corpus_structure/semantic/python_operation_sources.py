@@ -1560,7 +1560,7 @@ class ClosedPythonSources:
                                         path,
                                         location,
                                         "callable/object escape requires "
-                                    "an admitted argument model",
+                                        "an admitted argument model",
                                     )
                                 )
                             return False
@@ -1583,7 +1583,7 @@ class ClosedPythonSources:
                                         path,
                                         location,
                                         "callable/object escape requires "
-                                    "an admitted argument model",
+                                        "an admitted argument model",
                                     )
                                 )
 

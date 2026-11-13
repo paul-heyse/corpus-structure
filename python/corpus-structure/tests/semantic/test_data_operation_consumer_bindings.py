@@ -254,6 +254,7 @@ def test_m1_consumer_optional_projection_is_exact_one_eligible_view(consumer_mod
         assert result.status == "ready"
         assert {member.member for member in result.roles[0].members} == {"one", "two"}
         from corpus_structure.methods.m1_source import M1Candidates
+
         method = M1Candidates()
         inputs = hydrated_component_selection(method, result, {row["id"]: row for row in rows})
         assert {view.member.member for view in method.select_hydrated(inputs)} == {"one", "two"}

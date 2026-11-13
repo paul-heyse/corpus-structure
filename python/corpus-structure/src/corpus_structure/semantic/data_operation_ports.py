@@ -1211,7 +1211,6 @@ def _verify_closed_runtime_sources(
                 )
 
 
-
 def _input_annotation(parameter: inspect.Parameter) -> Any:
     annotation = parameter.annotation
     if parameter.kind == inspect.Parameter.VAR_KEYWORD:
@@ -1345,11 +1344,16 @@ def _verify_generated_dataclass(value, node, module):
         else:
             if not callable(field.default_factory):
                 raise PortRefusal("dataclass field factory is not callable")
-            modeled_field = dataclasses.field(default_factory=field.default_factory, kw_only=field.kw_only)
+            modeled_field = dataclasses.field(
+                default_factory=field.default_factory, kw_only=field.kw_only
+            )
         specification.append((field.name, field.type, modeled_field))
-    expected = dataclasses.make_dataclass(value.__name__, specification,
-                                        frozen=parameters.frozen,
-                                        kw_only=options.get("kw_only", False))
+    expected = dataclasses.make_dataclass(
+        value.__name__,
+        specification,
+        frozen=parameters.frozen,
+        kw_only=options.get("kw_only", False),
+    )
     if value.__init__.__code__ != expected.__init__.__code__:
         raise PortRefusal("generated dataclass constructor implementation differs")
     allowed = set(vars(expected)) | {

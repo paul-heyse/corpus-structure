@@ -195,31 +195,43 @@ def _publication_context(source, *, document=False):
     from corpus_structure.semantic.source_products import source_subject
 
     value = source.value
-    return SubjectContext("family-test", value["source"]["document"] if document else source_subject(value["source"]),
-                          value["source"]["document"], canonical_bytes({"source": value["source"], "selectors": value["selectors"]}))
+    return SubjectContext(
+        "family-test",
+        value["source"]["document"] if document else source_subject(value["source"]),
+        value["source"]["document"],
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
+    )
 
 
 def test_retained_family_ingress_uses_selected_member_context_and_checks_native_id(acquired):
     from dataclasses import replace
     from types import SimpleNamespace
+
     from corpus_structure.semantic.data_operation_ports import PortRefusal
 
     _, _, _, _, formal = acquired
-    source = selected(formal, 'All samples are finite.')
+    source = selected(formal, "All samples are finite.")
     context = _publication_context(source)
     original = formal.run(source, FormalEvidenceOptions(), subject_context=context)
-    port = admitted(acquired, 'text.constructions/source-native', resolve_construction_port)
-    member = SimpleNamespace(product=original.semantic_id, subject=context.subject,
-        original_source=context.original_source, analyzed_scope=context.analyzed_scope,
-        member=None, multiplicity=1)
-    binding = SimpleNamespace(subject_context=context,
-        roles=(SimpleNamespace(role='formal', members=(member,)),))
+    port = admitted(acquired, "text.constructions/source-native", resolve_construction_port)
+    member = SimpleNamespace(
+        product=original.semantic_id,
+        subject=context.subject,
+        original_source=context.original_source,
+        analyzed_scope=context.analyzed_scope,
+        member=None,
+        multiplicity=1,
+    )
+    binding = SimpleNamespace(
+        subject_context=context, roles=(SimpleNamespace(role="formal", members=(member,)),)
+    )
     unbound = replace(original, subject_context=None)
-    restored = port._selected_product(unbound, binding, 'formal', 0)
+    restored = port._selected_product(unbound, binding, "formal", 0)
     assert restored.content == original.content
     assert restored.subject_context == context
     assert restored.semantic_id == member.product
-    other_project = SimpleNamespace(subject_context=replace(context, project_id='another-project'),
-                                    roles=binding.roles)
-    with pytest.raises(PortRefusal, match='selected native product identity'):
-        port._selected_product(unbound, other_project, 'formal', 0)
+    other_project = SimpleNamespace(
+        subject_context=replace(context, project_id="another-project"), roles=binding.roles
+    )
+    with pytest.raises(PortRefusal, match="selected native product identity"):
+        port._selected_product(unbound, other_project, "formal", 0)
