@@ -33,7 +33,7 @@ from ..semantic.test_data_operation_storage import (
 from ..semantic.test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
 
 
-def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel_engine, tmp_path):
+def _prepare_production_claim(tmp_path):
     module = "corpus_structure.semantic.identity"
     actual = Path(__file__).parents[2] / "src/corpus_structure/semantic/identity.py"
     captured = actual.read_bytes()
@@ -42,9 +42,6 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel_
 name: target
 prefixes: {t: 'urn:production-claim-test:'}
 default_prefix: t
-types:
-  integer: {base: int, uri: 'http://www.w3.org/2001/XMLSchema#integer'}
-  string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
 classes:
   Thing: {}
 """)
@@ -73,6 +70,23 @@ python:
     assert operation.callable_surfaces[0].declaration == module + ".claim_source_item"
     assert operation.outcomes == ("addressed", "invalid-index")
     assert len(model.implementation_slices) == 1 and model.implementation_slices[0].complete
+    return bundle, dependencies, profile, prepared, model, actual, captured
+
+
+def test_production_claim_source_item_prepares_with_authoritative_builtin_kinds(tmp_path):
+    _, _, _, _, model, _, _ = _prepare_production_claim(tmp_path)
+    operation = model.operation("urn:corpus:operation:claim-source-item")
+    assert {role.name: role.kind for role in operation.roles} == {
+        "index": "primitive:integer",
+        "address": "primitive:string",
+    }
+    assert model.operation("urn:ddo-test:source").roles[0].kind == "primitive:integer"
+
+
+def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel_engine, tmp_path):
+    bundle, dependencies, profile, prepared, model, actual, captured = _prepare_production_claim(tmp_path)
+    module = "corpus_structure.semantic.identity"
+    operation_id = "urn:corpus:operation:claim-source-item"
     runtime = prepare_data_operation_runtime(
         prepared,
         dependencies.artifacts,
