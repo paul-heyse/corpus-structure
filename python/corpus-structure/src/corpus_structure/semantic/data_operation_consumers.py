@@ -170,7 +170,7 @@ def hydrate_consumer_selection(
     from sqlalchemy import select
 
     from .data_operation_identity import decode_semantic_value
-    from .data_operation_json import json_loads
+    from .data_operation_json import json_context_equal, json_loads
     from .data_operation_storage import admitted_data_projection
     from .data_operation_support import support_reference_records
     from .identity import canonical_bytes
@@ -217,7 +217,7 @@ def hydrate_consumer_selection(
                 relation.c.kind_contract == member.kind_contract,
                 relation.c.subject == member.subject,
                 relation.c.original_source == member.original_source,
-                relation.c.analyzed_scope == json_loads(member.analyzed_scope),
+                json_context_equal(relation.c.analyzed_scope, json_loads(member.analyzed_scope)),
                 relation.c.support_evidence == json_loads(member.support_evidence),
                 relation.c.support_episodes == list(member.support_episodes),
                 relation.c.support_references
