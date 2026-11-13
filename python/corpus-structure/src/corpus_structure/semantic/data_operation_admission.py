@@ -245,8 +245,10 @@ def acquire_python_execution(
 
 def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
     """Acquire the fixed receipt-bearing native command, not Python effect callbacks."""
+    from sqlalchemy import select
     from .data_operation_ports import ResolvedPublicationPort
     from .data_operation_storage import DataOperationStorage, require_data_operation_native
+    from .metadata import table
 
     model = bound_data_operation_model(prepared)
     operation = model.operation("data.publish_data_derivation")
@@ -259,8 +261,19 @@ def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
         identity.owner: identity.key for identity in model.identities if identity.domain == "kind"
     }
     require_data_operation_native(connection, prepared)
-    return ResolvedPublicationPort(
-        DataOperationStorage(connection),
-        contracts[roles["request"].kind],
-        contracts[roles["result"].kind],
-    )
+    definitions = table("sem.data_operation_definition")
+    admitted = connection.execute(select(definitions).where(
+        definitions.c.release_id == prepared.release_id,
+        definitions.c.operation_id == operation.semantic_id,
+    )).mappings().one()
+    identities = {(value.owner, value.domain): value.key for value in model.identities}
+    if (admitted["profile"] != "command"
+            or admitted["recipe"] != identities[operation.semantic_id, "recipe"]
+            or {role["name"]: role["kind_contract"] for role in admitted["input_roles"]}
+            != {"request": contracts[roles["request"].kind]}
+            or {role["name"]: role["kind_contract"] for role in admitted["output_roles"]}
+            != {"result": contracts[roles["result"].kind]}):
+        raise SemanticRefusal("publication command differs from native admitted release")
+    return ResolvedPublicationPort(DataOperationStorage(connection),
+                                   contracts[roles['request'].kind],
+                                   contracts[roles['result'].kind])
