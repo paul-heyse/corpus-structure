@@ -482,8 +482,9 @@ class M1Candidates:
         from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 
         self.select_bound(inputs.selection.binding)
-        roles = {role.role: role for role in inputs.selection.roles}
-        name = "projection" if roles["projection"].state == "present" else "views"
+        name = json.loads(inputs.selection.binding.choices).get("source_selection")
+        if name not in {"views", "projection"}:
+            raise ValueError("M1 consumer lacks its frozen source selection branch")
         values = inputs.role(name)
         parameters = decode_semantic_value(json.loads(inputs.selection.binding.parameters))
         digest = parameters.get("projection_digest") if name == "projection" else None
