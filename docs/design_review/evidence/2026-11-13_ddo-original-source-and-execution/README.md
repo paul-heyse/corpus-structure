@@ -21,3 +21,10 @@ normal inventory delta in favor of the seven-argument exact-scope helper.
 Preview, apply, candidate, registration and targeted qualification receipts will be
 recorded here when produced. Source implementation and candidate registration alone
 do not establish qualification or adoption.
+
+Initial preview `ef5747ec788a42c4a25b6777f8c36f00` and apply
+`9c8a2c526f7a4c538a53b1487e112121` passed. Candidate attempt
+`f05483204d29476aac5d1021ec1a8049` refused because the change request did not explicitly
+name retirement of `ops.data_binding_rows(text,text,jsonb,text,text,text)`. The request
+now names that exact predecessor identity; fresh preview/candidate custody is required.
+No native enforcement was bypassed and rollback cleanup was established.
