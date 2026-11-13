@@ -479,10 +479,13 @@ definitions:
         minItems: 0
       context:
         $ref: '#/definitions/member_context'
+      kind_contract:
+        $ref: '#/definitions/identifier'
     required:
     - member_id
     - body
     - context
+    - kind_contract
     additionalProperties: false
   product:
     type: object

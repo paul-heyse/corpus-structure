@@ -131,7 +131,7 @@ def test_nested_support_and_product_member_attributes_cannot_hide_type_coercion(
     with pytest.raises(ValueError, match="schema"):
         validate_native_wire("retain_data_completion_intent", "input", invalid)
     invalid = copy.deepcopy(completion)
-    invalid["completion"]["outputs"][0]["product"]["members"] = [{"member_id": "m", "context": {"subject": "member:m", "original_source": "source:x", "analyzed_scope": {}}, "body": ["mapping", []], "choices": [{"choice_group": "g", "alternative": "a", "selected": True}]}]
+    invalid["completion"]["outputs"][0]["product"]["members"] = [{"member_id": "m", "kind_contract": "kind:member", "context": {"subject": "member:m", "original_source": "source:x", "analyzed_scope": {}}, "body": ["mapping", []], "choices": [{"choice_group": "g", "alternative": "a", "selected": True}]}]
     assert validate_native_wire("retain_data_completion_intent", "input", invalid)
     invalid["completion"]["outputs"][0]["product"]["members"][0]["choices"][0]["selected"] = "true"
     with pytest.raises(ValueError, match="schema"):
@@ -224,12 +224,12 @@ def member_completion(member, *, domain_body=None):
         "holder": "worker", "runtime_id": "runtime:x",
         "completion": {"outcome": "addressed", "implementation_revision": "implementation:x",
             "inputs": [], "support": [], "outputs": [{"role": "result", "position": 0, "multiplicity": 1,
-                "product": {"kind_contract": "kind:x", "body": semantic_value({"members": [{"member_id": member["member_id"], "context": member.get("context"), "body": {} if domain_body is None else domain_body}]}), "members": [member]}}]},
+                "product": {"kind_contract": "kind:x", "body": semantic_value({"members": [{"member_id": member["member_id"], "kind_contract": member.get("kind_contract"), "context": member.get("context"), "body": {} if domain_body is None else domain_body}]}), "members": [member]}}]},
     }
 
 
 def test_member_context_is_required_and_does_not_reinterpret_domain_subject():
-    member = {"member_id": "member:x", "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {"page": 2}},
+    member = {"member_id": "member:x", "kind_contract": "kind:member", "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {"page": 2}},
         "body": ["mapping", [["subject", ["string", "linguistic-subject"]]]]}
     accepted = validate_native_wire("retain_data_completion_intent", "input", member_completion(member, domain_body={"subject": "linguistic-subject"}))
     retained = accepted["completion"]["outputs"][0]["product"]["members"][0]
@@ -252,7 +252,7 @@ def test_member_context_is_required_and_does_not_reinterpret_domain_subject():
     ({"scope": "external", "role": "object", "member_id": "member:other"}, False),
 ])
 def test_endpoint_scope_is_explicit_and_local_never_embeds_a_self_product_key(endpoint, valid):
-    member = {"member_id": "member:x", "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}},
+    member = {"member_id": "member:x", "kind_contract": "kind:member", "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}},
         "body": ["mapping", [["endpoints", ["sequence", []]]]], "endpoints": [endpoint]}
     from corpus_structure.semantic.data_operation_identity import semantic_value
     member["body"] = semantic_value({"endpoints": [endpoint]})
@@ -305,3 +305,34 @@ def test_object_constraints_do_not_erase_common_fields_from_the_effective_graph(
     assert KIND_PREFIX + "inspect_data_completion_request/property/intent_id" in fields
     assert KIND_PREFIX + "result_product/property/product_id" in fields
     assert KIND_PREFIX + "result_product/property/body_state" in fields
+
+
+def test_member_wire_carries_a_distinct_authenticated_kind_contract():
+    member: dict[str, Any] = {"member_id": "member:x", "kind_contract": "kind:member",
+        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}},
+        "body": ["integer", "7"]}
+    request = member_completion(member, domain_body=7)
+    product = request["completion"]["outputs"][0]["product"]
+    assert product["kind_contract"] != member["kind_contract"]
+    checked = validate_native_wire("retain_data_completion_intent", "input", request)
+    assert checked["completion"]["outputs"][0]["product"]["members"][0]["kind_contract"] == "kind:member"
+    member.pop("kind_contract")
+    with pytest.raises(ValueError):
+        validate_native_wire("retain_data_completion_intent", "input", member_completion(member, domain_body=7))
+
+
+def test_custom_local_schema_definition_never_relabels_an_existing_wire_kind():
+    from corpus_structure.semantic.types import PreparationError
+
+    # The names collide while the actual definitions and nominal owners differ.
+    wire_payload = {"id": KIND_PREFIX + "Payload", "scope": "native-wire",
+        "json_schema": {"type": "object", "properties": {"wire_flag": {"type": "boolean"}}, "required": ["wire_flag"], "additionalProperties": False}}
+    custom = {"id": "urn:test:CustomRequest", "json_schema": {"type": "object", "properties": {"payload": {"$ref": "#/definitions/Payload"}},
+        "required": ["payload"], "additionalProperties": False, "definitions": {"Payload": {"type": "object",
+            "properties": {"value": {"type": "integer"}}, "required": ["value"], "additionalProperties": False}}}}
+    declaration: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    declaration["roles"][0]["kind"] = custom["id"]
+    source = SourceArtifact("custom-wire-collision.json", canonical_bytes({"version": MODEL_VERSION,
+        "operations": [declaration], "kinds": [wire_payload, custom]}))
+    with pytest.raises(PreparationError, match="unsupported nominal JSON Schema property projection"):
+        compile_data_operations(declarations=(source,))
