@@ -181,7 +181,7 @@ DECLARE operator text:=node->>'operator'; child jsonb; selected jsonb; role text
  total bigint; expected bigint; ordinal bigint; seen jsonb; left_identity jsonb; right_identity jsonb;
  choice text; i integer; j integer; population_names text[]:=ARRAY[]::text[];
 BEGIN
- IF operator NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership') THEN RAISE EXCEPTION 'unsupported native binding operator %',operator USING ERRCODE='23514'; END IF;
+ IF operator IS NULL OR operator NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership') THEN RAISE EXCEPTION 'unsupported native binding operator %',operator USING ERRCODE='23514'; END IF;
  IF operator='choice' THEN
  IF node->>'selected' IS NOT NULL AND node->>'choice_parameter' IS NOT NULL THEN RAISE EXCEPTION 'ambiguous native branch selector'; END IF;
  choice:=coalesce(node->>'selected',context->'choices'->>(node->>'choice_parameter'));
@@ -201,6 +201,7 @@ BEGIN
  END IF;
  IF operator='optional' AND ops.ddo_binding_missing(node,context) THEN RETURN true; END IF;
  IF operator='absent' THEN
+ IF EXISTS(WITH RECURSIVE descendants(n) AS (SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) UNION ALL SELECT value FROM descendants d CROSS JOIN LATERAL jsonb_array_elements(coalesce(d.n->'children','[]'))) SELECT FROM descendants WHERE n->>'operator' IS NULL OR n->>'operator' NOT IN ('all','scan','equal','join','literal','range','membership','same','distinct','optional')) THEN RAISE EXCEPTION 'absence children must be row predicates, not nested aggregate or branch scopes'; END IF;
  names:=ARRAY(SELECT value#>>'{}' FROM jsonb_array_elements(node->'roles'));
  IF cardinality(names)<>1 THEN RAISE EXCEPTION 'native absence requires one qualified role'; END IF;
  role:=names[1]; population:=context->'populations'->(node->>'population');
@@ -381,6 +382,7 @@ BEGIN
  SELECT value INTO STRICT operation FROM jsonb_array_elements(archived->'operations') WHERE value->>'semantic_id'=p_operation;
  SELECT value->'expression' INTO STRICT expression FROM jsonb_array_elements(archived->'bindings') WHERE value->>'semantic_id'=operation->>'binding';
  SELECT value INTO STRICT compiled FROM jsonb_array_elements(projection->'operations') WHERE value->>'operation_id'=p_operation;
+ IF EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]'))) SELECT FROM nodes WHERE n->>'operator' IS NULL OR n->>'operator' NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership')) THEN RAISE EXCEPTION 'authenticated native binding is outside the closed operator vocabulary'; END IF;
  SELECT value INTO STRICT selection FROM jsonb_array_elements(demand.selection->'operations') WHERE value->>'operation'=p_operation;
  IF compiled->'binding' IS DISTINCT FROM expression OR compiled->>'definition' IS DISTINCT FROM selection->>'definition' OR compiled->>'eligibility' IS DISTINCT FROM selection->>'eligibility'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') v WHERE v->>'owner'=p_operation AND v->>'domain'='definition' AND v->>'key'=compiled->>'definition')

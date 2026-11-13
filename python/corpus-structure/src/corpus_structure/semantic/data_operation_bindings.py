@@ -298,6 +298,26 @@ def compile_binding(
     role_populations = {}
 
     def inspect_scopes(node):
+        if node.operator == "absent":
+
+            def row_predicate(child):
+                return child.operator in {
+                    "all",
+                    "scan",
+                    "equal",
+                    "join",
+                    "literal",
+                    "range",
+                    "membership",
+                    "same",
+                    "distinct",
+                    "optional",
+                } and all(row_predicate(descendant) for descendant in child.children)
+
+            if not all(row_predicate(child) for child in node.children):
+                raise ValueError(
+                    "absence children must be row predicates, not nested aggregate or branch scopes"
+                )
         names = node.roles or tuple(roles)
         associations = []
         if node.operator in {"forall", "absent"}:
