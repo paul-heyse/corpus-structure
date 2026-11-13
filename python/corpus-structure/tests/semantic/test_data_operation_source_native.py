@@ -21,6 +21,9 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
 
+from .native_record_fixtures import private_source as private_source
+from .native_record_fixtures import private_source_options as private_source_options
+
 
 @pytest.fixture(scope="module")
 def source_prepared():
@@ -147,3 +150,75 @@ def test_native_source_builder_refuses_non_original_coordinates(source_builder_c
         projection["pieces"][0]["start"] = 1
     with pytest.raises(DBAPIError, match="original source"):
         build(source_builder_connection, projection, [atom], selectors)
+
+
+def test_authenticated_original_source_read_matches_original_published_custody(
+    private_source, source_prepared, semantic_db_engine
+):
+    from corpus_structure.orchestrate.commands import finalize_bound_run
+    from corpus_structure.semantic.operations import complete_task
+    from corpus_structure.semantic.source_admission import acquire_original_source_selection
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+    from .witnessed_scenario_support import completed_metadata
+
+    case = private_source
+    with case.writer.begin() as connection:
+        complete_task(
+            connection,
+            task_id=case.task,
+            attempt=case.held.attempt,
+            holder="records",
+            prepared=case.prepared,
+            observations=(),
+            outcome="empty",
+        )
+    finalize_bound_run(case.writer, case.run, "original-source-admission")
+    completed, revision, _runtime = completed_metadata(case, case.run)
+    original = case.view_row
+    reference = ExternalSourceRef(
+        project_id=case.project_id,
+        run_id=case.run,
+        cut_id=completed["cut_id"],
+        release_id=case.prepared.release_id,
+        result_revision=revision,
+        source_view_id=case.view,
+        native_task_id=original["native_task_id"],
+        native_product_key=original["native_product_key"],
+        native_content_digest=original["native_content_digest"],
+        projection_digest=original["projection_digest"],
+        recipe_digest=original["recipe_digest"],
+        coordinate_version=2,
+    )
+    selectors = [dict(projection=reference.projection_digest)]
+    with semantic_db_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            for statement in prepare_sql(
+                source_native_sql(), source="original-source-read"
+            ).statements:
+                connection.exec_driver_sql(
+                    pglast.stream.RawStream()(statement), execution_options={"no_parameters": True}
+                )
+            acquired = acquire_original_source_selection(
+                connection, source_prepared, reference, selectors
+            )
+            actual = connection.execute(
+                text(
+                    "SELECT ops.ddo_original_source_view(CAST(:reference AS jsonb),CAST(:selectors AS jsonb))"
+                ),
+                dict(reference=reference.model_dump_json(), selectors=json.dumps(selectors)),
+            ).scalar_one()
+            assert canonical_bytes(actual["body"]) == acquired.source.content
+            assert actual["subject"] == acquired.root.subject
+            assert actual["original_source"] == acquired.root.original_source
+            assert actual["analyzed_scope"] == json.loads(acquired.root.analyzed_scope)
+            assert actual["meaning_body"] == semantic_value(acquired.source.value)
+            assert actual["original_source"] == acquired.source.value["source"]["document"]
+            assert actual["original_source"] != acquired.original_content_hash
+            assert acquired.selection().record() == {
+                "reference": reference.model_dump(mode="json"),
+                "selectors": selectors,
+            }
+        finally:
+            transaction.rollback()
