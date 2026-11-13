@@ -2,7 +2,10 @@
 
 from typing import ClassVar
 
-from corpus_structure.semantic.canonical_sentences import canonical_sentence_values
+from corpus_structure.semantic.canonical_sentences import (
+    CanonicalProduct,
+    execute_canonical_projection,
+)
 
 
 class CanonicalSentenceProjection:
@@ -50,14 +53,39 @@ class CanonicalSentenceProjection:
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
-            "preparation": "none",
+            "preparation": "resource",
             "cancellation": "call-boundary",
             "ownership": "immutable-input-value",
         },
-        "behavior": "declared canonical sentence and tokenization value projection",
+        "behavior": "canonical sentence and tokenization members from the acquired output model",
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["inventory"]},
+        "opaque": [
+            {
+                "reference": (
+                    "corpus_structure.semantic.canonical_sentences."
+                    "execute_canonical_projection"
+                ),
+                "contract": "canonical/profile-assets",
+                "role": "prepared-canonical-projection",
+            },
+            {
+                "reference": "corpus_structure.semantic.canonical_sentences.CanonicalProduct",
+                "contract": "canonical/profile-assets",
+                "role": "typed-canonical-product",
+            },
+        ],
+        "assets": [
+            {
+                "reference": "canonical-output-model-projection",
+                "contract": "canonical/profile-assets",
+                "role": "canonical-model-and-projection",
+            }
+        ],
     }
 
-    def run(self, inventory: dict) -> dict:
-        return canonical_sentence_values(inventory)
+    def __init__(self, profile):
+        self.profile = profile
+
+    def run(self, inventory: dict) -> CanonicalProduct:
+        return execute_canonical_projection(self, inventory)

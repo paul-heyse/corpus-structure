@@ -218,12 +218,20 @@ def validate_sentence_inventory(
             ]
             if body["piece_indices"] != expected:
                 raise ValueError("token inventory omits original intersecting source pieces")
+    from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES
+
+    if {row["family"] for row in checked["coverage"]} != set(SPACY_FAMILIES) or len(
+        checked["coverage"]
+    ) != len(SPACY_FAMILIES):
+        raise ValueError("native family coverage omits or repeats a declared spaCy family")
+    if any(row["eligible"] != selected["selectors"] for row in checked["coverage"]):
+        raise ValueError("native family coverage differs from frozen eligible source")
     if checked["outcome"] != (
-        "partial"
-        if any(row["outcome"] == "unsupported" for row in checked["coverage"])
-        else "complete"
+        "complete"
+        if all(row["outcome"] in {"complete", "empty"} for row in checked["coverage"])
+        else "partial"
     ):
-        raise ValueError("sentence inventory outcome differs from its original coverage")
+        raise ValueError("native product outcome differs from actual family coverage")
     return SentenceInventory(canonical_bytes(checked), prepared, model, receipts)
 
 
@@ -292,6 +300,7 @@ def _blocks(source: FrozenNativeSource):
                 coverage.append(
                     dict(
                         block_id=block_id,
+                        native_pointer=pointer,
                         start=start,
                         end=end,
                         outcome="unsupported",
@@ -301,7 +310,15 @@ def _blocks(source: FrozenNativeSource):
                 continue
             text = selected["text"][start:end]
             if not text.strip():
-                coverage.append(dict(block_id=block_id, start=start, end=end, outcome="empty"))
+                coverage.append(
+                    dict(
+                        block_id=block_id,
+                        native_pointer=pointer,
+                        start=start,
+                        end=end,
+                        outcome="empty",
+                    )
+                )
                 continue
             inline, display, markers = [], [], []
             for index in members:
@@ -323,19 +340,39 @@ def _blocks(source: FrozenNativeSource):
                     tuple(range(members[0], members[-1] + 1)),
                 )
             )
-            coverage.append(dict(block_id=block_id, start=start, end=end, outcome="complete"))
+            coverage.append(
+                dict(
+                    block_id=block_id,
+                    native_pointer=pointer,
+                    start=start,
+                    end=end,
+                    outcome="complete",
+                )
+            )
     projected = {
         piece.get("item_ref") for piece in selected["pieces"] if piece["kind"] == "native_text"
     }
-    for pointer, node in nodes.items():
+    for item in selected["items"]:
+        pointer = item["self_ref"]
+        has_text = any(
+            isinstance(item.get(field), str) and item[field].strip() for field in ("text", "orig")
+        )
+        has_cell_context = any(
+            cell.get("text") or cell.get("ref")
+            for cell in item.get("data", {}).get("table_cells", [])
+        )
         if (
             pointer not in projected
-            and node["label"] in {"text", "formula", "list_item", "caption"}
-            and any(selector.get("native_pointer") == pointer for selector in selected["selectors"])
+            and (has_text or has_cell_context)
+            and any(
+                ancestry.matches(selector, pointer) is not False
+                for selector in selected["selectors"]
+            )
         ):
             coverage.append(
                 dict(
                     block_id=pointer,
+                    native_pointer=pointer,
                     start=0,
                     end=0,
                     outcome="unsupported",
@@ -343,6 +380,68 @@ def _blocks(source: FrozenNativeSource):
                 )
             )
     return tuple(blocks), coverage
+
+
+def spacy_family_coverage(selected, block_coverage, annotation_columns):
+    """Declare native families from actual layout examination and Doc column standing."""
+    from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS, SPACY_FAMILIES
+
+    columns = {row["block_id"]: row["attributes"] for row in annotation_columns}
+    native_attributes = {family: attribute for attribute, family in SPACY_COLUMNS.items()}
+    result = []
+    for family in SPACY_FAMILIES:
+        examined, unexamined, statuses, reasons = [], [], [], []
+        for block in block_coverage:
+            scope = {
+                "projection": selected["source"]["projection"],
+                "start": block["start"],
+                "end": block["end"],
+            }
+            if "native_pointer" in block:
+                scope["native_pointer"] = block["native_pointer"]
+            status = block["outcome"]
+            if status == "complete":
+                status = (
+                    "complete"
+                    if family == "spacy.tokens"
+                    else columns[block["block_id"]][native_attributes[family]]
+                )
+            statuses.append(status)
+            (unexamined if status == "unsupported" else examined).append(scope)
+            if "reason" in block:
+                reasons.append(block["reason"])
+            if status in {"absent", "partial"}:
+                reasons.append("native " + native_attributes[family] + " column is " + status)
+        if not statuses:
+            outcome, availability = "empty", "available"
+            examined = selected["selectors"]
+        elif set(statuses) <= {"empty", "not_applicable"}:
+            outcome, availability = "empty", "available"
+        elif set(statuses) <= {"complete", "empty", "not_applicable"}:
+            outcome, availability = "complete", "available"
+        elif set(statuses) == {"unsupported"}:
+            outcome, availability = "unsupported", "unsupported"
+        elif set(statuses) == {"absent"}:
+            outcome, availability = "unknown", "unavailable"
+        else:
+            outcome, availability = (
+                "partial",
+                "available"
+                if any(status in {"complete", "partial"} for status in statuses)
+                else "unknown",
+            )
+        result.append(
+            dict(
+                family=family,
+                eligible=selected["selectors"],
+                examined=examined,
+                unexamined=unexamined,
+                availability=availability,
+                outcome=outcome,
+                **({"reason": "; ".join(dict.fromkeys(reasons))} if reasons else {}),
+            )
+        )
+    return result
 
 
 def _native_records(selected, block, layout, doc):
@@ -512,9 +611,15 @@ class PreparedSentenceProfile:
             outcome="partial"
             if any(row["outcome"] == "unsupported" for row in coverage)
             else "complete",
-            coverage=coverage,
+            block_coverage=coverage,
+            coverage=spacy_family_coverage(selected, coverage, annotation_columns),
             annotation_columns=annotation_columns,
             members=packets,
+        )
+        value["outcome"] = (
+            "complete"
+            if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
+            else "partial"
         )
         check_active()
         return validate_sentence_inventory(
@@ -591,6 +696,7 @@ def sentence_execution_custody() -> SourceArtifact:
 def sentence_profile_assets(configuration: SentenceConfig | None = None) -> SourceArtifact:
     from importlib.metadata import version
 
+    from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS, SPACY_FAMILIES
     from corpus_structure.methods.native_profiles import spacy_observation_policy, spacy_selection
 
     configuration = configuration or SentenceConfig(exclude=("ner",))
@@ -609,6 +715,8 @@ def sentence_profile_assets(configuration: SentenceConfig | None = None) -> Sour
         canonical_bytes(
             {
                 "interpretation": "spacy-native-semantic-assets-ast-v1",
+                "native_families": SPACY_FAMILIES,
+                "native_family_columns": SPACY_COLUMNS,
                 "target": _semantic_nodes(
                     Path(__file__).read_bytes(),
                     (
@@ -617,6 +725,7 @@ def sentence_profile_assets(configuration: SentenceConfig | None = None) -> Sour
                         "_Block",
                         "_blocks",
                         "_native_records",
+                        "spacy_family_coverage",
                         "_semantic_nodes",
                         "sentence_profile_assets",
                     ),
@@ -726,6 +835,7 @@ class PreparedSentencePort:
     authorize: Callable[[PreparedCapabilityIdentity], None]
     host: NativeHostGroup | None = None
     custody: tuple[SourceArtifact, ...] = ()
+    sources: Any = None
 
     @property
     def logical_signature(self):
@@ -759,7 +869,17 @@ class PreparedSentencePort:
             capabilities=canonical_bytes(asdict(operation.capabilities)),
             eligibility=ids[operation.semantic_id, "eligibility"],
         )
-        sources = sentence_operation_sources()
+        required_sources = sentence_operation_sources()
+        sources = self.sources if self.sources is not None else required_sources
+        actual_sources = {source.module: source for source in sources.sources}
+        if any(
+            source.module not in actual_sources
+            or actual_sources[source.module].content != source.content
+            for source in required_sources.sources
+        ):
+            raise PortRefusal("sentence capability lacks its required original source subset")
+        if any(Path(source.filename).read_bytes() != source.content for source in sources.sources):
+            raise PortRefusal("sentence acquired source archive changed")
         retained = {artifact.name: artifact for artifact in self.custody}
         if len(retained) != len(self.custody) or any(
             retained.get(actual.name) != actual
@@ -795,7 +915,7 @@ class PreparedSentencePort:
                 )
             return code
 
-        source = sources.sources[0]
+        source = actual_sources[endpoint.__name__]
         runtime = inspect.getattr_static(endpoint.SentenceEvidenceOperation, "run")
         if (
             not inspect.isfunction(runtime)
@@ -977,6 +1097,7 @@ def resolve_sentence_port(
     authorize: Callable[[PreparedCapabilityIdentity], None],
     host: NativeHostGroup | None = None,
     custody: tuple[SourceArtifact, ...] = (),
+    sources=None,
 ) -> PreparedSentencePort:
     from .data_operation_ports import PortRefusal
 
@@ -998,7 +1119,13 @@ def resolve_sentence_port(
     ):
         raise PortRefusal("operation does not establish the prepared sentence profile")
     port = PreparedSentencePort(
-        identity, selected, prepare_sentence_profile(prepared, model), authorize, host, custody
+        identity,
+        selected,
+        prepare_sentence_profile(prepared, model),
+        authorize,
+        host,
+        custody,
+        sources,
     )
     port._verify()
     return port

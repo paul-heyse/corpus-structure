@@ -49,6 +49,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       block_id: {required: true}
+      native_pointer: {}
       start: {range: integer, required: true, minimum_value: 0}
       end: {range: integer, required: true, minimum_value: 0}
       outcome: {required: true, pattern: '^(complete|empty|unsupported)$'}
@@ -90,43 +91,65 @@ classes:
   DdoSentenceInventory:
     annotations:
       cs:data_universe: source
-    is_a: SourceRecordProduct
+    is_a: DdoCharacterizedProduct
     description: Typed original token and sentence members; execution placement and model custody remain derivation evidence.
     attributes:
       source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
       selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
       outcome: {required: true, pattern: '^(complete|partial)$'}
-      coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      block_coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      coverage: {range: DdoCharacterizationCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       annotation_columns: {range: DdoNativeBlockAnnotations, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       members: {range: DdoSentencePacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
 
+  DdoCanonicalUnit:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      record_type: {required: true}
   DdoCanonicalToken:
-    is_a: SourceRecordProduct
+    annotations:
+      cs:data_universe: source
+    is_a: DdoCanonicalUnit
     attributes:
-      local_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-      space: {range: boolean, required: true}
-      role: {required: true, pattern: '^(prose|math|reference)$'}
-      piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
-  DdoCanonicalSentence:
-    is_a: SourceRecordProduct
-    attributes:
+      record_type: {equals_string: token, required: true}
       local_id: {required: true}
       block_id: {required: true}
       ordinal: {range: integer, required: true, minimum_value: 0}
       start: {range: integer, required: true, minimum_value: 0}
       end: {range: integer, required: true, minimum_value: 1}
-      tokens: {range: DdoCanonicalToken, inlined: true, multivalued: true, required: true}
+      space: {range: boolean, required: true}
+      role: {required: true, pattern: '^(prose|math|reference)$'}
+      sentence_ref: {}
+      piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoCanonicalSentence:
+    annotations:
+      cs:data_universe: source
+    is_a: DdoCanonicalUnit
+    attributes:
+      record_type: {equals_string: sentence, required: true}
+      local_id: {required: true}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      token_ids: {multivalued: true, required: true, minimum_cardinality: 1}
+  DdoCanonicalPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSentenceContext, inlined: true, required: true}
+      body: {range: DdoCanonicalUnit, inlined: true, required: true}
   DdoCanonicalSentences:
     annotations:
       cs:data_universe: source
-    is_a: SourceRecordProduct
-    description: Declared cheap canonical sentence/tokenization value; native linguistic labels do not salt its identity.
+    is_a: DdoCharacterizedProduct
+    description: Declared canonical sentence/tokenization members independent of native linguistic labels.
     attributes:
       source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
       selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
       outcome: {required: true, pattern: '^(complete|partial)$'}
-      coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      sentences: {range: DdoCanonicalSentence, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      block_coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      coverage: {range: DdoCharacterizationCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      members: {range: DdoCanonicalPacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
