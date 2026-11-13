@@ -352,3 +352,9 @@ Formal assembled review and final-source qualification remain TS-23's obligation
 - **passed, 2026-11-13:** `git diff --check` for publication edits.
 - **not_run:** `uv run ci test`, `uv run ci check`, provider/native execution and benchmarks;
   this assessment changes documentation only and makes no product qualification claim.
+
+## Planning adoption · 2026-11-13
+
+The [revised coordinator](../plans/test-system-target-design_2026-11-13.md#improvement-review-integration)
+owns scheduled I01–I11 disposition and the operator-selected PostgreSQL tooling additions.
+Acceptance for planning is not implementation, verified closure or a measured duration benefit.

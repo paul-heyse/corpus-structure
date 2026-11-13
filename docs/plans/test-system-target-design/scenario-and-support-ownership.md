@@ -7,9 +7,11 @@ TS-07 (staged builders, focused consumers and the recipe memo) and TS-15 (one ow
 primary-layer assembly). The [coordinator](../test-system-target-design_2026-11-13.md) owns
 package state, the dependency queue and the disposition of every finding named here.
 
-**Baseline and evidence.** Source was read on `main` between `f03170a89` and `434023ee8`,
-2026-11-13, while another session was committing declared-data-operations (DDO) work; line
-citations are as read. Every design statement is **Proposed**. Source facts are
+**Baseline and evidence.** The original source reading was on `main` between `f03170a89` and
+`434023ee8`; revision source was inspected at `b1b4a4de0`, 2026-11-13. This revision incorporates
+[I03, I04, I05, I06 and I11](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md)
+of the plan-improvement review. Line citations are as read. Every design statement is
+**Proposed**. Source facts are
 **Interface-checked by source inspection, 2026-11-13**. Durations quoted from the audit are
 **Measured** from stored results and are orders of magnitude. No package has a speed target.
 
@@ -79,17 +81,22 @@ What is wrong today (DTA-009, DTA-018, DTA-029):
 `tests/math/` would become a top-level package named `math` on `pythonpath` and collide with the
 standard library. The rules above need no new packages.
 
-**The recipe value.** A frozen, hashable dataclass that fully describes a scenario and can be
-read at the call site. It is consumed three ways: as the key of a seed ([TS-08](isolation-and-seeds.md)),
-as the key of the preparation memo (TS-07), and as the label recorded in a receipt's
-`scenario_seed`. It carries data only, never callables, so two equal recipes are equal by value.
+**The recipe value and its preparation projection.** A frozen, hashable dataclass fully
+describes a scenario and is visible at the call site. The full recipe plus the head identifies
+a seed ([TS-08](isolation-and-seeds.md)); the recipe also supplies its receipt's `scenario_seed`
+label. Pure-stage reuse uses a smaller projection containing that stage's actual inputs
+(TS-07), rather than fields used only by publication or task creation. Both values carry data
+only, never callables, so equality is by value. This distinction lets replay cases vary text
+without rebuilding the same prepared release, while still giving different complete scenarios
+different seeds.
 
 **Recipe dispatch.** TS-06 owns the rule that turns a recipe into a build. Each recipe type
-registers exactly one builder in a support-level registry (`recipe type -> builder`), and the
-seed operation finds the builder by the recipe's type. The compositions and patches a recipe
-needs are named values resolved through the same registry: `"reference"` resolves to
-`reference_inputs`, and a recipe that needs a provider patch names it, and its registered
-builder applies it inside `pytest.MonkeyPatch.context()` around the build only. A seed's key is
+has exactly one builder in a minimal support-level dispatch (`recipe type -> builder`), and the
+seed operation finds the builder by the recipe's type. Named compositions and any ordinary
+provider patches remain values and functions local to that recipe's support owner. For example,
+the record-source builder resolves `"reference"` to its `reference_inputs` composition locally;
+when it needs a provider patch, it applies that patch inside `pytest.MonkeyPatch.context()`
+around the build only. There is no common composition or patch registration API. A seed's key is
 therefore the recipe value plus the head; the builder is implied by the recipe type and is not
 part of the key. An implementation override ([TS-03](implementation-snapshot-and-timing.md)) is
 never a recipe field and is never seedable.
@@ -121,7 +128,7 @@ frozen-instance error until it copies.
 | Canonical absolute imports on `pythonpath` | One module object per support file | Relative imports from non-package files load twice | §7 "Import identity"; pytest 9.1.1 `_pytest/pathlib.py` |
 | Indirect parametrization and factory fixtures | Passing a recipe to a fixture | A module-wide parameter changes test ids | pytest documentation |
 | Frozen dataclasses | Recipe values and stage outputs | Fields must be hashable for recipes; tuples in place of lists | Python standard library |
-| `functools.cache` keyed by a recipe value | The input-assembly memo | Holds its values for the worker's life | Python standard library |
+| `functools.cache` keyed by a stage's preparation recipe | Reuses input assembly before production's prepared-release cache | Ordinary worker lifetime only; TS-03 overrides bypass snapshot-dependent memo reads and writes | Python standard library; [override contract](implementation-snapshot-and-timing.md#override-validity-across-caches) |
 
 ## TS-06 — Support modules, import rules and recipe values
 
@@ -159,13 +166,15 @@ module-level `pytestmark = pytest.mark.parametrize("private_source", [RECIPE], i
 ids=[…])`. The 26 `private_source_options as private_source_options` re-exports are
 deleted.
 
-*The builder registry.* One support module at the package tests root holds the registry and
-its two operations: register a builder for a recipe type, refusing a second registration for
-the same type, and look a builder up by a recipe value's type, refusing an unregistered type.
-Named compositions and named patches are registered and resolved the same way. Each support
-module that defines a recipe type registers that type's builder beside it, so importing the
-recipe is enough to make it buildable. `RecordSourceRecipe` registers here; the serving recipe
-(TS-08) and `KernelRecipe` (TS-17) register through the same rule.
+*Minimal builder dispatch (I11).* One support module at the package tests root associates recipe
+types with builders for generic seeding. It refuses duplicate associations and unknown recipe
+types. Each recipe's support module supplies its association alongside the type; importing the
+recipe makes its builder available. `RecordSourceRecipe`, the serving recipe (TS-08) and
+`KernelRecipe` (TS-17) use that rule. Composition names and patch functions are resolved beside
+the corresponding builder through ordinary local values/functions. Adding a record composition
+therefore edits its owner and consumers without adding a second global registration protocol.
+Reconsider a common extension API only if independently supplied scenario extensions need it;
+none of the inspected consumers supplies that requirement.
 
 *Builders leave `test_*` modules, by consumer cluster.* Each cluster moves in one change with
 its importers, into a support module named for what it builds. The clusters, largest first:
@@ -193,13 +202,28 @@ support in their cluster. One site is not this package's: the re-exports in
 `tests/evaluate/` are removed by [TS-05](isolation-and-seeds.md), which moves the commit-class
 fixtures to the package conftest.
 
-*The statistics-pack fixtures get one owner.* Four modules each prepare the statistics pack in
+*The statistics-pack fixtures get one owner (I05).* Four modules each prepare the statistics pack in
 a module fixture: `stats` in `tests/orchestrate/test_policy.py:36–38`, `prepared` in
 `tests/semantic/test_interpretations.py:22–24`, `prepared` and `policy` in
 `tests/schema/test_rules.py:25–32`, and `inputs` and `policy` in
 `tests/semantic/test_rule_literal_bindings.py:16–23`. They become one session fixture with a
-unique name in one support module, and the four modules request it. TS-12 does not depend on
-this: its designations are module-qualified and work with the four fixtures as they are.
+distinctive name, such as `statistics_pack_prepared`, in one support module, and the four modules
+request it. Any shared dependent policy fixture also gets a distinctive name. TS-12 can group
+the old module-local fixtures first using consumer-module qualifiers. The merge replaces those
+rows with the distinctive shared fixture name without a qualifier, in the same change. A support
+module qualifier would not match an item collected from a consumer module.
+
+*CLI registration follows invocation (I06/W2).* Move both imports of
+`corpus_structure.cli.app.app` and `corpus_structure.cli.output.CliState` from package
+`tests/conftest.py:37–38` into `Cli.__call__` (`:150–155`). Importing either CLI submodule first
+executes `src/corpus_structure/cli/__init__.py`, which eagerly loads the command registry; moving
+only `app` would leave unconditional activation through `output`. Keep the existing `CliRunner`,
+settings callable, environment handling and separate stdout/stderr behavior. Constructing the
+fixture or collecting an unrelated test no longer activates the CLI through these two imports.
+Other tests can still import the CLI explicitly, so this does not promise that every non-CLI
+selection avoids the registry. W2 is scheduled here alongside early TS-04 work; its structural
+benefit does not depend on a timing experiment. W3 argument screening remains a separate
+conditional candidate under its custody contract.
 
 *The verification-disabling double gets a named home.* `synthetic_source_projection` replaces
 `review_bundle._verify_source_projections` with a function returning an empty set. It moves to
@@ -221,21 +245,29 @@ names a `test_*` module; no module outside `tests/semantic/` and `tests/methods/
 import; no `private_source_options` definition or import; no `callspec` read. The relative
 import in `tests/acceptance/conftest.py` is counted with TS-05, which removes it. Every recipe
 type has exactly one registered builder, and no recipe field holds a callable or an
-implementation override. The DDO part of the same closure belongs to TS-17. Collection of the whole package succeeds and
-`test_scenario_ports.py` still passes.
+implementation override. The DDO part of the same closure belongs to TS-17. Collection of the
+whole package succeeds and `test_scenario_ports.py` still passes. A cold child process can load
+package conftest for a non-CLI collection without those imports loading the command registry;
+existing `cli` fixture consumers retain their settings and output behavior. Shared statistics
+fixtures retain their affinity designation after the move; a same-name local fixture in an
+unrelated module does not acquire it. These are planned controls, not current execution claims.
 
 **Verification.** Per cluster: `uv run ci test -- PATH` for the moved owner and two or three of
 its importers. For the recipe change: `uv run ci test --
 python/corpus-structure/tests/semantic/test_structural_native_replay.py
 python/corpus-structure/tests/semantic/test_review_cli_native.py`.
+For the lazy imports, use the existing conftest/CLI harness to check a cold non-CLI collection
+and representative `cli` consumers, observing imported modules rather than asserting duration.
 
 **Open premises.** Whether any double-loaded module's duplicated state changes a result was not
 established; the rules remove the question.
 
 ## TS-07 — Staged builders, focused consumers and the recipe memo
 
-**Required input.** TS-06 (recipe values and support placement) and TS-05 (the commit-class
-fixtures and `commit_clone()`, which the second-database consumer below uses).
+**Required input.** TS-06 (recipe values and support placement), TS-03's implemented
+[override-validity contract](implementation-snapshot-and-timing.md#override-validity-across-caches)
+before memo reuse, and TS-05 (the commit-class fixtures and `commit_clone()`, which the
+second-database consumer below uses).
 
 **Implementation vision.** Three builders become stage functions in their existing modules. The
 full builder stays as the composition of its stages, so no consumer has to change until it wants
@@ -292,12 +324,31 @@ finalized.
 
 The DDO forged-graph family, which builds more than the demand it reads, is TS-18's.
 
-**Recipe-keyed memo.** Production's cache holds eight prepared releases and is keyed by the
-assembled inputs, so each call still assembles and hashes its bundle before the lookup, and a
-worker that interleaves more than eight compositions can evict. Support gains one memo keyed by
-the recipe value that returns the frozen prepared stage (`prepare_record_source` and the pure
-first stage of the other two builders). It holds a strong reference for the worker's life, so
-eviction no longer matters for recipes in use. Production's cache is not changed.
+**Preparation-recipe memo (I03).** Production's eight-entry cache is keyed by assembled inputs,
+so a call still assembles and hashes the bundle before lookup. Support reuses that assembly
+through a small `RecordPreparationRecipe(composition, additional_methods)`, projected from
+`RecordSourceRecipe` before calling the pure `prepare_record_source`. The composition name
+selects the locally owned bundle/dependency transforms; `additional_methods` supplies its method
+extension tuple. These are precisely the varying arguments of the inspected pure function
+(`native_record_fixtures.py:208–277`). Publication text (`sibling_captions` and
+`sibling_references`), blank-cell choices, task method and task configuration remain in the full
+scenario recipe but are absent from this preparation key. The full recipe plus head remains
+the seed key: sharing preparation never equates distinct persisted scenarios.
+
+One ordinary worker-local memo maps that projection to the frozen `RecordPreparation`, holding
+values for the worker's life. The other two builders gain preparation reuse only for a meaningful
+shared pure prefix, keyed by the inputs that prefix actually consumes; their later-stage fields
+are not automatically added to a cache key. No dependency-tracking framework or blanket
+whole-recipe memo is introduced. Production's prepared-release cache remains independently
+keyed by its explicit bundle, dependencies, profile and compiler stack.
+
+Before consulting the support memo, its wrapper checks `implementation_overridden()`. Under an
+override it computes the pure stage afresh, bypassing both reads and writes; normal warm entries
+remain untouched. This applies to any support prefix whose assembly acquires installed
+implementation inputs. TS-03 owns the affected context and parser-result caches and the nested,
+exception-safe lifetime. Persisting a release, writing PDFs/spools, publication, task creation
+and claims remain effectful stages outside this memo, fresh for the selected isolation contract.
+Independent expected results remain authored by the tests.
 
 **Consumers migrated.** The four focused consumers above; `private_source`, which composes the
 stages; the builders' call sites are unchanged unless they adopt an earlier stage.
@@ -308,7 +359,12 @@ stages; the builders' call sites are unchanged unless they adopt an earlier stag
 
 **Acceptance and closure.** The named consumers request only what they read (DTA-018). Each
 builder's full composition returns what it returned before, shown by its existing consumers
-passing unchanged. A stage output cannot be assigned to.
+passing unchanged. A stage output cannot be assigned to. Replay recipes differing only in
+later-stage text acquire the same ordinary preparation once; changed composition or methods
+acquire another. Their effectful stages still run independently. With ordinary preparation warm,
+nested overrides that keep profile identifiers unchanged neither read that preparation nor
+write to its ordinary memo; exceptional exit restores ordinary reuse. TS-03 supplies the matching
+parser/context controls, so a support-only counter is insufficient to establish the whole scope.
 
 **Verification.** `uv run ci test -- python/corpus-structure/tests/evaluate/test_record_policy_native.py
 python/corpus-structure/tests/semantic/test_cli_failures.py

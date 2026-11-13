@@ -1,6 +1,6 @@
 # Test system target design
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13. **Revised:** 2026-11-13.
 This coordinator owns the series' combined target, shared contracts, package queue, rule-change
 record and the scheduled disposition of every finding it lists. Companion plans own the detailed
 designs and package descriptions. Architecture pages and accepted ADRs remain the authority;
@@ -33,11 +33,18 @@ has a speed target, and no measured speedup is a completion criterion.
 
 **Scope.** Package and root tests, every `conftest.py`, `scripts/native_test_support.py`,
 `scripts/test_receipts.py`, `scripts/qualification_plugin.py`, `cli/testing.py`, the pytest
-configuration, and one bounded production change (implementation inputs read once per process).
+configuration, and two bounded production changes (implementation inputs read once per process and requested-revision expectation loading). Test-only SQL/TAP and private-cohort integration are included.
 TS-19 also deletes two production identity helpers that have no caller, unless the DDO identity
 package has already removed them; the deletion is coordinated with the DDO session.
 Out of scope: a production audit, changes to the DDO plan's own packages, and edits to other
 existing plans (operator direction, 2026-11-13).
+
+**Revision input.** The [improvement review](../plan_improvement_reviews/test-system-target-design_2026-11-13.md)
+at `823c7fac0` supplies I01–I11. Revision baseline `b1b4a4de0`, source inspected
+2026-11-13; nothing in the series is implemented by this revision. The operator selected all
+recommendations for integration and directed adoption of pgTAP/pg_prove/pg_virtualenv where
+native batching and cohort reuse make infrastructure effective. Shorter focused and full runs
+are a major priority; independent evidence and required qualification remain intact.
 
 ## Rule changes confirmed by the operator
 
@@ -50,7 +57,15 @@ The review proposed four rule impacts. The operator decided each on 2026-11-13.
 | RC03 | DDO contracts companion: "Native checks use the project's working database under its ordinary custody; this plan does not require disposable databases" | **Accepted.** DDO native checks run on clones and seeds of the deployed head under the named isolation classes | An edit owed to the DDO plan's owner. This series does not edit that plan; TS-17 designs to the accepted rule and the item stays listed under [handovers](#handovers-to-other-owners) |
 | RC04 | [ADR-0048](../adr/0048-populated-native-scenarios.md): a session-local seed for the serving scenario only; rollback-only transactions rejected | **Accepted.** Seeds become the general mechanism for any recipe that meets the seed premises; the rollback-only rejection narrows to claims that need committed cross-session isolation | A superseding ADR in TS-00 with D3 and `DESIGN.md` amended. Precedes TS-08 |
 
-Four further operator decisions shape the target.
+Additional operator decisions, confirmed 2026-11-13:
+
+| Item | Decision | Route |
+|---|---|---|
+| RC05 / I02 | **Accepted:** driver-only controls use an infrastructure base; durable-write cases have isolated infrastructure clones. The shared semantic-engine exception and its comparator are removed | TS-00's ADR-0032 successor and D3/DESIGN/D9 changes precede TS-05 |
+| RC06 / I09 | **Accepted:** ordinary required selection excludes opt-in provider identities; explicit `ci test --providers-only` requires actual providers and blocks on missing prerequisites | TS-13 updates selection/receipt contracts and the ci testing reference; TS-22/23 preserve separate required provider evidence |
+| Tooling direction | **Selected:** pgTAP/pg_prove SQL-family execution and a supported pg_virtualenv private cohort, using existing lifecycle and result custody | TS-24/25; [tooling companion](test-system-target-design/postgresql-tooling.md). Test-only installation changes no production extension prerequisite |
+
+Earlier operator decisions, with their current amended meaning:
 
 - **The deployment key is narrow and verified** (2026-11-13). The review keyed the reusable
   head on the migration chain plus the chain's whole import closure inside the package. At the
@@ -70,11 +85,10 @@ Four further operator decisions shape the target.
   task in a claimed or running state, whether or not its lease has expired. The seed build
   checks task status, not only `lease_until`. The ADR-0048 successor (TS-00) states the rule;
   the [isolation companion](test-system-target-design/isolation-and-seeds.md) owns the design.
-- **Engines on a shared clone** (2026-11-13). The rollback class hands out case connections and
-  a reader engine whose sessions are forced read-only (`default_transaction_read_only=on`).
-  The three `tests/db` connection-lifecycle modules keep one named `shared_clone_engine`, with
-  a check after each test that nothing durable changed on the shared clone. No other writable
-  engine exists on a shared clone. The ADR-0032 successor (TS-00) names both.
+- **Shared semantic clones** (amended by RC05). Rollback cases expose connections and a
+  reader engine forced read-only. Driver connection-lifecycle controls use the infrastructure
+  base rather than a writable semantic engine. Tests that actually commit receive an isolated
+  clone of the appropriate base. No writable shared-semantic-engine exception remains.
 
 A rule change that execution reveals follows the same confirmation before dependent work.
 
@@ -125,15 +139,19 @@ These are consumed across companions. Each has one owning package; consumers lin
 |---|---|---|
 | Database naming | A function returning, for each kind of test database, its name, lease key and sweep rule. Kinds include the head, build residue, a stale head set aside after failed verification, the session clone, commit clones and seeds, and today's per-process head as an interim kind that TS-02 removes | TS-01; TS-02 and TS-08 add their kinds through it |
 | Run scope | `CORPUS_CI_RUN_SCOPE`, set by the managed route to `qualification` or `narrowed`; absent means narrowed. Receipts record the head name and whether it was built, reused and verified | TS-02 |
-| Head handle | What the session head fixture yields: name and policy, as today | TS-02 |
+| Head acquisition | Replacement-aware handle whose clone operation verifies the first useful clone before effects; no dependency on a session-clone fixture | TS-02 early acquisition slice |
 | Implementation snapshot and override | `current_implementation()`, `implementation_override(...)` and `implementation_overridden()` in production; the last lets a seed build refuse to run under an override | TS-03 |
-| Isolation-class fixtures | In the package `tests/conftest.py`: `native_read`; `native_rollback` (case connections, principal connections, and a reader engine whose sessions are forced read-only); the `commit_*_engine` fixtures that replace the `semantic_*_engine` family; and `shared_clone_engine`, the one writable engine on a shared clone, kept for three connection-lifecycle modules with a check after each test that nothing durable changed. The session clone (`ci_test_<pid>`) is owned here and created lazily. Cold deployment fixtures (`semantic_bare_engine`, `semantic_database_at`) are a separate named kind outside the four classes | TS-05 |
-| Recipe value | A frozen, hashable, data-only description of a scenario, visible at the call site; the key for seeds (with the head) and for memoized preparation. Each recipe type registers exactly one builder in a support-level registry, and the compositions and patches a recipe needs are named values resolved through it. An implementation override is never a recipe field | TS-06 |
+| Isolation-class fixtures | In the package `tests/conftest.py`: `native_read`; `native_rollback` (case connections, principal connections, and a reader engine whose sessions are forced read-only); the `commit_*_engine` fixtures that replace the `semantic_*_engine` family; and infrastructure engine/rollback/isolated fixtures for driver-only consumers; no writable shared-semantic-engine exception. The session clone (`ci_test_<pid>`) is owned here and created lazily. Cold deployment fixtures (`semantic_bare_engine`, `semantic_database_at`) are a separate named kind outside the four classes | TS-05 |
+| Recipe value | A frozen, hashable, data-only description of a scenario, visible at the call site; the key for seeds (with the head). Pure preparation uses its preparation-stage projection instead of the whole scenario recipe. Each recipe type registers exactly one builder in a support-level registry, while compositions and patches are resolved locally by that builder, not a global registry. An implementation override is never a recipe field | TS-06 |
 | Stage outputs | Frozen results of each builder stage; the seed boundary is the last stage before a claim | TS-07 |
 | Seed operation | In the lifecycle owner: build once per worker with the recipe type's registered builder, check, seal, clone. A seed may hold completed attempts but no unfinished task (none claimed or running, whatever its lease). Seeds are requested only through fixtures, which reach the operation as `scenario_seeds.commit_clone(recipe)` and `scenario_seeds.rollback_family(recipe)`; no test body calls it. `database()` gains an optional seed origin for receipts | TS-08 |
 | Refusal contract | Reach, reason and effect, with a small helper that compares the driver's diagnostic tuple | TS-09 |
-| Prerequisite marker | A marker decided at collection whose reason enters the item's receipt properties | TS-13 |
+| Provider selection and prerequisites | Separate opt-in provider marker and prerequisite checks; persisted provider-only selection through retry/coverage; aggregated missing reasons and item-bound native observations | TS-13 |
 | DDO support | Declaration builders, `KernelRecipe`, `admit_kernel`, demand helpers and an interim per-test kernel fixture (TS-17); the `ddo_kernel(recipe)` fixture, which is `scenario_seeds.commit_clone(recipe)` exposing the purpose engines of that clone, and `expire_lease` (TS-18); `WireCheckedStorage` and the binding case table (TS-20) | TS-17, TS-18, TS-20 |
+
+SQL/TAP family selection, host acquisition and result custody are owned in the
+[tooling companion](test-system-target-design/postgresql-tooling.md#shared-contracts).
+They compose these contracts; they do not replace actual-purpose observations or lifecycle ownership.
 
 ## Package queue
 
@@ -142,30 +160,32 @@ binds. A package is not automatically one worker's assignment.
 
 | Package | Delivers | Needs | Findings | State |
 |---|---|---|---|---|
-| TS-00 | Baseline reconciliation; superseding ADRs for RC01 and RC04 with design sections amended | Operator decisions above | RC01, RC04 | Not started |
+| TS-00 | Baseline reconciliation; superseding ADRs including infrastructure RC05, with design sections amended | Operator decisions above | RC01, RC04, RC05 | Not started |
 | TS-01 | One naming, lease and sweep authority; superseded lifecycle machinery removed; sweep skips residue still in use | — | DTA-030, F01, F04 | Not started |
 | TS-02 | Keyed, verified head deployment; run-private heads for qualification; receipts record the head | TS-00, TS-01 | DTA-024 | Not started |
 | TS-03 | Implementation snapshot with override; fixtures moved off monkeypatched readers | — | DTA-032 | Not started |
 | TS-04 | Workers sized to explicit selections | — | F05, RC02 | Not started |
-| TS-05 | Isolation-class fixtures; the `semantic_*_engine` family renamed to say commit (165 files, mechanical); the one consumer that commits to the shared clone moved | TS-00, TS-01 | (enables DTA-025, DTA-031) | Not started |
+| TS-05 | Isolation classes, infrastructure base and commit fixture migration | TS-00, TS-01, TS-02 acquisition slice | (enables DTA-025, DTA-031) | Not started |
 | TS-06 | Support modules and import rules; recipe values and their builder registry replace fixture-name overrides; the statistics-pack fixtures merged into one support owner | — | DTA-009 | Not started |
-| TS-07 | Staged builders; focused consumers request only what they read; recipe memo | TS-05, TS-06 | DTA-018 | Not started |
-| TS-08 | The seed operation; the serving seed migrated onto it | TS-00, TS-01, TS-03, TS-06 | F03 | Not started |
+| TS-07 | Staged builders; focused consumers request only what they read; preparation-specific recipe memo | TS-03 override scope, TS-05, TS-06 | DTA-018 | Not started |
+| TS-08 | The seed operation; the serving seed migrated onto it | TS-00, TS-01, TS-02 acquisition slice, TS-03, TS-06 | F03 | Not started |
 | TS-09 | Refusal contract helper and the named weak sites | — | DTA-001 | Not started |
 | TS-10 | Rollback families on seeds; pure SQL checks in the read class | TS-05, TS-07, TS-08, TS-09 per family | DTA-025 | Not started |
 | TS-11 | Commit-class consumers clone recipe seeds | TS-07, TS-08 | F03 | Not started |
-| TS-12 | Affinity groups for designated preparation, with module-qualified designations | — | F02 | Not started |
-| TS-13 | Provider and controlled identities split; prerequisites before setup | — | DTA-028, DTA-018 (skips) | Not started |
+| TS-12 | Affinity by distinctive shared fixture names and consumer-qualified local fixtures; deduplicate equal groups | — | F02 | Not started |
+| TS-13 | Provider-only selection, controlled identities and aggregated prerequisites before setup; complete receipt/retry projection | — | DTA-028, DTA-018 (skips) | Not started |
 | TS-14 | Preservation assertions, redaction-order control, exact task state for stdio modes | TS-08 for the two-run comparison | DTA-006, DTA-027, DTA-016 residue | Not started |
 | TS-15 | One owner of the primary-layer assembly | — | DTA-029 | Not started |
 | TS-16 | CPU lifecycle controls without real grace waits or private initializer writes | — | DTA-026 | Not started |
 | TS-17 | DDO support modules, declaration builders, kernel recipes, `admit_kernel`, an interim per-test kernel fixture | TS-06 | DTA-031, DTA-009 (DDO) | Not started |
-| TS-18 | `ddo_kernel(recipe)`; DDO native tests on kernel seeds and named classes; lease expiry without sleeping | TS-05, TS-08, TS-17; TS-07 for the two original recipes | DTA-031, DTA-018 (forged graph) | Not started |
+| TS-18 | Kernel/source-function seeds, forged-graph rollback family and deterministic lease expiry | TS-05, TS-08, TS-09 per refusal family, TS-17; TS-07 for the two original recipes | DTA-031, DTA-018 (forged graph) | Not started |
 | TS-19 | Literal vectors for the contextual product identity; uncalled helpers removed | — | DTA-033 | Not started |
-| TS-20 | Wire-checked double; one binding case table through compiled and native paths | TS-05, TS-17 | DTA-034 | Not started |
+| TS-20 | Wire-checked double; authored compiled results and bounded protected native admission | TS-05, TS-08, TS-17, TS-18 binding seed slice | DTA-034 | Not started |
 | TS-21 | Cutover transfer of tests tied to retired machinery | TS-07, TS-17, and each retiring DDO package | DTA-035 | Gated on DDO |
 | TS-22 | DDO-12 evidence mapping, as a table in this series' companion, and the provider run | TS-13, DDO-12 | DTA-036 | Gated on DDO |
-| TS-23 | Assembled review, final-source qualification, handoff | All of the above that are not DDO-gated | — | Not started |
+| TS-24 | SQL-family batching with pgTAP/pg_prove, stable case identities and receipt integration | TS-04, TS-05, TS-08, TS-13 selection/provenance slice | Tooling direction, I07/I09 | Not started |
+| TS-25 | Supported private PostgreSQL cohort through pg_virtualenv; explicit endpoint and host context | TS-01, TS-05, TS-13 context slice; TS-24 for SQL consumers | Tooling direction, I02 | Not started |
+| TS-23 | Assembled review, final-source qualification, handoff | All non-DDO-gated packages including TS-24/25 | — | Not started |
 
 **What depends on what, by capability.**
 
@@ -174,7 +194,7 @@ binds. A package is not automatically one worker's assignment.
 - TS-03 is small and independent. It is scheduled early because it removes work from every
   interpretation context, and because its override is what lets a seed builder refuse to run
   under patched implementation inputs.
-- TS-02 with TS-04 removes the fixed floor of a focused native run. Nothing later depends on them.
+- TS-02 with TS-04 removes the fixed floor of a focused native run. TS-05/08 consume TS-02's acquisition slice; the full head-reuse consumer work need not block that slice.
 - TS-05, TS-06 and TS-17 are the foundation the DDO tests need. They should land before DDO-06
   adds more native tests, so those start in the target shape.
 - A family moves in TS-10 only together with its refusal contract from TS-09. The two packages
@@ -186,7 +206,7 @@ binds. A package is not automatically one worker's assignment.
 **Shared editing surfaces.** `scripts/native_test_support.py` and the package `tests/conftest.py`
 are touched by TS-01, TS-02, TS-05 and TS-08; one owner should hold them in sequence.
 `tests/semantic/native_record_fixtures.py` is touched by TS-03, TS-06, TS-07 and TS-11.
-`tests/semantic/test_data_operation_storage.py` is under active edit by the DDO session; TS-17
+`tests/semantic/test_data_operation_storage.py` belongs to the paused DDO execution; TS-17
 and TS-18 coordinate with it before moving helpers out.
 
 ## Finding disposition
@@ -224,6 +244,32 @@ DTA-001–023 as they stood on 2026-11-05 remain with the completed
 [test audit resolution](test-audit-resolution_2026-11-05.md); the rows above cover current-source
 manifestations.
 
+## Improvement-review integration
+
+All recommendations from [the review](../plan_improvement_reviews/test-system-target-design_2026-11-13.md)
+are selected for planned implementation; each remains **Open**, not verified closure. This table
+is their single scheduled disposition owner, alongside the existing DTA/F table.
+
+| Review item | Packages | Closure behavior (Open) |
+|---|---|---|
+| [I01](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I01) | TS-02, TS-05, TS-08 | First useful clone verified once; selected inherited artifact resolution avoids unrelated payload reads |
+| [I02](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I02) | TS-00, TS-01, TS-05 | Infrastructure-only selections acquire no semantic head; durable writes isolated |
+| [I03](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I03) | TS-06, TS-07 | Later-stage variations share pure preparation; true preparation changes invalidate |
+| [I04](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I04) | TS-03, TS-07 | Nested overrides bypass affected cache reads/writes and preserve ordinary warm state |
+| [I05](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I05) | TS-06, TS-12 | Imported shared fixtures grouped correctly; duplicate equal groups accepted |
+| [I06](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I06) | TS-06 | Both CLI imports deferred; cold non-CLI collection avoids registry activation through conftest |
+| [I07](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I07) | TS-09, TS-17, TS-18, TS-20 | Authentic forged-graph rollback controls; stable binding source functions installed once per worker |
+| [I08](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I08) | TS-20 | Independent full results and native accepted/refused envelopes discriminate selection errors |
+| [I09](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I09) | TS-05, TS-13, TS-18, TS-22, TS-23 | Provider-only scope survives retry/coverage; aggregated reasons and item native evidence retained |
+| [I10](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I10) | TS-01, TS-02 | Construction-key dependencies exclude unrelated orchestration; build-name lease protects publication |
+| [I11](../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I11) | TS-06 | Minimal type dispatch; compositions and patches owned locally |
+
+TS-24/25 carry the later tooling direction. Preserve the source review's evidence limits;
+no benchmark quota or numerical speedup claim follows. Existing receipts can show eliminated
+acquisitions and reused setup. Investigate duration only where it would change a consequential
+remaining choice. TS-23 still owns final-source functional/provider/nonfunctional coverage and
+assembled review. Its position after appended IDs is dependency order, not renumbering.
+
 ## Candidates, rejected options and open premises
 
 **Candidates kept, not scheduled.** Each has a trigger; none is a completion obligation.
@@ -235,7 +281,7 @@ manifestations.
 | Commit-class consumers of one recipe seed grouped onto one worker | Full-run receipts after TS-11 show per-worker builds of one recipe's seed as a material share of setup |
 | Math and CPU process pools coordinated with xdist's worker count. This is a real shared-capacity concern, not a rejection, and it needs measurement before any design | A full run showing oversubscription |
 | Long single tests dispatched first (G3) | A full run whose tail is one late long test |
-| Lazy CLI import in the package conftest (W2); argument screening without a second interpreter (W3); deferred collection-time loads (C1); controlled PDF builder loaded once (S3); concurrent cold-process children (P1) | Any of them, when a focused run's fixed overhead matters after TS-04 |
+| Argument screening without a second interpreter (W3); deferred collection-time loads (C1); controlled PDF builder loaded once (S3); concurrent cold-process children (P1) | Any of them, when a focused run's fixed overhead matters after TS-04 |
 
 **Rejected, with the review's reasons** (supporting document, Part A): dependency-based test
 selection; a disk cache of prepared releases; fewer Hypothesis examples for focused runs;
@@ -254,11 +300,8 @@ does not restate or change them.
 | `ALTER DATABASE … RENAME` publishes a build and keeps the OID-keyed ownership stamp | TS-02, first build | Build under the final name behind the build lock and seal last; the lifecycle companion states the rule for an unsealed database found under a head name |
 | No command writes implementation files and then re-reads them in the same process | TS-03 | A generator that does clears the snapshot after writing |
 | A read-only transaction refuses `CREATE FUNCTION`, including into `pg_temp` | TS-18 | If it does not, the identity-native checks may use the read class instead of rollback |
-| Production's deployment check on a session clone is cheap enough to run once per process that did not build the head | TS-02 | Verify once per head per day, or on key-component change only |
-| A blocked provider node does not fail the ordinary lane's required set where the qualification policy treats provider evidence as opt-in | Before TS-23, by the qualification policy owner's declaration; first consumed by TS-13 | Completion's `uv run ci test` cannot pass on a host without provider assets; the required set or the completion wording is settled with the operator before TS-23 |
 | Sealed kernel rows carry no database or role names | TS-18, first kernel seed clone | The affected recipe stays on a per-test build |
-| Which stage of `build_domain_case` dominates | TS-11, one profile of one build | Changes how much seeding helps that file, not the design |
-| The deployed data-task guard matches source for the lease update near `test_data_operation_storage.py:2116` | TS-18 | Returned to the DDO owner as a product question |
+| Which domain-case prefix is reusable | TS-11, inspect consumed stages and dependencies; profile only if it changes the boundary | Use the smallest sufficient stable prefix without making benefit measurement a gate |
 | A family's refused operation does not check a task lease | TS-10, per family | The family stays commit-class on a seed |
 
 ## Handovers to other owners
@@ -266,11 +309,9 @@ does not restate or change them.
 Not this series' work; listed so they are not lost.
 
 - **DDO plan owner:**
-  - RC03, the accepted correction to the contracts companion.
-  - Ordering. TS-05, TS-06 and TS-17 should land before DDO-06, so its native tests start in
-    the target shape. DDO-06 to DDO-12 should each gate on TS-21 for the mechanisms they
-    retire, and DDO-12 on TS-22. Nothing in the DDO plan says so, because this series does not
-    edit it.
+  - RC03 and TS-05/06/17 readiness, TS-21/22 consumption and retirement owners are already
+    recorded by the DDO coordinator and contracts companion. Link their package obligations;
+    do not copy status or resume that paused execution.
   - The edit to the DDO-12 obligation table. TS-22 delivers the evidence mapping as a table in
     the [data-operations companion](test-system-target-design/data-operations-test-alignment.md);
     adding it to the DDO plan's table is the DDO owner's edit at DDO-12 time.
@@ -279,9 +320,8 @@ Not this series' work; listed so they are not lost.
     which commit carries it. DTA-033 closes only when they are gone.
   - Its findings-table rows for DDO-CA-01, 02 and 04 predate tests that now exist.
   - `admit_data_operation_release` verifies the native deployment twice per release.
-  - The lease-update question above.
-  - Which DDO package retires `reused_task_id` and `max_active_stage_runs`; the DDO plan names
-    neither, and TS-21 needs an owner for each.
+  - DDO-06 owns `max_active_stage_runs`; DDO-09 removes copied `reused_task_id` meaning and
+    DDO-11 retires the physical storage. TS-21 consumes those owners rather than requesting new ones.
   - Assurance gaps against its own verification text: overlapping publication with differing
     intents, helper-body and inherited-value change locality, invalidated support recovered
     through a real consumer, graph example sets.
@@ -293,11 +333,21 @@ Not this series' work; listed so they are not lost.
 
 The series is complete when every non-gated package is delivered with its consumers migrated
 and its superseded machinery removed; the final source passes `uv run ci test` and
-`uv run ci check` with a run-private head, where provider-gated identities without their
-prerequisite resolve as the qualification policy declares (the open premise above); an assembled design review of the changed lifecycle
+`uv run ci check` with a run-private head and explicit provider-required selections covering applicable provider obligations separately; missing selected providers remain blocked; an assembled design review of the changed lifecycle
 has been held (TS-23); and the gated packages are either delivered or carried, with their
 gates, into the DDO work. Targeted checks run per package during implementation; the integrated
 run happens once at complete scope (AGENTS.md). Receipts that show a head reused or one seed per
 worker are functional closure evidence. They are not speed claims.
 
 **Next executable work:** TS-00 (the two superseding ADRs), then TS-01 and TS-03 in parallel.
+
+## Revision publication · 2026-11-13
+
+This revision integrates I01–I11 and the selected PostgreSQL tooling direction; it implements
+no package and closes no DTA/F/I finding. Architecture and ADR changes remain TS-00's work.
+
+- **passed:** `just turn-end`, `git diff --check`.
+- **passed:** `uv run ci docs check`, initial publication result
+  `c4768dba59644b45ba16964d7bcd5402`, 1,245 canonical pages and zero link errors.
+- **not_run:** `uv run ci test`, `uv run ci check`, native/provider probes and benchmarks;
+  only plan/review navigation and checkpoint documentation changed.

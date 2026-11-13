@@ -2,15 +2,17 @@
 
 **Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
 
-This companion owns the design of packages TS-03 and TS-16: the one bounded production change of
-the series, which reads the implementation inputs once per process and gives tests an explicit
+This companion owns the design of packages TS-03 and TS-16: the implementation-input production
+seam, which reads the implementation inputs once per process and gives tests an explicit
 override, and the CPU lifecycle controls, which stop waiting out production grace periods and
 stop writing executor internals. The
 [coordinator](../test-system-target-design_2026-11-13.md) owns package state and finding
 disposition; nothing here restates them.
 
-**Baseline and evidence.** Source was read at `main` `683e9a955` on 2026-11-13; another session
-was committing during authoring, so line citations are as read. Design statements are
+**Baseline and evidence.** Original source was read at `main` `683e9a955`; revision source was
+inspected at `b1b4a4de0`, 2026-11-13, incorporating
+[I04](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I04) and its I03
+consumer. Line citations are as read. Design statements are
 **Proposed**. Source facts are **Interface-checked by source inspection, 2026-11-13**. Durations
 quoted from the audit are **Measured** from stored results and are orders of magnitude; the
 share of any test's time explained by the repeated reads is a source reading, not a profile.
@@ -49,6 +51,14 @@ What is reused: `compile_execution_model` is already cached on its inputs (`cont
 `_boundary()` is cached once per process (`analysis_contracts.py:488–495`), and the comparison
 at `analysis_contracts.py:454–462` is a real admission check that stays.
 
+**Override cache identity.** `MathContext.key()` (`grammar.py:366–378`) contains declared
+symbols, profile id, definition rule, conflicts and conventions, but no implementation digest
+or runtime identity. `PreparedInterpretationContext.grammar_context`
+(`analysis_contracts.py:533–551`) does not transfer those identities. Consequently two contexts
+can share the `_MEMO` result key (`grammar.py:989`) across an implementation override even if
+the admitted determinants differ. This is settled by source inspection, 2026-11-13; it is not
+an open premise. The proposed scope rule below prevents such cache reuse.
+
 **CPU lifecycle.** The grace constants are module attributes read at call time in parent-side
 code only: `_COOPERATIVE_CLOSE_SECONDS` and `_WORKER_EXIT_SECONDS`, both `5.0`
 (`src/corpus_structure/semantic/cpu_execution.py:545–546`), read at `:634`, `:965–966` and
@@ -63,7 +73,7 @@ No production change is needed for TS-16.
 | Operation | Consumes | Decides | Produces |
 |---|---|---|---|
 | `current_implementation()` | The installed package on first use | Nothing; it is a read | One frozen snapshot per process: the trusted execution inputs, the analysis implementation inputs, the semantic and runtime digest tuples, and the standalone runtime fingerprint |
-| `implementation_override(snapshot)` | A snapshot built from explicit inputs, or the refusal marker | Nothing | A context in which `current_implementation()` returns that snapshot, or raises under the refusal marker; the previous state is restored on exit |
+| `implementation_override(snapshot)` | A snapshot built from explicit inputs, or the refusal marker | Installs an explicit scope | A context in which `current_implementation()` returns that snapshot, or raises under the refusal marker; affected memo reads and writes are bypassed and the previous state is restored on exit |
 | `implementation_overridden()` | — | — | Whether an override is installed; the seed operation (TS-08) uses it to refuse to build |
 
 **What consumers stop doing.** Production call sites stop reading the package from disk per
@@ -120,18 +130,63 @@ override query.
   `_analysis_runtime` takes the runtime digests and standalone fingerprint on the standalone
   branch, and on the prepared branch passes the snapshot's analysis inputs to
   `installed_runtime_id(prepared, inputs)` as it passes the fresh read today.
-- `grammar.parse` without a context obtains its standalone grammar context from a memo keyed by
-  `(_table_key(table), kind)` before the `_MEMO` lookup at `grammar.py:989–993`.
+- `grammar.parse` without a context ordinarily obtains its standalone grammar context from a
+  memo keyed by `(_table_key(table), kind)` before the `_MEMO` lookup at
+  `grammar.py:989–993`. Under an override it constructs that context afresh.
 - `implementation_override(...)` installs a snapshot for the duration of a `with` block. It is
   process-wide, not thread-local, because consumers run on worker threads that must see it. It
   does not cross a process spawn; a spawned CPU worker reads its own installed snapshot, which
   is also what a monkeypatch did.
-- Anything memoized from the snapshot must not outlive an override. `_boundary()` and the new
-  standalone grammar-context memo are bypassed while an override is installed, or keyed by the
-  snapshot's identity; the implementer chooses, and the counting control below fixes the
-  behavior for the ordinary case.
+- Snapshot-dependent support, context and parser-result caches bypass both reads and writes
+  throughout an override, under the explicit lifetime and bounded cache set below. Ordinary warm
+  entries remain intact. Cache clearing only on exit is insufficient because it permits an
+  ordinary entry to answer inside an override; separate override namespaces are unnecessary for
+  the inspected tests.
 - The refusal marker replaces the tests that patch a reader with a failing function to prove
   that a path does not acquire installed inputs.
+
+### Override validity across caches
+
+**Proposed scope rule (I04).** The override is process-wide and nestable. Entering an inner
+scope saves the outer override value; a `finally` restoration reinstalls it on either normal
+or exceptional exit. Returning from the outer scope restores the installed snapshot and its
+untouched warm caches. Both a snapshot override and the refusal marker count as active scopes.
+Worker threads observe the active override and bypass rule. Unrelated work must not run
+concurrently across a process-wide override; the seam does not promise concurrent independent
+override scopes, and child processes still acquire their own installed snapshots.
+
+The cache wrapper checks the active scope before lookup and does not call the ordinary cached
+function under an override. This prevents both a read hit and an insertion/eviction. For
+`grammar._MEMO` it also avoids `move_to_end`, insertion and eviction. The following distinctions
+are grounded in the inspected cache inputs, rather than a rule to disable every cache:
+
+| Cache | Under an override | Dependency and owner |
+|---|---|---|
+| TS-07 support preparation memo keyed by `RecordPreparationRecipe`, and another support prefix only when it acquires installed inputs | Bypass reads and writes; assemble and prepare afresh | The short support key intentionally omits the installed snapshot. TS-07 owns these wrappers |
+| `analysis_contracts._boundary()` | Bypass reads and writes | Its zero-argument body acquires `trusted_execution_inputs().schema` (`:488–495`). TS-03 owns the uncached body and guarded memo wrapper |
+| New standalone grammar-context memo | Bypass reads and writes | Its ordinary macro/kind key omits the installed snapshot from context preparation. TS-03 owns it |
+| `grammar._MEMO` parser-result memo | Bypass reads and writes for parsing in the active scope, including an explicit context | `MathContext.key()` omits implementation/runtime identity, so equal profile identifiers cannot justify cross-scope results. TS-03 owns the guard |
+| Installed-snapshot acquisition cache | Preserve its ordinary entry; `current_implementation()` selects the override before consulting it | It defines the normal process lifetime and must resume warm on exit |
+| `_prepare_release_cached` and `_compile_execution_model_cached` | Retain normal caching | Their keys contain explicit bundle/dependencies/profile/compiler stack (`prepare.py:568–599`) or full execution inputs/compiler version (`contracts.py:1813–1818`). Overridden acquired bytes flow into these keys; the wrappers do not hide a no-argument snapshot read |
+| Grammar classification, shipped-text/drop-list and `_PARSERS`/`_FOREST_PARSERS` caches | Retain normal caching | Inspected `grammar.py:181–239,309–347` consumes macro values/classifications and process-installed grammar code/text, not snapshot artifacts. The override does not replace live imported parser code or installed grammar files |
+
+This preserves reusable explicit-input work while preventing ambient snapshot reuse at the
+boundaries that omit it. If implementation inspection discovers another actual no-argument
+snapshot-dependent cache, include its guarded wrapper in TS-03 and its consumers before reuse;
+do not broaden this into a global cache registry. Per-object context properties and transient
+parse-operation state keep their owned object/operation lifetimes.
+
+**Planned discriminating control.** Warm ordinary support preparation, standalone contexts and a
+parser result; enter an override with unchanged profile ids and assert uncached acquisition at
+each affected boundary. Nest a different override and raise from it, checking restoration to the
+outer snapshot; then raise from the outer scope and check normal snapshot selection and reuse
+of the original warm entries. Observe uncached-body calls or independently authored differing
+inputs/results so returning an ordinary hit cannot satisfy the assertions accidentally. An
+override result must never populate or evict the ordinary result memo. Run the same scope
+behavior with the refusal marker to ensure a warm context cannot conceal a forbidden installed
+input read. TS-07 adds its support-memo consumer controls after this contract exists.
+
+### Consumer migration and acceptance
 
 **Consumers migrated.** The review named the fixture and four reader patches. Source shows one
 of those four and five further sites that patch the digest consumer, all of which move:
@@ -173,7 +228,9 @@ rejected (§6.1, DTA-032 alternatives).
 first in a process, shown by the counting control; no test monkeypatches
 `trusted_execution_inputs`, `analysis_implementation_inputs` or
 `_semantic_implementation_digests`; the admission refusal keeps its controls;
-`implementation_overridden()` exists for TS-08.
+`implementation_overridden()` exists for TS-08. The nested/exceptional control above establishes
+the affected-cache scope, including unchanged context keys, without flushing ordinary warm
+entries or disabling unrelated explicit-input/parser construction caches.
 
 **Targeted verification.** `uv run ci test -- python/corpus-structure/tests/semantic/test_analysis_contracts.py
 python/corpus-structure/tests/semantic/test_execution_release.py
@@ -189,7 +246,6 @@ consumer of the authored policy asset fixture.
 | Premise | What settles it | If it fails |
 |---|---|---|
 | No single process writes a determinant file and then expects a fresh no-argument read. Every `.py` and `.sql` file of the package is a determinant, and generators write such files: the script entry at `src/corpus_structure/semantic/typed_generation.py:78` writes `_typed_columns.py`, though it reads first and then exits | Reading the generation and model commands in `src/corpus_structure/cli/model.py` and their callers while implementing | The writing command clears the snapshot cache at the write. That is a refresh at an entry boundary, not a per-call read |
-| `MathContext.key()` carries the digests or runtime identity, so a `_MEMO` entry made under an override cannot be returned outside it | Reading `key()` | Clear `_MEMO` when an override exits |
 | No test depends on the digests changing in the middle of one process without an override | The targeted run above | Convert that test to an override |
 
 **Handover, not scope.** Production prepares a context per span in

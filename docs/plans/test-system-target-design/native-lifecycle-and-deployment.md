@@ -6,7 +6,11 @@ This companion owns the design of packages TS-00, TS-01 and TS-02: the two super
 records, one naming, lease and sweep authority for every database the tests create, and the
 keyed, verified head deployment. The
 [coordinator](../test-system-target-design_2026-11-13.md) owns package state, finding disposition
-and the rule decisions RC01–RC04; nothing here restates them.
+and the rule decisions RC01–RC05; nothing here restates their disposition.
+
+**Revision input:** the accepted integration of [I01, I02 and I10](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md),
+against clean source `b1b4a4de0` (2026-11-13). The target below replaces the earlier session-clone
+verification and shared semantic engine proposals; it remains **Proposed**, not implemented.
 
 **Baseline and evidence.** Source was read at `main` `683e9a955` on 2026-11-13; another session
 was committing during authoring, so line citations are as read. Design statements are
@@ -61,8 +65,8 @@ cs_sem_head_<key16>_<run8>    run-private: qualification runs, and the replaceme
 |---|---|---|---|
 | Naming function (TS-01) | A kind and its parameters (process id, key, run identity) | Nothing at run time: the table of kinds is the decision | The name, its lease key and its sweep rule |
 | Sweep (TS-01) | The cluster's database list and the naming table | Per owned candidate: drop, skip as leased, skip as still connected | A result naming what was dropped and what was skipped |
-| Deployment (TS-02) | The deployment key, the run scope, the run identity, `cs_template` | Reuse or build, under the build lock | A sealed head under a stable name, a usage lease held for the session, the head's policy |
-| Verification (TS-02) | The per-worker session clone of a head this process did not build | Whether the deployed catalog matches the frozen expectations of the head revision | Pass, or a replacement run-private head, a report of the stale one, and a deployment-key gap recorded in the receipt and the output |
+| Deployment (TS-02) | The deployment key, the run scope, the run identity, `cs_template` | Reuse or build, under the build lock | A deployment acquisition handle holding the head's usage lease, policy and per-process verification state |
+| Verification (TS-02) | The first useful head clone requested through that handle: session, commit or seed-build | Whether the deployed catalog matches the frozen expectations of the head revision, before consumer effects | The verified clone, or disposal and replacement before retry, with the stale head and deployment-key gap recorded in receipt and output |
 
 **What consumers stop doing.** Composing database names; leasing or sweeping by a second
 derivation; building a head per process; treating a leftover database as a setup failure.
@@ -122,15 +126,17 @@ a concurrent session may take it. It must decide:
 3. Unnarrowed (qualification) runs build a run-private head, so evidence of record never rests
    on reuse across runs.
 4. Publication is by rename; retention is by count; the one lifecycle owner sweeps.
-5. Option 3 narrows: a read-only or rolled-back transaction on a shared clone is allowed for a
-   claim that involves no separate-login commit, race, cancellation or notification. The
-   record names the two engines the operator allowed on a shared clone (2026-11-13): the
-   rollback class's reader engine, whose sessions are forced read-only
-   (`default_transaction_read_only=on`), and `shared_clone_engine`, kept for the three
-   `tests/db` connection-lifecycle modules with a check after each test that nothing durable
-   changed on the shared clone. No other writable engine exists on a shared clone. The
-   isolation classes themselves are designed in the
-   [isolation companion](isolation-and-seeds.md).
+5. Option 3 narrows: a read-only or rolled-back transaction on a shared semantic clone is
+   allowed for a claim that involves no separate-login commit, race, cancellation or
+   notification. The rollback class's reader engine has sessions forced read-only
+   (`default_transaction_read_only=on`); no writable engine is exposed on a shared semantic
+   clone. RC05 (operator accepted, 2026-11-13) replaces the earlier `shared_clone_engine`
+   exception and durable-state comparator: driver-only controls use explicitly named
+   infrastructure clones of provisioned `cs_template`, shared for connection exercises with
+   no durable effects and isolated for durable-write cases. Real drivers, extension checks,
+   authentication and acknowledged cleanup remain; actual semantic guards still require a
+   semantic fixture. The [isolation companion](isolation-and-seeds.md) owns fixture contracts
+   and the consumer classification. Apply this successor decision before TS-05 migration.
 6. Unchanged, restated: policy capture, replay and comparison per clone; authenticated,
    unforced drops; real-chain cold deployment controls; refusal on unavailable replay authority.
 
@@ -177,6 +183,8 @@ retired.
 | Kind | Name | Lease key | Sweep rule |
 |---|---|---|---|
 | Session clone | `ci_test_<pid>` | the name | Drop when unleased |
+| Shared infrastructure clone (TS-05) | `cs_sem_infra_<pid>_<hex12>` | the name | Drop when unleased |
+| Isolated infrastructure clone (TS-05) | `cs_sem_infra_case_<pid>_<hex12>` | the name | Drop when unleased |
 | Test, bare, revision, init clones | `cs_sem_<kind>_<pid>_<hex12>` | the name | Drop when unleased |
 | Per-process head (interim; TS-02 removes the kind) | `cs_sem_head_<pid>_<hex12>` | the name | Drop when unleased, as today |
 | Head build (TS-02) | `cs_sem_build_<pid>_<hex12>` | the name | Drop when unleased |
@@ -263,6 +271,13 @@ python/corpus-structure/tests/semantic/test_native_attributed_evidence.py`, and 
 
 **Required input.** TS-00 (the ADR-0032 successor) and TS-01 (the naming table).
 
+**Early prerequisite slice (I01).** Deliver the deployment acquisition handle, first-use clone
+verification/retry and targeted production expectation resolver before TS-05 or TS-08 consumes
+the head. Migrate today's head/session and commit-clone consumers to that handle in this slice;
+they must never bypass pending verification. TS-05 then supplies isolation fixtures and TS-08
+supplies seeds, both using this same contract. Neither is a prerequisite for TS-02. Completion
+of this slice does not complete TS-02's key, publication, retention and control obligations.
+
 ### Options
 
 | Option | What a run pays | Why it is or is not selected |
@@ -288,7 +303,7 @@ arguments, so a control can run it over a temporary tree without a database.
 | Chain revisions and environment | Content digest of every `.py` and `.mako` file under `python/corpus-structure/semantic_alembic/`, with relative paths | The revisions are the deployment; 186 of them pin the SHA-256 of their frozen artifacts in source |
 | Frozen artifacts | Relative path, size and modification time of every other file under the chain | The directory is about 1.3 GB; hashing it in sixteen workers is avoidable because the pins live in the revision files and a fresh build verifies them. Modification times give a fresh checkout or worktree a new key for the same content; that costs a rebuild and is not a correctness issue |
 | Module-level import closure | An `ast` walk from every chain `.py` file over import statements that are not inside a function body, resolved with `importlib.util.find_spec`, kept where the module is inside `corpus_structure`, repeated to a fixed point; content digest of each file reached, including package `__init__` files | These modules run when a revision is imported. The set is computed, never listed, so a revision that starts importing another module enters the key by itself. It was 28 modules at the baseline |
-| Build procedure | Content digest of `scripts/native_test_support.py` | It holds the build steps |
+| Build procedure and its dependencies | Content digests of a narrow deployment-construction module and its actual transitive local build dependencies, with relative paths | Construction is subordinate to `PgAdmin`; seed, sweep and receipt orchestration do not enter merely because they currently share `scripts/native_test_support.py`. Changes to code construction actually invokes still invalidate the head |
 | Libraries and interpreter | Content digest of root `uv.lock`; `sys.version` | Alembic, SQLAlchemy, psycopg and pglast execute the chain |
 | Server and cluster | `server_version_num`; `pg_control_system().system_identifier`; the OID of `cs_template` and its extension versions (`PgAdmin.installed()`, `:495–499`); the OIDs of the semantic principals | A re-provisioned template or recreated role changes what a build produces |
 
@@ -302,7 +317,22 @@ fresh build.
 
 `PgAdmin` gains one operation that the session head fixture calls in place of
 `semantic_template(name)`. It consumes the key, whether the head must be run-private, and the
-run identity.
+run identity, and returns a deployment acquisition handle rather than only a name/policy pair.
+The handle owns usage-lease lifetime, current head identity and verification state, and lends
+head-derived clones through the existing `PgAdmin.database` lifecycle. Callers supply the clone
+kind/name and receive it only after first-use verification has completed; seed builders run
+only after that boundary. Clone policy replay and authenticated disposal remain `PgAdmin`'s
+responsibility. The fixture supplies this handle without depending on any isolation fixture.
+
+**Construction boundary (I10).** Extract the real migration-build procedure into a narrow module
+under `scripts/`; it accepts the resources supplied by `PgAdmin` and has no naming, lease,
+sweep, receipt or seed authority. Include its actual transitive local build dependencies in the
+key, including any shared helper on which construction genuinely depends. Trace the concrete
+build call/import path when extracting it, with key controls that change a transitive helper;
+do not substitute source-fragment hashing, manual version tokens or a hand-maintained semantic
+version. Keep unrelated lifecycle/seed imports out of the construction boundary. The chain's
+module-level closure remains the separately scoped component described above. This separation
+allows a seed-only or sweep-only edit to preserve reuse without excluding an actual build input.
 
 1. Take the name from the naming function: `cs_sem_head_<key[:16]>`, or with `_<run[:8]>`
    appended when run-private.
@@ -312,11 +342,18 @@ run identity.
    process uses or is about to use.
 3. If an owned, sealed database with that name exists, release the build lock, read its policy
    from the catalog and return it as reused.
-4. Otherwise build: create `cs_sem_build_<pid>_<hex12>` from `cs_template` through acknowledged
-   creation; run the extension and namespace checks and `upgrade(conn)` exactly as
-   `semantic_template` does today (`:617–624`); dispose the engine; capture the policy; seal
-   with `ALLOW_CONNECTIONS false`; rename to the final name; release the build lock. A failure
-   before the rename drops the build database through the authenticated drop.
+4. Otherwise build: obtain `cs_sem_build_<pid>_<hex12>` from the naming authority and take
+   that name's own lease before acknowledged creation from `cs_template`. Hold the build-name
+   lease through migration, engine disposal, policy capture, sealing with
+   `ALLOW_CONNECTIONS false` and rename to the final name. The construction module runs the
+   extension/namespace checks and `upgrade(conn)` that `semantic_template` performs today
+   (`:617–624`). Keep the creation acknowledgement's OID and operation nonce throughout
+   publication. After rename, verify the final name still identifies that acknowledged OID
+   and ownership stamp before releasing the build-name lease and build lock; the final-name
+   usage lease is already held. On failure, dispose only the acknowledged OID/nonce under
+   whichever name actually holds it, using authenticated drop. A same-name replacement or
+   ambiguous publication confers no cleanup authority and is reported/refused. The final
+   name's lease alone never protects the differently named live build from the sweep.
 5. After the usage lease is held, apply retention to reusable heads: keep the newest three by
    database OID and drop older ones whose usage lease can be taken exclusively. Three covers
    the current key, a sibling worktree's key and one predecessor. Retention is by count because
@@ -324,9 +361,10 @@ run identity.
 6. Never drop a head from a worker. Run-private heads are dropped by the next sweep once
    unleased.
 
-`SemanticTemplate` (`:114–117`) stays the handle: name and policy. `semantic_template`, the
-per-process name at `tests/conftest.py:258` and the interim per-process head kind in the naming
-table are removed.
+Replace `SemanticTemplate` (`:114–117`), currently only name and policy, with the acquisition
+handle above; preserve those values as observations without exposing an unverified bypass.
+`semantic_template`, the per-process name at `tests/conftest.py:258` and the interim per-process
+head kind in the naming table are removed.
 
 ### Run scope
 
@@ -342,41 +380,73 @@ distinguishes a narrowed ordinary lane, and it means something else.
 
 ### Verification
 
-The process that built a head does not verify it. Every other pytest process verifies once, at
-head acquisition, on its per-worker session clone. That is about once per worker in a full
-narrowed run. An unnarrowed run builds its own run-private head from the source it tests and
-does not verify it.
+A process using a head reused from an earlier run verifies once before its first useful head
+clone is exposed. The handle tracks pending, in-progress and completed verification for that
+process and head identity, so mixed session/commit/seed callers share one result. The process
+that built the head does not verify it. Preserve the fresh-in-run exemption: an unnarrowed run
+and a stale-head replacement build a run-private head from the source being tested, and workers
+joining that freshly built head do not verify it again. No per-day or key-change-only fallback
+weakens verification of a reused head.
 
-*Who owns the session clone.* TS-05 owns the per-worker session clone `ci_test_<pid>`, created
-lazily on first use by a read, rollback or `shared_clone_engine` consumer, or by verification.
-Once TS-05 exists, verification asks TS-05's fixture for the clone. Before that, the head
-fixture creates the clone itself at this point when the head was not built here and lends the
-same clone to `db_engine` (`tests/conftest.py:279–285`) afterwards. In both orders verification
-adds no clone that the session would not otherwise be able to use.
+*Clone demand and sequencing (I01).* The first clone may be TS-05's session clone, a fresh commit
+clone or TS-08's seed-build clone. Create that requested clone through `PgAdmin.database`, run
+the check on its maintenance connection, then expose its engine or run the seed builder. A
+commit-only or seed-only selection creates no `ci_test_<pid>` for verification. TS-02 supplies
+this operation before TS-05/08: verification calls no class fixture and creates no dependency
+cycle. Later clones reuse the completed result, while each still receives policy replay.
 
 *Strength.* The check establishes that the deployed catalog matches the frozen expectations of
-the head revision. It does not establish that the head equals what a fresh build from this
-source would produce. On a maintenance transaction on the session clone it checks that `current_revision` equals `head_revision()` and calls production's
-`verify_deployment_catalog(connection, revision=head_revision())`
-(`src/corpus_structure/semantic/execution_admission.py:149–187`), which compares the deployed
-function bodies and runs the frozen catalog checks for owner, privileges and constraints inside
-a savepoint that is rolled back.
+the head revision; it does not establish equality with a fresh build from this source. On the
+requested clone's maintenance transaction, require `current_revision == head_revision()` and
+call production's `verify_deployment_catalog(connection, revision=head_revision())`
+(`src/corpus_structure/semantic/execution_admission.py:149–187`). Its savepoint checks function
+bodies and frozen owner/privilege/constraint expectations, then rolls back before consumer effects.
 
-On failure the worker drops only its own session clone, releases its usage lease on the stale
-name, obtains a run-private head through the same operation (one build per run, behind the
-build lock), and reports the stale head's name in its receipt. The failure is also recorded,
-in the receipt and in one line of output, as a deployment-key gap: a head that fails
-verification under an unchanged key means the key missed an input, and the record is what gets
-the key corrected instead of the head being silently healed. So that later runs with the same
-key do not each pay a build, the worker then tries to take the stale head's usage lease
-exclusively; if it succeeds it renames the head to the retired kind, which the next sweep drops,
-and if another process still uses it the head is left and reported. Nothing is dropped in
-place. The replacement run-private head was built in this run and, like a qualification run's
-head, is not verified again by the workers that join it.
+On failure, dispose the unexposed clone through the same authenticated lifecycle, release this
+handle's usage lease on the stale name and obtain a run-private replacement under the same build
+lock. Retry the originally requested clone kind from that freshly built replacement; only then
+expose it or start its builder. Record the stale head and verification failure in both receipt
+and output as a deployment-key gap. Try to
+take the stale name's usage lease exclusively: if successful rename it to the retired kind for
+the next sweep; otherwise leave it and report it. Nothing is dropped in place. A failed
+replacement build or acquisition remains a refusal rather than looping through heads;
+replacement is not a general fallback for arbitrary consumer failures. The fresh-in-run
+exemption above applies to the replacement, not to later cross-run reuse of the failed original.
+
+### Revision-targeted expectation resolution (I01)
+
+The newly routine checker must not parse every historical artifact to resolve one explicit
+revision. Change the directly consumed production resolver in
+`src/corpus_structure/semantic/execution_admission.py` (`_revision_expectation`, `_expectations`
+and `_frozen_expectations`, presently `:104–110,357–463`). Keep a bounded revision metadata
+index: read revision declarations, retain their predecessor links, reject duplicate/ambiguous
+revision identities and malformed metadata, and preserve safe artifact-path checks. Follow the
+requested revision's predecessor chain until its own or inherited expectation is selected;
+missing/invalid predecessors and cycles refuse when they prevent that resolution. A metadata
+scan remains necessary; this proposal removes unrelated artifact work rather than claiming
+constant-cost discovery.
+
+Reuse one artifact parser and existing digest/path validation for the selected admission/state
+artifacts. Only those selected payloads are read, hashed and parsed; inheritance returns the
+same `NativeExpectation` meaning as full discovery. Keep whole-history discovery for callers
+whose contract needs the complete mapping, reusing the index/parser rather than duplicating
+semantics. Cache immutable metadata and selected artifacts by their relevant file identities;
+never cache a live catalog observation. Unrelated malformed artifact payloads are not loaded
+for an explicit revision, while malformed revision declarations still refuse. Selected digest
+mismatches, unsafe paths, malformed payloads and unavailable expectations continue to refuse.
+
+**Consumer and evidence boundary.** This is the production change explicitly selected by I01,
+not a production-wide audit. Inspect full-history callers and keep their required behavior.
+Controls compare current and inherited expectations against independently retained expected
+values, exercise selected corruption/digest/path refusal and ambiguous/malformed metadata, and
+assert that unrelated admission/state payloads are never opened for explicit-revision lookup.
+Add focused pure controls in `tests/semantic/test_execution_admission_expectations.py` for this
+resolver contract and run them alongside the native acquisition controls; the new controls need
+no live database. Existing full-history callers retain their full-discovery coverage.
 
 ### Receipts
 
-The head fixture emits one session-scope native context per process through
+The acquisition owner emits one session-scope native context per process through
 `record_native_context(…, scope="session")` (the route `record_server_context` uses, `:758–782`)
 carrying the head name, the key, the run scope, whether this process built or reused the head,
 the verification outcome, and, when one was replaced, the stale head's name with the
@@ -391,9 +461,9 @@ claim.
 | Case | What happens |
 |---|---|
 | Crash in the middle of a build | The build lock and the build database's lease end with the session. Only `cs_sem_build_*` exists; the head name never did. The next process builds; the sweep drops the residue, or skips and reports it while a dead client's backend is still running the migration (F04) |
-| Two runs with one key | The second waits on the build lock, finds the published head, and reuses it after verifying. Neither waits for the other's usage lease |
+| Two runs with one key | The second waits on the build lock, finds the published head and verifies on its first useful clone. Neither waits for the other's usage lease |
 | A migration edited during a run | Workers that start after the edit compute another key and build or reuse another head, so one run can use two heads, as two workers can deploy two chains today. Each receipt names its head. Frozen source at qualification excludes the case |
-| A stale head | Verification fails; the worker continues on a run-private head, records the deployment-key gap, and reports and retires the stale one, as above. Cold deployment controls ran the real chain in the same run regardless |
+| A stale head | Verification fails before consumer effects; the requested clone is disposed and retried from a run-private replacement, with the deployment-key gap and retirement outcome recorded. Cold deployment controls retain their independent real-chain route |
 | A sweep while a builder waits | The waiter already holds the shared usage lease on the head name, so the sweep's exclusive try fails and it skips. Retention runs only after the retaining process holds its own lease, so it cannot evict the head it is about to use |
 | A head renamed or dropped between the existence check and the first clone | Cannot happen while the usage lease is held: both retirement and retention need that lease exclusively |
 
@@ -415,6 +485,14 @@ claim.
   whose deployed function body was altered before sealing fails verification, is replaced by a
   run-private head, is retired, and leaves a deployment-key gap in the session's native context; a sweep during a held usage lease skips the head; retention
   keeps three and drops the fourth only when unleased.
+- First-use controls cover session, commit-only, seed-only and mixed requests: no verification-only
+  clone, exactly one verification per process using a reused head, no seed builder or consumer effects
+  before success, and stale retry preserves the requested kind. Seed-consumer coverage completes
+  with TS-08; the early slice covers the callback boundary without requiring TS-08 itself.
+- Key controls show a seed/sweep-only edit leaves the construction component unchanged and a
+  construction or actual transitive helper edit changes it. Publication controls run a sweep
+  while migration/sealing is blocked and verify that the build-name lease prevents retirement;
+  injected rename/publication failure cleans only the acknowledged OID/nonce.
 - New, without a database: the key changes when a chain file, a closure module or `uv.lock`
   changes and not when an unrelated package module changes; the computed closure contains the
   modules the revisions import directly (`native_objects`, `alembic_native`, `alembic_defaults`,
@@ -432,10 +510,14 @@ verified. `uv run ci test` then names a `cs_sem_head_<key16>_<run8>` in every wo
 **Acceptance and closure.** Receipts of two consecutive narrowed runs name one head and the
 second records reuse and verification; an unnarrowed run names a run-private head; a failed
 verification is recorded as a deployment-key gap; no per-process head creation remains; policy replay, authenticated drops and the cold deployment
-controls are unchanged.
+controls are unchanged. Explicit-revision lookup preserves current/inherited expectations and
+refusals while never loading unrelated artifact payloads; malformed revision metadata still
+refuses. Build custody remains authenticated through publication, and unrelated seed/sweep edits
+do not invalidate the head's construction component.
 
 **Targeted verification.** `uv run ci test -- python/corpus-structure/tests/test_db_fixtures.py
-python/corpus-structure/tests/semantic/test_native_fixtures.py`, root
+python/corpus-structure/tests/semantic/test_native_fixtures.py
+python/corpus-structure/tests/semantic/test_execution_admission_expectations.py`, root
 `tests/scripts/test_test_receipts.py`, and the CLI testing controls. Record `uv run ci doctor`
 if the run meets an environment-shaped failure.
 
@@ -444,7 +526,6 @@ if the run meets an environment-shaped failure.
 | Premise | What settles it | If it fails |
 |---|---|---|
 | Rename publishes a build and keeps the OID-keyed stamp | The first build in TS-02 | Build under the final name behind the build lock and seal last; an unsealed database under a head name is then recognizable residue, and step 3 treats it as absent after dropping it |
-| The deployment check is cheap enough to run once per process that did not build the head | The first verified runs | Verify once per head per day, or only when a key component changed since the head's build |
 | Computing the key per worker is not material | Observed in the first full run | Compute it once in the controller and pass it to workers through `workerinput` |
 | Three retained heads fit the disk | The head's on-disk size, observed once | Lower the count |
 | One held lease connection per worker is acceptable against `max_connections` | Read `ops/postgresql/corpus.conf` when implementing | Take the usage lease on the connection that already serves the session, if one is introduced |

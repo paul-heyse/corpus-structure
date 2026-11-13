@@ -8,9 +8,10 @@ This companion owns the designs of TS-09 (the refusal contract and its weak site
 The [coordinator](../test-system-target-design_2026-11-13.md) owns package state, the dependency
 queue and the disposition of every finding named here.
 
-**Baseline and evidence.** Source was read on `main` between `f03170a89` and `434023ee8`,
-2026-11-13, while another session was committing declared-data-operations (DDO) work; line
-citations are as read. Every design statement is **Proposed**. Source facts are
+**Baseline and evidence.** The original source inspection used `main` between `f03170a89`
+and `434023ee8`; the I07–I09 revision inspected the relevant source and current DDO owners at
+`b1b4a4de0`, 2026-11-13. Original line citations are as read and may move. Every design
+statement is **Proposed**. Source facts are
 **Interface-checked by source inspection, 2026-11-13**. The audit's site lists are carried with
 their own limits: counts for files it sampled may be incomplete.
 
@@ -51,8 +52,10 @@ that churns, prefer the constraint name, or SQLSTATE with context.
 
 **Evidence class** (§4.5). A provider-backed claim and a controlled claim are different test
 identities. A prerequisite is a marker decided at collection; its name and reason enter the
-item's receipt properties and the skip happens before any fixture. Whether a missing prerequisite
-is `blocked` or `inapplicable` is the qualification policy owner's declaration, not the body's.
+item’s receipt properties and the skip happens before any fixture. Under the operator-accepted
+policy, ordinary selection excludes opt-in provider identities; explicit provider-required
+selection includes them and missing prerequisites yield `blocked`. Selection and missing
+prerequisite reasons remain separate facts in the managed evidence.
 
 **What consumers stop doing.** Accepting any `DBAPIError`; discarding mutation labels; unwrapping
 driver errors by hand in each test; reading an asset variable in a body to choose between a
@@ -62,9 +65,11 @@ provider and hand-written replies; calling `pytest.skip` after scenario fixtures
 `SERIALIZABLE` where the product uses it. A mocked provider is never `passed`. Independent
 expected values are authored, never derived from the implementation under test.
 
-**Intentional behavior changes.** On a host without provider assets the ordinary lane reports the
-provider node of `test_pm2_result_native.py` as blocked, where today it passes on a controlled
-branch. That is the truthful outcome.
+**Intentional behavior changes.** Ordinary selection excludes opt-in provider identities;
+`ci test --providers-only` explicitly requires them. A selected provider identity without its
+assets is blocked before scenario setup; its controlled counterpart is a separate identity.
+This is the operator-accepted selection policy of 2026-11-13, scheduled in TS-13, rather than
+an optional-skip classification workaround.
 
 ## Pivotal mechanisms
 
@@ -77,8 +82,11 @@ branch. That is the truthful outcome.
 
 ## TS-09 — The refusal contract helper and the named weak sites
 
-**Required input.** None. A family that moves to the rollback class in
-[TS-10](isolation-and-seeds.md) receives its contract here first or in the same change.
+**Required input.** The helper and unrelated sites have no prerequisite. Each migrated family
+consumes its isolation and prepared-state contract when it moves: TS-10 for its families, and
+TS-18’s STORAGE rollback connection and connection-oriented demand setup for the forged-graph
+family. Deliver reach/reason/effect assertions before or with that family’s move; TS-09 is not
+a whole-package barrier ahead of those foundations.
 
 **Implementation vision.**
 
@@ -137,7 +145,7 @@ DDO sites, edited in coordination with TS-18 and the DDO session, which is chang
 
 | Site | Today | Change |
 |---|---|---|
-| `tests/semantic/test_data_operation_storage.py:2019` forged-graph family | `match=r"graph\|closure\|discovery"` for each of four mutations | One reason per mutation |
+| `tests/semantic/test_data_operation_storage.py:2019` forged-graph family | `match=r"graph\|closure\|discovery"` for each of four mutations | On TS-18’s STORAGE rollback family, register only the demand through the case connection; use an authentic same-state valid-registration control in a rolled-back savepoint, then pin reason and absent effects independently for dependency, roots, discovery and duplicate mutations |
 | `tests/semantic/test_data_operation_storage.py:40`, `test_data_operation_wire.py:111` | `len(...) == 18` | An authored set of names where the set is the claim; otherwise remove |
 
 **Consumers migrated.** The hand unwrapping at `test_private_records.py:150–160` and
@@ -159,76 +167,96 @@ site, written in the commit, not by mutating production (DTA-001).
 suggests. That is a finding about the test's input: fix the mutation so it reaches the named
 guard, or relabel it; do not widen the expected reason.
 
-## TS-13 — Provider and controlled identities; prerequisites before setup
+## TS-13 — Provider selection, controlled identities and prerequisites before setup
 
-**Required input.** None.
+**Required input.** The operator accepted the selection policy on 2026-11-13. This package
+changes collection, managed selection and receipts together before its first managed run.
+TS-05/18 consume the native provenance contract below as their fixtures migrate.
 
-**Implementation vision.**
+**Selection is distinct from prerequisites.** Register an explicit provider-evidence marker
+(separate from `prerequisite(name)`). Keep the existing ordinary and fault lanes; evidence
+selection is a separate dimension. Default ordinary selection excludes opt-in provider
+identities from both execution and the required identity set. `uv run ci test --providers-only`
+selects and requires provider identities, retaining path/node filters within that set; it is
+incompatible with fault-lane selection. A provider node explicitly requested without
+`--providers-only` receives a useful refusal explaining the required selection, so it cannot
+silently disappear into an apparently successful empty run. An explicit provider selection
+matching no required identity is `not_run`, never `passed`.
 
-*The marker.* `pytest.mark.prerequisite(name)` is registered in root `pyproject.toml` beside the
-existing markers (`:70–73`) and declared like `corpus` in `tests/conftest.py:101–103`. A small
-registry in the package conftest maps each name to a check that returns a reason or `None`:
+Persist the selection with its managed manifest, collection/recollection input, retries,
+receipts and coverage/required-union computation. Recollection and retry must reproduce the
+original evidence selection rather than fall back to ordinary defaults. The classifier derives
+required identities from this selection; changing only `qualification_optional` would still
+leave the current classifier counting selected-but-inapplicable nodes as missing. Remove that
+proposed workaround. Excluded provider nodes supply no passed evidence and do not erase an
+explicit provider obligation, including DDO-12’s.
+
+**Prerequisites before setup.** Register `pytest.mark.prerequisite(name)` in root
+`pyproject.toml`. A small registry in the package conftest maps each name to a check returning
+a reason or `None`; the provider marker does not itself declare assets available.
 
 | Name | Check | Replaces |
 |---|---|---|
-| `pm2_native_assets` | `CORPUS_PM2_NATIVE_TEST_ASSETS` is set and names a directory | Body skips at `tests/semantic/test_characterization_native.py:1727–1729` and `:2112–2114`; `skipif` at `test_pm2_parser_stage_native.py:42–44` and `test_combined_native_qualification.py:36–38`; the body read at `test_pm2_result_native.py:325` |
-| `page85_native_capture` | The retained capture and original exist and are hydrated from Git LFS | `tests/semantic/test_native_documents.py:93,97` |
-| `task86_witness` | The retained canonical-byte witness exists | `tests/semantic/test_pdf_json_publication.py:211` |
-| `nemotron_runtime` | The isolated parser environment exists | `tests/ingest/test_pdf_recognition.py:166–172`, for the tests that really start the parser |
-| `corpus` | Unchanged check (`tests/conftest.py:106–119`) | — |
+| `pm2_native_assets` | `CORPUS_PM2_NATIVE_TEST_ASSETS` names an available directory | Body skips at `test_characterization_native.py:1727–1729,2112–2114`; `skipif` at `test_pm2_parser_stage_native.py:42–44` and `test_combined_native_qualification.py:36–38`; the evidence-class branch at `test_pm2_result_native.py:325` |
+| `page85_native_capture` | Retained capture and original exist and are hydrated from Git LFS | `test_native_documents.py:93,97` |
+| `task86_witness` | Retained canonical-byte witness exists | `test_pdf_json_publication.py:211` |
+| `nemotron_runtime` | Isolated parser environment exists | `tests/ingest/test_pdf_recognition.py:166–172`, where the test really starts the parser |
+| `corpus` | Existing check (`tests/conftest.py:106–119`) | Existing collection-time route |
 
-`pytest_collection_modifyitems` (`tests/conftest.py:122–138`) evaluates each named check once per
-session and, for an item whose prerequisite is missing, extends `user_properties` with
-`("qualification_prerequisite", name)` and `("qualification_reason", reason)` and adds
-`pytest.mark.skip(reason=reason)`: exactly the `corpus` route, generalized. The `corpus` marker
-keeps its name and goes through the same loop. No fixture of a skipped item runs, which closes
-the DTA-018 instances where a clone, release, PDF and published source are built before the skip.
+Collection evaluates each named check once per session. A selected item with missing
+prerequisites gets one aggregate value listing every missing name and reason, and a collection
+skip before any fixture. Update receipt property reading to preserve this aggregate through
+phase reports and managed reads: `_properties` currently flattens repeated keys, so appending
+one duplicate property per missing prerequisite loses information. Classify a selected,
+required provider identity with missing assets as `blocked`; preserve each reason in the
+receipt. Prerequisite annotations on failed setup cannot turn an unrelated teardown failure
+into `blocked`: teardown defects remain `failed`. An ordinary non-provider test with a
+required corpus or retained asset still remains blocked when that prerequisite is missing.
 
-*Receipts.* Nothing new is needed in `scripts/test_receipts.py`. A skipped node already
-classifies as `blocked` with the stored reason (`:481–482`), and the prerequisite name is in its
-properties. The registry never sets `qualification_optional`; a policy owner who declares a
-prerequisite inapplicable for a lane does so in the qualification policy, and the classification
-at `:481` honors it.
+**The split.** `test_pm2_result_native.py:284–553` becomes two identities over one scenario
+helper, retaining its parametrization on both:
 
-*The split.* `tests/semantic/test_pm2_result_native.py:284–553` reads the asset variable at
-`:325` and, when it is unset, completes through hand-written replies with a `controlled-test`
-checkpoint (`:356`). It becomes two tests over one shared scenario helper:
-
-| Identity | Marker | Body |
+| Identity | Markers | Body |
 |---|---|---|
-| Provider | `prerequisite("pm2_native_assets")` | Opens the real workers, settles the claim, then runs the reassignment-after-lease-loss control (`_settle_reassigned_dipo`, `:555–613`) |
-| Controlled, named as such | None | The hand-written replies and `controlled-test` profile; its name and docstring say no provider runs |
+| Provider | Provider evidence and `prerequisite("pm2_native_assets")` | Real workers, claim settlement and reassignment after lease loss (`_settle_reassigned_dipo`, `:555–613`) |
+| Controlled, named as such | No provider marker | Hand-written replies and `controlled-test` profile; name and docstring state the controlled claim |
 
-The existing controlled test in the same file (`:102–278`) shows the naming. The parametrization
-at `:279–283` stays on both. If the reassignment control has no controlled form, it exists only
-under the provider identity and the controlled test says what it leaves out.
+If reassignment has no controlled form, retain it only under the provider identity and state
+the controlled test’s evidence limit. No body reads an asset variable to choose its evidence
+class. The existing controlled test (`:102–278`) is a naming example, not provider evidence.
 
-**Consumers migrated.** The sites in the registry table. The scheduling control in
-`test_pdf_recognition.py:381–417` is handled in [TS-07](scenario-and-support-ownership.md); it
-takes the `nemotron_runtime` marker only if its owner cannot be constructed without the runtime.
+**Native fixture provenance survives migration (I09).** Migrate package conftest’s fixture-closure
+classification and `scripts/qualification_plugin.py`’s `native_required` classification with
+the TS-05/18 fixture names. Read, rollback, commit, seeded and cold consumers retain native
+classification and item-bound acquisition/context through all supported managed routes,
+including infrastructure scope, recollection and retry. A session seed’s shared record cannot
+attest each item. Reuse the existing connection observation for each consuming item; add no
+second registry. A pure support consumer must acquire no native fixture. TS-24’s SQL receipt
+bridge consumes the same identity/context contract and cannot substitute a harness success
+for purpose-principal or item provenance.
 
-**Superseded machinery removed.** Body-level `pytest.skip` after fixtures at the listed sites; the
-asset branch in `test_pm2_result_native.py`; the two `skipif` decorators, replaced by the marker
-so the receipt names the prerequisite.
+**Consumers migrated and removed machinery.** All registry-table sites; the TS-07 scheduling
+control takes `nemotron_runtime` only if its owner really needs that runtime. Remove the listed
+body skips, asset branch and old `skipif` decorators. Update marker registration, runner and
+manifest selection, receipt/classifier/property consumers, and native fixture-name recognition
+together; a marker-only change is incomplete.
 
-**Acceptance and closure.** No test body reads an asset variable to choose its evidence class;
-no body-level provider skip follows scenario fixtures; a run without assets records the provider
-nodes as blocked with `qualification_prerequisite` in their properties and the controlled nodes
-as passed (DTA-028, DTA-018). A run with assets is the operator's to make; this package reports
-that outcome as `not_run` unless it was made.
+**Acceptance and closure.** Without provider assets, ordinary controlled scope can qualify
+because providers are outside its required selection; an explicit provider selection remains
+blocked with all missing prerequisite names/reasons. Explicit provider-node misuse refuses
+helpfully; an empty provider-required set is `not_run`. Recollection, retry and coverage retain
+the declared selection. Teardown failure is failed. Representative native fixture consumers
+remain native-required with item-bound acquisition on ordinary and infrastructure routes;
+pure support remains pure. This closes DTA-028/DTA-018 only for the named consumers, and carries
+I09’s receipt-consumer obligations with them.
 
-**Verification.** `uv run ci test -- python/corpus-structure/tests/semantic/test_pm2_result_native.py
-python/corpus-structure/tests/semantic/test_pm2_parser_stage_native.py
-python/corpus-structure/tests/semantic/test_native_documents.py`, then read the result's
-blocked nodes and their properties through `ci`.
-
-**Open premises.** The ordinary lane's required set must not count a blocked provider node as a
-failure of the lane where the policy treats provider evidence as opt-in; that declaration belongs
-to the qualification policy owner and is confirmed before this package's first managed run. The
-series' completion depends on it too, since the final `uv run ci test` passes on a host without
-provider assets only if it holds; the coordinator lists it as a
-[premise](../test-system-target-design_2026-11-13.md#candidates-rejected-options-and-open-premises)
-to be settled before TS-23. TS-22 depends on this marker for the DDO-12 provider obligation.
+**Verification planned.** Target runner/manifest/classifier controls cover default, provider-only,
+explicit provider node, incompatible fault, empty selection, recollection/retry, aggregated
+missing prerequisites and teardown failure. Run the edited modules through `uv run ci test --
+PATH`; run selected provider modules through `uv run ci test --providers-only -- PATH` and read
+blocked identities and aggregate reasons by managed result ID. These are planned checks,
+**not_run** during this document revision. An actual asset-backed provider pass remains a
+separate obligation for TS-22/DDO-12; controlled success cannot discharge it.
 
 ## TS-14 — Preservation assertions, redaction order and exact task state
 
@@ -303,5 +331,7 @@ leaves is read from production as described above.
   evidence mapping and provider run (TS-22).
 - The audit's minor notes under DTA-027 on `tests/test_settings.py` and the naming notes under
   DTA-028 are recorded there and are not scheduled.
-- Blocked versus inapplicable for a missing provider prerequisite is the qualification policy
-  owner's declaration.
+- [TS-24’s SQL/TAP execution and receipt bridge](postgresql-tooling.md#ts-24--sql-family-execution-and-tap-evidence)
+  and [TS-25’s managed native cohort lifecycle](postgresql-tooling.md#ts-25--private-postgresql-cohort)
+  are owned by the tooling companion; this document supplies the identity, selection and
+  provenance contracts they consume. Neither tool changes required-purpose or provider meaning.

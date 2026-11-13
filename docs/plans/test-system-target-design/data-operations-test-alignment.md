@@ -8,16 +8,18 @@ packages TS-17 to TS-22. The [coordinator](../test-system-target-design_2026-11-
 package state, the shared contracts and the disposition of every finding named here; this
 document does not restate them.
 
-**Baseline and evidence labels.** Source was read at `main` `074638c64`, 2026-11-13, three
-commits after the series' authoring baseline `f03170a89`; `tests/semantic/test_data_operation_storage.py`
-is unchanged between them (2,198 lines). Another session is editing DDO code and tests, so line
-citations are as read and may move. Every design statement is **Proposed**. Source facts are
+**Baseline and evidence labels.** The original inspection used `main` `074638c64`; the
+I07–I09 revision inspected the relevant source and current DDO owners at `b1b4a4de0`,
+2026-11-13. Original line citations are as read and may move; the lease and handover premises
+below are reconciled to that newer baseline. Every design statement is **Proposed**. Source facts are
 **Interface-checked by source inspection, 2026-11-13**. Durations quoted from the audit are
 **Measured** from stored results on a shared workstation and are orders of magnitude. Paths
 written `tests/…` and `src/…` are relative to `python/corpus-structure/`; root paths are written
 as root `…` or start with `docs/` or `scripts/`.
 
-**Sources.** The [design review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md)
+**Sources.** Accepted amendments I07–I09 in the
+[plan-improvement review](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I07),
+plus the [design review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md)
 §4.3 (DDO support), §4.6 B (lease expiry), §4.8 (cutover and the union), §4.9 (independent
 evidence), §6.1 DTA-031, §6.5 DTA-033 to 036, §12 RC03 and §13; its
 [supporting document](../../design_review/reviews/test-system-target-design/options-and-classification.md)
@@ -78,15 +80,17 @@ states what isolation its claim needs.
 | `ddo_kernel(recipe)` | A `KernelRecipe`, the seed operation (TS-08) and the commit class (TS-05) | Which seed to clone | `scenario_seeds.commit_clone(recipe)`: a fresh commit-class clone of that recipe's sealed seed, with the handle exposing the purpose engines of that clone | TS-18 |
 | `expire_lease(kernel, task_id)` | A claimed data task | Nothing | The task's `lease_until` moved one second into the past, as the publisher role | TS-18 |
 | `WireCheckedStorage` | Hand-written replies per native operation | Whether each input and each reply satisfies the production wire | The reply, or the wire's own refusal | TS-20 |
-| Binding case table | Independently authored cases | Nothing | One set of expected members, roles, positions, support and witnesses for two executors | TS-20 |
+| Binding evidence cases | Independently authored rows, complete expectations and native envelopes | Nothing | Full compiled `BindingResult` expectations and bounded native protected-admission acceptance/refusals, with shared case meanings | TS-20 |
+| Source-function binding seed | Function source bytes and required preparation dependencies | The TS-08 recipe builder installs once per worker | Sealed source-function seed lending rollback connections; distinct from deployed-function evidence | TS-18/20 |
 
 **What consumers stop doing.** Importing from a `test_*` module; importing relatively from
 `tests/orchestrate/`; writing out the admission sequence; building a kernel per test; cloning a
 database to call an installed function; sleeping to expire a lease; replacing
 `DataOperationStorage` with an unchecked class; executing compiled bindings on SQLite.
 
-**Preserved guarantees.** Every test that commits, races, cancels or uses a second login still
-runs on its own database with real logins. A kernel clone is admitted by production's
+**Preserved guarantees.** Every test whose claim requires committed visibility, racing,
+cancellation or separate sessions still runs on its own database with real logins; local
+protected-admission refusals use TS-05’s rollback purpose connection where sufficient. A kernel clone is admitted by production's
 `admit_data_operation_release`, once per recipe per worker, not simulated. Expected values stay
 authored at the test or in an independent table.
 
@@ -101,8 +105,8 @@ head.
 commits nothing. Between TS-17 and TS-18 the committing form is the interim `kernel` fixture
 with the same recipe. A test whose claim is a bare database requests a cold deployment fixture.
 It does not define a fixture that calls `persist_release`. TS-17 should land before DDO-06 adds
-native tests so that those start in this shape; the coordinator records that ordering as a
-handover.
+native tests so that those start in this shape; both coordinators already record that
+dependency. Implementation readiness remains to be delivered.
 
 ### Library and system mechanisms
 
@@ -119,10 +123,12 @@ it writes no rows (see TS-18).
 
 RC03 is accepted (coordinator, rule changes): DDO native checks run on clones and seeds of the
 deployed head under the named isolation classes, and the working database is not a test lane.
-The sentence it corrects is in the DDO contracts companion
-(`docs/plans/declared-data-operations/contracts-and-compilation.md:359–361`). That edit belongs
-to the DDO plan's owner; this series does not edit that plan. Everything below designs to clones
-and seeds.
+The current DDO contracts companion already incorporates that correction, and its coordinator
+already records TS-05/06/17 readiness, TS-21/22 consumption and retirement ownership
+(**Interface-checked by source inspection, 2026-11-13**, `b1b4a4de0`). These are accepted
+dependencies, not outstanding requests to edit those owners. DDO execution remains paused at
+the operator’s request; this revision neither resumes it nor changes its package state.
+Everything below designs to clones and seeds.
 
 ## TS-17 — DDO support modules and kernel recipes
 
@@ -263,8 +269,9 @@ by path. TS-17 alone changes no isolation, so results should match the runs befo
 
 ## TS-18 — DDO native tests on kernel seeds and named isolation classes
 
-**Required input.** TS-05 (class fixtures), TS-08 (`scenario_seeds.commit_clone(recipe)`),
-TS-17. The two original recipes also need TS-07's pre-claim private-source stage; until it
+**Required input.** TS-05 (class fixtures), TS-08 (the seed operation’s rollback lending and
+`scenario_seeds.commit_clone(recipe)`), TS-17. TS-09’s reach/reason/effect contract accompanies
+each refusal-family move; its independent helper can land earlier without holding all of TS-18. The two original recipes also need TS-07's pre-claim private-source stage; until it
 exists they stay on a per-test build through `admit_kernel`.
 
 **Vision.** A kernel seed is built once per recipe per worker: clone the head, run the
@@ -277,14 +284,14 @@ seeds are per worker. Tests that commit nothing stop cloning.
 
 | Module | Today | Target class | Seed or source |
 |---|---|---|---|
-| `test_data_operation_storage.py` | `kernel` per test | commit, from the storage seed; `:756` read; `:2171` read | storage |
+| `test_data_operation_storage.py` | `kernel` per test | commit from the storage seed for transaction/publication claims; `:756` and `:2171` read; forged-graph family rollback | STORAGE |
 | `test_data_operation_service.py` | `kernel` (one test), pure (one test) | commit from the storage seed; pure | storage |
 | `test_data_operation_population_native.py` | own kernel per test | commit | population |
 | `test_data_operation_consumer_native.py` | four releases per run | commit | four consumer seeds |
 | `orchestrate/test_data_operation_execution.py` | own kernel, uuid name | commit | execution |
 | `orchestrate/test_data_operation_claim_source_native.py` | own kernel | commit | claim source |
 | `test_data_operation_original_native.py` | commits on `semantic_db_engine` with `private_source` | commit | two original seeds over the pre-claim stage; the third test is pure |
-| `test_data_operation_binding_native.py`, `…_population_selection.py`, `…_parameters.py` | `binding_native_connection` installs functions in a transaction it rolls back, on a fresh clone (`:42–72`) | rollback | head family clone |
+| `test_data_operation_binding_native.py`, `…_population_selection.py`, `…_parameters.py` | `binding_native_connection` installs the same source functions per case (`:42–72`) | rollback | source-function binding seed, installed once per worker; source bytes in preparation dependencies |
 | `test_data_operation_source_native.py` | `source_builder_connection` (`:37–47`), rolled back; one test with `private_source` | rollback; the `private_source` test commit from its seed | head; private-source seed |
 | `test_data_operation_identity_native.py` | two tests execute SQL source text into `pg_temp` and roll back (`:59–86`, `:117–136`) | rollback | head |
 | `test_data_operation_json.py` (new since the review) | one native test, same `pg_temp` pattern (`:79–116`); three pure | rollback; pure | head |
@@ -299,18 +306,32 @@ refuses, so they are rollback class. The read class fits the two checks that cal
 *deployed* function and write nothing: `data.ddo_normalize` at storage `:756–788` and
 `data.ddo_json_meaning` at `:2171–2198`.
 
-**Refusal families.** Invalid output (`:627`, four cases), renewal with a different fence
-(`:1283`, four cases) and forged graph (`:1991`, four cases) each commit an attach or a claim
-before the refused call. They take the commit class from the storage seed: one clone per case,
-no kernel build. Moving them to the rollback class would need the attach and claim inside the
-case transaction; that is a later option for TS-10's method, not required here.
+**Refusal families (I07).** Invalid output (`:627`, four cases) and renewal with a different
+fence (`:1283`, four cases) keep commit isolation for their attach/claim effects unless their
+actual behavioral claim supports a narrower class. Do not generalize the forged-graph
+classification to them.
 
-**Forged graph builds only what it reads.** The family calls `attach(kernel)` (`:1997`) to
-obtain a frozen selection, which registers a demand and also creates a request and task it never
-uses. In the target it registers the demand alone and reads the selection from that; this is
-the DDO instance of DTA-018 and the coordinator's row for that finding names TS-18. Its
-`match=r"graph|closure|discovery"` (`:2019`) accepts any of three reasons for each of four
-mutations; pinning one reason per mutation is TS-09's contract applied here.
+**Forged graph: STORAGE rollback family.** The four cases at `:1991` currently call `attach`,
+which commits a demand plus an unused request/task. Replace that setup with connection-oriented
+demand registration on the STORAGE rollback connection and read its authentic frozen selection.
+No request, task or claim is needed for this refusal. On the same prepared state, register the
+valid selection in a savepoint, establish its expected effects, then roll the savepoint back.
+The dependency, roots, discovery and duplicate mutations each use TS-09’s exact diagnostic
+identity and an independently stated absence-of-effects assertion. Keep the refusal inside a
+savepoint so the outer case can inspect effects, then roll back the case transaction. A wrong
+neighboring refusal must fail that mutation’s case. If a required cross-session or post-commit
+effect is discovered, retain commit isolation for that specific claim and record why; none is
+identified in the currently inspected refusal path.
+
+**Binding source installation reused.** Add a source-function binding recipe to TS-08’s seed
+operation rather than a second cache. Its builder parses and installs the codec/expression
+functions once per recipe per worker, commits and seals, then lends rollback-family
+connections. Source SQL and helper source bytes are preparation dependencies, so edits change
+the recipe’s valid preparation. Keep source-installation/syntax controls separate from tests
+of actual deployed functions. This recipe does not pretend the current expression fixture
+installs `ddo_require_binding`; TS-20’s protected-admission executor uses the admitted kernel
+seed and real purpose boundary. The identity-native `pg_temp` helpers remain connection-local
+and are installed on the case connection; a clone cannot preserve them.
 
 **Lease expiry.** Production accepts `lease_seconds` from 1 to 86,400 and compares every expiry
 with `clock_timestamp()` (`src/…/semantic/sql/data_operations.sql:735`, `:743–745`, `:762`,
@@ -330,16 +351,12 @@ publisher, the request generation is unchanged, and attempt, holder and status d
 | `:567` | `test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry[False]` | `expire_lease` |
 | `:1747` | `test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generation[expired]` | `expire_lease` |
 
-**Open question, settled first.** `:2116–2121` already updates `lease_until` on a data task, in
-the `uncommitted_intent=True` branch, through `kernel["engine"]` with no `SET LOCAL ROLE`. That
-engine is the maintenance login (`scripts/native_test_support.py:444`). The source guard refuses
-any data-task update whose `current_user` is not `corpus_sem_publisher`
-(`execution_guards.sql:5–7`), so by reading, this statement should raise. Either the deployed
-head's guard differs from source, or the branch does not run as read. TS-18 settles it by
-reading the guard body on a head clone or running that one test. If the deployed guard differs,
-it is a product question for the DDO owner (already in the coordinator's handovers) and
-`expire_lease` is checked against the deployed guard before the three sites move. Either way the
-site ends up using `expire_lease`.
+**Current lease boundary.** The earlier direct lease-update premise at storage `:2116–2121`
+is stale. The current invalidated-support case calls protected `release_data_attempt`, asserts
+`released`, and resumes the demand before testing the new generation (`:2116–2147` at the
+revision baseline). Preserve that behavioral control. It is not a reason to add a maintenance
+lease update or an open deployed-guard investigation. The three explicit time-expiry setups
+above still use `expire_lease`; that helper must use the current publisher-role guard contract.
 
 **Purpose principals.** Three storage tests build `principal_engine(native_settings, purpose,
 database)` by hand (`:1188–1193`, `:1881–1885`, `:1917–1920`). They take the purpose engines
@@ -362,14 +379,17 @@ the seed; it must not surface as a confusing refusal inside a test body.
 | Premise | Settled by | If it fails |
 |---|---|---|
 | Sealed kernel rows carry no database or role names | The first storage seed clone's tests: the purpose-principal and visibility tests exercise grants and ownership on the clone | That recipe stays on a per-test build through `admit_kernel`, in a module-local fixture that says why |
-| The deployed data-task guard matches source | As above, before the lease sites move | Product question to the DDO owner |
 | `private_source` has a pre-claim stage the original recipes can seed on | TS-07 | The two original tests stay per-test |
 
 **Acceptance** (review closure for DTA-031). No DDO native test defines a fixture that clones a
-database or admits a release, apart from a recipe held back by an open premise below. Each
+database or admits a release, apart from a recipe held back by an open premise above. Each
 requests a named class or, where a bare database is its claim, a cold deployment fixture. The
 interim `kernel` fixture is gone. The storage module's receipt shows
-one kernel seed per recipe per worker. `time.sleep(1.05)` remains at one site.
+one kernel seed per recipe per worker; source-function installation builds once per worker
+and rollback mutations cannot affect the next case. Forged graph creates only demand setup and
+its four cases each establish reach, reason and effects. `time.sleep(1.05)` remains at one site.
+Native fixture closure and item-bound acquisition remain classified through TS-13’s provenance
+contract for read, rollback, commit, seeded and cold consumers, including infrastructure routes.
 
 **Verification.** The module paths in the table, one at a time, with
 `uv run ci test -- python/corpus-structure/tests/semantic/<module>`; then the storage and
@@ -437,7 +457,10 @@ vectors with it, as ADR-0100 says.
 
 ## TS-20 — Wire-checked double and binding parity
 
-**Required input.** TS-05 (rollback class), TS-17 (support modules).
+**Required input.** TS-05 (rollback class), TS-08 (source-dependent seed operation), TS-17
+(support modules), and TS-18’s source-function/admitted kernel seed slices for the executors
+that consume them. WireCheckedStorage and pure controls can proceed independently; these are
+capability dependencies, not a wait for every TS-18 migration.
 
 **`WireCheckedStorage`.** Production `DataOperationStorage.invoke` validates the input and the
 output of every native call (`src/…/semantic/data_operation_storage.py:320–341`, calling
@@ -453,26 +476,42 @@ contributor's reading the service test's pins (`"frontier_at": "now"`, `"selecti
 "frozen"}`, `:29–39`) and the demands test's partial snapshot (`:206–213`) are candidates; each
 is settled by running it through the validator.
 
-**Binding parity.** DDO-03's own obligation is the specification
-(`docs/plans/declared-data-operations/contracts-and-compilation.md:356`): native and Python
-binding-result boundaries retain an independently specified set of members and roles,
-positions, support and witnesses, tested for too many and too few roles, wrong-source joins, two
-distinct passages sharing text, present-empty versus unknown optional input, incomplete negative
-lookup, member addition and removal, and unselected alternatives, with explanations that
-identify the actual unmet obligation. Today no file runs one case set through both paths.
+**Binding evidence matched to the boundary (I08).** DDO-03 owns production semantics and its
+independent binding-result obligation (`contracts-and-compilation.md`). Retain cheap
+expression and codec controls: the present native fixture deliberately omits
+`ddo_require_binding` (`test_data_operation_binding_native.py:66`) and its evaluator returns a
+Boolean from `ops.ddo_binding_test` (`:183–188`). Boolean agreement cannot establish the full
+`BindingResult` returned by the compiled executor (`data_operation_bindings.py:1291`). Do not
+label that fixture a full-result parity executor.
 
-The case table in binding support holds, per case, the admitted rows, the declared roles, and
-the authored expectation: selected members by role and position, support and witnesses, or the
-refusal and the obligation it names. Nothing in the table is computed by either implementation.
-Two executors consume it, both in the rollback class:
+Binding support carries independently authored case meanings: admitted rows, declared roles,
+selected members by role and position, source/context, support and witnesses, or a specific
+refusal with its unmet obligation. Nothing expected is computed by either implementation.
+Cover too many/few roles, wrong-source joins, distinct passages sharing text, unknown versus
+present-empty optional input, incomplete negative lookup, member addition/removal and unselected
+alternatives. Exercise the appropriate observation boundary rather than imposing one Boolean
+harness on all of them:
 
-- **compiled:** `compile_binding` and `execute_binding` on a PostgreSQL connection, the route
-  production takes on the planner's connection
-  (`src/…/semantic/data_operation_demands.py:658`); the admitted-rows table that the `storage`
-  fixture builds on SQLite today (`test_data_operation_bindings.py:104–130`) is created inside
-  the case transaction and rolls back with it;
-- **native:** the binding functions installed by the binding connection
-  (`test_data_operation_binding_native.py:42–72`).
+- **Compiled full result:** `compile_binding` and `execute_binding` on PostgreSQL, the planner’s
+  route (`data_operation_demands.py:658`), compared with the authored complete `BindingResult`.
+  Create case rows in the rollback transaction. A changed member, position, source, context,
+  support or witness must fail even if the expression still evaluates true.
+- **Native protected admission:** a bounded set of independently authored accepted and refused
+  binding envelopes through the real protected admission boundary, including
+  `ddo_require_binding` in its production integration. Use admitted kernel seed/rollback setup
+  and the proper purpose principal. Assert retained members/roles/positions/support/witnesses
+  for accepted envelopes and exact diagnostic plus absent effects for refused ones. Feed
+  authored envelopes rather than only compiled output, which could reproduce the same wrong
+  selection. Each native case states the obligation it observes; expression-only tests make
+  their narrower claim.
+
+Share TS-08/18 setup with these executors; do not turn each cheap codec or expression vector
+into a complete demand journey. Source-function seed evidence, full compiled-result evidence
+and protected native-admission evidence remain distinguishable in identities and receipts.
+TS-24’s SQL/TAP bridge may later execute a suitable maintenance-compatible SQL family, but is
+not a prerequisite for this package and cannot replace real-purpose admission with maintenance
+success. Preserve existing logical case identities unless an explicit identity migration is
+approved and mapped.
 
 **The SQLite runs go.** `create_engine("sqlite://")` at `test_data_operation_bindings.py:130`
 and `test_data_operation_consumer_bindings.py:88` is removed unless a supported consumer
@@ -482,13 +521,16 @@ class; tests in those modules that never touch the engine stay pure. The cost is
 modules now need a deployed head, where they needed none. With a reused head and one family
 clone per worker that is a small fixed cost per run, and it buys the dialect production uses.
 
-**Revealing failure.** A case with a present-empty optional input and one with an unknown
-optional input give the same result on one path and different results on the other. Today that
-cannot be seen; with one table it fails on the diverging executor, naming the case.
+**Revealing failure.** A compiled result selects the wrong passage while its expression still
+evaluates true: the authored full result fails on member/source/position. A native envelope
+with that same wrong passage is independently refused at admission. Unknown and present-empty
+remain distinct on each boundary; Boolean agreement alone discharges neither claim.
 
 **Acceptance** (review closure for DTA-034). The two routing tests use `WireCheckedStorage`; one
-case table runs through both binding paths on PostgreSQL; no test source names `sqlite://` in
-the two binding modules.
+authored case set checks full compiled results and bounded protected native admission on
+PostgreSQL, preserving the cheaper path-specific controls. Member/position/source/context/
+witness perturbations are observable even when the expression remains true. No test source
+names `sqlite://` in the two binding modules.
 
 **Verification.** `uv run ci test --` with the demands, service, bindings, consumer-bindings and
 binding-native module paths.
@@ -520,14 +562,14 @@ a word search of `tests/` on 2026-11-13 (occurrence counts in parentheses).
 
 | Mechanism | DDO package that retires it | Test files naming it |
 |---|---|---|
-| `reused_task_id`, copied reused status | Not named as an identifier in the DDO plan. Copied reused-task fulfillment retires "only with their DDO-07/08/10 callers moved" (`products-and-support.md:104–105`), copied reused status with DDO-09 (`change-reuse-and-consolidation.md:74`), "copied reused tasks" at DDO-11 step 6 | `semantic/test_operations.py` (4), `test_runtime_bindings_native.py` (2), `test_coverage_comparison.py` (2), `test_retained_source_budgets.py` (2), and one each in `test_retained_source_reuse_native.py`, `test_local_semantic_admission_native.py`, `test_pdf_visual_requests.py`, `test_pm2_result_native.py`, `test_reference_evaluation.py`, `test_review_bundle.py` |
+| `reused_task_id`, copied reused status | DDO-09 removes copied meaning after DDO-07/08/10 callers use semantic fulfillment; DDO-11 performs final physical retirement (current DDO coordinator’s dependency owner) | `semantic/test_operations.py` (4), `test_runtime_bindings_native.py` (2), `test_coverage_comparison.py` (2), `test_retained_source_budgets.py` (2), and one each in `test_retained_source_reuse_native.py`, `test_local_semantic_admission_native.py`, `test_pdf_visual_requests.py`, `test_pm2_result_native.py`, `test_reference_evaluation.py`, `test_review_bundle.py` |
 | `valid_reuse` runtime equality | DDO-09 | `semantic/test_runtime_bindings_native.py` (1), `test_dossier_contributions.py` (1) |
 | `task_dependency`, `task_dependency_scope` | DDO-09 | `semantic/test_source_jit_native.py` (3), `test_source_views.py` (1) |
 | `freshness_seed`, run-anchor, freshness salts | DDO-06 step 4 (`demand-planning-and-execution.md:324`); salts DDO-09; DDO-11 step 6 | `orchestrate/test_characterization_recovery.py` (4), `semantic/test_characterization_native.py` (1) |
 | `source_dependencies` | DDO-06 step 4; DDO-08 (`operations-and-adapter-cutover.md:58`, `:111`) | `methods/test_m1_readings.py` (2), `semantic/test_characterization_native.py` (1), `test_source_views.py` (1) |
 | `OperationDescriptor` bypasses | DDO-08 (`operations-and-adapter-cutover.md:58`) | `semantic/test_characterization_native.py` (2) |
 | `SourceOperationLink`, stage-run sequencing | DDO-06 step 4, "only when native Demand reporting and public consumers carry its required lineage" (`:325–326`) | `orchestrate/test_source_progress.py` (5), `test_characterization_recovery.py` (2) |
-| `max_active_stage_runs` | Not named in the DDO plan; nearest is DDO-06's stage-run retirement. The DDO owner names the package | `orchestrate/test_ready_coordination.py` (3), `test_execution_preparation.py` (1), `core/test_execution_policy.py` (1) |
+| `max_active_stage_runs` | DDO-06, with stage-run admission retirement (current DDO coordinator’s dependency owner) | `orchestrate/test_ready_coordination.py` (3), `test_execution_preparation.py` (1), `core/test_execution_policy.py` (1) |
 | `TopologicalSorter` classification | DDO-08 (`operations-and-adapter-cutover.md:87–93`) | No test names it; `semantic/test_domain_operations.py:508` asserts the "cyclic source claim reference" text tied to it |
 
 **Per-file leads.** These are the supporting document's Part B.3: a contributor's dispositions,
@@ -572,15 +614,17 @@ at DDO-12 time, and the coordinator lists it as a handover.
 campaigns and say they are not DDO-12. DDO-12 already defines the union
 (`docs/plans/declared-data-operations/preservation-adoption-and-qualification.md:65–70`): after
 all functional scope and retirement, freeze final source and run `uv run ci test` and
-`uv run ci check`, with native fault and provider lanes explicitly covered and missing providers
+`uv run ci check`, with native fault and provider-required selections explicitly covered and missing providers
 kept open. The target form has three parts.
 
 1. The full ordinary and fault lanes on frozen final source, with a run-private head (TS-02).
-   This covers every DDO module by construction, including those in no recorded campaign.
-2. One provider run with the provider prerequisites present. After TS-13, provider-gated
-   identities are distinct from their controlled counterparts, so in this run each either passes
-   or resolves `blocked` with its prerequisite named in the receipt. A controlled identity never
-   stands in for a provider row.
+   This covers their required identities, including DDO modules absent from recorded campaigns;
+   opt-in provider identities remain in the explicit selection below.
+2. The explicit provider-required selection, `uv run ci test --providers-only`, with actual
+   prerequisites present. TS-13 carries its selection through manifest, recollection, retry and
+   union accounting. Each required provider identity passes on the real provider or remains
+   `blocked` with all missing prerequisites named; an empty required selection is `not_run`.
+   Neither ordinary exclusion nor controlled success discharges this obligation.
 3. An evidence mapping for DDO-12's obligation table (`:72–81`): the table below, completed at
    DDO-12 time, names the test identities that discriminate each row and states which rows
    still lack evidence. It is handed to the DDO owner, who can carry it into that table as an
@@ -592,7 +636,7 @@ assignment of gaps to rows is this author's reading and is confirmed with the DD
 | Obligation row | Evidence to name (leads) | Known gaps to state until closed |
 |---|---|---|
 | Model/compiler/identity | Compilation, identity and identity-native modules; TS-19's contextual identity vectors | Graph example sets; helper-body and inherited-value change locality in the source-change matrix |
-| Binding and native admission | Binding-native module; TS-20's case table through both paths; purpose refusals in storage | One case set through both binding implementations, until TS-20 lands |
+| Binding and native admission | TS-20’s authored full compiled results and bounded protected native-admission envelopes; cheap expression/codec controls state their narrower claim; purpose refusals in storage | Full-result and admission obligations remain open until their actual observed boundaries are checked; Boolean parity alone does not close them |
 | Native request/concurrency/recovery | Storage concurrency, expiry, cancellation and replay tests; DDO-06's checks as they are written | Overlapping publication with differing intents; invalidated support recovered through a real consumer |
 | Providers | Provider identities from the provider run | Any identity that resolves `blocked`; no mocked provider counts |
 | Reuse/change | DDO-09's checks as written; the re-expressed tests from TS-21 | Helper-body and inherited-value locality; whatever TS-21 leaves without a counterpart |
@@ -604,20 +648,21 @@ assignment of gaps to rows is this author's reading and is confirmed with the DD
 discriminating test identities, or states the gap, for each obligation row and has been handed
 to the DDO owner; the provider run's receipt shows provider identities `passed` or `blocked`.
 
-**Verification.** `uv run ci test` and `uv run ci check` on the frozen source; the provider run
-through the managed route with prerequisites present. Results are read from their managed
-receipts by id.
+**Verification.** `uv run ci test`, the fault selection and `uv run ci check` on frozen source;
+`uv run ci test --providers-only` through the managed route with actual prerequisites present.
+Results are read from their managed receipts by id.
 
 ## Handovers to the DDO plan owner
 
 The coordinator holds the one list
-([Handovers to other owners](../test-system-target-design_2026-11-13.md#handovers-to-other-owners)):
-RC03; the ordering of TS-05, TS-06 and TS-17 before DDO-06 and the gating of DDO-06 to DDO-12
-on TS-21 and TS-22; the edit to the DDO-12 obligation table; the coordinated deletion of the
-two uncalled identity helpers; the stale findings-table rows; the double deployment
-verification in `admit_data_operation_release`; the lease-update question; the package that
-retires `max_active_stage_runs` and `reused_task_id`, which the DDO plan does not name; and the
-assurance gaps. This companion adds no second copy.
+([Handovers to other owners](../test-system-target-design_2026-11-13.md#handovers-to-other-owners)).
+Current DDO owners already incorporate RC03, TS-05/06/17 readiness for new DDO-06 native tests,
+TS-21/22 consumption and the retirement ownership stated above. These are execution
+prerequisites still to deliver, not missing policy handovers. DDO’s paused execution state stays
+with its coordinator. Remaining handovers include DDO-12’s discriminating evidence mapping,
+coordinated identity-helper deletion if still needed, source-owner findings reconciliation,
+admission/deployment assurance and the surviving semantic coverage gaps. This companion does
+not copy their status or ask for the now-obsolete direct-lease-update investigation.
 
 ## What remains outside this companion
 
@@ -628,5 +673,12 @@ assurance gaps. This companion adds no second copy.
 - The refusal contract (reach, reason, effect) for the DDO refusal families, including the
   forged-graph reasons, is [evidence contracts](evidence-contracts.md), TS-09.
 - The provider and controlled identity split is TS-13 in the same companion.
-- Production changes to the DDO kernel, the DDO plan's packages and its documents belong to the
-  DDO plan's owner.
+- [TS-24](postgresql-tooling.md#ts-24--sql-family-execution-and-tap-evidence) owns the SQL/TAP
+  execution/receipt bridge; [TS-25](postgresql-tooling.md#ts-25--private-postgresql-cohort) owns
+  the optional `--native-host private` pg_virtualenv cohort for the ordinary lane.
+  This companion consumes their selected logical-case mapping, item-bound native acquisition
+  and managed cohort context. TAP reports cannot weaken real-purpose controls or collapse
+  existing pytest case identities without an explicit migration. The default shared host and
+  separate authority/fault obligations remain; a private cohort does not replace them.
+- Production changes to the DDO kernel, the DDO plan’s packages and its documents belong to the
+  DDO plan’s owner.

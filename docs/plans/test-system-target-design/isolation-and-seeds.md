@@ -14,6 +14,11 @@ citations are as read. Every design statement is **Proposed**. Source facts are
 **Measured** from stored results on a shared workstation and are orders of magnitude. Receipts
 that show one seed or one family clone per worker are functional evidence, not speed claims.
 
+**Revision input:** [I01/I02/I10](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md)
+integrated against clean source `b1b4a4de0` (2026-11-13). The operator accepted I02's
+infrastructure-base change on 2026-11-13; TS-00 routes RC05 through the ADR-0032 successor.
+All fixture and production changes described here remain **Proposed**.
+
 **Paths.** `tests/…` and `src/…` are relative to `python/corpus-structure/`; root paths are written
 as root `tests/…`, `scripts/…`, `conftest.py`, `pyproject.toml`. Section references (§4.1 and so
 on) are to the [source review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md).
@@ -65,10 +70,18 @@ build. Receipts that distinguish a seed's origin from the clone a test used. Col
 controls (`semantic_bare_engine`, `semantic_database_at`, `semantic_absent_database`) are untouched
 and stay requestable as their own kind.
 
-**Intentional behavior changes.** The shared per-worker clone is never committed to by a test,
-and the only writable engine on it is `shared_clone_engine`, whose check after each test fails a
-durable change.
-A test in the wrong class fails loudly: a hidden write in the read class raises `25006`; a commit
+**Infrastructure is a distinct base (I02).** Driver-only claims use provisioned `cs_template`
+through the same `PgAdmin` naming, leases, acknowledged creation, policy replay and authenticated
+cleanup. They acquire neither the semantic head nor its key/checker. Shared infrastructure
+connections serve read-only SQL and connection exercises with no durable effects; a rollback
+connection also permits transaction-local utility DDL/DML. A case that creates durable state gets
+an isolated infrastructure clone. This is a fixture-base distinction, not another lifecycle or a
+semantic shared-engine exception. Semantic guards and semantic catalog expectations still use
+the four classes above. Cold routes remain separately named.
+
+**Intentional behavior changes.** No writable `Engine` is exposed on a shared semantic clone.
+The earlier `shared_clone_engine` target and its durable-state comparator are removed.
+A test in the wrong semantic class fails loudly: a hidden write in the read class raises `25006`; a commit
 through a rollback-class connection fails teardown; a production path that commits on its own
 connection is exposed by the next case's positive control and absence checks. Fixture names change
 for about 165 files.
@@ -86,22 +99,22 @@ for about 165 files.
 ## TS-05 — Isolation-class fixtures
 
 **Required input.** TS-00 (the successor to [ADR-0032](../../adr/0032-native-test-deployment-equivalence.md)
-allows read-only and rolled-back transactions on a shared clone) and TS-01 (the naming function,
-so the session clone's name follows the one rule).
+allows read-only/rolled-back semantic transactions and records RC05's infrastructure base),
+TS-01 (the naming function, including infrastructure kinds), and the TS-02 early acquisition
+slice (head-derived clones are verified before exposure without requesting a class fixture).
+TS-02's remaining publication/retention work is not a reason to make verification depend on
+TS-05, and infrastructure-only fixtures do not acquire the semantic handle.
 
 **Implementation vision.** All class fixtures live in the package `tests/conftest.py`, so every
 test directory sees them without imports. Fixture names below are this package's proposal and are
 fixed in its first change; other companions use them.
 
-- **Session clone.** This package owns the per-worker session clone, `ci_test_<pid>`. Today's
-  `db_engine` becomes the private base of the read and rollback classes: one clone of the head
-  per worker, created lazily on first use by a `native_read`, `native_rollback` or
-  `shared_clone_engine` consumer, or by head verification
-  ([TS-02](native-lifecycle-and-deployment.md)). The two packages can land in either order:
-  where TS-02 lands first, its head fixture creates the clone itself for verification and lends
-  it to `db_engine`; once this package exists, verification asks this package's fixture for the
-  clone. The clone's `Engine` is no longer a fixture tests may request, except as
-  `shared_clone_engine` below.
+- **Session clone.** This package owns the per-worker semantic session clone, `ci_test_<pid>`.
+  Today's `db_engine` becomes its private base, created lazily only when a `native_read` or
+  `native_rollback` consumer needs it. Request the clone through TS-02's acquisition handle,
+  which verifies it if verification is pending and returns it only after success. Commit-only,
+  seed-only and infrastructure-only selections do not instantiate this clone. The clone's
+  writable `Engine` is private to the fixtures; verification never calls back into them.
 - **`native_read`.** Opens a connection on the session clone, starts a transaction with
   `postgresql_readonly=True`, yields the `Connection` and rolls back. It connects as maintenance;
   a claim about what a restricted login may read uses the rollback class.
@@ -127,15 +140,22 @@ fixed in its first change; other companions use them.
   `semantic_application_settings` (`tests/conftest.py:233–239`). A factory fixture
   `commit_clone()` yields a further fresh clone of the head for the tests that need two databases.
   The `admitter` alias goes; its six consumer files name the admitter engine directly.
-- **`shared_clone_engine`.** One maintenance `Engine` on the session clone, the only writable
-  engine on a shared clone (operator decision, 2026-11-13; named in the ADR-0032 successor). It
-  exists for three connection-lifecycle modules: sixteen uses of `db_engine` in
-  `tests/db/test_lifetime_native.py`, with `tests/db/test_adbc_lifetime.py` and
-  `tests/db/test_store.py`, open pooled sessions, cancel queries and count backends on the
-  shared clone without durable writes. After each test that requested it, the fixture checks
-  that nothing durable changed on the shared clone and fails the test otherwise. The form of
-  the comparison is chosen in this package; its self-test commits a table through the engine
-  and must fail that check.
+- **Infrastructure fixtures.** `infrastructure_engine` yields the shared per-worker maintenance
+  engine on a clone of provisioned `cs_template` for pools, scalar SQL, notices, cancellation,
+  reuse and backend-settlement exercises with no durable state. `infrastructure_rollback`
+  lends an outer transaction on that base and rolls it back, enforcing the same active-outer-
+  transaction rule as `native_rollback`. `infrastructure_commit_engine` yields a fresh isolated
+  clone for durable DDL/DML or cases whose effects otherwise need isolation. Capture the
+  template policy and replay/compare it per clone; use the TS-01 infrastructure name kinds.
+  Extension/version checks and real maintenance authentication remain prerequisites. These
+  fixtures do not request semantic principals, the semantic head or a durable-state comparator.
+  Their names state the infrastructure base; they are not aliases for semantic fixtures.
+- **Native server prerequisites.** Keep `native_server` as the common `PgAdmin` acquisition,
+  extension/template checks, sweep and observed server context. Move its current unconditional
+  `semantic_principals()`/`check_roles()` to the semantic acquisition/cold-route prerequisite
+  that actually needs those logins. Semantic purpose fixtures still fail when their roles are
+  missing; infrastructure-only acquisition requires only its actual maintenance/template
+  capabilities. Do not turn a missing semantic role into a backend-only refusal.
 - **Cold deployment fixtures.** `semantic_bare_engine` and `semantic_database_at`
   (`tests/semantic/conftest.py:37–57`) stay where they are and keep their behavior. They are
   the fifth named kind: a consumer whose claim is a bare or partly migrated database requests
@@ -150,15 +170,37 @@ fixed in its first change; other companions use them.
   disappear because the package conftest already provides the fixtures. This package removes
   them; [TS-06](scenario-and-support-ownership.md) does not claim them. No test changes class
   in this step.
-- `db` consumers rename to `native_rollback` and use `.connection`.
-- `tests/db/test_lifetime_native.py:162–164` commits `CREATE TABLE public.pg_runtime_effect` to the
-  shared clone through `db_engine`; that test moves to `commit_db_engine`. After it, nothing
-  commits to the session clone, so its base state equals the head by construction.
+- Classify actual legacy `db`/`db_engine` consumers by claim rather than renaming all `db`
+  uses to `native_rollback`. The focused source inspection at `b1b4a4de0` found requestable
+  `db_engine` consumers in the three `tests/db` modules and `tests/test_db_fixtures.py`, plus
+  `db` fixture consumers in `tests/core/test_method.py` and `tests/db/test_store.py`. Local
+  variables named `db` in PDF scenarios are not uses of this fixture.
+
+| Actual consumer | Target and reason |
+|---|---|
+| `tests/db/test_store.py`: pool/JSONB, extension-version refusal, notice callback | `infrastructure_engine`; no semantic guard/schema used. `observed_store_checkouts` observes this selected engine, retaining actual pool provenance |
+| `test_store.py::test_errors_are_classified` | `infrastructure_rollback`; scalar error and temporary-table constraint classification inside savepoints |
+| `tests/db/test_lifetime_native.py`: pooling, cancellation/COPY, renewal exit/deadline, runtime diagnostic | `infrastructure_engine`; preserve real queries, auth, cancellation, reuse and backend settlement |
+| `test_lifetime_native.py::test_mid_write_native_failure_has_independent_zero_row_rollback` (`:162`) | `infrastructure_commit_engine`; commits an ordinary `public.pg_runtime_effect` table, then independently checks zero rows after failure |
+| `tests/db/test_adbc_lifetime.py`: resolver parity, real cancel/reuse, binding-query cancellation (`:300`) | `infrastructure_engine`; binding is patched before semantic work to run `pg_sleep`, and cancellation forbids bulk acquisition, so this claim needs no semantic guard |
+| `tests/core/test_method.py`: payload hash/JSONB round trip (`:174,187`) | `infrastructure_rollback`; utility table and casts only |
+| `tests/test_db_fixtures.py`: rollback helper (`:36`), extension checks (`:92,108`), generic lease/sweep controls | Infrastructure transaction/server as appropriate; the retained-head exclusion control explicitly requests a head when it asserts that property |
+| `tests/test_db_fixtures.py`: migrated-template identity (`:21`) and cold build (`:178`) | Explicit semantic session/acquisition and cold fixtures; their claims depend on the semantic revision and real chain |
+
+Read remaining fixture-closure consumers, including dynamically requested fixtures and new source
+changes, when implementing. An actual semantic guard caller receives an explicit semantic
+fixture; a newly found durable infrastructure case receives its isolated fixture. No module-wide
+assumption may silently move semantic claims onto `cs_template`. Pure cases in these modules
+remain pure. `observed_store_checkouts` changes together with its callers so it never lazily
+recreates the old `db_engine` path.
 
 **Superseded machinery removed.** The engine fixtures in `tests/semantic/conftest.py` (the file
 keeps `database_name` only until TS-01 replaces it, and the cold-route fixtures), the acceptance
 conftest's re-exports (and the file, which holds nothing else), the `admitter` alias, and `db`
-and `db_engine` as requestable names.
+and `db_engine` as requestable names. The old `shared_clone_engine` proposal is not implemented;
+no fixture or semantic durable-state comparator for it is introduced. Remove the unconditional
+semantic-role prerequisite from common infrastructure acquisition while retaining it at semantic
+consumers.
 
 **Example and failure case.** A check of `data.local_semantic_case_matches` requests `native_read`
 and runs seventeen cases on one clone. If someone later adds a temporary table to that function,
@@ -169,26 +211,35 @@ committed batch and fails, pointing at the leak.
 **Acceptance and closure.** Each class fixture has a self-test in the package's
 `tests/test_db_fixtures.py`: a write through `native_read` raises `25006`; a
 commit through `native_rollback.connection` fails teardown; a principal connection reports the
-purpose's `session_user`; the reader engine refuses a write; a durable change through
-`shared_clone_engine` fails its post-test check; `commit_clone()` yields a fresh OID.
+purpose's `session_user`; the reader engine refuses a write; `commit_clone()` yields a fresh
+OID. Infrastructure controls retain actual extension/authentication and cancellation/reuse;
+isolated durable-write cases receive distinct OIDs and cannot affect the shared infrastructure
+base. A backend-only selection creates neither a semantic head nor `ci_test_<pid>` and does not
+check semantic roles; an explicit semantic acquisition still refuses missing semantic roles.
 No source names `semantic_db_engine`, `semantic_writer_engine`, `semantic_reader_engine`,
 `semantic_evaluator_engine` or `semantic_admitter_engine`. `test_lifetime_native.py` no longer
-commits through the shared clone. No fixture other than `shared_clone_engine` yields a writable
-`Engine` on a shared clone.
+commits through the semantic shared clone. No fixture yields a writable `Engine` on a shared
+semantic clone. Every legacy fixture consumer is classified and migrated, including its observer;
+no semantic comparator or `shared_clone_engine` fallback remains.
 
 **Verification.** `uv run ci test -- python/corpus-structure/tests/test_db_fixtures.py
 python/corpus-structure/tests/db`, then one module per directory that used the old names. The
 rename is checked by collection of the whole package (`--collect-only` through the managed route).
 
-**Open premises.** That the three `shared_clone_engine` modules make no durable write beyond
-`:162–164` holds by a first reading. If reading them during the package, or the post-test
-check, finds another committed write, that test moves to the commit class as `:162–164` does.
+**Implementation judgment.** The table is the inspected migration scope, not an enduring
+catalog. Re-read affected bodies at execution, especially patched semantic entry points: a test
+whose patch no longer intercepts before a semantic guard must request an explicit semantic
+fixture or preserve an independently meaningful infrastructure-only boundary. Keep any newly
+found durable effect isolated rather than adding a comparator to the shared base.
 
 ## TS-08 — The seed operation
 
 **Required input.** TS-00 (the successor to [ADR-0048](../../adr/0048-populated-native-scenarios.md)),
-TS-01 (a `seed` kind in the naming function), TS-03 (the implementation override, so a build can
-refuse to run under one) and TS-06 (the recipe value).
+TS-01 (a `seed` kind in the naming function), the TS-02 early acquisition slice (first useful
+clone verification before a seed builder), TS-03 (the implementation override, so a build can
+refuse to run under one) and TS-06 (the recipe value). The seed operation needs this working
+clone contract, not a TS-05 session clone or the whole SQL/TAP/private-cluster harness described
+in [PostgreSQL tooling](postgresql-tooling.md).
 
 **Implementation vision.** `scripts/native_test_support.py` gains one seed registry, held per
 worker by a session-scoped fixture in the package conftest (`scenario_seeds`). It generalizes
@@ -197,14 +248,14 @@ worker by a session-scoped fixture in the package conftest (`scenario_seeds`). I
 | Step | What the operation does | Generalized from |
 |---|---|---|
 | Key | `(recipe value, head name)`. The recipe is the frozen, data-only value of [TS-06](scenario-and-support-ownership.md). The builder is not part of the key: TS-06's rule gives each recipe type exactly one registered builder, so the recipe type implies it | `_serving_recipe_id` (`:195–205`), which hashed builder source instead |
-| Build, on a fixture's first request | Refuse if an implementation override is active (`implementation_overridden()`, TS-03). Create `cs_sem_seed_…` from the head with `database(…, policy=head.policy)`. Look up the recipe type's builder in TS-06's registry and run it with the admin engine, purpose engines from `principal_engine`, and a directory from `tmp_path_factory.mktemp("seed-…")`. A recipe's own provider patches are applied by that builder inside `pytest.MonkeyPatch.context()` and are removed before sealing. Dispose every engine | `:249–260` |
+| Build, on a fixture's first request | Refuse if an implementation override is active (`implementation_overridden()`, TS-03). Request `cs_sem_seed_…` through the head acquisition handle, which creates it through `PgAdmin.database`, verifies a pending reused head on that clone and retries a stale source before exposing it. Only then look up the recipe type's builder in TS-06's registry and run it with the admin engine, purpose engines from `principal_engine`, and a directory from `tmp_path_factory.mktemp("seed-…")`. A recipe's own provider patches are applied by that builder inside `pytest.MonkeyPatch.context()` and are removed before sealing. Dispose every engine | `:249–260` |
 | Posture checks | Policy equals the head's; record the OID; no task in the seed is unfinished, meaning none is in a claimed or running state (the check reads task status and does not consult `lease_until`, so an expired lease does not pass); then `ALLOW_CONNECTIONS false`; then confirm sealed and client-free | `:262–264`, `:283–284`, `:231–238` |
 | Files | Every file the builder wrote is made read-only, and so is the directory, so a consumer that writes into scenario files fails instead of changing the next consumer's input | new |
 | Descriptor | A frozen value: database, OID, policy, recipe id, the builder's frozen stage output, the directory, and `origin` for receipts | `ServingScenarioSeed` (`:161–182`) |
 | Revalidate before each clone | OID and policy unchanged, still sealed and client-free | `_validate_serving_seed` |
 | Commit clone | `scenario_seeds.commit_clone(recipe)`: a fresh clone with policy replay and a fresh OID; purpose engines carry `scenario_seed=origin` | `serving_read_scenario` (`:300–344`) |
 | Family clone | `scenario_seeds.rollback_family(recipe)`: one clone per worker per recipe, left open, wrapped by the same `RollbackCase` as TS-05; each case gets new connections. It is called from one named fixture per family (TS-10) | new |
-| Lifetime | The worker's session. Family clones are dropped before their seed; seeds before the session clone. A failed build releases its database, as `test_failed_seed_build_releases_owned_database` requires today | `:73–97` of the lifecycle test |
+| Lifetime | The worker's session. Family clones are dropped before their seed; all head-derived clones are released before the acquisition handle's usage lease. No session clone is required. A failed build releases its database, as `test_failed_seed_build_releases_owned_database` requires today | `:73–97` of the lifecycle test |
 
 **What a seed may contain.** Committed state with **no unfinished task** (operator decision,
 2026-11-13; stated in the ADR-0048 successor). Completed attempts are allowed:
@@ -249,7 +300,9 @@ shows: one build for two requests of an equal recipe; a build refused under an i
 override; a patch applied by a registered builder gone after the build; a builder that leaves a
 task claimed or running refused, including one whose lease has already expired; a write into a
 seed file refused; a commit clone and a family clone each carry `scenario_seed` in their native
-context. By search, no test body calls `scenario_seeds.commit_clone` or
+context. A seed-only selection uses its seed-build clone for pending verification, creates no
+semantic session clone and starts no builder on a stale source; mixed seed/commit/read consumers
+share one completed verification per process. By search, no test body calls `scenario_seeds.commit_clone` or
 `scenario_seeds.rollback_family`.
 
 **Verification.** `uv run ci test -- python/corpus-structure/tests/semantic/test_serving_scenario_lifecycle.py

@@ -8,8 +8,10 @@ per run through affinity groups. The
 [coordinator](../test-system-target-design_2026-11-13.md) owns package state, finding
 disposition and the rule decision RC02; nothing here restates them.
 
-**Baseline and evidence.** Source was read at `main` `683e9a955` on 2026-11-13; another session
-was committing during authoring, so line citations are as read. Design statements are
+**Baseline and evidence.** Original source was read at `main` `683e9a955`; revision source was
+inspected at `b1b4a4de0`, 2026-11-13, incorporating
+[I05 and I06](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md).
+Line citations are as read. Design statements are
 **Proposed**. Source facts are **Interface-checked by source inspection, 2026-11-13**. Durations
 quoted from the audit are **Measured** from stored results on a shared workstation and are
 orders of magnitude. No package here has a speed target. Paths `tests/…` and `src/…` are
@@ -160,28 +162,39 @@ settles it for the ordinary lane.
 
 ## TS-12 — Affinity groups for designated preparation
 
-**Required input.** None. Designations are module-qualified, so the package does not wait for
-any fixture to move.
+**Required input.** None for the initial table: existing local fixtures use consumer-module
+qualifiers, so the package does not wait for any fixture to move. The shared-statistics designation changes together with TS-06's fixture
+merge; each TS-10 family supplies its distinctive fixture before its designation is added.
 
 **Implementation vision.** The root hook (root `conftest.py:21–37`) reads one designation table
-beside the existing math list. Each row names a fixture, optionally the module that defines it,
-and the group. For each collected item the hook finds the rows whose fixture is in the item's
-`fixturenames` and whose module qualifier, when present, matches the item's module, and adds
-the one `xdist_group` mark.
+beside the existing math list. Each row names a fixture, an optional **consumer-module**
+qualifier, and a group. For each collected item, the hook matches fixture names in its
+`fixturenames` and, when a qualifier is present, compares it with the item's collected module
+identity. The qualifier never names a support module merely because a fixture was defined
+there. Shared fixtures use distinctive names without qualifiers; genuinely local generic names
+use consumer-module qualifiers. The hook then deduplicates all matching rows by group value
+before assigning the one `xdist_group` mark.
 
 *One group per item.* xdist would silently join two marks into a third group, which keeps
 neither preparation on one worker. The hook therefore assigns at most one group, and raises a
-`pytest.UsageError` at collection when an item matches two rows or already carries a group mark
-from its module. A conflict is settled where the table is edited, not by the scheduler.
+`pytest.UsageError` at collection when an item resolves to two distinct group values. Existing
+explicit marks participate in the same group-value set: repeated occurrences of the same value
+collapse to one mark; distinct values refuse. Two rows such as `prepared` and its dependent
+`policy` can legitimately match the same item and the same group. A conflict is settled where
+the designation or explicit mark is authored, before xdist can join group names.
 
-*The module qualifier.* The designated fixtures have generic module-local names today:
+*Consumer-module qualification (I05).* The designated fixtures have generic module-local names today:
 `stats`, `prepared`, `inputs`, `policy`, `profile`, `source_release`. Module-level functions with those six
 names are defined 57 times across the two test trees, so a bare name would capture unrelated
-modules. Each row for such a fixture therefore carries the defining module, and designations
-stay module-qualified. Nothing here assumes that fixtures are merged. Merging the four
-statistics-pack fixtures into one support-owned fixture is an explicit item of
-[TS-06](scenario-and-support-ownership.md); when it lands, that preparation's four rows become
-one row qualified by the support module, in the same change.
+modules. Each row for a genuinely local fixture therefore carries the consumer module where
+that fixture is resolved. These explicit designations do not need pytest-internal inspection
+of fixture-definition ownership. Merging the four statistics-pack fixtures into one
+support-owned fixture is an explicit item of [TS-06](scenario-and-support-ownership.md). In that
+same change, those local rows become an unqualified row for the distinctive shared fixture,
+such as `statistics_pack_prepared`; an optional shared policy fixture has its own distinctive
+name mapped to the same group. Its consumer closure receives the group wherever the fixture
+is imported. A row qualified by the support module would match no such consumer and is excluded
+from the target design.
 
 *Group by preparation value.* Rows that prepare the same value share a group, so the consumers
 in different modules land on one worker. With today's four separate module fixtures, one group
@@ -195,7 +208,7 @@ would serialize real work.
 
 | Preparation | Fixtures today | Group |
 |---|---|---|
-| Statistics pack, prepared | `stats` in `tests/orchestrate/test_policy.py:36–38`; `prepared` in `tests/semantic/test_interpretations.py:22–24`; `prepared` and `policy` in `tests/schema/test_rules.py:25–32`; `inputs` and `policy` in `tests/semantic/test_rule_literal_bindings.py:16–23` | one group for all four modules |
+| Statistics pack, prepared | Before TS-06: consumer-qualified `stats` in `tests/orchestrate/test_policy.py:36–38`; `prepared` in `tests/semantic/test_interpretations.py:22–24`; `prepared` and `policy` in `tests/schema/test_rules.py:25–32`; `inputs` and `policy` in `tests/semantic/test_rule_literal_bindings.py:16–23`. After TS-06: distinctive shared preparation/policy names without qualifiers | one group for all four modules; duplicate matches for this value collapse |
 | HanLP profile | `profile` in `tests/semantic/test_hanlp_products.py:29–43` | its own group |
 | Trusted execution-model compile | `source_release` in root `tests/test_native_run_scope.py:35–42` | its own group |
 
@@ -215,8 +228,8 @@ one case would build the seed and the family clone. The contract is:
   would be invisible to the hook, and the seed rule forbids it in any case.
 - When TS-10 migrates a family, it adds one row to the designation table, naming that fixture
   and a group named for the family.
-- A family case requests no other designated preparation; the collection error above enforces
-  it.
+- A family case resolves to no other distinct designated group; the collection error above
+  enforces it. Several fixtures designating the family's same group remain valid.
 
 Commit-class consumers of a recipe seed are not grouped. Grouping them would remove per-worker
 seed builds in a full run but would put a focused module's real bodies on one worker; the
@@ -234,9 +247,12 @@ raw report log and JUnit file. Under `-n 0` there is no suffix at all.
 
 **Controls.** Root `tests/scripts/test_parallel_harness.py` already runs child suites with
 shared, composite and fixture-dependent groups and checks the recorded affinity
-(`:83–101,270–339`). It gains two cases over a child copy of the hook: an item whose closure
-matches a row receives exactly that group, and an item matching two rows fails collection with
-the usage error. No control asserts a duration.
+(`:83–101,270–339`). Extend those controls over a child copy of the hook: an imported distinctive
+shared fixture receives its group in a different consumer module; a generic local fixture
+matches only its consumer-qualified row; an unrelated same-name fixture stays ungrouped; two
+closure matches for the same group yield one mark; and distinct group values fail collection
+with the usage error. Retain logical receipt/retry identity checks across grouped and serial
+execution. No control asserts a duration.
 
 **Successful example.** In a full run's receipts, every item of the four statistics-pack
 modules carries the one group and ran on one worker; the same holds for the HanLP and
@@ -247,7 +263,10 @@ expensive body would be serialized behind the group. The criterion is rechecked 
 designated module gains tests of a different character, and the row is narrowed or dropped.
 
 **Acceptance and closure.** Receipts' affinity groups show each designated preparation on one
-worker per run; no item carries two groups; logical identities are unchanged.
+worker per run; no item carries two distinct groups; repeated matches for one group succeed;
+imported shared support is designated correctly and unrelated local fixtures stay outside it;
+logical identities and retry selections are unchanged. TS-06's statistics merge updates the
+fixture names, importers and designation together.
 
 **Targeted verification.** `uv run ci test -- tests/scripts/test_parallel_harness.py`, then
 `uv run ci test -- python/corpus-structure/tests/orchestrate/test_policy.py
@@ -260,6 +279,27 @@ recorded groups and executing workers.
 `prepare_packs` on the same directory (`src/corpus_structure/semantic/regeneration.py:412–418`)
 and take its last element, so it holds by reading. TS-06's merge of the four into one fixture
 settles it by construction, and this package does not wait for that.
+
+## Native runner capacity integration
+
+**Proposed; TS-24/25 interaction.** [PostgreSQL tooling](postgresql-tooling.md) owns SQL/TAP
+cohort execution and optional `pg_virtualenv` cluster lifetime. Its `pg_prove` job count consumes
+the same managed run capacity decision as pytest worker sizing; it is not a second automatic
+pool owner. The ordinary pytest lane retains TS-04's sizing above. Under TS-24's selected batch
+contract, outer pytest scheduling owns concurrency and each `pg_prove` invocation initially uses
+one job. File-level jobs can increase only through that same capacity owner and only for files
+with independent state; independently auto-sized nested pools are excluded. Batch selection
+passes the exact selected logical case mapping, and each pytest item consumes its own native
+case result rather than rerunning a complete suite. TS-12's existing fixture/group rule can
+confine a shared family batch when its cheap consumers use a distinctive family fixture.
+`pg_virtualenv` wraps the cohort's owned cluster lifetime and adds no scheduler. Native receipts
+retain logical test identities and report their actual runner/job and item-bound acquired
+context through the evidence contract.
+
+This is coordination of the existing runner boundaries, not a bespoke scheduler. TS-24 owns the
+cohort/result contract and capacity integration; TS-25 must consume it before introducing an
+ephemeral-cluster route. Required provider/native scope remains owned by the coordinator and
+[evidence contracts](evidence-contracts.md).
 
 ## Decisions that are not packages
 
@@ -280,16 +320,25 @@ gate G6). Selection stays a developer's judgment. The managed route already admi
 (`scripts/test_receipts.py:1536–1552`), so `-k data_operation` selects the declared data
 operations (DDO) modules by name.
 
-**Low-priority candidates.** Lazy CLI import in the package conftest (W2), argument screening
-without a second interpreter (W3; the screening call is `_validate`,
+**Scheduled collection correction.** W2 lazy CLI activation is part of
+[TS-06](scenario-and-support-ownership.md#ts-06--support-modules-import-rules-and-recipe-values),
+alongside early TS-04 work: both `cli.app` and `cli.output` imports move into `Cli.__call__`
+because either submodule otherwise executes the package's eager command-registry import.
+Cold non-CLI collection and existing CLI consumers establish that boundary without a timing
+threshold. This removes the established unconditional path; other imports may still activate
+the CLI.
+
+**Low-priority candidates.** Argument screening without a second interpreter (W3; the screening call is `_validate`,
 `src/corpus_structure/cli/testing.py:447–465`), deferred collection-time loads (C1), the
 controlled PDF builder loaded once per process (S3), concurrent cold-process children (P1) and
 long single tests dispatched first (G3) are not scheduled. Their triggers, and their state, are
 in the coordinator's
 [candidates table](../test-system-target-design_2026-11-13.md#candidates-rejected-options-and-open-premises).
-TS-04 is what makes the first group observable: once a one-test run has no workers, what
-remains of its fixed overhead is the head, which the
-[lifecycle companion](native-lifecycle-and-deployment.md) removes, and these.
+TS-04 makes the remaining fixed overhead easier to inspect: once a one-test run has no workers,
+its remaining work can be assessed after the reused-head path in the
+[lifecycle companion](native-lifecycle-and-deployment.md) and TS-06's lazy CLI imports are in
+place. No timing experiment is required before implementing that scheduled correction; the
+remaining candidates keep their own custody and uncertainty conditions.
 
 ## Outside this companion
 
