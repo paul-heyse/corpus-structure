@@ -79,3 +79,23 @@ candidate **passed**, `935373f39ad74d269ff9f2624ed73345`; registration **passed*
 `bf573b6244724f25bb70175ee8c02d4f`. This successor changes three native functions and
 no physical table operation. The acquired database stayed at `semantic_bep_located_v2`.
 The corrected native journeys remain open until actual runtime checks pass.
+
+
+## Completion retention and embedded SQL checking
+
+The v3 five-journey run **failed 5/5**, `7aac41db19834af5858691bb3182810a`. Four
+reached completion retention and exposed a second deferred SQL precedence error: key subtraction
+bound before JSON extraction. The fifth was an independently corrected fixture shadowing of
+canonical integer/string kinds; production metadata stayed unchanged, and actual production
+preparation **passed**, `bdaf84ab19744525a142d7af8679b2a2`. The source evidence guard now
+extracts JSON before subtracting receipt fields. Fourteen real PostgreSQL controls across both
+production guards **passed**, `9ee8393140ba470383327c1e0443927f`.
+
+The available plpgsql_check extension SQL version 2.10 (system package 2.10.16) supplies native
+embedded SQL type analysis. Final DDO candidate normalization checks the authoritative desired
+function inventory after all dependencies are installed, inside its existing rollback-only
+savepoint. It rejects checker errors, respects existing checker schemas and native ACLs, disables
+in-comment overrides and leaves frozen predecessor interpretation alone. Seven actual PostgreSQL
+controls **passed**, `f99afd352f5b4e3091822a4a10ab546b`. Static coverage remains bounded for
+dynamic SQL and unknown records; functional qualification remains required. No persistent extension
+installation is added. `publication-correction.yaml` authors normal archive-v4 after unchanged v3.
