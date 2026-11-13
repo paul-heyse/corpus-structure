@@ -20,7 +20,7 @@ from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
 
 from .data_operation_identity import decode_semantic_value, semantic_value
-from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_json import json_bytes, json_context_equal, wire_json_loads
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
     BindingExpression,
@@ -493,7 +493,7 @@ def compile_binding(
                     alias.c.member.is_not_distinct_from(entry["member"]),
                     alias.c.subject == entry["subject"],
                     alias.c.original_source == entry["original_source"],
-                    alias.c.analyzed_scope == entry["analyzed_scope"],
+                    json_context_equal(alias.c.analyzed_scope, entry["analyzed_scope"]),
                     alias.c[fields[0].column] == entry["source_reference"],
                 )
                 for entry in selected_source_sets[support.source_set]

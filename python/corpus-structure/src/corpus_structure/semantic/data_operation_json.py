@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 import rapidjson
-from sqlalchemy import Text, cast
+from sqlalchemy import JSON, Text, cast
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator
 
@@ -51,6 +51,15 @@ def wire_json_loads(content: str | bytes) -> Any:
     return presentation(json_loads(content))
 
 
+def json_context_value(value: Any) -> Any:
+    """An explicit JSON null uses SQLAlchemy's native sentinel, never SQL NULL."""
+    return JSON.NULL if value is None else value
+
+
+def json_context_equal(column, value: Any):
+    return column == json_context_value(value)
+
+
 class ContextJSONB(TypeDecorator):
     """Cast only scope-bearing DDO columns through text, bypassing driver floats."""
 
@@ -64,6 +73,8 @@ class ContextJSONB(TypeDecorator):
         return cast(column, self)
 
     def process_bind_param(self, value, dialect):
+        if value is JSON.NULL:
+            return "null"
         return None if value is None else json_bytes(value).decode()
 
     def process_result_value(self, value, dialect):

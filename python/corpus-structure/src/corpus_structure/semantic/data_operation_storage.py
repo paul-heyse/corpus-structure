@@ -16,8 +16,8 @@ from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
-from .data_operation_json import ContextJSONB, json_bytes, wire_json_loads
 from .data_operation_model import MODEL_VERSION
+from .data_operation_json import ContextJSONB, json_bytes, json_context_value, wire_json_loads
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -764,6 +764,17 @@ def admit_data_operation_definitions(
     return native_source_digest()
 
 
+_UNQUALIFIED_SCOPE = object()
+
+
+def _binding_scope_parameter(scope=_UNQUALIFIED_SCOPE):
+    return bindparam(
+        "data_binding_scope",
+        None if scope is _UNQUALIFIED_SCOPE else json_context_value(scope),
+        type_=ContextJSONB(),
+    )
+
+
 def admitted_data_projection(
     connection: Connection,
     demand_id: str,
@@ -774,7 +785,7 @@ def admitted_data_projection(
     read_id: str,
     subject: str | None = None,
     original_source: str | None = None,
-    analyzed_scope: dict | None = None,
+    analyzed_scope: Any = _UNQUALIFIED_SCOPE,
 ):
     """Construct SQL bindings only through the demand-pinned native admission reader.
 
@@ -837,7 +848,7 @@ def admitted_data_projection(
         read_id,
         subject,
         original_source,
-        bindparam("data_binding_scope", analyzed_scope, type_=ContextJSONB()),
+        _binding_scope_parameter(analyzed_scope),
     ).table_valued(
         *(
             column(name, ContextJSONB())
