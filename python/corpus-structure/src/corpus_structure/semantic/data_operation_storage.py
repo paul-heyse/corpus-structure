@@ -614,18 +614,21 @@ def data_operation_definition_projection(
             }
         )
     operations = []
-    exported_bindings = {
-        b["semantic_id"]: b["expression"] for b in json.loads(model.content)["bindings"]
-    }
+    archived = json.loads(model.content)
+    exported_bindings = {b["semantic_id"]: b["expression"] for b in archived["bindings"]}
+    exported_roles = {o["semantic_id"]: o["roles"] for o in archived["operations"]}
     for operation in model.operations:
         recipe = ids.get((operation.semantic_id, "recipe"))
         if recipe is None:
             raise ValueError("cannot admit an incomplete implementation recipe")
         roles = []
-        for role in operation.roles:
-            from .data_operation_model import operation_role_record
-
-            record: dict[str, Any] = operation_role_record(role)
+        for role, archived_role in zip(
+            operation.roles, exported_roles[operation.semantic_id], strict=True
+        ):
+            # Native admission independently checks the archived representation.
+            # Do not apply the result-only/historical role serializer here: its
+            # omission of default support origins changes that representation.
+            record: dict[str, Any] = dict(archived_role)
             record["kind_contract"] = ids[role.kind, "kind"]
             record["identity_requirements"] = (
                 list(role.support.identity_requirements) if role.support else []
