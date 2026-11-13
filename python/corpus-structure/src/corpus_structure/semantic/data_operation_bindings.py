@@ -30,6 +30,7 @@ from .data_operation_model import (
     ResolvedRoleBinding,
 )
 from .identity import canonical_bytes
+from .data_operation_source_sets import FrozenSourceSet, source_sets_record
 
 BindingStatus = Literal[
     "ready",
@@ -118,6 +119,7 @@ class BindingResult:
     definition: str
     eligibility: str
     admission_evidence: tuple[bytes, ...]
+    source_sets: bytes = b"{}"
 
     @property
     def sufficient(self) -> bool:
@@ -144,6 +146,7 @@ class BindingResult:
             trust_evidence,
             execution_profile,
             replicate,
+            self.source_sets,
         )
 
 
@@ -170,6 +173,8 @@ class CompiledBinding:
     inactive_roles: tuple[str, ...] = ()
     population_roles: tuple[tuple[str, str], ...] = ()
     subject_columns: tuple[tuple[str, str], ...] = ()
+    source_sets: bytes = b"{}"
+    original_source: str | None = None
 
 
 def _decode_value(content: bytes) -> Any:
@@ -229,6 +234,8 @@ def compile_binding(
     parameters: Mapping[str, Any] | None = None,
     choices: Mapping[str, str] | None = None,
     populations: tuple[PopulationBinding, ...] = (),
+    source_sets: tuple[FrozenSourceSet, ...] = (),
+    original_source: str | None = None,
 ) -> CompiledBinding:
     """Pin a frozen demand and lower every supported expression to Core SQL.
 
@@ -240,6 +247,11 @@ def compile_binding(
     if model.version not in {"data-operation-model-v1", "data-operation-model-v2"}:
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
+    available_source_sets = source_sets_record(source_sets)
+    named_source_sets = {role.support.source_set for role in op.roles if role.support is not None and role.support.source_set is not None}
+    if not named_source_sets <= available_source_sets.keys():
+        raise ValueError("binding lacks a declared frozen source set")
+    selected_source_sets = {name: available_source_sets[name] for name in sorted(named_source_sets)}
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     expression = next(item.expression for item in model.bindings if item.semantic_id == op.binding)
     params = effective_binding_parameters(op, parameters)
@@ -419,7 +431,22 @@ def compile_binding(
 
     def subject_condition(name):
         alias = aliases[name]
-        return alias.c[subject_columns.get(name, "subject")] == anchor.c.subject
+        association = alias.c[subject_columns.get(name, "subject")] == anchor.c.subject
+        support = roles[name].support
+        if support is not None and support.source_set is not None:
+            fields = [field for field in projected[roles[name].kind].fields if field.name == support.source_reference_field]
+            if len(fields) != 1:
+                raise ValueError("source-set policy requires its admitted reference field")
+            permitted = [and_(
+                alias.c.product == entry["product"],
+                alias.c.member.is_not_distinct_from(entry["member"]),
+                alias.c.subject == entry["subject"],
+                alias.c.original_source == entry["original_source"],
+                alias.c.analyzed_scope == entry["analyzed_scope"],
+                alias.c[fields[0].column] == entry["source_reference"],
+            ) for entry in selected_source_sets[support.source_set]]
+            return and_(association, or_(*permitted))
+        return and_(association, alias.c.original_source == original_source) if original_source is not None else association
 
     def joined_relation(filters):
         relation = anchor
@@ -631,7 +658,7 @@ def compile_binding(
             for name in names:
                 absence_queries[name] = (names, scope)
             return true()
-        if node.operator in {"cardinality", "collection", "forall"}:
+        if node.operator in {"cardinality", "collection", "forall", "covers"}:
             aggregate_nodes.append(node)
             if node.operator in {"forall", "absent"} and node.population in population_map:
                 population = population_map[node.population]
@@ -841,6 +868,24 @@ def compile_binding(
                 )
             )
     for index, node in enumerate(aggregate_nodes):
+        if node.operator == "covers":
+            field = node.operands[0].field
+            if field is None:
+                raise ValueError("coverage requires a qualified field")
+            selected = selected_relations[field.role]
+            column = replacement_traverse(field_value(field), {}, selected_column)
+            required = cast(tuple[Any, ...], operand_value(node.operands[1], many=True))
+            # Coverage compares distinct typed identifiers, independently of row count,
+            # multiplicity or extra selected values. Empty requirements are satisfied.
+            covered = select(func.count(func.distinct(column))).select_from(selected).where(
+                column.in_(required)
+            ).scalar_subquery()
+            checks.append(BindingCheck(
+                BindingReason("binding-covers", operation + "/binding/" + str(index),
+                              "selected field values omit required frozen values"),
+                select(covered == len(set(required))), "not-applicable",
+            ))
+            continue
         names = node.roles or tuple(selected_relations)
         for name in names:
             selected = selected_relations[name]
@@ -902,6 +947,8 @@ def compile_binding(
         tuple(sorted(inactive)),
         tuple(sorted(role_populations.items())),
         tuple(sorted(subject_columns.items())),
+        canonical_bytes(selected_source_sets),
+        original_source,
     )
 
 
@@ -1106,6 +1153,7 @@ def decode_binding_rows(
         identities.get((compiled.operation, "definition"), ""),
         identities.get((compiled.operation, "eligibility"), ""),
         compiled.admission_evidence,
+        compiled.source_sets,
     )
 
 

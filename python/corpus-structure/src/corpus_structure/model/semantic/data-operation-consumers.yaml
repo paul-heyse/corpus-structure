@@ -40,6 +40,7 @@ classes:
       input_subject: {required: true}
       passage_id: {required: true}
       contribution_id: {required: true}
+      source_ref: {required: true}
       producer_operation: {required: true}
   DdoOccurrenceBinding:
     description: >-

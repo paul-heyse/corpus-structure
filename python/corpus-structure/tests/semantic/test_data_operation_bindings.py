@@ -963,3 +963,46 @@ def test_subject_association_requires_admitted_identifier_projection(storage):
     bad = replace(original, operations=(replace(original.operations[0], roles=(replace(original.operations[0].roles[0], subject_field="value"),)),))
     with pytest.raises(ValueError, match="identifier"):
         compile_binding(bad, "urn:op", (projection,), subject="b")
+
+
+def test_sql_covers_requires_every_requested_typed_value(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "covers",
+        operands=(
+            field(),
+            BindingOperand("parameter", "integer", name="required"),
+        ),
+    )
+    schema = model(expression, parameters={"required": {"value_type": "integer", "many": True}})
+    for required, status in (((1, 3), "ready"), ((1, 4), "not-applicable"), ((), "ready"), ((2, 2), "ready")):
+        compiled = compile_binding(schema, "urn:op", (projection,), subject="doc", parameters={"required": required})
+        assert execute_binding(connection, compiled).status == status
+    with pytest.raises(ValueError, match="integer"):
+        compile_binding(schema, "urn:op", (projection,), subject="doc", parameters={"required": (True,)})
+
+
+def test_sql_source_set_selects_exact_product_without_relabelling_source(storage):
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+    connection, table, projection = storage
+    reference = ExternalSourceRef(project_id="project", run_id=1, cut_id=2, release_id="release", result_revision=0,
+                                  source_view_id=3, native_task_id=4, native_product_key="native:key",
+                                  native_content_digest="a"*64, projection_digest="b"*64, recipe_digest="c"*64, coordinate_version=3)
+    connection.execute(table.update().where(table.c.product == "p2").values(original_source="foreign-source", base=reference.identity))
+    frozen = SourceSetEntry.from_structural_source(reference, original_source="foreign-source", subject="doc",
+                                                  analyzed_scope=b'{"page":1}', product="p2", member="m2")
+    schema = model(BindingExpression("scan", roles=("items",)))
+    operation = schema.operations[0]
+    role = replace(operation.roles[0], support=replace(operation.roles[0].support, source="frozen-source-set", source_set="inputs", source_reference_field="base"))
+    schema = replace(schema, operations=(replace(operation, roles=(role,)),))
+    compiled = compile_binding(schema, "urn:op", (projection,), subject="doc", original_source="root-source", source_sets=(FrozenSourceSet("inputs", (frozen,)),))
+    result = execute_binding(connection, compiled)
+    assert result.status == "ready"
+    assert [(member.product, member.member, member.original_source) for member in result.roles[0].members] == [("p2", "m2", "foreign-source")]
+    assert json.loads(result.source_sets)["inputs"][0]["source_reference"] == reference.identity
+    with pytest.raises(ValueError, match="lacks.*source set"):
+        compile_binding(schema, "urn:op", (projection,), subject="doc")
+    wrong = replace(frozen, analyzed_scope=b'{"page":2}')
+    assert execute_binding(connection, compile_binding(schema, "urn:op", (projection,), subject="doc", source_sets=(FrozenSourceSet("inputs", (wrong,)),))).status == "awaiting-inputs"
