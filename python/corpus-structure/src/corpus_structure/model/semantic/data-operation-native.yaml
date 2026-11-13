@@ -1208,6 +1208,61 @@ definitions:
       - action
       - retained_intent_id
       additionalProperties: false
+  renew_data_request_request:
+    type: object
+    properties:
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+      task_id:
+        $ref: '#/definitions/task_id'
+      attempt:
+        $ref: '#/definitions/positive_integer'
+      holder:
+        $ref: '#/definitions/identifier'
+      lease_seconds:
+        type: integer
+        minimum: 1
+        maximum: 86400
+    required:
+    - request_id
+    - generation
+    - task_id
+    - attempt
+    - holder
+    - lease_seconds
+    additionalProperties: false
+  renew_data_request_result:
+    type: object
+    properties:
+      state:
+        const: renewed
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+      task_id:
+        $ref: '#/definitions/task_id'
+      attempt:
+        $ref: '#/definitions/positive_integer'
+      holder:
+        $ref: '#/definitions/identifier'
+      lease_until:
+        type: string
+        minLength: 1
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+    required:
+    - state
+    - request_id
+    - generation
+    - task_id
+    - attempt
+    - holder
+    - lease_until
+    - trust_snapshot
+    additionalProperties: false
   retain_data_completion_intent_request:
     type: object
     properties:
@@ -1673,6 +1728,13 @@ operations:
   profile: command
   request: claim_data_request_request
   result: claim_data_request_result
+  purposes:
+  - write
+  - evaluate
+- name: renew_data_request
+  profile: command
+  request: renew_data_request_request
+  result: renew_data_request_result
   purposes:
   - write
   - evaluate

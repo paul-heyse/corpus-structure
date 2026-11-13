@@ -94,7 +94,7 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 12
+    assert len(contracts) == 13
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)
@@ -666,3 +666,18 @@ def test_custom_local_schema_definition_never_relabels_an_existing_wire_kind():
         PreparationError, match="unsupported nominal JSON Schema property projection"
     ):
         compile_data_operations(declarations=(source,))
+
+
+def test_request_renewal_wire_requires_exact_fence_and_bounded_duration():
+    payload = {"request_id": "request:one", "generation": 2, "task_id": 3,
+               "attempt": 4, "holder": "producer", "lease_seconds": 30}
+    assert validate_native_wire("renew_data_request", "input", payload) == payload
+    for altered in (
+        {key: value for key, value in payload.items() if key != "generation"},
+        {**payload, "lease_seconds": 0},
+        {**payload, "lease_seconds": 86401},
+        {**payload, "attempt": True},
+        {**payload, "run_id": 1},
+    ):
+        with pytest.raises(ValueError):
+            validate_native_wire("renew_data_request", "input", altered)

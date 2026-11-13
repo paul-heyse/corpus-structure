@@ -479,6 +479,35 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.renew_data_request(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb;
+BEGIN
+ PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','lease_seconds']);
+ IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease'; END IF;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
+ PERFORM ops.ddo_authorize_request(r);
+ snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
+ t:=ops.ddo_claim(r,p);
+ PERFORM ops.ddo_assert_support(r,r.binding->'support');
+ IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(r.project_id,r.original_source)
+ AND ((v.selector_kind='runtime' AND v.selector=r.runtime_id)
+ OR (v.selector_kind='recipe' AND v.selector=r.recipe))) THEN
+ RAISE EXCEPTION 'request producer runtime or recipe was directly revoked'; END IF;
+ -- Latest selection owns usefulness: a historical attached use cannot override a
+ -- later cancellation/terminal fate. Future demand cancellation must serialize
+ -- on this request lock; a fate append alone is not an atomic cancellation protocol.
+ IF NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.request_id=r.id AND u.generation=r.generation
+ AND u.fate='attached' AND NOT EXISTS(SELECT FROM ops.demand_use later
+ WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id))) THEN
+ RAISE EXCEPTION 'data request has no attached demand interest'; END IF;
+ UPDATE ops.task SET lease_until=greatest(t.lease_until,clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer))
+ WHERE id=t.id RETURNING * INTO t;
+ RETURN jsonb_build_object('payload',jsonb_build_object('state','renewed','request_id',r.id,'generation',r.generation,
+ 'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot));
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.retain_data_completion_intent(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key text; old ops.data_completion_intent;
