@@ -385,6 +385,19 @@ time spent in Hypothesis tests, which is why the example count is not the first 
 at. The inputs are fixed for the life of the process, so the preparation is stable work repeated
 per call.
 
+**Refined by the [design review](../reviews/design_review_test-system-target-design_2026-11-13.md),
+2026-11-13, and confirmed by the coordinator.** The footprint is wider than the standalone
+route. With a prepared release, `_profile` still compares the model's digests with
+`_semantic_implementation_digests()`, which calls `trusted_execution_inputs()`, and
+`_analysis_runtime` calls `analysis_implementation_inputs()`
+(`src/corpus_structure/semantic/analysis_contracts.py:454–485`); neither is cached, so every
+interpretation context re-reads the determinants at least twice. `trusted_execution_inputs`
+documents the intended lifetime as one read at an application entry boundary
+(`src/corpus_structure/semantic/contracts.py:1166–1169`). A contributor's reading puts
+production callers inside per-span and per-item loops (`methods/math/source_context.py:238`,
+`methods/math/native.py:285,948,1261`); that production consequence is noted for the broad audit
+and not assessed here.
+
 Uncertainty. Nothing was profiled. That context preparation dominates the 0.66 s is a reading of
 source; the generated formulas also do real parsing. Whether the same path inflates the 352 s
 `test_coverage_beside_s5` or the staged-worker controls was not traced. Production callers that

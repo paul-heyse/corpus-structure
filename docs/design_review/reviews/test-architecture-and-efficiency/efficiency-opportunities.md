@@ -1,5 +1,10 @@
 # Efficiency opportunities in the test system
 
+> **Superseded, 2026-11-13.** The current assessment is the
+> [design review of the test system target design](../design_review_test-system-target-design_2026-11-13.md),
+> which carries F01–F03 and RC01–RC02 forward by identity and states what becomes of each option
+> here ([options and classification](../test-system-target-design/options-and-classification.md)). This document is retained as that review's input.
+
 **Supporting document to the [design review of test architecture and efficiency](../design_review_test-architecture-and-efficiency_2026-11-12.md),
 2026-11-12.** Written by the same delegated reviewer.
 

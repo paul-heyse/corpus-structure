@@ -25,7 +25,21 @@ corrections `C1`–`C7` and rule impacts `RC01`–`RC07`. Supporting pages hold 
 every remedy is Proposed, no decision record is changed, and every finding is Deferred until a
 plan selects it.
 
-## Test architecture and efficiency target review
+## Test system target design review
+
+[Test system target design](design_review_test-system-target-design_2026-11-13.md) (2026-11-13) is
+a holistic test-scope design/target review at `main` `a5ea7c4dc`, consuming test audit publication
+`28b4a53db`. It supersedes the 2026-11-12 review below. It gives one target design and change set
+for every open test finding (DTA-001, 006, 009, 018, 024–036, `F01`–`F03`), adds `F04` and `F05`,
+designs one bounded production change (an implementation snapshot read once per process), and
+proposes rule impacts `RC01` (ADR-0032, cross-run head reuse and read/rollback isolation), `RC02`
+(workers for narrowed runs), `RC03` (where data-operation native checks run) and `RC04` (ADR-0048,
+general scenario seeds) for operator confirmation in plan creation. Its
+[supporting document](test-system-target-design/options-and-classification.md) records what becomes
+of each earlier option and carries per-family planning leads. Decision: Revise; every remedy is
+Proposed and every disposition Deferred until a plan selects it.
+
+## Test architecture and efficiency target review (superseded 2026-11-13)
 
 [Test architecture and efficiency](design_review_test-architecture-and-efficiency_2026-11-12.md)
 (2026-11-12) is a test-scope design/target review at `main` `784d86f11`, consuming test audit

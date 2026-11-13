@@ -80,7 +80,7 @@ challenged the draft before publication.
 | [DTA-033](evidence-and-discrimination.md#dta-033) | The product identity production now uses is checked only against itself |
 | [DTA-034](support-structure.md#dta-034) | Planner and service doubles sit below wire validation; compiled binding semantics run only on SQLite |
 | [DTA-035](retirement-transfer.md#dta-035) | Required behavior is asserted through machinery the target design removes, with no per-test record of what survives |
-| [DTA-036](retirement-transfer.md#dta-036) | The data-operations test union exists only as prose path lists, one already stale |
+| [DTA-036](retirement-transfer.md#dta-036) | The data-operations test union has no mapping from its obligations to tests (refined 2026-11-13: the recorded path lists are accurate receipts) |
 
 **Changed premises and footprints.** DTA-024 (measured; concurrent builds add latency, and a
 floor remains without cross-run reuse); DTA-025 (four families building in the test body);
@@ -142,7 +142,7 @@ them):
   implementation; no helper-body or inherited-value case in the source-change matrix; no
   invalidated-support recovery through a real consumer.
 - The database-lane statements disagree (see [DTA-031](execution-and-qualification.md#dta-031)).
-- One recorded union names a deleted file ([DTA-036](retirement-transfer.md#dta-036)).
+- Nineteen data-operation test modules appear in none of the recorded campaigns ([DTA-036](retirement-transfer.md#dta-036), as refined).
 
 ## Scope and method of the 2026-11-12 refresh
 
@@ -289,6 +289,27 @@ claim. It did not reread the reading union. Its effect on the published account:
   database name under DTA-030.
 - **Confirmed as drafted:** DTA-018, and the corrections of DTA-021, DTA-022, DTA-023 and the
   qualification limit.
+
+<a id="refinements-returned-2026-11-13"></a>
+
+## Refinements returned by the design review — 2026-11-13
+
+The [design review of the test system target design](../reviews/design_review_test-system-target-design_2026-11-13.md)
+consumed this account at publication `28b4a53db`, read `main` at `a5ea7c4dc`, and supersedes the
+2026-11-12 review. It challenged each diagnosis. Two refinements are recorded in the topic pages
+with that attribution, both confirmed in source by the coordinator:
+
+- **DTA-036:** the plan's path lists are accurate receipts of bounded campaigns, not a stale
+  union. The residue is the missing mapping from DDO-12's obligations to tests.
+- **DTA-032:** every interpretation context re-reads the determinants, with or without a
+  prepared release.
+
+It also extended footprints without changing a diagnosis (seven importers of the storage test
+module and the admission sequence in six modules, at its later baseline), found that the lease
+waits need no production change because the suite already expires leases through the publisher
+role, and added its own findings F04 (the sweep fails unrelated runs on residue still in use)
+and F05 (every focused run starts sixteen workers), which keep their review identities. Remedies,
+rule impacts RC01–RC04 and dispositions live in the review; all are deferred to plan creation.
 
 ## Refinements returned by the design review — 2026-11-12
 

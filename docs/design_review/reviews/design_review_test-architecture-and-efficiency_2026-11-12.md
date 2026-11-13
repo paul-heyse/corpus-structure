@@ -1,5 +1,10 @@
 # Design review — test architecture and efficiency
 
+> **Superseded, 2026-11-13.** The current assessment is the
+> [design review of the test system target design](design_review_test-system-target-design_2026-11-13.md),
+> which carries F01–F03 and RC01–RC02 forward by identity and states what becomes of each option
+> here. This document is retained as that review's input.
+
 **Design / target review · 2026-11-12 · principal reviewer: delegated `design-reviewer` (fresh
 context; author of neither the audit nor the tests); published by the coordinator without change
 to the judgment.** Supporting document: [efficiency opportunities](test-architecture-and-efficiency/efficiency-opportunities.md),

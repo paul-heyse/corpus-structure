@@ -121,6 +121,16 @@ inside the coordinator plan (`docs/plans/declared-data-operations_2026-11-12.md`
 arguments, and no path-list file or option exists in `cli/testing.py`, `scripts/test_receipts.py`
 or the `justfile` (searched for `ddo` and `data_operation`).
 
+**Refined by the [design review](../reviews/design_review_test-system-target-design_2026-11-13.md),
+2026-11-13, and confirmed by the coordinator.** The four lists are receipts of bounded campaigns,
+and the plan says they are not the DDO-12 union. The path described as stale in the next
+paragraph existed when its campaign ran: that campaign's commit `0de179fc7` precedes the deletion
+in `9d996b32d`. So the lists are accurate history, and rerunning one is not their purpose. What
+remains of this finding is narrower: DDO-12's union is defined by an obligation table that names
+no test identities, and nineteen data-operation modules appear in none of the recorded campaigns
+(a contributor's comparison), so nothing yet maps each obligation to the tests that discriminate
+it. The paragraphs below are kept as first written.
+
 One list is already stale: it names `tests/semantic/test_release_wire_payload.py`
 (`docs/plans/declared-data-operations_2026-11-12.md:353`), deleted in `9d996b32d` when the archive
 transport tests replaced it. A run of that list as written fails at collection or, if the path
