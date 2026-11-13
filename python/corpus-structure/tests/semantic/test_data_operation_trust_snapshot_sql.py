@@ -164,7 +164,15 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
         )["demand_id"]
         pinned = planner.resume(demand)
         assert pinned["trust_snapshot"] == {}
-        ready = planner.ready(pinned, authorization=b"{}")
+        explicit_zeros = {
+            connection.scalar(
+                text("SELECT ops.ddo_scope('ddo-test',:source)"), {"source": source}
+            ): 0
+            for source in ("source:one", "source:two")
+        }
+        # Older pins could explicitly retain zero epochs. The native reader
+        # validates their meaning; the Python adapter must consume its answer.
+        ready = planner.ready({**pinned, "trust_snapshot": explicit_zeros}, authorization=b"{}")
         assert len(ready) == 2
         assert {request.resolved.subject_context.original_source for request in ready} == {
             "source:one",

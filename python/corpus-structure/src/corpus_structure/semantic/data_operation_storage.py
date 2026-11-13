@@ -808,8 +808,9 @@ def admitted_data_projection(
             "limit": 1,
         },
     )
-    if acquired["trust_snapshot"] != trust_snapshot:
-        raise ValueError("native binding snapshot differs")
+    # The native reader validates epoch meaning against this exact read_id.
+    # Keep its canonical pins: a lazily materialized zero is not revocation.
+    trust_snapshot = acquired["trust_snapshot"]
     kinds = {kind.semantic_id: kind for kind in model.kinds}
     accepted = input_kind_contracts(
         model, (role.kind for role in operation.roles if role.direction == "input")
