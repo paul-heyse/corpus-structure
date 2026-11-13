@@ -243,12 +243,43 @@ class ReadyDataRequest:
         return json.loads(self.native).get("retained_intent_id")
 
 
+def _population_context_matches(row: dict, obligation: dict, *, source_set: str | None,
+                                source_sets: dict, project: str) -> bool:
+    """Use authenticated contexts, or an explicitly frozen exact member association."""
+    evidence = row["evidence"]
+    selected = evidence.get("selection")
+    if selected is not None:
+        return selected.get("obligation_id") == obligation["obligation_id"] and all(
+            selected.get(key) == obligation[key]
+            for key in ("operation_id", "subject", "original_source", "analyzed_scope")
+        )
+    producer = evidence.get("producer_context")
+    if producer is None:
+        return False
+    if all(producer.get(key) == obligation[key]
+           for key in ("subject", "original_source", "analyzed_scope")):
+        return True
+    if source_set is None:
+        return False
+    members = {member["member_id"]: member for member in row["members"]}
+    return any(
+        entry["project_id"] == project
+        and entry["product"] == evidence["product_id"]
+        and entry["original_source"] == producer.get("original_source")
+        and entry["member"] in members
+        and all(entry[key] == members[entry["member"]][key]
+                for key in ("subject", "original_source", "analyzed_scope"))
+        for entry in source_sets.get(source_set, ())
+    )
+
+
 class DemandPlanner:
     """Advance a native Demand from compiled SQL bindings in bounded batches."""
 
     def __init__(self, model: EffectiveDataOperationModel, storage: DataOperationStorage):
         self.model = model
         self.storage = storage
+        self.selected_population_ids: tuple[str, ...] = ()
 
     def register(
         self,
@@ -377,6 +408,10 @@ class DemandPlanner:
         return {**snapshot, "completion_inspections": inspections}
 
     def ready(self, snapshot: dict, *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
+        self.selected_population_ids = ()
+        if snapshot.get("state") == "cancelled":
+            return ()
+
         from .data_operation_bindings import PopulationBinding, compile_binding, execute_binding
         from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_storage import admitted_data_projection
@@ -388,21 +423,7 @@ class DemandPlanner:
         if frozen["model"] != sha256(self.model.content).hexdigest():
             raise ValueError("binding requires the demand's retained model")
         selected = {item["operation"]: item for item in frozen["operations"]}
-        populations = tuple(
-            PopulationBinding(
-                row["name"],
-                row["semantic_key"],
-                row["complete"],
-                tuple(
-                    member["member_id"] if isinstance(member, dict) else member
-                    for member in row["members"]
-                ),
-                canonical_bytes(
-                    {**row["evidence"], "population_id": row["population_id"], "name": row["name"]}
-                ),
-            )
-            for row in snapshot["populations"]
-        )
+        source_sets = frozen.get("source_sets", {})
         ready = []
         for obligation in snapshot["obligations"]:
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
@@ -418,16 +439,98 @@ class DemandPlanner:
                 subject=obligation["subject"],
                 original_source=obligation["original_source"],
             )
-            compiled = compile_binding(
-                self.model,
-                operation["operation"],
-                projections,
+            binding_arguments = dict(
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
-                populations=populations,
-                source_sets=read_source_sets(frozen.get("source_sets", {})),
+                source_sets=read_source_sets(source_sets),
                 original_source=obligation["original_source"],
+            )
+            # Compile once without witnesses to obtain the shared AST's active
+            # role/population associations, including its frozen branch choices.
+            compiled = compile_binding(
+                self.model, operation["operation"], projections, **binding_arguments,
+            )
+            prerequisites, pending = set(), list(operation["dependencies"])
+            while pending:
+                prerequisite = pending.pop()
+                if prerequisite not in prerequisites:
+                    prerequisites.add(prerequisite)
+                    pending.extend(selected[prerequisite]["dependencies"])
+            operation_roles = {role.name: role for role in self.model.operation(
+                operation["operation"]).roles if role.direction == "input"}
+            population_rows, ambiguities, derived = {}, [], False
+            for role_name, population_name in compiled.population_roles:
+                role = operation_roles[role_name]
+                scope_name = role.support.source_set if role.support is not None else None
+                contextual = [row for row in snapshot["populations"]
+                              if _population_context_matches(
+                                  row, obligation, source_set=scope_name,
+                                  source_sets=source_sets, project=snapshot["project_id"])]
+                parents = []
+                for row in contextual:
+                    if "selection" in row["evidence"]:
+                        continue
+                    producer = row["evidence"]["producer_context"]["operation_id"]
+                    if producer not in prerequisites:
+                        continue
+                    relations = [relation for relation in frozen["discovery"]
+                                 if relation["producer"] == producer
+                                 and relation["population"] == row["name"]
+                                 and relation["output_role"] == row["evidence"]["member_role"]]
+                    if not relations:
+                        continue
+                    from .data_operation_member_contracts import derive_member_kinds
+
+                    outputs = [output for output in self.model.operation(producer).roles
+                               if output.direction == "output"
+                               and output.name == row["evidence"]["member_role"]]
+                    if len(outputs) == 1 and role.kind in derive_member_kinds(
+                        self.model, outputs[0].kind,
+                    ):
+                        parents.append(row)
+                existing = [row for row in contextual
+                            if row["name"] == population_name and "selection" in row["evidence"]]
+                existing.extend(row for row in parents if row["name"] == population_name)
+                if len(existing) > 1:
+                    ambiguities.append(role_name)
+                    continue
+                if existing:
+                    population_rows[population_name] = existing[0]
+                    continue
+                if len(parents) > 1:
+                    ambiguities.append(role_name)
+                elif parents:
+                    receipt = self.storage.invoke("select_data_population", {
+                        "obligation_id": obligation["obligation_id"],
+                        "population_name": population_name,
+                        "parent_population_id": parents[0]["population_id"],
+                        "read_id": snapshot["read_id"],
+                    })
+                    self.selected_population_ids += (receipt["population_id"],)
+                    derived = True
+            if ambiguities:
+                self.storage.invoke("record_data_fate", {
+                    "obligation_id": obligation["obligation_id"], "fate": "awaiting-population",
+                    "selection": {"reasons": [{"code": "ambiguous-population",
+                        "location": operation["operation"] + "/" + role_name,
+                        "message": "more than one authenticated population fits the declared role"}
+                        for role_name in ambiguities]},
+                })
+                continue
+            if derived:
+                # Receipt writes belong to a new read boundary. The execution
+                # owner observes this progress and resumes before attaching work.
+                continue
+            populations = tuple(PopulationBinding(
+                row["name"], row["semantic_key"], row["complete"],
+                tuple(member["member_id"] for member in row["members"]),
+                canonical_bytes({**row["evidence"], "population_id": row["population_id"],
+                                 "name": row["name"]}),
+            ) for row in population_rows.values())
+            compiled = compile_binding(
+                self.model, operation["operation"], projections,
+                populations=populations, **binding_arguments,
             )
             binding = execute_binding(self.storage.connection, compiled)
             if not binding.sufficient:
@@ -445,6 +548,10 @@ class DemandPlanner:
                 authorization=authorization,
                 trust_evidence=canonical_bytes(
                     {
+                        "demand_id": snapshot["demand_id"],
+                        "obligation_id": obligation["obligation_id"],
+                        "original_source": obligation["original_source"],
+                        "analyzed_scope": obligation["analyzed_scope"],
                         "trust": snapshot["trust_snapshot"],
                         "read_id": snapshot["read_id"],
                         "read_snapshot": snapshot["read_snapshot"],

@@ -904,7 +904,7 @@ LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE operator text:=node->>'operator'; child jsonb; projected jsonb; children jsonb:='[]'; names text[];
  selected jsonb; choice text; matches integer:=0;
 BEGIN
- IF operator NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership') OR operator IS NULL THEN
+ IF operator NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership','covers') OR operator IS NULL THEN
  RAISE EXCEPTION 'unrepresentable selected-population filter operator'; END IF;
  IF operator='choice' THEN
  choice:=coalesce(node->>'selected',choices->>(node->>'choice_parameter'));

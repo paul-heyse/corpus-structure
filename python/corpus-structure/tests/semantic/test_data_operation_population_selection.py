@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pglast
 import pytest
@@ -34,10 +35,16 @@ def selection_connection(binding_native_connection):
     for index, raw in enumerate(prepared.statements):
         if (
             isinstance(raw.stmt, ast.CreateFunctionStmt)
-            and raw.stmt.funcname[-1].sval == "ddo_population_filter"
+            and raw.stmt.funcname is not None
+            and raw.stmt.funcname[-1].sval in {
+                "ddo_population_filter",
+                "ddo_population_producer_context",
+                "ddo_population_scope",
+            }
         ):
             helper = prepared.excerpt(index)
-            pglast.parse_plpgsql(helper)
+            if raw.stmt.funcname[-1].sval == "ddo_population_filter":
+                pglast.parse_plpgsql(helper)
             binding_native_connection.exec_driver_sql(
                 helper, execution_options={"no_parameters": True}
             )
@@ -61,10 +68,9 @@ def within(role="items"):
 def test_population_filter_keeps_row_qualification_and_defers_cardinality(selection_connection):
     connection = selection_connection
     node = {
-        "operator": "forall",
-        "roles": ["items"],
-        "population": "selected-items",
-        "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1}],
+        "operator": "forall", "roles": ["items"], "population": "selected-items",
+        "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1},
+                     {"operator": "covers", "operands": [field(), literal(15)]}],
     }
     predicate = project(connection, node)
     assert evaluate(connection, predicate, context(15)) is True
@@ -81,9 +87,8 @@ def test_population_filter_keeps_constraints_outside_forall_and_cross_role_child
     selection_connection,
 ):
     connection = selection_connection
-    node = {
-        "operator": "all",
-        "children": [
+    node: dict[str, Any] = {
+        "operator": "all", "children": [
             {"operator": "forall", "roles": ["items"], "population": "selected-items"},
             {"operator": "equal", "operands": [field(), field("right")], "children": [within()]},
         ],
@@ -98,8 +103,7 @@ def test_population_filter_keeps_constraints_outside_forall_and_cross_role_child
 @pytest.mark.db
 def test_population_filter_uses_only_frozen_active_choice(selection_connection):
     node = {
-        "operator": "choice",
-        "choice_parameter": "which",
+        "operator": "choice", "choice_parameter": "which",
         "children": [within(), within("right")],
     }
     predicate = project(selection_connection, node, choices={"which": "items"})
@@ -115,18 +119,10 @@ def test_population_filter_uses_only_frozen_active_choice(selection_connection):
 def test_population_filter_optional_parameter_absence_preserves_native_semantics(
     selection_connection,
 ):
-    node = {
-        "operator": "optional",
-        "children": [
-            {
-                "operator": "membership",
-                "operands": [
-                    field(),
-                    {"kind": "parameter", "name": "allowed", "value_type": "integer"},
-                ],
-            }
-        ],
-    }
+    node = {"operator": "optional", "children": [{
+        "operator": "membership",
+        "operands": [field(), {"kind": "parameter", "name": "allowed", "value_type": "integer"}],
+    }]}
     predicate = project(selection_connection, node)
     facts = context(15)
     assert evaluate(selection_connection, predicate, facts) is False
@@ -136,23 +132,47 @@ def test_population_filter_optional_parameter_absence_preserves_native_semantics
 
 
 @pytest.mark.db
-@pytest.mark.parametrize(
-    "node",
-    [
-        {"operator": "unreviewed", "roles": ["items"]},
-        {"operator": "absent", "roles": ["items"], "population": "selected-items"},
-        {
-            "operator": "membership",
-            "operands": [field(), {"kind": "population", "name": "selected-items"}],
-        },
-        {
-            "operator": "optional",
-            "children": [{"operator": "cardinality", "roles": ["items"], "maximum": 1}],
-        },
-    ],
-)
+@pytest.mark.parametrize("node", [
+    {"operator": "unreviewed", "roles": ["items"]},
+    {"operator": "absent", "roles": ["items"], "population": "selected-items"},
+    {
+        "operator": "membership",
+        "operands": [field(), {"kind": "population", "name": "selected-items"}],
+    },
+    {
+        "operator": "optional",
+        "children": [{"operator": "cardinality", "roles": ["items"], "maximum": 1}],
+    },
+])
 def test_population_filter_refuses_unrepresentable_role_qualification(selection_connection, node):
     with selection_connection.begin_nested() as savepoint:
         with pytest.raises(DBAPIError):
             project(selection_connection, node)
         savepoint.rollback()
+
+
+@pytest.mark.db
+def test_population_scope_uses_selected_context_without_relabelling_source_episode(
+    selection_connection,
+):
+    selected_context = {
+        "operation_id": "urn:consumer", "subject": "comparison:one",
+        "original_source": "source:analysis", "analyzed_scope": {"pair": 1},
+    }
+    population = {
+        "evidence": {"selection": selected_context, "derivation_id": "absent:episode"},
+    }
+    actual = selection_connection.scalar(
+        text("SELECT ops.ddo_population_scope("
+             "jsonb_populate_record(NULL::ops.data_population,CAST(:population AS jsonb)))"),
+        {"population": json.dumps(population)},
+    )
+    assert actual == selected_context
+    # Original producing context cannot be inferred from consumer labels or a
+    # forged evidence field when its authenticated episode is not present.
+    producer = selection_connection.scalar(
+        text("SELECT ops.ddo_population_producer_context("
+             "jsonb_populate_record(NULL::ops.data_population,CAST(:population AS jsonb)))"),
+        {"population": json.dumps(population)},
+    )
+    assert producer is None
