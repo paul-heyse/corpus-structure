@@ -538,6 +538,99 @@ class NativeAuthoring:
             )
 
 
+def _require_owned_authoring(connection: Connection, owned_authoring: bool) -> None:
+    if not owned_authoring:
+        raise NativeAuthoringError(
+            "native preparation requires an explicitly owned authoring database"
+        )
+    principal = connection.scalar(text("SELECT current_user"))
+    if principal in {
+        "corpus_sem_reader",
+        "corpus_sem_writer",
+        "corpus_sem_admitter",
+        "corpus_sem_evaluator",
+        "corpus_sem_fitter",
+    }:
+        raise NativeAuthoringError("native preparation cannot use a runtime principal")
+
+
+def native_dependency_graph(connection: Connection, identities):
+    """A bounded observed dependency graph, with declaration-order tie breaking."""
+    import networkx as nx
+
+    identities = tuple(identities)
+    graph = nx.DiGraph()
+    graph.add_nodes_from(identities)
+    if not identities:
+        return graph
+    records = [
+        (position, identity.kind,
+         identity.qualified if identity.kind != "trigger" else "",
+         (_quote(identity.schema) + "." + _quote(identity.relation or ""))
+         if identity.kind == "trigger" else None, identity.name)
+        for position, identity in enumerate(identities)
+    ]
+    dependencies = connection.execute(catalog_queries.native_scope_dependencies(records))
+    for dependent, prerequisite in dependencies:
+        graph.add_edge(identities[prerequisite], identities[dependent])
+    return graph
+
+
+def native_dependency_order(connection: Connection, identities):
+    import networkx as nx
+
+    graph = native_dependency_graph(connection, identities)
+    declared = {identity: position for position, identity in enumerate(graph)}
+    try:
+        return tuple(nx.lexicographical_topological_sort(graph, key=declared.__getitem__))
+    except nx.NetworkXUnfeasible as error:
+        raise NativeAuthoringError("declared native dependency scope is cyclic") from error
+
+
+def normalize_native_backfill(
+    connection: Connection, definitions: tuple[NativeDefinition, ...],
+    *, context: tuple[NativeObject, ...], owned_authoring: bool = False,
+) -> tuple[NativeObject, ...]:
+    """Normalize old source with only its authenticated dependent context removed.
+
+    No catalog body is acquired as desired meaning. The outer savepoint restores
+    original objects, OIDs, complete ACLs and owners, including on refusal.
+    """
+    import networkx as nx
+
+    _require_owned_authoring(connection, owned_authoring)
+    if any(not isinstance(item, NativeObject) for item in context):
+        raise NativeAuthoringError("native backfill context requires exact frozen objects")
+    admit_native(connection, context)
+    frozen = {item.identity: item for item in context}
+    selected = {item.identity for item in definitions}
+    identities = tuple(dict.fromkeys((*frozen, *(item.identity for item in definitions))))
+    graph = native_dependency_graph(connection, identities)
+    dependents = set().union(*(nx.descendants(graph, identity) for identity in selected)) - selected
+    declared = {identity: position for position, identity in enumerate(graph)}
+    order = tuple(nx.lexicographical_topological_sort(graph, key=declared.__getitem__))
+    savepoint = connection.begin_nested()
+    try:
+        for identity in reversed(order):
+            if identity in dependents:
+                if identity not in frozen:
+                    raise NativeAuthoringError(
+                        "native dependent lacks frozen normalization custody"
+                    )
+                owner = frozen[identity].expected_catalog(connection).get("owner")
+                with native_owner(connection, owner):
+                    execute_native_sql(connection, identity.drop_sql)
+        return prepare_native_authoring(
+            connection, definitions, owned_authoring=owned_authoring
+        ).desired
+    except DBAPIError as error:
+        raise NativeAuthoringError(
+            "native backfill dependent scope refused an undeclared or unavailable dependent"
+        ) from error
+    finally:
+        savepoint.rollback()
+
+
 def prepare_native_authoring(
     connection: Connection,
     definitions: tuple[NativeDefinition, ...],
@@ -553,19 +646,7 @@ def prepare_native_authoring(
     normalization refuses ordinary runtime principals. Predecessor meaning comes from supplied
     source, never adoption of live catalog state. No implicit CASCADE is used.
     """
-    if not owned_authoring:
-        raise NativeAuthoringError(
-            "native preparation requires an explicitly owned authoring database"
-        )
-    principal = connection.scalar(text("SELECT current_user"))
-    if principal in {
-        "corpus_sem_reader",
-        "corpus_sem_writer",
-        "corpus_sem_admitter",
-        "corpus_sem_evaluator",
-        "corpus_sem_fitter",
-    }:
-        raise NativeAuthoringError("native preparation cannot use a runtime principal")
+    _require_owned_authoring(connection, owned_authoring)
     frozen_predecessor = bool(predecessor) and all(
         isinstance(item, NativeObject) for item in predecessor
     )
@@ -578,7 +659,7 @@ def prepare_native_authoring(
             "native predecessor must use one complete source or frozen snapshot contract"
         )
     scope_items = {item.identity: item for item in (*predecessor, *definitions)}
-    scope = tuple(scope_items)
+    scope = native_dependency_order(connection, tuple(scope_items))
 
     def normalize(items):
         savepoint = connection.begin_nested()

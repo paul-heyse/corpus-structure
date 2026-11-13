@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
@@ -25,6 +26,7 @@ from .native_objects import (
     NativeObject,
     definition_from_sql,
     native_sql_script,
+    normalize_native_backfill,
     prepare_native_authoring,
     semantic_namespace_owner,
 )
@@ -622,11 +624,11 @@ def series_native_definitions(connection, *, include_selected=True):
             Path(__file__).with_name("sql").joinpath("pdf_record_context.sql").read_text(),
             source="pdf_record_context.sql:forward",
         ),
-        *companion_projection_definitions(connection),
-        *published_reader_definitions(connection),
         *_pdf_payload_definitions(
             connection, payload_sql, source="pdf-payloads:forward", current_source=True
         ),
+        *companion_projection_definitions(connection),
+        *published_reader_definitions(connection),
         *_publication_view_definitions(
             connection, payload_sql, source="pdf-published-views:forward"
         ),
@@ -1764,9 +1766,11 @@ def _prepare_series_authoring(
         if newly_managed:
             # Normalization uses frozen declarations, never adoption of deployed
             # bodies. The transition still refuses an unexpected live predecessor.
-            normalized = prepare_native_authoring(
-                connection, newly_managed, owned_authoring=owned_authoring
-            ).desired
+            normalized = normalize_native_backfill(
+                connection, newly_managed,
+                context=cast(tuple[NativeObject, ...], product_predecessor),
+                owned_authoring=owned_authoring,
+            )
             product_predecessor = (*product_predecessor, *normalized)
     if frozen_before is not None:
         extra, _ = _source_guard_predecessors(connection)
@@ -1777,9 +1781,10 @@ def _prepare_series_authoring(
             if item.identity not in known and source.permits_backfill(item.identity)
         )
         if extra:
-            normalized = prepare_native_authoring(
-                connection, extra, owned_authoring=owned_authoring
-            ).desired
+            normalized = normalize_native_backfill(
+                connection, extra, context=cast(tuple[NativeObject, ...], product_predecessor),
+                owned_authoring=owned_authoring,
+            )
             product_predecessor = (*product_predecessor, *normalized)
     desired_identities = {item.identity for item in products}
     retired_source = frozenset(
