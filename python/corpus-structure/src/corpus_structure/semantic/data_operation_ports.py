@@ -587,6 +587,9 @@ class ResolvedPythonPort:
         )
 
     def _complete(self, result, return_annotation) -> PortCompletion:
+        from .data_operation_outcomes import successful_return_outcome
+
+        outcome = successful_return_outcome(self.operation)
         contracts = dict(self.kind_contracts)
         checked = _validated_python_input(return_annotation, result)
         from .data_operation_identity import semantic_value
@@ -618,7 +621,7 @@ class ResolvedPythonPort:
                 )
                 for role in outputs
             )
-            return PortCompletion(self.operation.semantic_id, encoded_outputs)
+            return PortCompletion(self.operation.semantic_id, encoded_outputs, outcome=outcome)
         # Multiple outputs require explicit correspondence, never tuple guessing.
         if len(outputs) != 1 or outputs[0].collection != "scalar":
             raise PortRefusal("direct function result requires one declared scalar output")
@@ -637,6 +640,7 @@ class ResolvedPythonPort:
                     project_product_members(self.model, output.kind, semantic),
                 ),
             ),
+            outcome=outcome,
         )
 
 
@@ -780,6 +784,10 @@ def resolve_python_port(
             "the declared effects/form/preparation/cancellation need "
             "an explicit admitted implementation capability"
         )
+    from .data_operation_outcomes import successful_return_outcome
+
+    # Normal return semantics must be known before importing/calling the target.
+    successful_return_outcome(selected)
     outputs = [r for r in selected.roles if r.direction == "output"]
     if len(outputs) != 1 and not selected.result_fields:
         raise PortRefusal(

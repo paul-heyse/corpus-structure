@@ -73,6 +73,7 @@ def test_actual_direct_function_uses_exact_roles_and_original_callable():
     assert port.function.__name__ == "claim_source_item"
     completed = port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
     assert completed.outputs[0].value() == "claims/7"
+    assert completed.outcome == "addressed"
     assert completed.outputs[0].kind_contract == kind(model, "address")
     assert len(observed) == 2  # acquisition and invocation use the acquired owner
     assert observed[0].recipe.startswith("recipe:")
@@ -967,3 +968,15 @@ def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch)
     result = port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
     assert result.outputs[0].value() == {"value": 3}
     assert result.outputs[0].meaning == b'["mapping",[["value",["integer","3"]]]]'
+
+
+def test_ambiguous_success_return_refuses_before_authorization_or_target_import(tmp_path, monkeypatch):
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["outcomes"].append("other-address")
+    metadata["transitions"].append({"dimension": "completion", "before": "pending",
+                                    "after": "success", "outcome": "other-address"})
+    model, inputs = fixture_source(tmp_path, monkeypatch, metadata=metadata,
+                                  header="raise RuntimeError('target must not import')")
+    with pytest.raises(PortRefusal, match="unambiguous"):
+        resolve_python_port(model, inputs, model.operations[0].semantic_id,
+                            authorize=lambda _: pytest.fail("ambiguous return was authorized"))
