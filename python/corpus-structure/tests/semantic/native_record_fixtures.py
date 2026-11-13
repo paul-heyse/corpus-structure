@@ -301,7 +301,7 @@ def build_record_source(
     sibling_captions=(),
     sibling_references=(),
     sibling_originals=(),
-    monkeypatch=None,
+    request=None,
     project_id="private-records",
     existing_project=False,
     source_tag="",
@@ -355,7 +355,7 @@ def build_record_source(
     if sibling_originals:
         from corpus_structure.semantic import contracts
 
-        assert monkeypatch is not None
+        assert request is not None
         policy = json.dumps(
             {
                 "recipe": "native-section-text-v10",
@@ -383,17 +383,23 @@ def build_record_source(
         )
         # This fixture installs one authored policy asset. Runtime and native
         # release checks still compare its exact bytes against the released input.
-        installed = contracts.analysis_implementation_inputs
-        monkeypatch.setattr(
-            contracts,
-            "analysis_implementation_inputs",
-            lambda **kwargs: tuple(
-                replace(artifact, content=policy)
-                if artifact.name == "pdf/section-text-recipe.json"
-                else artifact
-                for artifact in installed(**kwargs)
-            ),
+        installed = contracts.current_implementation()
+        analysis = tuple(
+            replace(artifact, content=policy)
+            if artifact.name == "pdf/section-text-recipe.json"
+            else artifact
+            for artifact in installed.analysis_inputs
         )
+        changed = contracts.ImplementationSnapshot(
+            replace(
+                installed.execution_inputs,
+                implementations=contracts.semantic_implementation_inputs(analysis),
+            ),
+            analysis,
+        )
+        scope = contracts.implementation_override(changed)
+        scope.__enter__()
+        request.addfinalizer(lambda: scope.__exit__(None, None, None))
         prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
@@ -795,7 +801,6 @@ def private_source(
     tmp_path,
     request,
     private_source_options,
-    monkeypatch,
 ):
     options = private_source_options | getattr(request, "param", {})
     method = options.get("record_method")
@@ -815,7 +820,7 @@ def private_source(
         sibling_captions=options.get("sibling_captions", ()),
         sibling_references=options.get("sibling_references", ()),
         sibling_originals=options.get("sibling_originals", ()),
-        monkeypatch=monkeypatch,
+        request=request,
     )
 
 

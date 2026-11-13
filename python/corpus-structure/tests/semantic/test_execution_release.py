@@ -112,11 +112,10 @@ def test_execution_inputs_and_products_reload_exactly_offline(
         assert any(row.kind == "execution_model" for row in prepared.registry_rows)
         assert {definition.name for definition in prepared.definitions} == {"Item"}
 
-        def unavailable():
-            pytest.fail("archive reconstruction must not acquire installed execution inputs")
-
-        monkeypatch.setattr(contracts, "trusted_execution_inputs", unavailable)
-        with monkeypatch.context() as different:
+        with (
+            contracts.implementation_override(contracts.IMPLEMENTATION_UNAVAILABLE),
+            monkeypatch.context() as different,
+        ):
             different.setattr(metadata, "PHYSICAL_MODEL_ID", "physical:different-installed-profile")
             _prepare_release_cached.cache_clear()
             verified = releases.load_release(conn, prepared.release_id)
@@ -227,7 +226,7 @@ def test_execution_activation_refuses_missing_native_enforcement_and_preserves_p
 
 
 def test_comment_only_trusted_input_change_preserves_archived_execution_binding(
-    semantic_db_engine: Engine, monkeypatch
+    semantic_db_engine: Engine,
 ):
     from corpus_structure.semantic import contracts
 
@@ -241,17 +240,18 @@ def test_comment_only_trusted_input_change_preserves_archived_execution_binding(
                 current.catalog, content=current.catalog.content + b"\n# new code model\n"
             ),
         )
-        monkeypatch.setattr(contracts, "trusted_execution_inputs", lambda: changed)
-        releases.activate_release(
-            conn, project_id, prepared.release_id, expected_parent=None, expected_generation=0
-        )
-        assert releases.activation_token(conn, project_id) == releases.ActivationToken(
-            prepared.release_id, 1
-        )
-        assert (
-            releases.open_release(conn, prepared.release_id).execution_model_id
-            == prepared.execution_model_id
-        )
+        snapshot = replace(contracts.current_implementation(), execution_inputs=changed)
+        with contracts.implementation_override(snapshot):
+            releases.activate_release(
+                conn, project_id, prepared.release_id, expected_parent=None, expected_generation=0
+            )
+            assert releases.activation_token(conn, project_id) == releases.ActivationToken(
+                prepared.release_id, 1
+            )
+            assert (
+                releases.open_release(conn, prepared.release_id).execution_model_id
+                == prepared.execution_model_id
+            )
 
 
 @pytest.mark.parametrize("route", ["owner_insert", "writer_initialize"])

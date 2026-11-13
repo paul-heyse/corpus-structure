@@ -348,7 +348,7 @@ def test_type_correspondence_cannot_hide_behind_value_projection():
 
 
 @pytest.mark.parametrize("consumer", ["columns", "companions"])
-def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer, monkeypatch):
+def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer):
     from corpus_structure.semantic import contracts
     from corpus_structure.semantic.companion_projection import render_static_columns
     from corpus_structure.semantic.types import PreparationError
@@ -360,8 +360,15 @@ def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer, monk
         )
 
     inputs = _changed_correspondence_inputs(mutate)
-    monkeypatch.setattr(contracts, "trusted_execution_inputs", lambda: inputs)
-    with pytest.raises(PreparationError, match="semantic identifiers differ"):
+    installed = contracts.current_implementation()
+    changed_assets = {item.name: item for item in inputs.implementations}
+    snapshot = contracts.ImplementationSnapshot(
+        inputs, tuple(changed_assets.get(item.name, item) for item in installed.analysis_inputs)
+    )
+    with (
+        contracts.implementation_override(snapshot),
+        pytest.raises(PreparationError, match="semantic identifiers differ"),
+    ):
         (generated_source if consumer == "columns" else render_static_columns)()
 
 

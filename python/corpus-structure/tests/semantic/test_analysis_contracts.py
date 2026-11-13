@@ -18,6 +18,40 @@ from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import PreparationError, RegistryRow
 
 
+@pytest.fixture
+def different_implementation():
+    from corpus_structure.semantic.contracts import (
+        ImplementationSnapshot,
+        current_implementation,
+        implementation_override,
+        semantic_implementation_inputs,
+    )
+
+    installed = current_implementation()
+    model = compile_execution_model(installed.execution_inputs)
+    base = prepare_release(installed.execution_inputs.schema)
+    prepared = replace(
+        base,
+        execution_model_id=model.model_id,
+        registry_rows=(
+            *base.registry_rows,
+            RegistryRow("execution_model", model.model_id, model.content),
+        ),
+    )
+    analysis = tuple(
+        replace(item, content=item.content + b"\n") if item.name == "libraries.json" else item
+        for item in installed.analysis_inputs
+    )
+    changed = ImplementationSnapshot(
+        replace(
+            installed.execution_inputs, implementations=semantic_implementation_inputs(analysis)
+        ),
+        analysis,
+    )
+    with implementation_override(changed):
+        yield prepared
+
+
 def context(**kwargs):
     return prepare_interpretation_context(macros={}, **kwargs)
 
@@ -338,9 +372,7 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
     assert context().profile.shared_consumers == ("normalize.formula", "extract.math")
 
 
-def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(
-    monkeypatch,
-):
+def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition():
     import json
     from pathlib import Path
 
@@ -357,12 +389,14 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
         catalog=replace(acquired.execution.catalog, content=yaml.safe_dump(data).encode()),
     )
     candidate = replace(acquired, execution=execution)
-    monkeypatch.setattr(
-        "corpus_structure.semantic.regeneration.trusted_execution_inputs",
-        lambda: pytest.fail("composition acquired installed inputs"),
+    from corpus_structure.semantic.contracts import (
+        IMPLEMENTATION_UNAVAILABLE,
+        implementation_override,
     )
-    bundle, dependencies, profile = compose_pack_inputs((candidate,))
-    prepared = prepare_release(bundle, dependencies, profile)
+
+    with implementation_override(IMPLEMENTATION_UNAVAILABLE):
+        bundle, dependencies, profile = compose_pack_inputs((candidate,))
+        prepared = prepare_release(bundle, dependencies, profile)
     recipe = next(
         item for item in prepared.artifacts if item.kind == "operation/scientific-policy.json"
     )
@@ -477,28 +511,13 @@ def test_runtime_change_invalidates_every_analysis_stage_without_changing_semant
         assert changed.stage_key(demand) != first.stage_key(demand)
 
 
-def test_analysis_support_checks_current_semantic_determinants(monkeypatch):
-    from corpus_structure.semantic import analysis_contracts
-
-    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
+def test_analysis_support_checks_current_semantic_determinants(different_implementation):
     with pytest.raises(PreparationError, match="semantic determinant bytes"):
-        context()
+        context(prepared=different_implementation)
 
 
-def test_archived_snapshot_read_uses_unchanged_owned_contract(monkeypatch):
-    from corpus_structure.semantic import analysis_contracts
-
-    model = compile_execution_model(trusted_execution_inputs())
-    base = prepare_release(trusted_execution_inputs().schema)
-    prepared = replace(
-        base,
-        execution_model_id=model.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", model.model_id, model.content),
-        ),
-    )
-    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
+def test_archived_snapshot_read_uses_unchanged_owned_contract(different_implementation):
+    prepared = different_implementation
     assert bind_analysis_family(prepared, "read").contract.id == "read"
     with pytest.raises(PreparationError, match="semantic determinant bytes"):
         bind_analysis_family(prepared, "publication")

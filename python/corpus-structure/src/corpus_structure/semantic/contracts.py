@@ -9,11 +9,14 @@ requiring ``execution.lifecycle.v1`` does not assert that it has been deployed.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
+from threading import Lock
 from typing import Any, Literal, Never
 
 import yaml
@@ -1163,24 +1166,137 @@ def trusted_execution_schema() -> SourceBundle:
     )
 
 
-def trusted_execution_inputs(
-    *, physical_sources: Mapping[str, bytes] | None = None
-) -> ExecutionModelInputs:
-    """Read bundled code-owned definitions once at an explicit application entry boundary."""
+@dataclass(frozen=True)
+class ImplementationSnapshot:
+    """Installed determinants and their derived identities, captured for one process."""
+
+    execution_inputs: ExecutionModelInputs
+    analysis_inputs: tuple[SourceArtifact, ...]
+    semantic_digests: tuple[tuple[str, str], ...] = field(init=False)
+    runtime_digests: tuple[tuple[str, str], ...] = field(init=False)
+    standalone_runtime_fingerprint: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        from .runtime_bindings import runtime_fingerprint, runtime_implementation_digests
+
+        semantic = semantic_implementation_inputs(self.analysis_inputs)
+        if self.execution_inputs.implementations != semantic:
+            raise ValueError("execution and analysis semantic implementation inputs differ")
+        object.__setattr__(
+            self,
+            "semantic_digests",
+            tuple((item.name, item.digest) for item in self.execution_inputs.implementations),
+        )
+        digests = runtime_implementation_digests(self.analysis_inputs)
+        object.__setattr__(self, "runtime_digests", digests)
+        object.__setattr__(
+            self, "standalone_runtime_fingerprint", runtime_fingerprint(digests=digests)
+        )
+
+
+class _ImplementationUnavailable(Enum):
+    MARKER = "installed implementation acquisition is forbidden"
+
+
+IMPLEMENTATION_UNAVAILABLE = _ImplementationUnavailable.MARKER
+_implementation_override: ImplementationSnapshot | _ImplementationUnavailable | None = None
+
+
+def implementation_overridden() -> bool:
+    """Whether a process-wide override (including an acquisition refusal) is active."""
+    return _implementation_override is not None
+
+
+@contextmanager
+def implementation_override(
+    snapshot: ImplementationSnapshot | _ImplementationUnavailable,
+) -> Generator[None]:
+    """Install a nestable override visible to worker threads, restoring even on failure.
+
+    Independent work must not overlap this process-wide scope. Spawned processes acquire
+    their own installed snapshot. Ordinary snapshot-dependent caches bypass the scope.
+    """
+    if not isinstance(snapshot, (ImplementationSnapshot, _ImplementationUnavailable)):
+        raise TypeError("implementation override requires a snapshot or the refusal marker")
+    global _implementation_override
+    previous = _implementation_override
+    _implementation_override = snapshot
+    try:
+        yield
+    finally:
+        _implementation_override = previous
+
+
+def current_implementation() -> ImplementationSnapshot:
+    """Return the active override or the installed snapshot, acquired on first use."""
+    override = _implementation_override
+    if override is IMPLEMENTATION_UNAVAILABLE:
+        raise RuntimeError("installed implementation acquisition is forbidden")
+    if isinstance(override, ImplementationSnapshot):
+        return override
+    return _installed_implementation()
+
+
+_installed_snapshot: ImplementationSnapshot | None = None
+_implementation_lock = Lock()
+
+
+def _installed_implementation() -> ImplementationSnapshot:
+    global _installed_snapshot
+    snapshot = _installed_snapshot
+    if snapshot is None:
+        with _implementation_lock:
+            snapshot = _installed_snapshot
+            if snapshot is None:
+                snapshot = _acquire_implementation()
+                _installed_snapshot = snapshot
+    return snapshot
+
+
+def _reset_installed_implementation() -> None:
+    """Restore cold acquisition for isolated snapshot controls."""
+    global _installed_snapshot
+    with _implementation_lock:
+        _installed_snapshot = None
+
+
+def _acquire_implementation() -> ImplementationSnapshot:
+    analysis = _read_analysis_implementation_inputs()
+    return ImplementationSnapshot(_read_trusted_execution_inputs(analysis), analysis)
+
+
+def _read_trusted_execution_inputs(analysis: tuple[SourceArtifact, ...]) -> ExecutionModelInputs:
     root = files("corpus_structure").joinpath("model", "semantic")
     return ExecutionModelInputs(
         trusted_execution_schema(),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
-        semantic_implementation_inputs(
-            analysis_implementation_inputs(physical_sources=physical_sources)
-        ),
+        semantic_implementation_inputs(analysis),
+    )
+
+
+def trusted_execution_inputs(
+    *, physical_sources: Mapping[str, bytes] | None = None
+) -> ExecutionModelInputs:
+    """Use the process snapshot, or acquire the caller's explicit physical-source closure."""
+    if physical_sources is None:
+        return current_implementation().execution_inputs
+    return _read_trusted_execution_inputs(
+        _read_analysis_implementation_inputs(physical_sources=physical_sources)
     )
 
 
 def analysis_implementation_inputs(
     *, physical_sources: Mapping[str, bytes] | None = None
 ) -> tuple[SourceArtifact, ...]:
-    """Acquire implementation determinants explicitly; the compiler never reads installed code."""
+    """Use the process snapshot unless physical sources are explicitly supplied."""
+    if physical_sources is None:
+        return current_implementation().analysis_inputs
+    return _read_analysis_implementation_inputs(physical_sources=physical_sources)
+
+
+def _read_analysis_implementation_inputs(
+    *, physical_sources: Mapping[str, bytes] | None = None
+) -> tuple[SourceArtifact, ...]:
     from importlib.metadata import version
     from pathlib import Path
 

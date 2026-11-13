@@ -407,9 +407,9 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
 
 
 def _standalone_model():
-    from .contracts import compile_execution_model, trusted_execution_inputs
+    from .contracts import compile_execution_model, current_implementation
 
-    return compile_execution_model(trusted_execution_inputs())
+    return compile_execution_model(current_implementation().execution_inputs)
 
 
 def _profile(prepared: PreparedRelease | None, *, require_current_implementations: bool = True):
@@ -464,29 +464,35 @@ def _profile(prepared: PreparedRelease | None, *, require_current_implementation
 
 
 def _semantic_implementation_digests():
-    from .contracts import trusted_execution_inputs
+    from .contracts import current_implementation
 
-    return tuple((item.name, item.digest) for item in trusted_execution_inputs().implementations)
+    return current_implementation().semantic_digests
 
 
 def _analysis_runtime(prepared: PreparedRelease | None):
-    from .runtime_bindings import (
-        installed_runtime_id,
-        runtime_fingerprint,
-        runtime_implementation_digests,
+    from .contracts import current_implementation
+    from .runtime_bindings import installed_runtime_id
+
+    implementation = current_implementation()
+    if prepared is None:
+        return implementation.runtime_digests, implementation.standalone_runtime_fingerprint
+    return implementation.runtime_digests, installed_runtime_id(
+        prepared, implementation.analysis_inputs
     )
 
-    if prepared is None:
-        digests = runtime_implementation_digests()
-        return digests, runtime_fingerprint(digests=digests)
-    from .contracts import analysis_implementation_inputs
 
-    inputs = analysis_implementation_inputs()
-    return runtime_implementation_digests(inputs), installed_runtime_id(prepared, inputs)
+def _boundary():
+    from .contracts import implementation_overridden
+
+    return _prepare_boundary() if implementation_overridden() else _boundary_cached()
 
 
 @lru_cache(maxsize=1)
-def _boundary():
+def _boundary_cached():
+    return _prepare_boundary()
+
+
+def _prepare_boundary():
     # The exact trusted companion supplies these code-owned runtime shapes. The catalog
     # supplies behavior; archived products never acquire current behavioral defaults.
     from .contracts import trusted_execution_inputs

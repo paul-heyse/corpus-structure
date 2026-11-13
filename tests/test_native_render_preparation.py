@@ -18,6 +18,35 @@ from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.types import PreparationError, RegistryRow
 
 
+@pytest.fixture
+def different_implementation():
+    from corpus_structure.semantic.contracts import (
+        ImplementationSnapshot,
+        current_implementation,
+        implementation_override,
+    )
+
+    installed = current_implementation()
+    analysis = tuple(
+        replace(item, content=item.content + b"\n") if item.name == "libraries.json" else item
+        for item in installed.analysis_inputs
+    )
+    changed = ImplementationSnapshot(
+        replace(
+            installed.execution_inputs,
+            implementations=tuple(
+                replace(item, content=item.content + b"\n")
+                if item.name == "libraries.json"
+                else item
+                for item in installed.execution_inputs.implementations
+            ),
+        ),
+        analysis,
+    )
+    with implementation_override(changed):
+        yield
+
+
 @pytest.fixture(scope="module")
 def renderer_archive():
     inputs = trusted_execution_inputs()
@@ -43,22 +72,25 @@ def renderer_connection(libraries):
     return conn
 
 
-def test_renderer_admission_is_independent_of_mathematical_implementation(
-    renderer_archive, monkeypatch
+def test_renderer_refuses_changed_runtime_without_preparing_mathematics(
+    renderer_archive, different_implementation, monkeypatch
 ):
     prepared, libraries = renderer_archive
     conn = renderer_connection(libraries)
-    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
     # Creating a reader is lazy; only requesting analytical ownership admits math.
     reader = BoundReader(conn, 17, prepared)
     with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
         analysis_contracts.bind_analysis_family(reader.prepared, "source")
 
-    renderer = native_requests.prepare_native_renderer(conn, prepared)
+    from corpus_structure.semantic.runtime_bindings import RuntimeBindingError
 
-    assert renderer["pypdfium2"] == json.loads(libraries)["pypdfium2"]
-    assert renderer["Pillow"] == json.loads(libraries)["Pillow"]
-    assert len(renderer["implementation_digest"]) == 64
+    def forbidden(*args, **kwargs):
+        pytest.fail("rendering must not prepare unrelated mathematics")
+
+    monkeypatch.setattr(analysis_contracts, "bind_analysis_family", forbidden)
+    monkeypatch.setattr(analysis_contracts, "prepare_interpretation_context", forbidden)
+    with pytest.raises(RuntimeBindingError, match="runtime semantic assets differ"):
+        native_requests.prepare_native_renderer(conn, prepared)
 
 
 def test_renderer_qualifies_the_explicit_runtime_binding(renderer_archive, monkeypatch):
@@ -92,6 +124,11 @@ def test_renderer_refuses_unqualified_runtime(renderer_archive, monkeypatch):
 
 
 def test_render_request_prepares_only_retained_view_and_renderer(renderer_archive, monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("rendering must not prepare unrelated mathematics")
+
+    monkeypatch.setattr(analysis_contracts, "bind_analysis_family", forbidden)
+    monkeypatch.setattr(analysis_contracts, "prepare_interpretation_context", forbidden)
     prepared, libraries = renderer_archive
     conn = renderer_connection(libraries)
     conn.execute.return_value.mappings.return_value.one.return_value = {
@@ -129,7 +166,6 @@ def test_render_request_prepares_only_retained_view_and_renderer(renderer_archiv
         "binding_of",
         lambda *args: OperationBinding(prepared.release_id, "z", 0, dependencies),
     )
-    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
 
     class SnapshotPrepared(Exception):
         pass

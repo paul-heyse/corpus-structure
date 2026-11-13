@@ -966,6 +966,32 @@ def occurrences(
 _MEMO: OrderedDict[tuple[str, str, str, str], MathResult] = OrderedDict()
 
 
+def _prepare_standalone_context(table: Mapping[str, MacroDef], kind: Kind) -> MathContext:
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    return prepare_interpretation_context(macros=table, kind=kind).grammar_context
+
+
+_STANDALONE_CONTEXTS: OrderedDict[tuple[str, str], MathContext] = OrderedDict()
+
+
+def _standalone_context(table: Mapping[str, MacroDef], kind: Kind) -> MathContext:
+    from corpus_structure.semantic.contracts import implementation_overridden
+
+    if implementation_overridden():
+        return _prepare_standalone_context(table, kind)
+    key = (_table_key(table), kind)
+    hit = _STANDALONE_CONTEXTS.get(key)
+    if hit is not None:
+        _STANDALONE_CONTEXTS.move_to_end(key)
+        return hit
+    context = _prepare_standalone_context(table, kind)
+    _STANDALONE_CONTEXTS[key] = context
+    if len(_STANDALONE_CONTEXTS) > MEMO_SIZE:
+        _STANDALONE_CONTEXTS.popitem(last=False)
+    return context
+
+
 def parse(
     latex: str,
     kind: Kind = "any_value",
@@ -975,24 +1001,24 @@ def parse(
     seconds: float = PARSE_SECONDS,
 ) -> MathResult:
     """Read `latex` under the start symbol `kind` with the effective macro table `macros`."""
+    from corpus_structure.semantic.contracts import implementation_overridden
+
     require_main_thread()
     if kind not in STARTS:
         raise ValueError(f"kind {kind!r} is not one of {STARTS}")
     table: Mapping[str, MacroDef] = macros or {}
     if context is None:
-        # The standalone public adapter selects the explicit trusted base profile;
-        # composed production callers supply their already prepared projection.
-        from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
-
-        context = prepare_interpretation_context(macros=table, kind=kind).grammar_context
+        # Standalone adapters select the trusted base profile once per macro/kind table.
+        context = _standalone_context(table, kind)
     ctx = context
     key = (latex, kind, _table_key(table), ctx.key())
-    hit = _MEMO.get(key)
+    overridden = implementation_overridden()
+    hit = None if overridden else _MEMO.get(key)
     if hit is not None:
         _MEMO.move_to_end(key)
         return hit
     result = _read(latex, kind, table, ctx, seconds)
-    if result.failure is None or result.failure.category != "timeout":
+    if not overridden and (result.failure is None or result.failure.category != "timeout"):
         _MEMO[key] = result
         if len(_MEMO) > MEMO_SIZE:
             _MEMO.popitem(last=False)
@@ -1058,6 +1084,7 @@ def syntax(
     seconds: float = PARSE_SECONDS,
 ) -> MathResult:
     """Recognize positioned alternatives without role resolution or native mathematics."""
+
     require_main_thread()
     if kind not in STARTS:
         raise ValueError(f"unsupported mathematical kind {kind!r}")
@@ -1083,6 +1110,7 @@ def syntax_forest(
     The native SPPF is transient. A caller reducing it composes this deadline with the
     reduction's budget; neither this route nor its consumers constructs complete trees.
     """
+
     require_main_thread()
     if kind not in STARTS:
         raise ValueError(f"unsupported mathematical kind {kind!r}")

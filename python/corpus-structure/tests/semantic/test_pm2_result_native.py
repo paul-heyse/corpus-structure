@@ -78,7 +78,7 @@ def _claim(case, digest, *, view_id=None, unit_key="private-unit"):
 
 
 @pytest.fixture
-def literal_question_source(semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch):
+def literal_question_source(semantic_db_engine, semantic_writer_engine, tmp_path):
     declaration = {
         "family": "literal_completion_v1",
         "questions": [
@@ -94,9 +94,7 @@ def literal_question_source(semantic_db_engine, semantic_writer_engine, tmp_path
         dependencies=dependencies,
         prepared=prepare_release(base.bundle, dependencies, base.profile),
     )
-    return build_record_source(
-        semantic_db_engine, semantic_writer_engine, tmp_path, preparation, monkeypatch=monkeypatch
-    )
+    return build_record_source(semantic_db_engine, semantic_writer_engine, tmp_path, preparation)
 
 
 def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question(

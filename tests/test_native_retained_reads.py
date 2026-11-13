@@ -17,7 +17,7 @@ from corpus_structure.semantic.types import PreparationError, RegistryRow
 
 
 @pytest.fixture
-def retained_release(monkeypatch):
+def retained_release():
     inputs = trusted_execution_inputs()
     model = compile_execution_model(inputs)
     base = prepare_release(inputs.schema)
@@ -30,8 +30,31 @@ def retained_release(monkeypatch):
         ),
     )
     # Preserve an admitted archive while independently making its runtime implementation differ.
-    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
-    return prepared
+    from corpus_structure.semantic.contracts import (
+        ImplementationSnapshot,
+        current_implementation,
+        implementation_override,
+    )
+
+    installed = current_implementation()
+    analysis = tuple(
+        replace(item, content=item.content + b"\n") if item.name == "libraries.json" else item
+        for item in installed.analysis_inputs
+    )
+    changed = ImplementationSnapshot(
+        replace(
+            installed.execution_inputs,
+            implementations=tuple(
+                replace(item, content=item.content + b"\n")
+                if item.name == "libraries.json"
+                else item
+                for item in installed.execution_inputs.implementations
+            ),
+        ),
+        analysis,
+    )
+    with implementation_override(changed):
+        yield prepared
 
 
 def test_retained_reader_preserves_pins_before_text_preparation_gate(retained_release):

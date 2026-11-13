@@ -408,7 +408,7 @@ def test_endpoint_cardinality_reference_and_state_links_are_checked(inputs):
         assert error.value.diagnostics[0].code == code
 
 
-def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products, monkeypatch):
+def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products):
     assert compile_execution_model(inputs) is products
     catalog_changed = replace(
         inputs,
@@ -449,15 +449,19 @@ def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products, 
     with pytest.raises(FrozenInstanceError):
         products.concepts[0].attributes[0].range = "changed"
     # Compile uses the supplied bytes, without rereading installed bundled definitions.
-    monkeypatch.setattr(
-        "corpus_structure.semantic.contracts.trusted_execution_inputs",
-        lambda: pytest.fail("ambient read"),
+    from corpus_structure.semantic.contracts import (
+        IMPLEMENTATION_UNAVAILABLE,
+        implementation_override,
     )
-    explicit = replace(
-        catalog_changed,
-        catalog=replace(catalog_changed.catalog, content=catalog_changed.catalog.content + b"\n"),
-    )
-    assert compile_execution_model(explicit).model_id != products.model_id
+
+    with implementation_override(IMPLEMENTATION_UNAVAILABLE):
+        explicit = replace(
+            catalog_changed,
+            catalog=replace(
+                catalog_changed.catalog, content=catalog_changed.catalog.content + b"\n"
+            ),
+        )
+        assert compile_execution_model(explicit).model_id != products.model_id
 
 
 def test_product_conversion_preserves_declared_collections_and_optional_endpoints():
