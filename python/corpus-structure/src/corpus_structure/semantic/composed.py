@@ -154,6 +154,8 @@ def data_operation_dependencies(
             "interpretation": python_sources.interpretation,
             "stub_policy": python_sources.stub_policy,
             "boundary_contracts": contract_names,
+            **({"generated_interfaces": list(python_sources.generated_interfaces)}
+               if python_sources.generated_interfaces else {}),
             "sources": [
                 {"module": s.module, "filename": s.filename, "stub": s.stub is not None}
                 for s in sources
@@ -216,7 +218,7 @@ def data_operations_from_dependencies(
     python = manifest["python"]
     inputs = None
     if python is not None:
-        if not isinstance(python, dict) or set(python) != {
+        if not isinstance(python, dict) or set(python) - {"generated_interfaces"} != {
             "interpreter",
             "interpretation",
             "stub_policy",
@@ -229,6 +231,12 @@ def data_operations_from_dependencies(
             for key in ("interpreter", "interpretation", "stub_policy")
         ):
             raise ValueError("invalid Python operation interpretation context")
+        generated_interfaces = python.get("generated_interfaces", [])
+        if (not isinstance(generated_interfaces, list)
+            or any(not isinstance(name, str) for name in generated_interfaces)
+            or len(generated_interfaces) != len(set(generated_interfaces))
+            or set(generated_interfaces) - {"dataclasses", "unpack-typeddict"}):
+            raise ValueError("invalid Python generated interface profile")
         contracts = python["boundary_contracts"]
         if (
             not isinstance(contracts, list)
@@ -269,6 +277,7 @@ def data_operations_from_dependencies(
                 SourceArtifact(name, supplied[_DATA_PREFIX + "contracts/" + name].content)
                 for name in contracts
             ),
+            tuple(generated_interfaces),
         )
     if set(supplied) != expected:
         raise ValueError("data-operation input set differs from manifest")

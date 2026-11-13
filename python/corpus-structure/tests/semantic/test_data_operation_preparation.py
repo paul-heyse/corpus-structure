@@ -115,3 +115,20 @@ def test_target_acquisition_pins_python_bytes_without_importing(tmp_path):
     acquired = acquire_data_operation_inputs(root, "target.yaml")
     assert dict(acquired.files)["never.py"].startswith(b"raise RuntimeError")
     assert any(a.name.endswith("python/0.py") for a in acquired.dependencies.artifacts)
+
+
+def test_target_acquisition_archives_generated_interface_selection(tmp_path):
+    root = inputs(tmp_path)
+    (root / "model.py").write_text("from dataclasses import dataclass\n@dataclass\nclass Item:\n    value: int\n")
+    with (root / "target.yaml").open("a") as output:
+        output.write("""python:
+  interpreter: python-3.14
+  interpretation: closed-python-operations-v1
+  stub_policy: source-authoritative
+  generated_interfaces: [dataclasses]
+  sources: [{module: model, path: model.py}]
+""")
+    bundle, deps, profile, prepared = prepare_data_operation_inputs(root, "target.yaml")
+    manifest = next(a for a in deps.artifacts if a.name.endswith("data-operations/manifest.json"))
+    assert json.loads(manifest.content)["python"]["generated_interfaces"] == ["dataclasses"]
+    _validate_manifest(bundle, deps, profile, prepared)
