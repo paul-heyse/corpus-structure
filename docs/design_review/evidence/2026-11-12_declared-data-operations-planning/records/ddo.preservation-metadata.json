@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "ddo.preservation-metadata",
+  "title": "Read-only preservation metadata census",
+  "group": "declared-data-operations",
+  "package": "DDO-00",
+  "finalized": "2026-11-12",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which current native relationships constrain the preservation-aware redesign?",
+  "answers": [
+    "DDO-00",
+    "DDO-11"
+  ],
+  "method": "Read-only repeatable snapshot of12 selected table counts and bounded pg_constraint foreign-key metadata,15second statement timeout; no protected answer or source bodies.",
+  "commands": [
+    "uv run python - (read-only SQLAlchemy metadata census described in README.md)"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/preservation-census.json",
+      "role": "Database identity, exact selected counts and foreign-key metadata",
+      "sha256": "aafdbf0c5a6a9e0869ccf8bda47c6d3af321a7378d1ae8fc6fa9c55dd5d31292"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "foreign_keys",
+      "value": 329,
+      "of": null,
+      "unit": "constraints",
+      "note": null
+    },
+    {
+      "name": "counted_relations",
+      "value": 12,
+      "of": null,
+      "unit": "relations",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Current329FK relationships and12table counts establish concrete native preservation dependencies. Exact preserved root IDs and external artifact closure still require implementation-time classification; no destructive cutover is authorized.",
+  "consumed_by": [
+    "DDO-00",
+    "DDO-11"
+  ]
+}

@@ -482,7 +482,9 @@ production or future implementation. Qualification and adapter conformance remai
 
 **Decision: Accept corrected target for plan creation, at Proposed/static evidence strength.**
 The original proposal requires the corrections above; it is not accepted unchanged. Product
-implementation, migration and qualification remain open. F01–F14 and C1–C7 are Deferred until a
-plan selects them; the trigger is operator selection of this target. Rule changes are not approved
-by this audit. BEP/TC findings retain their existing owning plans; no production repair, deployment,
-book retry or plan-scope change is performed here.
+implementation, migration and qualification remain open. F01–F14/C1–C7 are now scheduled by the standalone
+[DDO coordinator](../../plans/declared-data-operations_2026-11-12.md#finding-and-recommendation-disposition),
+which solely owns their current disposition. The operator explicitly accepted RC01–RC09 on
+2026-11-12 during plan preparation; that decision is recorded there, not attributed to this audit.
+The new series owns its redesign and qualification independently of other plans. No production
+repair, deployment or book retry is performed by publishing these documents.
