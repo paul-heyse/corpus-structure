@@ -89,6 +89,8 @@ classes:
       original_source: {range: string, required: true}
       analyzed_scope: {range: json_payload, required: true}
       parameters: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:
@@ -156,6 +158,9 @@ classes:
     attributes:
       product_id: {range: string, required: true}
       member_id: {range: string, required: true}
+      subject: {range: string, required: true}
+      original_source: {range: string, required: true}
+      analyzed_scope: {range: json_payload, required: true}
       body: {range: json_payload, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [product_id, member_id]}
@@ -377,6 +382,7 @@ classes:
       selection: {range: json_payload, required: true}
       trust_snapshot: {range: json_payload, required: true}
       created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:
@@ -407,14 +413,32 @@ classes:
     attributes:
       id: {range: string, required: true}
       demand_id: {range: string, required: true}
+      semantic_key: {range: string, required: true}
       name: {range: string, required: true}
       members: {range: json_payload, required: true}
       complete: {range: boolean, required: true}
       evidence: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
-      unique_0: {unique_key_slots: [demand_id, name]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:indexes: '[["demand_id","name","created_at"]]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'
+  data_demand_read:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      demand_id: {range: string, required: true}
+      read_snapshot: {range: string, required: true}
+      frontier_at: {range: timestamp, required: true}
+      owner_xid: {range: string, required: true}
+      trust_snapshot: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
     annotations:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
-      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'
+      ph:foreign_keys: '[{"columns":["demand_id"],"target":"ops.data_demand.id"}]'

@@ -2043,6 +2043,11 @@ def prepare_series_candidate(
                     "corpus_sem_evaluator",
                 ],
             )
+            if not roles:
+                publisher_work.append(ExecuteSQLOp(
+                    'REVOKE ALL ON ' + name +
+                    ' FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,'
+                    'corpus_sem_evaluator,corpus_sem_fitter'))
             if roles:
                 publisher_work.append(
                     ExecuteSQLOp(
