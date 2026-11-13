@@ -20,8 +20,11 @@ from .test_data_operation_wire import captured
 
 def reference():
     return OriginalDocumentRef(
-        kind="original-document", project_id="project:one", document_key="document:semantic",
-        content_hash="a" * 64, mime="application/pdf",
+        kind="original-document",
+        project_id="project:one",
+        document_key="document:semantic",
+        content_hash="a" * 64,
+        mime="application/pdf",
     )
 
 
@@ -34,7 +37,8 @@ def test_raw_document_selection_has_explicit_whole_scope_and_distinct_reference_
     }
     assert acquired.root.original_source == "document:semantic"
     assert json.loads(acquired.root.analyzed_scope) == {
-        "document": "document:semantic", "scope": "whole-document",
+        "document": "document:semantic",
+        "scope": "whole-document",
     }
     with pytest.raises(ValidationError):
         OriginalDocumentRef.model_validate(
@@ -47,14 +51,17 @@ def test_raw_document_selection_has_explicit_whole_scope_and_distinct_reference_
 
 
 def test_raw_admission_wire_refuses_body_recipe_and_view_references():
-    request = {"demand_id": "demand:one", "selection_name": "book", **OriginalDocumentAcquisition(
-        "book", reference()
-    ).selection().record()}
+    request = {
+        "demand_id": "demand:one",
+        "selection_name": "book",
+        **OriginalDocumentAcquisition("book", reference()).selection().record(),
+    }
     validate_native_wire("admit_original_document_asset", "input", request, sources=captured())
     for extra in ({"body": {"document": "forged"}}, {"recipe": "converter:one"}):
         with pytest.raises(ValueError):
-            validate_native_wire("admit_original_document_asset", "input", {**request, **extra},
-                                 sources=captured())
+            validate_native_wire(
+                "admit_original_document_asset", "input", {**request, **extra}, sources=captured()
+            )
     with pytest.raises(ValueError):
         validate_native_wire("admit_original_source_view", "input", request, sources=captured())
 

@@ -49,7 +49,8 @@ def archive_native_sql() -> str:
  IS DISTINCT FROM ARRAY[{expected}]::text[] THEN
  RAISE EXCEPTION 'archive scratch relation set differs' USING ERRCODE='23514'; END IF;
 """
-    prepare = ["""
+    prepare = [
+        """
 CREATE OR REPLACE FUNCTION sem.prepare_release_archive(p_release_id text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $archive$
 BEGIN
@@ -57,8 +58,10 @@ BEGIN
  IF nullif(p_release_id,'') IS NULL THEN
  RAISE EXCEPTION 'archive identity missing' USING ERRCODE='23514'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(p_release_id,0));
-"""]
-    publish = ["""
+"""
+    ]
+    publish = [
+        """
 CREATE OR REPLACE FUNCTION sem.publish_release_archive(p_release_id text) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $archive$
 DECLARE replay boolean; archive_digest text;
@@ -67,7 +70,9 @@ BEGIN
  IF nullif(p_release_id,'') IS NULL THEN
  RAISE EXCEPTION 'archive identity missing' USING ERRCODE='23514'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(p_release_id,0));
-""", inventory]
+""",
+        inventory,
+    ]
     for relation in tables:
         scratch = quote(scratch_name(relation))
         target = "sem." + quote(relation.name)
@@ -138,10 +143,13 @@ def archive_native_definitions(connection):
     prepared = prepare_sql(archive_native_sql(), source=source)
     return tuple(
         definition_from_sql(
-            connection, prepared.excerpt(index), source=source, owner="corpus_sem_publisher",
-            grants=() if statement.stmt.funcname[-1].sval == "require_archive_scratch" else (
-                ("corpus_sem_admitter", "EXECUTE", False),
-            ),
+            connection,
+            prepared.excerpt(index),
+            source=source,
+            owner="corpus_sem_publisher",
+            grants=()
+            if statement.stmt.funcname[-1].sval == "require_archive_scratch"
+            else (("corpus_sem_admitter", "EXECUTE", False),),
         )
         for index, statement in enumerate(prepared.statements)
         if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname

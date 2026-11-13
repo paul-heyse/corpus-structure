@@ -675,14 +675,24 @@ def series_native_definitions(connection, *, include_selected=True):
             grants=(),
         )
     )
-    definitions.extend(_task_call_definitions(
-        connection, Path(__file__).with_name("sql").joinpath("closure.sql").read_text(),
-        name="require_runtime_principal", schema="data",
-        source="runtime archive capability:forward",
-        grants=tuple((role, "EXECUTE", False) for role in (
-            "corpus_sem_writer", "corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_admitter"
-        )),
-    ))
+    definitions.extend(
+        _task_call_definitions(
+            connection,
+            Path(__file__).with_name("sql").joinpath("closure.sql").read_text(),
+            name="require_runtime_principal",
+            schema="data",
+            source="runtime archive capability:forward",
+            grants=tuple(
+                (role, "EXECUTE", False)
+                for role in (
+                    "corpus_sem_writer",
+                    "corpus_sem_reader",
+                    "corpus_sem_evaluator",
+                    "corpus_sem_admitter",
+                )
+            ),
+        )
+    )
     # The SQL correctness overload resolves this dependency at CREATE time.
     definitions.append(
         _task_call_definition(

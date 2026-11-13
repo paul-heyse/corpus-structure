@@ -154,7 +154,8 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
     from .archive_transport import archive_tables
 
     rows: dict[str, list[dict[str, Any]]] = {
-        relation.name: [] for relation in archive_tables()
+        relation.name: []
+        for relation in archive_tables()
         if relation.info["archive_role"] == "projection"
     }
     properties: dict[str, str] = {}
@@ -465,7 +466,9 @@ def persist_release(
             for relation in archive_tables():
                 write = archive_write_profile(relation, prepared.release_id)
                 copy_arrow_stream(
-                    conn, write, target=("pg_temp", scratch_name(relation)),
+                    conn,
+                    write,
+                    target=("pg_temp", scratch_name(relation)),
                     batches=(archive_batch(relation, write, relations[relation.name]),),
                 )
             archived = publish_release_archive(conn, release_id=release_id)

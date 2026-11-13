@@ -97,8 +97,11 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
         if sources is None:
             captured = original_support_reference_schema()
         else:
-            values = [source.content for source in sources
-                      if source.name == ORIGINAL_SUPPORT_REFERENCE_SCHEMA]
+            values = [
+                source.content
+                for source in sources
+                if source.name == ORIGINAL_SUPPORT_REFERENCE_SCHEMA
+            ]
             if len(values) != 1:
                 raise ValueError("original document references require their captured union schema")
             captured = values[0]

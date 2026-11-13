@@ -23,8 +23,15 @@ from .test_releases import source_bundle
 def test_archive_bytea_stays_binary_and_json_fields_lower_owned_tuples_without_mutation():
     relation = table("sem.input")
     profile = archive_write_profile(relation, "release:binary")
-    rows = [{"release_id": "release:binary", "input_kind": "source", "input_name": "a",
-             "content": memoryview(b"\x00\xff"), "content_digest": "digest"}]
+    rows = [
+        {
+            "release_id": "release:binary",
+            "input_kind": "source",
+            "input_name": "a",
+            "content": memoryview(b"\x00\xff"),
+            "content_digest": "digest",
+        }
+    ]
     batch = archive_batch(relation, profile, rows)
     assert batch.column("content").to_pylist() == [b"\x00\xff"]
     assert pa.types.is_binary(batch.schema.field("content").type)
@@ -34,8 +41,12 @@ def test_archive_bytea_stays_binary_and_json_fields_lower_owned_tuples_without_m
     relation = table("sem.property_applicability")
     profile = archive_write_profile(relation, "release:binary")
     row: dict[str, Any] = {column.name: None for column in relation.columns}
-    row.update(release_id="release:binary", class_id="class", property_id="property",
-               constraints={"patterns": ("^a", "z$"), "nested": ({"choices": ()},)})
+    row.update(
+        release_id="release:binary",
+        class_id="class",
+        property_id="property",
+        constraints={"patterns": ("^a", "z$"), "nested": ({"choices": ()},)},
+    )
     batch = archive_batch(relation, profile, [row])
     assert batch.column("constraints").to_pylist() == [
         '{"patterns":["^a","z$"],"nested":[{"choices":[]}]}'

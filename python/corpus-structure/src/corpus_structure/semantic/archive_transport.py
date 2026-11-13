@@ -25,9 +25,11 @@ def archive_tables() -> tuple[Table, ...]:
         key=lambda t: t.fullname,
     )
     roles = [t.info["archive_role"] for t in selected]
-    if any(t.schema != "sem" or not t.primary_key.columns for t in selected) or any(
-        roles.count(role) != 1 for role in ("header", "input", "artifact")
-    ) or any(role not in {"header", "input", "artifact", "projection"} for role in roles):
+    if (
+        any(t.schema != "sem" or not t.primary_key.columns for t in selected)
+        or any(roles.count(role) != 1 for role in ("header", "input", "artifact"))
+        or any(role not in {"header", "input", "artifact", "projection"} for role in roles)
+    ):
         raise ValueError("invalid trusted release archive relation declaration")
     return tuple(sort_tables(selected))
 
@@ -77,8 +79,12 @@ def archive_batch(
         for column, values in zip(relation.columns, columns, strict=True):
             value = row[column.name]
             if isinstance(column.type, JSONB):
-                value = None if value is None else json.dumps(
-                    value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+                value = (
+                    None
+                    if value is None
+                    else json.dumps(
+                        value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+                    )
                 )
             elif isinstance(column.type, BYTEA) and isinstance(value, memoryview):
                 value = bytes(value)

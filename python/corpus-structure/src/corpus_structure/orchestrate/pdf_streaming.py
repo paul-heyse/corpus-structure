@@ -144,9 +144,10 @@ def run_private_pdf_build(
 
     cancellation = cancellation or BorrowerCancellation()
     with (
-            maintained_claims(engine, [claim], holder)
-            if owned_check is None else nullcontext(owned_check)
-        ) as check_claim_active:
+        maintained_claims(engine, [claim], holder)
+        if owned_check is None
+        else nullcontext(owned_check)
+    ) as check_claim_active:
 
         def check_active():
             cancellation.check_active()
@@ -261,7 +262,8 @@ def run_private_native_pdf_build(
         worker = PdfWorker(recipe, assets=assets)
         with (
             maintained_claims(engine, [claim], holder)
-            if owned_check is None else nullcontext(owned_check)
+            if owned_check is None
+            else nullcontext(owned_check)
         ) as check_claim_active:
 
             def check_active():
@@ -555,9 +557,10 @@ def replay_private_pdf_build(
     if build.task_id != claim.task_id or build.release_id != claim.release_id:
         raise ValueError("private PDF replay task/release differs from original build")
     with (
-            maintained_claims(engine, [claim], holder)
-            if owned_check is None else nullcontext(owned_check)
-        ) as check_claim_active:
+        maintained_claims(engine, [claim], holder)
+        if owned_check is None
+        else nullcontext(owned_check)
+    ) as check_claim_active:
 
         def check_active():
             cancellation.check_active()

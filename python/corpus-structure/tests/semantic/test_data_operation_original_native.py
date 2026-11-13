@@ -284,61 +284,105 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         persist_release(connection, bundle, dependencies, profile, prepared)
         admit_data_operation_release(connection, prepared)
         persist_runtime_binding(connection, prepared, runtime)
-        document = connection.execute(text(
-            "SELECT d.id,d.key,d.content_hash FROM kb.source_view view "
-            "JOIN kb.document d ON d.id=view.document_id WHERE view.id=:view"
-        ), {"view": private_source.view}).one()
+        document = connection.execute(
+            text(
+                "SELECT d.id,d.key,d.content_hash FROM kb.source_view view "
+                "JOIN kb.document d ON d.id=view.document_id WHERE view.id=:view"
+            ),
+            {"view": private_source.view},
+        ).one()
         acquired = acquire_original_document_selection(
-            connection, project_id=private_source.project_id, document_key=document.key,
+            connection,
+            project_id=private_source.project_id,
+            document_key=document.key,
         )
         intent = freeze_demand(
-            model, roots=(acquired.root,), targets=("urn:original-fact-test:consume",),
-            inference="inference:original-pdf", execution_profile="execution:original-pdf",
+            model,
+            roots=(acquired.root,),
+            targets=("urn:original-fact-test:consume",),
+            inference="inference:original-pdf",
+            execution_profile="execution:original-pdf",
             original_sources=(acquired.selection(),),
         )
         storage = DataOperationStorage(connection)
         planner = DemandPlanner(model, storage)
-        demand = planner.register(intent, project=private_source.project_id,
-                                  release=prepared.release_id, runtime=runtime.runtime_id)
+        demand = planner.register(
+            intent,
+            project=private_source.project_id,
+            release=prepared.release_id,
+            runtime=runtime.runtime_id,
+        )
         snapshot = storage.invoke("read_demand_result", demand)
         assert len(snapshot["original_source_admissions"]) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         (ready,) = planner.ready(snapshot, authorization=b"{}")
-        claim = storage.invoke("claim_data_request", {
-            "request_id": json.loads(ready.native)["request_id"],
-            "holder": "raw-pdf-owner", "lease_seconds": 30,
-        })
-        original = connection.scalar(text(
-            "SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"
-        ), {"digest": document.content_hash})
+        claim = storage.invoke(
+            "claim_data_request",
+            {
+                "request_id": json.loads(ready.native)["request_id"],
+                "holder": "raw-pdf-owner",
+                "lease_seconds": 30,
+            },
+        )
+        original = connection.scalar(
+            text("SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"),
+            {"digest": document.content_hash},
+        )
         recipe = b'{"recipe":"runless-stage-context-control"}'
-        assert store_pdf_original(
-            connection, task_id=claim["task_id"], attempt=claim["attempt"], holder=claim["holder"],
-            original=original, recipe_bytes=recipe,
-        ) == document.content_hash
+        assert (
+            store_pdf_original(
+                connection,
+                task_id=claim["task_id"],
+                attempt=claim["attempt"],
+                holder=claim["holder"],
+                original=original,
+                recipe_bytes=recipe,
+            )
+            == document.content_hash
+        )
         build = begin_pdf_build(
-            connection, task_id=claim["task_id"], attempt=claim["attempt"], holder=claim["holder"],
-            source_digest=document.content_hash, recipe_digest=sha256(recipe).hexdigest(),
-            schema_digest=sha256(native_schema_bytes()).hexdigest(), replay_key="actual-ddo-build",
+            connection,
+            task_id=claim["task_id"],
+            attempt=claim["attempt"],
+            holder=claim["holder"],
+            source_digest=document.content_hash,
+            recipe_digest=sha256(recipe).hexdigest(),
+            schema_digest=sha256(native_schema_bytes()).hexdigest(),
+            replay_key="actual-ddo-build",
         )
         assert build.task_id == claim["task_id"] and build.release_id == prepared.release_id
-        context = connection.execute(text("SELECT * FROM ops.pdf_task_context(:task)"), {
-            "task": claim["task_id"],
-        }).mappings().one()
+        context = (
+            connection.execute(
+                text("SELECT * FROM ops.pdf_task_context(:task)"),
+                {
+                    "task": claim["task_id"],
+                },
+            )
+            .mappings()
+            .one()
+        )
         assert context["run_id"] is None
         assert context["request_id"] == claim["request_id"]
         assert context["generation"] == claim["generation"]
         assert context["document_id"] == document.id
-        assert connection.scalar(
-            text("SELECT run_id FROM ops.pdf_stage_build WHERE build_id=:build"), {
-            "build": build.build_id,
-        }) is None
+        assert (
+            connection.scalar(
+                text("SELECT run_id FROM ops.pdf_stage_build WHERE build_id=:build"),
+                {
+                    "build": build.build_id,
+                },
+            )
+            is None
+        )
         with connection.begin_nested() as savepoint:
             with pytest.raises(DBAPIError, match="stale private"):
                 begin_pdf_build(
-                    connection, task_id=claim["task_id"], attempt=claim["attempt"],
+                    connection,
+                    task_id=claim["task_id"],
+                    attempt=claim["attempt"],
                     holder="forged-owner",
-                    source_digest=document.content_hash, recipe_digest=sha256(recipe).hexdigest(),
+                    source_digest=document.content_hash,
+                    recipe_digest=sha256(recipe).hexdigest(),
                     schema_digest=sha256(native_schema_bytes()).hexdigest(),
                     replay_key="forged-build",
                 )

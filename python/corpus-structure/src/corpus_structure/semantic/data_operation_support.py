@@ -122,6 +122,7 @@ def original_source_reference_schema() -> bytes:
 
 ORIGINAL_SUPPORT_REFERENCE_SCHEMA = "native/data-operation-original-support-reference.json"
 
+
 def original_support_reference_schema() -> bytes:
     from jsonschema import Draft7Validator
 

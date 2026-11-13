@@ -78,7 +78,6 @@ class PublishedPdfDocumentRef:
         return self.logical_digest
 
 
-
 @dataclass(frozen=True, slots=True)
 class PdfExecutionReceipt:
     """Actual sealed publisher, distinct from a later completion's admitting claim."""
@@ -88,10 +87,13 @@ class PdfExecutionReceipt:
     publisher_holder: str
 
     def __post_init__(self) -> None:
-        if (type(self.publisher_attempt) is not int or self.publisher_attempt < 1
-            or type(self.publisher_holder) is not str or not self.publisher_holder):
+        if (
+            type(self.publisher_attempt) is not int
+            or self.publisher_attempt < 1
+            or type(self.publisher_holder) is not str
+            or not self.publisher_holder
+        ):
             raise ValueError("PDF execution receipt requires its actual sealed publisher fence")
-
 
 
 def _published(row: Mapping[str, Any]) -> PublishedPdfDocumentRef:
@@ -989,12 +991,20 @@ def inspect_pdf_build(
 
 
 def inspect_pdf_execution_receipt(
-    conn: Connection, publication: PublishedPdfDocumentRef, *, attempt: int, holder: str,
+    conn: Connection,
+    publication: PublishedPdfDocumentRef,
+    *,
+    attempt: int,
+    holder: str,
     replay_key: str = "product:native",
 ) -> PdfExecutionReceipt:
     """Authenticate current adoption while retaining the immutable original sealed publisher."""
     state = inspect_pdf_build(
-        conn, task_id=publication.task_id, attempt=attempt, holder=holder, replay_key=replay_key,
+        conn,
+        task_id=publication.task_id,
+        attempt=attempt,
+        holder=holder,
+        replay_key=replay_key,
     )
     if state is None or state.published != publication:
         raise ValueError("PDF execution receipt differs from authenticated sealed build")
