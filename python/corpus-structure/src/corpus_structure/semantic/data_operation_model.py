@@ -10,6 +10,11 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Literal
 
+from .data_operation_support import (
+    ComputationalSupportReference,
+    OriginalSourceSupportReference,
+    SupportReference,
+)
 from .identity import canonical_bytes
 
 MODEL_VERSION = "data-operation-model-v2"
@@ -64,9 +69,12 @@ class InputSupport:
     coverage: str
     authorization: tuple[str, ...] = ()
     closure: tuple[str, ...] = ()
-    identity_requirements: tuple[Literal["episode", "provider", "alternative"], ...] = ()
+    identity_requirements: tuple[
+        Literal["episode", "provider", "alternative", "original-source"], ...
+    ] = ()
     source_set: str | None = None
     source_reference_field: str | None = None
+    origins: tuple[Literal["computation", "original-source"], ...] = ("computation",)
 
 
 @dataclass(frozen=True)
@@ -85,7 +93,7 @@ class OperationRole:
     subject_field: str | None = None
 
 
-def operation_role_record(role: OperationRole) -> dict:
+def operation_role_record(role: OperationRole, *, result_only: bool = False) -> dict:
     """Export absent subject association under its original archived meaning."""
     record = asdict(role)
     if role.subject_field is None:
@@ -95,6 +103,8 @@ def operation_role_record(role: OperationRole) -> dict:
         for name in ("source_set", "source_reference_field"):
             if support[name] is None:
                 support.pop(name)
+        if result_only or role.support.origins == ("computation",):
+            support.pop("origins")
         record["support"] = support
     return record
 
@@ -295,7 +305,7 @@ class EffectiveOperation:
                 "profile": self.profile,
                 "subject": self.subject,
                 "context": self.context,
-                "roles": [operation_role_record(role) for role in self.roles],
+                "roles": [operation_role_record(role, result_only=True) for role in self.roles],
                 "invariants": self.invariants,
                 "coverage": self.coverage,
                 "outcomes": self.outcomes,
@@ -318,6 +328,11 @@ class EffectiveOperation:
                 "operation": self.semantic_id,
                 "applicability": self.applicability,
                 "binding": self.binding,
+                **({"support_origins": {
+                    role.name: role.support.origins for role in self.roles
+                    if role.support is not None and role.support.origins != ("computation",)
+                }} if any(role.support is not None and role.support.origins != ("computation",)
+                          for role in self.roles) else {}),
             }
         )
 
@@ -326,6 +341,7 @@ class EffectiveOperation:
         return canonical_bytes(
             {
                 **json.loads(self.recipe),
+                "roles": [operation_role_record(role) for role in self.roles],
                 "applicability": self.applicability,
                 **(
                     {"potential_dependencies": self.potential_dependencies}
@@ -425,6 +441,25 @@ class BoundRoleMember:
     member: str | None = None
     provider_identity: str | None = None
     alternative_identity: str | None = None
+    support_references: tuple[SupportReference, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.support_references and self.support_episodes:
+            evidence = json.loads(self.support_evidence)
+            use_id = evidence.get("use_id") if isinstance(evidence, dict) else None
+            object.__setattr__(self, "support_references", tuple(
+                ComputationalSupportReference(derivation_id=episode,
+                    admission_use_id=use_id if len(self.support_episodes) == 1 else None)
+                for episode in self.support_episodes
+            ))
+        computed = tuple(reference.derivation_id for reference in self.support_references
+                         if isinstance(reference, ComputationalSupportReference))
+        if computed != self.support_episodes or any(not isinstance(reference, (
+            ComputationalSupportReference, OriginalSourceSupportReference,
+        )) for reference in self.support_references):
+            raise ValueError(
+                "support episodes must be exactly the computational support projection"
+            )
 
 
 @dataclass(frozen=True)
@@ -489,7 +524,10 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
             if cls is InputSupport and isinstance(value, dict):
                 if archived_v1 and ("source_set" in value or "source_reference_field" in value):
                     raise ValueError("v1 support cannot declare a source set")
-                value = {"source_set": None, "source_reference_field": None, **value}
+                if archived_v1 and "origins" in value:
+                    raise ValueError("v1 support cannot declare origin eligibility")
+                value = {"source_set": None, "source_reference_field": None,
+                         "origins": ["computation"], **value}
             if cls is OperationRole and isinstance(value, dict):
                 if archived_v1 and "subject_field" in value:
                     raise ValueError("v1 role cannot declare a subject association")

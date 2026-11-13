@@ -50,6 +50,7 @@ class DataOperationInputs(BaseModel):
     dependencies: tuple[NamedInput, ...] = ()
     python: PythonInputs | None = None
     consumer_bindings: bool = False
+    source_bindings: bool = False
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,10 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
                 SourceArtifact("data_operation_consumer_target", wrapper),
             ),
         )
+    if declared.source_bindings:
+        from .source_products import source_product_inputs
+
+        bundle = source_product_inputs(bundle)
     python = declared.python
     sources = (
         None

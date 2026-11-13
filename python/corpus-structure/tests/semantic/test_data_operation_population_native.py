@@ -275,7 +275,8 @@ def discover(kernel, *, complete=True, ambiguous=False):
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         products = storage.invoke(
-            "read_demand_result", {"demand_id": demand["demand_id"], "view": "products"},
+            "read_demand_result",
+            {"demand_id": demand["demand_id"], "view": "products"},
         )
         product = next(use["products"][0] for use in products["uses"] if use["products"])
         parent = storage.invoke(

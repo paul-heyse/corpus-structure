@@ -59,9 +59,16 @@ class ClaimSettlementUncertain(OperationConflict):
 class ClaimFenceLost(OperationConflict):
     """One native request lost its publication fence; independent claims remain useful."""
 
-    def __init__(self, claim: OwnedClaim, reason: Literal[
-        "fence", "cancelled", "revoked", "support-unavailable",
-    ]):
+    def __init__(
+        self,
+        claim: OwnedClaim,
+        reason: Literal[
+            "fence",
+            "cancelled",
+            "revoked",
+            "support-unavailable",
+        ],
+    ):
         self.claim, self.reason = claim, reason
         super().__init__(
             f"claim fence lost for task {claim.task_id}, attempt {claim.attempt}: {reason}"
@@ -290,11 +297,18 @@ def maintained_claims(
                     if retry_of is not None:
                         with owner.lock, conn.begin():
                             phase = DatabasePhase.EXECUTING
-                            _deadlines(conn, database,
-                                statement_timeout_seconds=database.renewal_statement_timeout_seconds)
-                            if not _leases_cover_retry(conn, active, timedelta(
-                                seconds=database.renewal_statement_timeout_seconds * len(active)
-                            )):
+                            _deadlines(
+                                conn,
+                                database,
+                                statement_timeout_seconds=database.renewal_statement_timeout_seconds,
+                            )
+                            if not _leases_cover_retry(
+                                conn,
+                                active,
+                                timedelta(
+                                    seconds=database.renewal_statement_timeout_seconds * len(active)
+                                ),
+                            ):
                                 raise retry_of
                     for claim in active:
                         key = (claim.task_id, claim.attempt, holder)
@@ -307,16 +321,23 @@ def maintained_claims(
                                 with conn.begin():
                                     phase = DatabasePhase.EXECUTING
                                     effects = EffectKnowledge.UNCERTAIN
-                                    _deadlines(conn, database,
-                                        statement_timeout_seconds=database.renewal_statement_timeout_seconds)
+                                    _deadlines(
+                                        conn,
+                                        database,
+                                        statement_timeout_seconds=database.renewal_statement_timeout_seconds,
+                                    )
                                     cancellation.check_active()
                                     if renew_owned_claim is not None:
                                         renew_owned_claim(conn, claim)
                                     else:
                                         from ._operation_calls import TaskAttempt, TaskId
 
-                                        renew_claim(conn, task_id=TaskId(claim.task_id),
-                                            attempt=TaskAttempt(claim.attempt), holder=holder)
+                                        renew_claim(
+                                            conn,
+                                            task_id=TaskId(claim.task_id),
+                                            attempt=TaskAttempt(claim.attempt),
+                                            holder=holder,
+                                        )
                                     cancellation.check_active()
                                     phase = DatabasePhase.COMMITTING
                                 effects = EffectKnowledge.COMMITTED

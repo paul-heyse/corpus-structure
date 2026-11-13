@@ -153,6 +153,10 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         part.strip() + "." for part in text.split(".") if part.strip()
     ]
     assert product.value.outcome == "complete"
+    assert all(
+        set(packet) == {"member_id", "kind_contract", "context", "body"}
+        for packet in json.loads(product.content)["members"]
+    )
     assert product.execution_receipts
     receipts = [json.loads(receipt) for receipt in product.execution_receipts]
     assert all(
@@ -259,3 +263,14 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
     monkeypatch.setattr(SentenceEvidenceOperation, "run", lambda *_: None)
     with pytest.raises(PortRefusal, match="loaded sentence endpoint"):
         port.invoke_python((value,))
+
+
+def test_sentence_members_derive_from_actual_nominal_body_graph(profile):
+    from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
+
+    container = profile.prepared.index.definitions["DdoSentenceInventory"].iri
+    expected = {
+        profile.prepared.index.definitions[name].iri
+        for name in ("DdoNativeToken", "DdoNativeSentence")
+    }
+    assert set(derive_member_kinds(profile.model, container)) == expected
