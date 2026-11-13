@@ -149,6 +149,7 @@ def implementation(code, entry="run", inputs=("item",)):
     captured = ClosedPythonSources(sources(code))
     target = "example." + entry
     function = captured.resolve(target)
+    assert isinstance(function, griffe.Function)
     return captured.implementation_slice(target, (captured._surface(target, function),), (), inputs)
 
 

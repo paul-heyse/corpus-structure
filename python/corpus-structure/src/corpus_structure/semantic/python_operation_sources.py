@@ -1328,7 +1328,7 @@ class ClosedPythonSources:
                 },
             }
 
-            def annotated_value(annotation):
+            def annotated_value(annotation) -> tuple[str, tuple[str, ...]]:
                 """Nominal data provenance, distinct from class/function objects."""
                 if annotation is None:
                     return "unknown", ()
