@@ -890,13 +890,19 @@ def test_publication_identity_requires_context_and_distinguishes_authority_scope
 
 def test_prepared_family_completion_preserves_declared_success_outcome(profile):
     from dataclasses import replace
-    from corpus_structure.semantic.data_operation_model import StateTransition
-    source = selected(profile, 'Quantity: 2 kg')
-    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
-    original = admitted_port(profile)
-    declared = replace(original.operation, outcomes=('produced', 'failed'),
-        transitions=(StateTransition('completion', 'pending', 'success', 'produced'),))
-    completion = replace(original, operation=declared)._completion(product)
-    assert completion.outcome == 'produced'
-    assert completion.outputs[0].content == product.content
 
+    from corpus_structure.semantic.data_operation_model import StateTransition
+
+    source = selected(profile, "Quantity: 2 kg")
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
+    original = admitted_port(profile)
+    declared = replace(
+        original.operation,
+        outcomes=("produced", "failed"),
+        transitions=(StateTransition("completion", "pending", "success", "produced"),),
+    )
+    completion = replace(original, operation=declared)._completion(product)
+    assert completion.outcome == "produced"
+    assert completion.outputs[0].content == product.content

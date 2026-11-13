@@ -1067,7 +1067,8 @@ class PreparedSentencePort:
             execution_evidence=canonical_bytes(
                 [json.loads(receipt) for receipt in product.execution_receipts]
             ),
-        outcome = successful_return_outcome(self.operation))
+            outcome=successful_return_outcome(self.operation),
+        )
 
     @property
     def native_selections(self):

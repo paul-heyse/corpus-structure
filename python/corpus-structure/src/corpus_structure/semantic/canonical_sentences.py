@@ -327,7 +327,8 @@ class PreparedCanonicalPort:
                     project_product_members(self.profile.model, output.kind, typed),
                 ),
             ),
-        outcome = successful_return_outcome(self.operation))
+            outcome=successful_return_outcome(self.operation),
+        )
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
         from corpus_structure.methods.canonical_sentences import CanonicalSentenceProjection

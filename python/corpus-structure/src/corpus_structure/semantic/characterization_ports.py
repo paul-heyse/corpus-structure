@@ -27,13 +27,13 @@ from .construction_products import (
 )
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
+from .data_operation_outcomes import successful_return_outcome
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
     RetainedCharacterizationProduct,
     compose_enriched_document,
 )
 from .formal_products import FormalEvidenceProduct, _semantic_nodes, validate_formal_product
-from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
 from .sentence_products import SentenceInventory
@@ -599,7 +599,8 @@ class PreparedCharacterizationPort(ABC):
                     project_product_members(self.model, output.kind, value),
                 ),
             ),
-        outcome = successful_return_outcome(self.operation))
+            outcome=successful_return_outcome(self.operation),
+        )
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
         self._verify()
