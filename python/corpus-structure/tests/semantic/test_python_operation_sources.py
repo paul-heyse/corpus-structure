@@ -1,12 +1,15 @@
 """Selected generated interfaces remain source-closed and faithful to callable custody."""
 
-from dataclasses import replace
 import json
+from dataclasses import replace
 
+import griffe
 import pytest
 
 from corpus_structure.semantic.python_operation_sources import (
-    ClosedPythonSources, PythonSource, PythonSourceCollection,
+    ClosedPythonSources,
+    PythonSource,
+    PythonSourceCollection,
 )
 from corpus_structure.semantic.types import PreparationError
 
@@ -45,13 +48,29 @@ class Item:
 
 
 def test_generated_dataclass_uses_supplied_cross_module_inheritance():
-    captured = ClosedPythonSources(PythonSourceCollection((
-        PythonSource("pkg.child", b"from dataclasses import dataclass\nfrom .base import Base\n@dataclass\nclass Child(Base):\n    extra: str = 'ok'\n", "pkg/child.py"),
-        PythonSource("pkg.base", b"from dataclasses import dataclass\n@dataclass\nclass Base:\n    value: int\n", "pkg/base.py"),
-    ), generated_interfaces=("dataclasses",)))
+    captured = ClosedPythonSources(
+        PythonSourceCollection(
+            (
+                PythonSource(
+                    "pkg.child",
+                    b"from dataclasses import dataclass\nfrom .base import Base\n"
+                    b"@dataclass\nclass Child(Base):\n    extra: str = 'ok'\n",
+                    "pkg/child.py",
+                ),
+                PythonSource(
+                    "pkg.base",
+                    b"from dataclasses import dataclass\n@dataclass\nclass Base:\n    value: int\n",
+                    "pkg/base.py",
+                ),
+            ),
+            generated_interfaces=("dataclasses",),
+        )
+    )
     facts = captured.kind_facts("pkg.child.Child")
     assert [p["name"] for p in facts["constructor"]["parameters"]] == ["self", "value", "extra"]
-    assert next(f for f in facts["fields"] if f["name"] == "value")["owner"] == "pkg.base.Base.value"
+    assert (
+        next(f for f in facts["fields"] if f["name"] == "value")["owner"] == "pkg.base.Base.value"
+    )
 
 
 def test_typeddict_expansion_preserves_fields_and_original_kwargs_signature():
@@ -66,20 +85,42 @@ def run(**kwargs: Unpack[Options]) -> int:
     facts = captured.kind_facts("example.Options")
     assert [f["name"] for f in facts["fields"]] == ["label", "value"]
     generated = facts["constructor"]["parameters"]
-    assert [(p["name"], p["default"]) for p in generated] == [("self", None), ("value", None), ("label", "...")]
-    actual = captured._surface("example.run", captured.resolve("example.run"))
+    assert [(p["name"], p["default"]) for p in generated] == [
+        ("self", None),
+        ("value", None),
+        ("label", "..."),
+    ]
+    function = captured.resolve("example.run")
+    assert isinstance(function, griffe.Function)
+    actual = captured._surface("example.run", function)
     assert [(p.name, p.kind) for p in actual.parameters] == [("kwargs", "variadic keyword")]
     expanded = captured.boundary_surfaces["example.run"]
-    assert [(p.name, p.kind) for p in expanded.parameters] == [("value", "keyword-only"), ("label", "keyword-only")]
+    assert [(p.name, p.kind) for p in expanded.parameters] == [
+        ("value", "keyword-only"),
+        ("label", "keyword-only"),
+    ]
     implemented = captured.implementation_slice("example.run", (actual,), (), ())
     boundary = next(n for n in implemented.nodes if n.category == "modeled_unpack_boundary")
     assert [p["name"] for p in json.loads(boundary.payload)["parameters"]] == ["value", "label"]
 
 
 def test_generated_default_type_references_distinguish_same_spelled_names():
-    base = sources("from dataclasses import dataclass\nfrom first import Value\n@dataclass\nclass Item:\n    value: Value\n", "dataclasses")
+    base = sources(
+        "from dataclasses import dataclass\nfrom first import Value\n"
+        "@dataclass\nclass Item:\n    value: Value\n",
+        "dataclasses",
+    )
     first = ClosedPythonSources(base).kind_facts("example.Item")["constructor"]
-    second = ClosedPythonSources(replace(base, sources=(replace(base.sources[0], content=base.sources[0].content.replace(b"first", b"second")),))).kind_facts("example.Item")["constructor"]
+    second = ClosedPythonSources(
+        replace(
+            base,
+            sources=(
+                replace(
+                    base.sources[0], content=base.sources[0].content.replace(b"first", b"second")
+                ),
+            ),
+        )
+    ).kind_facts("example.Item")["constructor"]
     assert first["parameters"][1]["annotation"]["reference"] == "first.Value"
     assert second["parameters"][1]["annotation"]["reference"] == "second.Value"
 
@@ -91,7 +132,13 @@ def test_unadmitted_generated_profile_refuses(profiles):
 
 
 def test_dataclass_disabled_init_does_not_export_griffe_empty_constructor_as_runtime_fact():
-    captured = ClosedPythonSources(sources("from dataclasses import dataclass\n@dataclass(init=False)\nclass Item:\n    value: int\n", "dataclasses"))
+    captured = ClosedPythonSources(
+        sources(
+            "from dataclasses import dataclass\n@dataclass(init=False)\n"
+            "class Item:\n    value: int\n",
+            "dataclasses",
+        )
+    )
     facts = captured.kind_facts("example.Item")
     assert facts["constructor"] is None
     assert not facts["complete"]

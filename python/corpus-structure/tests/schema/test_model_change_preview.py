@@ -206,7 +206,8 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         checked.append((source.database.url, target, predecessor))
         return (
             source_identity
-            if source.database.url == settings.database.url else destination_identity,
+            if source.database.url == settings.database.url
+            else destination_identity,
             None,
         )
 

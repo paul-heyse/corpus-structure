@@ -209,13 +209,19 @@ class ClosedPythonSources:
         if inputs.stub_policy != "source-authoritative":
             _fail("python/stub_policy", "unsupported source/stub policy")
         selected = inputs.generated_interfaces
-        if len(selected) != len(set(selected)) or set(selected) - {"dataclasses", "unpack-typeddict"}:
-            _fail("python/generated_interfaces", "unsupported or duplicate generated interface profile")
+        if len(selected) != len(set(selected)) or set(selected) - {
+            "dataclasses",
+            "unpack-typeddict",
+        }:
+            _fail(
+                "python/generated_interfaces",
+                "unsupported or duplicate generated interface profile",
+            )
         self.inputs = inputs
         self.generated: dict[str, griffe.Function] = {}
         self.generated_unknowns: dict[str, str] = {}
         self.boundary_surfaces: dict[str, CallableSurface] = {}
-        self.source_fields: dict[str, dict[str, griffe.Object]] = {}
+        self.source_fields: dict[str, dict[str, griffe.Object | griffe.Alias]] = {}
         self.binding_manager = _ClosedAstroidManager()
         self.binding_builder = _ClosedAstroidBuilder(self.binding_manager, apply_transforms=False)
         contract_names = [item.name for item in inputs.boundary_contracts]
@@ -347,29 +353,34 @@ class ClosedPythonSources:
                     extensions.call("on_function", func=func, loader=None)
                     if tuple(func.parameters) != tuple(original_parameters):
                         self.boundary_surfaces[func.path] = self._surface(func.path, func)
-                except (KeyError, griffe.AliasResolutionError):
+                except KeyError, griffe.AliasResolutionError:
                     _fail(func.path, "Unpack boundary requires a supplied resolved TypedDict")
                 finally:
                     func.parameters = original_parameters
                     func.docstring = original_docstring
         for cls in classes:
             init = cls.members.get("__init__")
-            if isinstance(init, griffe.Function) and init.path not in self.definitions:
-                # Griffe 2.4.1 synthesizes an empty constructor for init=False.
-                # This is not Python's inherited constructor: refuse that model.
-                if any(
+            # Griffe 2.4.1 models init=False incorrectly; retain an explicit unknown.
+            if (
+                isinstance(init, griffe.Function)
+                and init.path not in self.definitions
+                and any(
                     isinstance(decorator.value, griffe.ExprCall)
                     and decorator.value.canonical_path == "dataclasses.dataclass"
                     and any(
                         isinstance(argument, griffe.ExprKeyword)
-                        and argument.name == "init" and str(argument.value) == "False"
+                        and argument.name == "init"
+                        and str(argument.value) == "False"
                         for argument in decorator.value.arguments
                     )
                     for decorator in cls.decorators
-                ):
-                    cls.del_member("__init__")
-                    self.generated_unknowns[cls.path] = "selected dataclass constructor model does not support init=False"
-                    continue
+                )
+            ):
+                cls.del_member("__init__")
+                self.generated_unknowns[cls.path] = (
+                    "selected dataclass constructor model does not support init=False"
+                )
+                continue
             if isinstance(init, griffe.Function) and init.path not in self.definitions:
                 self.generated[init.path] = init
 
@@ -599,7 +610,8 @@ class ClosedPythonSources:
         for cls in lineage:
             fields = (
                 self.source_fields.get(cls.path, cls.members)
-                if "typed-dict" in cls.labels else cls.members
+                if "typed-dict" in cls.labels
+                else cls.members
             )
             for name, member in sorted(fields.items()):
                 if name in seen_members:
@@ -634,11 +646,15 @@ class ClosedPythonSources:
                         "annotation": str(actual.annotation) if actual.annotation else None,
                         "default": str(actual.value) if actual.value is not None else None,
                         "owner": actual.path,
-                        **({
-                            "annotation_expression": self._expression(actual.annotation),
-                            "default_expression": self._expression(actual.value),
-                            "labels": sorted(actual.labels),
-                        } if self.inputs.generated_interfaces else {}),
+                        **(
+                            {
+                                "annotation_expression": self._expression(actual.annotation),
+                                "default_expression": self._expression(actual.value),
+                                "labels": sorted(actual.labels),
+                            }
+                            if self.inputs.generated_interfaces
+                            else {}
+                        ),
                     }
         kind_surfaces = tuple(
             self._surface(cls.path + "." + name, member)
@@ -658,10 +674,14 @@ class ClosedPythonSources:
         )
         generated = {}
         if reference in self.generated_unknowns:
-            unknowns.append({
-                "source": reference, "location": reference,
-                "reason": self.generated_unknowns[reference], "required": True,
-            })
+            unknowns.append(
+                {
+                    "source": reference,
+                    "location": reference,
+                    "reason": self.generated_unknowns[reference],
+                    "required": True,
+                }
+            )
         if self.inputs.generated_interfaces:
             constructor = next(
                 (cls.members["__init__"] for cls in lineage if "__init__" in cls.members), None
@@ -940,12 +960,21 @@ class ClosedPythonSources:
             visited.add(path)
             if path in self.generated:
                 nodes[node_id] = SemanticNode(
-                    node_id, "modeled_generated_callable", canonical_bytes(self._generated_record(self.generated[path]))
+                    node_id,
+                    "modeled_generated_callable",
+                    canonical_bytes(self._generated_record(self.generated[path])),
                 )
                 owner = path.rsplit(".", 1)[0]
                 todo.append(owner)
                 edges.add(SemanticEdge(node_id, "python:" + owner, "implementation_determinant"))
-                unknowns.add(SourceUnknown(path, path, "generated constructor runtime behavior requires an admitted analysis model"))
+                unknowns.add(
+                    SourceUnknown(
+                        path,
+                        path,
+                        "generated constructor runtime behavior requires "
+                        "an admitted analysis model",
+                    )
+                )
                 return
             if path not in self.definitions:
                 unknowns.add(SourceUnknown(path, path, "entrypoint body is not supplied"))
@@ -1271,10 +1300,19 @@ class ClosedPythonSources:
                 nodes[boundary_id] = SemanticNode(
                     boundary_id,
                     "modeled_unpack_boundary",
-                    canonical_bytes({"parameters": [
-                        {"name": p.name, "kind": p.kind, "annotation": p.annotation, "default": p.default}
-                        for p in expanded.parameters
-                    ]}),
+                    canonical_bytes(
+                        {
+                            "parameters": [
+                                {
+                                    "name": p.name,
+                                    "kind": p.kind,
+                                    "annotation": p.annotation,
+                                    "default": p.default,
+                                }
+                                for p in expanded.parameters
+                            ]
+                        }
+                    ),
                 )
                 edges.add(SemanticEdge(root, boundary_id, "implementation_determinant"))
 
@@ -1288,8 +1326,11 @@ class ClosedPythonSources:
                     "contract": self.inputs.interpretation,
                     "interpreter": self.inputs.interpreter,
                     "stub_policy": self.inputs.stub_policy,
-                    **({"generated_interfaces": sorted(self.inputs.generated_interfaces)}
-                       if self.inputs.generated_interfaces else {}),
+                    **(
+                        {"generated_interfaces": sorted(self.inputs.generated_interfaces)}
+                        if self.inputs.generated_interfaces
+                        else {}
+                    ),
                     "normalization": "python-cst-v1",
                     "binding_model": "astroid-structural-assignments-no-transforms-or-inference-v1",
                 }

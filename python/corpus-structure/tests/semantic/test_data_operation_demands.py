@@ -255,14 +255,30 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         "op:result", "subject:one", (), b"{}", "exact", b"{}", b"{}", "cpu"
     )
     original = BindingResult(
-        "op:result", "subject:one", (), "ready", (), b"{}", b"{}",
-        "data-operation-model-v2", "definition:one", "eligibility:one", (),
+        "op:result",
+        "subject:one",
+        (),
+        "ready",
+        (),
+        b"{}",
+        b"{}",
+        "data-operation-model-v2",
+        "definition:one",
+        "eligibility:one",
+        (),
     )
 
     def request():
         return ReadyDataRequest(
-            "obligation:one", "op:result", "subject:one", b"{}", b"{}",
-            canonical_bytes(native), b"{}", binding, original,
+            "obligation:one",
+            "op:result",
+            "subject:one",
+            b"{}",
+            b"{}",
+            canonical_bytes(native),
+            b"{}",
+            binding,
+            original,
         )
 
     if expected is None:

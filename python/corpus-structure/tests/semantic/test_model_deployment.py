@@ -139,7 +139,8 @@ def test_exact_native_deployment_resumes_before_separate_activation(
 
         native_base = (
             registered_base(versions.parent, starting_revision, predecessor)
-            if pending_base else None
+            if pending_base
+            else None
         )
         binding = Candidate(
             workspace=str(tmp_path),

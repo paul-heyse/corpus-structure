@@ -393,31 +393,64 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["parameters"] = {"prefix": {"value_type": "string", "default": "p"}}
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, "index: int, *, prefix: str = 'p'",
-        "return prefix + str(index)", metadata=metadata,
+        tmp_path,
+        monkeypatch,
+        "index: int, *, prefix: str = 'p'",
+        "return prefix + str(index)",
+        metadata=metadata,
     )
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     binding = BindingResult(
-        port.identity.operation, "subject:one", (), "ready", (),
-        canonical_bytes(semantic_value({"prefix": "selected:"})), b"{}", model.version,
-        port.identity.definition, port.identity.eligibility, (),
+        port.identity.operation,
+        "subject:one",
+        (),
+        "ready",
+        (),
+        canonical_bytes(semantic_value({"prefix": "selected:"})),
+        b"{}",
+        model.version,
+        port.identity.definition,
+        port.identity.eligibility,
+        (),
     )
     values = (PythonRoleValue("index", kind(model, "index"), 7),)
     resolved = binding.resolved(
         inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="cpu"
     )
     ready = ReadyDataRequest(
-        "obligation:one", binding.operation, binding.subject, b"{}", b"{}",
-        b'{"action":"compute","retained_intent_id":null}', b"{}", resolved, binding,
+        "obligation:one",
+        binding.operation,
+        binding.subject,
+        b"{}",
+        b"{}",
+        b'{"action":"compute","retained_intent_id":null}',
+        b"{}",
+        resolved,
+        binding,
     )
-    assert port.invoke_python(values, binding=ready.binding_result).outputs[0].value() == "selected:7"
+    assert (
+        port.invoke_python(values, binding=ready.binding_result).outputs[0].value() == "selected:7"
+    )
     with pytest.raises(ValueError, match="original binding"):
         replace(ready, binding_result=replace(binding, parameters=b"different"))
-    assert port.invoke_json((RoleValue("index", kind(model, "index"), b"7"),), binding=binding).outputs[0].value() == "selected:7"
+    assert (
+        port.invoke_json((RoleValue("index", kind(model, "index"), b"7"),), binding=binding)
+        .outputs[0]
+        .value()
+        == "selected:7"
+    )
     for altered in (replace(binding, definition="stale"), replace(binding, eligibility="stale")):
         with pytest.raises(PortRefusal, match="admitted contract"):
             port.invoke_python(values, binding=altered)
     with pytest.raises(ValueError, match="string"):
-        port.invoke_python(values, binding=replace(binding, parameters=canonical_bytes(semantic_value({"prefix": 3}))))
+        port.invoke_python(
+            values,
+            binding=replace(binding, parameters=canonical_bytes(semantic_value({"prefix": 3}))),
+        )
     with pytest.raises(PortRefusal, match="undeclared"):
-        port.invoke_python(values, binding=replace(binding, parameters=canonical_bytes(semantic_value({"unknown": "x"}))))
+        port.invoke_python(
+            values,
+            binding=replace(binding, parameters=canonical_bytes(semantic_value({"unknown": "x"}))),
+        )

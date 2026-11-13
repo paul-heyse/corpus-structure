@@ -154,8 +154,11 @@ def data_operation_dependencies(
             "interpretation": python_sources.interpretation,
             "stub_policy": python_sources.stub_policy,
             "boundary_contracts": contract_names,
-            **({"generated_interfaces": list(python_sources.generated_interfaces)}
-               if python_sources.generated_interfaces else {}),
+            **(
+                {"generated_interfaces": list(python_sources.generated_interfaces)}
+                if python_sources.generated_interfaces
+                else {}
+            ),
             "sources": [
                 {"module": s.module, "filename": s.filename, "stub": s.stub is not None}
                 for s in sources
@@ -232,10 +235,12 @@ def data_operations_from_dependencies(
         ):
             raise ValueError("invalid Python operation interpretation context")
         generated_interfaces = python.get("generated_interfaces", [])
-        if (not isinstance(generated_interfaces, list)
+        if (
+            not isinstance(generated_interfaces, list)
             or any(not isinstance(name, str) for name in generated_interfaces)
             or len(generated_interfaces) != len(set(generated_interfaces))
-            or set(generated_interfaces) - {"dataclasses", "unpack-typeddict"}):
+            or set(generated_interfaces) - {"dataclasses", "unpack-typeddict"}
+        ):
             raise ValueError("invalid Python generated interface profile")
         contracts = python["boundary_contracts"]
         if (

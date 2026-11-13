@@ -21,10 +21,12 @@ def _chain(tmp_path):
     for kind in ("UPGRADE", "STATE", "ADMISSION"):
         name, content = kind.lower() + ".txt", (kind + "\n").encode()
         (versions / name).write_bytes(content)
-        fields.extend((
-            f"NATIVE_{kind}_FILE={name!r}",
-            f"NATIVE_{kind}_SHA256={sha256(content).hexdigest()!r}",
-        ))
+        fields.extend(
+            (
+                f"NATIVE_{kind}_FILE={name!r}",
+                f"NATIVE_{kind}_SHA256={sha256(content).hexdigest()!r}",
+            )
+        )
     (versions / "next.py").write_text("\n".join(fields))
     return registered_base(tmp_path, "base", "next")
 
@@ -74,12 +76,16 @@ def test_author_successor_on_undeployed_base_rolls_back(semantic_database_at, na
         maintenance = make_url(native_settings.database.maintenance_url).set(
             database=engine.url.database
         )
-        settings = native_settings.model_copy(update={
-            "database": native_settings.database.model_copy(update={
-            "url": source.render_as_string(hide_password=False),
-            "maintenance_url": maintenance.render_as_string(hide_password=False),
-            })
-        })
+        settings = native_settings.model_copy(
+            update={
+                "database": native_settings.database.model_copy(
+                    update={
+                        "url": source.render_as_string(hide_password=False),
+                        "maintenance_url": maintenance.render_as_string(hide_password=False),
+                    }
+                )
+            }
+        )
         base = registered_base(migrations.ALEMBIC_DIR, predecessor, target)
         report, products = author_native_candidate(
             settings, None, None, expected_predecessor=target, native_base=base

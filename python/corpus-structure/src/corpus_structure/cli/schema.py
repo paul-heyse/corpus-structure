@@ -536,13 +536,23 @@ def author_native_candidate(
                 from corpus_structure.semantic.migration_chain import frozen_base_location
                 from corpus_structure.semantic.migrations import ALEMBIC_DIR, upgrade
 
-                if (predecessor != native_base.acquired_revision
-                    or expected_predecessor != native_base.predecessor):
+                if (
+                    predecessor != native_base.acquired_revision
+                    or expected_predecessor != native_base.predecessor
+                ):
                     raise SemanticRefusal("native authoring base differs from the preview")
                 with frozen_base_location(ALEMBIC_DIR, native_base) as location:
-                    upgrade(conn, native_base.predecessor,
-                            expected_predecessor=predecessor, script_location=location)
+                    upgrade(
+                        conn,
+                        native_base.predecessor,
+                        expected_predecessor=predecessor,
+                        script_location=location,
+                    )
                 predecessor = current_revision(conn)
+                if predecessor != native_base.predecessor:
+                    raise SemanticRefusal("native authoring chain did not reach its predecessor")
+            if predecessor is None:
+                raise SemanticRefusal("native authoring has no migrated predecessor")
             if expected_predecessor is not None and predecessor != expected_predecessor:
                 raise SemanticRefusal("native authoring predecessor differs from the preview")
             script, authoring = prepare_series_candidate(

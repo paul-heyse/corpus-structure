@@ -119,7 +119,9 @@ def test_target_acquisition_pins_python_bytes_without_importing(tmp_path):
 
 def test_target_acquisition_archives_generated_interface_selection(tmp_path):
     root = inputs(tmp_path)
-    (root / "model.py").write_text("from dataclasses import dataclass\n@dataclass\nclass Item:\n    value: int\n")
+    (root / "model.py").write_text(
+        "from dataclasses import dataclass\n@dataclass\nclass Item:\n    value: int\n"
+    )
     with (root / "target.yaml").open("a") as output:
         output.write("""python:
   interpreter: python-3.14

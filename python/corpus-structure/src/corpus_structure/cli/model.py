@@ -1112,8 +1112,10 @@ def preview(
                     result.record_target(
                         target_identity,
                         deployment_base.acquired_revision
-                        if deployment_base else bound.native_predecessor,
-                        None, None,
+                        if deployment_base
+                        else bound.native_predecessor,
+                        None,
+                        None,
                     )
                 sql_holder[0] = sql_holder[0].model_copy(
                     update={
@@ -1160,8 +1162,10 @@ def preview(
                         result.record_target(
                             target_identity,
                             deployment_base.acquired_revision
-                            if deployment_base else bound.native_predecessor,
-                            None, release
+                            if deployment_base
+                            else bound.native_predecessor,
+                            None,
+                            release,
                         )
                 if bound.archive_release:
                     model_stage(result, "compare archived release")
@@ -1290,15 +1294,18 @@ def apply(
                         staged.authoring_identity,
                         **(
                             {"native_base": staged.native_base}
-                            if staged.native_base is not None else {}
+                            if staged.native_base is not None
+                            else {}
                         ),
                     ) as target:
                         acquired = target
                         result.record_target(
                             target,
                             staged.native_base.acquired_revision
-                            if staged.native_base else staged.request.native_predecessor,
-                            None, staged.local_release
+                            if staged.native_base
+                            else staged.request.native_predecessor,
+                            None,
+                            staged.local_release,
                         )
                         yield target
 
@@ -1470,7 +1477,8 @@ def candidate(
                             expected_target=staged.authoring_identity,
                             **(
                                 {"native_base": staged.native_base}
-                                if staged.native_base is not None else {}
+                                if staged.native_base is not None
+                                else {}
                             ),
                             target_metadata=target_metadata,
                             retire=retired,

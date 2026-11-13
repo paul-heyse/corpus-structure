@@ -177,8 +177,12 @@ def capture_target(settings: Settings, *, purpose: Purpose) -> StorageTarget:
 
 @contextmanager
 def predecessor_fence(
-    settings: Settings, target: str, predecessor: str, identity: StorageTarget | None = None,
-    *, native_base: NativeMigrationBase | None = None,
+    settings: Settings,
+    target: str,
+    predecessor: str,
+    identity: StorageTarget | None = None,
+    *,
+    native_base: NativeMigrationBase | None = None,
 ) -> Generator[StorageTarget]:
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -212,7 +216,6 @@ def verify_predecessor(settings: Settings, target: str, predecessor: str) -> Sto
         return actual
 
 
-
 def capture_authoring_base(
     settings: Settings, target: str, predecessor: str
 ) -> tuple[StorageTarget, NativeMigrationBase | None]:
@@ -234,10 +237,12 @@ def capture_authoring_base(
         if actual is None:
             raise ModelError(["native authoring requires a migrated database"])
         base = (
-            None if actual == predecessor
+            None
+            if actual == predecessor
             else registered_base(_versions().parent, actual, predecessor)
         )
         return identity, base
+
 
 def _migration_names(binding: Candidate) -> dict[str, str]:
     if not binding.revision or not re.fullmatch(r"[A-Za-z0-9_]{1,32}", binding.revision):
@@ -500,13 +505,14 @@ def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path 
         versions = location / "versions"
         versions.mkdir()
         environment = (source.parent / "env.py").read_bytes()
-        if (binding.deployment_base is not None
-            and sha256(environment).hexdigest() != dict(binding.deployment_base.files)["env.py"]):
+        if (
+            binding.deployment_base is not None
+            and sha256(environment).hexdigest() != dict(binding.deployment_base.files)["env.py"]
+        ):
             raise ModelError(["registered migration environment changed during acquisition"])
         (location / "env.py").write_bytes(environment)
         for file in source.iterdir():
-            if (binding.deployment_base is None
-                and file.name not in frozen and file.is_file()):
+            if binding.deployment_base is None and file.name not in frozen and file.is_file():
                 (versions / file.name).symlink_to(file)
         for name, content in frozen.items():
             (versions / name).write_bytes(content)
@@ -637,7 +643,8 @@ def deploy_candidate(
     assert_explicit_route(destination)
     sql_inputs = prepare_release_sql(prepared, deps)
     starting_revision = (
-        binding.predecessor if binding.deployment_base is None
+        binding.predecessor
+        if binding.deployment_base is None
         else binding.deployment_base.acquired_revision
     )
 

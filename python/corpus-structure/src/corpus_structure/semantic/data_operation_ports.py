@@ -162,7 +162,9 @@ class ResolvedPythonPort:
             or binding.definition != self.identity.definition
             or binding.eligibility != self.identity.eligibility
         ):
-            raise PortRefusal("resolved binding is insufficient or differs from the admitted contract")
+            raise PortRefusal(
+                "resolved binding is insufficient or differs from the admitted contract"
+            )
         self.verify_runtime()
         self.authorize(self.identity)
         contracts = dict(self.kind_contracts)

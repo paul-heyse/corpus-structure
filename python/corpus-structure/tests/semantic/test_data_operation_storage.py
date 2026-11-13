@@ -496,23 +496,35 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ker
     first = claim(kernel, attached, seconds=30 if active else 1)
     intent = retain(kernel, first)
     replacement = prepare_data_operation_runtime(
-        kernel["prepared"], kernel["runtime_inputs"], execution_profile="execution:test",
+        kernel["prepared"],
+        kernel["runtime_inputs"],
+        execution_profile="execution:test",
         observed={"host": "replacement"},
     )
     with kernel["engine"].begin() as connection:
         persist_runtime_binding(connection, kernel["prepared"], replacement)
-        DataOperationStorage(connection).invoke("revoke_data_support", {
-            "project_id": "ddo-test", "original_source": "source:test",
-            "selector_kind": "runtime", "selector": kernel["runtime"],
-            "reason": "producer runtime defect",
-        })
+        DataOperationStorage(connection).invoke(
+            "revoke_data_support",
+            {
+                "project_id": "ddo-test",
+                "original_source": "source:test",
+                "selector_kind": "runtime",
+                "selector": kernel["runtime"],
+                "reason": "producer runtime defect",
+            },
+        )
     updated = {**kernel, "runtime": replacement.runtime_id}
     if active:
         with pytest.raises(DBAPIError, match="active producer lease"):
             attach(updated)
         with kernel["engine"].connect() as connection:
-            assert connection.scalar(text("SELECT generation FROM ops.data_request WHERE id=:r"),
-                {"r": first["request_id"]}) == first["generation"]
+            assert (
+                connection.scalar(
+                    text("SELECT generation FROM ops.data_request WHERE id=:r"),
+                    {"r": first["request_id"]},
+                )
+                == first["generation"]
+            )
         return
     time.sleep(1.05)
     # A directly revoked runtime cannot rescue its own immutable answer.
@@ -526,17 +538,31 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ker
     assert current["retained_intent_id"] is None
     with kernel["engine"].connect() as connection:
         storage = DataOperationStorage(connection)
-        historical = storage.invoke("inspect_data_completion", {
-            "demand_id": demand["demand_id"], "request_id": first["request_id"],
-            "generation": first["generation"], "intent_id": intent["intent_id"],
-        })
+        historical = storage.invoke(
+            "inspect_data_completion",
+            {
+                "demand_id": demand["demand_id"],
+                "request_id": first["request_id"],
+                "generation": first["generation"],
+                "intent_id": intent["intent_id"],
+            },
+        )
         assert historical["state"] == "known-uncommitted"
         assert historical["intent_retained"] is True
         # Publication authority was replaced; physical retirement was not asserted.
-        assert connection.scalar(text("SELECT status FROM ops.task WHERE id=:t"),
-            {"t": first["task_id"]}) == "running"
-        assert connection.scalar(text("SELECT count(*) FROM ops.data_request_generation WHERE request_id=:r"),
-            {"r": first["request_id"]}) == 2
+        assert (
+            connection.scalar(
+                text("SELECT status FROM ops.task WHERE id=:t"), {"t": first["task_id"]}
+            )
+            == "running"
+        )
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.data_request_generation WHERE request_id=:r"),
+                {"r": first["request_id"]},
+            )
+            == 2
+        )
     successor = claim(updated, current, holder="replacement")
     with pytest.raises(DBAPIError, match="stale"):
         publish(kernel, first, intent)
@@ -544,10 +570,18 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ker
     receipt = publish(updated, successor, next_intent)
     assert receipt["replayed"] is False
     with kernel["engine"].begin() as connection:
-        again = DataOperationStorage(connection).invoke("attach_data_request", {
-            **wire, "binding": {**wire["binding"], "read_id": DataOperationStorage(connection).invoke(
-                "read_demand_result", demand)["read_id"]},
-        })
+        again = DataOperationStorage(connection).invoke(
+            "attach_data_request",
+            {
+                **wire,
+                "binding": {
+                    **wire["binding"],
+                    "read_id": DataOperationStorage(connection).invoke(
+                        "read_demand_result", demand
+                    )["read_id"],
+                },
+            },
+        )
         assert again["generation"] == current["generation"]
         assert again["fate"] == "fulfilled"
 
