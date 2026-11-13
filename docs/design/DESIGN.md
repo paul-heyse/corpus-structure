@@ -206,7 +206,7 @@ existing source, authorization, numerical and protected-reference guarantees. DD
 work does not switch selected production protocols. The DDO coordinator owns implementation and
 scope; D1–D8 label the accepted target separately from older implemented mechanisms.
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md)
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md), [ADR-0096](../adr/0096-original-source-admission.md)
 
 ### Audit-closure contract qualification
 

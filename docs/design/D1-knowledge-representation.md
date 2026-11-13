@@ -10,7 +10,15 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
-> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md)
+Original-source admission is factual support, distinct from computation. A declared acquisition
+reuses existing published native/view/placement custody and frozen selectors to construct the
+immutable source input. Explicit original-fact support remains typed through binding, native
+publication and trust closure; it cannot be relabelled as a computational episode or independent
+vote. Document semantic key, raw content hash, physical document ID and execution custody retain
+their distinct meanings. This detail is **Accepted target; implementation/qualification Proposed ·
+2026-11-13**, with current execution owned by the DDO coordinator.
+
+> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md)
 
 ## Enriched-document analysis layers
 

@@ -26,10 +26,17 @@ def test_service_read_preserves_full_native_continuation(monkeypatch):
             return {"demand_id": payload["demand_id"], "continuation": payload}
 
     monkeypatch.setattr(service, "DataOperationStorage", Storage)
-    pins = {"demand_id": "demand:one", "selection": {"model": "frozen"},
-            "read_id": "read:one", "read_snapshot": "1:2:", "frontier_at": "now",
-            "trust_snapshot": {"scope": 2}, "after": "obligation:one", "limit": 7,
-            "view": "products"}
+    pins = {
+        "demand_id": "demand:one",
+        "selection": {"model": "frozen"},
+        "read_id": "read:one",
+        "read_snapshot": "1:2:",
+        "frontier_at": "now",
+        "trust_snapshot": {"scope": 2},
+        "after": "obligation:one",
+        "limit": 7,
+        "view": "products",
+    }
     result = service.read_data_demand(connection, "demand:one", continuation=pins)
     assert calls == [("read_demand_result", pins)]
     assert result["continuation"] == pins
@@ -45,13 +52,17 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(ke
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
 
     intent = freeze_demand(
-        kernel["model"], roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
-        targets=("urn:ddo-test:source",), inference="inference:test",
+        kernel["model"],
+        roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
+        targets=("urn:ddo-test:source",),
+        inference="inference:test",
         execution_profile="execution:test",
     )
     request = service.CreateDataDemand(
-        project_id="ddo-test", release_id=kernel["prepared"].release_id,
-        runtime_id=kernel["runtime"], intent=intent.record,
+        project_id="ddo-test",
+        release_id=kernel["prepared"].release_id,
+        runtime_id=kernel["runtime"],
+        intent=intent.record,
     )
     with kernel["engine"].begin() as connection:
         created = service.create_data_demand(connection, request)

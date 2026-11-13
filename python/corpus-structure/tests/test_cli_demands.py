@@ -27,10 +27,18 @@ def routing(monkeypatch):
         yield Engine()
 
     monkeypatch.setattr(demands, "ENGINE", engine)
-    monkeypatch.setattr(demands, "acquired_target", lambda conn, *, purpose: StorageTarget(
-        database="routing-only", database_oid=1, system_identifier="routing-only",
-        host="localhost", port=5434, purpose=purpose,
-    ))
+    monkeypatch.setattr(
+        demands,
+        "acquired_target",
+        lambda conn, *, purpose: StorageTarget(
+            database="routing-only",
+            database_oid=1,
+            system_identifier="routing-only",
+            host="localhost",
+            port=5434,
+            purpose=purpose,
+        ),
+    )
     return opened, connection
 
 
@@ -44,11 +52,18 @@ def test_demand_help_has_no_settings_or_database_effects(cli):
 
 
 def test_create_routes_closed_request_to_service_and_records_managed_result(
-    cli, tmp_path, monkeypatch, routing,
+    cli,
+    tmp_path,
+    monkeypatch,
+    routing,
 ):
     opened, connection = routing
-    request = {"project_id": "project:one", "release_id": "release:one",
-               "runtime_id": "runtime:one", "intent": {"model": "frozen:one"}}
+    request = {
+        "project_id": "project:one",
+        "release_id": "release:one",
+        "runtime_id": "runtime:one",
+        "intent": {"model": "frozen:one"},
+    }
     source = tmp_path / "request.json"
     source.write_text(json.dumps(request))
     seen = []
@@ -56,13 +71,23 @@ def test_create_routes_closed_request_to_service_and_records_managed_result(
     def create(conn, value):
         assert conn is connection
         seen.append(value)
-        return {"demand_id": "demand:one", "release_id": value.release_id,
-                "runtime_id": value.runtime_id, "continuation": None}
+        return {
+            "demand_id": "demand:one",
+            "release_id": value.release_id,
+            "runtime_id": value.runtime_id,
+            "continuation": None,
+        }
 
     monkeypatch.setattr(demands, "create_data_demand", create)
     results = tmp_path / "results"
-    result = cli("demands", "create", "--request", str(source), "--json",
-                 env={"CORPUS_CI_RESULTS": str(results)})
+    result = cli(
+        "demands",
+        "create",
+        "--request",
+        str(source),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(results)},
+    )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
     assert opened == ["write"]
@@ -75,12 +100,21 @@ def test_create_routes_closed_request_to_service_and_records_managed_result(
 
 
 def test_read_routes_complete_native_continuation_without_semantic_defaults(
-    cli, tmp_path, monkeypatch, routing,
+    cli,
+    tmp_path,
+    monkeypatch,
+    routing,
 ):
     opened, connection = routing
-    pins = {"demand_id": "demand:one", "read_id": "read:one", "after": "obligation:one",
-            "selection": {"retained": "meaning"}, "trust_snapshot": {"scope": 3},
-            "view": "frontier", "limit": 7}
+    pins = {
+        "demand_id": "demand:one",
+        "read_id": "read:one",
+        "after": "obligation:one",
+        "selection": {"retained": "meaning"},
+        "trust_snapshot": {"scope": 3},
+        "view": "frontier",
+        "limit": 7,
+    }
     source = tmp_path / "continuation.json"
     source.write_text(json.dumps(pins))
     seen = []
@@ -99,7 +133,10 @@ def test_read_routes_complete_native_continuation_without_semantic_defaults(
 
 
 def test_cancel_routes_original_demand_and_reason_and_retains_shared_status(
-    cli, tmp_path, monkeypatch, routing,
+    cli,
+    tmp_path,
+    monkeypatch,
+    routing,
 ):
     opened, connection = routing
     seen = []
@@ -107,13 +144,24 @@ def test_cancel_routes_original_demand_and_reason_and_retains_shared_status(
     def cancel(conn, demand, *, reason):
         assert conn is connection
         seen.append((demand, reason))
-        return {"demand_id": demand, "state": "cancelled", "requests": [
-            {"interest": "shared", "physical_retirement": "unconfirmed"},
-        ]}
+        return {
+            "demand_id": demand,
+            "state": "cancelled",
+            "requests": [
+                {"interest": "shared", "physical_retirement": "unconfirmed"},
+            ],
+        }
 
     monkeypatch.setattr(demands, "cancel_data_demand", cancel)
-    result = cli("demands", "cancel", "demand:one", "--reason", "operator stopped",
-                 "--json", env={"CORPUS_CI_RESULTS": str(tmp_path / "results")})
+    result = cli(
+        "demands",
+        "cancel",
+        "demand:one",
+        "--reason",
+        "operator stopped",
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
+    )
     assert result.exit_code == 0, result.output
     assert opened == ["write"]
     assert seen == [("demand:one", "operator stopped")]

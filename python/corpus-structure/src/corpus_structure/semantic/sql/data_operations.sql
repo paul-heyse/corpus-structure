@@ -158,7 +158,7 @@ BEGIN
  RETURN FOUND AND ops.ddo_use_valid(source_use,boundary);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_assert_support(r ops.data_request,support jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION ops.ddo_support_available(r ops.data_request,support jsonb) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE item jsonb; episode ops.data_derivation; source_request ops.data_request; selected ops.demand_use;
 BEGIN
@@ -179,12 +179,19 @@ BEGIN
  AND ops.ddo_binding_source(roledef,jsonb_build_object('product',product.id,'member',member.member_id,'subject',coalesce(member.subject,product.subject),'original_source',product.original_source,'analyzed_scope',coalesce(member.analyzed_scope,product.analyzed_scope),'meaning_body',coalesce(member.body,product.canonical_body)),r.original_source,coalesce(data.ddo_json(data.ddo_field(r.binding->'parameters','source_sets')),'{}'))
  ) THEN RAISE EXCEPTION 'foreign support outside exact frozen source-set custody'; END IF;
  IF item->>'admission_use_id' IS NULL THEN
- IF NOT ops.ddo_support_valid(episode.id) THEN RAISE EXCEPTION 'support is unavailable or revoked'; END IF;
+ IF NOT ops.ddo_support_valid(episode.id) THEN RETURN false; END IF;
  ELSE
- SELECT * INTO STRICT selected FROM ops.demand_use WHERE id=item->>'admission_use_id' AND derivation_id=episode.id;
- IF NOT ops.ddo_use_valid(selected) THEN RAISE EXCEPTION 'support admission receipt is unavailable or revoked'; END IF;
+ SELECT * INTO selected FROM ops.demand_use WHERE id=item->>'admission_use_id' AND derivation_id=episode.id;
+ IF NOT FOUND OR NOT ops.ddo_use_valid(selected) THEN RETURN false; END IF;
  END IF;
  END LOOP;
+ RETURN true;
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_assert_support(r ops.data_request,support jsonb) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF NOT ops.ddo_support_available(r,support) THEN RAISE EXCEPTION 'support is unavailable or revoked'; END IF;
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_completion_state(def sem.data_operation_definition,outcome text) RETURNS text
@@ -412,7 +419,7 @@ BEGIN
  OR data.ddo_field(b->'parameters','replicate') IS DISTINCT FROM (CASE WHEN replicate IS NULL THEN jsonb_build_array('null') ELSE jsonb_build_array('string',replicate) END)
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') s WHERE s->>'operation'=o.operation_id AND s->>'recipe'=def.recipe AND s->>'replicate' IS NOT DISTINCT FROM replicate) THEN RAISE EXCEPTION 'request differs from frozen inference/parameters/replicate/recipe'; END IF;
  IF NOT EXISTS(SELECT FROM ops.data_demand_read acquired WHERE acquired.id=b->>'read_id' AND acquired.demand_id=d.id) THEN RAISE EXCEPTION 'binding lacks exact native read acquisition'; END IF;
- expected:=(SELECT coalesce(jsonb_object_agg(named.key,named.value),'{}') FROM jsonb_each(coalesce(d.selection->'source_sets','{}')) named WHERE EXISTS(SELECT FROM jsonb_array_elements(def.input_roles) roledef WHERE roledef->'support'->>'source_set'=named.key));
+ expected:=(SELECT coalesce(jsonb_object_agg(named.key,named.value),'{}') FROM jsonb_each(coalesce(d.selection->'source_sets','{}')) named WHERE EXISTS(SELECT FROM jsonb_array_elements(def.input_roles) AS role_record(value) WHERE role_record.value->'support'->>'source_set'=named.key));
  IF expected<>'{}'::jsonb THEN
  IF data.ddo_json(data.ddo_field(b->'parameters','source_sets')) IS DISTINCT FROM expected THEN RAISE EXCEPTION 'request source-set meaning differs from exact frozen declaration'; END IF;
  ELSIF data.ddo_field(b->'parameters','source_sets') IS NOT NULL THEN RAISE EXCEPTION 'undeclared request source-set meaning'; END IF;
@@ -599,28 +606,80 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_lost_attempt(p jsonb,reason text) RETURNS jsonb
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ SELECT jsonb_build_object('payload',jsonb_build_object('state','lost','reason',reason,
+ 'request_id',p->>'request_id','generation',(p->>'generation')::integer,'task_id',(p->>'task_id')::bigint,
+ 'attempt',(p->>'attempt')::integer,'holder',p->>'holder'))
+$$;
+
 CREATE OR REPLACE FUNCTION ops.renew_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','lease_seconds']);
- IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease'; END IF;
+ IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400
+ OR (p->>'generation')::integer<1 OR (p->>'attempt')::integer<1 OR (p->>'task_id')::bigint<1 THEN RAISE EXCEPTION 'invalid request attempt/holder/lease'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
- t:=ops.ddo_claim(r,p);
- PERFORM ops.ddo_assert_support(r,r.binding->'support');
+ SELECT * INTO t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
+ IF NOT ops.ddo_request_useful(r) THEN RETURN ops.ddo_lost_attempt(p,CASE WHEN t.status IN ('done','empty','failed') THEN 'fence' ELSE 'cancelled' END); END IF;
+ IF t.id IS NULL OR r.generation IS DISTINCT FROM (p->>'generation')::integer
+ OR (t.data_request_id,t.data_generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM
+ (r.id,r.generation,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder')
+ OR t.status IS DISTINCT FROM 'running' OR t.lease_until IS NULL OR t.lease_until<=clock_timestamp() THEN
+ RETURN ops.ddo_lost_attempt(p,'fence'); END IF;
  IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(r.project_id,r.original_source)
  AND ((v.selector_kind='runtime' AND v.selector=r.runtime_id)
  OR (v.selector_kind='recipe' AND v.selector=r.recipe))) THEN
- RAISE EXCEPTION 'request producer runtime or recipe was directly revoked'; END IF;
- -- Cancellation and renewal serialize on the request fence.
- IF NOT ops.ddo_request_useful(r) THEN RAISE EXCEPTION 'data request has no attached demand interest'; END IF;
+ RETURN ops.ddo_lost_attempt(p,'revoked'); END IF;
+ IF NOT ops.ddo_support_available(r,r.binding->'support') THEN RETURN ops.ddo_lost_attempt(p,'support-unavailable'); END IF;
  UPDATE ops.task SET lease_until=greatest(t.lease_until,clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer))
  WHERE id=t.id RETURNING * INTO t;
  RETURN jsonb_build_object('payload',jsonb_build_object('state','renewed','request_id',r.id,'generation',r.generation,
  'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.release_data_attempt(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; old ops.data_attempt_failure;
+ key text; retained text; replayed boolean:=false;
+BEGIN
+ PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','physical_retirement','failure']);
+ PERFORM ops.ddo_fields(p->'failure',ARRAY['code','message']);
+ IF p->>'physical_retirement' IS DISTINCT FROM 'confirmed' OR nullif(p->>'holder','') IS NULL
+ OR nullif(p->'failure'->>'code','') IS NULL OR nullif(p->'failure'->>'message','') IS NULL
+ OR (p->>'generation')::integer<1 OR (p->>'attempt')::integer<1 OR (p->>'task_id')::bigint<1 THEN
+ RAISE EXCEPTION 'attempt release requires exact known retirement/failure'; END IF;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
+ PERFORM ops.ddo_authorize_request(r);
+ -- Request serialization also waits for uncertain retention/publication to settle.
+ -- No inference work or transport wait is held under this transaction.
+ PERFORM ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
+ SELECT * INTO old FROM ops.data_attempt_failure f WHERE f.request_id=r.id
+ AND (f.generation,f.task_id,f.attempt,f.holder)=((p->>'generation')::integer,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder');
+ IF old.id IS NOT NULL THEN
+ IF old.failure IS DISTINCT FROM p->'failure' THEN RAISE EXCEPTION 'immutable attempt failure cannot change'; END IF;
+ key:=old.id; replayed:=true;
+ ELSE
+ IF NOT ops.ddo_request_useful(r) THEN RETURN ops.ddo_lost_attempt(p,'cancelled'); END IF;
+ SELECT * INTO t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
+ IF t.id IS NULL OR r.generation IS DISTINCT FROM (p->>'generation')::integer
+ OR (t.data_request_id,t.data_generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM
+ (r.id,r.generation,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder') OR t.status IS DISTINCT FROM 'running' THEN
+ RETURN ops.ddo_lost_attempt(p,'fence'); END IF;
+ key:='attempt-failure:'||ops.ddo_digest(p);
+ INSERT INTO ops.data_attempt_failure VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->'failure',clock_timestamp(),pg_current_xact_id()::text);
+ UPDATE ops.task SET status='pending',claimed_by=NULL,lease_until=NULL,finished_at=NULL,
+ error=jsonb_build_object('data_attempt_failure',key,'failure',p->'failure') WHERE id=t.id;
+ END IF;
+ SELECT id INTO retained FROM ops.data_completion_intent WHERE request_id=r.id AND generation=(p->>'generation')::integer;
+ RETURN jsonb_build_object('payload',jsonb_build_object('state','released','request_id',r.id,
+ 'generation',(p->>'generation')::integer,'task_id',(p->>'task_id')::bigint,'attempt',(p->>'attempt')::integer,
+ 'holder',p->>'holder','failure_id',key,'replayed',replayed,'retained_intent_id',retained));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.retain_data_completion_intent(p_payload jsonb) RETURNS jsonb
@@ -628,7 +687,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key text; old ops.data_completion_intent;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','completion']);
- PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision']);
+ PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision'],ARRAY['execution_evidence']);
+ IF p->'completion' ? 'execution_evidence' AND (p->'completion'->'execution_evidence' - 'version' - 'host_receipts' - 'cpu_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,p->'completion'->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
@@ -803,11 +863,10 @@ BEGIN
  key:='receipt:'||ops.ddo_digest(jsonb_build_array(i.id,episode));
  INSERT INTO ops.data_publication_receipt VALUES(key,i.id,episode,t.id,t.attempt,snapshot);
  UPDATE ops.task SET status=CASE result_state WHEN 'success' THEN 'done' WHEN 'empty' THEN 'empty' ELSE 'failed' END,result_digest=i.payload_digest,finished_at=clock_timestamp(),lease_until=NULL,error=CASE WHEN result_state='failed' THEN jsonb_build_object('data_operation','failed') ELSE NULL END WHERE id=t.id;
- -- Every already attached obligation is fulfilled without copying execution episodes or votes.
- IF result_state<>'failed' THEN
- INSERT INTO ops.demand_use SELECT 'use:'||ops.ddo_digest(jsonb_build_array(u.obligation_id,key)),u.demand_id,u.obligation_id,'fulfilled',r.id,r.generation,episode,u.selection,snapshot,clock_timestamp(),pg_current_xact_id()::text
+ -- Every attached obligation observes the actual terminal outcome. Computational
+ -- failure is distinct from a private attempt's infrastructure failure.
+ INSERT INTO ops.demand_use SELECT 'use:'||ops.ddo_digest(jsonb_build_array(u.obligation_id,key)),u.demand_id,u.obligation_id,CASE WHEN result_state='failed' THEN 'failed' ELSE 'fulfilled' END,r.id,r.generation,episode,u.selection,snapshot,clock_timestamp(),pg_current_xact_id()::text
  FROM (SELECT DISTINCT ON(obligation_id) * FROM ops.demand_use WHERE request_id=r.id AND generation=r.generation ORDER BY obligation_id,created_at DESC,id DESC) u WHERE u.fate='attached' AND ops.ddo_demand_active(u.demand_id) ON CONFLICT DO NOTHING;
- END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('receipt_id',key,'derivation_id',episode,'replayed',false,'trust_snapshot',snapshot));
 END $$;
 
@@ -893,7 +952,11 @@ BEGIN
  'request_id',u.request_id,'generation',u.generation,'intent_id',(SELECT i.id FROM ops.data_completion_intent i WHERE i.request_id=u.request_id AND i.generation=u.generation ORDER BY i.created_at DESC,i.id DESC LIMIT 1)) ORDER BY o.id),'[]'),max(o.id) INTO obligations,next_key
  FROM bounded o LEFT JOIN LATERAL (SELECT x.* FROM ops.demand_use x WHERE x.obligation_id=o.id AND ops.ddo_read_visible(x.created_at,x.created_xid,boundary) ORDER BY x.created_at DESC,x.id DESC LIMIT 1) u ON true;
  more:=next_key IS NOT NULL AND EXISTS(SELECT FROM ops.data_obligation o WHERE o.demand_id=d.id AND o.id>next_key AND ops.ddo_read_visible(o.created_at,o.created_xid,boundary));
- RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection,'intent',d.selection,'root',d.root,'project_id',d.project_id,'release_id',d.release_id,'runtime_id',d.runtime_id,'state',CASE WHEN EXISTS(SELECT FROM ops.data_demand_cancellation c WHERE c.demand_id=d.id AND ops.ddo_read_visible(c.created_at,c.created_xid,boundary)) THEN 'cancelled' ELSE 'active' END,'view',selected_view,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'uses',results,'obligations',obligations,'populations',(SELECT coalesce(jsonb_agg((to_jsonb(pop)-'created_at'-'created_xid'-'selected_obligation_id')||jsonb_build_object('population_id',pop.id,'evidence',pop.evidence||jsonb_build_object('producer_context',ops.ddo_population_producer_context(pop))) ORDER BY pop.name),'[]') FROM ops.data_population pop WHERE pop.demand_id=d.id AND (pop.selected_obligation_id IS NULL OR pop.selected_obligation_id IN (SELECT value->>'obligation_id' FROM jsonb_array_elements(obligations))) AND ops.ddo_read_visible(pop.created_at,pop.created_xid,boundary) AND ops.ddo_population_valid(pop,boundary)),'continuation',CASE WHEN more THEN jsonb_build_object('demand_id',d.id,'selection',d.selection,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'view',selected_view,'after',next_key,'limit',lim) ELSE NULL END));
+ RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection,'intent',d.selection,'root',d.root,'project_id',d.project_id,'release_id',d.release_id,'runtime_id',d.runtime_id,'state',CASE WHEN EXISTS(SELECT FROM ops.data_demand_cancellation c WHERE c.demand_id=d.id AND ops.ddo_read_visible(c.created_at,c.created_xid,boundary)) THEN 'cancelled' ELSE 'active' END,'view',selected_view,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'uses',results,'obligations',obligations, 'attempt_failures',(SELECT coalesce(jsonb_agg(jsonb_build_object('failure_id',failure.id,'request_id',failure.request_id,
+ 'generation',failure.generation,'task_id',failure.task_id,'attempt',failure.attempt,'holder',failure.holder,'failure',failure.failure)
+ ORDER BY failure.request_id,failure.generation,failure.attempt),'[]') FROM ops.data_attempt_failure failure
+ WHERE EXISTS(SELECT FROM jsonb_array_elements(results) selected WHERE selected->>'request_id'=failure.request_id AND (selected->>'generation')::integer=failure.generation)
+ AND ops.ddo_read_visible(failure.created_at,failure.created_xid,boundary)),'populations',(SELECT coalesce(jsonb_agg((to_jsonb(pop)-'created_at'-'created_xid'-'selected_obligation_id')||jsonb_build_object('population_id',pop.id,'evidence',pop.evidence||jsonb_build_object('producer_context',ops.ddo_population_producer_context(pop))) ORDER BY pop.name),'[]') FROM ops.data_population pop WHERE pop.demand_id=d.id AND (pop.selected_obligation_id IS NULL OR pop.selected_obligation_id IN (SELECT value->>'obligation_id' FROM jsonb_array_elements(obligations))) AND ops.ddo_read_visible(pop.created_at,pop.created_xid,boundary) AND ops.ddo_population_valid(pop,boundary)),'continuation',CASE WHEN more THEN jsonb_build_object('demand_id',d.id,'selection',d.selection,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at,'view',selected_view,'after',next_key,'limit',lim) ELSE NULL END));
 END $$;
 
 

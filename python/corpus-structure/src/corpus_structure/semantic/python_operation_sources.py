@@ -461,10 +461,16 @@ class ClosedPythonSources:
                     if isinstance(small, cst.AnnAssign) and isinstance(small.target, cst.Name):
                         name = small.target.value
                         if name == "__data_operation__" or name.endswith("__data_operation__"):
-                            owner = prefix if name == "__data_operation__" else prefix + "." + name.removesuffix("__data_operation__")
+                            owner = (
+                                prefix
+                                if name == "__data_operation__"
+                                else prefix + "." + name.removesuffix("__data_operation__")
+                            )
                             if owner in self.metadata or small.value is None:
                                 _fail(owner, "operation metadata requires one literal value")
-                            self.metadata[owner] = _literal(module.wrapper.module, small.value, owner)
+                            self.metadata[owner] = _literal(
+                                module.wrapper.module, small.value, owner
+                            )
                             self.metadata_lines[owner] = module.positions[small].start.line
                             continue
                         assignment_path = prefix + "." + small.target.value
@@ -774,8 +780,12 @@ class ClosedPythonSources:
                 metadata["assets"] = [
                     {
                         **asset,
-                        **({"content_digest": self.boundary_contracts[asset["contract"]].digest}
-                           if asset.get("content_digest") is None and asset.get("contract") in self.boundary_contracts else {}),
+                        **(
+                            {"content_digest": self.boundary_contracts[asset["contract"]].digest}
+                            if asset.get("content_digest") is None
+                            and asset.get("contract") in self.boundary_contracts
+                            else {}
+                        ),
                     }
                     for asset in metadata["assets"]
                 ]

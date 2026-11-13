@@ -32,9 +32,15 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
+    from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_wire_native import wire_native_sources
 
     return (
+        SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact(
+            "native/data-operation-execution-evidence.py",
+            Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-protocol.yaml",
             (_ROOT / "data-operation-native.yaml").read_bytes(),
@@ -521,16 +527,27 @@ def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
     members = root.get("properties", {}).get("members")
     if members is None:
         return {"not": {}}
+    def variants(value):
+        value = resolve(value)
+        branches = value.get("oneOf", value.get("anyOf"))
+        if branches is None:
+            yield value
+        else:
+            for branch in branches:
+                yield from variants(branch)
+
     candidates = []
-    for variant in resolve(members).get("anyOf", [resolve(members)]):
-        variant = resolve(variant)
+    for variant in variants(members):
         if variant.get("type") != "array":
             continue
-        packet = resolve(variant.get("items", {}))
-        fields = packet.get("properties", {})
-        if not {"member_id", "kind_contract", "context", "body"} <= fields.keys():
+        packets = tuple(variants(variant.get("items", {})))
+        if not packets:
             return {"not": {}}
-        candidates.append(fields["body"])
+        for packet in packets:
+            fields = packet.get("properties", {})
+            if not {"member_id", "kind_contract", "context", "body"} <= fields.keys():
+                return {"not": {}}
+            candidates.append(fields["body"])
     if not candidates:
         return {"not": {}}
     return {
