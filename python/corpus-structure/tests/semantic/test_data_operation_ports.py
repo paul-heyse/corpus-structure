@@ -555,3 +555,93 @@ def test_atomic_field_nominal_kind_must_match_original_return_type(tmp_path, mon
             returns="dict[str, str]",
             metadata=metadata,
         )
+
+
+def test_plain_inherited_receiver_is_authenticated_and_keeps_nominal_outputs(tmp_path, monkeypatch):
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["entrypoints"] = ["run"]
+    name = "receiver_" + tmp_path.name.replace("-", "_")
+    source = (
+        "class Base:\n    prefix = 'base:'\n"
+        "    def run(self, index: int) -> str: return self.prefix + str(index)\n"
+        "class Child(Base):\n    prefix = 'child:'\n"
+        f"Child.__data_operation__ = {metadata!r}\n"
+    )
+    path = tmp_path / (name + ".py")
+    path.write_text(source)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    inputs = PythonSourceCollection((PythonSource(name, source.encode(), str(path)),))
+    model = compile_data_operations(python_sources=inputs)
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    value = PythonRoleValue("index", kind(model, "index"), 3)
+    result = port.invoke_python((value,))
+    assert result.outputs[0].value() == "child:3"
+    assert result.outputs[0].meaning == b'["string","child:3"]'
+    import inspect
+    assert inspect.ismethod(port.function)
+    monkeypatch.setattr(type(port.function.__self__), "prefix", "changed:")
+    with pytest.raises(PortRefusal, match="constant determinant"):
+        port.invoke_python((value,))
+
+
+def test_native_batch_invokes_one_original_call_and_retains_order(tmp_path, monkeypatch):
+    from corpus_structure.semantic.data_operation_ports import PythonBatchMember
+
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["capabilities"]["forms"] = ["batch"]
+    model, inputs = fixture_source(
+        tmp_path, monkeypatch, "index: tuple[int, ...]",
+        "return tuple(str(item) for item in index)", metadata=metadata, returns="tuple[str, ...]",
+    )
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    members = tuple(PythonBatchMember(name, (PythonRoleValue("index", kind(model, "index"), value),)) for name, value in (("second", 2), ("first", 1)))
+    result = port.invoke_batch_python(members)
+    assert [(key, completed.outputs[0].value()) for key, completed in result.members] == [("second", "2"), ("first", "1")]
+    with pytest.raises(PortRefusal, match="distinct"):
+        port.invoke_batch_python((members[0], members[0]))
+    with pytest.raises(PortRefusal, match="explicit member"):
+        port.invoke_python(members[0].values)
+
+
+@pytest.mark.parametrize("body", ["return tuple(str(item) for item in index[:-1])", "return tuple(index)"])
+def test_native_batch_refuses_incomplete_or_wrong_typed_whole_result(tmp_path, monkeypatch, body):
+    from corpus_structure.semantic.data_operation_ports import PythonBatchMember
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["capabilities"]["forms"] = ["batch"]
+    model, inputs = fixture_source(tmp_path, monkeypatch, "index: tuple[int, ...]", body,
+        metadata=metadata, returns="tuple[str, ...]")
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    members = (PythonBatchMember("one", (PythonRoleValue("index", kind(model, "index"), 1),)),)
+    with pytest.raises((PortRefusal, ValidationError)):
+        port.invoke_batch_python(members)
+
+
+def test_native_batch_json_uses_strict_individual_ingress(tmp_path, monkeypatch):
+    from corpus_structure.semantic.data_operation_ports import JSONBatchMember
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["capabilities"]["forms"] = ["batch"]
+    model, inputs = fixture_source(tmp_path, monkeypatch, "index: tuple[int, ...]",
+        "return tuple(str(item) for item in index)", metadata=metadata, returns="tuple[str, ...]")
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    result = port.invoke_batch_json((JSONBatchMember("one", (RoleValue("index", kind(model, "index"), b"1"),)),))
+    assert result.members[0][1].outputs[0].meaning == b'["string","1"]'
+    with pytest.raises(ValidationError):
+        port.invoke_batch_json((JSONBatchMember("one", (RoleValue("index", kind(model, "index"), b"true"),)),))
+
+
+def test_receiver_refuses_unmodeled_custom_construction(tmp_path, monkeypatch):
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["entrypoints"] = ["run"]
+    name = "receiver_constructor_" + tmp_path.name.replace("-", "_")
+    source = (
+        "class Receiver:\n    def __init__(self): self.prefix = 'dynamic'\n"
+        "    def run(self, index: int) -> str: return str(index)\n"
+        f"Receiver.__data_operation__ = {metadata!r}\n"
+    )
+    path = tmp_path / (name + ".py")
+    path.write_text(source)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    inputs = PythonSourceCollection((PythonSource(name, source.encode(), str(path)),))
+    model = compile_data_operations(python_sources=inputs)
+    with pytest.raises(PortRefusal, match="construction"):
+        resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
