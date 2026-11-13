@@ -141,7 +141,7 @@ def test_population_filter_optional_parameter_absence_preserves_native_semantics
     },
     {
         "operator": "optional",
-        "children": [{"operator": "cardinality", "roles": ["items"], "maximum": 1}],
+        "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1}],
     },
 ])
 def test_population_filter_refuses_unrepresentable_role_qualification(selection_connection, node):
@@ -176,3 +176,23 @@ def test_population_scope_uses_selected_context_without_relabelling_source_episo
         {"population": json.dumps(population)},
     )
     assert producer is None
+
+
+@pytest.mark.db
+def test_population_filter_defers_optional_global_coverage_with_original_missing_semantics(
+    selection_connection,
+):
+    aggregate = {"operator": "optional", "children": [{
+        "operator": "covers", "operands": [field(), {
+            "kind": "parameter", "name": "required", "value_type": "integer",
+        }],
+    }]}
+    node = {"operator": "all", "children": [within(), aggregate]}
+    predicate = project(selection_connection, node)
+    facts = context(15)
+    facts["parameterdefs"] = {"required": {"required": False}}
+    assert evaluate(selection_connection, predicate, facts) is True
+    assert evaluate(selection_connection, node, facts) is True
+    facts["parameters"]["required"] = [15, 20]
+    assert evaluate(selection_connection, predicate, facts) is True
+    assert evaluate(selection_connection, node, facts) is False

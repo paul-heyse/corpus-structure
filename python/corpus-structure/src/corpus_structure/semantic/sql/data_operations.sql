@@ -917,6 +917,12 @@ BEGIN
  names:=ops.ddo_binding_roles(node);
  IF NOT role=ANY(names) THEN RETURN jsonb_build_object('operator','all','children','[]'::jsonb); END IF;
  IF operator='absent' THEN RAISE EXCEPTION 'absence cannot define a positive selected population'; END IF;
+ -- A wholly aggregate optional scope adds no row qualification. Defer the
+ -- complete original scope, including its parameter-presence semantics.
+ IF operator='optional' AND NOT EXISTS(
+ WITH RECURSIVE descendants(n) AS (SELECT node UNION ALL SELECT value FROM descendants p CROSS JOIN LATERAL jsonb_array_elements(coalesce(p.n->'children','[]')))
+ SELECT FROM descendants WHERE n->>'operator' IS NULL OR n->>'operator' NOT IN ('optional','all','scan','covers','cardinality','collection','forall','same','distinct')) THEN
+ RETURN jsonb_build_object('operator','all','children','[]'::jsonb); END IF;
  IF operator='optional' AND (cardinality(names)<>1 OR EXISTS(
  WITH RECURSIVE descendants(n) AS (SELECT node UNION ALL SELECT value FROM descendants p CROSS JOIN LATERAL jsonb_array_elements(coalesce(p.n->'children','[]')))
  SELECT FROM descendants WHERE n->>'operator' NOT IN ('optional','all','scan','join','equal','literal','range','membership'))) THEN
