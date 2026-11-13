@@ -645,3 +645,35 @@ def test_receiver_refuses_unmodeled_custom_construction(tmp_path, monkeypatch):
     model = compile_data_operations(python_sources=inputs)
     with pytest.raises(PortRefusal, match="construction"):
         resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+
+
+def test_logical_archive_origin_can_resolve_exact_relocated_runtime(tmp_path, monkeypatch):
+    model, inputs = fixture_source(tmp_path, monkeypatch)
+    source = inputs.sources[0]
+    archived = replace(source, filename='captured/operation.py')
+    sources = replace(inputs, sources=(archived,))
+    model = compile_data_operations(python_sources=sources)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda identity: None,
+        runtime_locations={source.module: Path(source.filename)},
+    )
+    assert port.invoke_python(()).outputs[0].value() == '2'
+    Path(source.filename).write_text('def derive(index: int = 2) -> str:\n    return "wrong"\n')
+    with pytest.raises(PortRefusal, match='source changed'):
+        port.invoke_python(())
+
+
+def test_execution_admission_serializes_capability_meaning_and_checks_exact_identity():
+    from corpus_structure.semantic.data_operation_admission import (
+        AcquiredPythonExecution, _source_identity_bytes,
+    )
+    from corpus_structure.semantic.refusals import SemanticRefusal
+
+    model, sources = actual()
+    identity = python_port_identity(model, sources, model.operations[0].semantic_id)
+    captured = _source_identity_bytes(identity)
+    assert json.loads(captured)['capabilities']['forms'] == ['scalar']
+    admission = AcquiredPythonExecution(captured, 'release', 'runtime', 'attestation')
+    admission.authorize(identity)
+    with pytest.raises(SemanticRefusal, match='differs'):
+        admission.authorize(replace(identity, implementation='wrong'))

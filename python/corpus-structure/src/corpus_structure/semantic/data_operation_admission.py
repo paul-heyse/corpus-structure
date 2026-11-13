@@ -7,15 +7,24 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING
 
+from .data_operation_ports import PythonPortIdentity
+
 from .data_operation_model import read_effective_data_operations
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
+
+
+def _source_identity_bytes(identity: PythonPortIdentity) -> bytes:
+    from dataclasses import asdict
+
+    record = asdict(identity)
+    record["capabilities"] = json.loads(identity.capabilities)
+    return canonical_bytes(record)
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
     from .data_operation_model import EffectiveDataOperationModel
-    from .data_operation_ports import PythonPortIdentity
     from .python_operation_sources import PythonSourceCollection
     from .runtime_bindings import RuntimeBinding
     from .types import PreparedRelease
@@ -79,10 +88,62 @@ class AcquiredPythonExecution:
     attestation: str
 
     def authorize(self, identity: PythonPortIdentity) -> None:
-        from dataclasses import asdict
-
-        if canonical_bytes(asdict(identity)) != self.identity:
+        if _source_identity_bytes(identity) != self.identity:
             raise SemanticRefusal("callable differs from acquired execution admission")
+
+
+@dataclass(frozen=True)
+class PreparedCapabilityIdentity(PythonPortIdentity):
+    """Source correspondence plus exact prepared-resource runtime custody."""
+
+    runtime: str
+    assets: bytes
+
+
+@dataclass(frozen=True)
+class AcquiredPreparedExecution:
+    identity: PreparedCapabilityIdentity
+    source_admission: AcquiredPythonExecution
+
+    def authorize(self, identity: PreparedCapabilityIdentity) -> None:
+        if identity != self.identity:
+            raise SemanticRefusal("prepared capability differs from acquired admission")
+
+
+def acquire_prepared_execution(
+    connection: Connection,
+    prepared: PreparedRelease,
+    sources: PythonSourceCollection,
+    operation: str,
+    runtime: RuntimeBinding,
+) -> AcquiredPreparedExecution:
+    """Acquire declared preparation, retaining source and opaque asset custody.
+
+    The concrete capability still verifies its original callable, resources and
+    supported preparation profile. This admission never interprets a profile name
+    as permission to execute arbitrary callbacks.
+    """
+    from dataclasses import asdict
+
+    model = bound_data_operation_model(prepared)
+    selected = model.operation(operation)
+    if selected.capabilities.preparation == "none":
+        raise SemanticRefusal("prepared execution requires declared preparation")
+    admission = acquire_python_execution(connection, prepared, sources, operation, runtime)
+    archived = json.loads(runtime.archive)["inputs"]
+    retained = {item["sha256"] for item in archived}
+    boundaries = (*selected.assets, *(boundary for implementation in model.implementation_slices
+        if implementation.root == selected.implementation_root for boundary in implementation.boundaries))
+    if any(boundary.content_digest is None or boundary.content_digest not in retained
+           for boundary in boundaries):
+        raise SemanticRefusal("prepared asset or implementation boundary lacks exact runtime custody")
+    source_record = json.loads(admission.identity)
+    source_record["capabilities"] = canonical_bytes(source_record["capabilities"])
+    identity = PreparedCapabilityIdentity(
+        **source_record, runtime=runtime.runtime_id,
+        assets=canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)),
+    )
+    return AcquiredPreparedExecution(identity, admission)
 
 
 def acquire_python_execution(
@@ -93,8 +154,6 @@ def acquire_python_execution(
     runtime: RuntimeBinding,
 ) -> AcquiredPythonExecution:
     """Acquire permissions briefly; no DB connection is retained through computation."""
-    from dataclasses import asdict
-
     from sqlalchemy import select
 
     from .data_operation_ports import python_port_identity
@@ -143,7 +202,7 @@ def acquire_python_execution(
     if any(sha256(source.content).hexdigest() not in retained for source in sources.sources):
         raise SemanticRefusal("Python module is absent from acquired runtime custody")
     return AcquiredPythonExecution(
-        canonical_bytes(asdict(identity)),
+        _source_identity_bytes(identity),
         prepared.release_id,
         runtime.runtime_id,
         json.loads(runtime.manifest)["attestation"],
