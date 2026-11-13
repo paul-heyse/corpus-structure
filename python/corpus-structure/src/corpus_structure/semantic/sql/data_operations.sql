@@ -83,7 +83,7 @@ BEGIN
  END LOOP;
  RETURN snapshot;
 END $$;
-CREATE OR REPLACE FUNCTION ops.ddo_read_visible(created_at timestamptz,created_xid text,boundary ops.data_demand_read) RETURNS boolean
+CREATE OR REPLACE FUNCTION ops.ddo_read_visible(created_at timestamp with time zone,created_xid text,boundary ops.data_demand_read) RETURNS boolean
 LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  SELECT created_at<=boundary.frontier_at AND (created_xid=boundary.owner_xid OR pg_visible_in_snapshot(created_xid::xid8,boundary.read_snapshot::pg_snapshot))
 $$;
@@ -171,14 +171,25 @@ BEGIN
  RAISE EXCEPTION 'completion requires one declared terminal-state mapping';
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_authorize_request(r ops.data_request) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation
+ CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract'
+ WHERE operation.release_id=r.release_id AND operation.operation_id=r.operation_id;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_claim(r ops.data_request,p jsonb) RETURNS ops.task
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task;
 BEGIN
+ PERFORM ops.ddo_authorize_request(r);
  SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- IF t.data_request_id<>r.id OR t.data_generation<>r.generation OR t.id<>(p->>'task_id')::bigint
- OR t.attempt<>(p->>'attempt')::integer OR t.claimed_by IS DISTINCT FROM p->>'holder'
- OR t.status<>'running' OR t.lease_until<=clock_timestamp() THEN
+ IF (t.data_request_id,t.data_generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM
+ (r.id,r.generation,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder')
+ OR r.generation IS DISTINCT FROM (p->>'generation')::integer
+ OR t.status IS DISTINCT FROM 'running' OR t.lease_until IS NULL OR t.lease_until<=clock_timestamp() THEN
  RAISE EXCEPTION 'stale data task attempt fence' USING ERRCODE='23514'; END IF;
  RETURN t;
 END $$;
@@ -198,6 +209,7 @@ BEGIN
  WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operation_native_definitions.json'
  AND op->>'operation_id'=selected->>'operation' AND op->>'recipe'=selected->>'recipe'
  AND op->>'definition'=selected->>'definition' AND op->>'eligibility'=selected->>'eligibility')) THEN RAISE EXCEPTION 'demand differs from authenticated effective model/selection'; END IF;
+ PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(p->'selection'->'operations') selected JOIN sem.data_operation_definition operation ON operation.release_id=p->>'release_id' AND operation.operation_id=selected->>'operation' CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF p->>'strength'='independent' THEN RAISE EXCEPTION 'independent strength requires declared distinct-episode replicate obligations' USING ERRCODE='23514'; END IF;
  IF p->>'strength'='episode' AND EXISTS(SELECT FROM sem.data_operation_definition op
  CROSS JOIN LATERAL jsonb_array_elements(op.input_roles) role
@@ -358,6 +370,7 @@ BEGIN
  SELECT * INTO STRICT o FROM ops.data_obligation WHERE id=p->>'obligation_id';
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=o.demand_id;
  SELECT * INTO STRICT def FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=o.operation_id;
+ PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN RAISE EXCEPTION 'operation profile requires its own declared command/read execution contract'; END IF;
  PERFORM ops.ddo_fields(p->'binding',ARRAY['inputs','support','parameters','inference','request_inputs','populations','read_id']);
  IF data.ddo_field(p->'request_meaning','recipe') IS DISTINCT FROM jsonb_build_array('string',def.recipe)
@@ -428,9 +441,11 @@ BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','holder','lease_seconds']);
  IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
+ PERFORM ops.ddo_authorize_request(r);
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
+ IF t.status='running' AND t.lease_until IS NULL THEN RAISE EXCEPTION 'running task has no publication lease'; END IF;
  IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  PERFORM ops.ddo_assert_support(r,r.binding->'support');
  UPDATE ops.task SET status='running',attempt=attempt+1,claimed_by=p->>'holder',lease_until=clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer),started_at=coalesce(started_at,clock_timestamp()) WHERE id=t.id RETURNING * INTO t;
@@ -495,6 +510,7 @@ BEGIN
  SELECT * INTO STRICT k FROM sem.data_kind_contract WHERE kind_contract=o->>'kind_contract';
  PERFORM ops.ddo_authorize(k.universe);
  IF NOT EXISTS(SELECT FROM sem.data_kind_release WHERE release_id=r.release_id AND kind_contract=k.kind_contract) THEN RAISE EXCEPTION 'output kind is outside release'; END IF;
+ IF o->>'artifact_digest' IS NOT NULL THEN RAISE EXCEPTION 'artifact publication requires an authenticated staged receipt profile'; END IF;
  b:=data.ddo_normalize(o->'body');
  IF NOT public.json_matches_schema(k.meaning_schema::json,b::json) OR NOT public.json_matches_schema(k.body_schema::json,data.ddo_json(b)::json) OR jsonb_typeof(o->'members')<>'array' THEN RAISE EXCEPTION 'body violates kind contract'; END IF;
  IF k.member_schema='{"not":{}}'::jsonb THEN
@@ -565,6 +581,7 @@ BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','intent_id'],ARRAY['trust_snapshot']);
  SELECT * INTO STRICT i FROM ops.data_completion_intent WHERE id=p->>'intent_id';
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
+ PERFORM ops.ddo_authorize_request(r);
  -- Receipt replay remains readable after terminal ownership and distrust. It creates no new admission.
  SELECT * INTO receipt FROM ops.data_publication_receipt WHERE intent_id=i.id;
  IF FOUND AND i.request_id=r.id AND i.generation=(p->>'generation')::integer THEN RETURN jsonb_build_object('payload',jsonb_build_object('receipt_id',receipt.id,'derivation_id',receipt.derivation_id,'replayed',true,'trust_snapshot',receipt.trust_snapshot)); END IF;
@@ -594,11 +611,14 @@ BEGIN
  SELECT value INTO roledef FROM jsonb_array_elements(def.output_roles) WHERE value->>'name'=o->>'role';
  IF roledef IS NULL OR roledef->>'kind_contract' IS DISTINCT FROM o->'product'->>'kind_contract' THEN RAISE EXCEPTION 'output role/kind mismatch'; END IF;
  product:=ops.ddo_install_product(r,o->'product');
+ IF o->>'member_id' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.data_product_member member WHERE member.product_id=product AND member.member_id=o->>'member_id') THEN RAISE EXCEPTION 'output member is outside its qualified product'; END IF;
  INSERT INTO ops.data_derivation_output VALUES(episode,o->>'role',(o->>'position')::integer,(o->>'multiplicity')::integer,product,o->>'member_id');
  END LOOP;
  IF result_state='success' THEN
  FOR roledef IN SELECT value FROM jsonb_array_elements(def.output_roles) LOOP
  SELECT coalesce(sum(multiplicity),0) INTO cnt FROM ops.data_derivation_output WHERE derivation_id=episode AND role=roledef->>'name';
+ IF roledef->>'collection'='set' AND (EXISTS(SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=episode AND output.role=roledef->>'name' AND output.multiplicity<>1)
+ OR EXISTS(SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=episode AND output.role=roledef->>'name' GROUP BY output.product_id,output.member_id HAVING count(*)<>1)) THEN RAISE EXCEPTION 'set output requires unique values and unit multiplicity'; END IF;
  IF cnt<coalesce((roledef->>'minimum')::integer,0) OR (roledef->>'maximum' IS NOT NULL AND cnt>(roledef->>'maximum')::integer) THEN RAISE EXCEPTION 'output cardinality differs from contract'; END IF;
  END LOOP; END IF;
  key:='receipt:'||ops.ddo_digest(jsonb_build_array(i.id,episode));
@@ -626,6 +646,7 @@ BEGIN
  IF NOT FOUND THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','unavailable','intent_retained',false,'reason','intent-request-binding-unavailable')); END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=i.request_id FOR SHARE;
  END IF;
+ PERFORM ops.ddo_authorize_request(r);
  -- The separate statement sees a publication/retention that committed while the
  -- row lock was acquired. No single-snapshot read is called proof of rollback.
  SELECT * INTO i FROM ops.data_completion_intent WHERE id=p->>'intent_id' AND request_id=r.id AND (NOT p ? 'generation' OR generation=(p->>'generation')::integer);
@@ -713,6 +734,7 @@ BEGIN
  AND convert_from(a.content,'UTF8')::jsonb=p-'release_id') THEN
  RAISE EXCEPTION 'native definition projection differs from authenticated release artifact'; END IF;
  FOR k IN SELECT value FROM jsonb_array_elements(p->'kinds') LOOP
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'kinds') kind WHERE kind->>'semantic_id'=k->>'kind' AND coalesce(kind->'facts'->'json'->>'universe','ordinary')=k->>'universe' AND coalesce(kind->'facts'->'json'->'projection_families','[]')=k->'families') THEN RAISE EXCEPTION 'kind purpose/projection policy differs from archived facts'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') a WHERE a->>'owner'=k->>'kind' AND a->>'domain'='kind' AND a->>'key'=k->>'kind_contract') THEN RAISE EXCEPTION 'kind identity differs from archived effective model'; END IF;
  INSERT INTO sem.data_kind_contract VALUES(k->>'kind_contract',k->>'kind',k->'body_schema',k->'meaning_schema',k->'member_schema',k->'families',k->>'universe') ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM sem.data_kind_contract WHERE kind_contract=k->>'kind_contract';

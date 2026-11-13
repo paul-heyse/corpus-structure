@@ -366,12 +366,15 @@ def data_operation_definition_projection(prepared: PreparedRelease,
             raise ValueError('cannot admit an incomplete effective kind')
         facts = json.loads(kind.facts)
         schema = _kind_schema(prepared, kind)
+        universe = facts.get('universe', 'ordinary')
+        if universe not in {'ordinary', 'source', 'evaluator'}:
+            raise ValueError('unknown effective kind data universe')
         kinds.append({'kind_contract': contract, 'kind': kind.semantic_id,
             'body_schema': schema,
             'meaning_schema': _meaning_schema(prepared, kind, model),
             'member_schema': _member_schema(schema),
-            'families': facts.get('interpretation', {}).get('projection_families', []),
-            'universe': facts.get('universe', 'ordinary')})
+            'families': facts.get('projection_families', []),
+            'universe': universe})
     operations = []
     exported_bindings = {b['semantic_id']: b['expression'] for b in json.loads(model.content)['bindings']}
     for operation in model.operations:
