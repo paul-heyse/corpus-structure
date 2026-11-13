@@ -79,3 +79,19 @@ def original_source_selections_record(selections: tuple[OriginalSourceSelection,
     return {
         selection.name: selection.record() for selection in sorted(selections, key=lambda s: s.name)
     }
+
+
+ORIGINAL_REFERENCE_SCHEMA = "native/data-operation-original-reference.json"
+
+
+def original_source_reference_schema() -> bytes:
+    from jsonschema import Draft7Validator
+
+    from .structural_products import ExternalSourceRef
+
+    schema = TypeAdapter(ExternalSourceRef).json_schema(ref_template="#/definitions/{model}")
+    if "$defs" in schema:
+        schema["definitions"] = schema.pop("$defs")
+    schema["$schema"] = "http://json-schema.org/draft-07/schema#"
+    Draft7Validator.check_schema(schema)
+    return canonical_bytes(schema)
