@@ -41,6 +41,11 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Test-system target design](test-system-target-design_2026-11-13.md):
+  shorter focused and full runs through demand-driven deployment verification, preparation keys,
+  infrastructure-only fixtures, effective affinity and reused DDO setup; preserved binding and
+  qualification evidence. Proposals only; implementation plans remain unchanged.
+
 - [Declared data operations with Python introspection](declared-data-operations-python-introspection_2026-11-12.md):
   implementation-owned contracts, conservative operation dependency fingerprints, source-derived
   interfaces/documentation and concrete LibCST/Astroid/Griffe/ty capability dispositions.
