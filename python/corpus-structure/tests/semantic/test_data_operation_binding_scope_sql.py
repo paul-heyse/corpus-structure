@@ -2,6 +2,7 @@
 
 import json
 from importlib.resources import files
+from typing import Any
 
 import pytest
 from sqlalchemy import text
@@ -102,7 +103,12 @@ END $$;"""
             else ["episode" if origin == "computation" else "original-source"]
         ),
     }
-    member = {"product": "product:one", "member": None, "position": 0, "multiplicity": 1}
+    member: dict[str, Any] = {
+        "product": "product:one",
+        "member": None,
+        "position": 0,
+        "multiplicity": 1,
+    }
     if origin in {"computation", "mixed"}:
         member["support_episodes"] = ["episode:one"]
     if origin in {"original-source", "mixed"}:
