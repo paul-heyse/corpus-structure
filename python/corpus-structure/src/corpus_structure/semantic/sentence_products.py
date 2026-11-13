@@ -470,6 +470,12 @@ def _native_records(selected, block, layout, doc):
             end=token.end,
             space=token.space,
             role=token.role,
+            lower=native.lower_,
+            is_alpha=native.is_alpha,
+            is_space=native.is_space,
+            is_punct=native.is_punct,
+            is_quote=native.is_quote,
+            like_num=native.like_num,
             piece_indices=[
                 index
                 for index in range(len(selected["pieces"]))

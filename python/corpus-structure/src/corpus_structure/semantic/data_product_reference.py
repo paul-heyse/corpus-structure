@@ -14,6 +14,10 @@ def reference_inputs(bundle):
     import yaml
 
     from .types import SourceArtifact, SourceBundle
+    from .observations import observation_inputs
+
+    if "observations" not in {source.name for source in bundle.sources}:
+        bundle = observation_inputs(bundle)
 
     content = (
         Path(__file__).parents[1] / "model/semantic/data-operation-references.yaml"

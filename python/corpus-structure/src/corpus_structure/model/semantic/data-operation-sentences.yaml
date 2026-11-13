@@ -24,6 +24,12 @@ classes:
       end: {range: integer, required: true, minimum_value: 1}
       space: {range: boolean, required: true}
       role: {required: true, pattern: '^(prose|math|reference)$'}
+      lower: {value_presence: PRESENT}
+      is_alpha: {range: boolean, required: true}
+      is_space: {range: boolean, required: true}
+      is_punct: {range: boolean, required: true}
+      is_quote: {range: boolean, required: true}
+      like_num: {range: boolean, required: true}
       sentence_ref: {}
       lemma: {value_presence: PRESENT}
       pos: {value_presence: PRESENT}
