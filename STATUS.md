@@ -28,3 +28,11 @@ _Updated 2026-11-13. DDO audit repairs and DDO-03–05 implemented; native quali
 - **Running:** complete native/protocol/adjacent-control union, `0aaa980a87bc415f8c6c682ebacd2214`. Source is frozen; diagnose any failure, retain the original receipt, and reconcile actual selected scope/final context before closing findings or DDO-03–05. Earlier v2/v3 runtime failures remain preserved.
 - Reconcile coordinator/companions and findings only against final applicable evidence, update this checkpoint, run root `just turn-end` and final applicable checks. No broad DDO-12 provider/book/fault completion is claimed.
 - Worker branches are integrated and clean; native/ports/family worktrees remain for cleanup after qualification. Concurrent test-audit work and untracked test-system-target plan files are preserved. No push.
+
+## Test system: audit, review and plan · 2026-11-13
+
+- **Published, documentation only; nothing implemented.** The [test audit](docs/design_review/test-audit/README.md) was refreshed (`28b4a53db`, DTA-031–036 added, durations read from stored results). The [test system target design review](docs/design_review/reviews/design_review_test-system-target-design_2026-11-13.md) (`89440372a`, Revise) supersedes the 2026-11-12 test review. The [test system target design plan](docs/plans/test-system-target-design_2026-11-13.md) (`4434b0bcc`, TS-00–23, Proposed) owns scheduled disposition of DTA-001, 006, 009, 018, 024–036 and F01–F05.
+- **Operator decisions recorded in that plan:** RC01–RC04 accepted (ADR-0032 and ADR-0048 successors are TS-00's work and are not yet written); narrow verified deployment key; once-per-process implementation snapshot; no-unfinished-task seed rule; enforced reader and shared-clone engines.
+- **Owed to the DDO owner** (the plan's handovers list): the RC03 correction to the contracts companion, gating DDO-06–12 on TS-21/TS-22, and landing TS-05/06/17 before DDO-06 adds native tests.
+- **passed:** `uv run ci adr lint`, `uv run ci docs check` (1,233 canonical pages) and `just turn-end` at `4434b0bcc`. **not_run:** `uv run ci test`, `uv run ci check`; no product or test source changed.
+- **Next:** TS-00 (two superseding ADRs with D3, DESIGN and D9 §4 amended), then TS-01 and TS-03 in parallel. Implementation needs separate authorization.
