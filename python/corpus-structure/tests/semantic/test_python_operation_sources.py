@@ -143,3 +143,45 @@ def test_dataclass_disabled_init_does_not_export_griffe_empty_constructor_as_run
     assert facts["constructor"] is None
     assert not facts["complete"]
     assert any("init=False" in u["reason"] for u in facts["unknowns"])
+
+
+def implementation(code, entry='run', inputs=('item',)):
+    captured = ClosedPythonSources(sources(code))
+    target = 'example.' + entry
+    function = captured.resolve(target)
+    return captured.implementation_slice(target, (captured._surface(target, function),), (), inputs)
+
+
+@pytest.mark.parametrize('expression', [
+    'item.__class__.__firstlineno__',
+    'item.label.__code__.co_firstlineno',
+    'item.value.__class__.__name__',
+    'str(item)',
+])
+def test_nominal_data_input_does_not_admit_runtime_metadata(expression):
+    code = ('class Item:\n    value: str\n    def label(self) -> str:\n        return "label"\n'
+            + 'def run(item: Item) -> str:\n    return ' + expression + '\n')
+    result = implementation(code)
+    assert not result.complete
+    assert any('attribute access' in u.reason or 'escape' in u.reason for u in result.unknowns)
+
+
+def test_nominal_field_and_primitive_value_method_profiles_preserve_layout_locality():
+    code = 'class Item:\n    value: str\ndef run(item: Item) -> str:\n    return item.value.strip().lower()\n'
+    first = implementation(code)
+    second = implementation('\n\n' + code)
+    assert first.complete and second.complete
+    assert first.semantic_records() == second.semantic_records()
+
+
+def test_nominal_method_body_is_retained_but_unqualified_dispatch_withholds_identity():
+    code = ('class Item:\n    def label(self) -> str:\n        return "first"\n'
+            'def run(item: Item) -> str:\n    return item.label()\n')
+    first = implementation(code)
+    second = implementation(code.replace('"first"', '"second"'))
+    assert not first.complete and not second.complete
+    assert any('concrete receiver' in u.reason for u in first.unknowns)
+    assert 'python:example.Item.label' in {node.id for node in first.nodes}
+    assert any(edge.relation == 'possible_call' and edge.target == 'python:example.Item.label'
+               for edge in first.edges)
+    assert first.semantic_records() != second.semantic_records()
