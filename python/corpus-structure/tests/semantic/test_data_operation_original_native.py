@@ -30,7 +30,7 @@ from .test_data_operation_storage import _declaration
 
 
 @pytest.fixture
-def original_target(tmp_path):
+def original_target(tmp_path, request):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     (tmp_path / "core.yaml").write_bytes(core.read_bytes())
     (tmp_path / "schema.yaml").write_text("""id: urn:original-fact-test
@@ -43,11 +43,13 @@ classes: {Marker: {}}
     operation = _declaration()
     operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
     operation["roles"][0].update(maximum=1, collection="scalar")
+    if getattr(request, "param", None) == "DdoOriginalDocument":
+        operation["capabilities"]["preparation"] = "pdf-native"
     operation["roles"].insert(
         0,
         {
             "name": "source",
-            "kind": "DdoSelectedNativeSource",
+            "kind": getattr(request, "param", "DdoSelectedNativeSource"),
             "direction": "input",
             "minimum": 1,
             "maximum": 1,
@@ -258,5 +260,86 @@ def test_authentic_original_fact_admission_publication_and_revocation(
                         "selection_name": acquired.name,
                         **acquired.selection().record(),
                     },
+                )
+            savepoint.rollback()
+
+
+@pytest.mark.parametrize("original_target", ["DdoOriginalDocument"], indirect=True)
+def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_request_context(
+    private_source, original_target, semantic_db_engine
+):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.original_documents import acquire_original_document_selection
+    from corpus_structure.semantic.pdf_contracts import store_pdf_original
+    from corpus_structure.semantic.pdf_records import native_schema_bytes
+    from corpus_structure.semantic.pdf_staging import begin_pdf_build
+
+    bundle, dependencies, profile, prepared = original_target
+    model = bound_data_operation_model(prepared)
+    runtime = prepare_data_operation_runtime(
+        prepared, dependencies.artifacts, execution_profile="execution:original-pdf", observed={}
+    )
+    with semantic_db_engine.begin() as connection:
+        persist_release(connection, bundle, dependencies, profile, prepared)
+        admit_data_operation_release(connection, prepared)
+        persist_runtime_binding(connection, prepared, runtime)
+        document = connection.execute(text(
+            "SELECT d.id,d.key,d.content_hash FROM kb.source_view view "
+            "JOIN kb.document d ON d.id=view.document_id WHERE view.id=:view"
+        ), {"view": private_source.view}).one()
+        acquired = acquire_original_document_selection(
+            connection, project_id=private_source.project_id, document_key=document.key,
+        )
+        intent = freeze_demand(
+            model, roots=(acquired.root,), targets=("urn:original-fact-test:consume",),
+            inference="inference:original-pdf", execution_profile="execution:original-pdf",
+            original_sources=(acquired.selection(),),
+        )
+        storage = DataOperationStorage(connection)
+        planner = DemandPlanner(model, storage)
+        demand = planner.register(intent, project=private_source.project_id,
+                                  release=prepared.release_id, runtime=runtime.runtime_id)
+        snapshot = storage.invoke("read_demand_result", demand)
+        assert len(snapshot["original_source_admissions"]) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
+        (ready,) = planner.ready(snapshot, authorization=b"{}")
+        claim = storage.invoke("claim_data_request", {
+            "request_id": json.loads(ready.native)["request_id"],
+            "holder": "raw-pdf-owner", "lease_seconds": 30,
+        })
+        original = connection.scalar(text(
+            "SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"
+        ), {"digest": document.content_hash})
+        recipe = b'{"recipe":"runless-stage-context-control"}'
+        assert store_pdf_original(
+            connection, task_id=claim["task_id"], attempt=claim["attempt"], holder=claim["holder"],
+            original=original, recipe_bytes=recipe,
+        ) == document.content_hash
+        build = begin_pdf_build(
+            connection, task_id=claim["task_id"], attempt=claim["attempt"], holder=claim["holder"],
+            source_digest=document.content_hash, recipe_digest=sha256(recipe).hexdigest(),
+            schema_digest=sha256(native_schema_bytes()).hexdigest(), replay_key="actual-ddo-build",
+        )
+        assert build.task_id == claim["task_id"] and build.release_id == prepared.release_id
+        context = connection.execute(text("SELECT * FROM ops.pdf_task_context(:task)"), {
+            "task": claim["task_id"],
+        }).mappings().one()
+        assert context["run_id"] is None
+        assert context["request_id"] == claim["request_id"]
+        assert context["generation"] == claim["generation"]
+        assert context["document_id"] == document.id
+        assert connection.scalar(
+            text("SELECT run_id FROM ops.pdf_stage_build WHERE build_id=:build"), {
+            "build": build.build_id,
+        }) is None
+        with connection.begin_nested() as savepoint:
+            with pytest.raises(DBAPIError, match="stale private"):
+                begin_pdf_build(
+                    connection, task_id=claim["task_id"], attempt=claim["attempt"],
+                    holder="forged-owner",
+                    source_digest=document.content_hash, recipe_digest=sha256(recipe).hexdigest(),
+                    schema_digest=sha256(native_schema_bytes()).hexdigest(),
+                    replay_key="forged-build",
                 )
             savepoint.rollback()

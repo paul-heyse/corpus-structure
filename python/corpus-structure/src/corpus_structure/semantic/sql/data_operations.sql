@@ -880,17 +880,25 @@ BEGIN
  'subject',r.subject,'original_source',r.original_source,'analyzed_scope',r.analyzed_scope),o);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.admit_original_source_view(p_payload jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION ops.ddo_admit_original_source(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; frozen jsonb; fact jsonb; kind text; product text; identity text;
- snapshot jsonb; key text; admitted ops.original_source_admission;
+ snapshot jsonb; kind_name text; key text; admitted ops.original_source_admission;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['demand_id','selection_name','reference','selectors']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
  frozen:=d.selection->'original_sources'->(p->>'selection_name');
  IF frozen IS NULL OR frozen IS DISTINCT FROM (p-'demand_id'-'selection_name')
  OR p->'reference'->>'project_id' IS DISTINCT FROM d.project_id THEN RAISE EXCEPTION 'original source selection differs from immutable demand'; END IF;
+ IF p->'reference'->>'kind'='original-document' THEN
+ IF p->'selectors' IS DISTINCT FROM '[{"scope":"whole-document"}]'::jsonb THEN
+ RAISE EXCEPTION 'original document scope differs from immutable whole document'; END IF;
+ fact:=ops.ddo_original_document_view(p->'reference');
+ kind_name:='https://corpus-structure.dev/semantic/data-operation-source/DdoOriginalDocument';
+ ELSE
  fact:=ops.ddo_original_source_view(p->'reference',p->'selectors');
+ kind_name:='https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource';
+ END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(d.root) root WHERE
  (root->>'subject',root->>'original_source')=(fact->>'subject',fact->>'original_source')
  AND root->'analyzed_scope'=fact->'analyzed_scope') THEN RAISE EXCEPTION 'authenticated source context is outside frozen roots'; END IF;
@@ -898,7 +906,7 @@ BEGIN
  PERFORM ops.ddo_require_active_demand(d.id);
  SELECT release.kind_contract INTO STRICT kind FROM sem.data_kind_release release
  JOIN sem.data_kind_contract contract ON contract.kind_contract=release.kind_contract
- WHERE release.release_id=d.release_id AND contract.kind='https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource';
+ WHERE release.release_id=d.release_id AND contract.kind=kind_name;
  product:=ops.ddo_install_product_context(jsonb_build_object('project_id',d.project_id,'release_id',d.release_id,
  'subject',fact->>'subject','original_source',fact->>'original_source','analyzed_scope',fact->'analyzed_scope'),
  jsonb_build_object('kind_contract',kind,'body',fact->'meaning_body','members','[]'::jsonb));
@@ -913,6 +921,20 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('admission_id',admitted.id,'selection_name',admitted.selection_name,
  'product_id',product,'kind_contract',kind,'subject',admitted.subject,'original_source',admitted.original_source,
  'analyzed_scope',admitted.analyzed_scope,'source_reference',identity,'trust_snapshot',snapshot,'evidence',admitted.evidence));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.admit_original_source_view(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF p_payload->'reference' ? 'kind' THEN RAISE EXCEPTION 'source view requires its actual external reference'; END IF;
+ RETURN ops.ddo_admit_original_source(p_payload);
+END $$;
+CREATE OR REPLACE FUNCTION ops.admit_original_document_asset(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF p_payload->'reference'->>'kind' IS DISTINCT FROM 'original-document' THEN
+ RAISE EXCEPTION 'original document reference discriminator differs'; END IF;
+ RETURN ops.ddo_admit_original_source(p_payload);
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.publish_data_derivation(p_payload jsonb) RETURNS jsonb

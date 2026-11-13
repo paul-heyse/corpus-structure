@@ -34,12 +34,18 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_source_native import source_native_sources
-    from .data_operation_support import ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema
+    from .data_operation_support import (
+        ORIGINAL_REFERENCE_SCHEMA,
+        ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
+        original_source_reference_schema,
+        original_support_reference_schema,
+    )
     from .data_operation_wire_native import wire_native_sources
 
     return (
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
+        SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
             "native/data-operation-support.py",
             Path(__file__).with_name("data_operation_support.py").read_bytes(),
@@ -94,6 +100,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
     }
+    if b"admit_original_document_asset" in result.get("native/data-operation-protocol.yaml", b""):
+        required.add("native/data-operation-original-support-reference.json")
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
     return result

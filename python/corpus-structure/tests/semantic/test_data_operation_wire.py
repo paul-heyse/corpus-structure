@@ -34,7 +34,9 @@ def captured(content: bytes | None = None):
     )
     from corpus_structure.semantic.data_operation_support import (
         ORIGINAL_REFERENCE_SCHEMA,
+        ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
         original_source_reference_schema,
+        original_support_reference_schema,
     )
 
     return (
@@ -44,6 +46,7 @@ def captured(content: bytes | None = None):
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
+        SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
     )
 
 
@@ -105,7 +108,7 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 17
+    assert len(contracts) == 18
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)

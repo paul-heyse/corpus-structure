@@ -29,6 +29,15 @@ classes:
       num_cols: {range: integer}
       orientation: {}
       table_cells: {range: DdoNativeTableCell, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoOriginalDocument:
+    annotations:
+      cs:data_universe: source
+    is_a: SourceRecordProduct
+    description: Immutable original document bytes by their retained content digest, independent of converter recipe and physical path.
+    attributes:
+      document: {required: true, pattern: '^.+$'}
+      content_hash: {required: true, pattern: '^[0-9a-f]{64}$'}
+      mime: {required: true, pattern: '^.+$'}
   DdoNativeSourceCoordinate:
     is_a: SourceRecordProduct
     description: Semantic source identity and original projection coordinates; physical run/view custody is separate.

@@ -333,7 +333,8 @@ class DemandPlanner:
             return result
         for name, source in record.get("original_sources", {}).items():
             self.storage.invoke(
-                "admit_original_source_view",
+                ("admit_original_document_asset" if source["reference"].get("kind")
+                 == "original-document" else "admit_original_source_view"),
                 {
                     "demand_id": result["demand_id"],
                     "selection_name": name,
