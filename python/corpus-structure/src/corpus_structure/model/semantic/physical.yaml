@@ -126,6 +126,7 @@ classes:
         - release_id
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: header
       ph:foreign_keys: '[{"columns": ["parent_release_id"], "target": "sem.release.release_id"}]'
   input:
     in_subset:
@@ -154,6 +155,7 @@ classes:
         - input_name
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: input
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   artifact:
     in_subset:
@@ -181,6 +183,7 @@ classes:
         - artifact_name
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: artifact
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   registry_row:
     in_subset:
@@ -206,6 +209,7 @@ classes:
         - name
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   class_definition:
     in_subset:
@@ -239,6 +243,7 @@ classes:
         - iri
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   property_definition:
     in_subset:
@@ -270,6 +275,7 @@ classes:
         - iri
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   class_hierarchy:
     in_subset:
@@ -292,6 +298,7 @@ classes:
         - ancestor_id
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "ancestor_id"], "target": "sem.class_definition.release_id,class_id"}]'
   property_applicability:
@@ -336,6 +343,7 @@ classes:
         - property_id
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
       ph:checks: '["minimum_cardinality IS NULL OR minimum_cardinality >= 0", "maximum_cardinality IS
@@ -369,6 +377,7 @@ classes:
         - position
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
       ph:checks: '["position >= 0"]'
@@ -399,6 +408,7 @@ classes:
         - value
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   project:
     in_subset:
@@ -1904,6 +1914,7 @@ classes:
         - rule_id
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
       ph:checks: '["scope IN (''shape'',''accepted_value'')"]'
 
@@ -1941,6 +1952,7 @@ classes:
         - position
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "rule_id"], "target": "sem.conditional_rule.release_id,rule_id"}]'
       ph:checks: '["branch IN (''if'',''then'',''else'')", "position>=0", "presence IN (''present'',''absent'',''optional'')", "choices IS NULL OR choices=''null''::jsonb OR jsonb_typeof(choices)=''array''"]'
 
@@ -2017,6 +2029,7 @@ classes:
         unique_key_slots: [release_id, metric_id]
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
 
   identity_exclusion:
@@ -2385,6 +2398,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, operation_id]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
   execution_transition:
     in_subset: [sem]
@@ -2397,6 +2411,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, transition_id]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id","operation_id"],"target":"sem.execution_operation.release_id,operation_id"}]'
   execution_edge:
     in_subset: [sem]
@@ -2409,6 +2424,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, transition_id, prior_state, result_state]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id","transition_id"],"target":"sem.execution_transition.release_id,transition_id"}]'
   operation_effect:
     in_subset: [sem]
@@ -2421,6 +2437,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, operation_id, effect_id]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id","operation_id"],"target":"sem.execution_operation.release_id,operation_id"}]'
   transition_effect:
     in_subset: [sem]
@@ -2433,6 +2450,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, transition_id, effect_id]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id","transition_id"],"target":"sem.execution_transition.release_id,transition_id"}]'
   operation_property_role:
     in_subset: [sem]
@@ -2445,6 +2463,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, class_id, property_id, role]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id","class_id","property_id"],"target":"sem.property_applicability.release_id,class_id,property_id"}]'
   scientific_decision_rule:
     in_subset: [sem]
@@ -2459,6 +2478,7 @@ classes:
       primary_key: {unique_key_slots: [release_id, policy_id, evidence_tier, agreement]}
     annotations:
       ph:immutability: intrinsic
+      ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
   source_artifact:
     in_subset:

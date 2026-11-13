@@ -286,6 +286,7 @@ def _release_guard_definitions(connection, sql, *, source):
 # recovered from frozen declarations, never adopted from a deployed catalog.
 _RETIRED_SOURCE_FUNCTIONS = frozenset(
     {
+        ("sem", "publish_release_archive"),
         ("kb", "check_offsets"),
         ("data", "structural_public_statement"),
         ("ops", "dossier_contribution_members"),
@@ -540,6 +541,7 @@ def series_predecessor_definitions(connection):
 
 
 def series_native_definitions(connection, *, include_selected=True):
+    from .archive_native import archive_native_definitions
     from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import (
         _native_shape_guard,
@@ -569,6 +571,7 @@ def series_native_definitions(connection, *, include_selected=True):
     from .data_operation_storage import data_operation_native_definitions
 
     definitions = [
+        *archive_native_definitions(connection),
         *data_operation_native_definitions(connection),
         *_release_guard_definitions(
             connection,
@@ -672,6 +675,14 @@ def series_native_definitions(connection, *, include_selected=True):
             grants=(),
         )
     )
+    definitions.extend(_task_call_definitions(
+        connection, Path(__file__).with_name("sql").joinpath("closure.sql").read_text(),
+        name="require_runtime_principal", schema="data",
+        source="runtime archive capability:forward",
+        grants=tuple((role, "EXECUTE", False) for role in (
+            "corpus_sem_writer", "corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_admitter"
+        )),
+    ))
     # The SQL correctness overload resolves this dependency at CREATE time.
     definitions.append(
         _task_call_definition(

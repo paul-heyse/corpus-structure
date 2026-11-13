@@ -5380,13 +5380,26 @@ operations:
   transitions: []
   projections: []
   calls:
+  - id: prepare_release_archive
+    symbol: sem.prepare_release_archive
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: p_release_id
+      semantic_type: ReleaseId
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
   - id: publish_release_archive
     symbol: sem.publish_release_archive
     parameters:
-    - name: payload
-      source: primitive:json_payload
+    - name: release_id
+      source: physical:sem.release.release_id
       nullable: false
-      native_parameter: payload
+      native_parameter: p_release_id
+      semantic_type: ReleaseId
     result_fields:
     - name: release_id
       source: physical:sem.release.release_id

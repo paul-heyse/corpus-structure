@@ -17,45 +17,6 @@ BEGIN
 END
 $body$;
 
-CREATE OR REPLACE FUNCTION sem.publish_release_archive(payload jsonb) RETURNS text
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
-DECLARE r text; digest text; relation_name text; actual jsonb; expected jsonb; replay boolean;
- names constant text[]:=ARRAY[{intrinsic_relations}];
-BEGIN
- PERFORM sem.require_admission_caller();
- IF jsonb_typeof(payload)<>'object' OR ARRAY(SELECT jsonb_object_keys(payload) ORDER BY 1)
-   IS DISTINCT FROM ARRAY(SELECT unnest(names) ORDER BY 1) THEN
-  RAISE EXCEPTION 'archive relation set differs' USING ERRCODE='23514'; END IF;
- IF jsonb_array_length(payload->'release')<>1 THEN RAISE EXCEPTION 'one complete release required'; END IF;
- r:=payload->'release'->0->>'release_id'; digest:=payload->'release'->0->>'content_digest';
- IF r IS NULL OR digest IS NULL THEN RAISE EXCEPTION 'archive identity missing'; END IF;
- PERFORM pg_advisory_xact_lock(hashtextextended(r,0));
- replay:=EXISTS(SELECT FROM sem.release_finalization WHERE release_id=r);
- FOREACH relation_name IN ARRAY names LOOP
-  IF jsonb_typeof(payload->relation_name)<>'array' THEN RAISE EXCEPTION 'archive rows must be arrays'; END IF;
-  IF EXISTS(SELECT FROM jsonb_array_elements(payload->relation_name) row WHERE row->>'release_id' IS DISTINCT FROM r) THEN
-   RAISE EXCEPTION 'archive row has wrong release' USING ERRCODE='23514'; END IF;
-  EXECUTE format('SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),''[]''::jsonb) FROM jsonb_populate_recordset(NULL::sem.%I,$1) t',relation_name)
-   INTO expected USING payload->relation_name;
-  IF NOT replay THEN
-   EXECUTE format('INSERT INTO sem.%I SELECT * FROM jsonb_populate_recordset(NULL::sem.%I,$1)',relation_name,relation_name) USING payload->relation_name;
-  END IF;
-  EXECUTE format('SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),''[]''::jsonb) FROM sem.%I t WHERE release_id=$1',relation_name)
-   INTO actual USING r;
-  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archive replay differs: %',relation_name USING ERRCODE='23505'; END IF;
- END LOOP;
- IF EXISTS(SELECT FROM sem.release WHERE release_id=r AND encode(sha256(prepared_bytes),'hex')<>content_digest)
- OR EXISTS(SELECT FROM sem.input WHERE release_id=r AND encode(sha256(content),'hex')<>content_digest)
- OR EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND encode(sha256(content),'hex')<>content_digest) THEN
-  RAISE EXCEPTION 'archive content digest differs' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM sem.release WHERE release_id=r AND (release_id<>'release:'||encode(sha256(manifest_bytes),'hex') OR convert_from(prepared_bytes,'UTF8')::jsonb->'products'->>'release_id' IS DISTINCT FROM release_id)) THEN RAISE EXCEPTION 'archive manifest identity differs' USING ERRCODE='23514'; END IF;
- PERFORM sem.require_archive_bytes(r);
- PERFORM sem.require_execution_projection(r);
- IF NOT replay THEN INSERT INTO sem.release_finalization VALUES(r,digest); END IF;
- RETURN r;
-END
-$body$;
-
 CREATE OR REPLACE FUNCTION sem.record_deployment_admission(r text,p text,d text,k text,c bytea) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
 BEGIN
@@ -149,7 +110,7 @@ BEGIN
  OR (purpose='read' AND NOT has_table_privilege(principal,'data.realization','SELECT'))
  OR (purpose='write' AND NOT has_function_privilege(principal,'data.begin_stage()','EXECUTE'))
  OR (purpose='evaluate' AND NOT has_schema_privilege(principal,'eval','USAGE'))
- OR (purpose='admit' AND NOT has_function_privilege(principal,'sem.publish_release_archive(jsonb)','EXECUTE')) THEN
+ OR (purpose='admit' AND NOT has_function_privilege(principal,'sem.publish_release_archive(text)','EXECUTE')) THEN
   RAISE EXCEPTION 'required runtime capability unavailable' USING ERRCODE='42501'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(data.execution_contract_descriptor()->'functions') contract
   JOIN pg_proc p ON p.oid=to_regprocedure(contract->>'signature')
@@ -500,8 +461,8 @@ BEGIN
 $body$;
 
 REVOKE ALL ON FUNCTION sem.refuse_immutable_mutation(),sem.guard_finalized_insert() FROM PUBLIC;
-REVOKE ALL ON FUNCTION sem.publish_release_archive(jsonb),sem.record_deployment_admission(text,text,text,text,bytea),sem.record_sql_admission(text,text,text,text,bytea),sem.activate_release(text,text,text,bigint),sem.select_completed_result(text,bigint,bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION sem.publish_release_archive(jsonb),sem.record_deployment_admission(text,text,text,text,bytea),sem.record_sql_admission(text,text,text,text,bytea),sem.activate_release(text,text,text,bigint),sem.select_completed_result(text,bigint,bigint) TO corpus_sem_admitter;
+REVOKE ALL ON FUNCTION sem.record_deployment_admission(text,text,text,text,bytea),sem.record_sql_admission(text,text,text,text,bytea),sem.activate_release(text,text,text,bigint),sem.select_completed_result(text,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION sem.record_deployment_admission(text,text,text,text,bytea),sem.record_sql_admission(text,text,text,text,bytea),sem.activate_release(text,text,text,bigint),sem.select_completed_result(text,bigint,bigint) TO corpus_sem_admitter;
 REVOKE ALL ON FUNCTION data.begin_inference_workspace(text,text,bigint,text),data.end_inference_workspace(text,text,bigint,text),data.is_bound_statement(text,text),data.require_runtime_principal(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION data.begin_inference_workspace(text,text,bigint,text),data.end_inference_workspace(text,text,bigint,text) TO corpus_sem_writer;
 GRANT EXECUTE ON FUNCTION data.require_runtime_principal(text) TO corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator,corpus_sem_admitter;

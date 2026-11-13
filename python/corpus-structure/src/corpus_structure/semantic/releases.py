@@ -7,7 +7,7 @@ only an explicit archive load recompiles the archived, entirely local inputs.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 import yaml
 from cattrs.errors import BaseValidationError
-from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import Connection, select
 
 from .determinants import release_library_versions
@@ -65,27 +64,6 @@ def _table(name: str):
 
 def _digest(content: bytes) -> str:
     return sha256(content).hexdigest()
-
-
-def _archive_wire_payload(relations: Mapping[str, Sequence[Mapping[str, Any]]]) -> JsonValue:
-    """Export owned archive rows to their JSON/bytea wire representation once.
-
-    Prepared products retain immutable tuples. Their archive JSON representation uses
-    arrays; byte content remains exact PostgreSQL hex. Unsupported Python values refuse
-    rather than acquiring a presentation serializer or semantic value transformation.
-    """
-    rows = {
-        name: [
-            {
-                key: "\\x" + bytes(value).hex() if isinstance(value, (bytes, memoryview)) else value
-                for key, value in row.items()
-            }
-            for row in records
-        ]
-        for name, records in relations.items()
-    }
-    encoded = json.dumps(rows, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-    return TypeAdapter(JsonValue).validate_json(encoded, strict=True)
 
 
 def _products(prepared: PreparedRelease) -> dict[str, Any]:
@@ -173,27 +151,11 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
     constraints = native_constraints(prepared)
     products = record_product_classes(prepared.definitions)
     rid = prepared.release_id
+    from .archive_transport import archive_tables
+
     rows: dict[str, list[dict[str, Any]]] = {
-        name: []
-        for name in (
-            "class_definition",
-            "property_definition",
-            "class_hierarchy",
-            "property_applicability",
-            "identity_slot",
-            "vocabulary_member",
-            "registry_row",
-            "conditional_rule",
-            "conditional_atom",
-            "metric_definition",
-            "execution_operation",
-            "execution_transition",
-            "execution_edge",
-            "operation_effect",
-            "transition_effect",
-            "operation_property_role",
-            "scientific_decision_rule",
-        )
+        relation.name: [] for relation in archive_tables()
+        if relation.info["archive_role"] == "projection"
     }
     properties: dict[str, str] = {}
     class_ids = {cls.name: cls.iri for cls in prepared.definitions}
@@ -485,14 +447,28 @@ def persist_release(
 
     from sqlalchemy.exc import DBAPIError
 
-    from ._operation_calls import publish_release_archive
-
-    payload = _archive_wire_payload(
-        {"release": [release_row], "input": inputs, "artifact": artifacts, **projections}
+    from ._operation_calls import prepare_release_archive, publish_release_archive
+    from ._operation_ids import ReleaseId
+    from .archive_transport import (
+        archive_batch,
+        archive_tables,
+        archive_write_profile,
+        scratch_name,
     )
+    from .arrow_transfer import copy_arrow_stream
+
+    relations = {"release": [release_row], "input": inputs, "artifact": artifacts, **projections}
     try:
         with conn.begin_nested():
-            archived = publish_release_archive(conn, payload=payload)
+            release_id = ReleaseId(prepared.release_id)
+            prepare_release_archive(conn, release_id=release_id)
+            for relation in archive_tables():
+                write = archive_write_profile(relation, prepared.release_id)
+                copy_arrow_stream(
+                    conn, write, target=("pg_temp", scratch_name(relation)),
+                    batches=(archive_batch(relation, write, relations[relation.name]),),
+                )
+            archived = publish_release_archive(conn, release_id=release_id)
     except DBAPIError as error:
         if getattr(error.orig, "sqlstate", None) in {"23505", "23514"}:
             raise ReleaseConflict(str(error.orig).splitlines()[0]) from error
