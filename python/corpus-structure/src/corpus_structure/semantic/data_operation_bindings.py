@@ -653,9 +653,11 @@ def compile_binding(
                 if population_name is None:
                     raise ValueError("population operand lacks its frozen name")
                 population = population_map[population_name]
-                product_scopes = [
-                    population_product(name, population) for name in referenced_roles(node)
-                ]
+                owners = set(node.roles) | {field.role for field in node.fields}
+                owners.update(
+                    operand.field.role for operand in node.operands if operand.field is not None
+                )
+                product_scopes = [population_product(name, population) for name in owners]
             return and_(nested, value.in_(members), *product_scopes)
         if node.operator in {"same", "distinct"}:
             values = [aliases[name] for name in node.roles]
