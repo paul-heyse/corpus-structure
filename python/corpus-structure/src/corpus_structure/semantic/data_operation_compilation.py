@@ -1135,23 +1135,12 @@ def compile_data_operations(
                 subject_field = _text(subject_field, semantic_id + "/subject_field")
                 if direction != "input":
                     _fail(semantic_id, "subject associations belong to input roles")
-                prop = kinds.get(kind + "/property/" + subject_field)
-                if prop is None or prop.category != "property":
-                    _fail(semantic_id, "subject association requires an owned kind property")
-                facts = json.loads(prop.facts)
-                target = kinds.get(facts.get("range"))
-                target_facts = json.loads(target.facts) if target is not None else {}
-                primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
-                primitive = {"str": "string"}.get(primitive, primitive)
-                if facts.get("multivalued") or (
-                    primitive not in {"string", "uri", "uriorcurie"}
-                    and not (
-                        target is not None
-                        and target.category in {"class", "enum"}
-                        and not facts.get("inlined")
-                    )
-                ):
-                    _fail(semantic_id, "subject association requires a scalar subject identifier")
+                from .data_operation_subjects import subject_field_kind
+
+                try:
+                    subject_field_kind(kinds, kind, subject_field)
+                except ValueError as error:
+                    _fail(semantic_id, str(error))
             roles.append(
                 OperationRole(
                     name,
@@ -1638,6 +1627,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
     else:
         _fail(operation.semantic_id, "unsupported replicate identity policy")
     input_roles = {role.name: role for role in operation.roles if role.direction == "input"}
+    from .data_operation_kind_refinements import input_kind_contracts
+
+    accepted = input_kind_contracts(model, (role.kind for role in input_roles.values()))
     bound_roles = {role.role: role for role in binding.roles}
     if len(bound_roles) != len(binding.roles) or bound_roles.keys() != input_roles.keys():
         _fail(operation.semantic_id, "resolved inputs differ from compiled input roles")
@@ -1671,7 +1663,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 type(member.position) is not int or member.position < 0
             ):
                 _fail(name, "invalid bound member position")
-            if member.kind_contract != identities[role.kind, "kind"]:
+            if member.kind_contract not in accepted[role.kind]:
                 _fail(name, "bound member kind contract differs from the compiled kind")
             if role.collection == "sequence" and member.position is None:
                 _fail(name, "ordered members require explicit positions")

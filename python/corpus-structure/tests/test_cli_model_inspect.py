@@ -88,12 +88,16 @@ def _inspect(result_id, *args):
 
 
 @pytest.mark.parametrize("subject", ["preview", "candidate"])
-def test_summary_keeps_chain_context_without_expanding_retained_file_inventory(model_results, subject):
+def test_summary_keeps_chain_context_without_expanding_retained_file_inventory(
+    model_results, subject
+):
     from corpus_structure.semantic.migration_chain import NativeMigrationBase
 
     base = NativeMigrationBase(
-        acquired_revision="installed", predecessor="pending",
-        revisions=("first", "pending"), execution_context="actual-helper-context",
+        acquired_revision="installed",
+        predecessor="pending",
+        revisions=("first", "pending"),
+        execution_context="actual-helper-context",
         files=tuple((f"versions/retained-{n}.py", "a" * 64) for n in range(10000)),
     )
     if subject == "preview":
@@ -101,21 +105,36 @@ def test_summary_keeps_chain_context_without_expanding_retained_file_inventory(m
         action, role, command = "model.preview", "preview", "inspect"
     else:
         binding = Candidate(
-            workspace="/bound", model_revision="model", generator="generator",
-            revision=None, predecessor=None, target="bound", target_profile="development",
-            release="release", packs=(), files={}, hashes={},
-            native_base=base, deployment_base=base,
+            workspace="/bound",
+            model_revision="model",
+            generator="generator",
+            revision=None,
+            predecessor=None,
+            target="bound",
+            target_profile="development",
+            release="release",
+            packs=(),
+            files={},
+            hashes={},
+            native_base=base,
+            deployment_base=base,
         )
         action, role, command = "model.candidate", "deployment", "inspect-candidate"
     id_, _ = _publish(model_results, action, role, binding.model_dump_json().encode())
     result = CliRunner().invoke(app, ["model", "change", command, id_, "--json"])
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
-    assert report["native_base"] == report["deployment_base"] == {
-        "acquired_revision": "installed", "predecessor": "pending",
-        "revisions": ["first", "pending"], "execution_context": "actual-helper-context",
-        "file_count": 10000,
-    }
+    assert (
+        report["native_base"]
+        == report["deployment_base"]
+        == {
+            "acquired_revision": "installed",
+            "predecessor": "pending",
+            "revisions": ["first", "pending"],
+            "execution_context": "actual-helper-context",
+            "file_count": 10000,
+        }
+    )
     assert "retained-" not in result.stdout
     assert len(result.stdout.encode()) < 20000
     # The source artifact still contains the complete exact custody inventory.

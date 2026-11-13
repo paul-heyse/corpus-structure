@@ -60,8 +60,9 @@ def test_original_protocol_error_keeps_retirement_uncertainty_structural(monkeyp
             patch.setattr(process, "terminate", refuse_termination)
             with pytest.raises(ExceptionGroup) as raised:
                 worker._exchange(ConvertRequest(b"input", "control", None))
-            assert any(isinstance(error, PhysicalRetirementUncertain)
-                       for error in raised.value.exceptions)
+            assert any(
+                isinstance(error, PhysicalRetirementUncertain) for error in raised.value.exceptions
+            )
             assert any("unsupported response" in str(error) for error in raised.value.exceptions)
             assert process.is_alive()
     finally:

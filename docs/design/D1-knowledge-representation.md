@@ -18,7 +18,15 @@ vote. Document semantic key, raw content hash, physical document ID and executio
 their distinct meanings. This detail is **Accepted target; implementation/qualification Proposed ·
 2026-11-13**, with current execution owned by the DDO coordinator.
 
-> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md)
+**Accepted target; native integration Proposed · 2026-11-13.** Common characterization inputs
+accept concrete kinds through captured nominal inheritance, with independently checked native
+admission. Products and selected members retain their actual kind contracts and concrete body
+validation. An owned scalar inline property path such as `/source/document` associates several
+projections with their original document without changing those projections' own subjects,
+offsets or source custody. Composition retains all selected source projections and per-source
+family coverage; a common interface does not imply common coverage or analytical agreement.
+
+> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md)
 
 ## Enriched-document analysis layers
 

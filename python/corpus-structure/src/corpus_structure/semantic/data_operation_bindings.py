@@ -20,6 +20,7 @@ from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
 
 from .data_operation_identity import decode_semantic_value, semantic_value
+from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
     BindingExpression,
     BindingOperand,
@@ -420,6 +421,7 @@ def compile_binding(
             tuple(sorted(inactive)),
             tuple(sorted(role_populations.items())),
         )
+    accepted_kinds = input_kind_contracts(model, (role.kind for role in roles.values()))
     anchor = select(literal(subject).label("subject")).subquery("binding_subject")
     optional_join_filters = {}
     optional_unknowns = []
@@ -482,7 +484,7 @@ def compile_binding(
             role = roles[name]
             condition = and_(
                 subject_condition(name),
-                alias.c.kind_contract == identities[role.kind, "kind"],
+                alias.c.kind_contract.in_(accepted_kinds[role.kind]),
             )
             if role.presence == "alternative":
                 selected = choice_values.get(name, role.selected)
@@ -695,7 +697,7 @@ def compile_binding(
                 *(
                     and_(
                         subject_condition(name),
-                        aliases[name].c.kind_contract == identities[roles[name].kind, "kind"],
+                        aliases[name].c.kind_contract.in_(accepted_kinds[roles[name].kind]),
                         aliases[name].c.member.in_(population.members)
                         if population is not None
                         else true(),
@@ -827,7 +829,7 @@ def compile_binding(
             select(func.count(func.distinct(alias.c.member)))
             .where(
                 subject_condition(name),
-                alias.c.kind_contract == identities[roles[name].kind, "kind"],
+                alias.c.kind_contract.in_(accepted_kinds[roles[name].kind]),
                 alias.c.member.in_(population.members),
                 population_product(name, population),
             )
@@ -1078,14 +1080,7 @@ def decode_binding_rows(
                     else (),
                 )
             )
-        expected_kind = next(
-            (
-                identity.key
-                for identity in compiled.model.identities
-                if identity.owner == role.kind and identity.domain == "kind"
-            ),
-            None,
-        )
+        accepted = input_kind_contracts(compiled.model, (role.kind,))[role.kind] if members else ()
         subject_column = dict(compiled.subject_columns).get(role.name)
         subject_invalid = subject_column is not None and any(
             row.get(subject_column) != compiled.subject for row in rows.get(role.name, ())
@@ -1106,7 +1101,7 @@ def decode_binding_rows(
                     )
                 )
                 or (role.subject_field is None and member.subject != compiled.subject)
-                or member.kind_contract != expected_kind
+                or member.kind_contract not in accepted
                 or (
                     member.position is not None
                     and (type(member.position) is not int or member.position < 0)

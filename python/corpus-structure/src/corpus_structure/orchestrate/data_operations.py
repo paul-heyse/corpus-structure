@@ -21,8 +21,13 @@ from uuid import uuid4
 from sqlalchemy import Connection, Engine, select
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-from corpus_structure.core.work import PreparedWork, ReadyGroup, drive_prepared_work
-from corpus_structure.methods.native_host import NativeHostGroup, NativeRetirementUncertain
+from corpus_structure.core.work import (
+    PhysicalRetirementUncertain,
+    PreparedWork,
+    ReadyGroup,
+    drive_prepared_work,
+)
+from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
 from corpus_structure.semantic.claim_lifetime import (
     ClaimFenceLost,
     ClaimSettlementUncertain,
@@ -119,11 +124,15 @@ class _PythonWork:
         # The request retains its own shared lease through publication.
         if not self.future.done():
             return False
-        if (
-            not self.drained
-            and not self.future.cancelled()
-            and isinstance(self.future.exception(), NativeRetirementUncertain)
-        ):
+
+        def uncertain(error):
+            if isinstance(error, BaseExceptionGroup):
+                return any(uncertain(child) for child in error.exceptions)
+            if isinstance(error, NativeRetirementUncertain):
+                return not self.drained
+            return isinstance(error, PhysicalRetirementUncertain)
+
+        if not self.future.cancelled() and uncertain(self.future.exception()):
             return False
         if not self.retired:
             self.release()
@@ -137,6 +146,8 @@ class _RequestExecution:
     def __init__(self, invocation, reservation):
         self.invocation, self.reservation = invocation, reservation
         self.cpu, self.native_hosts = invocation.cpu, invocation.native_hosts
+        self.engine = invocation.executor.engine
+        self.claim: NativeRequestClaim | None = None
         self.handles = []
 
     def submit_python(self, callback):
@@ -192,7 +203,7 @@ class _InvocationExecution:
         self.cpu = CPUExecutionScope(
             executor.prepared, executor.policy, budget=executor.budget, retain_schema=False
         )
-        self.native_hosts = NativeHostGroup(executor.policy)
+        self.native_hosts = NativeHostResidency(executor.policy, executor.nemotron_endpoint)
         self.executor = executor
 
     def __enter__(self):
@@ -244,6 +255,7 @@ class NativeDemandExecutor:
         runtime_locations: Mapping[str, Path] | None = None,
         capability_factories: Mapping[str, Callable[..., Any]] | None = None,
         schema: SourceBundle | None = None,
+        nemotron_endpoint: str | None = None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
@@ -251,6 +263,7 @@ class NativeDemandExecutor:
         self.model = bound_data_operation_model(prepared)
         self.runtime_locations = runtime_locations
         self.schema = schema
+        self.nemotron_endpoint = nemotron_endpoint
         self.capability_factories = dict(capability_factories or {})
         for operation in self.capability_factories:
             if self.model.operation(operation).capabilities.preparation == "none":
@@ -291,6 +304,7 @@ class NativeDemandExecutor:
                     identity=admission.identity,
                     authorize=admission.authorize,
                     custody=admission.custody,
+                    sources=self.sources,
                 )
                 admission.authorize(port.identity)
                 if port.operation != selected:
@@ -542,6 +556,7 @@ class NativeDemandExecutor:
             claim, claimed = self._claim(ready, owner)
             if claim is None:
                 return _ExecutionResult()
+            physical.claim = claim
             phase = "reconciliation"
             if claimed["action"] == "reconcile":
                 receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
@@ -759,7 +774,7 @@ class NativeDemandExecutor:
             with (
                 self._report_execution_failure(demand),
                 maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
-                ThreadPoolExecutor(max_workers=self.policy.workers) as pool,
+                ThreadPoolExecutor(max_workers=self.policy.max_provider_jobs) as pool,
                 _InvocationExecution(self, pool) as physical,
             ):
                 self._physical = physical

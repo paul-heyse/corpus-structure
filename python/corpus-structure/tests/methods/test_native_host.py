@@ -714,3 +714,55 @@ def test_host_receipt_hashes_written_frame_even_if_caller_changes_payload(physic
     result = host.infer_result(selected, payload, check_active=active)
     assert result.payload == {"value": "original"}
     assert result.receipt.input_digest == native_host.payload_digest({"value": "original"})
+
+
+def test_residency_hands_off_actual_gpu_capacity_and_restarts_real_host(physical_host):
+    import time
+
+    from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot
+
+    policy = CharacterizationExecutionPolicy()
+    selected = selection()
+    hosts = []
+
+    def create_group(policy, endpoint):
+        def create(population, policy, *, check_active, adopt):
+            host = physical_host(*population, adopt=adopt)
+            hosts.append(host)
+            return host
+
+        return native_host.NativeHostGroup(policy, endpoint, host_factory=create)
+
+    residency = native_host.NativeHostResidency(policy, group_factory=create_group)
+    residency.declare((selected,))
+    try:
+        first = residency.infer_result(selected, {"value": 1}, lambda: None)
+        with residency.external_gpu(lambda: None):
+            assert not native_host._live_group(hosts[0]._process.pid)
+            deadline = time.monotonic() + 2
+
+            def bounded():
+                assert time.monotonic() < deadline, "previous NLP group retained PDF GPU capacity"
+
+            with pdf_gpu_slot(bounded):
+                pass
+        second = residency.infer_result(selected, {"value": 2}, lambda: None)
+        assert first.payload == {"value": 1} and second.payload == {"value": 2}
+        assert first.receipt.host_generation != second.receipt.host_generation
+        assert len(hosts) == 2
+    finally:
+        residency.close()
+    assert all(not native_host._live_group(host._process.pid) for host in hosts)
+
+
+def test_external_physical_uncertainty_quarantines_future_residency():
+    from corpus_structure.core.work import PhysicalRetirementUncertain
+
+    residency = native_host.NativeHostResidency(CharacterizationExecutionPolicy())
+    with pytest.raises(ExceptionGroup) as caught, residency.external_gpu(lambda: None):
+        raise ExceptionGroup("PDF teardown", [PhysicalRetirementUncertain("child still alive")])
+    assert isinstance(caught.value.exceptions[0], PhysicalRetirementUncertain)
+    with pytest.raises(native_host.NativeRetirementUncertain, match="quarantined"):
+        residency.ensure(lambda: None)
+    with pytest.raises(native_host.NativeRetirementUncertain, match="quarantined"):
+        residency.close()

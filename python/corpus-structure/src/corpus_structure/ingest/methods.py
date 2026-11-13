@@ -102,26 +102,20 @@ class ProfileSegments:
             if unit.ref.unit_id is None:
                 raise MethodRefused("profiling requires an immutable SourceView")
             view = ctx.reader.source_view(unit.ref.unit_id)
-            items = {item["self_ref"]: item for item in view.items}
-            math = [
-                p
-                for p in view.pieces
-                if p.get("item_ref") in items and items[p["item_ref"]]["label"] == "formula"
-            ]
-            length = len(view.text)
-            parent_labels = [
-                items.get(items[p["item_ref"]].get("parent", {}).get("$ref"), {}).get("label")
-                for p in math
-            ]
-            inline = sum(label == "inline" for label in parent_labels)
-            display = sum(label not in {"inline", "table"} for label in parent_labels)
+            from corpus_structure.semantic.source_profiles import source_profile_values
+
+            characterized = source_profile_values(
+                {
+                    "source": view.ref,
+                    "selectors": [{"projection": view.ref.projection_digest}],
+                    "items": list(view.items),
+                    "ancestors": list(view.ancestors),
+                    "pieces": list(view.pieces),
+                }
+            )
             values = {
-                "chars": float(length),
-                "math_share": round(sum(p["end"] - p["start"] for p in math) / length, 6)
-                if length
-                else 0.0,
-                "inline_math": float(inline),
-                "display_math": float(display),
+                name: float(characterized[name])
+                for name in ("chars", "math_share", "inline_math", "display_math")
             }
             measurements = tuple(
                 MeasurementDraft(

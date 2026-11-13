@@ -59,6 +59,14 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
             Path(__file__).with_name("data_operation_member_contracts.py").read_bytes(),
         ),
         SourceArtifact(
+            "native/data-operation-kind-refinements.py",
+            Path(__file__).with_name("data_operation_kind_refinements.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-subjects.py",
+            Path(__file__).with_name("data_operation_subjects.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/data-operation-physical.yaml",
             (_ROOT / "data-operation-physical.yaml").read_bytes(),
         ),
@@ -575,9 +583,19 @@ def data_operation_definition_projection(
     """Compile the fixed native projection for authenticated release archiving."""
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     kinds = []
+    from .data_operation_kind_refinements import input_kind_contracts, input_kind_refinements
     from .data_operation_member_contracts import derive_member_kinds
 
     used = {role.kind for operation in model.operations for role in operation.roles}
+    input_roots = {
+        role.kind
+        for operation in model.operations
+        for role in operation.roles
+        if role.direction == "input"
+    }
+    refinements = input_kind_refinements(model, input_roots)
+    accepted = input_kind_contracts(model, input_roots)
+    used.update(kind for family in refinements.values() for kind in family)
     pending = list(used)
     while pending:
         for member_kind in derive_member_kinds(model, pending.pop()):
@@ -633,6 +651,8 @@ def data_operation_definition_projection(
             record["identity_requirements"] = (
                 list(role.support.identity_requirements) if role.support else []
             )
+            if role.direction == "input":
+                record["accepted_kind_contracts"] = accepted[role.kind]
             roles.append(record)
         operations.append(
             {
@@ -723,6 +743,7 @@ def admitted_data_projection(
     from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, Numeric, String, cast, column
 
     from .data_operation_bindings import ProjectionBinding, ProjectionField
+    from .data_operation_kind_refinements import input_kind_contracts
 
     operation = model.operation(operation_id)
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
@@ -737,8 +758,10 @@ def admitted_data_projection(
     )
     if acquired["trust_snapshot"] != trust_snapshot:
         raise ValueError("native binding snapshot differs")
-    identities = {(i.owner, i.domain): i.key for i in model.identities}
     kinds = {kind.semantic_id: kind for kind in model.kinds}
+    accepted = input_kind_contracts(
+        model, (role.kind for role in operation.roles if role.direction == "input")
+    )
     names = (
         "product",
         "kind_contract",
@@ -787,7 +810,6 @@ def admitted_data_projection(
     projections = []
     for kind_id in sorted({role.kind for role in operation.roles if role.direction == "input"}):
         kind = kinds[kind_id]
-        contract = identities[kind_id, "kind"]
         fields = [
             ProjectionField(
                 name,
@@ -858,7 +880,25 @@ def admitted_data_projection(
                 expression, value_type = relation.c.body[name], "json"
             selected.append(expression.label(label))
             fields.append(ProjectionField(name, label, value_type))
-        scoped = select(*selected).where(relation.c.kind_contract == contract).subquery()
+        from .data_operation_subjects import subject_field_kind, subject_field_path
+
+        subject_paths = {
+            role.subject_field
+            for role in operation.roles
+            if role.direction == "input"
+            and role.kind == kind_id
+            and role.subject_field is not None
+            and role.subject_field.startswith("/")
+        }
+        for path in sorted(subject_paths):
+            subject_field_kind(kinds, kind_id, path)
+            value = relation.c.meaning_body
+            for name in subject_field_path(path):
+                value = cast(func.data.ddo_field(value, name), JSONB)
+            label = "body_subject_" + str(len(fields))
+            selected.append(value[1].astext.label(label))
+            fields.append(ProjectionField(path, label, "string"))
+        scoped = select(*selected).where(relation.c.kind_contract.in_(accepted[kind_id])).subquery()
         projections.append(
             ProjectionBinding(
                 kind_id,
