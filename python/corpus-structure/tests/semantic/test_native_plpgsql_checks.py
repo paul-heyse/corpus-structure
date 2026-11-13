@@ -161,3 +161,51 @@ def test_comment_options_cannot_hide_errors(semantic_bare_engine):
                 owned_authoring=True,
                 check_plpgsql=frozenset({selected.identity}),
             )
+
+
+def test_all_selected_function_errors_reported_together(semantic_bare_engine):
+    with semantic_bare_engine.connect() as connection, connection.begin():
+        connection.exec_driver_sql("CREATE SCHEMA checker_test")
+        before = checker(connection)
+        first = definition(
+            connection, "first_bad", "n integer", "integer", "BEGIN RETURN n->'bad'; END",
+        )
+        valid = definition(connection, "valid", "n integer", "integer", "BEGIN RETURN n; END")
+        second = definition(
+            connection, "second_bad", "n integer", "integer", "BEGIN RETURN n->'wrong'; END",
+        )
+        with pytest.raises(NativeAuthoringError) as caught:
+            prepare_native_authoring(
+                connection, (first, valid, second), owned_authoring=True,
+                check_plpgsql=frozenset({first.identity, valid.identity, second.identity}),
+            )
+        message = str(caught.value)
+        for name in ("first_bad", "second_bad"):
+            assert f"checker_test.{name}(integer): SQLSTATE 42883" in message
+            assert f"source=checker-control:{name}" in message
+        assert "checker_test.valid" not in message
+        assert "unexamined" not in message
+        assert checker(connection) == before
+        assert connection.scalar(text("SELECT to_regprocedure('checker_test.valid(integer)')")) is None
+
+
+def test_error_limits_disclose_truncation_and_unexamined_functions(semantic_bare_engine):
+    with semantic_bare_engine.connect() as connection, connection.begin():
+        connection.exec_driver_sql("CREATE SCHEMA checker_test")
+        selected = tuple(
+            definition(
+                connection, f"many_bad_{index}", "n integer", "integer",
+                "BEGIN " + "PERFORM n->'bad'; " * 12 + "RETURN n; END",
+            )
+            for index in range(5)
+        )
+        with pytest.raises(NativeAuthoringError) as caught:
+            prepare_native_authoring(
+                connection, selected, owned_authoring=True,
+                check_plpgsql=frozenset(item.identity for item in selected),
+            )
+        message = str(caught.value)
+        assert message.count("SQLSTATE 42883") == 32
+        assert message.count("further errors omitted") == 4
+        assert "1 selected functions unexamined" in message
+        assert "many_bad_4" not in message

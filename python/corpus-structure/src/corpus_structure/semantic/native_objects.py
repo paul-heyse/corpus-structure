@@ -735,28 +735,40 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
             )
         schema = extension["nspname"]
     checker = _quote(schema) + ".plpgsql_check_function_tb"
-    for item in selected:
-        errors = (
-            connection.execute(
-                text(f"""SELECT sqlstate, lineno, message FROM {checker}(
+    diagnostics = []
+    omissions = []
+    error_count = 0
+    for index, item in enumerate(selected):
+        errors = connection.execute(
+            text(f"""SELECT sqlstate, lineno, message FROM {checker}(
                 CAST(:signature AS regprocedure), fatal_errors=>false,
                 without_warnings=>true, use_incomment_options=>false)
-                WHERE level='error' LIMIT 8"""),
-                {"signature": item.identity.qualified},
-            )
-            .mappings()
-            .all()
-        )
+                WHERE level='error' LIMIT 9"""),
+            {"signature": item.identity.qualified},
+        ).mappings().all()
         if errors:
-            diagnostics = "; ".join(
+            limit = min(8, 32 - error_count)
+            messages = "; ".join(
                 f"SQLSTATE {error['sqlstate']} line {error['lineno']}: "
                 + " ".join(error["message"].split())[:500]
-                for error in errors
+                for error in errors[:limit]
             )
-            raise NativeAuthoringError(
-                f"PL/pgSQL authoring check failed for {item.identity.qualified}: "
-                f"{diagnostics}; source={item.source}"
+            diagnostics.append(
+                f"{item.identity.qualified}: {messages}; source={item.source}"
             )
+            error_count += min(len(errors), limit)
+            if len(errors) > limit:
+                omissions.append(f"{item.identity.qualified}: further errors omitted")
+            if error_count == 32:
+                remaining = len(selected) - index - 1
+                if remaining:
+                    omissions.append(f"{remaining} selected functions unexamined")
+                break
+    if diagnostics:
+        suffix = "; diagnostic limit: " + "; ".join(omissions) if omissions else ""
+        raise NativeAuthoringError(
+            "PL/pgSQL authoring check failed for " + "; ".join(diagnostics) + suffix
+        )
 
 
 def prepare_native_authoring(
