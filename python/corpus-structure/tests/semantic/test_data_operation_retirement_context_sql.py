@@ -43,9 +43,7 @@ def test_retired_attempt_preserves_holder_until_a_new_claim_fence(semantic_bare_
             # separate request admission or publication authority.
             connection.exec_driver_sql(
                 "CREATE FUNCTION pg_temp.guard_task_case() RETURNS trigger "
-                "LANGUAGE plpgsql AS $$ BEGIN "
-                + guard
-                + " RETURN NEW; END $$"
+                "LANGUAGE plpgsql AS $$ BEGIN " + guard + " RETURN NEW; END $$"
             )
             connection.exec_driver_sql(
                 "CREATE TRIGGER guard_task_case BEFORE UPDATE ON task_guard_case "

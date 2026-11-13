@@ -82,8 +82,16 @@ def test_native_read_and_binding_snapshot_comparisons_preserve_epoch_meaning(
 @pytest.mark.db
 @pytest.mark.parametrize(
     "invalid",
-    [None, "null", "[]", '{"root":null}', '{"root":-1}', '{"root":0.5}',
-     '{"root":"0"}', '{"root":true}'],
+    [
+        None,
+        "null",
+        "[]",
+        '{"root":null}',
+        '{"root":-1}',
+        '{"root":0.5}',
+        '{"root":"0"}',
+        '{"root":true}',
+    ],
 )
 def test_native_snapshot_meaning_refuses_null_unknown_epoch_and_invalid_shapes(
     snapshot_connection, invalid
@@ -121,9 +129,7 @@ def test_native_attachment_checks_locked_positive_epochs_against_full_read_pins(
     actual = snapshot_connection.scalar(
         text(
             "WITH arguments AS (SELECT CAST(:pinned AS jsonb) read_trust,"
-            "CAST(:locked AS jsonb) snapshot) SELECT "
-            + guard
-            + " FROM arguments"
+            "CAST(:locked AS jsonb) snapshot) SELECT " + guard + " FROM arguments"
         ),
         {"pinned": json.dumps(pinned), "locked": json.dumps(locked)},
     )
