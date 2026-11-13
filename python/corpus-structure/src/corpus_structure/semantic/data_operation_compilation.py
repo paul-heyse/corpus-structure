@@ -628,6 +628,7 @@ def _validate_literal(
     wire_schema = prop_facts.get("json_schema", facts.get("json_schema"))
     if wire_schema is not None:
         from .data_operation_wire import validate_wire_schema
+
         def wire_json(value):
             # The semantic sequence codec uses tuples internally; this explicit
             # wire lowering restores JSON arrays without converting typed values.
@@ -636,12 +637,16 @@ def _validate_literal(
             if isinstance(value, dict):
                 return {name: wire_json(item) for name, item in value.items()}
             return value
+
         if expression.value is None:
             _fail(owner, "typed binding literal requires an explicit value")
         try:
             validate_wire_schema(wire_schema, wire_json(decode(json.loads(expression.value))))
         except (TypeError, ValueError) as exc:
-            _fail(owner, "typed binding literal violates its effective wire field contract: " + str(exc))
+            _fail(
+                owner,
+                "typed binding literal violates its effective wire field contract: " + str(exc),
+            )
         return
     prop = PropertyDefinition(
         **{field.name: prop_facts[field.name] for field in fields(PropertyDefinition)}
@@ -765,7 +770,10 @@ def compile_data_operations(
                 except (ValueError, TypeError) as exc:
                     _fail(semantic_id, "invalid closed wire schema: " + str(exc))
                 if record.get("python") or record.get("primitive"):
-                    _fail(semantic_id, "wire schema kind cannot claim a second representation authority")
+                    _fail(
+                        semantic_id,
+                        "wire schema kind cannot claim a second representation authority",
+                    )
             facts = dict(record)
             if record.get("python"):
                 if frontend is None:
@@ -780,7 +788,11 @@ def compile_data_operations(
             kind = EffectiveKind(
                 semantic_id,
                 record.get("name", semantic_id),
-                json_schema_category(record["json_schema"]) if record.get("json_schema") is not None else "class" if record.get("python") else "primitive",
+                json_schema_category(record["json_schema"])
+                if record.get("json_schema") is not None
+                else "class"
+                if record.get("python")
+                else "primitive",
                 canonical_bytes(facts),
                 origins,
                 not unknowns,
@@ -1388,6 +1400,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         CollectionValue,
         OptionalValue,
         SemanticRequestKey,
+        decode_semantic_value,
     )
 
     operation = model.operation(binding.operation)
@@ -1533,7 +1546,10 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         recipe,
         binding.subject,
         values,
-        {"parameters": json.loads(binding.parameters), "replicate": binding.replicate},
+        {
+            "parameters": decode_semantic_value(json.loads(binding.parameters)),
+            "replicate": binding.replicate,
+        },
         binding.inference,
     )
     admission = AdmissionManifest(
@@ -1548,7 +1564,6 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         binding.execution_profile,
     )
     return request, admission
-
 
 
 def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
@@ -1566,13 +1581,25 @@ def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
             root = field_schema
             prop_id = kind.semantic_id + "/property/" + name
             prop = PropertyDefinition(
-                name, prop_id, target, required, multivalued,
+                name,
+                prop_id,
+                target,
+                required,
+                multivalued,
                 root.get("minItems") if multivalued else None,
                 root.get("maxItems") if multivalued else None,
                 str(root["minimum"]) if "minimum" in root else None,
                 str(root["maximum"]) if "maximum" in root else None,
-                root.get("pattern"), True,
+                root.get("pattern"),
+                True,
             )
             facts = {**asdict(prop), "json_schema": field_schema}
-            kinds[prop_id] = EffectiveKind(prop_id, name, "property", canonical_bytes(facts), kind.origins)
-            edges.extend((SemanticEdge(kind.semantic_id, prop_id, "property", role=name), SemanticEdge(prop_id, target, "range")))
+            kinds[prop_id] = EffectiveKind(
+                prop_id, name, "property", canonical_bytes(facts), kind.origins
+            )
+            edges.extend(
+                (
+                    SemanticEdge(kind.semantic_id, prop_id, "property", role=name),
+                    SemanticEdge(prop_id, target, "range"),
+                )
+            )

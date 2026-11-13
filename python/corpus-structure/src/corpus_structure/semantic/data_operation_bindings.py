@@ -19,6 +19,7 @@ from sqlalchemy import and_, func, literal, not_, or_, select, true
 from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
 
+from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import (
     BindingExpression,
     BindingOperand,
@@ -111,7 +112,7 @@ class BindingResult:
     roles: tuple[ResolvedRoleBinding, ...]
     status: BindingStatus
     reasons: tuple[BindingReason, ...]
-    parameters: bytes
+    parameters: bytes  # Canonical tagged semantic mapping, including exact scalar types.
     choices: bytes
     model_version: str
     definition: str
@@ -158,7 +159,7 @@ class CompiledBinding:
     model: EffectiveDataOperationModel
     operation: str
     subject: str
-    parameters: bytes
+    parameters: bytes  # Canonical tagged semantic mapping, including exact scalar types.
     choices: bytes
     queries: tuple[tuple[str, Select], ...]
     checks: tuple[BindingCheck, ...]
@@ -171,27 +172,7 @@ class CompiledBinding:
 
 
 def _decode_value(content: bytes) -> Any:
-    tag, *payload = json.loads(content)
-    if tag == "null":
-        return None
-    value = payload[0]
-    if tag == "integer":
-        return int(value)
-    if tag == "decimal":
-        return Decimal(value)
-    if tag == "float":
-        return float.fromhex(value)
-    if tag == "date":
-        return date.fromisoformat(value)
-    if tag == "datetime":
-        return datetime.fromisoformat(value)
-    if tag == "sequence":
-        return [_decode_value(canonical_bytes(item)) for item in value]
-    if tag == "mapping":
-        return {key: _decode_value(canonical_bytes(item)) for key, item in value}
-    if tag in {"boolean", "string"}:
-        return value
-    raise ValueError("unsupported typed literal " + tag)
+    return decode_semantic_value(json.loads(content))
 
 
 def _typed(value: Any, value_type: str, *, many: bool = False) -> Any:
@@ -391,7 +372,7 @@ def compile_binding(
             model,
             operation,
             subject,
-            canonical_bytes(params),
+            canonical_bytes(semantic_value(params)),
             canonical_bytes(choice_values),
             (),
             (),
@@ -866,7 +847,7 @@ def compile_binding(
         model,
         operation,
         subject,
-        canonical_bytes(params),
+        canonical_bytes(semantic_value(params)),
         canonical_bytes(choice_values),
         tuple(queries),
         tuple(checks),

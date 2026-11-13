@@ -385,14 +385,15 @@ BEGIN
  IF compiled->'binding' IS DISTINCT FROM expression OR compiled->>'definition' IS DISTINCT FROM selection->>'definition' OR compiled->>'eligibility' IS DISTINCT FROM selection->>'eligibility'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') v WHERE v->>'owner'=p_operation AND v->>'domain'='definition' AND v->>'key'=compiled->>'definition')
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') v WHERE v->>'owner'=p_operation AND v->>'domain'='eligibility' AND v->>'key'=compiled->>'eligibility') THEN RAISE EXCEPTION 'binding differs from authenticated frozen definition'; END IF;
- IF jsonb_array_length(compiled->'input_roles')<>(SELECT count(*) FROM jsonb_array_elements(operation->'roles') r WHERE r->>'direction'='input') THEN RAISE EXCEPTION 'native artifact input role inventory differs from effective model'; END IF;
+ IF jsonb_array_length(compiled->'input_roles')<>(SELECT count(DISTINCT r->>'name') FROM jsonb_array_elements(compiled->'input_roles') r) OR jsonb_array_length(compiled->'input_roles')<>(SELECT count(*) FROM jsonb_array_elements(operation->'roles') r WHERE r->>'direction'='input') THEN RAISE EXCEPTION 'native artifact input role inventory differs from effective model'; END IF;
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  SELECT value INTO STRICT authored_role FROM jsonb_array_elements(operation->'roles') r WHERE r->>'direction'='input' AND r->>'name'=roledef->>'name';
  IF roledef-'kind_contract'-'identity_requirements' IS DISTINCT FROM authored_role
  OR roledef->'identity_requirements' IS DISTINCT FROM coalesce(authored_role->'support'->'identity_requirements','[]')
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') i WHERE i->>'owner'=authored_role->>'kind' AND i->>'domain'='kind' AND i->>'key'=roledef->>'kind_contract') THEN RAISE EXCEPTION 'native artifact role differs from effective model'; END IF;
  END LOOP;
- SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust) v;
+ IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
+ SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id') v WHERE v.subject=p_subject AND v.original_source=request.original_source;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';
