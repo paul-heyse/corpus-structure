@@ -831,3 +831,62 @@ def test_shared_roles_remain_active_in_selected_branch_and_conflicting_populatio
     )
     with pytest.raises(ValueError, match="two population scopes"):
         compile_binding(conflict, "urn:op", (projection,), subject="doc")
+
+
+def test_membership_population_identity_is_retained_and_conflicting_operand_scopes_refuse(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "membership",
+        operands=(
+            BindingOperand("field", "string", BindingField("items", "urn:item", "member")),
+            BindingOperand("population", "string", name="retained"),
+        ),
+    )
+    projection = replace(
+        projection, fields=(*projection.fields, ProjectionField("member", "member", "string"))
+    )
+    product = model(expression)
+    population = PopulationBinding(
+        "retained", "population:membership", True, ("m2",), b'{"closed":true}'
+    )
+    result = execute_binding(
+        connection,
+        compile_binding(product, "urn:op", (projection,), subject="doc", populations=(population,)),
+    )
+    assert result.sufficient and result.roles[0].population_witness is not None
+    assert json.loads(result.roles[0].population_witness)["identity"] == "population:membership"
+    other = replace(
+        expression,
+        operands=(expression.operands[0], replace(expression.operands[1], name="another")),
+    )
+    conflict = replace(
+        product,
+        bindings=(
+            replace(
+                product.bindings[0],
+                expression=BindingExpression("all", children=(expression, other)),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="two population scopes"):
+        compile_binding(conflict, "urn:op", (projection,), subject="doc", populations=(population,))
+
+
+def test_closed_negative_population_without_candidate_facts_remains_awaiting(storage):
+    connection, _, projection = storage
+    population = PopulationBinding(
+        "retained", "population:missing-facts", True, ("not-materialized",), b'{"closed":true}'
+    )
+    expression = BindingExpression("absent", roles=("items",), population="retained")
+    result = execute_binding(
+        connection,
+        compile_binding(
+            model(expression, minimum=0, presence="optional"),
+            "urn:op",
+            (projection,),
+            subject="doc",
+            populations=(population,),
+        ),
+    )
+    assert result.status == "awaiting-inputs"
+    assert any(reason.code == "negative-candidate-facts" for reason in result.reasons)

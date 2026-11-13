@@ -167,6 +167,7 @@ class CompiledBinding:
     initial_reasons: tuple[BindingReason, ...] = ()
     unavailable_roles: tuple[str, ...] = ()
     inactive_roles: tuple[str, ...] = ()
+    population_roles: tuple[tuple[str, str], ...] = ()
 
 
 def _decode_value(content: bytes) -> Any:
@@ -316,16 +317,35 @@ def compile_binding(
     role_populations = {}
 
     def inspect_scopes(node):
+        names = node.roles or tuple(roles)
+        associations = []
         if node.operator in {"forall", "absent"}:
-            names = node.roles or tuple(roles)
-            for name in names:
-                if name in role_populations and role_populations[name] != node.population:
-                    raise ValueError(
-                        "one role cannot bind two population scopes; use distinct named roles"
-                    )
-                role_populations[name] = node.population
+            associations.extend((name, node.population) for name in names)
             if node.operator == "absent":
                 negative_roles.update(names)
+        for operand in node.operands:
+            if operand.kind == "population":
+                if node.operator != "membership":
+                    raise ValueError(
+                        "population operands are supported only as membership universes"
+                    )
+                owners = {field.role for field in node.fields}
+                owners.update(
+                    value.field.role for value in node.operands if value.field is not None
+                )
+                if not owners:
+                    raise ValueError(
+                        "population operand requires a named input role for its identity witness"
+                    )
+                associations.extend((name, operand.name) for name in owners)
+        for name, population in associations:
+            if population is None:
+                raise ValueError("population binding requires an immutable named scope")
+            if name in role_populations and role_populations[name] != population:
+                raise ValueError(
+                    "one role cannot bind two population scopes; use distinct named roles"
+                )
+            role_populations[name] = population
         for child in selected_children(node):
             inspect_scopes(child)
 
@@ -380,6 +400,7 @@ def compile_binding(
             tuple(initial),
             tuple(unavailable),
             tuple(sorted(inactive)),
+            tuple(sorted(role_populations.items())),
         )
     anchor = select(literal(subject).label("subject")).subquery("binding_subject")
     optional_join_filters = {}
@@ -470,6 +491,7 @@ def compile_binding(
     bundle_predicates: list[tuple[tuple[str, ...], ColumnElement[Any]]] = []
     absence_predicates = []
     absence_queries = {}
+    absence_populations = []
 
     def bundle_predicate(node, comparison: ColumnElement[Any]):
         names = set(node.roles) | {field.role for field in node.fields}
@@ -562,6 +584,8 @@ def compile_binding(
                         "negation requires a closed pinned population",
                     )
                 )
+            if population is not None and population.complete:
+                absence_populations.extend((name, population) for name in names)
             scope = and_(
                 nested,
                 *(
@@ -689,6 +713,28 @@ def compile_binding(
                 ),
                 select(not_(bad.exists())),
                 "not-applicable",
+            )
+        )
+    for name, population in absence_populations:
+        alias = aliases[name]
+        covered = (
+            select(func.count(func.distinct(alias.c.member)))
+            .where(
+                alias.c.subject == subject,
+                alias.c.kind_contract == identities[roles[name].kind, "kind"],
+                alias.c.member.in_(population.members),
+            )
+            .scalar_subquery()
+        )
+        checks.append(
+            BindingCheck(
+                BindingReason(
+                    "negative-candidate-facts",
+                    operation + "/" + name,
+                    "closed negative population has members without admitted candidate facts",
+                ),
+                select(covered == len(population.members)),
+                "awaiting-inputs",
             )
         )
     for index, (_node, absence) in enumerate(absence_predicates):
@@ -829,6 +875,7 @@ def compile_binding(
         tuple(initial),
         (),
         tuple(sorted(inactive)),
+        tuple(sorted(role_populations.items())),
     )
 
 
@@ -853,21 +900,7 @@ def decode_binding_rows(
         if valid is not True:
             reasons.append(check.reason)
             statuses.append("unknown" if valid is None else check.failure_status)
-    population_for_role = {}
-    expression = next(
-        item.expression for item in compiled.model.bindings if item.semantic_id == op.binding
-    )
-
-    def populations_for_roles(node):
-        if node.operator in {"forall", "absent"} and node.population is not None:
-            for name in node.roles or tuple(
-                role.name for role in op.roles if role.direction == "input"
-            ):
-                population_for_role[name] = node.population
-        for child in node.children:
-            populations_for_roles(child)
-
-    populations_for_roles(expression)
+    population_for_role = dict(compiled.population_roles)
     bound = []
     for role in op.roles:
         if role.direction != "input":
