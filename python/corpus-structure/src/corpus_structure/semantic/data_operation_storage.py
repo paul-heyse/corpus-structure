@@ -41,9 +41,13 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
         original_support_reference_schema,
     )
     from .data_operation_wire_native import wire_native_sources
+    from .pdf_completion_native import pdf_completion_native_sql
 
     return (
         SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact(
+            "native/data-operation-pdf-completion.sql", pdf_completion_native_sql().encode()
+        ),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(

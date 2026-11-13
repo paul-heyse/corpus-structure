@@ -434,9 +434,14 @@ class NativeDemandExecutor:
             "support": json.loads(ready.binding)["support"],
             "implementation_revision": port.identity.implementation,
         }
-        if any(evidence is not None for evidence in (
-            answer.execution_evidence, answer.cpu_execution_evidence, answer.pdf_execution_evidence
-        )):
+        if any(
+            evidence is not None
+            for evidence in (
+                answer.execution_evidence,
+                answer.cpu_execution_evidence,
+                answer.pdf_execution_evidence,
+            )
+        ):
             from corpus_structure.semantic.data_operation_execution_evidence import (
                 bind_execution_evidence,
             )

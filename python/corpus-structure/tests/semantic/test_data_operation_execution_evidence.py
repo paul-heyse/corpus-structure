@@ -120,15 +120,33 @@ def test_cpu_receipt_keeps_matched_process_facts_without_product_or_reply_copy()
 
 
 def test_pdf_receipt_keeps_original_sealed_publisher_separate_from_admitting_attempt():
-    from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt, PublishedPdfDocumentRef
+    from corpus_structure.semantic.pdf_publication import (
+        PdfExecutionReceipt,
+        PublishedPdfDocumentRef,
+    )
 
     original = PdfExecutionReceipt(
-        PublishedPdfDocumentRef("build", 3, "product", "logical", "release", "source", "schema",
-                                "recipe", "frozen", "native"),
-        publisher_attempt=1, publisher_holder="sealed-owner")
+        PublishedPdfDocumentRef(
+            "build",
+            3,
+            "product",
+            "logical",
+            "release",
+            "source",
+            "schema",
+            "recipe",
+            "frozen",
+            "native",
+        ),
+        publisher_attempt=1,
+        publisher_holder="sealed-owner",
+    )
     value = bind_execution_evidence(
-        None, pdf_content=canonical_bytes(asdict(original)), runtime_id="runtime",
-        fence=dict(request_id="r", generation=1, task_id=3, attempt=2, holder="current-owner"))
+        None,
+        pdf_content=canonical_bytes(asdict(original)),
+        runtime_id="runtime",
+        fence=dict(request_id="r", generation=1, task_id=3, attempt=2, holder="current-owner"),
+    )
     assert value["holder"] == "current-owner" and value["attempt"] == 2
     assert value["pdf_receipts"] == [asdict(original)]
     assert value["pdf_receipts"][0]["publisher_attempt"] == 1

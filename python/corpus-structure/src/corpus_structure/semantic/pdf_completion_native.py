@@ -24,12 +24,14 @@ BEGIN
  IF receipts<>'[]'::jsonb OR p_completion->'outputs'<>'[]'::jsonb THEN
  RAISE EXCEPTION 'non-success PDF completion cannot publish receipts or outputs'
  USING ERRCODE='23514'; END IF; RETURN; END IF;
- IF jsonb_array_length(receipts)<>1 OR jsonb_array_length(p_completion->'outputs')<>1 THEN
+ IF jsonb_array_length(receipts) IS DISTINCT FROM 1
+ OR jsonb_array_length(p_completion->'outputs') IS DISTINCT FROM 1 THEN
  RAISE EXCEPTION 'PDF completion requires one publication and whole-product output'
  USING ERRCODE='23514'; END IF;
  output:=p_completion->'outputs'->0;
- IF output->>'member_id' IS NOT NULL OR output->>'position'<>'0'
- OR output->>'multiplicity'<>'1' OR output->'product'->'members'<>'[]'::jsonb THEN
+ IF output->>'member_id' IS NOT NULL OR output->>'position' IS DISTINCT FROM '0'
+ OR output->>'multiplicity' IS DISTINCT FROM '1'
+ OR output->'product'->'members' IS DISTINCT FROM '[]'::jsonb THEN
  RAISE EXCEPTION 'PDF completion must name its one whole product' USING ERRCODE='23514'; END IF;
  expected:=ops.pdf_publication_projection(receipts->0,p_task,p_attempt,p_holder);
  IF data.ddo_json(output->'product'->'body') IS DISTINCT FROM expected THEN
