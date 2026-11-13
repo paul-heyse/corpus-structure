@@ -33,10 +33,15 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
+    from .data_operation_source_native import source_native_sources
+    from .data_operation_support import ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema
     from .data_operation_wire_native import wire_native_sources
 
     return (
         SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
+        SourceArtifact("native/data-operation-support.py",
+            Path(__file__).with_name("data_operation_support.py").read_bytes()),
         SourceArtifact(
             "native/data-operation-execution-evidence.py",
             Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
@@ -57,6 +62,7 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
         ),
         *binding_native_sources(),
         *wire_native_sources(),
+        *source_native_sources(),
     )
 
 
@@ -73,6 +79,10 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-wire.sql",
         "native/data-operation-wire-native.py",
         "native/data-operation-wire.py",
+        "native/data-operation-source-admission.sql",
+        "native/data-operation-source-native.py",
+        "native/data-operation-original-reference.json",
+        "native/data-operation-support.py",
     }
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
@@ -697,6 +707,7 @@ def admitted_data_projection(
     read_id: str,
     subject: str | None = None,
     original_source: str | None = None,
+    analyzed_scope: dict | None = None,
 ):
     """Construct SQL bindings only through the demand-pinned native admission reader.
 
@@ -730,6 +741,7 @@ def admitted_data_projection(
         "analyzed_scope",
         "coverage",
         "support_episodes",
+        "support_references",
         "support_evidence",
         "position",
         "multiplicity",
@@ -743,6 +755,7 @@ def admitted_data_projection(
         "analyzed_scope",
         "coverage",
         "support_episodes",
+        "support_references",
         "support_evidence",
         "body",
         "meaning_body",
@@ -754,6 +767,7 @@ def admitted_data_projection(
         read_id,
         subject,
         original_source,
+        bindparam("data_binding_scope", analyzed_scope, type_=JSONB),
     ).table_valued(
         *(
             column(name, JSONB())
@@ -939,10 +953,12 @@ def data_operation_native_definitions(connection):
             )
         )
     from .data_operation_binding_native import binding_native_definitions
+    from .data_operation_source_native import source_native_definitions
     from .data_operation_wire_native import wire_native_definitions
 
     return (
         *wire_native_definitions(connection, sources=captured),
         *definitions,
         *binding_native_definitions(connection),
+        *source_native_definitions(connection),
     )

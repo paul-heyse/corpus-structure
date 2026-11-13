@@ -32,6 +32,10 @@ def captured(content: bytes | None = None):
         SOURCE,
         execution_evidence_schema,
     )
+    from corpus_structure.semantic.data_operation_support import (
+        ORIGINAL_REFERENCE_SCHEMA,
+        original_source_reference_schema,
+    )
 
     return (
         SourceArtifact(
@@ -39,6 +43,7 @@ def captured(content: bytes | None = None):
             source.read_bytes() if content is None else content,
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
     )
 
 
@@ -100,7 +105,7 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 16
+    assert len(contracts) == 17
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)
@@ -839,3 +844,20 @@ def test_attempt_release_requires_confirmed_physical_retirement_and_closed_failu
                 "failure": {"code": "compute-error"},
             },
         )
+
+
+def test_original_source_support_reference_never_relabels_a_computation_episode():
+    reference = {"kind": "original-source", "admission_id": "original-admission:one",
+                 "source_reference": "a" * 64, "role": "source", "position": 0}
+    from corpus_structure.semantic.data_operation_wire import validate_native_wire
+
+    completion = {
+        "request_id": "request:one", "generation": 1, "task_id": 1, "attempt": 1,
+        "holder": "owner", "runtime_id": "runtime:one",
+        "completion": {"outcome": "success", "inputs": [], "outputs": [],
+                       "implementation_revision": "implementation:one", "support": [reference]},
+    }
+    assert validate_native_wire("retain_data_completion_intent", "input", completion) == completion
+    reference["derivation_id"] = reference["admission_id"]
+    with pytest.raises(ValueError):
+        validate_native_wire("retain_data_completion_intent", "input", completion)

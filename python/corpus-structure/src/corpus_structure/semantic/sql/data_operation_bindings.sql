@@ -458,7 +458,7 @@ BEGIN
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') i WHERE i->>'owner'=authored_role->>'kind' AND i->>'domain'='kind' AND i->>'key'=roledef->>'kind_contract') THEN RAISE EXCEPTION 'native artifact role differs from effective model'; END IF;
  END LOOP;
  IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
- SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source) v;
+ SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source,request.analyzed_scope) v;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';
@@ -467,7 +467,7 @@ BEGIN
  AND v->>'kind_contract'=roledef->>'kind_contract' AND ops.ddo_binding_subject(roledef,v,p_subject) AND ops.ddo_binding_source(roledef,v,request.original_source,coalesce(demand.selection->'source_sets','{}'))
  AND v->>'position' IS NOT DISTINCT FROM item->>'position' AND v->>'multiplicity'=item->>'multiplicity'
  AND (item->>'support_derivation_id' IS NULL OR v->'support_episodes' ? (item->>'support_derivation_id'))
- AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'support') support WHERE support->>'role'=role AND support->>'position' IS NOT DISTINCT FROM item->>'position' AND v->'support_episodes' ? (support->>'derivation_id')) LIMIT 1;
+ AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'support') support WHERE support->>'role'=role AND support->>'position' IS NOT DISTINCT FROM item->>'position' AND ops.ddo_support_reference_matches(support,v)) LIMIT 1;
  IF chosen IS NULL THEN RAISE EXCEPTION 'selected binding row is outside current admitted universe' USING ERRCODE='23514'; END IF;
  values:=values||jsonb_build_array(chosen);
  END LOOP;
@@ -480,6 +480,7 @@ BEGIN
  IF state='present' AND (count_selected<(roledef->>'minimum')::bigint OR (roledef->>'maximum' IS NOT NULL AND count_selected>(roledef->>'maximum')::bigint)) THEN RAISE EXCEPTION 'native binding role cardinality differs'; END IF;
  seen:='[]';
  FOR row_value IN SELECT value FROM jsonb_array_elements(values) LOOP
+ IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(row_value->'support_references','[]')) reference WHERE NOT coalesce(roledef->'support'->'origins','["computation"]'::jsonb) ? (reference->>'kind')) THEN RAISE EXCEPTION 'selected support origin is outside declared eligibility'; END IF;
  multiplicity:=(row_value->>'multiplicity')::bigint; ordinal:=(row_value->>'position')::bigint;
  IF multiplicity IS NULL OR multiplicity<1 OR ordinal<0 OR (roledef->>'collection'<>'bag' AND multiplicity<>1) THEN RAISE EXCEPTION 'native binding multiplicity or ordinal differs'; END IF;
  IF roledef->>'collection'='sequence' THEN

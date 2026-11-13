@@ -446,3 +446,18 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
         },
     )
     assert not _population_context_matches({"evidence": {}, "members": []}, obligation, **arguments)
+
+
+def test_frozen_root_identity_includes_source_and_canonical_analyzed_scope():
+    compiled = model(operation("op:result"))
+    first = RootSubject("same-view", "source:one", b'{"start":0,"end":3}')
+    second = RootSubject("same-view", "source:one", b'{"start":3,"end":6}')
+    arguments = {"targets": ("op:result",), "inference": "exact", "execution_profile": "one"}
+    ordered = freeze_demand(compiled, roots=(first, second), **arguments)
+    reverse = freeze_demand(compiled, roots=(second, first), **arguments)
+    assert ordered == reverse
+    assert len(ordered.record["roots"]) == 2
+    with pytest.raises(ValueError, match="duplicate root context"):
+        freeze_demand(compiled, roots=(first, RootSubject(
+            "same-view", "source:one", b'{"end":3,"start":0}',
+        )), **arguments)

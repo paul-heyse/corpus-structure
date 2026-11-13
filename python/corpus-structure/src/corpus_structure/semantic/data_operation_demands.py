@@ -17,6 +17,11 @@ from pydantic import TypeAdapter
 from .data_operation_compilation import project_operation_binding
 from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
+from .data_operation_support import (
+    OriginalSourceSelection,
+    original_source_selections_record,
+    support_reference_records,
+)
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
@@ -70,6 +75,7 @@ def freeze_demand(
     inference: str,
     execution_profile: str,
     source_sets: tuple[FrozenSourceSet, ...] = (),
+    original_sources: tuple[OriginalSourceSelection, ...] = (),
 ) -> DemandIntent:
     """Freeze the selected closure, not the union of every possible producer."""
     from .data_operation_bindings import effective_binding_parameters
@@ -77,11 +83,13 @@ def freeze_demand(
 
     if not targets or not inference or not execution_profile:
         raise ValueError("demand requires targets, inference and an execution profile")
-    if len({root.subject for root in roots}) != len(roots):
-        raise ValueError("duplicate root subject")
+    if len({(root.subject, root.original_source, canonical_bytes(json.loads(root.analyzed_scope)))
+            for root in roots}) != len(roots):
+        raise ValueError("duplicate root context")
     if any(not root.subject or not root.original_source for root in roots):
         raise ValueError("root subject and source must be explicit")
     frozen_source_sets = source_sets_record(source_sets)
+    frozen_original_sources = original_source_selections_record(original_sources)
     supplied = {item.operation: item for item in selections}
     if len(supplied) != len(selections):
         raise ValueError("duplicate operation selection")
@@ -184,12 +192,18 @@ def freeze_demand(
                         }
                         for root in roots
                     ),
-                    key=lambda root: root["subject"],
+                    key=lambda root: (
+                        root["subject"], root["original_source"],
+                        canonical_bytes(root["analyzed_scope"]),
+                    ),
                 ),
                 "targets": sorted(set(targets)),
                 "operations": selected,
                 "root_operations": sorted(root_operations),
                 **({"source_sets": frozen_source_sets} if frozen_source_sets else {}),
+                **(
+                    {"original_sources": frozen_original_sources} if frozen_original_sources else {}
+                ),
                 "discovery": [asdict(item) for item in discovery],
                 "inference": inference,
                 "execution_profile": execution_profile,
@@ -312,6 +326,10 @@ class DemandPlanner:
         )
         if result.get("state") == "cancelled":
             return result
+        for name, source in record.get("original_sources", {}).items():
+            self.storage.invoke("admit_original_source_view", {
+                "demand_id": result["demand_id"], "selection_name": name, **source,
+            })
         for root in record["roots"]:
             for operation in record["operations"]:
                 if operation["operation"] not in record["root_operations"]:
@@ -445,6 +463,7 @@ class DemandPlanner:
                 read_id=snapshot["read_id"],
                 subject=obligation["subject"],
                 original_source=obligation["original_source"],
+                analyzed_scope=obligation["analyzed_scope"],
             )
             binding_arguments = dict(
                 subject=obligation["subject"],
@@ -660,19 +679,9 @@ class DemandPlanner:
                             }
                         )
                 for member in role.members:
-                    for episode in member.support_episodes:
-                        evidence = json.loads(member.support_evidence)
+                    for reference in support_reference_records(member.support_references):
                         support.append(
-                            {
-                                "derivation_id": episode,
-                                "role": role.role,
-                                "position": member.position,
-                                **(
-                                    {"admission_use_id": evidence["use_id"]}
-                                    if evidence.get("use_id") is not None
-                                    else {}
-                                ),
-                            }
+                            {**reference, "role": role.role, "position": member.position}
                         )
                     inputs.append(
                         {
@@ -681,9 +690,8 @@ class DemandPlanner:
                             "multiplicity": member.multiplicity,
                             "product_id": member.product,
                             "member_id": member.member,
-                            "support_derivation_id": (
-                                member.support_episodes[0] if member.support_episodes else None
-                            ),
+                            **({"support_derivation_id": member.support_episodes[0]}
+                               if member.support_episodes else {}),
                         }
                     )
             wire_binding = {

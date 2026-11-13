@@ -134,6 +134,39 @@ definitions:
       minItems: 4
       maxItems: 4
       additionalItems: false
+  original_source_selector:
+    type: object
+    properties:
+      projection: {$ref: '#/definitions/identifier'}
+      native_pointer: {$ref: '#/definitions/identifier'}
+      page: {$ref: '#/definitions/positive_integer'}
+      start: {$ref: '#/definitions/nonnegative_integer'}
+      end: {$ref: '#/definitions/nonnegative_integer'}
+    required: [projection]
+    additionalProperties: false
+  original_source_selection:
+    type: object
+    properties:
+      reference: {$ref: '#/definitions/external_source_reference'}
+      selectors: {type: array, minItems: 1, items: {$ref: '#/definitions/original_source_selector'}}
+    required: [reference, selectors]
+    additionalProperties: false
+  source_set_entry:
+    type: object
+    properties:
+      project_id: {$ref: '#/definitions/identifier'}
+      original_source: {$ref: '#/definitions/identifier'}
+      subject: {$ref: '#/definitions/identifier'}
+      analyzed_scope: {$ref: '#/definitions/json_value'}
+      product: {$ref: '#/definitions/identifier'}
+      member:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      source_reference: {$ref: '#/definitions/identifier'}
+      reference: {$ref: '#/definitions/external_source_reference'}
+    required: [project_id, original_source, subject, analyzed_scope, product, member, source_reference, reference]
+    additionalProperties: false
   root_subject:
     type: object
     properties:
@@ -239,6 +272,16 @@ definitions:
         $ref: '#/definitions/identifier'
       execution_profile:
         $ref: '#/definitions/identifier'
+      original_sources:
+        type: object
+        additionalProperties:
+          $ref: '#/definitions/original_source_selection'
+      source_sets:
+        type: object
+        additionalProperties:
+          type: array
+          minItems: 1
+          items: {$ref: '#/definitions/source_set_entry'}
     required:
     - version
     - model
@@ -300,8 +343,23 @@ definitions:
     - product_id
     additionalProperties: false
   support_member:
+    oneOf:
+    - $ref: '#/definitions/computational_support_member'
+    - $ref: '#/definitions/original_source_support_member'
+  original_source_support_member:
     type: object
     properties:
+      kind: {const: original-source}
+      admission_id: {$ref: '#/definitions/identifier'}
+      source_reference: {$ref: '#/definitions/identifier'}
+      role: {$ref: '#/definitions/identifier'}
+      position: {$ref: '#/definitions/nonnegative_integer'}
+    required: [kind, admission_id, source_reference, role, position]
+    additionalProperties: false
+  computational_support_member:
+    type: object
+    properties:
+      kind: {const: computation}
       derivation_id:
         $ref: '#/definitions/identifier'
       role:
@@ -970,6 +1028,30 @@ definitions:
     - read_snapshot
     - frontier_at
     - view
+    additionalProperties: false
+  admit_original_source_view_request:
+    type: object
+    properties:
+      demand_id: {$ref: '#/definitions/identifier'}
+      selection_name: {$ref: '#/definitions/identifier'}
+      reference: {$ref: '#/definitions/external_source_reference'}
+      selectors: {type: array, minItems: 1, items: {$ref: '#/definitions/original_source_selector'}}
+    required: [demand_id, selection_name, reference, selectors]
+    additionalProperties: false
+  admit_original_source_view_result:
+    type: object
+    properties:
+      admission_id: {$ref: '#/definitions/identifier'}
+      selection_name: {$ref: '#/definitions/identifier'}
+      product_id: {$ref: '#/definitions/identifier'}
+      kind_contract: {$ref: '#/definitions/identifier'}
+      subject: {$ref: '#/definitions/identifier'}
+      original_source: {$ref: '#/definitions/identifier'}
+      analyzed_scope: {$ref: '#/definitions/json_value'}
+      source_reference: {$ref: '#/definitions/identifier'}
+      trust_snapshot: {$ref: '#/definitions/trust_snapshot'}
+      evidence: {$ref: '#/definitions/json_value'}
+    required: [admission_id, selection_name, product_id, kind_contract, subject, original_source, analyzed_scope, source_reference, trust_snapshot, evidence]
     additionalProperties: false
   register_data_demand_request:
     type: object
@@ -1668,6 +1750,8 @@ definitions:
         - recipe
         - runtime
         - product
+        - original-source
+        - original-admission
       selector:
         $ref: '#/definitions/identifier'
       reason:
@@ -1764,6 +1848,9 @@ definitions:
         items:
           $ref: '#/definitions/result_obligation'
         minItems: 0
+      original_source_admissions:
+        type: array
+        items: {$ref: '#/definitions/admit_original_source_view_result'}
       attempt_failures:
         type: array
         items: {$ref: '#/definitions/attempt_failure_observation'}
@@ -1866,6 +1953,11 @@ definitions:
   member_context:
     $ref: '#/definitions/root_subject'
 operations:
+- name: admit_original_source_view
+  profile: read
+  request: admit_original_source_view_request
+  result: admit_original_source_view_result
+  purposes: [read, write, evaluate]
 - name: register_data_demand
   profile: command
   request: register_data_demand_request
