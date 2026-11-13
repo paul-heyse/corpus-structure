@@ -378,8 +378,8 @@ class NativeDemandExecutor:
                 self.model,
                 read_id=pins["read_id"],
                 subject=ready.subject,
-                original_source=pins.get("original_source"),
-                analyzed_scope=pins.get("analyzed_scope"),
+                original_source=pins["original_source"],
+                analyzed_scope=pins["analyzed_scope"],
             )
             by_kind = {p.kind: p for p in projections}
             values = []
