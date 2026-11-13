@@ -1838,6 +1838,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         values,
         parameters,
         binding.inference,
+        subject_context=binding.subject_context,
     )
     admission = AdmissionManifest(
         request.identity.key,

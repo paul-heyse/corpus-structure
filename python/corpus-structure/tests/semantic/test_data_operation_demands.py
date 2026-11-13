@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
 import math
 from datetime import date
 from decimal import Decimal
@@ -252,7 +254,8 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
     from corpus_structure.semantic.data_operation_model import ResolvedOperationBinding
 
     binding = ResolvedOperationBinding(
-        "op:result", "subject:one", (), b"{}", "exact", b"{}", b"{}", "cpu"
+        "op:result", "subject:one", (), b"{}", "exact", b"{}", b"{}", "cpu",
+        subject_context=SubjectContext("project:test", "subject:one", "source:one", b"{}")
     )
     original = BindingResult(
         "op:result",

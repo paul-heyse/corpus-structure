@@ -19,6 +19,7 @@ from typing import Any, Literal
 import networkx as nx
 
 from .identity import canonical_bytes
+from .data_operation_model import SubjectContext
 from .value_codec import value_meaning
 
 ENCODING_VERSION = "1"
@@ -506,9 +507,12 @@ class SemanticRequestKey:
     inputs: Any
     parameters: Any
     inference: str
+    subject_context: SubjectContext = field(kw_only=True)
     identity: CanonicalIdentity = field(init=False)
 
     def __post_init__(self) -> None:
+        if self.subject_context.subject != self.subject:
+            raise ValueError("request subject differs from complete context")
         object.__setattr__(self, "inputs", _owned_value(self.inputs))
         object.__setattr__(self, "parameters", _owned_value(self.parameters))
         object.__setattr__(
@@ -519,6 +523,7 @@ class SemanticRequestKey:
                 {
                     "recipe": _identifier(self.recipe, "request recipe"),
                     "subject": _identifier(self.subject, "request subject"),
+                    "subject_context": self.subject_context.record,
                     "inputs": self.inputs,
                     "parameters": self.parameters,
                     "inference": _identifier(self.inference, "request inference policy"),

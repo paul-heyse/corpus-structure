@@ -15,7 +15,7 @@ import networkx as nx
 from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
-from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding
+from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding, SubjectContext
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
 from .data_operation_support import (
     OriginalSourceSelection,
@@ -653,6 +653,8 @@ class DemandPlanner:
                 )
                 continue
             resolved = binding.resolved(
+                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
+                    obligation["original_source"], canonical_bytes(obligation["analyzed_scope"])),
                 inference=frozen["inference"],
                 authorization=authorization,
                 trust_evidence=canonical_bytes(

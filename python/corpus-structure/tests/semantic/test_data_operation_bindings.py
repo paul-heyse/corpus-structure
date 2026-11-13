@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
 import json
 from dataclasses import replace
 from typing import Literal
@@ -244,6 +246,7 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
     assert result.definition == "definition:fixed"
     assert decode_semantic_value(json.loads(result.parameters)) == {"allowed": [2, 3], "maximum": 3}
     resolved = result.resolved(
+        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}"),
         inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
     )
     assert resolved.roles == result.roles
@@ -962,6 +965,7 @@ def test_runtime_parameter_mapping_preserves_date_decimal_and_signed_zero(storag
     assert decoded["amount"] == Decimal("1.2") and type(decoded["amount"]) is Decimal
     assert math.copysign(1, decoded["sign"]) == -1
     resolved = result.resolved(
+        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}"),
         inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
     )
     assert resolved.parameters == result.parameters

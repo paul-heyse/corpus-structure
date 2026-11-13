@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
 import json
 
 import pytest
@@ -203,6 +205,7 @@ def discover(kernel, *, complete=True, ambiguous=False):
             {},
             {"parameters": {}, "replicate": None},
             "inference:test",
+            subject_context=SubjectContext("ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])),
         )
         attached = storage.invoke(
             "attach_data_request",

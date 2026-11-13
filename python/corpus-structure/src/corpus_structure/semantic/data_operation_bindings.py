@@ -28,6 +28,7 @@ from .data_operation_model import (
     EffectiveDataOperationModel,
     EffectiveOperation,
     ResolvedOperationBinding,
+    SubjectContext,
     ResolvedRoleBinding,
 )
 from .data_operation_source_sets import FrozenSourceSet, source_sets_record
@@ -130,6 +131,7 @@ class BindingResult:
         self,
         *,
         inference: str,
+        subject_context: SubjectContext,
         authorization: bytes,
         trust_evidence: bytes,
         execution_profile: str,
@@ -148,6 +150,7 @@ class BindingResult:
             execution_profile,
             replicate,
             self.source_sets,
+            subject_context=subject_context,
         )
 
 

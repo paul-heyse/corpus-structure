@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -415,6 +417,7 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         canonical_bytes({"permission": "admitted"}),
         canonical_bytes({"trust": "selected"}),
         "execution:one",
+        subject_context=SubjectContext("project:test", "subject:one", "original:one", b'{"start":1,"end":2}'),
     )
 
 

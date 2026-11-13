@@ -1,5 +1,7 @@
 """Independent DDO identity vectors and discriminating semantic locality checks."""
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -339,7 +341,7 @@ def test_provider_projections_are_declaration_roles_and_preserve_execution_detai
 
 def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_custody():
     inputs = {"left": ["product:a"]}
-    request = SemanticRequestKey("recipe:a", "subject:a", inputs, {}, "inference:a")
+    request = SemanticRequestKey("recipe:a", "subject:a", inputs, {}, "inference:a", subject_context=SubjectContext("project:a", "subject:a", "original:a", b"{}"))
     first_identity = request.identity
     inputs["left"].append("product:b")
     assert request.identity == first_identity
@@ -349,7 +351,7 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
     with pytest.raises(TypeError):
         request.inputs["left"][0] = "product:c"
     assert (
-        SemanticRequestKey("recipe:a", "subject:a", inputs, {}, "inference:a").identity
+        SemanticRequestKey("recipe:a", "subject:a", inputs, {}, "inference:a", subject_context=SubjectContext("project:a", "subject:a", "original:a", b"{}")).identity
         != first_identity
     )
     manifest = AdmissionManifest(
@@ -392,3 +394,21 @@ def test_actual_unbound_runtime_cache_consumes_separate_artifact_identity():
     assert runtime_fingerprint(digests=(("module.py", "c" * 64),)) != runtime_fingerprint(
         digests=captured
     )
+
+
+def test_request_context_is_complete_and_immutable():
+    def key(project="project", source="original", scope=b'{"page":1}'):
+        return SemanticRequestKey(
+            "recipe", "local", {}, {}, "inference",
+            subject_context=SubjectContext(project, "local", source, scope),
+        ).identity
+
+    assert len({key().key, key(project="other").key, key(source="other").key,
+                key(scope=b'{"page":2}').key}) == 4
+    assert key(scope=b'{ "page" : 1 }') == key()
+    context = SubjectContext("project", "local", "original", b'{"page":1}')
+    detached = context.record
+    detached["analyzed_scope"]["page"] = 2
+    assert context.record["analyzed_scope"] == {"page": 1}
+    with pytest.raises(ValueError, match="differs"):
+        SemanticRequestKey("recipe", "wrong", {}, {}, "inference", subject_context=context)

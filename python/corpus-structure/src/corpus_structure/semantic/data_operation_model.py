@@ -7,7 +7,7 @@ stable references and effective meaning only, before any release identity exists
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Literal
 
 from .data_operation_support import (
@@ -502,6 +502,27 @@ class ResolvedRoleBinding:
 
 
 @dataclass(frozen=True)
+class SubjectContext:
+    """The complete immutable address of an admitted subject occurrence."""
+
+    project_id: str
+    subject: str
+    original_source: str
+    analyzed_scope: bytes
+
+    def __post_init__(self):
+        if not self.project_id or not self.subject or not self.original_source:
+            raise ValueError("subject context requires project, subject and original source")
+        object.__setattr__(self, "analyzed_scope", canonical_bytes(json.loads(self.analyzed_scope)))
+
+    @property
+    def record(self) -> dict:
+        return {"project_id": self.project_id, "subject": self.subject,
+                "original_source": self.original_source,
+                "analyzed_scope": json.loads(self.analyzed_scope)}
+
+
+@dataclass(frozen=True)
 class ResolvedOperationBinding:
     operation: str
     subject: str
@@ -513,6 +534,11 @@ class ResolvedOperationBinding:
     execution_profile: str
     replicate: str | None = None
     source_sets: bytes = b"{}"
+    subject_context: SubjectContext = field(kw_only=True)
+
+    def __post_init__(self):
+        if self.subject_context.subject != self.subject:
+            raise ValueError("binding subject differs from its complete context")
 
 
 def read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:

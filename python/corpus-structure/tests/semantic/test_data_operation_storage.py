@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -250,13 +252,16 @@ def attach(
     operation="urn:ddo-test:source",
     targets=None,
     engine=None,
+    original_source="source:test",
+    analyzed_scope=None,
+    project_id="ddo-test",
 ):
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
 
-    root = {"subject": subject, "original_source": "source:test", "analyzed_scope": {"page": 1}}
+    root = {"subject": subject, "original_source": original_source, "analyzed_scope": {"page": 1} if analyzed_scope is None else analyzed_scope}
     selected = freeze_demand(
         kernel["model"],
-        roots=(RootSubject(subject, "source:test", canonical_bytes(root["analyzed_scope"])),),
+        roots=(RootSubject(subject, original_source, canonical_bytes(root["analyzed_scope"])),),
         targets=targets or (operation,),
         inference=inference,
         execution_profile="execution:test",
@@ -266,7 +271,7 @@ def attach(
         demand = storage.invoke(
             "register_data_demand",
             {
-                "project_id": "ddo-test",
+                "project_id": project_id,
                 "release_id": kernel["prepared"].release_id,
                 "runtime_id": kernel["runtime"],
                 "root": [root],
@@ -290,6 +295,7 @@ def attach(
             {},
             {"parameters": {}, "replicate": None},
             inference,
+            subject_context=SubjectContext(project_id, subject, original_source, canonical_bytes(root["analyzed_scope"])),
         )
         wire = {
             "obligation_id": obligation["obligation_id"],
@@ -917,6 +923,7 @@ def test_direct_writer_cannot_bypass_admitted_binding_predicate_with_real_inputs
             b"{}",
             canonical_bytes(result["trust_snapshot"]),
             "execution:test",
+            subject_context=SubjectContext("ddo-test", "subject:one", "source:test", b'{"page":1}'),
         )
         request, _ = project_operation_binding(kernel["model"], resolved)
         payload = {
@@ -1733,3 +1740,55 @@ def test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generat
         ) == ("pending" if fence is None else "running")
     successor = claim(updated, current, holder="unretained-successor")
     assert publish(updated, successor, retain(updated, successor))["derivation_id"]
+
+
+@pytest.mark.parametrize("changed", ["scope", "source", "project"])
+def test_distinct_root_contexts_attach_and_publish_equal_bodies(kernel, changed):
+    kwargs = {"analyzed_scope": {"page": 2}} if changed == "scope" else (
+        {"original_source": "source:other"} if changed == "source" else {"project_id": "ddo-other"}
+    )
+    if changed == "project":
+        with kernel["engine"].begin() as connection:
+            connection.execute(insert(table("data.project")).values(project_id="ddo-other"))
+    _, _, original_wire, original = attach(kernel)
+    _, _, changed_wire, changed_request = attach(kernel, **kwargs)
+    assert original["request_id"] != changed_request["request_id"]
+    assert original_wire["request_key"] != changed_wire["request_key"]
+    products = []
+    for attached in (original, changed_request):
+        fence = claim(kernel, attached)
+        intent = retain(kernel, fence, outputs=(1,))
+        receipt = publish(kernel, fence, intent)
+        with kernel["engine"].connect() as connection:
+            products.append(connection.execute(text(
+                "SELECT product_id FROM ops.data_derivation_output WHERE derivation_id=:id"
+            ), {"id": receipt["derivation_id"]}).scalar_one())
+    assert products[0] != products[1]
+    assert attach(kernel)[3]["request_id"] == original["request_id"]
+
+
+def test_overlapping_publication_returns_committed_exact_receipt(kernel):
+    from queue import Queue
+    _, _, _, attached = attach(kernel)
+    fence = claim(kernel, attached)
+    intent = retain(kernel, fence)
+    payload = {**fence, "intent_id": intent["intent_id"]}
+    backend = Queue()
+    def retry():
+        with kernel["engine"].begin() as connection:
+            backend.put(connection.execute(text("SELECT pg_backend_pid()")).scalar_one())
+            return DataOperationStorage(connection).invoke("publish_data_derivation", payload)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with kernel["engine"].begin() as first_connection:
+            first = DataOperationStorage(first_connection).invoke("publish_data_derivation", payload)
+            future = pool.submit(retry)
+            pid = backend.get(timeout=10)
+            deadline = time.monotonic() + 10
+            while not first_connection.execute(text("SELECT cardinality(pg_blocking_pids(:pid))>0"), {"pid": pid}).scalar_one():
+                if time.monotonic() >= deadline:
+                    pytest.fail("retry did not reach the held publication lock")
+                time.sleep(0.01)
+        second = future.result(timeout=10)
+    assert second == {**first, "replayed": True}
+    with kernel["engine"].connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM ops.data_derivation WHERE intent_id=:id"), {"id": intent["intent_id"]}).scalar_one() == 1
