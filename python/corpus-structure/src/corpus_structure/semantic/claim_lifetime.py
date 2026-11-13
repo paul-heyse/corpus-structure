@@ -52,6 +52,19 @@ class ClaimOwner:
 
     def __call__(self):
         self._check_active()
+
+    def check_claim(self, claim: ClaimedTask) -> None:
+        """Check one producer without stopping useful independent siblings."""
+        self()
+        key = (claim.task_id, claim.attempt, self.holder)
+        if key not in self.active or claim.holder != self.holder:
+            raise OperationConflict("task is no longer active in this owner")
+        if key in self.uncertain:
+            raise self.uncertain[key]
+
+    def check_settled(self) -> None:
+        """Unresolved completion custody must remain visible at owner exit."""
+        self()
         if self.uncertain:
             raise next(iter(self.uncertain.values()))
 
@@ -62,6 +75,9 @@ class ClaimOwner:
             self()
             if key not in self.active:
                 raise OperationConflict("task is no longer active in this owner")
+            prior = self.uncertain.get(key)
+            if prior is not None and completion is not prior.completion:
+                raise prior
             for replay in range(2):
                 phase = DatabasePhase.ACQUIRING
                 try:
@@ -194,7 +210,10 @@ def maintained_claims(
             claim = claims[0] if len(claims) == 1 else None
             try:
                 with owner.lock, engine.connect() as conn, cancellation.borrow(conn):
-                    if not owner.active or owner.uncertain:
+                    active = tuple(
+                        claim for key, claim in owner.active.items() if key not in owner.uncertain
+                    )
+                    if not active:
                         retry_of = None
                         continue
                     try:
@@ -206,7 +225,6 @@ def maintained_claims(
                                 database,
                                 statement_timeout_seconds=database.renewal_statement_timeout_seconds,
                             )
-                            active = tuple(owner.active.values())
                             if retry_of is not None and not _leases_cover_retry(
                                 conn,
                                 active,
@@ -273,7 +291,7 @@ def maintained_claims(
     thread.start()
     try:
         yield owner
-        owner()
+        owner.check_settled()
     finally:
         primary = sys.exception()
         stop.set()
@@ -287,4 +305,4 @@ def maintained_claims(
                 "renewal cancellation request failed", cancellation.cleanup_failures
             )
         if primary is None:
-            owner()
+            owner.check_settled()

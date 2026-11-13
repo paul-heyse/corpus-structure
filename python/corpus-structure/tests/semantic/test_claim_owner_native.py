@@ -517,3 +517,79 @@ def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
             )
             == 2
         )
+
+
+def test_uncertain_member_keeps_sibling_renewal_and_settlement(
+    semantic_db_engine, semantic_writer_engine, monkeypatch
+):
+    prepared, (first, second) = claims(semantic_db_engine, semantic_writer_engine, 2)
+    renewed = Event()
+    actual = claim_lifetime.renew_claim
+    seen = []
+
+    def observe(conn, **values):
+        seen.append(values["task_id"])
+        actual(conn, **values)
+        renewed.set()
+
+    monkeypatch.setattr(claim_lifetime, "renew_claim", observe)
+    with (
+        pytest.raises(claim_lifetime.ClaimSettlementUncertain),
+        claim_lifetime.maintained_claims(
+            semantic_writer_engine, (first, second), "owner", interval=0.05
+        ) as owner,
+    ):
+        with owner.lock:
+            retained = completion(prepared, first)
+            owner.uncertain[(first.task_id, first.attempt, "owner")] = (
+                claim_lifetime.ClaimSettlementUncertain(first, "owner", retained)
+            )
+        owner()
+        owner.check_claim(second)
+        with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
+            owner.check_claim(first)
+        assert renewed.wait(5)
+        assert set(seen) == {second.task_id}
+        result = owner.settle(second, completion(prepared, second))
+        assert isinstance(result, CompletionResult)
+        assert result.transaction == "applied"
+        with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
+            owner.settle(first, completion(prepared, first))
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": second.task_id}) == "empty"
+
+
+def test_retained_uncertain_completion_can_reconcile_through_same_owner(
+    semantic_db_engine, semantic_writer_engine
+):
+    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    attempts = []
+
+    class ResponsesLost:
+        @contextmanager
+        def connect(self):
+            with semantic_writer_engine.connect() as conn:
+                class Connection:
+                    @contextmanager
+                    def begin(self):
+                        with conn.begin():
+                            yield
+                        attempts.append(True)
+                        if len(attempts) <= 2:
+                            raise psycopg.OperationalError("commit response lost")
+
+                    def __getattr__(self, name):
+                        return getattr(conn, name)
+                yield Connection()
+
+    owner = claim_lifetime.ClaimOwner(
+        ResponsesLost(), (claim,), "owner", claim_lifetime.DatabaseSettings(), lambda: None
+    )
+    retained = completion(prepared, claim)
+    with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
+        owner.settle(claim, retained)
+    result = owner.settle(claim, retained)
+    assert isinstance(result, CompletionResult)
+    assert result.transaction == "replay"
+    assert not owner.active and not owner.uncertain
+    owner.check_settled()
