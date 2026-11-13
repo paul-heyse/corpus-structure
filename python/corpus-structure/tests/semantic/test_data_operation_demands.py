@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from datetime import date
 from decimal import Decimal
+from typing import cast
 
 import pytest
 
@@ -199,6 +200,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
     from hashlib import sha256
 
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
     compiled = model(operation("op:result"))
     snapshot = {
@@ -216,7 +218,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
             calls.append((operation, payload))
             return snapshot if operation == "read_demand_result" else observation
 
-    resumed = DemandPlanner(compiled, Storage()).resume("demand:one")
+    resumed = DemandPlanner(compiled, cast(DataOperationStorage, Storage())).resume("demand:one")
     assert calls == [
         ("read_demand_result", {"demand_id": "demand:one", "limit": 100}),
         (
