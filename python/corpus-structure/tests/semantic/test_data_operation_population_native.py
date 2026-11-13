@@ -400,11 +400,13 @@ def test_native_planner_preserves_ambiguous_authentic_parent_populations(populat
             use for use in current["uses"] if use["obligation_id"] == consumer["obligation_id"]
         )
         assert use["fate"] == "awaiting-population"
-        assert use["selection"]["reasons"] == [{
-            "code": "ambiguous-population",
-            "location": "urn:consumer/items",
-            "detail": "more than one authenticated population fits the declared role",
-        }]
+        assert use["selection"]["reasons"] == [
+            {
+                "code": "ambiguous-population",
+                "location": "urn:consumer/items",
+                "detail": "more than one authenticated population fits the declared role",
+            }
+        ]
 
 
 def _complete_ready(kernel, ready, value=1):

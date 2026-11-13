@@ -619,14 +619,16 @@ class DemandPlanner:
                         "fate": "awaiting-population",
                         "selection": {
                             "reasons": [
-                                asdict(BindingReason(
-                                    "ambiguous-population",
-                                    operation["operation"] + "/" + role_name,
-                                    (
-                                        "more than one authenticated population "
-                                        "fits the declared role"
-                                    ),
-                                ))
+                                asdict(
+                                    BindingReason(
+                                        "ambiguous-population",
+                                        operation["operation"] + "/" + role_name,
+                                        (
+                                            "more than one authenticated population "
+                                            "fits the declared role"
+                                        ),
+                                    )
+                                )
                                 for role_name in ambiguities
                             ]
                         },

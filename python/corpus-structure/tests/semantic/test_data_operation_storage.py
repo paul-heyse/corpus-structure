@@ -1889,9 +1889,14 @@ def test_writer_cannot_mutate_or_read_pending_evaluator_obligations(kernel, nati
         )
         calls = [
             ("read_demand_result", {"demand_id": demand["demand_id"]}),
-            ("record_data_fate", {
-                "obligation_id": obligation["obligation_id"], "fate": "closed", "selection": {},
-            }),
+            (
+                "record_data_fate",
+                {
+                    "obligation_id": obligation["obligation_id"],
+                    "fate": "closed",
+                    "selection": {},
+                },
+            ),
             (
                 "expand_data_obligation",
                 {
