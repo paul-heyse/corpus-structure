@@ -61,6 +61,7 @@ class Candidate(BaseModel):
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
     packs: tuple[str, ...]
+    data_operations: str | None = None
     files: dict[str, str | None]
     hashes: dict[str, str]
     wrapper_sha256: str | None = None
@@ -99,6 +100,7 @@ class Candidate(BaseModel):
             release_manifest_sha256=preview.release_manifest_sha256,
             release_artifacts_sha256=preview.release_artifacts_sha256,
             packs=preview.request.packs,
+            data_operations=preview.request.data_operations,
             files={
                 **preview.inputs,
                 **{

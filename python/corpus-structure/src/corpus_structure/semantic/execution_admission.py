@@ -49,6 +49,12 @@ def admit_execution_release(
     Pure compiled products may be reused by the compiler. Database state and permissions
     are checked by their existing owners on every activation and are never cached here.
     """
+    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
+        from .data_operation_admission import admit_data_operation_release
+
+        if connection is None:
+            raise ExecutionAdmissionError("target admission requires verified native deployment")
+        return admit_data_operation_release(connection, prepared)
     if prepared.execution_model_id is not None:
         from .contracts import bound_execution_model
 

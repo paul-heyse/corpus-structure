@@ -983,12 +983,26 @@ def inspect_candidate(
         )
 
 
-def _prepare_release(root, names, *, physical_sources: dict[str, bytes] | None = None):
+def _prepare_release(
+    root,
+    names,
+    *,
+    physical_sources: dict[str, bytes] | None = None,
+    data_operations: str | None = None,
+):
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.model_change import physical_release_sources
     from corpus_structure.semantic.contracts import trusted_execution_inputs
     from corpus_structure.semantic.regeneration import prepare_packs
 
+    if data_operations is not None:
+        if names:
+            raise ModelError(["target inputs and legacy domain packs are exclusive"])
+        from corpus_structure.semantic.data_operation_preparation import (
+            prepare_data_operation_inputs,
+        )
+
+        return prepare_data_operation_inputs(root, data_operations)
     if not names or any(
         not name or name in {".", ".."} or Path(name).name != name for name in names
     ):
@@ -1097,7 +1111,10 @@ def preview(
                     if physical_sources is not None:
                         physical_id = physical_sources_id(physical_sources)
                     _, dependencies, _, local = _prepare_release(
-                        root, bound.packs, physical_sources=physical_sources
+                        root,
+                        bound.packs,
+                        physical_sources=physical_sources,
+                        data_operations=bound.data_operations,
                     )
                     _retain_authored_sql(sql_holder, dependencies)
                     release = local.release_id
@@ -1377,7 +1394,7 @@ def candidate(
                     model_stage(result, "verify preview and prepare release")
                     check_preview(root, staged, applied=True)
                     bundle, dependencies, profile, prepared = _prepare_release(
-                        root, staged.request.packs
+                        root, staged.request.packs, data_operations=staged.request.data_operations
                     )
                     staged.verify_release(prepared)
                     _retain_authored_sql(sql_holder, dependencies, preserve=True)
@@ -1581,7 +1598,9 @@ def deploy(
             root = checkout(ctx)
             with writer_lock(root):
                 model_stage(result, "prepare bound release")
-                deployment = _prepare_release(root, binding.packs)
+                deployment = _prepare_release(
+                    root, binding.packs, data_operations=binding.data_operations
+                )
 
                 def report(effect: str) -> None:
                     diagnostic(f"Model {result.id} · {effect}")

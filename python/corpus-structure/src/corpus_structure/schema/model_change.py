@@ -68,6 +68,7 @@ class ChangeRequest(NativeIntent):
     change: ChangeRecord | None = None
     archive_release: str | None = None
     packs: tuple[str, ...] = ()
+    data_operations: str | None = None
     native_predecessor: str | None = None
     native_revision: str | None = None
     deployment: bool = False
@@ -264,6 +265,15 @@ def prepare_preview(
     )
     original = {path: _git(root, "show", f"{baseline}:{path}") for path in (core, system, log)}
     current = {path: _read(root, path) for path in original}
+    if request.data_operations is not None:
+        if request.packs:
+            raise model.ModelError(["target inputs and legacy domain packs are exclusive"])
+        from corpus_structure.semantic.data_operation_preparation import (
+            acquire_data_operation_inputs,
+        )
+
+        acquired = acquire_data_operation_inputs(root, request.data_operations)
+        current.update({path: content.decode() for path, content in acquired.files})
     if current[log] != original[log]:
         raise model.ModelError(["worktree revision log differs from the requested baseline"])
     source = {

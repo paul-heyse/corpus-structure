@@ -127,7 +127,19 @@ def _validate_manifest(
         "ontology_sources": sorted(dependencies.ontology_sources),
         "vocabularies": [asdict(v) for v in prepared.vocabularies],
     }
-    if profile.version == "semantic-2":
+    target = any(a.name.startswith("data-operations/") for a in dependencies.artifacts)
+    if target:
+        from .composed import data_operations_from_dependencies
+
+        if prepared.execution_model_id is not None:
+            raise ReleaseConflict("target release cannot contain legacy execution admission")
+        model = data_operations_from_dependencies(
+            bundle, dependencies, prepared.definitions, prepared.vocabularies
+        )
+        if model is None:
+            raise ReleaseConflict("target release lacks its effective model")
+        manifest["data_operation_model"] = _digest(model.content)
+    elif profile.version == "semantic-2":
         from .composed import execution_model_from_dependencies
 
         try:

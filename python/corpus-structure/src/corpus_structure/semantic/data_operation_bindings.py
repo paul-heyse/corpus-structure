@@ -24,6 +24,7 @@ from .data_operation_model import (
     BindingOperand,
     BoundRoleMember,
     EffectiveDataOperationModel,
+    EffectiveOperation,
     ResolvedOperationBinding,
     ResolvedRoleBinding,
 )
@@ -218,6 +219,24 @@ def _typed(value: Any, value_type: str, *, many: bool = False) -> Any:
     return value
 
 
+def effective_binding_parameters(
+    operation: EffectiveOperation, parameters: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Apply declared defaults once, preserving missing versus explicit null."""
+    params = dict(parameters or {})
+    definitions = json.loads(operation.parameters)
+    for name, definition in definitions.items():
+        if not isinstance(definition, dict) or "value_type" not in definition:
+            continue
+        if name not in params and "default" in definition:
+            params[name] = definition["default"]
+        if name in params:
+            _typed(params[name], definition["value_type"], many=definition.get("many", False))
+        elif definition.get("required", True):
+            raise ValueError("missing frozen demand parameter: " + name)
+    return params
+
+
 def compile_binding(
     model: EffectiveDataOperationModel,
     operation: str,
@@ -240,19 +259,10 @@ def compile_binding(
     op = model.operation(operation)
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     expression = next(item.expression for item in model.bindings if item.semantic_id == op.binding)
-    params = dict(parameters or {})
+    params = effective_binding_parameters(op, parameters)
     choice_values = dict(choices or {})
     # Declaration defaults are typed JSON values. Missing and explicit null differ.
     definitions = json.loads(op.parameters)
-    for name, definition in definitions.items():
-        if not isinstance(definition, dict) or "value_type" not in definition:
-            continue  # Existing opaque operation parameters are not demand operands.
-        if name not in params and "default" in definition:
-            params[name] = definition["default"]
-        if name in params:
-            _typed(params[name], definition["value_type"], many=definition.get("many", False))
-        elif definition.get("required", True):
-            raise ValueError("missing frozen demand parameter: " + name)
     roles = {role.name: role for role in op.roles if role.direction == "input"}
     projected = {item.kind: item for item in projections}
     if len(projected) != len(projections):

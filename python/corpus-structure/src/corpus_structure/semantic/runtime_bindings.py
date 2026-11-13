@@ -145,6 +145,11 @@ def _binding(
 
 def validate_runtime_binding(binding: RuntimeBinding, prepared: PreparedRelease) -> None:
     """Authenticate exact retained bytes and their released meaning, without installed defaults."""
+    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
+        from .data_operation_runtime import validate_data_operation_runtime
+
+        validate_data_operation_runtime(binding, prepared)
+        return
     model, compiler = _execution(prepared)
     manifest = _document(
         binding.manifest,

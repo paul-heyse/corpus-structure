@@ -1,0 +1,158 @@
+"""Independent frozen scope, selected dependency and runtime custody expectations."""
+
+from __future__ import annotations
+
+import pytest
+
+from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.data_operation_demands import (
+    DiscoverySelection,
+    OperationSelection,
+    RootSubject,
+    freeze_demand,
+)
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.types import SourceArtifact
+
+
+def operation(name, **changes):
+    return {
+        "id": name,
+        "profile": "derivation",
+        "subject": "document",
+        "context": [],
+        "roles": [
+            {
+                "name": "result",
+                "kind": "integer",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            }
+        ],
+        "applicability": ["declared"],
+        "invariants": ["integer"],
+        "coverage": "whole",
+        "outcomes": ["produced"],
+        "precision": "exact",
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "none",
+            "cancellation": "call-boundary",
+            "ownership": "immutable",
+        },
+        "behavior": "integer-one-v1",
+        "parameters": {},
+        "binding": {"operator": "all", "children": []},
+        **changes,
+    }
+
+
+def model(*operations):
+    return compile_data_operations(
+        declarations=(
+            SourceArtifact(
+                "ops", canonical_bytes({"version": MODEL_VERSION, "operations": operations})
+            ),
+        )
+    )
+
+
+def freeze(compiled, **changes):
+    return freeze_demand(
+        compiled,
+        roots=(RootSubject("document:one", "source:one", b'{"whole":true}'),),
+        targets=("op:result",),
+        inference="inference:exact",
+        execution_profile="execution:one",
+        **changes,
+    )
+
+
+def test_demand_freezes_only_selected_transitive_closure_and_source_membership():
+    compiled = model(
+        operation("op:base"),
+        operation("op:unused"),
+        operation("op:result", dependencies=["op:base"]),
+    )
+    intent = freeze(compiled)
+    assert {item["operation"] for item in intent.record["operations"]} == {"op:base", "op:result"}
+    assert intent.record["roots"] == [
+        {
+            "subject": "document:one",
+            "original_source": "source:one",
+            "analyzed_scope": {"whole": True},
+        }
+    ]
+    exposed = intent.record
+    exposed["roots"].append({"subject": "later"})
+    assert len(intent.record["roots"]) == 1
+    assert intent.record["operations"][1]["definition"].startswith("definition:")
+
+
+def test_demand_selects_potential_edges_and_rejects_outside_choices():
+    compiled = model(
+        operation("op:a"),
+        operation("op:b"),
+        operation("op:result", potential_dependencies=["op:a", "op:b"]),
+    )
+    selected = freeze(
+        compiled, selections=(OperationSelection("op:result", selected_dependencies=("op:b",)),)
+    )
+    assert {item["operation"] for item in selected.record["operations"]} == {"op:result", "op:b"}
+    with pytest.raises(ValueError, match="outside"):
+        freeze(
+            compiled,
+            selections=(OperationSelection("op:result", selected_dependencies=("op:missing",)),),
+        )
+
+
+def test_discovered_targets_are_not_seeded_on_unrelated_root_subjects():
+    compiled = model(
+        operation("op:discover", profile="discovery"), operation("op:result"), operation("op:child")
+    )
+    intent = freeze(
+        compiled, discovery=(DiscoverySelection("op:discover", "result", "op:child", "passages"),)
+    )
+    assert set(intent.record["root_operations"]) == {"op:discover", "op:result"}
+    assert {item["operation"] for item in intent.record["operations"]} == {
+        "op:discover",
+        "op:result",
+        "op:child",
+    }
+
+
+def test_selected_cycle_refuses_even_if_potential_graph_was_allowed():
+    compiled = model(
+        operation("op:result", potential_dependencies=["op:other"]),
+        operation("op:other", potential_dependencies=["op:result"]),
+    )
+    with pytest.raises(ValueError, match="cycle"):
+        freeze(
+            compiled,
+            selections=(
+                OperationSelection("op:result", selected_dependencies=("op:other",)),
+                OperationSelection("op:other", selected_dependencies=("op:result",)),
+            ),
+        )
+
+
+def test_frozen_parameter_defaults_match_the_later_binding_manifest():
+    compiled = model(
+        operation(
+            "op:result",
+            parameters={"threshold": {"value_type": "integer", "default": 7, "required": False}},
+        )
+    )
+    intent = freeze(compiled)
+    assert intent.record["operations"][0]["parameters"] == {"threshold": 7}
+    with pytest.raises(ValueError, match="integer"):
+        freeze(
+            compiled,
+            selections=(OperationSelection("op:result", parameters=b'{"threshold":null}'),),
+        )
