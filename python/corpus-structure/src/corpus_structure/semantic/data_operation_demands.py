@@ -480,6 +480,8 @@ class DemandPlanner:
                 analyzed_scope=obligation["analyzed_scope"],
             )
             binding_arguments = dict(
+                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
+                    obligation["original_source"], canonical_bytes(obligation["analyzed_scope"])),
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],

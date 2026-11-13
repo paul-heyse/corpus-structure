@@ -1209,3 +1209,18 @@ def test_native_membership_and_absence_cannot_use_another_containers_local_membe
         ),
     )
     assert result.status == "awaiting-inputs"
+
+
+def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storage):
+    connection, _, projection = storage
+    context = SubjectContext("project:test", "doc", "source:test", b'{"page":1}')
+    compiled = compile_binding(model(BindingExpression("all")), "urn:op", (projection,),
+                               subject="doc", original_source="source:test", subject_context=context)
+    result = execute_binding(connection, compiled)
+    assert result.subject_context == context
+    resolved = result.resolved(inference="exact", subject_context=context,
+                               authorization=b"{}", trust_evidence=b"{}", execution_profile="native")
+    assert resolved.subject_context == context
+    with pytest.raises(ValueError, match="differs"):
+        result.resolved(inference="exact", subject_context=SubjectContext("other", "doc", "source:test", b'{"page":1}'),
+                        authorization=b"{}", trust_evidence=b"{}", execution_profile="native")

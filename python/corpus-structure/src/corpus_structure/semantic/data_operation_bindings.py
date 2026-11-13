@@ -122,6 +122,7 @@ class BindingResult:
     eligibility: str
     admission_evidence: tuple[bytes, ...]
     source_sets: bytes = b"{}"
+    subject_context: SubjectContext | None = None
 
     @property
     def sufficient(self) -> bool:
@@ -137,6 +138,8 @@ class BindingResult:
         execution_profile: str,
         replicate: str | None = None,
     ) -> ResolvedOperationBinding:
+        if self.subject_context is not None and self.subject_context != subject_context:
+            raise ValueError("resolved context differs from acquired binding context")
         if not self.sufficient:
             raise ValueError("binding is not sufficient: " + self.status)
         return ResolvedOperationBinding(
@@ -179,6 +182,7 @@ class CompiledBinding:
     subject_columns: tuple[tuple[str, str], ...] = ()
     source_sets: bytes = b"{}"
     original_source: str | None = None
+    subject_context: SubjectContext | None = None
 
 
 def _decode_value(content: bytes) -> Any:
@@ -259,12 +263,15 @@ def compile_binding(
     populations: tuple[PopulationBinding, ...] = (),
     source_sets: tuple[FrozenSourceSet, ...] = (),
     original_source: str | None = None,
+    subject_context: SubjectContext | None = None,
 ) -> CompiledBinding:
     """Pin a frozen demand and lower every supported expression to Core SQL.
 
     A range is inclusive. Membership compares a typed scalar against a frozen
     sequence or population member IDs. SQL NULL remains unknown, never absence.
     """
+    if subject_context is not None and (subject_context.subject != subject or (original_source is not None and subject_context.original_source != original_source)):
+        raise ValueError("compiled binding differs from acquired subject context")
     if not subject:
         raise ValueError("binding requires a frozen subject")
     if model.version not in {"data-operation-model-v1", "data-operation-model-v2"}:
@@ -442,6 +449,7 @@ def compile_binding(
             tuple(unavailable),
             tuple(sorted(inactive)),
             tuple(sorted(role_populations.items())),
+            subject_context=subject_context,
         )
     accepted_kinds = input_kind_contracts(model, (role.kind for role in roles.values()))
     anchor = select(literal(subject).label("subject")).subquery("binding_subject")
@@ -1037,6 +1045,7 @@ def compile_binding(
         tuple(sorted(subject_columns.items())),
         canonical_bytes(selected_source_sets),
         original_source,
+        subject_context,
     )
 
 
@@ -1263,6 +1272,7 @@ def decode_binding_rows(
         identities.get((compiled.operation, "eligibility"), ""),
         compiled.admission_evidence,
         compiled.source_sets,
+        compiled.subject_context,
     )
 
 

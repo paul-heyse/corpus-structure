@@ -1763,6 +1763,10 @@ def test_distinct_root_contexts_attach_and_publish_equal_bodies(kernel, changed)
             products.append(connection.execute(text(
                 "SELECT product_id FROM ops.data_derivation_output WHERE derivation_id=:id"
             ), {"id": receipt["derivation_id"]}).scalar_one())
+            from corpus_structure.semantic.data_operation_identity import body_identity, contextual_product_identity
+            context_row = connection.execute(text("SELECT project_id,subject,original_source,analyzed_scope FROM ops.data_request WHERE id=:id"), {"id": attached["request_id"]}).mappings().one()
+            context = SubjectContext(context_row["project_id"], context_row["subject"], context_row["original_source"], canonical_bytes(context_row["analyzed_scope"]))
+            assert products[-1] == contextual_product_identity(kind=kernel["kind"], context=context, body=body_identity(1).key).key
     assert products[0] != products[1]
     assert attach(kernel)[3]["request_id"] == original["request_id"]
 
@@ -1842,3 +1846,39 @@ def test_writer_cannot_revoke_runtime_with_ordinary_and_evaluator_targets(kernel
                 assert result["uses"][0]["fate"] == "fulfilled"
     finally:
         writer.dispose()
+
+
+def test_competing_first_attachments_coalesce_one_request_and_task(kernel):
+    gate = Barrier(2)
+    def first_attach():
+        gate.wait(timeout=10)
+        return attach(kernel)[3]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(first_attach) for _ in range(2)]
+        attached = [future.result(timeout=30) for future in futures]
+    assert attached[0]["request_id"] == attached[1]["request_id"]
+    assert attached[0]["task_id"] == attached[1]["task_id"]
+    with kernel["engine"].connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM ops.data_request")).scalar_one() == 1
+        assert connection.execute(text("SELECT count(*) FROM ops.task WHERE data_request_id IS NOT NULL")).scalar_one() == 1
+
+
+@pytest.mark.parametrize("mutation", ["dependency", "roots", "discovery", "duplicate"])
+def test_registration_rejects_forged_selected_graph_with_authentic_node_identities(kernel, mutation):
+    from copy import deepcopy
+    demand, _, _, _ = attach(kernel)
+    with kernel["engine"].connect() as connection:
+        frozen = deepcopy(DataOperationStorage(connection).invoke("read_demand_result", demand)["selection"])
+    if mutation == "dependency":
+        frozen["operations"][0]["dependencies"] = [frozen["operations"][0]["operation"]]
+    elif mutation == "roots":
+        frozen["root_operations"] = []
+    elif mutation == "discovery":
+        frozen["discovery"] = [{"producer": "urn:ddo-test:source", "output_role": "result", "target": "urn:ddo-test:source", "population": "forged"}]
+    else:
+        frozen["operations"].append(deepcopy(frozen["operations"][0]))
+    with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="graph|closure|discovery"):
+        DataOperationStorage(connection).invoke("register_data_demand", {
+            "project_id": "ddo-test", "release_id": kernel["prepared"].release_id,
+            "runtime_id": kernel["runtime"], "root": frozen["roots"], "selection": frozen, "strength": "value",
+        })
