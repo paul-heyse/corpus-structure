@@ -237,6 +237,35 @@ def restore_annotations(rows, *, source, profile):
     return products
 
 
+def annotation_availability(doc) -> tuple[AnnotationAvailability, ...]:
+    """Detach only the actual native annotation standing of this Doc."""
+    return tuple(
+        AnnotationAvailability(
+            attribute,
+            "not_applicable"
+            if not len(doc)
+            else "complete"
+            if doc.has_annotation(attribute, require_complete=True)
+            else "partial"
+            if doc.has_annotation(attribute)
+            else "absent",
+        )
+        for attribute in _ATTRIBUTES
+    )
+
+
+def native_token_columns(token) -> dict[str, Any]:
+    """Actual provider columns, without source selection or invented labels."""
+    return dict(
+        lemma=token.lemma_,
+        pos=token.pos_,
+        tag=token.tag_,
+        morphology=tuple(str(token.morph).split("|")) if str(token.morph) else (),
+        dependency=token.dep_,
+        head=token.head.i,
+    )
+
+
 def annotate(
     inputs: Iterable[AnnotationInput],
     profile: AnnotationProfile | None = None,
@@ -298,19 +327,7 @@ def annotate(
         pipeline_digest = sha256(nlp.config.to_str().encode()).hexdigest()
         if doc.text != item.block.text or len(doc) != len(item.layout.tokens):
             raise ValueError("linguistic pipeline changed the prepared source layout")
-        availability = tuple(
-            AnnotationAvailability(
-                attribute,
-                "not_applicable"
-                if not len(doc)
-                else "complete"
-                if doc.has_annotation(attribute, require_complete=True)
-                else "partial"
-                if doc.has_annotation(attribute)
-                else "absent",
-            )
-            for attribute in _ATTRIBUTES
-        )
+        availability = annotation_availability(doc)
         if require_complete and any(
             column.status not in {"complete", "not_applicable"} for column in availability
         ):
@@ -359,14 +376,9 @@ def annotate(
                     end,
                     layout.space,
                     layout.role,
-                    token.lemma_,
-                    token.pos_,
-                    token.tag_,
-                    tuple(str(token.morph).split("|")) if str(token.morph) else (),
-                    token.dep_,
-                    token.head.i,
-                    sentence,
-                    tuple(indices),
+                    **native_token_columns(token),
+                    sentence=sentence,
+                    piece_indices=tuple(indices),
                 )
             )
         layout_digest = sha256(canonical_bytes(asdict(item.layout))).hexdigest()

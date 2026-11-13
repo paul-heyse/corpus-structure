@@ -25,6 +25,13 @@ classes:
       space: {range: boolean, required: true}
       role: {required: true, pattern: '^(prose|math|reference)$'}
       sentence_ref: {}
+      lemma: {value_presence: PRESENT}
+      pos: {value_presence: PRESENT}
+      tag: {value_presence: PRESENT}
+      morphology: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      dependency: {value_presence: PRESENT}
+      sent_start: {range: boolean}
+      head_ref: {}
       piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
   DdoNativeSentence:
     annotations:
@@ -46,6 +53,22 @@ classes:
       end: {range: integer, required: true, minimum_value: 0}
       outcome: {required: true, pattern: '^(complete|empty|unsupported)$'}
       reason: {}
+  DdoNativeAnnotationAvailability:
+    is_a: SourceRecordProduct
+    attributes:
+      LEMMA: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
+      POS: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
+      TAG: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
+      MORPH: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
+      DEP: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
+      SENT_START: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
+  DdoNativeBlockAnnotations:
+    is_a: SourceRecordProduct
+    attributes:
+      block_id: {required: true}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      attributes: {range: DdoNativeAnnotationAvailability, inlined: true, required: true}
   DdoSentenceScope:
     is_a: SourceRecordProduct
     attributes:
@@ -74,4 +97,36 @@ classes:
       selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
       outcome: {required: true, pattern: '^(complete|partial)$'}
       coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      annotation_columns: {range: DdoNativeBlockAnnotations, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       members: {range: DdoSentencePacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+
+  DdoCanonicalToken:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      space: {range: boolean, required: true}
+      role: {required: true, pattern: '^(prose|math|reference)$'}
+      piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoCanonicalSentence:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: {required: true}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      tokens: {range: DdoCanonicalToken, inlined: true, multivalued: true, required: true}
+  DdoCanonicalSentences:
+    annotations:
+      cs:data_universe: source
+    is_a: SourceRecordProduct
+    description: Declared cheap canonical sentence/tokenization value; native linguistic labels do not salt its identity.
+    attributes:
+      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
+      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
+      outcome: {required: true, pattern: '^(complete|partial)$'}
+      coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      sentences: {range: DdoCanonicalSentence, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}

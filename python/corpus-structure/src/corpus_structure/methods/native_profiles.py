@@ -47,13 +47,49 @@ def _identity_roles(
     return roles
 
 
+def spacy_observation_policy() -> dict[str, Any]:
+    """Owned native-label standing; no confidences or fresh bitwise guarantee.
+
+    CUDA/precision, model assets, pipeline/tokenization/decoder and annotation
+    availability remain semantic determinants. Actual host/runtime/thread facts
+    remain execution custody. A fresh independent observation needs an explicit
+    replicate contract rather than being inferred from retained-value reuse.
+    """
+    return {
+        "version": "spacy-native-observation-v1",
+        "provider": "spacy",
+        "native_input_order": "preserve-original-block-token-order",
+        "native_output": "actual-native-labels-with-explicit-annotation-availability",
+        "confidence": "none-produced-none-invented",
+        "reuse": "authentic-retained-observation-not-bitwise-fresh-execution-equivalence",
+        "fresh_execution": "independent-replicate-requires-explicit-contract",
+        "device": "cuda",
+        "dtype": "float32",
+        "matmul_precision": "highest",
+        "cudnn_allow_tf32": False,
+    }
+
+
 def _observation_policy(profile: NativeProfile, policy: Mapping[str, Any]) -> dict[str, Any]:
     """Select the supported released numerical meaning, never installed defaults.
 
-    The current model-observation owner qualifies D1 and GLiNER observations. Other
+    The model-observation owner qualifies D1/GLiNER; spaCy has its own native-label
+    standing. Other
     providers need an admitted numerical declaration before thread neutrality can
     be claimed. This projection authenticates no policy/release or execution by itself.
     """
+    if profile.provider == "spacy":
+        expected_spacy = spacy_observation_policy()
+        if canonical_bytes(dict(policy)) != canonical_bytes(expected_spacy):
+            raise ValueError("spaCy requires its supported native-label observation policy")
+        if any(
+            getattr(profile, name) != expected_spacy[name]
+            for name in ("device", "dtype", "matmul_precision", "cudnn_allow_tf32")
+        ):
+            raise ValueError("spaCy differs from admitted native numerical intent")
+        return expected_spacy
+    if profile.provider not in {"d1", "gliner"}:
+        raise ValueError("provider has no supported qualified numerical contract")
     expected = {
         "version": 4,
         "native_input_order": "preserve-declared-question-option-state-field-order",

@@ -7,7 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import (
+    SourceArtifact,
+    SourceBundle,
+    prepare_release,
+)
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_products import (
@@ -26,8 +30,14 @@ def profile():
     bundle = sentence_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
-    model = compile_data_operations(schema=bundle, python_sources=sentence_operation_sources())
-    return prepare_sentence_profile(prepare_release(bundle), model)
+    prepared = prepare_release(bundle)
+    model = compile_data_operations(
+        schema=bundle,
+        python_sources=sentence_operation_sources(),
+        definitions=prepared.definitions,
+        vocabularies=prepared.vocabularies,
+    )
+    return prepare_sentence_profile(prepared, model)
 
 
 def selected(profile, text="The mean is 2. The variance is 4."):
@@ -153,6 +163,28 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         part.strip() + "." for part in text.split(".") if part.strip()
     ]
     assert product.value.outcome == "complete"
+    from corpus_structure.semantic.canonical_sentences import canonical_sentence_values
+
+    complete = json.loads(product.content)
+    canonical = canonical_sentence_values(complete)
+    relabeled = json.loads(product.content)
+    for packet in relabeled["members"]:
+        if packet["body"]["record_type"] == "token":
+            packet["body"]["lemma"] = "another-native-label"
+    assert canonical_sentence_values(relabeled) == canonical
+    assert canonical_bytes(relabeled) != product.content
+    profile.prepared.validate_json("DdoCanonicalSentences", canonical_bytes(canonical))
+    original_tokens = product.inventory("token")
+    assert all(
+        {"lemma", "pos", "tag", "morphology", "dependency"} <= token.keys()
+        for token in original_tokens
+    )
+    assert all(token.get("head_ref") for token in original_tokens if token["dependency"])
+    assert any(token["lemma"] for token in original_tokens)
+    assert all(
+        row["attributes"]["DEP"] == "complete"
+        for row in json.loads(product.content)["annotation_columns"]
+    )
     assert all(
         set(packet) == {"member_id", "kind_contract", "context", "body"}
         for packet in json.loads(product.content)["members"]
@@ -170,6 +202,15 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     )
     reader = SentenceSourceReadings(product, source)
     assert reader.sentences() == sentences
+    assert reader.annotation_availability()
+    assert all(
+        row["start"] == 0 and row["end"] == len(text) for row in reader.annotation_availability()
+    )
+    assert all("sent_start" in token for token in original_tokens)
+    assert product.semantic_id.startswith("product:")
+    assert reader.native_annotations(sentences[0]["local_id"]) == reader.tokens(
+        sentences[0]["local_id"]
+    )
     for sentence in sentences:
         tokens = reader.tokens(sentence["local_id"])
         assert all(token["sentence_ref"] == sentence["local_id"] for token in tokens)
@@ -236,6 +277,7 @@ def admitted_port(profile):
         operation.semantic_id,
         identity=identity,
         authorize=lambda acquired: None,
+        custody=sources.boundary_contracts,
     )
 
 
@@ -274,3 +316,112 @@ def test_sentence_members_derive_from_actual_nominal_body_graph(profile):
         for name in ("DdoNativeToken", "DdoNativeSentence")
     }
     assert set(derive_member_kinds(profile.model, container)) == expected
+
+
+def test_declared_canonical_projection_stops_native_label_only_changes(profile):
+    from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
+
+    bundle = sentence_product_inputs(
+        SourceBundle(
+            "core",
+            (
+                SourceArtifact(
+                    "core",
+                    (
+                        Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+                    ).read_bytes(),
+                ),
+            ),
+        )
+    )
+    sources = canonical_sentence_operation_sources()
+    model = compile_data_operations(
+        schema=bundle,
+        python_sources=sources,
+        definitions=profile.prepared.definitions,
+        vocabularies=profile.prepared.vocabularies,
+    )
+    operation = model.operation("segment.sentences/canonical-projection")
+    port = resolve_python_port(
+        model,
+        sources,
+        operation.semantic_id,
+        schema=bundle,
+        prepared=profile.prepared,
+        authorize=lambda _: None,
+    )
+    source = selected(profile, "")
+    value = json.loads(profile.run(source).content)
+    kind = next(
+        identity.key
+        for identity in model.identities
+        if identity.owner == operation.roles[0].kind and identity.domain == "kind"
+    )
+    result = port.invoke_python((PythonRoleValue("inventory", kind, value),))
+    expected = {key: value[key] for key in ("source", "selectors", "outcome", "coverage")}
+    expected["sentences"] = []
+    assert json.loads(result.outputs[0].content) == expected
+    profile.prepared.validate_json("DdoCanonicalSentences", result.outputs[0].content)
+
+
+def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile):
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+
+    port = admitted_port(profile)
+    source = selected(profile, "")
+    kind = next(
+        identity.key
+        for identity in profile.model.identities
+        if identity.owner == port.operation.roles[0].kind and identity.domain == "kind"
+    )
+    pending = []
+    owner = SimpleNamespace(
+        native_hosts=object(), submit_python=lambda callback: pending.append(callback)
+    )
+    plan = port.plan_python((PythonRoleValue("source", kind, source),), execution_owner=owner)
+    (work,) = next(plan)
+    work.try_submit()
+    assert len(pending) == 1
+    result = pending[0]()
+    with pytest.raises(StopIteration) as complete:
+        plan.send((result,))
+    assert complete.value.value is result
+    assert port.native_selections[0].native.provider == "spacy"
+
+
+def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace():
+    import spacy
+
+    from corpus_structure.ingest.sentences import Block, make_doc, prepare_layout
+    from corpus_structure.semantic.sentence_products import _Block, _native_records
+
+    nlp = spacy.blank("en")
+    text = "A  B."
+    original = Block(text, (), (), ())
+    layout = prepare_layout(nlp, original, start=7)
+    doc = make_doc(nlp, original, layout, start=7)
+    for token in doc:
+        token.is_sent_start = token.i == 0
+    source = dict(
+        source=dict(
+            document="original", section_pointer="#/g", membership="direct", projection="a" * 64
+        ),
+        pieces=[dict(start=7, end=8), dict(start=8, end=10), dict(start=10, end=12)],
+    )
+    records, standing = _native_records(
+        source, _Block("block", 7, 12, original, (0, 2)), layout, doc
+    )
+    assert standing["start"] == 7 and standing["end"] == 12
+    tokens = [body for kind, body in records if kind == "token"]
+    assert any(1 in token["piece_indices"] for token in tokens)
+    assert all(
+        token["piece_indices"]
+        == [
+            index
+            for index, piece in enumerate(source["pieces"])
+            if piece["start"] < token["end"] and token["start"] < piece["end"]
+        ]
+        for token in tokens
+    )
+    assert standing["attributes"]["LEMMA"] == "absent"
