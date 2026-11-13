@@ -315,7 +315,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             )
         assert getattr(denied.value.orig, "sqlstate", None) == "42501"
         with engine.begin() as conn:
-            assert current_revision(conn) == predecessor
+            assert current_revision(conn) == starting_revision
 
         with engine.begin() as conn:
             conn.exec_driver_sql(
@@ -331,7 +331,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             assert denied["operation_account"]["known_effects"] == []
             failed_attempts = [denied["invocation_id"]]
             with engine.begin() as conn:
-                assert current_revision(conn) == predecessor
+                assert current_revision(conn) == starting_revision
                 assert conn.scalar(select(table("sem.release").c.release_id)) is None
                 assert conn.scalar(select(table("sem.deployment_admission").c.release_id)) is None
                 assert activation_token(conn, "model-deployment-control").generation == 0
@@ -359,7 +359,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         assert denied["operation_account"]["known_effects"] == []
         failed_attempts.append(denied["invocation_id"])
         with engine.connect() as conn:
-            assert current_revision(conn) == predecessor
+            assert current_revision(conn) == starting_revision
             assert conn.scalar(select(table("sem.release").c.release_id)) is None
             assert activation_token(conn, "model-deployment-control").generation == 0
 
@@ -454,7 +454,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         assert result["selection"]["settings_section"] == "deployment"
         account = result["operation_account"]
         assert account["acquired_target"] == identity.model_dump(mode="json")
-        assert account["predecessor"] == predecessor
+        assert account["predecessor"] == starting_revision
         assert account["reached_revision"] == revision
         assert account["release"] == prepared.release_id
         assert account["known_effects"] == ["migration", "archive", "admission", "verified"]

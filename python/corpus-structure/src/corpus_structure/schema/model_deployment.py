@@ -693,7 +693,7 @@ def deploy_candidate(
         def settled(effect: str) -> None:
             assert reached is not None
             if checkpoint is not None:
-                checkpoint(target, binding.predecessor, reached, effect)
+                checkpoint(target, starting_revision, reached, effect)
             report(effect)
 
         if binding.revision is not None:
@@ -718,7 +718,7 @@ def deploy_candidate(
                     raise ModelError(["acquired revision differs from the approved predecessor"])
                 verify_deployment_catalog(conn, revision=actual, versions=versions)
                 if checkpoint is not None and actual != binding.revision:
-                    checkpoint(target, binding.predecessor, actual, None)
+                    checkpoint(target, starting_revision, actual, None)
                 upgrade(
                     conn,
                     binding.revision,
@@ -740,7 +740,7 @@ def deploy_candidate(
             physical_id = verify_deployment_catalog(conn, revision=actual, versions=versions)
             reached = actual
             if checkpoint is not None and binding.revision is None:
-                checkpoint(target, binding.predecessor, reached, None)
+                checkpoint(target, starting_revision, reached, None)
 
             def verify_reader(snapshot: Connection) -> None:
                 verify(snapshot, "read")
