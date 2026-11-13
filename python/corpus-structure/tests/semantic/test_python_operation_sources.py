@@ -1,0 +1,98 @@
+"""Selected generated interfaces remain source-closed and faithful to callable custody."""
+
+from dataclasses import replace
+import json
+
+import pytest
+
+from corpus_structure.semantic.python_operation_sources import (
+    ClosedPythonSources, PythonSource, PythonSourceCollection,
+)
+from corpus_structure.semantic.types import PreparationError
+
+
+def sources(code, *profiles, module="example"):
+    return PythonSourceCollection(
+        (PythonSource(module, code.encode(), module + ".py"),),
+        generated_interfaces=profiles,
+    )
+
+
+def test_generated_dataclass_preserves_keyword_fields_and_unevaluated_factory():
+    code = """from dataclasses import dataclass, field
+raise RuntimeError("analysis must not import this module")
+def make_items() -> list[int]:
+    raise RuntimeError("analysis must not call factories")
+@dataclass(kw_only=True)
+class Item:
+    value: int
+    items: list[int] = field(default_factory=make_items)
+"""
+    captured = ClosedPythonSources(sources(code, "dataclasses"))
+    facts = captured.kind_facts("example.Item")
+    parameters = facts["constructor"]["parameters"]
+    assert [p["name"] for p in parameters] == ["self", "value", "items"]
+    assert [p["kind"] for p in parameters[1:]] == ["keyword-only", "keyword-only"]
+    factory = parameters[-1]["default"]
+    assert factory["expression"] == "ExprCall"
+    assert factory["parts"][0]["reference"] == "example.make_items"
+    records = facts["owned_definition"]
+    assert any(n["id"] == "python:example.make_items" for n in records["nodes"])
+    assert facts["constructor"]["origin"] == "modeled"
+    # Static constructor shape does not establish all decorator/runtime behavior.
+    assert not facts["complete"]
+    assert "constructor" not in ClosedPythonSources(sources(code)).kind_facts("example.Item")
+
+
+def test_generated_dataclass_uses_supplied_cross_module_inheritance():
+    captured = ClosedPythonSources(PythonSourceCollection((
+        PythonSource("pkg.child", b"from dataclasses import dataclass\nfrom .base import Base\n@dataclass\nclass Child(Base):\n    extra: str = 'ok'\n", "pkg/child.py"),
+        PythonSource("pkg.base", b"from dataclasses import dataclass\n@dataclass\nclass Base:\n    value: int\n", "pkg/base.py"),
+    ), generated_interfaces=("dataclasses",)))
+    facts = captured.kind_facts("pkg.child.Child")
+    assert [p["name"] for p in facts["constructor"]["parameters"]] == ["self", "value", "extra"]
+    assert next(f for f in facts["fields"] if f["name"] == "value")["owner"] == "pkg.base.Base.value"
+
+
+def test_typeddict_expansion_preserves_fields_and_original_kwargs_signature():
+    code = """from typing import TypedDict, NotRequired, Unpack
+class Options(TypedDict):
+    value: int
+    label: NotRequired[str]
+def run(**kwargs: Unpack[Options]) -> int:
+    return kwargs['value']
+"""
+    captured = ClosedPythonSources(sources(code, "unpack-typeddict"))
+    facts = captured.kind_facts("example.Options")
+    assert [f["name"] for f in facts["fields"]] == ["label", "value"]
+    generated = facts["constructor"]["parameters"]
+    assert [(p["name"], p["default"]) for p in generated] == [("self", None), ("value", None), ("label", "...")]
+    actual = captured._surface("example.run", captured.resolve("example.run"))
+    assert [(p.name, p.kind) for p in actual.parameters] == [("kwargs", "variadic keyword")]
+    expanded = captured.boundary_surfaces["example.run"]
+    assert [(p.name, p.kind) for p in expanded.parameters] == [("value", "keyword-only"), ("label", "keyword-only")]
+    implemented = captured.implementation_slice("example.run", (actual,), (), ())
+    boundary = next(n for n in implemented.nodes if n.category == "modeled_unpack_boundary")
+    assert [p["name"] for p in json.loads(boundary.payload)["parameters"]] == ["value", "label"]
+
+
+def test_generated_default_type_references_distinguish_same_spelled_names():
+    base = sources("from dataclasses import dataclass\nfrom first import Value\n@dataclass\nclass Item:\n    value: Value\n", "dataclasses")
+    first = ClosedPythonSources(base).kind_facts("example.Item")["constructor"]
+    second = ClosedPythonSources(replace(base, sources=(replace(base.sources[0], content=base.sources[0].content.replace(b"first", b"second")),))).kind_facts("example.Item")["constructor"]
+    assert first["parameters"][1]["annotation"]["reference"] == "first.Value"
+    assert second["parameters"][1]["annotation"]["reference"] == "second.Value"
+
+
+@pytest.mark.parametrize("profiles", [("unknown",), ("dataclasses", "dataclasses")])
+def test_unadmitted_generated_profile_refuses(profiles):
+    with pytest.raises(PreparationError, match="generated interface"):
+        ClosedPythonSources(sources("class A: pass", *profiles))
+
+
+def test_dataclass_disabled_init_does_not_export_griffe_empty_constructor_as_runtime_fact():
+    captured = ClosedPythonSources(sources("from dataclasses import dataclass\n@dataclass(init=False)\nclass Item:\n    value: int\n", "dataclasses"))
+    facts = captured.kind_facts("example.Item")
+    assert facts["constructor"] is None
+    assert not facts["complete"]
+    assert any("init=False" in u["reason"] for u in facts["unknowns"])

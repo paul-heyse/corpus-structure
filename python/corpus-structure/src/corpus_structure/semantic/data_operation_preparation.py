@@ -38,6 +38,7 @@ class PythonInputs(BaseModel):
     interpretation: str
     stub_policy: str
     boundary_contracts: tuple[NamedInput, ...] = ()
+    generated_interfaces: tuple[Literal["dataclasses", "unpack-typeddict"], ...] = ()
 
 
 class DataOperationInputs(BaseModel):
@@ -100,6 +101,7 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
             python.interpretation,
             python.stub_policy,
             artifacts(python.boundary_contracts),
+            python.generated_interfaces,
         )
     )
     from .data_operation_artifacts import capture_port_generator_sources

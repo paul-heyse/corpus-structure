@@ -104,6 +104,7 @@ class PythonSourceCollection:
     interpretation: str = "closed-python-operations-v1"
     stub_policy: str = "source-authoritative"
     boundary_contracts: tuple[SourceArtifact, ...] = ()
+    generated_interfaces: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -207,7 +208,14 @@ class ClosedPythonSources:
     def __init__(self, inputs: PythonSourceCollection):
         if inputs.stub_policy != "source-authoritative":
             _fail("python/stub_policy", "unsupported source/stub policy")
+        selected = inputs.generated_interfaces
+        if len(selected) != len(set(selected)) or set(selected) - {"dataclasses", "unpack-typeddict"}:
+            _fail("python/generated_interfaces", "unsupported or duplicate generated interface profile")
         self.inputs = inputs
+        self.generated: dict[str, griffe.Function] = {}
+        self.generated_unknowns: dict[str, str] = {}
+        self.boundary_surfaces: dict[str, CallableSurface] = {}
+        self.source_fields: dict[str, dict[str, griffe.Object]] = {}
         self.binding_manager = _ClosedAstroidManager()
         self.binding_builder = _ClosedAstroidBuilder(self.binding_manager, apply_transforms=False)
         contract_names = [item.name for item in inputs.boundary_contracts]
@@ -293,6 +301,108 @@ class ClosedPythonSources:
         self.unresolved_aliases, self.alias_iterations = loader.resolve_aliases(
             implicit=True, external=False, max_iterations=max(1, len(inputs.sources) + 1)
         )
+        self._enrich_interfaces()
+
+    def _enrich_interfaces(self) -> None:
+        """Run selected trusted model hooks only after the supplied tree is resolved.
+
+        Expanded Unpack parameters describe a wire boundary, not Python's actual
+        **kwargs signature. Restore source functions after recording that view.
+        """
+        if not self.inputs.generated_interfaces:
+            return
+        classes = []
+        functions = []
+
+        def collect(obj):
+            for member in tuple(obj.members.values()):
+                if isinstance(member, griffe.Class):
+                    classes.append(member)
+                    self.source_fields[member.path] = dict(member.members)
+                    collect(member)
+                elif isinstance(member, griffe.Function):
+                    functions.append(member)
+                elif isinstance(member, griffe.Module):
+                    collect(member)
+
+        roots = [model for model in self.collection.members.values()]
+        for model in roots:
+            collect(model)
+        if "dataclasses" in self.inputs.generated_interfaces:
+            extensions = griffe.Extensions(griffe.DataclassesExtension())
+            for model in roots:
+                extensions.call("on_package", pkg=model)
+        if "unpack-typeddict" in self.inputs.generated_interfaces:
+            extensions = griffe.load_extensions("unpack_typeddict")
+            for cls in classes:
+                extensions.call("on_class", cls=cls, loader=None)
+            for func in functions:
+                original_parameters = func.parameters
+                original_docstring = func.docstring
+                # The extension mutates both parameters and parsed documentation.
+                # Use a separate parameter container and omit docs in this view.
+                func.parameters = griffe.Parameters(*original_parameters)
+                func.docstring = None
+                try:
+                    extensions.call("on_function", func=func, loader=None)
+                    if tuple(func.parameters) != tuple(original_parameters):
+                        self.boundary_surfaces[func.path] = self._surface(func.path, func)
+                except (KeyError, griffe.AliasResolutionError):
+                    _fail(func.path, "Unpack boundary requires a supplied resolved TypedDict")
+                finally:
+                    func.parameters = original_parameters
+                    func.docstring = original_docstring
+        for cls in classes:
+            init = cls.members.get("__init__")
+            if isinstance(init, griffe.Function) and init.path not in self.definitions:
+                # Griffe 2.4.1 synthesizes an empty constructor for init=False.
+                # This is not Python's inherited constructor: refuse that model.
+                if any(
+                    isinstance(decorator.value, griffe.ExprCall)
+                    and decorator.value.canonical_path == "dataclasses.dataclass"
+                    and any(
+                        isinstance(argument, griffe.ExprKeyword)
+                        and argument.name == "init" and str(argument.value) == "False"
+                        for argument in decorator.value.arguments
+                    )
+                    for decorator in cls.decorators
+                ):
+                    cls.del_member("__init__")
+                    self.generated_unknowns[cls.path] = "selected dataclass constructor model does not support init=False"
+                    continue
+            if isinstance(init, griffe.Function) and init.path not in self.definitions:
+                self.generated[init.path] = init
+
+    @staticmethod
+    def _expression(value: str | griffe.Expr | None) -> Any:
+        if value is None or isinstance(value, str):
+            return value
+        if isinstance(value, griffe.ExprName):
+            return {
+                "expression": type(value).__name__,
+                "source": str(value),
+                "reference": value.reference_path,
+            }
+        return {
+            "expression": type(value).__name__,
+            "parts": [ClosedPythonSources._expression(part) for part in value.iterate(flat=False)],
+        }
+
+    def _generated_record(self, func: griffe.Function) -> dict:
+        return {
+            "declaration": func.path,
+            "origin": "modeled",
+            "parameters": [
+                {
+                    "name": parameter.name,
+                    "kind": parameter.kind.value if parameter.kind is not None else None,
+                    "annotation": self._expression(parameter.annotation),
+                    "default": self._expression(parameter.default),
+                }
+                for parameter in func.parameters
+            ],
+            "returns": self._expression(func.returns),
+        }
 
     def _validate_sources(self) -> None:
         names = [source.module for source in self.inputs.sources]
@@ -487,7 +597,11 @@ class ClosedPythonSources:
         effective = {}
         seen_members = set()
         for cls in lineage:
-            for name, member in sorted(cls.members.items()):
+            fields = (
+                self.source_fields.get(cls.path, cls.members)
+                if "typed-dict" in cls.labels else cls.members
+            )
+            for name, member in sorted(fields.items()):
                 if name in seen_members:
                     continue
                 seen_members.add(name)
@@ -520,6 +634,11 @@ class ClosedPythonSources:
                         "annotation": str(actual.annotation) if actual.annotation else None,
                         "default": str(actual.value) if actual.value is not None else None,
                         "owner": actual.path,
+                        **({
+                            "annotation_expression": self._expression(actual.annotation),
+                            "default_expression": self._expression(actual.value),
+                            "labels": sorted(actual.labels),
+                        } if self.inputs.generated_interfaces else {}),
                     }
         kind_surfaces = tuple(
             self._surface(cls.path + "." + name, member)
@@ -537,7 +656,24 @@ class ClosedPythonSources:
             }
             for item in source_slice.unknowns
         )
+        generated = {}
+        if reference in self.generated_unknowns:
+            unknowns.append({
+                "source": reference, "location": reference,
+                "reason": self.generated_unknowns[reference], "required": True,
+            })
+        if self.inputs.generated_interfaces:
+            constructor = next(
+                (cls.members["__init__"] for cls in lineage if "__init__" in cls.members), None
+            )
+            generated = {
+                "generated_interfaces": sorted(self.inputs.generated_interfaces),
+                "constructor": self._generated_record(constructor)
+                if isinstance(constructor, griffe.Function) and constructor.path in self.generated
+                else None,
+            }
         return {
+            **generated,
             "python": reference,
             "fields": [effective[name] for name in sorted(effective)],
             "owned_definition": source_slice.semantic_records(),
@@ -596,7 +732,7 @@ class ClosedPythonSources:
             origins += tuple(
                 FactOrigin(
                     "callable",
-                    "extracted",
+                    "modeled" if s.declaration in self.generated else "extracted",
                     self.modules[self._module_for(s.declaration)].source.filename,
                     s.declaration,
                     s.exposed,
@@ -802,6 +938,15 @@ class ClosedPythonSources:
             if path in visited:
                 return
             visited.add(path)
+            if path in self.generated:
+                nodes[node_id] = SemanticNode(
+                    node_id, "modeled_generated_callable", canonical_bytes(self._generated_record(self.generated[path]))
+                )
+                owner = path.rsplit(".", 1)[0]
+                todo.append(owner)
+                edges.add(SemanticEdge(node_id, "python:" + owner, "implementation_determinant"))
+                unknowns.add(SourceUnknown(path, path, "generated constructor runtime behavior requires an admitted analysis model"))
+                return
             if path not in self.definitions:
                 unknowns.add(SourceUnknown(path, path, "entrypoint body is not supplied"))
                 return
@@ -817,6 +962,10 @@ class ClosedPythonSources:
                     "decorators": _syntax(node.decorators),
                     "keywords": _syntax(node.keywords),
                 }
+                if self.inputs.generated_interfaces:
+                    init = self.generated.get(path + ".__init__")
+                    if init is not None:
+                        payload["generated_constructor"] = self._generated_record(init)
                 nodes[node_id] = SemanticNode(node_id, "python_class", canonical_bytes(payload))
                 for child, parent in self.parents.items():
                     if parent == path and not isinstance(
@@ -1113,6 +1262,22 @@ class ClosedPythonSources:
         while todo:
             process_definition(todo.pop())
 
+        # Expanded boundaries are derived views of source callables, never replacement
+        # runtime signatures. Their meaning contributes to the admitted implementation.
+        for surface in surfaces:
+            expanded = self.boundary_surfaces.get(surface.declaration)
+            if expanded is not None:
+                boundary_id = "python:" + surface.declaration + "/unpack-boundary"
+                nodes[boundary_id] = SemanticNode(
+                    boundary_id,
+                    "modeled_unpack_boundary",
+                    canonical_bytes({"parameters": [
+                        {"name": p.name, "kind": p.kind, "annotation": p.annotation, "default": p.default}
+                        for p in expanded.parameters
+                    ]}),
+                )
+                edges.add(SemanticEdge(root, boundary_id, "implementation_determinant"))
+
         # The interpretation contract bootstraps extraction semantics without inspecting itself.
         interpretation_id = "interpretation:" + self.inputs.interpretation
         nodes[interpretation_id] = SemanticNode(
@@ -1123,6 +1288,8 @@ class ClosedPythonSources:
                     "contract": self.inputs.interpretation,
                     "interpreter": self.inputs.interpreter,
                     "stub_policy": self.inputs.stub_policy,
+                    **({"generated_interfaces": sorted(self.inputs.generated_interfaces)}
+                       if self.inputs.generated_interfaces else {}),
                     "normalization": "python-cst-v1",
                     "binding_model": "astroid-structural-assignments-no-transforms-or-inference-v1",
                 }
