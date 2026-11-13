@@ -1289,3 +1289,13 @@ def test_nested_closed_calls_do_not_count_as_callable_escape():
         python_sources=python_inputs(operation_source("return int(helper(x))"))
     )
     assert model.implementation_slices[0].complete
+
+
+def test_receiver_escape_to_builtin_observer_has_no_reusable_identity():
+    metadata = contract(entrypoints=['run'])
+    code = ('class Receiver:\n    __data_operation__ = ' + repr(metadata)
+            + '\n    def run(self, x: int) -> int:\n        return str(self)\n')
+    model = compile_data_operations(python_sources=python_inputs(code))
+    assert not model.implementation_slices[0].complete
+    assert any('escape' in u.reason for u in model.implementation_slices[0].unknowns)
+    assert not any(item.domain == 'recipe' for item in model.identities)

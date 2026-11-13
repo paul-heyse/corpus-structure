@@ -1288,7 +1288,7 @@ class ClosedPythonSources:
                             )
                             targets.append(obj.path)
                     if expression.value in {"self", "cls"} and isinstance(receiver, griffe.Class):
-                        return "class", (exposed,)
+                        return "receiver", (exposed,)
                     if not kinds:
                         return (
                             ("value", ()) if expression.value in bound_inputs else ("unknown", ())
@@ -1300,7 +1300,7 @@ class ClosedPythonSources:
                     kind, targets = expression_binding(expression.value, active)
                     if kind == "opaque":
                         return kind, targets
-                    if kind in {"module", "class"}:
+                    if kind in {"module", "class", "receiver"}:
                         results = []
                         for target in targets:
                             member = target + "." + expression.attr.value
@@ -1375,18 +1375,9 @@ class ClosedPythonSources:
                                 allowed = True
                                 break
                             ancestor_for_use = module.parent_nodes.get(ancestor_for_use)
-                        if (
-                            kind in {"callable", "class", "module", "opaque"}
-                            and not allowed
-                            and not isinstance(parent, cst.Arg)
-                        ):
-                            unknowns.add(
-                                SourceUnknown(
-                                    path,
-                                    location,
-                                    "callable/object escape requires an admitted use model",
-                                )
-                            )
+                        if kind in {"callable", "class", "module", "opaque", "receiver"} and not allowed and not isinstance(parent, cst.Arg):
+                            unknowns.add(SourceUnknown(path, location,
+                                "callable/object escape requires an admitted use model"))
                     relation = "resolved_definition"
                     ancestor = parent
                     while ancestor is not None:
@@ -1493,30 +1484,30 @@ class ClosedPythonSources:
                                 "callback-bearing key argument requires an admitted argument model",
                             )
                         )
-
+                    callee_kind, _ = expression_binding(expression)
                     class ArgumentUses(cst.CSTVisitor):
-                        def visit_Call(self, value):
+                        def visit_Call(self, node):
                             # The nested call has its own argument admission below;
                             # its callee is invoked, not passed as an object here.
                             return False
 
-                        def visit_Attribute(self, value):
-                            kind, _ = expression_binding(value)
-                            if kind in {"callable", "class", "module", "opaque"}:
-                                unknowns.add(
-                                    SourceUnknown(
-                                        path,
-                                        location,
-                                        "callable/object escape requires an admitted argument model",
-                                    )
-                                )
+                        def visit_Attribute(self, node):
+                            kind, _ = expression_binding(node)
+                            if kind in {"callable", "class", "module", "opaque", "receiver"}:
+                                unknowns.add(SourceUnknown(path, location,
+                                    "callable/object escape requires an admitted argument model"))
                             return False
 
-                        def visit_Name(self, value):
-                            if module.contexts.get(value) != ExpressionContext.LOAD:
+                        def visit_Name(self, node):
+                            if module.contexts.get(node) != ExpressionContext.LOAD:
                                 return
-                            kind, _ = expression_binding(value)
-                            if kind in {"callable", "class", "module", "opaque"}:
+                            kind, _ = expression_binding(node)
+                            if kind == "receiver" and callee_kind == "opaque":
+                                # The explicit prepared bridge owns this receiver's
+                                # resource/configuration contract; this is not a
+                                # callable escape into an arbitrary observer.
+                                return
+                            if kind in {"callable", "class", "module", "opaque", "receiver"}:
                                 # Class predicates have an explicit, nonescaping type argument.
                                 if text in {"isinstance", "issubclass"} and kind == "class":
                                     return
