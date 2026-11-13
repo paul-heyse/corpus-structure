@@ -134,3 +134,40 @@ def test_target_acquisition_archives_generated_interface_selection(tmp_path):
     manifest = next(a for a in deps.artifacts if a.name.endswith("data-operations/manifest.json"))
     assert json.loads(manifest.content)["python"]["generated_interfaces"] == ["dataclasses"]
     _validate_manifest(bundle, deps, profile, prepared)
+
+
+def test_consumer_projection_schema_is_explicitly_acquired_and_archived(tmp_path):
+    root = inputs(tmp_path)
+    with (root / "target.yaml").open("a") as stream:
+        stream.write("consumer_bindings: true\n")
+    bundle, _, _, prepared = prepare_data_operation_inputs(root, "target.yaml")
+    assert bundle.root == "data_operation_consumer_target"
+    assert "data_operation_consumers" in {source.name for source in bundle.sources}
+    effective = json.loads(next(artifact.content for artifact in prepared.artifacts if artifact.kind == "data_operations.json"))
+    names = {kind["name"] for kind in effective["kinds"]}
+    assert {"DdoSourceViewBinding", "DdoPassageBinding", "DdoReadingBinding", "DdoOccurrenceBinding", "DdoAnchorBinding"} <= names
+    fields = {kind["semantic_id"] for kind in effective["kinds"] if kind["category"] == "property"}
+    assert any(name.endswith("DdoSourceViewBinding/property/document_subject") for name in fields)
+
+
+def test_actual_colocated_consumer_contracts_are_captured_without_imports(tmp_path):
+    from pathlib import Path
+
+    root = inputs(tmp_path)
+    methods = Path(__file__).resolve().parents[2] / "src/corpus_structure/methods"
+    names = ("native_evidence", "m1_source", "structural_products", "contextual_candidates")
+    for name in names:
+        (root / (name + ".py")).write_bytes((methods / (name + ".py")).read_bytes())
+    with (root / "target.yaml").open("a") as stream:
+        stream.write("consumer_bindings: true\npython:\n  interpreter: python-3.14\n  interpretation: closed-python-operations-v1\n  stub_policy: source-authoritative\n  sources:\n")
+        for name in names:
+            stream.write(f"    - {{module: 'consumer.{name}', path: '{name}.py'}}\n")
+    _, _, _, prepared = prepare_data_operation_inputs(root, "target.yaml")
+    model = json.loads(next(artifact.content for artifact in prepared.artifacts if artifact.kind == "data_operations.json"))
+    operations = {operation["semantic_id"]: operation for operation in model["operations"]}
+    assert {
+        "text.native_evidence/selection", "extract.m1_candidates/selection",
+        "structure.compare/selection", "retrieve.contextual/selection",
+    } <= operations.keys()
+    assert operations["text.native_evidence/selection"]["profile"] == "selection"
+    assert operations["text.native_evidence/selection"]["roles"][0]["subject_field"] == "document_subject"

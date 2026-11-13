@@ -49,6 +49,7 @@ class DataOperationInputs(BaseModel):
     declarations: tuple[NamedInput, ...] = ()
     dependencies: tuple[NamedInput, ...] = ()
     python: PythonInputs | None = None
+    consumer_bindings: bool = False
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,21 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
     bundle = SourceBundle(declared.root, artifacts(declared.schemas))
     if declared.root not in {item.name for item in bundle.sources}:
         raise ValueError("data-operation root is absent from the supplied schemas")
+    if declared.consumer_bindings:
+        reserved = {"data_operation_consumers", "data_operation_consumer_target"}
+        if reserved & {source.name for source in bundle.sources}:
+            raise ValueError("consumer binding schemas use reserved trusted names")
+        consumer_schema = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-consumers.yaml"
+        wrapper = yaml.safe_dump({
+            "id": "urn:corpus:data-operation-consumer-target",
+            "name": "data_operation_consumer_target",
+            "imports": [bundle.root, "data_operation_consumers"],
+        }).encode()
+        bundle = SourceBundle("data_operation_consumer_target", (
+            *bundle.sources,
+            SourceArtifact("data_operation_consumers", consumer_schema.read_bytes()),
+            SourceArtifact("data_operation_consumer_target", wrapper),
+        ))
     python = declared.python
     sources = (
         None
@@ -107,11 +123,18 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
 
+    from .data_operation_consumers import consumer_selection_declarations
+
+    consumer_declarations = (
+        consumer_selection_declarations(sources.sources)
+        if declared.consumer_bindings and sources is not None
+        else ()
+    )
     native = native_protocol_sources()
     generator = capture_port_generator_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*artifacts(declared.dependencies), *native, *generator)),
-        (*artifacts(declared.declarations), native_operation_declarations(native)),
+        (*artifacts(declared.declarations), *consumer_declarations, native_operation_declarations(native)),
         sources,
     )
     return AcquiredDataOperationInputs(

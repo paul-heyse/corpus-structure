@@ -973,6 +973,7 @@ def compile_data_operations(
                     "parameter",
                     "alternatives",
                     "selected",
+                    "subject_field",
                 },
             )
             name = _text(record.get("name"), semantic_id + "/role")
@@ -1046,6 +1047,24 @@ def compile_data_operations(
                 _fail(semantic_id, "alternative roles require a selected declared alternative")
             if presence != "alternative" and (alternatives or selected is not None):
                 _fail(semantic_id, "only alternative roles carry a selected alternative")
+            subject_field = record.get("subject_field")
+            if subject_field is not None:
+                subject_field = _text(subject_field, semantic_id + "/subject_field")
+                if direction != "input":
+                    _fail(semantic_id, "subject associations belong to input roles")
+                prop = kinds.get(kind + "/property/" + subject_field)
+                if prop is None or prop.category != "property":
+                    _fail(semantic_id, "subject association requires an owned kind property")
+                facts = json.loads(prop.facts)
+                target = kinds.get(facts.get("range"))
+                target_facts = json.loads(target.facts) if target is not None else {}
+                primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
+                primitive = {"str": "string"}.get(primitive, primitive)
+                if facts.get("multivalued") or (
+                    primitive not in {"string", "uri", "uriorcurie"}
+                    and not (target is not None and target.category in {"class", "enum"} and not facts.get("inlined"))
+                ):
+                    _fail(semantic_id, "subject association requires a scalar subject identifier")
             roles.append(
                 OperationRole(
                     name,
@@ -1059,6 +1078,7 @@ def compile_data_operations(
                     record.get("parameter"),
                     alternatives,
                     selected,
+                    subject_field,
                 )
             )
         if semantic_id in kinds or semantic_id in nodes:

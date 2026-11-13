@@ -1168,3 +1168,23 @@ def test_json_schema_property_projection_inherits_its_explicit_kind_policy():
         )
     )
     assert prop["universe"] == "source" and prop["projection_families"] == ["endpoint", "role"]
+
+
+def test_subject_association_is_owned_typed_semantic_role_meaning():
+    from corpus_structure.semantic.data_operation_model import read_effective_data_operations
+
+    value = contract()
+    value["roles"][0].update(kind="Other", subject_field="unrelated")
+    compiled = compile_data_operations(schema_bundle(), declarations=declarations(value))
+    assert compiled.operations[0].roles[0].subject_field == "unrelated"
+    assert read_effective_data_operations(compiled.content).content == compiled.content
+    unchanged = contract()
+    unchanged["roles"][0]["kind"] = "Other"
+    baseline = compile_data_operations(schema_bundle(), declarations=declarations(unchanged))
+    assert identity(compiled) != identity(baseline)
+    value["roles"][0]["subject_field"] = "undeclared"
+    with pytest.raises(PreparationError, match="owned kind property"):
+        compile_data_operations(schema_bundle(), declarations=declarations(value))
+    value["roles"][0].update(kind="Base", subject_field="value")
+    with pytest.raises(PreparationError, match="scalar subject identifier"):
+        compile_data_operations(schema_bundle(), declarations=declarations(value))
