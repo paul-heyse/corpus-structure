@@ -1,6 +1,6 @@
 # Evidence and discrimination
 
-**Interface-checked by source inspection, 2026-11-12.** These observations use the source
+**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13.** These observations use the source
 baseline in the [account](README.md#baseline). Prior qualification receipts retain their original
 dates and applicability; nothing here is a fresh native execution or an observed production
 defect.
@@ -101,6 +101,54 @@ matrices mutate one field of a validated positive in the same test, which limits
 generic exception assertion alone is not a diagnosis; the sites above are those where the input
 or the shared class makes a different refusal a plausible pass. Counts for files that were
 sampled rather than read in full come from targeted search and may be incomplete.
+
+<a id="dta-033"></a>
+
+## DTA-033 — The product identity production uses is checked only against itself
+
+**FP-04/06, DP-04/23; A2; companion §1/4. Interface-checked by source inspection, 2026-11-13.**
+ADR-0100 made the full subject context part of product identity. Production now computes product
+keys with `contextual_product_identity`
+(`src/corpus_structure/semantic/data_operation_identity.py:471`), called from the construction,
+sentence, formal, canonical-sentence and enriched-document producers.
+
+Its only test derives the expectation from the function under test:
+`tests/semantic/test_data_operation_storage.py:1791–1817` reads the stored request context,
+calls `contextual_product_identity` and compares the result with the key the native side
+stored. The pure identity module does not mention the function. It tests `product_identity` and
+`subject_identity` (`tests/semantic/test_data_operation_identity.py:297–317`), which no longer
+have a caller under `src/`.
+
+What the existing checks still catch: a context component being dropped, since the same test
+varies scope, source and project and asserts distinct products; and a disagreement between the
+Python and SQL implementations. What would pass: a framing or field-shape mistake made the same
+way on both sides, such as a wrong domain tag or the wrong nesting of the context, and any
+regression in how the local subject is qualified, which no pure test varies. The plan asks for
+exactly the missing control: expected canonical values and identities that are not derived from
+production (`docs/plans/declared-data-operations/contracts-and-compilation.md:354`), and
+ADR-0100 says independent vectors migrate with the identity.
+
+Counterevidence. Canonical framing and JSON meaning do have hand-authored literal vectors
+(`tests/semantic/test_data_operation_identity.py:36–76`,
+`tests/semantic/test_data_operation_identity_native.py:21–116`), and the semantic identity
+vectors recorded under [DTA-011](#dta-011) still hold. The gap is this one identity, which is
+the one products are now keyed by. The tests of the two superseded helpers are a small instance
+of [DTA-035](retirement-transfer.md#dta-035).
+
+Two lower-weight discrimination notes from the same modules, in the footprint of
+[DTA-001](#dta-001): the forged-graph family accepts any of three reasons for each of its four
+mutations (`match="graph|closure|discovery"`, `tests/semantic/test_data_operation_storage.py:2000`),
+where the plan asks that a refusal name the unmet obligation; and two tests restate a registry
+size (`len(...) == 18` at `test_data_operation_storage.py:39` and
+`test_data_operation_wire.py:111`).
+
+**Inspected with no shortfall established, 2026-11-13** (a contributor's reading of about 60% of
+the declared-data-operation test lines): compilation and source-capture expectations are
+hand-authored node ids, surfaces and refusals, with recipe sensitivity tested by controlled
+perturbation and unknown kept distinct from absent; graph cases use hand-authored topologies
+including a self-loop and a two-node cycle; wire bounds are independent and generated types are
+exercised by behavior, not compared with a regeneration; equal bodies under different contexts
+are shown to give distinct products; and concurrency controls use real transactions.
 
 <a id="dta-027"></a>
 

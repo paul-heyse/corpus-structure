@@ -12,25 +12,139 @@ own scheduled disposition. Publication authorizes no product repairs or qualific
 
 | Item | Inspected state |
 |---|---|
-| Date | 2026-11-12 |
-| Audited source | `56f8d309b0b8aaad72a2205ea54a926eaf5a8d89` plus the live working tree at capture |
+| Date | 2026-11-13 (refresh of the 2026-11-12 account) |
+| Audited source | `main` between `64cd3d6fa` and `7458fd879`, read live on 2026-11-13 while another session committed declared-data-operations work (operator direction: do not chase the latest tree). Contributors read `fc87caa57`; the coordinator verified cited sources at `14f7bdfe3` and `b96898abf`. Cited line numbers are as read and may have moved |
+| 2026-11-12 source | `56f8d309b0b8aaad72a2205ea54a926eaf5a8d89` plus the live working tree at that capture; findings dated 2026-11-12 keep that source |
 | Included dirty source | 15 modified and 3 untracked test files of the in-progress BEP repair increment, read as they stood: `tests/orchestrate/` (`test_characterization_demand`, `test_characterization_recovery`, `test_execution_preparation`, `test_policy`, `test_ready_coordination`, `test_source_configurations`, `test_whole_document`, and untracked `test_source_operation`, `test_source_progress`, `test_work_context`), `tests/semantic/` (`test_characterization_native`, `test_method_dimensions`, `test_runtime_identity`), `tests/methods/` (`test_m1_cli`, `test_m1_review_repairs`), `tests/acceptance/test_regeneration.py`, `tests/core/test_method.py`, root `tests/test_native_run_scope.py`. 21 modified or untracked production files under `src/` were present and read only as contracts |
 | Excluded | The GPU worktree `corpus-structure-bep-batching`; any edit made to dirty files after their reading |
 | Standard | core 3.3; heuristics 1.0; test-assessment 1.2; code-intelligence 1.4 where applicable; repository binding |
-| Previous account | 2026-11-05, source `bc2208f9`, publication `1e42a6e5`; superseded as a current baseline, retained in Git |
-| Kind | Change-led refresh; static architectural assessment |
+| Previous accounts | 2026-11-12, source `56f8d309b`, publication `cf24c0e80`; 2026-11-05, source `bc2208f9`, publication `1e42a6e5`; both retained in Git |
+| Kind | Change-led refresh; static architectural assessment, with durations read from stored test results. No test was run |
+| Emphasis (operator, 2026-11-13) | Execution time of the test scope, and alignment of the test architecture with the [declared-data-operations](../../plans/declared-data-operations_2026-11-12.md) target design |
 | Publication | The commit publishing this account, distinct from the audited source |
 
 Paths in topic pages beginning `tests/` or `src/` are relative to `python/corpus-structure/`.
 Repository-root paths are written as root `tests/…` or begin with `scripts/`, `docs/` or
-`pyproject.toml`. All current source observations are **Interface-checked by source inspection,
-2026-11-12**; no product behavior is freshly labelled Tested or Measured by this audit.
+`pyproject.toml`. Source observations are **Interface-checked by source inspection** on the date
+each finding states, 2026-11-12 or 2026-11-13. Durations are **Measured** from stored results
+with their run id and conditions
+([evidence](../evidence/2026-11-13_test-audit-refresh/README.md)). No product behavior is
+labelled Tested by this audit, and no speedup is measured.
 
 The working tree was under concurrent edit during reading (operator decision: read live, do
 not chase drift). One documentation-only commit landed on `main` during the audit; no committed
 test-scope change intervened. Findings citing the dirty files describe the state at capture.
 
-## Scope and method
+<a id="refresh-2026-11-13"></a>
+
+## Refresh of 2026-11-13: what changed and what was found
+
+**What changed since 2026-11-12.** 133 test files changed (about 22,000 lines added), 63 of them
+new, nearly all for the declared-data-operations work. The shared execution infrastructure did
+not change: both package conftests, root `conftest.py`, `scripts/native_test_support.py`,
+`scripts/test_receipts.py`, `scripts/qualification_plugin.py` and `cli/testing.py` are identical
+to the previous baseline, and root `pyproject.toml` changed only its dependency list. Every
+earlier finding about that infrastructure therefore stands on unchanged source.
+
+**Method.** Four read-only contributors worked in parallel: fixture, database and scenario
+lifecycle; scheduling, the managed wrapper, waiting and long tests; alignment of the
+data-operation tests with the target design; and a map of tests tied to machinery the plan
+removes, the plan's named assurance gaps and the qualification route. The coordinator built the
+cost map from stored results, read the decisive source behind each published finding, and
+reconciled candidates by structural cause. Unlike the 2026-11-12 refresh, no separate reviewer
+challenged the draft before publication.
+
+**Where the time goes (Measured; details under
+[Measurements](execution-and-qualification.md#measurements)).**
+
+- The full run is bound by total work. Workers are 96% busy, so there is little to gain from
+  rebalancing and the lever is the work itself.
+- Setup is 36% of the full run and is concentrated in about 335 tests. Per-test database clones
+  are cheap (well under a second). The cost is in three places: the head deployment built once
+  per worker ([DTA-024](execution-and-qualification.md#dta-024), now measured at roughly 40–55 s
+  and more under contention); identical committed scenarios rebuilt per case
+  ([DTA-025](execution-and-qualification.md#dta-025), [DTA-031](execution-and-qualification.md#dta-031)
+  and the review's F03); and pure release preparation repeated once per worker (the review's F02,
+  below).
+- A large share of call time is also scenario construction, performed inside test bodies
+  ([DTA-025](execution-and-qualification.md#dta-025), changed footprint).
+- A focused run has about 7.5 s of fixed overhead. If it touches the database it also pays the
+  head build, which makes a one-test native run take a minute or more.
+
+**New findings.**
+
+| Finding | Summary |
+|---|---|
+| [DTA-031](execution-and-qualification.md#dta-031) | Data-operation native tests rebuild one identical admitted kernel per case; read-only and rollback-only checks take the same route |
+| [DTA-032](execution-and-qualification.md#dta-032) | Standalone interpretation contexts recompute implementation determinants on every call, before the parse memo; suspected main cost of the math property test |
+| [DTA-033](evidence-and-discrimination.md#dta-033) | The product identity production now uses is checked only against itself |
+| [DTA-034](support-structure.md#dta-034) | Planner and service doubles sit below wire validation; compiled binding semantics run only on SQLite |
+| [DTA-035](retirement-transfer.md#dta-035) | Required behavior is asserted through machinery the target design removes, with no per-test record of what survives |
+| [DTA-036](retirement-transfer.md#dta-036) | The data-operations test union exists only as prose path lists, one already stale |
+
+**Changed premises and footprints.** DTA-024 (measured; concurrent builds add latency, and a
+floor remains without cross-run reuse); DTA-025 (four families building in the test body);
+DTA-018 (a full migration replay to obtain a second database); DTA-009 (no support owner for the
+data-operation tests, and a relative import across a non-package directory); DTA-030 (a third
+database name the sweep cannot reclaim); DTA-001 (one permissive refusal match).
+
+**Measurements added to review findings, which keep their review identities.** For F02
+(preparation rebuilt on every worker): `prepare_release` is cached per process only
+(`src/corpus_structure/semantic/prepare.py:592`, eight entries) and module-scoped fixtures live
+per worker, while the tests of one module spread across workers. A contributor measured in
+`2e2a0e30…` ten workers each spending 28–37 s in setup for the statistics pack behind
+`tests/orchestrate/test_policy.py:36–38`, with every other test in that module at zero; the
+coordinator's table shows that module at 292 s of setup and no call time. The same pattern
+appears for `tests/semantic/test_interpretations.py` and root `tests/test_native_run_scope.py`,
+and in a two-worker focused run (`ea623a16…`, about 19 s on each worker for one module fixture).
+
+**Foundations.** FP-07/A4 received the most attention, through H5 (smallest sufficient scope),
+H12 (stable preparation separated from changing values), H19 (established state carried through
+operations that preserve its premises), H21 (shared capacity), H26 (auxiliary work in
+proportion) and H27 (the whole lifecycle including test setup). FP-04/06 were assessed by
+tracing where data-operation expectations come from (DTA-033, and the areas found sound there).
+FP-01/03 by following helper ownership across the new modules (DTA-009). FP-02 by asking which
+boundary each substitute stands below (DTA-034) and which tests are coupled to machinery being
+removed (DTA-035). FP-05 by checking that refusals name their reason and that qualification
+scope is explicit (DTA-001, DTA-036). The code-intelligence profile applied only to source
+capture tests, where unknown is kept distinct from absent.
+
+**Limits of this refresh.**
+
+- Non-data-operation files changed since 2026-11-12 (about 70, among them
+  `tests/methods/test_native_host.py`, `test_characterization_resources.py`,
+  `test_contextual_query_replay.py` and `test_definition_model_native.py`) were not read. DTA-001,
+  006, 026, 027, 028 and 029 were not re-examined beyond confirming that their cited
+  infrastructure is unchanged; `test_pm2_result_native.py` changed its provider opening and
+  keeps the ambient-variable branch DTA-028 describes.
+- About 60% of data-operation test lines were read. Skimmed only: the artifacts, cpu,
+  execution-evidence, member-projection, preparation, runtime, source-native and
+  consumer-binding modules. Several files were mid-edit by another session at the end of reading.
+- `domain_scenarios.py`, `reference_scenarios.py`, `pdf_integration_support.py` and
+  `witnessed_scenario_support.py` were not read in depth, so which parts of their scenarios each
+  consumer needs is not established beyond the sites named.
+- The full-run receipt predates the data-operation tests; their costs come from narrowed runs.
+  The host was shared during every run read. Nothing was profiled, so where a finding attributes
+  a duration to a cause inside a phase, that attribution is from source.
+
+<a id="observations-for-the-ddo-plan"></a>
+
+**Observations for the declared-data-operations plan owner** (not test findings; the plan owns
+them):
+
+- Its findings table still shows DDO-CA-01, 02 and 04 as open and "sequential" or "not covered",
+  while tests now exist: overlapping publication at
+  `tests/semantic/test_data_operation_storage.py:1822`, purpose-gate refusals with a real writer
+  principal at `:1862` and `:1898`, and captured-object and callable-escape refusals at
+  `tests/semantic/test_data_operation_compilation.py:1220`. Existence is not a fresh run.
+- Gaps against the plan's own verification text, by search: no overlapping publication with
+  differing intents; no case set run through both the native and the compiled binding
+  implementation; no helper-body or inherited-value case in the source-change matrix; no
+  invalidated-support recovery through a real consumer.
+- The database-lane statements disagree (see [DTA-031](execution-and-qualification.md#dta-031)).
+- One recorded union names a deleted file ([DTA-036](retirement-transfer.md#dta-036)).
+
+## Scope and method of the 2026-11-12 refresh
 
 This is a refresh led by change, not a full reread. Since the previous baseline the authored
 test scope grew from 418 Python files to 567 (about 183,000 lines), and the shared
@@ -134,12 +248,16 @@ campaign was imposed.
 
 | Topic | Current concerns and retained identities |
 |---|---|
-| [Execution and qualification](execution-and-qualification.md) | New DTA-024, 025, 026; DTA-018 with a changed footprint; DTA-021, 022 and the qualification limit corrected; 002, 003, 017 reconciled |
-| [Evidence and discrimination](evidence-and-discrimination.md) | DTA-001 and 006 with changed footprints; new DTA-027; DTA-023 corrected with a narrow residue; 007, 010, 011, 013, 015, 019, 020 reconciled |
-| [Support structure](support-structure.md) | DTA-009 with a changed footprint; new DTA-028, 029; 005, 008, 012, 016 reconciled |
-| [Retirement and transfer](retirement-transfer.md) | New DTA-030; 004 and 014 reconciled |
+| [Execution and qualification](execution-and-qualification.md) | Open: DTA-024 (measured 2026-11-13), 025 and 018 (footprints extended 2026-11-13), 026, and new DTA-031, 032. Measurements. Corrected: DTA-021, 022; reconciled: 002, 003, 017 |
+| [Evidence and discrimination](evidence-and-discrimination.md) | Open: DTA-001, 006, 027 and new DTA-033. DTA-023 corrected with a narrow residue; 007, 010, 011, 013, 015, 019, 020 reconciled |
+| [Support structure](support-structure.md) | Open: DTA-009 (footprint extended 2026-11-13), 028, 029 and new DTA-034. 005, 008, 012, 016 reconciled |
+| [Retirement and transfer](retirement-transfer.md) | Open: DTA-030 (footprint extended 2026-11-13) and new DTA-035, 036. 004 and 014 reconciled |
 
-Thirty DTA identities exist; none is retired or reused. The
+Thirty-six DTA identities exist; none is retired or reused. DTA-031–036 and the footprints
+added on 2026-11-13 are unscheduled: no plan has selected them, and the 2026-11-12 design review
+left its own dispositions deferred to plan creation. DTA-031, 033, 035 and 036 concern tests of
+the declared-data-operations work; if that plan takes them up, its findings table becomes their
+disposition owner and this account links to it. The
 [test audit resolution coordinator](../../plans/test-audit-resolution_2026-11-05.md) is complete
 for its authorized scope and owns the recorded disposition of DTA-001–023 as they stood on
 2026-11-05; this refresh does not amend it. The current-source statuses above are diagnostic:
@@ -219,6 +337,24 @@ causes. Stable identities and anchors remain; removed text and its evidence are 
 Git. A solution lead in a finding is not a selected remedy. DTA-024 meets the revisit trigger
 that [ADR-0032](../../adr/0032-native-test-deployment-equivalence.md) states for itself; whether
 to revisit that decision is for its owner.
+
+## Publication checks — 2026-11-13
+
+- **passed:** an ephemeral read-only check of every relative link and anchor in this collection
+  and the evidence folder README (none broken), and of DTA identities (36 unique: 001–030
+  preserved, 031–036 added, none retired); `git diff --check` on the same paths.
+- **failed:** `uv run ci docs check` (result `21bc59fd270c45cc927bcb608a6674d1`). It stops at
+  `scripts/adr.py lint`, which reports that DESIGN §B1, §B4 and §B5 carry no `> Decision:` line
+  naming ADR-0100. That is in-progress declared-data-operations work owned by another session;
+  the publisher's own link check did not run because of it.
+- **not_run:** product tests, collection, provider and native controls, benchmarks,
+  `uv run ci test` and `uv run ci check`. Durations were read from stored results; this
+  publication changes no product behavior.
+- **not_run:** `just turn-end` and the STATUS handoff. Another root session holds uncommitted
+  source and test edits on `main`; formatting the tree or rewriting STATUS would touch its work.
+  This is a path-limited commit of this collection, its evidence folder and one corrected
+  cross-reference in the broad account.
+- No design-alignment checker, process gate, library catalog or dependency was added.
 
 ## Publication checks — 2026-11-12
 

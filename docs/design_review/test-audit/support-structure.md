@@ -1,6 +1,7 @@
 # Support structure and boundary fidelity
 
-**Interface-checked by source inspection, 2026-11-12.** See the [baseline](README.md#baseline).
+**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13.** See the
+[baseline](README.md#baseline).
 Sharing types, validators and valid setup is useful; an expectation assessing their correctness
 must retain a challenge independent of the relevant mistake.
 
@@ -85,6 +86,48 @@ Absolute and relative imports of `semantic.*` and `methods.*` modules resolve to
 they are not duplicates. Whether the duplicated state changes any test's result was not
 established.
 
+**Changed footprint, 2026-11-13 — the declared-data-operations tests have no support owner.**
+The 32 `test_data_operation_*.py` modules added since the last baseline share setup the same
+way, and no support module exists for them.
+
+- `tests/semantic/test_data_operation_storage.py` is the support library for the native kernel.
+  Its private builder `_declaration()` (`:61–94`) fixes the subject kind, the context shape and
+  the behavior name that other cases run under. It is imported by
+  `test_data_operation_subjects.py:11`, `test_data_operation_original_native.py:29`,
+  `test_data_operation_population_native.py:29`, `test_data_operation_consumer_native.py:55` and
+  `tests/orchestrate/test_data_operation_execution.py:29`; the fixtures `ddo_kernel_engine` and
+  `kernel` and the helpers `claim` and `publish` travel the same way. `test_data_operation_subjects.py`
+  is a pure compiler test and imports the native storage module for that one dictionary.
+- Other owners by accident of where a helper was first written: `contract`, `declarations`,
+  `identity` and `resolved_binding` come from `test_data_operation_compilation.py`;
+  `fixture_source` and `kind` from `test_data_operation_ports.py`; the binding-native connection
+  and its `context`, `evaluate`, `field` and `literal` helpers from
+  `test_data_operation_binding_native.py`; `original_target` from
+  `test_data_operation_original_native.py` and `captured` from `test_data_operation_wire.py`
+  into `test_original_documents.py:17–18`.
+- The admission sequence (persist the release, admit it, persist the runtime binding, insert a
+  project) is written out three times, the pattern [DTA-029](#dta-029) records for the
+  primary-layer scaffold: `test_data_operation_storage.py:228–232`,
+  `test_data_operation_population_native.py:137–151` and
+  `tests/orchestrate/test_data_operation_execution.py:76–80`.
+- A new import form reaches across a non-package directory. `tests/orchestrate/` has no
+  `__init__.py`, and its data-operation tests import `from ..semantic.test_data_operation_storage`
+  (`test_data_operation_execution.py:29–30`) and `..semantic.test_data_operation_ports`
+  (`test_data_operation_batch_activity.py:67–68`). The paragraph above says relative imports of
+  `semantic.*` resolve to one module; that was established for importers inside the package.
+  A contributor's reading of pytest 9.1.1's `import_path` is that a non-package file is named
+  from its rootdir-relative path, so `..semantic.X` resolves to a different module name from the
+  collected `semantic.X` and the file runs a second time. This was not executed. The storage
+  module holds no module-level state today, so the consequence is latent.
+
+The target design names the things these helpers build: a compiled effective model, an admitted
+release, a `SubjectContext` root, a demand and its attachment, a purpose principal. Each of
+those is a natural unit of test support, and none has an owned module. A change to a private
+helper in the storage test module silently changes what five other modules exercise. The
+companion (§2) does not require support to mirror production; the point is that case-defining
+defaults are owned by whichever test module wrote them first. No case was found where this
+changes what a test asserts.
+
 **Large mode-flag builders decide unrelated cases.** `build_domain_case`
 (`tests/semantic/domain_scenarios.py:65–95`) takes about twenty-five keyword switches and
 `build_resubmission_case` (`tests/semantic/agent_scenarios.py:36–174`) seven; both always
@@ -157,6 +200,37 @@ double. Module docstrings usually state the limit, as `tests/orchestrate/test_so
 does ("native boundaries are controlled") for tests named actual, real and live, and STATUS
 reports controlled panels as controlled. The naming sites alone would not be a finding; they
 matter where a result is read by test name.
+
+<a id="dta-034"></a>
+
+## DTA-034 — Two declared-data-operation claims are checked on a substitute below the boundary they reach
+
+**FP-02/06, DP-23; companion §5/7. Interface-checked by source inspection, 2026-11-13.** Lower
+weight; recorded because the plan's own rule is that a substitute cannot stand in for the
+native boundary.
+
+*Storage doubles sit below wire validation.* `DataOperationStorage.invoke` validates the input
+and the output of every native call against the closed wire contract
+(`src/corpus_structure/semantic/data_operation_storage.py:317–332`). The planner and service
+routing tests replace the whole storage object with a class whose `invoke` returns hand-written
+dictionaries (`tests/semantic/test_data_operation_demands.py:216–221`,
+`tests/semantic/test_data_operation_service.py:16–27`). A contributor judged that some of those
+payloads would not pass the wire contract; the coordinator confirmed the doubles bypass
+validation and did not check each payload against it. A planner or service change that emits or
+accepts a shape the wire forbids would pass these tests. The claims are routing claims, and
+native tests in the same files cover the real path, which bounds the exposure.
+
+*Binding semantics run on SQLite.* `tests/semantic/test_data_operation_bindings.py:130` and
+`tests/semantic/test_data_operation_consumer_bindings.py:88` execute compiled bindings on
+`sqlite://`. Production executes the same compiled statements on PostgreSQL through the
+planner's storage connection. The matrix of null-as-unknown, distinctness, ordering and covers
+semantics has no PostgreSQL counterpart for the compiled path, and no file runs one case set
+through both the Python-compiled and the native binding implementations (the native vectors are
+in `test_data_operation_binding_native.py`, the compiled ones here). The compiler uses portable
+SQLAlchemy Core constructs and integrated PostgreSQL paths exist in the storage, population and
+execution tests, so this is a fidelity gap of uncertain size and not an observed divergence.
+Running pure binding semantics without a database is also the economical choice, and should not
+be lost in closing it.
 
 <a id="dta-016"></a>
 

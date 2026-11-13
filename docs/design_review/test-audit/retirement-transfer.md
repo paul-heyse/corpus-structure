@@ -1,6 +1,7 @@
 # Retirement and transfer
 
-**Interface-checked by source inspection, 2026-11-12.** Use the [account baseline](README.md#baseline).
+**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13.** Use the
+[account baseline](README.md#baseline).
 ADR-0047 retires obsolete formats without retiring current scientific meaning, source evidence
 or independent expectations. Historical test deletion alone establishes no assurance loss.
 
@@ -41,6 +42,13 @@ the same way (added by the [design review](../reviews/design_review_test-archite
 `cs_sem_test_<hex20>` with no process id. `tests/semantic/snapshot_restore.py` has no importer
 or reference outside retained evidence.
 
+A third name escapes it (2026-11-13): `ddo_kernel_engine`
+(`tests/semantic/test_data_operation_storage.py:162–168`) names its clones `cs_ddo_case_<hex12>`.
+The sweep selects only names beginning `ci_test_`, `cs_tpl_` or `cs_sem_`
+(`scripts/native_test_support.py:569–583`), so residue from an interrupted data-operation test
+run is never reclaimed. The fixture is otherwise a copy of `semantic_db_engine`
+(`tests/semantic/conftest.py:27–34`) under another name.
+
 The consequence is maintained and tested surface for behavior with no producer, and a divergent
 copy of a shared fixture that will not follow changes to the original. The design-stage
 guidance in AGENTS.md treats removal of superseded machinery as part of delivering its
@@ -50,6 +58,80 @@ A lead outside test scope, not assessed here: the legacy `python/corpus-structur
 chain lost its reader in the same commit and no current reference to it was found.
 Evidence folders themselves are retained by standing
 operator rule and are not in question.
+
+<a id="dta-035"></a>
+
+## DTA-035 — Required behavior is asserted through machinery the target design removes
+
+**FP-02/03, DP-16; A1/A3; companion §5. Interface-checked by source inspection, 2026-11-13;
+classification by a contributor, sampled by the coordinator.** The declared-data-operations plan
+removes copied task reuse, `ops.valid_reuse`, `ops.task_dependency`, freshness seeds,
+`source_dependencies`, `OperationDescriptor` bypasses, stage-run sequencing and
+`SourceOperationLink` grouping, and says to retire tests that only restate those mechanisms
+while keeping independent semantic expectations
+(`docs/plans/declared-data-operations/preservation-adoption-and-qualification.md:53–55`,
+`change-reuse-and-consolidation.md:74–77`).
+
+Read against that rule, few tests are mechanism-only and most are mixed:
+
+| File (`tests/`) | Mostly mechanism | Required behavior carried on removed machinery |
+|---|---|---|
+| `semantic/test_operations.py` | About eleven collected cases: reuse status and `reused_task_id` (`:415`, `:465`), nine forged-reuse cases (`:562`), freshness as invocation salt (`:827`) | Terminal fence, exact replay and sealed cut (`:30`), wrong attempt (`:126`), cancel drains claims (`:897`), stale lease refused (`:950`) |
+| `semantic/test_runtime_bindings_native.py` | One test asserting `ops.valid_reuse` and `reused_task_id` (`:180–246`) | Runtime pins, eight altered-binding refusals (`:113`), immutability, changed runtime cannot claim |
+| `semantic/test_source_jit_native.py` | Two of three tests assert `ops.task_dependency` rows (`:342`, `:432`, `:636`) | Stale completion refused after reclaim |
+| `orchestrate/test_characterization_recovery.py` | About five: anchor run, run-option link, freshness seed (`:45`, `:89`, `:128`, `:172`, `:185`) | Capacity-policy change, receipt failure cannot replace recovery, provider identity |
+| `orchestrate/test_source_progress.py` | One reused-count assertion (`:151`) | Readiness semantics in about eight tests, all built through a helper that constructs `SourceOperationLink` (`:71`) |
+| `orchestrate/test_ready_coordination.py` | None wholly | Claim and byte-budget behavior, with `max_active_stage_runs` as a parameter in three tests |
+| `semantic/test_characterization_native.py` | None wholly | Publication, sealing and size limits; `OperationDescriptor` (`:1421`), `freshness_seed` (`:2061`) and `source_dependencies` (`:1249`) appear as inputs |
+| `semantic/test_domain_operations.py` | None | Consolidation semantics; one cyclic-reference expectation (`:498`) is tied to the classification the plan's DDO-08 repairs |
+
+The same names appear in fixtures of at least eight further files, including
+`test_retained_source_reuse_native.py`, `test_source_views.py`, `test_coverage_comparison.py`,
+`tests/evaluate/test_operation_assessment.py` and `tests/acceptance/test_regeneration.py`.
+
+The diagnosis is not that these tests are obsolete. It is that the behavior the plan must
+preserve is expressed in fixtures and assertions that name the machinery being removed, so at
+cutover each test needs a judgment (delete, or re-express on the new surface) that the plan
+states as a rule and nowhere records per test. Until then the expectations cannot fail for the
+new implementation, and a deletion by file would lose required behavior. Equivalents on the new
+surface exist for part of it (publication and exact receipt replay, expired owner, cancellation,
+immutability and binding refusals in `test_data_operation_storage.py`). No counterpart was found
+for source-view batching, readiness progress or characterization recovery.
+
+These files are also not cheap to keep. In the 442-test union `e332a3ef…`,
+`test_domain_operations.py`, `test_operations.py` and `test_runtime_bindings_native.py` take
+1,087 of 2,636 worker-seconds (Measured; see
+[Measurements](execution-and-qualification.md#measurements)), nearly all of it scenario
+construction in `test_domain_operations.py`, which is behavior that stays.
+
+Counts are a contributor's approximations from reading, and the further files were found by
+search and not classified. The old run and task path is live until cutover, so its tests are
+current evidence for current code.
+
+<a id="dta-036"></a>
+
+## DTA-036 — The declared-data-operations test union exists only as prose path lists
+
+**FP-05/06, DP-21/22; G7; companion §6. Interface-checked by source inspection, 2026-11-13.**
+The plan's final package requires that the declared union of tests be covered on frozen source
+and says no earlier campaign substitutes for it. That union is recorded as shell path lists
+inside the coordinator plan (`docs/plans/declared-data-operations_2026-11-12.md`, four lists of
+18, 6, 28 and 3 paths). Nothing else names it: the registered markers are `db` and
+`shared_cluster_fault` (root `pyproject.toml:70–73`), `ci test` takes pass-through pytest
+arguments, and no path-list file or option exists in `cli/testing.py`, `scripts/test_receipts.py`
+or the `justfile` (searched for `ddo` and `data_operation`).
+
+One list is already stale: it names `tests/semantic/test_release_wire_payload.py`
+(`docs/plans/declared-data-operations_2026-11-12.md:353`), deleted in `9d996b32d` when the archive
+transport tests replaced it. A run of that list as written fails at collection or, if the path
+is dropped by hand, silently covers less than the record says. Thirty-two data-operation test
+modules exist and the largest recorded union names 28 paths of mixed old and new files, so
+which new modules the union omits is a matter of comparing prose with the tree.
+
+The consequence is for qualification, and for pace: each focused run during this work is an
+ad hoc selection typed from the plan, and whether a given run covered the required set is
+established by reading argument lists. The repository's process rule is to add no register
+without a consumer; the plan's final package is one. No remedy is selected here.
 
 <a id="dta-004"></a>
 

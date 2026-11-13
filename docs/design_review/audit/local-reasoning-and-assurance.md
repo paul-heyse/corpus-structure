@@ -11,7 +11,7 @@ This is navigation by responsibility, not another finding register:
 - [Necessary versus repeated work](execution-fit.md).
 
 Tests were read where relevant to the evidence claim; the separate
-[test account](../test-audit/README.md) retains its own November2 baseline. Production source
+[test account](../test-audit/README.md) retains its own baseline, stated there. Production source
 reasoning is not an independent oracle for semantic correctness. Static code inspection is not
 actual database, provider, CLI/MCP or release qualification. No full test campaign follows from
 this diagnostic refresh.
