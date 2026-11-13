@@ -9,6 +9,7 @@ import typer
 from corpus_structure.cli import (
     contributions,
     db,
+    demands,
     explain,
     export,
     golden,
@@ -36,6 +37,7 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     managed.register,
     testing.register,
     db.register,
+    demands.register,
     regenerate.register,
     schema.register,
     model.register,
