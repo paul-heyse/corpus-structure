@@ -344,6 +344,7 @@ _CURRENT_SOURCE_GUARDS = {
     ("data", "finish_pre_context_evaluation"): "native_finalization.sql",
     ("data", "validate_identity_exclusions"): "exclusions.sql",
     ("ops", "guard_task_lifecycle"): "execution_guards.sql",
+    ("ops", "guard_source_selection"): "execution_guards.sql",
     ("ops", "guard_execution_run"): "execution_guards.sql",
     ("ops", "validate_measurement_definition"): "source_views.sql",
     ("ops", "add_source_task_dependency"): "source_views.sql",
@@ -601,11 +602,6 @@ def series_native_definitions(connection, *, include_selected=True):
             source="execution task:forward",
         )
     )
-    for guard_name in ('guard_source_selection', 'guard_task_lifecycle'):
-        definitions.append(_task_call_definition(
-            connection, Path(__file__).with_name('sql').joinpath('execution_guards.sql').read_text(),
-            name=guard_name, source='dual legacy/data task custody:forward', grants=(),
-        ))
     execution_projection = (
         Path(__file__).with_name("sql").joinpath("execution_projection.sql").read_text()
     )

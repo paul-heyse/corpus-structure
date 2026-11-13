@@ -1,14 +1,1530 @@
+# Authoritative closed native wire contracts. Python, SQL and effective kinds derive from these schemas.
 version: data-operation-native-v1
+wire_schema_version: draft7-closed-v1
+definitions:
+  identifier:
+    type: string
+    minLength: 1
+  text:
+    type: string
+  nonnegative_integer:
+    type: integer
+    minimum: 0
+    maximum: 2147483647
+  positive_integer:
+    type: integer
+    minimum: 1
+    maximum: 2147483647
+  task_id:
+    type: integer
+    minimum: 1
+    maximum: 9223372036854775807
+  json_value:
+    type:
+    - object
+    - array
+    - string
+    - number
+    - boolean
+    - 'null'
+  parameter_map:
+    type: object
+    additionalProperties:
+      $ref: '#/definitions/json_value'
+  trust_snapshot:
+    type: object
+    propertyNames:
+      minLength: 1
+    additionalProperties:
+      $ref: '#/definitions/nonnegative_integer'
+  tagged_mapping:
+    type: array
+    items:
+    - const: mapping
+    - type: array
+      items:
+        type: array
+        items:
+        - type: string
+        - $ref: '#/definitions/semantic_value'
+        minItems: 2
+        maxItems: 2
+        additionalItems: false
+      minItems: 0
+    minItems: 2
+    maxItems: 2
+    additionalItems: false
+  semantic_value:
+    oneOf:
+    - type: array
+      items:
+      - enum:
+        - 'null'
+        - known-absent
+        - unknown
+        - unavailable
+      minItems: 1
+      maxItems: 1
+      additionalItems: false
+    - type: array
+      items:
+      - const: boolean
+      - type: boolean
+      minItems: 2
+      maxItems: 2
+      additionalItems: false
+    - type: array
+      items:
+      - enum:
+        - string
+        - date
+        - datetime
+        - float
+      - type: string
+      minItems: 2
+      maxItems: 2
+      additionalItems: false
+    - type: array
+      items:
+      - const: integer
+      - type: string
+        pattern: ^[+-]?[0-9]+$
+      minItems: 2
+      maxItems: 2
+      additionalItems: false
+    - type: array
+      items:
+      - const: decimal
+      - type: string
+        pattern: ^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$
+      minItems: 2
+      maxItems: 2
+      additionalItems: false
+    - type: array
+      items:
+      - const: present
+      - $ref: '#/definitions/semantic_value'
+      minItems: 2
+      maxItems: 2
+      additionalItems: false
+    - type: array
+      items:
+      - enum:
+        - sequence
+        - ordered-bag
+        - bag
+        - set
+      - type: array
+        items:
+          $ref: '#/definitions/semantic_value'
+        minItems: 0
+      minItems: 2
+      maxItems: 2
+      additionalItems: false
+    - $ref: '#/definitions/tagged_mapping'
+  request_meaning:
+    oneOf:
+    - $ref: '#/definitions/semantic_value'
+    - type: array
+      items:
+      - const: ddo
+      - const: semantic-request
+      - const: '1'
+      - $ref: '#/definitions/semantic_value'
+      minItems: 4
+      maxItems: 4
+      additionalItems: false
+  root_subject:
+    type: object
+    properties:
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+    required:
+    - subject
+    - original_source
+    - analyzed_scope
+    additionalProperties: false
+  selected_operation:
+    type: object
+    properties:
+      operation:
+        $ref: '#/definitions/identifier'
+      parameters:
+        $ref: '#/definitions/parameter_map'
+      choices:
+        $ref: '#/definitions/parameter_map'
+      replicate:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      dependencies:
+        type: array
+        items:
+          $ref: '#/definitions/identifier'
+        minItems: 0
+      definition:
+        $ref: '#/definitions/identifier'
+      recipe:
+        $ref: '#/definitions/identifier'
+      eligibility:
+        $ref: '#/definitions/identifier'
+      parameter_meaning:
+        $ref: '#/definitions/tagged_mapping'
+    required:
+    - operation
+    - parameters
+    - choices
+    - replicate
+    - dependencies
+    - definition
+    - recipe
+    - eligibility
+    - parameter_meaning
+    additionalProperties: false
+  discovery_selection:
+    type: object
+    properties:
+      producer:
+        $ref: '#/definitions/identifier'
+      output_role:
+        $ref: '#/definitions/identifier'
+      target:
+        $ref: '#/definitions/identifier'
+      population:
+        $ref: '#/definitions/identifier'
+    required:
+    - producer
+    - output_role
+    - target
+    - population
+    additionalProperties: false
+  demand_intent:
+    type: object
+    properties:
+      version:
+        const: data-demand-intent-v1
+      model:
+        type: string
+        pattern: ^[0-9a-f]{64}$
+      roots:
+        type: array
+        items:
+          $ref: '#/definitions/root_subject'
+        minItems: 0
+      targets:
+        type: array
+        items:
+          $ref: '#/definitions/identifier'
+        minItems: 1
+      operations:
+        type: array
+        items:
+          $ref: '#/definitions/selected_operation'
+        minItems: 1
+      root_operations:
+        type: array
+        items:
+          $ref: '#/definitions/identifier'
+        minItems: 1
+      discovery:
+        type: array
+        items:
+          $ref: '#/definitions/discovery_selection'
+        minItems: 0
+      inference:
+        $ref: '#/definitions/identifier'
+      execution_profile:
+        $ref: '#/definitions/identifier'
+    required:
+    - version
+    - model
+    - roots
+    - targets
+    - operations
+    - root_operations
+    - discovery
+    - inference
+    - execution_profile
+    additionalProperties: false
+  binding_reason:
+    type: object
+    properties:
+      code:
+        $ref: '#/definitions/identifier'
+      location:
+        $ref: '#/definitions/text'
+      detail:
+        $ref: '#/definitions/text'
+    required:
+    - code
+    - location
+    - detail
+    additionalProperties: false
+  reason_selection:
+    type: object
+    properties:
+      reasons:
+        type: array
+        items:
+          $ref: '#/definitions/binding_reason'
+        minItems: 0
+    required: []
+    additionalProperties: false
+  input_member:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      position:
+        $ref: '#/definitions/nonnegative_integer'
+      multiplicity:
+        $ref: '#/definitions/positive_integer'
+      product_id:
+        $ref: '#/definitions/identifier'
+      member_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      support_derivation_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+    required:
+    - role
+    - position
+    - multiplicity
+    - product_id
+    additionalProperties: false
+  support_member:
+    type: object
+    properties:
+      derivation_id:
+        $ref: '#/definitions/identifier'
+      role:
+        $ref: '#/definitions/identifier'
+      position:
+        $ref: '#/definitions/nonnegative_integer'
+      admission_use_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+    required:
+    - derivation_id
+    - role
+    - position
+    additionalProperties: false
+  binding:
+    type: object
+    properties:
+      inputs:
+        type: array
+        items:
+          $ref: '#/definitions/input_member'
+        minItems: 0
+      support:
+        type: array
+        items:
+          $ref: '#/definitions/support_member'
+        minItems: 0
+      parameters:
+        $ref: '#/definitions/tagged_mapping'
+      request_inputs:
+        $ref: '#/definitions/tagged_mapping'
+      inference:
+        $ref: '#/definitions/identifier'
+      populations:
+        type: array
+        items:
+          $ref: '#/definitions/population_reference'
+    required:
+    - inputs
+    - support
+    - parameters
+    - request_inputs
+    - inference
+    - populations
+    additionalProperties: false
+  coordinate:
+    type: object
+    properties:
+      original_source:
+        $ref: '#/definitions/identifier'
+      start:
+        $ref: '#/definitions/nonnegative_integer'
+      end:
+        $ref: '#/definitions/nonnegative_integer'
+      page:
+        anyOf:
+        - $ref: '#/definitions/nonnegative_integer'
+        - type: 'null'
+    required:
+    - original_source
+    - start
+    - end
+    additionalProperties: false
+  role_member:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      position:
+        $ref: '#/definitions/nonnegative_integer'
+      multiplicity:
+        $ref: '#/definitions/positive_integer'
+    required:
+    - role
+    - position
+    - multiplicity
+    additionalProperties: false
+  endpoint:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      product_id:
+        $ref: '#/definitions/identifier'
+      member_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - role
+    - product_id
+    - member_id
+    additionalProperties: false
+  coverage:
+    type: object
+    properties:
+      scope:
+        $ref: '#/definitions/identifier'
+      start:
+        $ref: '#/definitions/nonnegative_integer'
+      end:
+        $ref: '#/definitions/nonnegative_integer'
+      complete:
+        type: boolean
+    required:
+    - scope
+    - start
+    - end
+    - complete
+    additionalProperties: false
+  choice:
+    type: object
+    properties:
+      choice_group:
+        $ref: '#/definitions/identifier'
+      alternative:
+        $ref: '#/definitions/identifier'
+      selected:
+        type: boolean
+    required:
+    - choice_group
+    - alternative
+    - selected
+    additionalProperties: false
+  product_member:
+    type: object
+    properties:
+      member_id:
+        $ref: '#/definitions/identifier'
+      body:
+        $ref: '#/definitions/tagged_mapping'
+      coordinates:
+        type: array
+        items:
+          $ref: '#/definitions/coordinate'
+        minItems: 0
+      roles:
+        type: array
+        items:
+          $ref: '#/definitions/role_member'
+        minItems: 0
+      endpoints:
+        type: array
+        items:
+          $ref: '#/definitions/endpoint'
+        minItems: 0
+      coverage:
+        type: array
+        items:
+          $ref: '#/definitions/coverage'
+        minItems: 0
+      choices:
+        type: array
+        items:
+          $ref: '#/definitions/choice'
+        minItems: 0
+    required:
+    - member_id
+    - body
+    additionalProperties: false
+  product:
+    type: object
+    properties:
+      kind_contract:
+        $ref: '#/definitions/identifier'
+      body:
+        $ref: '#/definitions/semantic_value'
+      members:
+        type: array
+        items:
+          $ref: '#/definitions/product_member'
+        minItems: 0
+      artifact_digest:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+    required:
+    - kind_contract
+    - body
+    - members
+    additionalProperties: false
+  output_member:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      position:
+        $ref: '#/definitions/nonnegative_integer'
+      multiplicity:
+        $ref: '#/definitions/positive_integer'
+      product:
+        $ref: '#/definitions/product'
+      member_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+    required:
+    - role
+    - position
+    - multiplicity
+    - product
+    additionalProperties: false
+  completion:
+    type: object
+    properties:
+      outcome:
+        $ref: '#/definitions/identifier'
+      outputs:
+        type: array
+        items:
+          $ref: '#/definitions/output_member'
+        minItems: 0
+      support:
+        type: array
+        items:
+          $ref: '#/definitions/support_member'
+        minItems: 0
+      inputs:
+        type: array
+        items:
+          $ref: '#/definitions/input_member'
+        minItems: 0
+      implementation_revision:
+        $ref: '#/definitions/identifier'
+    required:
+    - outcome
+    - outputs
+    - support
+    - inputs
+    - implementation_revision
+    additionalProperties: false
+  fate:
+    type: string
+    enum:
+    - known-absent
+    - unknown
+    - unavailable
+    - invalid
+    - closed
+    - awaiting-discovery
+    - awaiting-inputs
+    - awaiting-population
+    - not-applicable
+    - failed
+    - cancelled
+    - partial
+  historical_fate:
+    type: string
+    enum:
+    - known-absent
+    - unknown
+    - unavailable
+    - invalid
+    - closed
+    - awaiting-discovery
+    - awaiting-inputs
+    - awaiting-population
+    - not-applicable
+    - failed
+    - cancelled
+    - partial
+    - attached
+    - fulfilled
+  visible_fate:
+    type: string
+    enum:
+    - known-absent
+    - unknown
+    - unavailable
+    - invalid
+    - closed
+    - awaiting-discovery
+    - awaiting-inputs
+    - awaiting-population
+    - not-applicable
+    - failed
+    - cancelled
+    - partial
+    - attached
+    - fulfilled
+    - waiting
+  population_member:
+    type: object
+    properties:
+      member_id:
+        $ref: '#/definitions/identifier'
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+    required:
+    - member_id
+    - subject
+    - original_source
+    - analyzed_scope
+    additionalProperties: false
+  population_evidence:
+    type: object
+    properties:
+      product_id:
+        $ref: '#/definitions/identifier'
+      derivation_id:
+        $ref: '#/definitions/identifier'
+      member_role:
+        $ref: '#/definitions/identifier'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+      population_id:
+        $ref: '#/definitions/identifier'
+      admission_use_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - product_id
+    - derivation_id
+    - member_role
+    - trust_snapshot
+    - population_id
+    - admission_use_id
+    additionalProperties: false
+  population:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/identifier'
+      population_id:
+        $ref: '#/definitions/identifier'
+      demand_id:
+        $ref: '#/definitions/identifier'
+      name:
+        $ref: '#/definitions/identifier'
+      members:
+        type: array
+        items:
+          $ref: '#/definitions/population_member'
+        minItems: 0
+      complete:
+        type: boolean
+      evidence:
+        $ref: '#/definitions/population_evidence'
+      semantic_key:
+        $ref: '#/definitions/identifier'
+    required:
+    - id
+    - population_id
+    - demand_id
+    - name
+    - members
+    - complete
+    - evidence
+    - semantic_key
+    additionalProperties: false
+  result_product:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      position:
+        $ref: '#/definitions/nonnegative_integer'
+      multiplicity:
+        $ref: '#/definitions/positive_integer'
+      product_id:
+        $ref: '#/definitions/identifier'
+      member_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      kind_contract:
+        $ref: '#/definitions/identifier'
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+      body:
+        $ref: '#/definitions/semantic_value'
+    required:
+    - role
+    - position
+    - multiplicity
+    - product_id
+    - member_id
+    - kind_contract
+    - subject
+    - original_source
+    - analyzed_scope
+    - body
+    additionalProperties: false
+  result_use:
+    type: object
+    properties:
+      use_id:
+        $ref: '#/definitions/identifier'
+      obligation_id:
+        $ref: '#/definitions/identifier'
+      fate:
+        $ref: '#/definitions/visible_fate'
+      historical_fate:
+        $ref: '#/definitions/historical_fate'
+      request_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      generation:
+        anyOf:
+        - $ref: '#/definitions/positive_integer'
+        - type: 'null'
+      derivation_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      selection:
+        oneOf:
+        - $ref: '#/definitions/binding'
+        - $ref: '#/definitions/result_binding'
+        - $ref: '#/definitions/reason_selection'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+      products:
+        type: array
+        items:
+          $ref: '#/definitions/result_product'
+        minItems: 0
+      semantic_outcome:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      completion_state:
+        anyOf:
+        - type: string
+          enum:
+          - success
+          - empty
+          - failed
+        - type: 'null'
+    required:
+    - use_id
+    - obligation_id
+    - fate
+    - historical_fate
+    - request_id
+    - generation
+    - derivation_id
+    - selection
+    - trust_snapshot
+    - products
+    - semantic_outcome
+    - completion_state
+    additionalProperties: false
+  result_binding:
+    type: object
+    properties:
+      inputs:
+        type: array
+        items:
+          $ref: '#/definitions/input_member'
+        minItems: 0
+      support:
+        type: array
+        items:
+          $ref: '#/definitions/support_member'
+        minItems: 0
+      parameters:
+        $ref: '#/definitions/tagged_mapping'
+      request_inputs:
+        $ref: '#/definitions/tagged_mapping'
+      inference:
+        $ref: '#/definitions/identifier'
+      execution_profile:
+        $ref: '#/definitions/identifier'
+      populations:
+        type: array
+        items:
+          $ref: '#/definitions/population_reference'
+    required:
+    - inputs
+    - support
+    - parameters
+    - request_inputs
+    - inference
+    - execution_profile
+    - populations
+    additionalProperties: false
+  result_obligation:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/identifier'
+      obligation_id:
+        $ref: '#/definitions/identifier'
+      demand_id:
+        $ref: '#/definitions/identifier'
+      operation_id:
+        $ref: '#/definitions/identifier'
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+      parameters:
+        $ref: '#/definitions/parameter_map'
+      historical_fate:
+        anyOf:
+        - $ref: '#/definitions/historical_fate'
+        - type: 'null'
+      fate:
+        $ref: '#/definitions/visible_fate'
+      request_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      generation:
+        anyOf:
+        - $ref: '#/definitions/positive_integer'
+        - type: 'null'
+      intent_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+    required:
+    - id
+    - obligation_id
+    - demand_id
+    - operation_id
+    - subject
+    - original_source
+    - analyzed_scope
+    - parameters
+    - historical_fate
+    - fate
+    - request_id
+    - generation
+    - intent_id
+    additionalProperties: false
+  continuation:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      selection:
+        $ref: '#/definitions/demand_intent'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+      after:
+        $ref: '#/definitions/identifier'
+      limit:
+        type: integer
+        minimum: 1
+        maximum: 1000
+    required:
+    - demand_id
+    - selection
+    - trust_snapshot
+    - after
+    - limit
+    additionalProperties: false
+  register_data_demand_request:
+    type: object
+    properties:
+      project_id:
+        $ref: '#/definitions/identifier'
+      release_id:
+        $ref: '#/definitions/identifier'
+      runtime_id:
+        $ref: '#/definitions/identifier'
+      root:
+        type: array
+        items:
+          $ref: '#/definitions/root_subject'
+        minItems: 0
+      selection:
+        $ref: '#/definitions/demand_intent'
+      strength:
+        type: string
+        enum:
+        - value
+        - episode
+        - independent
+    required:
+    - project_id
+    - release_id
+    - runtime_id
+    - root
+    - selection
+    - strength
+    additionalProperties: false
+  register_data_demand_result:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      selection:
+        $ref: '#/definitions/demand_intent'
+    required:
+    - demand_id
+    - selection
+    additionalProperties: false
+  expand_data_obligation_request:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      operation_id:
+        $ref: '#/definitions/identifier'
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+      parameters:
+        $ref: '#/definitions/parameter_map'
+      population_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - demand_id
+    - operation_id
+    - subject
+    - original_source
+    - analyzed_scope
+    - parameters
+    additionalProperties: false
+  expand_data_obligation_result:
+    type: object
+    properties:
+      obligation_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - obligation_id
+    additionalProperties: false
+  record_data_fate_request:
+    type: object
+    properties:
+      obligation_id:
+        $ref: '#/definitions/identifier'
+      fate:
+        $ref: '#/definitions/fate'
+      selection:
+        $ref: '#/definitions/reason_selection'
+      request_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      generation:
+        anyOf:
+        - $ref: '#/definitions/positive_integer'
+        - type: 'null'
+      derivation_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+    required:
+    - obligation_id
+    - fate
+    - selection
+    additionalProperties: false
+  record_data_fate_result:
+    type: object
+    properties:
+      use_id:
+        $ref: '#/definitions/identifier'
+      fate:
+        $ref: '#/definitions/fate'
+    required:
+    - use_id
+    - fate
+    additionalProperties: false
+  close_data_population_request:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      name:
+        $ref: '#/definitions/identifier'
+      product_id:
+        $ref: '#/definitions/identifier'
+      derivation_id:
+        $ref: '#/definitions/identifier'
+      member_role:
+        $ref: '#/definitions/identifier'
+    required:
+    - demand_id
+    - name
+    - product_id
+    - derivation_id
+    - member_role
+    additionalProperties: false
+  close_data_population_result:
+    type: object
+    properties:
+      population_id:
+        $ref: '#/definitions/identifier'
+      name:
+        $ref: '#/definitions/identifier'
+      complete:
+        type: boolean
+      members:
+        type: array
+        items:
+          $ref: '#/definitions/population_member'
+        minItems: 0
+      evidence:
+        $ref: '#/definitions/population_evidence'
+      semantic_key:
+        $ref: '#/definitions/identifier'
+    required:
+    - population_id
+    - name
+    - complete
+    - members
+    - evidence
+    - semantic_key
+    additionalProperties: false
+  attach_data_request_request:
+    type: object
+    properties:
+      obligation_id:
+        $ref: '#/definitions/identifier'
+      request_meaning:
+        $ref: '#/definitions/request_meaning'
+      binding:
+        $ref: '#/definitions/binding'
+      replicate:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      rebind_derivation:
+        $ref: '#/definitions/identifier'
+      request_key:
+        $ref: '#/definitions/identifier'
+    required:
+    - obligation_id
+    - request_meaning
+    - binding
+    - replicate
+    additionalProperties: false
+  attach_data_request_result:
+    type: object
+    properties:
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+      task_id:
+        anyOf:
+        - $ref: '#/definitions/task_id'
+        - type: 'null'
+      fate:
+        type: string
+        enum:
+        - attached
+        - fulfilled
+      derivation_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
+      use_id:
+        $ref: '#/definitions/identifier'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+    required:
+    - request_id
+    - generation
+    - task_id
+    - fate
+    - derivation_id
+    - use_id
+    - trust_snapshot
+    additionalProperties: false
+  claim_data_request_request:
+    type: object
+    properties:
+      request_id:
+        $ref: '#/definitions/identifier'
+      holder:
+        $ref: '#/definitions/identifier'
+      lease_seconds:
+        type: integer
+        minimum: 1
+        maximum: 86400
+    required:
+    - request_id
+    - holder
+    - lease_seconds
+    additionalProperties: false
+  claim_data_request_result:
+    oneOf:
+    - type: object
+      properties:
+        state:
+          const: no-work
+      required:
+      - state
+      additionalProperties: false
+    - type: object
+      properties:
+        state:
+          const: claimed
+        request_id:
+          $ref: '#/definitions/identifier'
+        generation:
+          $ref: '#/definitions/positive_integer'
+        task_id:
+          $ref: '#/definitions/task_id'
+        attempt:
+          $ref: '#/definitions/positive_integer'
+        holder:
+          $ref: '#/definitions/identifier'
+        lease_until:
+          type: string
+          minLength: 1
+        trust_snapshot:
+          $ref: '#/definitions/trust_snapshot'
+      required:
+      - state
+      - request_id
+      - generation
+      - task_id
+      - attempt
+      - holder
+      - lease_until
+      - trust_snapshot
+      additionalProperties: false
+  retain_data_completion_intent_request:
+    type: object
+    properties:
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+      task_id:
+        $ref: '#/definitions/task_id'
+      attempt:
+        $ref: '#/definitions/positive_integer'
+      holder:
+        $ref: '#/definitions/identifier'
+      runtime_id:
+        $ref: '#/definitions/identifier'
+      completion:
+        $ref: '#/definitions/completion'
+    required:
+    - request_id
+    - generation
+    - task_id
+    - attempt
+    - holder
+    - runtime_id
+    - completion
+    additionalProperties: false
+  retain_data_completion_intent_result:
+    type: object
+    properties:
+      intent_id:
+        $ref: '#/definitions/identifier'
+      payload_digest:
+        $ref: '#/definitions/identifier'
+    required:
+    - intent_id
+    - payload_digest
+    additionalProperties: false
+  adopt_data_completion_intent_request:
+    type: object
+    properties:
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+      task_id:
+        $ref: '#/definitions/task_id'
+      attempt:
+        $ref: '#/definitions/positive_integer'
+      holder:
+        $ref: '#/definitions/identifier'
+      intent_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - request_id
+    - generation
+    - task_id
+    - attempt
+    - holder
+    - intent_id
+    additionalProperties: false
+  adopt_data_completion_intent_result:
+    type: object
+    properties:
+      intent_id:
+        $ref: '#/definitions/identifier'
+      producer_task_id:
+        $ref: '#/definitions/task_id'
+      producer_attempt:
+        $ref: '#/definitions/positive_integer'
+    required:
+    - intent_id
+    - producer_task_id
+    - producer_attempt
+    additionalProperties: false
+  publish_data_derivation_request:
+    type: object
+    properties:
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+      task_id:
+        $ref: '#/definitions/task_id'
+      attempt:
+        $ref: '#/definitions/positive_integer'
+      holder:
+        $ref: '#/definitions/identifier'
+      intent_id:
+        $ref: '#/definitions/identifier'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+    required:
+    - request_id
+    - generation
+    - task_id
+    - attempt
+    - holder
+    - intent_id
+    additionalProperties: false
+  publish_data_derivation_result:
+    type: object
+    properties:
+      receipt_id:
+        $ref: '#/definitions/identifier'
+      derivation_id:
+        $ref: '#/definitions/identifier'
+      replayed:
+        type: boolean
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+    required:
+    - receipt_id
+    - derivation_id
+    - replayed
+    - trust_snapshot
+    additionalProperties: false
+  inspect_data_completion_request:
+    type: object
+    properties:
+      intent_id:
+        $ref: '#/definitions/identifier'
+      demand_id:
+        $ref: '#/definitions/identifier'
+      request_id:
+        $ref: '#/definitions/identifier'
+      generation:
+        $ref: '#/definitions/positive_integer'
+    required:
+    - intent_id
+    additionalProperties: false
+    anyOf:
+    - required:
+      - demand_id
+    - required:
+      - request_id
+      - generation
+    dependencies:
+      request_id:
+      - generation
+      generation:
+      - request_id
+  inspect_data_completion_result:
+    oneOf:
+    - type: object
+      properties:
+        state:
+          const: known-uncommitted
+        intent_retained:
+          const: false
+      required:
+      - state
+      - intent_retained
+      additionalProperties: false
+    - type: object
+      properties:
+        state:
+          const: known-uncommitted
+        intent_retained:
+          const: true
+        producer_task_id:
+          $ref: '#/definitions/task_id'
+        producer_attempt:
+          $ref: '#/definitions/positive_integer'
+      required:
+      - state
+      - intent_retained
+      - producer_task_id
+      - producer_attempt
+      additionalProperties: false
+    - type: object
+      properties:
+        state:
+          const: committed
+        intent_retained:
+          const: true
+        receipt_id:
+          $ref: '#/definitions/identifier'
+        derivation_id:
+          $ref: '#/definitions/identifier'
+        producer_task_id:
+          $ref: '#/definitions/task_id'
+        producer_attempt:
+          $ref: '#/definitions/positive_integer'
+        runtime_id:
+          $ref: '#/definitions/identifier'
+        trust_snapshot:
+          $ref: '#/definitions/trust_snapshot'
+        semantic_outcome:
+          $ref: '#/definitions/identifier'
+        completion_state:
+          type: string
+          enum:
+          - success
+          - empty
+          - failed
+      required:
+      - state
+      - intent_retained
+      - receipt_id
+      - derivation_id
+      - producer_task_id
+      - producer_attempt
+      - runtime_id
+      - trust_snapshot
+      - semantic_outcome
+      - completion_state
+      additionalProperties: false
+    - type: object
+      properties:
+        state:
+          const: unavailable
+        intent_retained:
+          const: false
+        reason:
+          const: intent-request-binding-unavailable
+      required:
+      - state
+      - intent_retained
+      - reason
+      additionalProperties: false
+  revoke_data_support_request:
+    type: object
+    properties:
+      project_id:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      selector_kind:
+        type: string
+        enum:
+        - derivation
+        - recipe
+        - runtime
+        - product
+      selector:
+        $ref: '#/definitions/identifier'
+      reason:
+        $ref: '#/definitions/identifier'
+    required:
+    - project_id
+    - original_source
+    - selector_kind
+    - selector
+    - reason
+    additionalProperties: false
+  revoke_data_support_result:
+    type: object
+    properties:
+      revocation_id:
+        $ref: '#/definitions/identifier'
+      scope:
+        $ref: '#/definitions/identifier'
+      epoch:
+        $ref: '#/definitions/nonnegative_integer'
+    required:
+    - revocation_id
+    - scope
+    - epoch
+    additionalProperties: false
+  read_demand_result_request:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      selection:
+        $ref: '#/definitions/demand_intent'
+      after:
+        $ref: '#/definitions/identifier'
+      limit:
+        type: integer
+        minimum: 1
+        maximum: 1000
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+    required:
+    - demand_id
+    additionalProperties: false
+    dependencies:
+      after:
+      - selection
+      - trust_snapshot
+  read_demand_result_result:
+    type: object
+    properties:
+      demand_id:
+        $ref: '#/definitions/identifier'
+      selection:
+        $ref: '#/definitions/demand_intent'
+      intent:
+        $ref: '#/definitions/demand_intent'
+      root:
+        type: array
+        items:
+          $ref: '#/definitions/root_subject'
+        minItems: 0
+      project_id:
+        $ref: '#/definitions/identifier'
+      release_id:
+        $ref: '#/definitions/identifier'
+      runtime_id:
+        $ref: '#/definitions/identifier'
+      trust_snapshot:
+        $ref: '#/definitions/trust_snapshot'
+      uses:
+        type: array
+        items:
+          $ref: '#/definitions/result_use'
+        minItems: 0
+      obligations:
+        type: array
+        items:
+          $ref: '#/definitions/result_obligation'
+        minItems: 0
+      populations:
+        type: array
+        items:
+          $ref: '#/definitions/population'
+        minItems: 0
+      continuation:
+        anyOf:
+        - $ref: '#/definitions/continuation'
+        - type: 'null'
+    required:
+    - demand_id
+    - selection
+    - intent
+    - root
+    - project_id
+    - release_id
+    - runtime_id
+    - trust_snapshot
+    - uses
+    - obligations
+    - populations
+    - continuation
+    additionalProperties: false
+  population_reference:
+    type: object
+    properties:
+      role:
+        $ref: '#/definitions/identifier'
+      name:
+        $ref: '#/definitions/identifier'
+      population_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - role
+    - name
+    - population_id
+    additionalProperties: false
 operations:
-- {name: register_data_demand, profile: command}
-- {name: expand_data_obligation, profile: command}
-- {name: record_data_fate, profile: command}
-- {name: close_data_population, profile: command}
-- {name: attach_data_request, profile: command}
-- {name: claim_data_request, profile: command}
-- {name: retain_data_completion_intent, profile: command}
-- {name: adopt_data_completion_intent, profile: command}
-- {name: publish_data_derivation, profile: command}
-- {name: inspect_data_completion, profile: read}
-- {name: revoke_data_support, profile: command}
-- {name: read_demand_result, profile: read}
+- name: register_data_demand
+  profile: command
+  request: register_data_demand_request
+  result: register_data_demand_result
+- name: expand_data_obligation
+  profile: command
+  request: expand_data_obligation_request
+  result: expand_data_obligation_result
+- name: record_data_fate
+  profile: command
+  request: record_data_fate_request
+  result: record_data_fate_result
+- name: close_data_population
+  profile: command
+  request: close_data_population_request
+  result: close_data_population_result
+- name: attach_data_request
+  profile: command
+  request: attach_data_request_request
+  result: attach_data_request_result
+- name: claim_data_request
+  profile: command
+  request: claim_data_request_request
+  result: claim_data_request_result
+- name: retain_data_completion_intent
+  profile: command
+  request: retain_data_completion_intent_request
+  result: retain_data_completion_intent_result
+- name: adopt_data_completion_intent
+  profile: command
+  request: adopt_data_completion_intent_request
+  result: adopt_data_completion_intent_result
+- name: publish_data_derivation
+  profile: command
+  request: publish_data_derivation_request
+  result: publish_data_derivation_result
+- name: inspect_data_completion
+  profile: read
+  request: inspect_data_completion_request
+  result: inspect_data_completion_result
+- name: revoke_data_support
+  profile: command
+  request: revoke_data_support_request
+  result: revoke_data_support_result
+- name: read_demand_result
+  profile: read
+  request: read_demand_result_request
+  result: read_demand_result_result

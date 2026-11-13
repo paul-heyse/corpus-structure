@@ -24,6 +24,60 @@ from .value_codec import value_meaning
 ENCODING_VERSION = "1"
 
 
+def decode_semantic_value(value: Any) -> Any:
+    """Decode the owned tagged value format, refusing noncanonical alternatives."""
+    from datetime import date, datetime
+    from decimal import Decimal
+
+    if not isinstance(value, list) or not value or not isinstance(value[0], str):
+        raise ValueError("semantic value requires a tagged array")
+    tag = value[0]
+    if tag == "null" and len(value) == 1:
+        result = None
+    elif tag in {"known-absent", "unknown", "unavailable"} and len(value) == 1:
+        result = OptionalValue(tag)
+    elif len(value) == 2:
+        payload = value[1]
+        if tag == "string" and isinstance(payload, str):
+            result = payload
+        elif tag == "boolean" and type(payload) is bool:
+            result = payload
+        elif tag == "integer" and isinstance(payload, str):
+            result = int(payload)
+        elif tag == "decimal" and isinstance(payload, str):
+            result = Decimal(payload)
+        elif tag == "float" and isinstance(payload, str):
+            result = float.fromhex(payload)
+        elif tag == "date" and isinstance(payload, str):
+            result = date.fromisoformat(payload)
+        elif tag == "datetime" and isinstance(payload, str):
+            result = datetime.fromisoformat(payload)
+        elif tag == "present":
+            result = OptionalValue("present", decode_semantic_value(payload))
+        elif tag == "sequence" and isinstance(payload, list):
+            result = [decode_semantic_value(member) for member in payload]
+        elif tag in {"set", "bag", "ordered-bag"} and isinstance(payload, list):
+            result = CollectionValue(
+                tag, tuple(decode_semantic_value(member) for member in payload)
+            )
+        elif tag == "mapping" and isinstance(payload, list):
+            if any(
+                not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str)
+                for pair in payload
+            ):
+                raise ValueError("invalid semantic mapping")
+            if len({pair[0] for pair in payload}) != len(payload):
+                raise ValueError("duplicate semantic mapping key")
+            result = {name: decode_semantic_value(member) for name, member in payload}
+        else:
+            raise ValueError("unsupported semantic value tag or payload")
+    else:
+        raise ValueError("invalid semantic value arity")
+    if canonical_bytes(semantic_value(result)) != canonical_bytes(value):
+        raise ValueError("noncanonical semantic value")
+    return result
+
+
 @dataclass(frozen=True)
 class CollectionValue:
     """An explicitly declared collection; an ordinary list remains a sequence."""

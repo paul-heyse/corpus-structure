@@ -75,6 +75,21 @@ claim_source_item__data_operation__ = {
     "invariants": ["nonnegative-integer-ordinal", "boolean-is-not-an-ordinal"],
     "coverage": "one-list-relative-address",
     "outcomes": ["addressed", "invalid-index"],
+    "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
+    "transitions": [
+        {
+            "dimension": "completion",
+            "before": "pending",
+            "after": "success",
+            "outcome": "addressed",
+        },
+        {
+            "dimension": "completion",
+            "before": "pending",
+            "after": "failed",
+            "outcome": "invalid-index",
+        },
+    ],
     "precision": "exact-integer-decimal-spelling",
     "dependencies": [],
     "effects": [],
