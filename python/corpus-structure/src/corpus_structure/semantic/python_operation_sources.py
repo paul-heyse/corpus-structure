@@ -70,6 +70,7 @@ _SUPPORTED_BUILTIN_CALLS = frozenset(
         "round",
         "set",
         "slice",
+        "sorted",
         "str",
         "sum",
         "tuple",
