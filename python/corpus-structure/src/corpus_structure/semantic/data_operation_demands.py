@@ -271,20 +271,24 @@ def _population_context_matches(
     row: dict, obligation: dict, *, source_set: str | None, source_sets: dict, project: str
 ) -> bool:
     """Use authenticated contexts, or an explicitly frozen exact member association."""
+    def same_context(left: dict, right: dict) -> bool:
+        return all(left.get(key) == right[key] for key in ("subject", "original_source")) and (
+            json_context_meaning(canonical_bytes(left.get("analyzed_scope")))
+            == json_context_meaning(canonical_bytes(right["analyzed_scope"]))
+        )
+
     evidence = row["evidence"]
     selected = evidence.get("selection")
     if selected is not None:
-        return selected.get("obligation_id") == obligation["obligation_id"] and all(
-            selected.get(key) == obligation[key]
-            for key in ("operation_id", "subject", "original_source", "analyzed_scope")
+        return (
+            selected.get("obligation_id") == obligation["obligation_id"]
+            and selected.get("operation_id") == obligation["operation_id"]
+            and same_context(selected, obligation)
         )
     producer = evidence.get("producer_context")
     if producer is None:
         return False
-    if all(
-        producer.get(key) == obligation[key]
-        for key in ("subject", "original_source", "analyzed_scope")
-    ):
+    if same_context(producer, obligation):
         return True
     if source_set is None:
         return False
@@ -294,10 +298,7 @@ def _population_context_matches(
         and entry["product"] == evidence["product_id"]
         and entry["original_source"] == producer.get("original_source")
         and entry["member"] in members
-        and all(
-            entry[key] == members[entry["member"]][key]
-            for key in ("subject", "original_source", "analyzed_scope")
-        )
+        and same_context(entry, members[entry["member"]])
         for entry in source_sets.get(source_set, ())
     )
 
