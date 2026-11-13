@@ -9,3 +9,12 @@ retire:
     schema: sem
     name: publish_release_archive
     arguments: [jsonb]
+  - kind: function
+    schema: ops
+    name: pdf_check_build_inventory
+    arguments: [text, text, bigint]
+recreate:
+  - kind: function
+    schema: ops
+    name: require_pdf_stage_owner
+    arguments: [bigint, bigint, text]
