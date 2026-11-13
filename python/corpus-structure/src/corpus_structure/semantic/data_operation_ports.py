@@ -93,6 +93,7 @@ class PythonPortIdentity:
     declaration: str
     source_digest: str
     capabilities: bytes
+    eligibility: str
 
 
 @dataclass(frozen=True)
@@ -156,9 +157,12 @@ class ResolvedPythonPort:
         # Recheck the acquired authority per invocation. A retained port is not a
         # durable permission after the target or source has changed.
         if binding is not None and (
-            binding.operation != self.identity.operation or not binding.sufficient
+            binding.operation != self.identity.operation
+            or not binding.sufficient
+            or binding.definition != self.identity.definition
+            or binding.eligibility != self.identity.eligibility
         ):
-            raise PortRefusal("resolved binding is insufficient or belongs to another operation")
+            raise PortRefusal("resolved binding is insufficient or differs from the admitted contract")
         self.verify_runtime()
         self.authorize(self.identity)
         contracts = dict(self.kind_contracts)
@@ -193,14 +197,33 @@ class ResolvedPythonPort:
                 if length < role.minimum or (role.maximum is not None and length > role.maximum):
                     raise PortRefusal("input role cardinality differs: " + name)
             arguments[role.parameter] = copy.deepcopy(checked)
-        # Parameters without data roles are semantic parameters owned by the
-        # original signature. Only its validated defaults are admitted here.
+        # Semantic parameters come from the same frozen binding that determines
+        # the native request. Never silently execute a different original default.
+        semantic_parameters = {}
+        if binding is not None:
+            from .data_operation_bindings import effective_binding_parameters
+            from .data_operation_identity import decode_semantic_value
+
+            semantic_parameters = effective_binding_parameters(
+                self.operation, decode_semantic_value(json.loads(binding.parameters))
+            )
+            declared = json.loads(self.operation.parameters)
+            if set(semantic_parameters) - set(declared):
+                raise PortRefusal("binding contains undeclared semantic parameters")
+            if set(semantic_parameters) & set(arguments):
+                raise PortRefusal("semantic parameter conflicts with a data input role")
+            if set(semantic_parameters) - set(self.signature.parameters):
+                raise PortRefusal("semantic parameter lacks an admitted callable correspondence")
         for name, parameter in self.signature.parameters.items():
             if name not in arguments:
-                if parameter.default is inspect.Parameter.empty:
+                if name in semantic_parameters:
+                    value = semantic_parameters[name]
+                elif parameter.default is not inspect.Parameter.empty:
+                    value = parameter.default
+                else:
                     raise PortRefusal("unbound callable parameter: " + name)
                 arguments[name] = TypeAdapter(parameter.annotation).validate_python(
-                    _untrusted_value(parameter.default), strict=True
+                    _untrusted_value(value), strict=True
                 )
         positional = tuple(
             arguments[p.name]
@@ -263,6 +286,7 @@ def python_port_identity(
         (operation, "definition"),
         (operation, "recipe"),
         (selected.implementation_root, "implementation-slice"),
+        (operation, "eligibility"),
     )
     if any(key not in expected or actual.get(key) != expected[key] for key in required):
         raise PortRefusal(
@@ -285,6 +309,7 @@ def python_port_identity(
             )
         ).hexdigest(),
         canonical_bytes(asdict(selected.capabilities)),
+        expected[operation, "eligibility"],
     )
 
 

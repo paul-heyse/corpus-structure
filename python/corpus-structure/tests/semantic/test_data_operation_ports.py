@@ -382,3 +382,32 @@ def test_local_function_alias_rebinding_is_checked_transitively(tmp_path, monkey
     monkeypatch.setattr(module, "renamed", lambda index: "wrong")
     with pytest.raises(PortRefusal, match="rebound"):
         port.invoke_python(())
+
+
+def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatch):
+    from corpus_structure.semantic.data_operation_bindings import BindingResult
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["parameters"] = {"prefix": {"value_type": "string", "default": "p"}}
+    model, inputs = fixture_source(
+        tmp_path, monkeypatch, "index: int, *, prefix: str = 'p'",
+        "return prefix + str(index)", metadata=metadata,
+    )
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    binding = BindingResult(
+        port.identity.operation, "subject:one", (), "ready", (),
+        canonical_bytes(semantic_value({"prefix": "selected:"})), b"{}", model.version,
+        port.identity.definition, port.identity.eligibility, (),
+    )
+    values = (PythonRoleValue("index", kind(model, "index"), 7),)
+    assert port.invoke_python(values, binding=binding).outputs[0].value() == "selected:7"
+    assert port.invoke_json((RoleValue("index", kind(model, "index"), b"7"),), binding=binding).outputs[0].value() == "selected:7"
+    for altered in (replace(binding, definition="stale"), replace(binding, eligibility="stale")):
+        with pytest.raises(PortRefusal, match="admitted contract"):
+            port.invoke_python(values, binding=altered)
+    with pytest.raises(ValueError, match="string"):
+        port.invoke_python(values, binding=replace(binding, parameters=canonical_bytes(semantic_value({"prefix": 3}))))
+    with pytest.raises(PortRefusal, match="undeclared"):
+        port.invoke_python(values, binding=replace(binding, parameters=canonical_bytes(semantic_value({"unknown": "x"}))))

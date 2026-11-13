@@ -192,3 +192,76 @@ def test_frozen_typed_parameters_survive_jsonb_display_loss():
     assert math.copysign(1, restored["zero"]) == -1
     assert restored["day"] == date(2026, 11, 13)
     assert restored["amount"] == Decimal("1.25")
+
+
+@pytest.mark.parametrize("state", ["committed", "known-uncommitted", "unavailable"])
+def test_resume_preserves_exact_completion_observation_separate_from_frontier(state):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+
+    compiled = model(operation("op:result"))
+    snapshot = {
+        "intent": {"model": sha256(compiled.content).hexdigest()},
+        "obligations": [
+            {"intent_id": "intent:old", "request_id": "request:one", "generation": 3},
+            {"intent_id": None},
+        ],
+    }
+    observation = {"state": state, "intent_retained": state != "unavailable"}
+    calls = []
+
+    class Storage:
+        def invoke(self, operation, payload):
+            calls.append((operation, payload))
+            return snapshot if operation == "read_demand_result" else observation
+
+    resumed = DemandPlanner(compiled, Storage()).resume("demand:one")
+    assert calls == [
+        ("read_demand_result", {"demand_id": "demand:one", "limit": 100}),
+        (
+            "inspect_data_completion",
+            {
+                "intent_id": "intent:old",
+                "demand_id": "demand:one",
+                "request_id": "request:one",
+                "generation": 3,
+            },
+        ),
+    ]
+    assert resumed["completion_inspections"] == {"intent:old": observation}
+    assert "completion_inspections" not in snapshot
+
+
+@pytest.mark.parametrize(
+    ("native", "expected"),
+    [
+        ({"action": "compute", "retained_intent_id": None}, "compute"),
+        ({"action": "reconcile", "retained_intent_id": "intent:old"}, "reconcile"),
+        ({"action": "reconcile"}, None),
+        ({"action": "compute", "retained_intent_id": "intent:old"}, None),
+        ({"action": "reuse"}, None),
+        ({"action": "compute", "retained_intent_id": ""}, None),
+    ],
+)
+def test_ready_request_retains_native_execution_disposition(native, expected):
+    from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
+    from corpus_structure.semantic.data_operation_model import ResolvedOperationBinding
+
+    binding = ResolvedOperationBinding(
+        "op:result", "subject:one", (), b"{}", "exact", b"{}", b"{}", "cpu"
+    )
+
+    def request():
+        return ReadyDataRequest(
+            "obligation:one", "op:result", "subject:one", b"{}", b"{}",
+            canonical_bytes(native), b"{}", binding,
+        )
+
+    if expected is None:
+        with pytest.raises(ValueError):
+            request()
+    else:
+        ready = request()
+        assert ready.action == expected
+        assert ready.retained_intent_id == native["retained_intent_id"]

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import networkx as nx
 from pydantic import TypeAdapter
@@ -93,7 +93,7 @@ def freeze_demand(
             (operation.semantic_id, dependency)
             for dependency in (*operation.dependencies, *selection.selected_dependencies)
         )
-    if not nx.is_directed_acyclic_graph(graph):
+    if not nx.is_directed_acyclic_graph(graph, backend="networkx"):
         raise ValueError("selected demand dependency cycle")
     requested = set(targets)
     for relation in discovery:
@@ -114,10 +114,10 @@ def freeze_demand(
         raise ValueError("unknown demand target")
     closure = set(requested)
     for target in requested:
-        closure.update(nx.descendants(graph, target))
+        closure.update(nx.descendants(graph, target, backend="networkx"))
     root_operations = set(targets) | {relation.producer for relation in discovery}
     for target in tuple(root_operations):
-        root_operations.update(nx.descendants(graph, target))
+        root_operations.update(nx.descendants(graph, target, backend="networkx"))
     if not supplied.keys() <= closure:
         raise ValueError("selection is outside the requested closure")
     identities = {(item.owner, item.domain): item.key for item in model.identities}
@@ -188,6 +188,26 @@ class ReadyDataRequest:
     native: bytes
     binding: bytes
     resolved: ResolvedOperationBinding
+
+    def __post_init__(self) -> None:
+        disposition = json.loads(self.native)
+        action = disposition.get("action")
+        retained = disposition.get("retained_intent_id")
+        if action not in {"compute", "reconcile"}:
+            raise ValueError("executable request requires a native compute/reconcile disposition")
+        if (action == "reconcile") != (isinstance(retained, str) and bool(retained)):
+            raise ValueError("native reconciliation requires the exact retained intent")
+        if action == "compute" and retained is not None:
+            raise ValueError("compute cannot discard a retained intent")
+
+    @property
+    def action(self) -> Literal["compute", "reconcile"]:
+        """The native owner decides whether inference or exact reconciliation is next."""
+        return json.loads(self.native)["action"]
+
+    @property
+    def retained_intent_id(self) -> str | None:
+        return json.loads(self.native).get("retained_intent_id")
 
 
 class DemandPlanner:
@@ -305,16 +325,21 @@ class DemandPlanner:
         if frozen["model"] != sha256(self.model.content).hexdigest():
             raise ValueError("resume requires the demand's original effective model")
         # Inspect uncertain completions before returning any executable work.
+        inspections = {}
         for obligation in snapshot["obligations"]:
             if obligation.get("intent_id") is not None:
-                self.storage.invoke(
+                inspections[obligation["intent_id"]] = self.storage.invoke(
                     "inspect_data_completion",
                     {
                         "intent_id": obligation["intent_id"],
                         "demand_id": demand,
+                        "request_id": obligation["request_id"],
+                        "generation": obligation["generation"],
                     },
                 )
-        return snapshot
+        # These are current receipt observations, distinct from the pinned frontier.
+        # Returning them lets the execution owner settle uncertainty without inference.
+        return {**snapshot, "completion_inspections": inspections}
 
     def ready(self, snapshot: dict, *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
         from .data_operation_bindings import PopulationBinding, compile_binding, execute_binding
