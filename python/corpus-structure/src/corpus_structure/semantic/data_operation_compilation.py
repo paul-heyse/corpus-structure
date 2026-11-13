@@ -1309,6 +1309,44 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
     return tuple(identities)
 
 
+def project_population_witness(
+    witness: dict | None, identity_requirements: tuple[str, ...]
+) -> dict | None:
+    """Separate stable population meaning from the authenticated receipt/support.
+
+    Physical demand/use IDs and trust epochs are admission evidence. A declared
+    exact episode determinant remains semantic, including a closure producer
+    episode when the role has no present members.
+    """
+    if witness is None:
+        return None
+    if witness.get("reason") == "unselected-declared-branch":
+        if (
+            set(witness) != {"complete", "members", "selection", "reason"}
+            or witness["complete"] is not True
+            or witness["members"] != []
+            or not isinstance(witness["selection"], dict)
+        ):
+            _fail("population-witness", "invalid frozen branch witness")
+        return witness
+    if (
+        set(witness) != {"identity", "complete", "members", "evidence"}
+        or not isinstance(witness["identity"], str)
+        or not witness["identity"]
+        or type(witness["complete"]) is not bool
+        or not isinstance(witness["members"], list)
+        or any(not isinstance(member, str) or not member for member in witness["members"])
+        or len(set(witness["members"])) != len(witness["members"])
+        or not isinstance(witness["evidence"], dict)
+    ):
+        _fail("population-witness", "invalid structured population witness")
+    meaning = {key: witness[key] for key in ("identity", "complete", "members")}
+    if "episode" in identity_requirements:
+        episode = _text(witness["evidence"].get("derivation_id"), "population-witness/episode")
+        meaning["support_episodes"] = [episode]
+    return meaning
+
+
 def project_operation_binding(model: EffectiveDataOperationModel, binding):
     """Construct DDO-02 request/admission identities from the compiled role policies.
 
@@ -1382,7 +1420,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 "original_source": member.original_source,
                 "analyzed_scope": json.loads(member.analyzed_scope),
                 "coverage": json.loads(member.coverage),
-                "position": member.position,
+                "position": member.position if role.collection == "sequence" else None,
                 "multiplicity": member.multiplicity,
             }
             assert role.support is not None
@@ -1401,6 +1439,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 {
                     "product": member.product,
                     "member": member.member,
+                    "position": member.position,
                     "episodes": member.support_episodes,
                     "evidence": json.loads(member.support_evidence),
                     "provider": member.provider_identity,
@@ -1421,9 +1460,19 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
 
         def requires_population(expression, role_name):
             return (
-                expression.operator in {"forall", "absent"}
-                and (not expression.roles or role_name in expression.roles)
-            ) or any(requires_population(child, role_name) for child in expression.children)
+                (
+                    expression.operator in {"forall", "absent"}
+                    and (not expression.roles or role_name in expression.roles)
+                )
+                or (
+                    any(operand.kind == "population" for operand in expression.operands)
+                    and any(
+                        operand.field is not None and operand.field.role == role_name
+                        for operand in expression.operands
+                    )
+                )
+                or any(requires_population(child, role_name) for child in expression.children)
+            )
 
         compiled_binding = next(
             item for item in model.bindings if item.semantic_id == operation.binding
@@ -1440,7 +1489,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         )
         values[name] = {
             "value": OptionalValue(actual.state, collection if actual.state == "present" else None),
-            "population_witness": witness,
+            "population_witness": project_population_witness(
+                witness, role.support.identity_requirements if role.support else ()
+            ),
             "selected_alternative": actual.selected_alternative,
         }
         support[name] = {
