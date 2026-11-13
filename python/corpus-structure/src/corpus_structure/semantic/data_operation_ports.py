@@ -104,10 +104,12 @@ class RoleValue:
     kind_contract: str
     content: bytes
     meaning: bytes | None = None
+    members: tuple[bytes, ...] = ()
 
     def __post_init__(self) -> None:
         if (type(self.content) is not bytes or not self.role or not self.kind_contract
-            or (self.meaning is not None and type(self.meaning) is not bytes)):
+            or (self.meaning is not None and type(self.meaning) is not bytes)
+            or type(self.members) is not tuple or any(type(member) is not bytes for member in self.members)):
             raise TypeError("role values require nominal role/kind and owned immutable bytes")
 
     def value(self) -> Any:
@@ -402,6 +404,7 @@ def resolve_python_port(
     *,
     authorize: Callable[[PythonPortIdentity], None],
     receiver: object | None = None,
+    runtime_locations: Mapping[str, Path] | None = None,
 ) -> ResolvedPythonPort:
     """Acquire the original callable after explicit execution-owner authorization.
 
@@ -431,14 +434,20 @@ def resolve_python_port(
             "multi-output completion requires an explicit admitted result correspondence"
         )
     authorize(identity)
+    if runtime_locations is not None and set(runtime_locations) - {s.module for s in sources.sources}:
+        raise PortRefusal("runtime locations name a module outside the captured source collection")
+    paths = {
+        source.module: Path((runtime_locations or {}).get(source.module, Path(source.filename))).resolve()
+        for source in sources.sources
+    }
     for source in sources.sources:
         # An archive records exact acquired paths, not a module search fallback.
-        path = Path(source.filename)
+        path = paths[source.module]
         if not path.is_file() or path.read_bytes() != source.content:
             raise PortRefusal("runtime source differs from supplied archive: " + source.module)
     modules = {}
     for source in sources.sources:
-        path = Path(source.filename)
+        path = paths[source.module]
         modules[source.module] = importlib.import_module(source.module)
         if Path(inspect.getfile(modules[source.module])).resolve() != path.resolve():
             raise PortRefusal("runtime module resolved to a different acquired source")
@@ -515,7 +524,7 @@ def resolve_python_port(
         raise PortRefusal("runtime callable signature differs from compiled declaration")
 
     def verify_runtime() -> None:
-        _verify_runtime_sources(model, selected, sources, modules)
+        _verify_runtime_sources(model, selected, sources, modules, paths)
         if receiver is not None and vars(receiver):
             raise PortRefusal("receiver acquired unbound mutable instance state")
 
@@ -560,7 +569,9 @@ def _runtime_members(statements, owner, code, prefix):
                     yield prefix + "." + target.id, node, inspect.getattr_static(owner, target.id), None
 
 
-def _verify_runtime_sources(model, operation, sources, modules) -> None:
+def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> None:
+    if paths is None:
+        paths = {source.module: Path(source.filename).resolve() for source in sources.sources}
     implementation = next(
         s for s in model.implementation_slices if s.root == operation.implementation_root
     )
@@ -570,9 +581,9 @@ def _verify_runtime_sources(model, operation, sources, modules) -> None:
     _verify_consumed_globals(sources, modules, expected_nodes)
     for source in sources.sources:
         module = modules[source.module]
-        if Path(source.filename).read_bytes() != source.content:
+        if paths[source.module].read_bytes() != source.content:
             raise PortRefusal("runtime source changed after acquisition")
-        code = compile(source.content, source.filename, "exec", dont_inherit=True)
+        code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
         tree = ast.parse(source.content)
         for path, node, value, expected_code in _runtime_members(tree.body, module, code, source.module):
             if path not in expected_nodes:
