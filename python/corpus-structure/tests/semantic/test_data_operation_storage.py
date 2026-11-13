@@ -2115,11 +2115,8 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
             )
             assert old["state"] == "known-uncommitted" and old["intent_retained"]
         else:
-            previous = next(
-                use
-                for use in snapshot["uses"]
-                if use["request_id"] == consumer_native["request_id"]
-            )
+            assert original_receipt is not None
+            previous = next(use for use in snapshot["uses"] if use["request_id"] == consumer_native["request_id"])
             assert previous["rebind_derivation"] == original_receipt["derivation_id"]
             assert planner.ready(snapshot, authorization=b"{}") == ()
             assert consumer_native["request_id"] in planner.fulfilled_request_ids

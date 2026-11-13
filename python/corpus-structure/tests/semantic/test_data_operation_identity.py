@@ -440,3 +440,13 @@ def test_request_context_is_complete_and_immutable():
     assert context.record["analyzed_scope"] == {"page": 1}
     with pytest.raises(ValueError, match="differs"):
         SemanticRequestKey("recipe", "wrong", {}, {}, "inference", subject_context=context)
+
+
+def test_subject_context_equality_uses_tagged_json_meaning_not_python_numeric_equality():
+    def context(scope):
+        return SubjectContext("project", "local", "source", scope)
+    integer, decimal = context(b'{"page":1}'), context(b'{"page":1.0}')
+    boolean, string = context(b'{"page":true}'), context(b'{"page":"1"}')
+    assert integer == decimal and hash(integer) == hash(decimal)
+    assert len({integer, decimal, boolean, string}) == 3
+    assert integer != boolean and integer != string and integer != object()

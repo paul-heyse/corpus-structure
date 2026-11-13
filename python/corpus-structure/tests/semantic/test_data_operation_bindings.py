@@ -1221,6 +1221,9 @@ def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storag
     resolved = result.resolved(inference="exact", subject_context=context,
                                authorization=b"{}", trust_evidence=b"{}", execution_profile="native")
     assert resolved.subject_context == context
+    equivalent = result.resolved(inference="exact", subject_context=SubjectContext("project:test", "doc", "source", b'{"page":1.0}'),
+                                 authorization=b"{}", trust_evidence=b"{}", execution_profile="native")
+    assert equivalent.subject_context == context
     with pytest.raises(ValueError, match="differs"):
         result.resolved(inference="exact", subject_context=SubjectContext("other", "doc", "source", b'{"page":1}'),
                         authorization=b"{}", trust_evidence=b"{}", execution_profile="native")

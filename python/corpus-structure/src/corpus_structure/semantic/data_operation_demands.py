@@ -15,11 +15,7 @@ import networkx as nx
 from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
-from .data_operation_model import (
-    EffectiveDataOperationModel,
-    ResolvedOperationBinding,
-    SubjectContext,
-)
+from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding, SubjectContext, json_context_meaning
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
 from .data_operation_support import (
     OriginalSourceSelection,
@@ -89,7 +85,7 @@ def freeze_demand(
         raise ValueError("demand requires targets, inference and an execution profile")
     if len(
         {
-            (root.subject, root.original_source, canonical_bytes(json.loads(root.analyzed_scope)))
+            (root.subject, root.original_source, json_context_meaning(root.analyzed_scope))
             for root in roots
         }
     ) != len(roots):

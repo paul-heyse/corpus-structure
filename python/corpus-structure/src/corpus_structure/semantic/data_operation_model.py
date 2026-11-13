@@ -502,7 +502,14 @@ class ResolvedRoleBinding:
     selected_alternative: str | None = None
 
 
-@dataclass(frozen=True)
+def json_context_meaning(content: bytes) -> bytes:
+    """Canonical typed JSON meaning with JSONB-equivalent numeric semantics."""
+    from .data_operation_identity import semantic_value
+
+    return canonical_bytes(semantic_value(json.loads(content, parse_int=Decimal, parse_float=Decimal)))
+
+
+@dataclass(frozen=True, eq=False)
 class SubjectContext:
     """The complete immutable address of an admitted subject occurrence."""
 
@@ -524,6 +531,20 @@ class SubjectContext:
             "original_source": self.original_source,
             "analyzed_scope": json.loads(self.analyzed_scope),
         }
+
+    @property
+    def identity_content(self) -> bytes:
+        from .data_operation_identity import semantic_value
+
+        return canonical_bytes(semantic_value(self.identity_record))
+
+    def __eq__(self, other):
+        if not isinstance(other, SubjectContext):
+            return NotImplemented
+        return self.identity_content == other.identity_content
+
+    def __hash__(self):
+        return hash(self.identity_content)
 
     @property
     def identity_record(self) -> dict:
