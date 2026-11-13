@@ -263,6 +263,8 @@ class NativeDemandExecutor:
             > self.policy.max_reply_bytes
         ):
             raise ValueError("completion reply exceeds owned reply capacity")
+        if answer.outcome not in self.model.operation(ready.operation).outcomes:
+            raise PortRefusal("completion outcome is outside the declared operation")
         outputs = []
         for value in answer.outputs:
             if value.meaning is None:
@@ -280,12 +282,22 @@ class NativeDemandExecutor:
                 }
             )
         completion = {
-            "outcome": "success",
+            "outcome": answer.outcome,
             "outputs": outputs,
             "inputs": json.loads(ready.binding)["inputs"],
             "support": json.loads(ready.binding)["support"],
             "implementation_revision": port.identity.implementation,
         }
+        if answer.execution_evidence is not None:
+            from corpus_structure.semantic.data_operation_execution_evidence import (
+                bind_execution_evidence,
+            )
+
+            completion["execution_evidence"] = bind_execution_evidence(
+                answer.execution_evidence,
+                fence=claim.fence,
+                runtime_id=self.runtime.runtime_id,
+            )
         if len(canonical_bytes(completion)) > self.policy.max_reply_bytes:
             raise ValueError("completion exceeds owned draft capacity")
 
@@ -567,6 +579,13 @@ class NativeDemandExecutor:
                                     else {}
                                 ),
                             )
+                            if (page["release_id"], page["runtime_id"]) != (
+                                self.prepared.release_id,
+                                self.runtime.runtime_id,
+                            ):
+                                raise PortRefusal(
+                                    "execution context differs from native demand custody"
+                                )
                             if page.get("state") == "cancelled":
                                 return DemandAdvance(demand, canonical_bytes(page), tuple(receipts))
                             for use in page["uses"]:

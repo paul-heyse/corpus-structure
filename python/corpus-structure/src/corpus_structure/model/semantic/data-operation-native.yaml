@@ -551,6 +551,8 @@ definitions:
         minItems: 0
       implementation_revision:
         $ref: '#/definitions/identifier'
+      execution_evidence:
+        $ref: '#/definitions/native_execution_evidence'
     required:
     - outcome
     - outputs

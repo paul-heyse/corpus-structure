@@ -36,6 +36,31 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
         if len(selected) != 1:
             raise ValueError("closed native protocol requires exactly one captured source")
         content = selected[0]
+    # This optional companion contract is generated from the actual transport DTO.
+    # Captured interpretation must consume its captured schema, never ambient code.
+    document = yaml.safe_load(content)
+    declared = document.get("definitions") if isinstance(document, dict) else None
+    completion = declared.get("completion") if isinstance(declared, dict) else None
+    properties = completion.get("properties") if isinstance(completion, dict) else None
+    if isinstance(properties, dict) and "execution_evidence" in properties:
+        from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
+
+        if sources is None:
+            captured = execution_evidence_schema()
+        else:
+            values = [source.content for source in sources if source.name == SOURCE]
+            if len(values) != 1:
+                raise ValueError("native execution evidence requires its captured schema")
+            captured = values[0]
+        extension = checked_json_schema(json.loads(captured))
+        definitions = dict(extension.get("definitions", {}))
+        definitions["native_execution_evidence"] = {
+            key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+        }
+        if definitions.keys() & document["definitions"].keys():
+            raise ValueError("native execution evidence definition collides with protocol")
+        document["definitions"].update(definitions)
+        content = canonical_bytes(document)
     return content
 
 

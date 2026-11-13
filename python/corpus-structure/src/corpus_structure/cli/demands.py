@@ -46,10 +46,12 @@ class DemandSnapshot(RootModel[dict[str, JsonValue]]):
     pass
 
 
-def _mutation(ctx: typer.Context, action: Literal["create", "cancel"], request: dict,
-              *, json: bool) -> DemandActionReport:
-    with managed_operation(result_store(ctx), "demands." + action, json=json,
-                           expected=(ValueError, KeyError, OSError)) as invocation:
+def _mutation(
+    ctx: typer.Context, action: Literal["create", "cancel"], request: dict, *, json: bool
+) -> DemandActionReport:
+    with managed_operation(
+        result_store(ctx), "demands." + action, json=json, expected=(ValueError, KeyError, OSError)
+    ) as invocation:
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(canonical_bytes(request))
         invocation.publish("request", request_path)
@@ -60,7 +62,9 @@ def _mutation(ctx: typer.Context, action: Literal["create", "cancel"], request: 
                 native = create_data_demand(connection, CreateDataDemand.model_validate(request))
             else:
                 native = cancel_data_demand(
-                    connection, request["demand_id"], reason=request["reason"],
+                    connection,
+                    request["demand_id"],
+                    reason=request["reason"],
                 )
         invocation.record_effect("native demand " + action + ":" + native["demand_id"])
         native_path = invocation.directory / "native.json"
@@ -73,9 +77,12 @@ def _mutation(ctx: typer.Context, action: Literal["create", "cancel"], request: 
 @app.command("create")
 def create(
     ctx: typer.Context,
-    request: Annotated[Path, typer.Option(
-        help="Service request with frozen intent/release/runtime; '-' reads stdin.",
-    )],
+    request: Annotated[
+        Path,
+        typer.Option(
+            help="Service request with frozen intent/release/runtime; '-' reads stdin.",
+        ),
+    ],
     json: JsonOpt = False,
 ) -> None:
     """Create or resume the deterministic demand for an existing frozen intent."""
@@ -89,9 +96,12 @@ def create(
 def read(
     ctx: typer.Context,
     demand: Annotated[str, typer.Argument(help="Exact immutable native demand ID.")],
-    continuation: Annotated[Path | None, typer.Option(
-        help="Complete native continuation JSON; '-' reads stdin.",
-    )] = None,
+    continuation: Annotated[
+        Path | None,
+        typer.Option(
+            help="Complete native continuation JSON; '-' reads stdin.",
+        ),
+    ] = None,
     limit: Annotated[int | None, typer.Option(min=1, max=1000)] = None,
     view: Annotated[Literal["frontier", "products"] | None, typer.Option()] = None,
     json: JsonOpt = False,
@@ -103,7 +113,11 @@ def read(
             raise ValueError("continuation must be a complete native JSON object")
         with ENGINE(state(ctx).settings(), purpose="read") as engine, engine.begin() as connection:
             snapshot = read_data_demand(
-                connection, demand, continuation=pins, limit=limit, view=view,
+                connection,
+                demand,
+                continuation=pins,
+                limit=limit,
+                view=view,
             )
     emit(DemandSnapshot(snapshot), json=json)
 

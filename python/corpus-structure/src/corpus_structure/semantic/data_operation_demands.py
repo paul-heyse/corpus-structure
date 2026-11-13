@@ -531,11 +531,18 @@ class DemandPlanner:
                 if len(parents) > 1:
                     query = dict(compiled.queries).get(role_name)
                     if query is not None:
-                        qualified = {(value["product"], value["member"])
-                                     for value in self.storage.connection.execute(query).mappings()}
-                        positive = [row for row in parents if any(
-                            (row["evidence"]["product_id"], member["member_id"]) in qualified
-                            for member in row["members"])]
+                        qualified = {
+                            (value["product"], value["member"])
+                            for value in self.storage.connection.execute(query).mappings()
+                        }
+                        positive = [
+                            row
+                            for row in parents
+                            if any(
+                                (row["evidence"]["product_id"], member["member_id"]) in qualified
+                                for member in row["members"]
+                            )
+                        ]
                         if len(positive) == 1:
                             parents = positive
                 if len(parents) > 1:

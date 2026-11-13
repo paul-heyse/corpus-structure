@@ -28,11 +28,17 @@ def captured(content: bytes | None = None):
     source = (
         Path(__file__).parents[2] / "src/corpus_structure/model/semantic/data-operation-native.yaml"
     )
+    from corpus_structure.semantic.data_operation_execution_evidence import (
+        SOURCE,
+        execution_evidence_schema,
+    )
+
     return (
         SourceArtifact(
             "native/data-operation-protocol.yaml",
             source.read_bytes() if content is None else content,
         ),
+        SourceArtifact(SOURCE, execution_evidence_schema()),
     )
 
 

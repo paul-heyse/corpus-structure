@@ -32,9 +32,15 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
+    from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_wire_native import wire_native_sources
 
     return (
+        SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact(
+            "native/data-operation-execution-evidence.py",
+            Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-protocol.yaml",
             (_ROOT / "data-operation-native.yaml").read_bytes(),
