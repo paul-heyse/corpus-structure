@@ -1324,3 +1324,1372 @@ These are the parts of NetworkX that most substantially expand what can be expre
 | Upstream implementation        | [https://github.com/networkx/networkx](https://github.com/networkx/networkx?utm_source=chatgpt.com)                                                                                             |
 
 All feature-specific discussion above targets the released NetworkX 3.7 documentation and accompanying release notes, not unreleased development-branch functionality.
+
+# NetworkX 3.7 — Advanced Capability Addendum
+
+Research date: November 12, 2026 | Target: NetworkX 3.7 stable | Companion to the original NetworkX capability reference
+
+This addendum expands the capabilities identified in the preceding gap analysis. It focuses on functionality that was absent or insufficiently developed, together with corrections to several important behavioral and API distinctions.
+
+The material is organized around additional graph abstractions, specialized algorithms, extension mechanisms, and correctness considerations. It is intended to be read alongside the original reference without replacing its treatment of graph classes, standard traversal, shortest paths, flow optimization, community-detection fundamentals, or backend architecture.
+
+The additions are verified against NetworkX's 3.7 API reference and upstream documentation. Direct primary-source URLs accompany the relevant sections.
+
+## 1. Bipartite graph analysis: two-mode structure as a first-class algorithmic domain
+
+NetworkX's `networkx.algorithms.bipartite` package is considerably more capable than its matching and projection interfaces might suggest. It supports specialized ranking, clustering, connectivity, assignment robustness, matrix representation, and community-quality measurement for networks with two disjoint node populations.
+
+These methods are important because bipartite structure carries information that is lost when a two-mode graph is reduced to an ordinary one-mode network.
+
+### 1.1 Bipartition semantics and validation
+
+For a bipartite graph \\(B=(U,V,E)\\), every edge joins a vertex in \\(U\\) with a vertex in \\(V\\). NetworkX represents this with an ordinary `Graph` or `DiGraph`; it does not enforce a dedicated bipartite graph class or a typed relationship invariant.
+
+The conventional `bipartite` node attribute, with values `0` and `1`, identifies the partitions. However, most bipartite algorithms do not verify that this attribute is present, that it is correct, or that the supplied node set represents an actual side of the bipartition.
+
+The package provides `is_bipartite`, `is_bipartite_node_set`, `color`, and `sets` for verification and partition identification.
+
+A subtle limitation concerns disconnected graphs. Each connected bipartite component can independently have its two colors reversed. Consequently, `bipartite.sets(G)` may raise `AmbiguousSolution` when the full graph is disconnected. Providing an explicit partition removes that ambiguity.
+
+This illustrates the boundary between a mathematical structure understood by an algorithm and a constraint enforced by the graph representation. If bipartite membership has domain-level meaning, maintaining and validating that membership remains the caller's responsibility.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/bipartite.html`
+
+### 1.2 Multiple projection semantics
+
+NetworkX implements several fundamentally different ways to construct a one-mode network from a two-mode graph.
+
+| Function                                 | Meaning of a projected edge weight                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `projected_graph`                        | Establishes adjacency from shared neighbors; can optionally preserve multiplicity through a multigraph |
+| `weighted_projected_graph`               | Counts common neighbors, or normalizes that count by the size of the opposite partition                |
+| `collaboration_weighted_projected_graph` | Uses Newman's collaboration weighting, reducing the contribution of large shared groups                |
+| `overlap_weighted_projected_graph`       | Weights relationships by overlap measures such as Jaccard-style or minimum-neighborhood normalization  |
+| `generic_weighted_projected_graph`       | Accepts a caller-defined function for deriving weights                                                 |
+
+Consider two entities that share one highly connected intermediary. A raw common-neighbor projection gives that intermediary the same contribution as a rare intermediary shared by only a small group. A collaboration-weighted projection changes this interpretation.
+
+This distinction matters for affiliation networks, recommendation systems, entity co-occurrence, organizational relationships, and any graph where one population connects another.
+
+A projection is a derived graph with a chosen relationship semantics, not a neutral conversion. It can generate dense cliques, discard intermediary identities, and change connectivity, distance, and clustering properties.
+
+The ability to supply a custom projection weight function is especially useful because the projection calculation can be specialized while retaining NetworkX's existing graph construction and analysis mechanisms.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/bipartite.html`
+
+### 1.3 BiRank: coupled ranking over two node populations
+
+`bipartite.birank` computes ranking scores for both sides of a bipartite graph through mutually dependent update equations.
+
+Unlike running conventional PageRank on a one-mode projection, BiRank retains the two populations throughout the calculation.
+
+Let \\(W\\) be the weighted biadjacency matrix, with row and column degree matrices \\(D_U\\) and \\(D_V\\). A normalized cross-partition operator is
+
+\\[ S=D_U^{-1/2}WD_V^{-1/2}. \\]
+
+BiRank's iterative scores take the general form
+
+\\[ u=\alpha S v+(1-\alpha)u^{(0)} \\]
+
+\\[ v=\beta S^\top u+(1-\beta)v^{(0)}. \\]
+
+Here, \\(u\\) and \\(v\\) are scores for the two populations, while \\(u^{(0)}\\) and \\(v^{(0)}\\) are optional personalization signals.
+
+The implementation exposes separate damping parameters, `alpha` and `beta`, as well as `top_personalization`, `bottom_personalization`, iteration limits, convergence tolerance, and an edge-weight attribute.
+
+This supports several distinct ranking formulations:
+
+- Global ranking based predominantly on graph connectivity.
+- Personalized ranking seeded from one population.
+- Bidirectionally personalized ranking using signals from both populations.
+
+The architecture is important: both node populations participate in determining one another's scores, without requiring a separate projected graph or a custom iterative ranking implementation.
+
+BiRank remains a fixed graph-ranking algorithm. It does not automatically learn the significance of node or edge features beyond the supplied weights and personalization vectors, and its results depend on the bipartite graph and convergence behavior.
+
+Source: `https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.bipartite.link_analysis.birank.html`
+
+### 1.4 Bipartite clustering, butterflies, and redundancy
+
+Ordinary triangle-based clustering is poorly suited to a simple bipartite graph because a bipartite graph cannot contain an odd cycle.
+
+NetworkX therefore provides specialized measurements:
+
+| Mechanism                                    | Graph property                                                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------- |
+| `bipartite.clustering` / `latapy_clustering` | Local clustering based on overlap between neighborhoods                      |
+| `bipartite.average_clustering`               | Aggregated bipartite clustering                                              |
+| `bipartite.robins_alexander_clustering`      | Global clustering based on four-cycle-related structure                      |
+| `bipartite.butterflies`                      | Counts butterfly motifs associated with each node                            |
+| `bipartite.node_redundancy`                  | Evaluates redundant local relationships through shared alternative neighbors |
+| `bipartite.spectral_bipartivity`             | Measures graph bipartivity through spectral properties                       |
+
+A butterfly is a complete bipartite subgraph \\(K\_{2,2}\\): two vertices from each partition with all four cross-partition edges present. It is a natural bipartite analogue of a highly connected local motif.
+
+Butterflies may indicate repeated co-occurrence, shared affiliation, or redundancy in two-mode relationships. Unlike ordinary triangles, they can be counted directly in the original bipartite representation.
+
+`butterflies` was added in NetworkX 3.7.
+
+These measures can also complement projection-based analysis. A projected graph may exhibit high clustering simply because a single high-degree intermediary induced many connections. Bipartite clustering and butterfly counts distinguish structural organization present in the original two-mode network.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/bipartite.html`
+
+### 1.5 Matching extendability: robustness beyond one optimal assignment
+
+`bipartite.maximal_extendability` computes the maximum value of \\(k\\) for which a connected bipartite graph is k-extendable.
+
+A graph is k-extendable if it has a perfect matching and every matching containing \\(k\\) independent edges can be extended to a perfect matching.
+
+This differs from checking that one perfect matching exists.
+
+A perfect matching proves that all vertices can be paired. Extendability describes how robust that property is when certain pairings have already been selected.
+
+NetworkX implements this using a directed residual graph constructed from a perfect matching, followed by connectivity and vertex-disjoint-path calculations.
+
+The implementation is defined for simple, connected, undirected bipartite graphs admitting a perfect matching. It can be computationally expensive because it evaluates path-connectivity properties across node pairs.
+
+The result provides a useful structural robustness measure for matching-constrained systems without requiring an independently implemented matching-extension algorithm.
+
+Source: `https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.bipartite.extendability.maximal_extendability.html`
+
+### 1.6 Bipartite matrix and community-quality analysis
+
+`bipartite.biadjacency_matrix` provides a rectangular numerical representation whose rows and columns correspond to different node populations. `from_biadjacency_matrix` performs the complementary graph construction.
+
+This is more natural than square adjacency matrices for two-mode linear algebra and preserves the distinction between the two vertex types.
+
+The package also contains partition-aware centrality measures with bipartite-specific normalization, and `bipartite.modularity`, which evaluates Barber's bipartite modularity using a null model that respects the two-part structure.
+
+The latter is significant because ordinary modularity assumes a different expected-edge model. Applying it to a bipartite graph without accounting for the structural prohibition on within-partition edges may evaluate communities against an inappropriate baseline.
+
+NetworkX provides the scoring method, not a guarantee that a general community-detection algorithm optimizes bipartite modularity specifically.
+
+Source: `https://networkx.org/documentation/stable/reference/algorithms/bipartite.html`
+
+## 2. Reporting views and the graph access model
+
+NetworkX's reporting views are separate from filtered graph views and deserve their own architectural treatment.
+
+A filtered graph view changes which nodes and edges an algorithm can observe. A reporting view provides a live, Pythonic interface for inspecting graph nodes, edges, degrees, and attributes.
+
+### 2.1 Node, edge, and degree views
+
+The principal view interfaces include:
+
+| View type             | Capabilities                                                                |
+| --------------------- | --------------------------------------------------------------------------- |
+| `NodeView`            | Node iteration, membership, set operations, and direct attribute lookup     |
+| `NodeDataView`        | Iteration over nodes with full or selected attributes                       |
+| `EdgeView`            | Edge iteration, membership, set operations, and edge-attribute lookup       |
+| `EdgeDataView`        | Edge iteration with selected attributes and optional multigraph edge keys   |
+| `DegreeView`          | Degree iteration, individual degree lookup, and weighted degree calculation |
+| Directed degree views | Separate incoming and outgoing degree interfaces                            |
+
+A key design feature is that these are live, lightweight access objects, not eagerly constructed lists or attribute tables.
+
+For example:
+
+```
+import networkx as nxG = nx.DiGraph()G.add_edge("A", "B", capacity=4)G.add_edge("B", "C", capacity=7)capacities = G.edges(data="capacity", default=0)weighted_out = G.out_degree(weight="capacity")shared_nodes = G.nodes & {"A", "C", "D"}
+```
+
+`capacities` and `weighted_out` remain graph-backed reporting views. `shared_nodes`, in contrast, is a newly computed set result.
+
+This illustrates two different forms of laziness: a view can defer reading graph state until iteration or lookup, while an operation on views may still materialize a result.
+
+The reporting interfaces allow graph algorithms and downstream Python code to inspect structural information without first converting the entire graph into a secondary representation.
+
+### 2.2 Core mapping views and structural immutability
+
+NetworkX additionally exposes `AtlasView`, `AdjacencyView`, `MultiAdjacencyView`, filtered adjacency mappings, and union adjacency structures.
+
+These provide read-only mapping interfaces to the graph's nested dictionaries. The restrictions protect structural mapping relationships, but they do not necessarily make every nested attribute value immutable.
+
+That distinction parallels graph views:
+
+- The view can prevent direct replacement of an adjacency relationship.
+- Access to an existing attribute dictionary may still permit changing its contents.
+- An object returned by attribute lookup may itself contain mutable nested objects.
+
+Reporting views are therefore neither immutable snapshots nor general concurrency-safe read transactions.
+
+### 2.3 Direction, parallel edges, and identity
+
+A `DiGraph` exposes `in_degree`, `out_degree`, `predecessors`, and `successors`, allowing computations to distinguish incoming and outgoing relationships.
+
+For a `MultiGraph` or `MultiDiGraph`, edge reporting can include the edge key:
+
+```
+for u, v, key, attrs in G.edges(keys=True, data=True):    ...
+```
+
+This preserves the identity of parallel edges during iteration.
+
+A subtle issue arises when performing set operations on undirected edge views. The tuples `(u, v)` and `(v, u)` denote the same undirected edge, but ordinary Python tuple sets do not automatically encode that equivalence. The documentation warns that edge-set comparisons can produce surprising results if the other operand contains both orientations.
+
+Another important constraint is that graph mutations should not occur while iterating these views. This follows the usual Python mapping-iteration semantics.
+
+Architectural significance: the views provide an efficient graph-access abstraction, but they do not replace explicit snapshotting, mutation coordination, or schema validation.
+
+Primary source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/classes/index.html`
+
+## 3. Graph cuts, expansion, and partition quality
+
+NetworkX has a distinct family of cut-quality algorithms that complements minimum-cut optimization and community detection.
+
+The distinction is between finding a partition that optimizes an objective and measuring the structural quality of a given partition.
+
+Let \\(S\\) be a vertex set and \\(\bar S\\) its complement. Define the weighted boundary size as
+
+\\[ c(S,\bar S)= \sum\_{\substack{u\in S\\\v\in\bar S}}w(u,v). \\]
+
+For an undirected weighted graph, define the volume of a set as
+
+\\[ \operatorname{vol}(S)=\sum\_{u\in S}\deg_w(u). \\]
+
+These quantities are used to construct several different partition-quality measures.
+
+### 3.1 Cut evaluation functions
+
+NetworkX exposes `cut_size`, `volume`, `conductance`, `normalized_cut_size`, `edge_expansion`, `node_expansion`, `boundary_expansion`, and `mixing_expansion`.
+
+| Metric             | Interpretation                                                       |
+| ------------------ | -------------------------------------------------------------------- |
+| Cut size           | Number or total weight of relationships crossing the partition       |
+| Conductance        | Boundary weight relative to the smaller partition volume             |
+| Normalized cut     | Sum of boundary-to-volume ratios on both sides                       |
+| Edge expansion     | Boundary weight relative to the size of the selected vertex set      |
+| Node expansion     | Relative increase from a vertex set to its neighboring boundary      |
+| Boundary expansion | A neighborhood-expansion criterion using boundary-node relationships |
+| Mixing expansion   | A cut normalization associated with mixing behavior                  |
+| Volume             | Sum of weighted degrees in the selected vertices                     |
+
+For an undirected graph, conductance is commonly expressed as
+
+\\[ \phi(S)= \frac{c(S,\bar S)} {\min(\operatorname{vol}(S),\operatorname{vol}(\bar S))}, \\]
+
+while normalized cut is
+
+\\[ \operatorname{Ncut}(S,\bar S)= \frac{c(S,\bar S)}{\operatorname{vol}(S)} + \frac{c(S,\bar S)}{\operatorname{vol}(\bar S)}. \\]
+
+These criteria differ in how they treat a small partition with few crossing edges versus a large, balanced partition.
+
+A low absolute cut size is not necessarily evidence of a good community. A single weakly connected vertex can yield a small cut despite being an uninformative partition. Volume-normalized measures account for some of this imbalance.
+
+### 3.2 Interactions with community detection and graph reduction
+
+Cut metrics complement modularity-based methods, core decompositions, and spectral partitioning.
+
+For example, a community-detection algorithm may produce a partition with a high modularity score, while a conductance analysis reveals a subset with a relatively large boundary compared with its internal volume.
+
+These are not contradictory results: the measures optimize or evaluate different mathematical properties.
+
+The native algorithms permit a more expressive sequence:
+
+Discover a partition → evaluate its boundary properties → compare alternative partitions → construct an aggregate graph when appropriate.
+
+This can replace separate custom implementations for cut counting, degree-volume calculation, and standard normalization criteria.
+
+An important limitation is that weighted cuts inherit the interpretation of the selected edge attribute. Negative or otherwise nonstandard weights may undermine the usual interpretation of conductance and related metrics. Directed cut calculations also use directional conventions that should be checked against the selected function.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/cuts.html`
+
+## 4. Directed-graph hierarchy, terminal components, and ancestry
+
+The original overview covered strongly connected components and DAG condensation. NetworkX also provides structural measures that answer more specific questions about directionality, feedback, terminal behavior, and ancestry.
+
+### 4.1 Attracting components
+
+`attracting_components` identifies strongly connected components with no outgoing edges to vertices outside those components.
+
+Equivalently, these are sink components in the condensation DAG.
+
+This differs from merely finding strongly connected components. An SCC may contain extensive internal cyclic structure while still having outgoing connections to other SCCs. An attracting component is terminal with respect to directed reachability.
+
+NetworkX also provides `is_attracting_component` and `number_attracting_components`.
+
+This can distinguish terminal regions of directed transition systems from cyclic regions that still lead elsewhere. The algorithms establish structural reachability, not the likelihood that a stochastic process will arrive at a particular component.
+
+### 4.2 Semiconnectedness
+
+`is_semiconnected` determines whether every pair of vertices is comparable by directed reachability:
+
+\\[ \forall u,v\in V,\quad u\leadsto v\ \lor\ v\leadsto u. \\]
+
+A semiconnected graph need not be strongly connected.
+
+For example, a directed chain is semiconnected because any two vertices are ordered by reachability, although most pairs are not mutually reachable.
+
+Semiconnectedness is particularly relevant to understanding whether a directed system's components form a globally comparable reachability structure. A graph can have a valid condensation DAG without that DAG being semiconnected.
+
+### 4.3 Flow hierarchy
+
+`flow_hierarchy(G, weight=None)` computes the fraction of directed edges that do not participate in directed cycles.
+
+The measure is conceptually
+
+\\[ h= \frac{\text{weight of edges outside directed cycles}} {\text{total edge weight}}. \\]
+
+With ordinary positive weights, a DAG has \\(h=1\\), while a network whose edges are all contained in directed cycles has \\(h=0\\).
+
+The implementation uses strongly connected components to identify edges participating in cycles, rather than requiring explicit enumeration of every directed cycle.
+
+This offers a compact measure of how much of a directed network's structure is acyclic.
+
+However, flow hierarchy is not a measure of topological depth, hierarchical authority, or causal validity. It measures participation in directed cycles under its defined weighting convention.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/component.html`
+
+`https://networkx.org/documentation/stable/reference/algorithms/hierarchy.html`
+
+### 4.4 Lowest common ancestors: tree and DAG variants
+
+NetworkX includes three related APIs:
+
+| API                                     | Intended computation                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| `lowest_common_ancestor`                | Lowest common ancestor of a specified node pair                               |
+| `all_pairs_lowest_common_ancestor`      | Lowest common ancestors for all pairs or a specified subset of pairs in a DAG |
+| `tree_all_pairs_lowest_common_ancestor` | Specialized batch processing for rooted directed trees                        |
+
+The tree-specific function uses Tarjan's offline lowest-common-ancestor algorithm, built around disjoint-set operations.
+
+Its documented complexity is near-linear in graph size plus the number of requested pairs, using the inverse Ackermann function.
+
+This is meaningful when many ancestry queries are performed over the same tree: the specialized batch algorithm can avoid repeatedly traversing ancestor chains from scratch.
+
+There is also an important difference between trees and general DAGs.
+
+In a rooted tree, each node has a unique path from the root, so the lowest common ancestor of two nodes is unique. In a DAG with multiple inheritance, two nodes may have multiple incomparable lowest common ancestors.
+
+NetworkX's DAG LCA implementation returns one such ancestor, not necessarily the complete set of equally low common ancestors. Its upstream implementation selects among common ancestors through graph traversal and does not establish a canonical tie-breaking rule.
+
+Applications requiring every minimal common ancestor must therefore implement that additional selection logic.
+
+The DAG functions require acyclicity. The tree-specific method expects a parent-to-child orientation and a tree structure rather than an arbitrary directed graph.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/lowest_common_ancestors.html`
+
+## 5. Advanced spanning structures, directed branchings, and tree representations
+
+NetworkX's tree functionality extends well beyond constructing a minimum spanning tree.
+
+### 5.1 Directed trees are not necessarily arborescences
+
+NetworkX adopts a graph-theoretic convention in which directed tree and forest recognition considers the underlying undirected topology.
+
+A directed tree is a weakly connected directed graph whose underlying undirected graph is a tree.
+
+A branching imposes an additional constraint: every vertex has at most one incoming edge. An arborescence is a connected branching, equivalent to a rooted directed tree under the corresponding orientation.
+
+This distinction matters because a directed tree can contain vertices with multiple parents, whereas an arborescence cannot.
+
+NetworkX provides separate recognition functions: `is_tree`, `is_forest`, `is_branching`, and `is_arborescence`.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/tree.html`
+
+### 5.2 Branching optimization and arborescence enumeration
+
+NetworkX implements Edmonds-style directed branching optimization.
+
+`maximum_branching` and `minimum_branching` optimize branching weight without necessarily requiring the result to be one spanning rooted tree.
+
+`maximum_spanning_arborescence` and `minimum_spanning_arborescence` impose the stronger spanning-arborescence requirement.
+
+`greedy_branching` offers a simpler greedy construction and does not provide the same global optimality guarantee as an exact branching algorithm.
+
+Two iterator classes expand this functionality:
+
+- `ArborescenceIterator` enumerates spanning arborescences in increasing or decreasing total cost.
+- `SpanningTreeIterator` similarly enumerates undirected spanning trees in cost order.
+
+These are valuable when there are several acceptable structural configurations rather than just one optimum.
+
+For example, an application may need to evaluate additional constraints that are not represented in the initial spanning-tree objective. Ordered enumeration exposes alternatives without requiring a separate full search implementation for every candidate.
+
+The limitation is combinatorial: a graph may have exponentially many spanning trees or arborescences. Iterators avoid materializing every result simultaneously but cannot eliminate the cost of enumerating them.
+
+### 5.3 Counting and sampling spanning trees
+
+`number_of_spanning_trees` computes spanning-tree counts using matrix-tree-theorem-based methods.
+
+This can characterize the number of alternative spanning structures permitted by a graph.
+
+The `weight` parameter supports weighted tree counts. When weights are used, the result is a weighted sum rather than simply the number of distinct spanning trees.
+
+`random_spanning_tree` samples spanning trees according to a chosen probability model. Its weight treatment depends on the selected multiplicative or additive scheme; supplying edge weights does not inherently mean uniform sampling over all spanning trees.
+
+These operations answer different questions:
+
+- Minimum spanning tree: which tree minimizes total edge weight?
+- Tree enumeration: which alternative trees exist, and in what cost order?
+- Spanning-tree count: how many structurally valid alternatives exist?
+- Random spanning tree: how can one sample from a defined distribution over alternatives?
+
+Counting and sampling also complement resilience analysis, although the number of spanning trees is not by itself a complete reliability model.
+
+### 5.4 Rooted-tree encoding and composition
+
+NetworkX supports rooted-tree transformations using `to_nested_tuple`, `from_nested_tuple`, `to_prufer_sequence`, `from_prufer_sequence`, and `join_trees`.
+
+Nested tuple representations preserve the recursive structure of rooted trees. The optional canonical-form behavior provides a standardized structural ordering under the function's conventions.
+
+Prüfer sequences provide a bijective encoding for appropriately labeled undirected trees.
+
+`join_trees` combines rooted trees under a new root, providing a native graph composition operation for hierarchical structures.
+
+These mechanisms can be used for tree serialization, combinatorial enumeration, test generation, or normalized structural comparisons. They should not be mistaken for general-purpose serialization of arbitrary attributed directed graphs.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/tree.html`
+
+## 6. Electrical resistance, diffusion, and stochastic graph measures
+
+NetworkX contains several graph measures that use electrical-network and Markov-chain interpretations rather than ordinary shortest paths.
+
+These measures can reveal structural redundancy and diffusion behavior that is invisible to distance-only analysis.
+
+### 6.1 Effective resistance between vertices
+
+`resistance_distance` interprets an undirected graph as an electrical network.
+
+Each edge contributes a resistance or conductance according to the selected weight convention, and the effective resistance between two vertices reflects the combined effect of all available conductive pathways.
+
+For an unweighted connected graph, if \\(L\\) is its combinatorial Laplacian and \\(L^+\\) is the Moore–Penrose pseudoinverse, effective resistance can be expressed as
+
+\\[ R\_{uv}=(e_u-e_v)^\top L^+(e_u-e_v). \\]
+
+Unlike shortest-path distance, effective resistance decreases when useful alternative connections are added.
+
+For example, two vertices connected by one path and two vertices connected by several independent paths may have the same shortest-path distance but different effective resistance.
+
+A practical distinction concerns edge weights:
+
+- When weights represent physical resistance, NetworkX's default `invert_weight=True` converts them to conductance for Laplacian construction.
+- When weights already represent conductance, `invert_weight=False` avoids taking the reciprocal.
+
+The API does not accept zero-valued resistances under the reciprocal convention.
+
+`resistance_distance` supports pair-specific calculations or broader dictionaries of pairwise distances. It requires an undirected connected graph. Self-loops are ignored, and parallel edges are combined according to electrical equivalence.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.distance_measures.resistance_distance.html`
+
+### 6.2 Effective graph resistance and the Kirchhoff index
+
+`effective_graph_resistance` extends pairwise resistance to a whole-network quantity.
+
+The Kirchhoff index is
+
+\\[ K_f(G)=\sum\_{\\{u,v\\}\subseteq V}R\_{uv}. \\]
+
+This summarizes network-wide effective resistance and is sensitive to the availability of redundant connections.
+
+NetworkX returns infinity for disconnected graphs under this function's definition, reflecting the impossibility of electrical conduction between separate components.
+
+Its numerical result has a different interpretation from graph diameter, average shortest-path length, global efficiency, or edge connectivity. These measures may be correlated on some graph families but are not interchangeable.
+
+Effective graph resistance can therefore complement flow- and cut-based resilience measures without replacing them.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.distance_measures.effective_graph_resistance.html`
+
+### 6.3 Kemeny's constant
+
+`kemeny_constant` analyzes an undirected connected graph using the associated random-walk Markov chain.
+
+Kemeny's constant measures the expected number of steps needed to reach a destination drawn according to the chain's stationary distribution.
+
+For an appropriate finite irreducible chain, this expectation is independent of the starting vertex.
+
+This distinguishes it from:
+
+- Shortest-path distance, which concerns optimal routing.
+- Effective resistance, which reflects electrical connectivity.
+- Random-walk hitting time for one fixed source-target pair.
+- Mixing time, which concerns convergence toward the stationary distribution.
+
+Kemeny's constant summarizes a global stochastic accessibility property rather than determining a particular shortest route.
+
+The NetworkX implementation requires an undirected connected graph and nonnegative edge weights; the documentation specifies positive weights for the Markov-chain interpretation. Self-loops represent the possibility of remaining at the same state, and multiedge weights are combined.
+
+It does not provide a general directed Markov-chain modeling API through this function.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.distance_measures.kemeny_constant.html`
+
+### 6.4 Harmonic distance and center-related measures
+
+`harmonic_diameter` provides a distance summary based on reciprocal shortest-path distances.
+
+This is useful when disconnected pairs should not make an aggregate distance measure undefined or infinite under the conventional arithmetic-average definition.
+
+NetworkX also distinguishes eccentricity, center, radius, periphery, and `barycenter`/`centroid`.
+
+Eccentricity is concerned with the maximum distance from a vertex. Barycenter instead minimizes the sum of distances from a vertex to all others.
+
+Therefore, a graph center and a barycenter need not identify the same vertices.
+
+These provide different optimization criteria for identifying structurally central locations. NetworkX 3.7 also exposes `centroid` as an alias for `barycenter`; it should not be confused with its separate tree-centroid functionality.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/distance_measures.html`
+
+## 7. Additional community detection and partition semantics
+
+The previous reference covered Leiden, Louvain, modularity optimization, and label propagation. Several related capabilities deserve more explicit treatment.
+
+### 7.1 Asynchronous fluid communities
+
+`asyn_fluidc(G, k, max_iter=100, seed=None)` implements asynchronous fluid community detection.
+
+The caller specifies the number of communities, \\(k\\), rather than relying on the algorithm to infer it.
+
+The method initializes competing communities and iteratively allows local membership changes. Each community has a fixed total fluid density distributed among its members; this affects the competition between neighboring communities.
+
+Membership updates are asynchronous, and initialization is randomized.
+
+The implementation is suitable for connected, undirected, simple graphs and does not support weighted-community optimization in the same way as weighted modularity or Leiden.
+
+Its output is a partition obtained through a local competitive process, not a proof of an optimal partition under modularity or another global objective.
+
+Source: `https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.asyn_fluid.asyn_fluidc.html`
+
+### 7.2 Local community detection
+
+`greedy_source_expansion` identifies a community around a specified source vertex.
+
+This is fundamentally different from global community detection.
+
+A global method assigns the entire graph to communities. Local community discovery asks for the relevant neighborhood or community around a particular starting point.
+
+This distinction can be useful when only part of a graph is observed, when a global partition is unnecessary, or when local structure is more informative than a global decomposition.
+
+The returned community is not necessarily one member of a globally coherent partition. Two independently discovered local communities may overlap or disagree about boundaries.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/community.html`
+
+### 7.3 Multilevel community hierarchies
+
+`louvain_partitions` and `leiden_partitions` expose partitions at successive levels of their multilevel optimization procedures.
+
+This is more informative than returning only the final community assignment.
+
+At each successive level, the algorithm can aggregate previously identified communities into supernodes and continue optimization.
+
+These intermediate partitions can reveal how groups merge at coarser levels.
+
+However, they are not automatically an exhaustive dendrogram of all possible communities, nor are they guaranteed to correspond to a single semantically meaningful hierarchy. They represent the levels visited by a particular stochastic optimization process and parameterization.
+
+The distinction also matters when evaluating resolution. Changing a resolution parameter is not equivalent to simply selecting another level from one completed optimization run.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/community.html`
+
+### 7.4 Extensible divisive rules and exact tree partitioning
+
+`girvan_newman` accepts a `most_valuable_edge` callback that determines which edge is removed next.
+
+The default uses edge betweenness, but a custom callback allows the removal criterion to be replaced without rewriting the entire iterative community-splitting procedure.
+
+This is an algorithmic extension point, not merely a configuration parameter.
+
+Separately, `lukes_partitioning` implements an exact tree-specific partitioning algorithm with a maximum cluster-size constraint and weighted objective.
+
+This differs from general graph community detection. It leverages the restricted structure of a tree to solve a specialized partitioning problem.
+
+The important distinction is between:
+
+- Heuristically optimizing community quality over a general graph.
+- Iteratively splitting a graph according to a chosen structural criterion.
+- Exactly optimizing a restricted partitioning problem over a tree.
+
+NetworkX supports all three paradigms, but their outputs and mathematical guarantees differ.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/community.html`
+
+## 8. Structural comparison, graph edit distance, and symmetry-aware matching
+
+The earlier overview described exact isomorphism, VF2++, ISMAGS, and Weisfeiler–Lehman hashing. NetworkX also supports finding partial structural commonality and constructing explicit descriptions of graph differences.
+
+### 8.1 Largest common induced subgraphs with ISMAGS
+
+`nx.isomorphism.ISMAGS` provides `largest_common_subgraph(symmetry=True)`.
+
+Unlike graph isomorphism, which asks whether two graphs have identical structure up to relabeling, the largest-common-induced-subgraph problem seeks the largest vertex-induced structure shared by two graphs.
+
+The result is a mapping between corresponding vertices.
+
+An induced common subgraph preserves both existing edges and absent edges among the selected vertices. This is stronger than preserving only the edges that appear in a pattern.
+
+ISMAGS uses symmetry analysis to avoid returning many structurally redundant correspondences.
+
+For example, matching a four-cycle can generate multiple mappings that differ only by rotating or reflecting the pattern. ISMAGS can suppress symmetry-equivalent mappings, which is valuable when the objective is to identify distinct structural occurrences rather than enumerate every vertex permutation.
+
+The implementation has an important asymmetry: symmetry analysis is based on the graph supplied as the `subgraph` argument. Reversing the argument order can affect which equivalent mappings are eliminated.
+
+NetworkX 3.7 also extends ISMAGS to directed and multigraph structures and non-induced monomorphism, broadening the types of patterns it can match.
+
+Important limit: finding a largest common subgraph does not identify the full minimum-cost transformation needed to make two graphs equivalent. It establishes shared structure; graph edit distance addresses a different optimization problem.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+2
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/isomorphism.ismags.html`
+
+### 8.2 Graph edit distance as a configurable graph transformation objective
+
+NetworkX implements a graph edit distance family comprising:
+
+| API                            | Capability                                                     |
+| ------------------------------ | -------------------------------------------------------------- |
+| `graph_edit_distance`          | Calculate an edit-distance value, subject to bounds or timeout |
+| `optimize_graph_edit_distance` | Generate progressively improving edit-distance estimates       |
+| `optimize_edit_paths`          | Generate candidate node/edge edit paths with their costs       |
+| `optimal_edit_paths`           | Return minimum-cost edit paths                                 |
+
+Graph edit distance is defined through operations that transform one graph into a graph isomorphic to another.
+
+Supported operation categories include node insertion, deletion, and substitution, as well as their edge equivalents.
+
+NetworkX permits caller-defined cost functions:
+
+```
+nx.graph_edit_distance(    G1,    G2,    node_subst_cost=node_subst_cost,    node_del_cost=node_del_cost,    node_ins_cost=node_ins_cost,    edge_subst_cost=edge_subst_cost,    edge_del_cost=edge_del_cost,    edge_ins_cost=edge_ins_cost,)
+```
+
+Each callback receives the corresponding node or edge attribute dictionaries, rather than an entire graph. This makes it possible to define domain-specific replacement costs based on stored attributes.
+
+There is an important precedence rule: when `node_subst_cost` is provided, it overrides `node_match`. Similarly, `edge_subst_cost` overrides `edge_match`.
+
+If neither a matcher nor a substitution-cost function is specified, the corresponding attributes are ignored for substitution-cost purposes.
+
+This means that a graph edit-distance calculation does not automatically compare every available node and edge attribute.
+
+The function also supports `roots`, which forces a specified pair of vertices to correspond. This is useful when comparisons must preserve a known structural anchor.
+
+`upper_bound` can restrict consideration to solutions within a permitted edit cost. `timeout` can limit execution, with the result potentially reflecting the best solution discovered rather than a proven optimum.
+
+### 8.3 Progressive edit-path generation
+
+`optimize_edit_paths` exposes more information than the final edit-distance score.
+
+It yields tuples containing node edit paths, edge edit paths, and total cost. The `strictly_decreasing` parameter controls whether subsequent results must strictly improve the previous best cost.
+
+This is consequential when the correspondence itself matters.
+
+For example, two attributed graphs may have similar topology but use different node identities. Edit-path outputs can reveal which vertices are being matched, inserted, or deleted under the selected cost model.
+
+NetworkX supplies candidate edit correspondences and their costs; it does not automatically mutate a source graph according to those results or implement application-level reconciliation rules.
+
+Exact graph edit distance remains NP-hard. Larger graphs, high structural symmetry, and weakly discriminating attributes can make exhaustive optimization expensive.
+
+An architecture combining inexpensive graph invariants, isomorphism checks, and bounded edit-distance search can therefore be more economical than applying exact edit distance indiscriminately.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/similarity.html`
+
+## 9. Directed motifs and local structural patterns
+
+### 9.1 Triadic census and directed motif classification
+
+NetworkX includes a dedicated directed-triad analysis family:
+
+`triadic_census`, `triads_by_type`, `triad_type`, `is_triad`, and `all_triads`.
+
+For directed simple graphs, there are 16 conventional isomorphism classes of three-vertex directed configurations.
+
+These distinguish patterns such as mutual relationships, directed chains, feed-forward structures, and directed cycles.
+
+`triadic_census` calculates the distribution of triad classes. `triads_by_type` groups concrete occurrences according to their classification. `all_triads` provides an enumeration interface.
+
+This makes the distinction between structural statistics and structural instance retrieval explicit.
+
+A census can reveal that a network contains many feed-forward motifs. Enumerating the corresponding triads identifies the actual vertices participating in those configurations.
+
+Triadic analysis also differs from ordinary triangle counting: many directed triads do not form closed three-edge cycles.
+
+Because the number of possible three-vertex combinations grows combinatorially, exhaustive motif materialization can become substantially more expensive than computing aggregate statistics.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/triads.html`
+
+### 9.2 Structural motifs versus graph hashes
+
+The original overview described Weisfeiler–Lehman graph hashes, which summarize iteratively refined neighborhood structure.
+
+Motif enumeration answers a different question.
+
+A WL graph hash can help determine whether two graphs are plausible structural matches. A motif census counts occurrences of selected local structural configurations. Subgraph isomorphism identifies particular instances of a pattern.
+
+These operations can be composed:
+
+Structural fingerprinting → candidate selection → motif or pattern matching → exact correspondence verification.
+
+However, none of these operations automatically creates a canonical graph identity or semantic graph schema.
+
+Their equivalence guarantees are mathematical and structural, rather than application-level declarations of what two entities or relationships mean.
+
+## 10. Specialized combinatorial algorithms and graph-based classification
+
+### 10.1 Regular subgraphs and k-factors
+
+`k_factor(G, k, matching_weight="weight")` computes a spanning k-regular subgraph of an undirected graph.
+
+A k-factor contains all original vertices but selects a subset of edges so that every vertex has degree exactly \\(k\\).
+
+Formally, if \\(H\\) is a k-factor of \\(G\\),
+
+\\[ V(H)=V(G), \qquad \deg_H(v)=k\quad \forall v\in V(G). \\]
+
+This differs fundamentally from a k-core:
+
+- A k-core is an induced subgraph whose vertices have internal degree at least k.
+- A k-factor is a spanning subgraph with degree exactly k at every vertex.
+
+A k-core may discard vertices. A k-factor cannot.
+
+The implementation uses matching-based construction and accepts a `matching_weight` attribute for the underlying weighted-matching calculation.
+
+NetworkX's implementation applies to undirected simple graphs. It does not provide a general directed or multigraph k-factor solver through this API.
+
+This functionality is useful for exact-degree structural constraints that cannot be satisfied merely by pruning low-degree vertices.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/regular.html`
+
+### 10.2 Graph-based semi-supervised node classification
+
+NetworkX includes two native node-classification algorithms:
+
+- `node_classification.harmonic_function`
+- `node_classification.local_and_global_consistency`
+
+Both use the graph's connectivity and existing node labels to infer labels for unlabeled vertices.
+
+The harmonic-function approach treats known labels as boundary information and propagates labels through graph structure according to harmonic or Gaussian-field principles.
+
+The local-and-global-consistency approach balances graph-local smoothness with the influence of initial label information.
+
+Their APIs differ primarily in their respective algorithms and parameters. For example, `local_and_global_consistency` exposes `alpha`, a clamping parameter that influences how strongly the iteration retains initial label information.
+
+The functions expect labeled vertices to use a configurable node attribute, conventionally `"label"`.
+
+Both return a list of predicted labels of length `len(G)`, rather than a dictionary keyed directly by vertex identifiers.
+
+That output convention matters because the caller must preserve the graph's node iteration order when associating predictions with original entities.
+
+These algorithms can provide graph-based semi-supervised classification without requiring trainable embeddings or a graph neural network. They are not general-purpose feature-learning systems, and their predictions inherit assumptions about the meaningfulness of graph adjacency and the distribution of known labels.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/node_classification.html`
+
+### 10.3 Beam search and heuristic-guided traversal
+
+`bfs_beam_edges` is a specialized traversal method that extends breadth-first search with a ranking function and beam width.
+
+The `value` callback scores candidate neighboring vertices, while `width` limits the number of neighbors retained at each expansion.
+
+This provides a search mechanism when full breadth-first exploration is undesirable and a heuristic can prioritize promising directions.
+
+A small beam width may exclude reachable vertices permanently. Therefore, beam search does not preserve the completeness guarantee of ordinary BFS.
+
+With `width=None`, or a width greater than the graph's maximum degree, the operation becomes equivalent in coverage to a slower form of BFS, potentially with a different traversal order.
+
+The API can replace custom bounded-neighbor traversal machinery, but not a general optimal path-search algorithm.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.traversal.beamsearch.bfs_beam_edges.html`
+
+### 10.4 Selection of influential node groups
+
+NetworkX offers several methods concerned with selecting groups of vertices rather than simply ranking individual vertices.
+
+`prominent_group` searches for a group of size \\(k\\) with high group betweenness centrality.
+
+`voterank` selects influential vertices through a voting-based iterative procedure that reduces the influence of already selected nodes and their neighborhoods.
+
+These address different objectives.
+
+Selecting the k highest-degree vertices may concentrate all selections in one dense region. A group-selection algorithm can account for overlap or collective structural importance instead.
+
+NetworkX also exposes group degree, closeness, and betweenness centralities, allowing the importance of a chosen set to be evaluated directly.
+
+These algorithms are useful for structural node-set selection, but they do not automatically estimate domain-specific diffusion outcomes unless the selected centrality or ranking model is appropriate to that process.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/centrality.html`
+
+### 10.5 Local cohesion and special graph classes
+
+Several less commonly used functions support specialized structural classification:
+
+| Function                    | Capability                                             | Consequential distinction                                                          |
+| --------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `kl_connected_subgraph`     | Finds a maximum locally \\((k,l)\\)-connected subgraph | Uses specialized local connectivity conditions rather than ordinary minimum degree |
+| `is_kl_connected`           | Tests local \\((k,l)\\)-connectivity                   | A different criterion from global k-edge connectivity                              |
+| `is_at_free`                | Tests whether a graph contains no asteroidal triple    | Recognizes an important restricted graph class                                     |
+| `find_asteroidal_triple`    | Finds an asteroidal triple when one exists             | Can provide a concrete structural counterexample                                   |
+| Threshold-graph recognition | Analyzes membership in a restricted graph family       | Exploits structural constraints not shared by arbitrary graphs                     |
+
+An asteroidal triple consists of three pairwise nonadjacent vertices such that, for any one of them, the other two remain connected by a path avoiding its closed neighborhood.
+
+AT-free graphs have useful algorithmic properties, including tractability results for problems that are computationally difficult on arbitrary graphs.
+
+These specialized recognition functions are particularly helpful when an algorithm's applicability depends on the graph belonging to a restricted class.
+
+The broader lesson is that graph-class recognition can sometimes establish stronger algorithmic possibilities than are available for a general graph. It does not mean that NetworkX implements every specialized optimization algorithm for every recognized class.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/hybrid.html`
+
+`https://networkx.org/documentation/stable/reference/algorithms/asteroidal.html`
+
+## 11. NetworkX utilities and algorithm-extension infrastructure
+
+The `networkx.utils` package contains useful data structures and algorithmic helpers that are easy to overlook when considering NetworkX only as a collection of graph algorithms.
+
+### 11.1 Disjoint-set structure: `UnionFind`
+
+`networkx.utils.UnionFind` implements a disjoint-set data structure.
+
+It tracks collections of elements grouped into equivalence classes, with operations for finding the representative of a set and merging sets.
+
+This structure is useful for connectivity algorithms, incremental union of graph components, and Kruskal-style spanning-tree construction.
+
+The main advantage is eliminating a separate implementation of union-find and its path-compression machinery.
+
+However, union-find natively supports merging equivalence classes, not arbitrary splitting or removal. It cannot directly maintain fully dynamic connectivity when arbitrary edges are deleted.
+
+### 11.2 Updatable priority queues: `MappedQueue`
+
+`networkx.utils.mapped_queue.MappedQueue` implements a minimum heap with removal and priority-update operations.
+
+Ordinary Python `heapq` is intentionally minimal. Efficiently changing or removing an existing item often requires additional bookkeeping.
+
+`MappedQueue` supplies that bookkeeping, making it useful for graph algorithms that repeatedly revise candidate priorities.
+
+As with any priority queue, the behavior of the queue depends on the ordering and comparison semantics of the supplied priorities. It is not an automatic concurrency-safe task scheduler.
+
+### 11.3 Cuthill–McKee and sparse matrix ordering
+
+`cuthill_mckee_ordering` and `reverse_cuthill_mckee_ordering` produce graph-vertex orderings intended to reduce sparse-matrix bandwidth.
+
+This is a less obvious interaction between graph algorithms and numerical computing.
+
+A sparse symmetric matrix can be interpreted through the graph of its nonzero pattern. Permuting its rows and columns according to a graph ordering may move nonzero elements closer to the diagonal.
+
+For a permutation matrix \\(P\\), the reordered matrix is
+
+\\[ A'=PAP^\top. \\]
+
+Reducing bandwidth may improve storage or computation for algorithms sensitive to matrix ordering.
+
+However, Cuthill–McKee is not a universal minimum-fill ordering algorithm. Sparse factorization performance depends on the numerical method and matrix structure, and reverse Cuthill–McKee is not guaranteed to minimize fill-in or solve an arbitrary optimal-ordering problem.
+
+NetworkX provides the ordering; an external numerical library performs the relevant matrix operations and factorization.
+
+### 11.4 Graph equality and algorithm decorators
+
+`graphs_equal`, `nodes_equal`, and `edges_equal` support direct comparison of graph objects and structural data.
+
+`graphs_equal` differs from graph isomorphism. It compares graphs according to their actual identifiers, adjacency, and attributes rather than searching for an arbitrary node correspondence.
+
+The utility module also includes decorators and argument helpers, such as:
+
+`not_implemented_for`, `nodes_or_number`, `py_random_state`, `np_random_state`, `open_file`, and `argmap`.
+
+These can simplify custom NetworkX-compatible algorithms by standardizing graph-type restrictions, random-state handling, and common argument transformations.
+
+Some are more closely tied to NetworkX implementation conventions than to a general stable extension protocol. For long-lived external libraries, the stability of individual utility interfaces should be checked against the targeted NetworkX release.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/utils.html`
+
+## 12. Correctness and API semantics: required amendments to the original reference
+
+The following distinctions are particularly important because overlooking them can produce incorrect results even when the code executes successfully.
+
+### 12.1 Backend-conversion cache invalidation
+
+NetworkX caches backend graph conversions by default when compatible dispatch pathways are used.
+
+Converted representations are stored in `G.__networkx_cache__`, reducing repeated conversion work.
+
+However, the cache is not an automatically synchronized representation of every mutation to the original graph.
+
+Direct dictionary mutation such as
+
+```
+G[u][v]["weight"] = 25
+```
+
+does not automatically clear the conversion cache.
+
+Consequently, a later dispatched calculation can potentially operate on a stale converted representation.
+
+NetworkX documents that graph mutation methods such as
+
+```
+G.add_edge(u, v, weight=25)
+```
+
+clear the relevant cache. It also documents explicit clearing:
+
+```
+G.__networkx_cache__.clear()
+```
+
+A further option is to disable caching globally:
+
+```
+nx.config.cache_converted_graphs = False
+```
+
+The last approach trades conversion reuse for avoiding this particular form of stale-cache behavior.
+
+This is especially consequential in graph-processing systems that frequently update edge weights, capacities, or labels through attribute dictionaries.
+
+The semantic requirement is to distinguish a current Python graph from a current backend representation. The backend-conversion cache is an execution optimization, not a transactionally maintained secondary graph.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/configs.html`
+
+### 12.2 Top-level conversion functions versus graph methods
+
+The original reference should explicitly distinguish between `G.to_directed()` and `nx.to_directed(G)`.
+
+They are not equivalent in ownership semantics.
+
+```
+H = G.to_directed()
+```
+
+By default, the graph method creates a directed copy.
+
+By contrast:
+
+```
+H = nx.to_directed(G)
+```
+
+returns a directed view, equivalent to:
+
+```
+H = G.to_directed(as_view=True)
+```
+
+The directed view shares its underlying graph state rather than materializing a fully independent directed representation.
+
+This means changes to the original graph can become visible through the converted view, and the view does not permit independent structural mutation.
+
+When a downstream algorithm mutates the graph or expects independent ownership, a view may be inappropriate.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/generated/networkx.classes.function.to_directed.html`
+
+### 12.3 Relabeling can merge vertices and change edge keys
+
+`relabel_nodes(G, mapping, copy=True)` does not require the mapping to be one-to-one.
+
+For example:
+
+```
+G = nx.Graph()G.add_edges_from([("A", "X"), ("B", "Y")])H = nx.relabel_nodes(    G,    {"A": "C", "B": "C"},)
+```
+
+The resulting graph contains one vertex `"C"` instead of separate `"A"` and `"B"` vertices.
+
+Thus, non-injective relabeling changes graph topology and is not merely a renaming operation.
+
+Attributes from merged nodes require particular care. NetworkX's documented behavior depends on the `copy` argument, and `contracted_nodes` may be more appropriate when explicit contraction semantics are required.
+
+For multigraphs, merging node identifiers can cause separate edges to collide on the same endpoint/key combination. NetworkX retains the edges by assigning new keys when necessary, potentially replacing original nonnumeric keys with generated integer keys.
+
+In-place relabeling (`copy=False`) also requires an order in which existing names can be replaced. Circular mappings may raise an exception.
+
+This makes relabeling unsuitable as a neutral identity-normalization step unless the mapping's injectivity and collision behavior are deliberately understood.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/generated/networkx.relabel.relabel_nodes.html`
+
+### 12.4 Weisfeiler–Lehman hash compatibility and limitations
+
+NetworkX's Weisfeiler–Lehman graph hashing changed in version 3.5.
+
+Two changes matter:
+
+1. Directed graph hashing distinguishes incoming and outgoing neighbor relationships, correcting earlier behavior.
+2. For unlabeled graphs, initialization previously had the effect of an additional refinement iteration; the newer behavior changes the resulting hashes.
+
+For some undirected unlabeled graphs, increasing the iteration count can reproduce an older graph hash. This should not be treated as a general version-compatibility mechanism for every graph and every hashing configuration.
+
+`weisfeiler_lehman_subgraph_hashes` also exposes an `include_initial_labels` option, allowing the initial node-label hash to be included in its per-node output.
+
+The hashing functions are sensitive to selected node and edge labels, iteration count, and digest length.
+
+They also do not directly support ordinary NetworkX multigraphs in the same way as simple graphs.
+
+These details reinforce several boundaries:
+
+- A WL hash is a structural fingerprint, not a guaranteed unique identifier.
+- Hash equality does not prove isomorphism.
+- Hash differences may arise from implementation-version changes.
+- The selected attributes define what semantic information is represented.
+- A persistent fingerprint needs an explicit hash specification and version contract.
+
+The combination of local WL hashes and global graph hashes can nevertheless be useful for structural indexing and candidate matching, provided their limitations are preserved.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation+1
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/graph_hashing.html`
+
+### 12.5 A\* heuristic caching and admissibility
+
+NetworkX's `astar_path` caches the first heuristic evaluation for each vertex.
+
+It does not support subsequently replacing that cached heuristic estimate during the same search.
+
+This matters when a callback derives its estimate from mutable state or depends on the path taken to reach a vertex.
+
+The standard correctness conditions also remain important. An inadmissible heuristic that overestimates remaining cost may cause A\* to return a nonoptimal route.
+
+With `cutoff`, NetworkX prunes a candidate vertex when
+
+\\[ g(n)+h(n)>\text{cutoff}, \\]
+
+where \\(g(n)\\) is the accumulated path cost and \\(h(n)\\) is the estimated remaining cost.
+
+An overestimating heuristic can therefore exclude a path that actually satisfies the cutoff.
+
+The `weight` callback can return `None` to hide an edge, but that mechanism does not change the search algorithm's fundamental assumptions.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.shortest_paths.astar.astar_path.html`
+
+### 12.6 Backend dispatch introspection
+
+NetworkX exposes mechanisms for determining which backend implementations are installed for a dispatchable function.
+
+For example:
+
+```
+nx.betweenness_centrality.backends
+```
+
+returns the set of registered backends implementing that function.
+
+The function's help text can expose backend-specific arguments and documentation.
+
+NetworkX also uses the standard Python logging subsystem. Debug logging can be enabled through:
+
+```
+import logginglogger = logging.getLogger("networkx")logger.addHandler(logging.StreamHandler())logger.setLevel(logging.DEBUG)
+```
+
+This permits observation of backend dispatch decisions and is useful when verifying that a configured backend is actually handling a function call.
+
+However, the upstream documentation explicitly describes some more detailed introspection capabilities as future work, including richer explanations of conversion time and backend-cache memory consumption.
+
+Those diagnostics should not be assumed to be present in NetworkX 3.7.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://networkx.org\&sz=32)
+
+NetworkX 3.7 documentation
+
+
+
+`https://networkx.org/documentation/stable/reference/backends.html`
+
+## 13. Additional architectural implications
+
+The added functionality reveals several interactions that are not obvious when considering individual algorithms in isolation.
+
+### 13.1 Bipartite analysis can avoid unnecessary information-losing projections
+
+A two-mode network can now be analyzed directly through BiRank, butterfly counting, bipartite clustering, specialized centrality, matching, and Barber modularity.
+
+A one-mode projection is still useful when the desired problem is explicitly about induced relationships between entities of one type.
+
+But these native methods establish an important alternative: retaining the original two-population graph while performing substantial ranking and structural analysis.
+
+The principal benefit is fidelity to the original relationship structure, not merely performance.
+
+### 13.2 Graph structure can supply specialized exact optimization methods
+
+The original overview covered network flows and matching. The addendum extends the opportunity to k-factor construction, weighted-tree partitioning, branching optimization, tree enumeration, and matching extendability.
+
+The common architectural insight is that identifying the correct restricted graph problem can expose algorithms stronger or more specialized than a generic search or optimization formulation.
+
+The corresponding limitation is that these algorithms generally depend on restrictive graph assumptions. They are not automatically suitable for problems with additional nonlinear, logical, temporal, or cross-graph constraints.
+
+### 13.3 Graph comparison supports multiple levels of equivalence
+
+NetworkX can now be understood as providing a hierarchy of structural comparison mechanisms:
+
+| Comparison                      | What it establishes                                                     |
+| ------------------------------- | ----------------------------------------------------------------------- |
+| `graphs_equal`                  | Equality under actual node identifiers, graph structure, and attributes |
+| WL graph hash                   | An inexpensive structural fingerprint                                   |
+| Isomorphism                     | Structural equivalence under a valid node mapping                       |
+| Subgraph isomorphism            | Exact induced-pattern containment                                       |
+| Subgraph monomorphism           | Pattern containment while allowing additional host edges                |
+| Largest common induced subgraph | Maximum shared induced structure                                        |
+| Graph edit distance             | Minimum-cost transformation under a selected edit model                 |
+
+These mechanisms differ in computational cost, information returned, and formal guarantees.
+
+The main benefit of recognizing the hierarchy is the ability to express a precise comparison problem before selecting its algorithm. A graph can differ in identifiers, attributes, local motifs, or topology, and those differences should not all be collapsed into a single notion of similarity.
+
+### 13.4 Graph abstraction and execution-state correctness must be treated separately
+
+NetworkX provides live graph views, direct attribute mutation, conversion caches, and backend dispatch.
+
+Together, these create a useful but potentially subtle distinction between:
+
+- The authoritative Python graph.
+- A live graph view.
+- A materialized graph copy.
+- A cached backend conversion.
+- A previously calculated graph-analysis result.
+
+These are not necessarily synchronized representations of the same state.
+
+A live view reflects changes to its source graph. A previously calculated centrality dictionary does not. A cached backend graph may remain stale after direct attribute mutation.
+
+Understanding these lifetime and invalidation differences is essential when composing multiple NetworkX mechanisms into larger systems.
+
+## Addendum conclusion
+
+The additional capabilities materially expand the original NetworkX reference in four areas.
+
+Graph representation and interpretation: reporting views, bipartite-specific analysis, additional directed-graph properties, and advanced tree semantics.
+
+Structural algorithms: cut and expansion metrics, electrical and stochastic graph measures, branching and spanning-tree enumeration, k-factors, local community detection, directed motifs, and graph-based node classification.
+
+Graph comparison and extensibility: largest common induced subgraphs, configurable graph edit paths, algorithmic utility structures, and dispatch introspection.
+
+Correctness-sensitive behavior: backend-conversion cache invalidation, conversion views, non-injective relabeling, version-dependent structural hashing, and A\* heuristic caching.
+
+Taken together with the original overview, these additions provide a more complete account of NetworkX as both a graph-analysis library and a reusable collection of graph abstractions, structural transformations, specialized algorithms, and computation interfaces.
+
+All covered functionality is available in the released NetworkX 3.7 API. Backend support remains dependent on separately installed implementations, and the examples are illustrative rather than results of an executed test or benchmark.

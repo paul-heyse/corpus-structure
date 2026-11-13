@@ -444,6 +444,8 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
         release_id="retained-producer",
         contract_digest="c" * 64,
         native_schema_digest=digest,
+        require_operation=lambda name: SimpleNamespace(implementation="read_pdf_product"),
+        domain=None,
         execution=SimpleNamespace(
             require_operation=lambda name: SimpleNamespace(implementation="read_pdf_product"),
             implementations=(
