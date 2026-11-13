@@ -1450,10 +1450,11 @@ def test_managed_fault_retry_keeps_only_owned_selection(tmp_path: Path) -> None:
     selection = tmp_path / "retry.txt"
     node = "tests/scripts/test_native_auth.py::test_crash_recovery[spaces and $literal]"
     selection.write_text(node + "\n")
-    args = _managed_pytest_args(
+    args, request = _managed_pytest_args(
         [], lane="fault", directory=tmp_path / "fault", selection_file=selection
     )
     assert args == ["-n", "0", "-m", "shared_cluster_fault", node]
+    assert request == {"requested": 0}
     from test_receipts import validate_pytest_args
 
     assert validate_pytest_args(["-k", "recovery and not held"])
@@ -1472,32 +1473,86 @@ def test_managed_fault_retry_keeps_only_owned_selection(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.parametrize("workers, expected", [(None, "auto"), (1, "1"), (3, "3")])
-def test_managed_ordinary_workers_preserve_policy_and_exact_retry(tmp_path, workers, expected):
+@pytest.mark.parametrize(
+    "selectors, workers, requested, cap",
+    [
+        (["tests/test_sample.py::test_a"], None, 0, None),
+        (["tests/test_sample.py::TestCases"], None, 0, None),
+        (["tests/test_sample.py::test_a", "tests/test_sample.py::test_a"], None, 0, None),
+        (
+            [f"tests/test_sample.py::test_{case}" for case in "abc"],
+            None,
+            "auto",
+            3,
+        ),
+        (
+            [f"tests/test_sample.py::test_{case}" for case in "abca"],
+            None,
+            "auto",
+            3,
+        ),
+        (["tests/test_sample.py::test_a", "tests/other.py"], None, "auto", None),
+        (["tests/test_sample.py"], None, "auto", None),
+        (["tests"], None, "auto", None),
+        (["-k", "workers"], None, "auto", None),
+        (["tests/test_sample.py::test_a", "-k", "workers"], None, "auto", None),
+        ([], None, "auto", None),
+        (["-q"], None, "auto", None),
+        (["-q", "tests/test_sample.py::test_a", "-vv"], None, 0, None),
+        (["tests/test_sample.py::test_a"], 1, 1, None),
+        (["tests/test_sample.py::test_a"], 3, 3, None),
+        (["tests/test_sample.py::test_a", "tests/test_sample.py::test_b"], 3, 3, None),
+    ],
+)
+def test_managed_ordinary_workers_follow_selection(tmp_path, selectors, workers, requested, cap):
     from test_receipts import _managed_pytest_args
 
-    node = (
-        "tests/scripts/test_test_receipts.py::"
-        "test_pure_python_success_does_not_require_native_context"
+    command, request = _managed_pytest_args(
+        selectors,
+        lane="ordinary",
+        directory=tmp_path / "ordinary",
+        selection_file=None,
+        workers=workers,
     )
+    assert command == [
+        "-n",
+        str(requested),
+        *(["--maxprocesses", str(cap)] if cap else []),
+        "--dist=loadgroup",
+        "-m",
+        "not shared_cluster_fault",
+        *selectors,
+    ]
+    assert request == {"requested": requested, **({"maxprocesses": cap} if cap else {})}
+
+
+@pytest.mark.parametrize("count", [1, 3])
+@pytest.mark.parametrize("workers", [None, 1, 3])
+def test_managed_ordinary_workers_preserve_exact_retry(tmp_path, count, workers):
+    from test_receipts import _managed_pytest_args
+
+    nodes = [f"tests/test_sample.py::test_{index}[spaces and $literal]" for index in range(count)]
     selection = tmp_path / "ordinary-selection.txt"
-    selection.write_text(node + "\n")
-    for args, selected in [(["-k", "workers"], None), ([], selection)]:
-        command = _managed_pytest_args(
-            args,
-            lane="ordinary",
-            directory=tmp_path / "ordinary",
-            selection_file=selected,
-            workers=workers,
-        )
-        assert command == [
-            "-n",
-            expected,
-            "--dist=loadgroup",
-            "-m",
-            "not shared_cluster_fault",
-            *([node] if selected else args),
-        ]
+    selection.write_text("\n".join(nodes) + "\n")
+    command, request = _managed_pytest_args(
+        [],
+        lane="ordinary",
+        directory=tmp_path / "ordinary",
+        selection_file=selection,
+        workers=workers,
+    )
+    requested = workers if workers is not None else 0 if count == 1 else "auto"
+    capped = workers is None and count > 1
+    assert command == [
+        "-n",
+        str(requested),
+        *(["--maxprocesses", str(count)] if capped else []),
+        "--dist=loadgroup",
+        "-m",
+        "not shared_cluster_fault",
+        *nodes,
+    ]
+    assert request == {"requested": requested, **({"maxprocesses": count} if capped else {})}
 
 
 @pytest.mark.parametrize("workers", ["0", "-1", "1.5", "auto"])

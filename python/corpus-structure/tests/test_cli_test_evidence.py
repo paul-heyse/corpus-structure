@@ -107,19 +107,19 @@ def test_cli_fault_workers_reject_before_operation(cli, tmp_path, monkeypatch, r
 
 @pytest.mark.parametrize("retry", [False, True])
 @pytest.mark.parametrize("workers", [None, 1])
-def test_cli_workers_reach_owned_recipe_and_scope(cli, tmp_path, monkeypatch, retry, workers):
+@pytest.mark.parametrize("selection_count", [1, 3])
+def test_cli_workers_reach_owned_recipe_and_scope(
+    cli, tmp_path, monkeypatch, retry, workers, selection_count
+):
     from corpus_structure.cli import testing
 
     store = ResultStore(tmp_path / "results")
-    node = (
-        "tests/scripts/test_test_receipts.py::"
-        "test_worker_facts_keep_actual_count_separate_from_requested"
-    )
+    nodes = [f"tests/test_sample.py::test_{index}" for index in range(selection_count)]
     original_id = None
     if retry:
         with store.operation("test", scope={"lane": "ordinary"}) as original:
             directory = original.directory / "ordinary"
-            _receipt(directory, [node], fail=True)
+            _receipt(directory, nodes, fail=True)
             original.publish("ordinary", directory)
             original.settle("failed", lanes={"ordinary": "failed"})
             original_id = original.id
@@ -134,20 +134,25 @@ def test_cli_workers_reach_owned_recipe_and_scope(cli, tmp_path, monkeypatch, re
         assert env["CORPUS_CI_PYTHON_ONLY"] == "1"
         if retry:
             selection = Path(env["CORPUS_CI_SELECTION_FILE"])
-            assert selection.read_text() == node + "\n"
+            assert selection.read_text().splitlines() == nodes
         else:
-            assert args == (node,)
+            assert args == tuple(nodes)
         directory = Path(env["CORPUS_CI_RECEIPT_DIR"])
         directory.mkdir()
         (directory / "classification.json").write_text("{}")
-        facts = {"requested": workers or "auto", "actual": 1}
+        facts = {
+            "requested": workers if workers is not None else 0 if selection_count == 1 else "auto",
+            "actual": workers if workers is not None else 0 if selection_count == 1 else 2,
+        }
+        if workers is None and selection_count > 1:
+            facts["maxprocesses"] = selection_count
         calls.append(facts)
         return subprocess.CompletedProcess(
             [],
             0,
             json.dumps(
                 {
-                    "counts": {"selected": 1, "passed": 1},
+                    "counts": {"selected": selection_count, "passed": selection_count},
                     "workers": facts,
                     "custody_unsettled": False,
                     "retryable": False,
@@ -163,11 +168,11 @@ def test_cli_workers_reach_owned_recipe_and_scope(cli, tmp_path, monkeypatch, re
             return {}
         if "--write-unresolved" in args:
             collections.append(args)
-            Path(args[args.index("--write-unresolved") + 1]).write_text(node + "\n")
+            Path(args[args.index("--write-unresolved") + 1]).write_text("\n".join(nodes) + "\n")
         return {
             "custody_unsettled": False,
             "retryable": True,
-            "required_unresolved": [node],
+            "required_unresolved": nodes,
             "contexts": [{"invocation": {}}],
         }
 
@@ -184,7 +189,7 @@ def test_cli_workers_reach_owned_recipe_and_scope(cli, tmp_path, monkeypatch, re
     result = cli.runner.invoke(
         app,
         arguments,
-        obj=CliState(test_args=() if retry else (node,)),
+        obj=CliState(test_args=() if retry else tuple(nodes)),
         env={"CORPUS_CI_RESULTS": str(store.root)},
     )
     assert result.exit_code == 0, result.output

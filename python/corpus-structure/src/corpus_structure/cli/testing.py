@@ -30,7 +30,7 @@ Lane = Literal["ordinary", "fault"]
 Phase = Literal["collection", "setup", "call", "teardown", "unknown"]
 ReportLimit = Annotated[int, typer.Option(min=1, max=100)]
 Workers = Annotated[
-    int | None, typer.Option(min=1, help="Ordinary pytest workers (default: auto).")
+    int | None, typer.Option(min=1, help="Ordinary pytest workers (default: sized to explicit IDs; paths use auto).")
 ]
 _DEFAULT_LIMIT = 20
 _LANES: tuple[Lane, ...] = ("ordinary", "fault")
@@ -596,7 +596,7 @@ def run_tests(
                 "narrowed": narrowed,
                 "workers": {
                     name: {
-                        "requested": (workers or "auto") if name == "ordinary" else 0,
+                        "requested": workers if name == "ordinary" else 0,
                         "actual": None,
                     }
                     for name in required_lanes
@@ -1070,7 +1070,7 @@ def retry(
                         )
                         result.manifest.scope["required_lanes"].append(current)
                         result.manifest.scope["workers"][current] = {
-                            "requested": (workers or "auto") if current == "ordinary" else 0,
+                            "requested": workers if current == "ordinary" else 0,
                             "actual": None,
                         }
                         outcomes[current] = _lane(

@@ -1559,7 +1559,7 @@ def _managed_pytest_args(
     directory: Path,
     selection_file: Path | None,
     workers: int | None = None,
-) -> list[str]:
+) -> tuple[list[str], dict[str, Any]]:
     if workers is not None and (type(workers) is not int or workers <= 0):
         raise ValueError("workers must be a positive integer")
     if lane == "fault" and workers is not None:
@@ -1582,15 +1582,27 @@ def _managed_pytest_args(
         has_selector = True
     if lane == "fault":
         selectors = [] if has_selector else ["tests/scripts/test_native_auth.py"]
-        return ["-n", "0", "-m", "shared_cluster_fault", *selectors, *args]
+        return ["-n", "0", "-m", "shared_cluster_fault", *selectors, *args], {"requested": 0}
+    request: dict[str, Any] = {"requested": workers if workers is not None else "auto"}
+    capacity = []
+    if workers is None:
+        selectors = [arg for arg in args if _forwardable_selector(arg)]
+        if "-k" not in args and selectors and all("::" in arg for arg in selectors):
+            count = len(set(selectors))
+            if count == 1:
+                request["requested"] = 0
+            else:
+                request["maxprocesses"] = count
+                capacity = ["--maxprocesses", str(count)]
     return [
         "-n",
-        str(workers) if workers is not None else "auto",
+        str(request["requested"]),
+        *capacity,
         "--dist=loadgroup",
         "-m",
         "not shared_cluster_fault",
         *args,
-    ]
+    ], request
 
 
 def _after_separator(args: list[str]) -> list[str]:
@@ -1671,6 +1683,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         directory = args.out_dir.resolve()
         pytest_args = _after_separator(args.pytest_args)
+        worker_request: dict[str, Any] = {"requested": None}
         try:
             if args.managed_lane:
                 if (
@@ -1682,7 +1695,7 @@ def main(argv: list[str] | None = None) -> int:
                     raise ValueError(
                         "managed receipt directory must be a lane in its result workspace"
                     )
-                pytest_args = _managed_pytest_args(
+                pytest_args, worker_request = _managed_pytest_args(
                     pytest_args,
                     lane=args.managed_lane,
                     directory=directory,
@@ -1710,11 +1723,7 @@ def main(argv: list[str] | None = None) -> int:
                     "python_only": args.python_only,
                     "managed_lane": args.managed_lane,
                     "workers": {
-                        "requested": (args.workers or "auto")
-                        if args.managed_lane == "ordinary"
-                        else 0
-                        if args.managed_lane == "fault"
-                        else None,
+                        **worker_request,
                         "actual": None,
                     },
                 },

@@ -61,6 +61,7 @@ addopts = [
     "--strict-config",
     "-q",
     "--import-mode=importlib",
+    # The managed route sizes explicit IDs; plain pytest retains auto.
     "-n", "auto",
     "--dist=loadgroup",
     # A fatal worker ends its attempt; receipts retain unresolved cases for explicit recovery.

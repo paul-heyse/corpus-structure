@@ -13,8 +13,12 @@ uv run ci test --json
 ```
 
 Put `ci` options before `--` and pytest selectors after it. Quote a selector that contains
-shell metacharacters or spaces. The ordinary managed pytest lane supplies xdist auto
-parallelism and repository collection policy. A path or `-k` narrows to ordinary pytest.
+shell metacharacters or spaces. The ordinary managed pytest lane runs one explicit test id
+serially and caps several distinct explicit ids at that many xdist workers. Paths, `-k`
+selections and the full campaign use xdist auto parallelism; `--workers N` overrides sizing.
+An id naming a class or a parametrized function without a parameter follows the same rule,
+even when it selects several items. The lane retains repository collection policy.
+A path or `-k` narrows to ordinary pytest.
 The default campaign runs the applicable ordinary and exclusive fault lanes. Use
 `ci test --lane fault` only for the owned fault selection. This lane is serial and owns its
 selection. Coordinate it with other work using the shared cluster.
