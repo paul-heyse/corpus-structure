@@ -6,6 +6,7 @@ routing. All referenced assets, Python modules and LinkML imports must be suppli
 
 from __future__ import annotations
 
+import ast
 import json
 from dataclasses import asdict, fields, replace
 from typing import Any, Never, cast
@@ -112,6 +113,7 @@ _METADATA_FIELDS = {
     "abstract",
     "replicate_policy",
     "support_policy",
+    "result_fields",
 }
 
 
@@ -1063,6 +1065,15 @@ def compile_data_operations(
             _fail(semantic_id, "semantic operation identity collides with another owned fact")
         if not roles:
             _fail(semantic_id, "operation requires named input/output roles")
+        result_fields = _mapping(raw.get("result_fields", {}), semantic_id)
+        if result_fields:
+            output_names = {role.name for role in roles if role.direction == "output"}
+            if set(result_fields) != output_names:
+                _fail(semantic_id, "result fields must map every declared output role exactly")
+            for field in result_fields.values():
+                _text(field, semantic_id)
+            if len(set(result_fields.values())) != len(result_fields):
+                _fail(semantic_id, "result fields must identify distinct returned fields")
 
         def annotation_kind(annotation, role, owner=semantic_id):
             text = annotation or ""
@@ -1119,7 +1130,24 @@ def compile_data_operations(
                 if role.parameter is not None and role.direction == "input":
                     annotation_kind(by_parameter[role.parameter].annotation, role)
             outputs = [role for role in roles if role.direction == "output"]
-            if len(outputs) == 1:
+            if result_fields:
+                try:
+                    annotation = ast.parse(surface.returns, mode="eval").body
+                except SyntaxError:
+                    _fail(surface.exposed, "result correspondence requires a typed mapping return")
+                if not (
+                    isinstance(annotation, ast.Subscript)
+                    and isinstance(annotation.value, ast.Name)
+                    and annotation.value.id == "dict"
+                    and isinstance(annotation.slice, ast.Tuple)
+                    and len(annotation.slice.elts) == 2
+                    and isinstance(annotation.slice.elts[0], ast.Name)
+                    and annotation.slice.elts[0].id == "str"
+                ):
+                    _fail(surface.exposed, "result correspondence requires dict[str, T] return")
+                for role in outputs:
+                    annotation_kind(ast.unparse(annotation.slice.elts[1]), role)
+            elif len(outputs) == 1:
                 annotation_kind(surface.returns, outputs[0])
         dimensions = []
         for record in raw.get("state_dimensions", []):
@@ -1238,6 +1266,7 @@ def compile_data_operations(
             _text(raw.get("replicate_policy", "deterministic-single-result"), semantic_id),
             _text(raw.get("support_policy", "all-declared-input-support"), semantic_id),
             _strings(raw.get("potential_dependencies", []), semantic_id),
+            tuple(sorted(result_fields.items())),
         )
         operations.append(operation)
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)

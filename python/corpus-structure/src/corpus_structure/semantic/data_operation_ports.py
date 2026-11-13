@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from types import CodeType, ModuleType
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
@@ -243,9 +243,20 @@ class ResolvedPythonPort:
             _untrusted_value(result), strict=True
         )
         outputs = [role for role in self.operation.roles if role.direction == "output"]
-        # There is deliberately no guessed tuple/attribute/outcome interpreter.
-        # A multi-output or effectful implementation needs its own admitted
-        # completion correspondence, not an accidental Python return convention.
+        if self.operation.result_fields:
+            correspondence = dict(self.operation.result_fields)
+            if not isinstance(checked, dict) or set(checked) != set(correspondence.values()):
+                raise PortRefusal("returned fields differ from declared atomic output bundle")
+            # The whole return annotation has already validated every field.
+            # Encode privately; no partial PortCompletion escapes if encoding fails.
+            value_type = get_args(self.signature.return_annotation)[1]
+            adapter = TypeAdapter(value_type)
+            encoded_outputs = tuple(
+                RoleValue(role.name, contracts[role.kind], adapter.dump_json(checked[correspondence[role.name]]))
+                for role in outputs
+            )
+            return PortCompletion(self.operation.semantic_id, encoded_outputs)
+        # Multiple outputs require explicit correspondence, never tuple guessing.
         if len(outputs) != 1 or outputs[0].collection != "scalar":
             raise PortRefusal("direct function result requires one declared scalar output")
         output = outputs[0]
@@ -344,7 +355,8 @@ def resolve_python_port(
             "the declared effects/form/preparation/cancellation need "
             "an explicit admitted implementation capability"
         )
-    if len([r for r in selected.roles if r.direction == "output"]) != 1:
+    outputs = [r for r in selected.roles if r.direction == "output"]
+    if len(outputs) != 1 and not selected.result_fields:
         raise PortRefusal(
             "multi-output completion requires an explicit admitted result correspondence"
         )
@@ -372,6 +384,15 @@ def resolve_python_port(
     if hasattr(function, "__signature__") or hasattr(function, "__wrapped__"):
         raise PortRefusal("runtime signature override needs an admitted callable transformation")
     signature = inspect.signature(function, eval_str=True)
+    if selected.result_fields:
+        return_args = get_args(signature.return_annotation)
+        if (
+            get_origin(signature.return_annotation) is not dict
+            or len(return_args) != 2 or return_args[0] is not str
+            or {name for name, _ in selected.result_fields} != {role.name for role in outputs}
+            or any(role.collection != "scalar" or role.presence != "required" for role in outputs)
+        ):
+            raise PortRefusal("atomic result fields require required scalar roles and dict[str, T]")
     if (
         any(
             p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
