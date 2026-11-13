@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import copy
 import json
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
@@ -64,7 +66,7 @@ def test_actual_direct_function_uses_exact_roles_and_original_callable():
 
 
 def test_original_defaults_positional_only_and_keyword_only_are_authoritative(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["roles"].insert(1, {
         "name": "prefix", "parameter": "prefix", "kind": "string", "direction": "input",
         "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
@@ -85,7 +87,7 @@ def test_invalid_original_default_refuses_even_when_call_could_override_it(tmp_p
 
 
 def test_strict_json_and_python_collection_routes_are_deliberately_different(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["roles"][0].update(collection="sequence", minimum=1, maximum=None)
     model, inputs = fixture_source(tmp_path, monkeypatch, "index: tuple[int, ...]", metadata=metadata)
     port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
@@ -123,7 +125,7 @@ def test_changed_source_or_runtime_function_cannot_keep_an_admitted_port(tmp_pat
 
 
 def test_effects_and_multioutput_need_actual_completion_capability(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["roles"].append({**metadata["roles"][-1], "name": "second-address"})
     metadata["profile"] = "command"
     metadata["effects"] = [{"name": "publish", "authorization": ["native-publication"], "idempotency": "one-bundle", "fulfillment": "native-receipt"}]
@@ -149,7 +151,7 @@ def test_wire_defaults_extra_fields_model_construct_and_nested_ownership():
     with pytest.raises(ValidationError):
         Input.model_validate_json('{"payload":{"items":[1]},"extra":2}', strict=True)
     class InvalidDefault(DataOperationWireValue):
-        count: int = "bad"  # type: ignore[assignment]
+        count: int = cast(Any, "bad")
     with pytest.raises(ValidationError):
         InvalidDefault()
 
@@ -174,3 +176,71 @@ def test_actual_score_and_authored_family_unknown_recipes_do_not_gain_execution(
     for operation in model.operations:
         with pytest.raises(PortRefusal):
             resolve_python_port(model, sources, operation.semantic_id, authorize=lambda _: pytest.fail("incomplete extraction cannot reach acquired execution authority"))
+
+
+@pytest.mark.parametrize("root_import", ["from {package}.api import public as renamed", "import {package}.api as api"])
+def test_import_and_reexport_rebinding_refuses_before_original_callable_body(tmp_path, monkeypatch, root_import):
+    package = "ddo_alias_" + tmp_path.name.replace("-", "_")
+    package_path = tmp_path / package
+    package_path.mkdir()
+    (package_path / "__init__.py").write_text("")
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    reference = "renamed" if root_import.startswith("from ") else "api.public"
+    sources = {
+        package: (package_path / "__init__.py", ""),
+        package + ".impl": (package_path / "impl.py", "def helper(index: int) -> str:\n    return str(index)\n"),
+        package + ".api": (package_path / "api.py", "from .impl import helper as public\n"),
+        package + ".application": (package_path / "application.py", root_import.format(package=package) + f"\ndef derive(index: int = 2) -> str:\n    return {reference}(index)\nderive__data_operation__ = {metadata!r}\n"),
+    }
+    for path, content in sources.values():
+        path.write_text(content)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    collection = PythonSourceCollection(tuple(PythonSource(name, content.encode(), str(path)) for name, (path, content) in sources.items()))
+    model = compile_data_operations(python_sources=collection)
+    import importlib
+    check: Callable[[], object]
+    if any(item.required for item in model.implementation_slices[0].unknowns):
+        # The current static frontend withholds a module-object recipe. Preserve
+        # that refusal and independently challenge the runtime guard on those
+        # captured facts; this never fabricates execution admission.
+        with pytest.raises(PortRefusal, match="correspondence is unavailable"):
+            resolve_python_port(model, collection, model.operations[0].semantic_id, authorize=lambda _: pytest.fail("incomplete module cannot be admitted"))
+        from corpus_structure.semantic.data_operation_ports import _verify_runtime_sources
+        modules = {source.module: importlib.import_module(source.module) for source in collection.sources}
+        check = lambda: _verify_runtime_sources(model, model.operations[0], collection, modules)
+        check()
+    else:
+        port = resolve_python_port(model, collection, model.operations[0].semantic_id, authorize=lambda _: None)
+        assert port.invoke_python(()).outputs[0].value() == "2"
+        check = lambda: port.invoke_python(())
+    application = importlib.import_module(package + ".application")
+    api = importlib.import_module(package + ".api")
+    called = []
+    def malicious(index: int) -> str:
+        called.append(index)
+        return "different"
+    if reference == "renamed":
+        monkeypatch.setattr(application, "renamed", malicious)
+    else:
+        monkeypatch.setattr(api, "public", malicious)
+    with pytest.raises(PortRefusal, match="rebound"):
+        check()
+    assert called == []
+
+
+def test_local_function_alias_rebinding_is_checked_transitively(tmp_path, monkeypatch):
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    name = "ddo_local_alias_" + tmp_path.name.replace("-", "_")
+    text = "def helper(index: int) -> str:\n    return str(index)\nrenamed = helper\ndef derive(index: int = 2) -> str:\n    return renamed(index)\n" + f"derive__data_operation__ = {metadata!r}\n"
+    path = tmp_path / (name + ".py")
+    path.write_text(text)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    sources = PythonSourceCollection((PythonSource(name, text.encode(), str(path)),))
+    model = compile_data_operations(python_sources=sources)
+    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    assert port.invoke_python(()).outputs[0].value() == "2"
+    import importlib
+    module = importlib.import_module(name)
+    monkeypatch.setattr(module, "renamed", lambda index: "wrong")
+    with pytest.raises(PortRefusal, match="rebound"):
+        port.invoke_python(())
