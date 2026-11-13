@@ -24,6 +24,7 @@ from corpus_structure.core.vocab import TaskUnitType
 from .archive_reader import reconstruct_release
 from .archive_wire import encode_products
 from .characterization import LayerReport, validate_layer
+from .cpu_receipts import CPUExecutionReceipt
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 from .source_views import PreparedSourceView
@@ -50,11 +51,42 @@ class OwnedByteBudget:
                 raise CapacityExceeded("complete regional/CPU state exceeds owned byte capacity")
             self.used_bytes += size
 
+    def admit(self, size: int) -> OwnedByteReservation:
+        """One charged reservation, shareable until every physical owner retires."""
+        return OwnedByteReservation(self, size)
+
     def release(self, size: int) -> None:
         with self._lock:
             if type(size) is not int or not 0 <= size <= self.used_bytes:
                 raise ValueError("owned byte release differs from retained capacity")
             self.used_bytes -= size
+
+
+class OwnedByteReservation:
+    """A lease on one existing budget charge; sharing never reserves twice."""
+
+    def __init__(self, budget: OwnedByteBudget, size: int, *, state=None):
+        self.budget, self.size = budget, size
+        if state is None:
+            budget.reserve(size)
+        self._state = state or {"leases": 1, "lock": threading.Lock()}
+        self._released = False
+
+    def share(self) -> OwnedByteReservation:
+        with self._state["lock"]:
+            if self._released:
+                raise RuntimeError("owned byte reservation has retired")
+            self._state["leases"] += 1
+            return OwnedByteReservation(self.budget, self.size, state=self._state)
+
+    def release(self) -> None:
+        with self._state["lock"]:
+            if self._released:
+                return
+            self._released = True
+            self._state["leases"] -= 1
+            if self._state["leases"] == 0:
+                self.budget.release(self.size)
 
 
 def release_capsule(prepared: PreparedRelease) -> bytes:
@@ -155,6 +187,13 @@ class CPUReply:
     native_thread_limit: int | None = None
     native_pools: tuple[dict[str, Any], ...] = ()
 
+    @property
+    def execution_receipt(self) -> CPUExecutionReceipt:
+        return CPUExecutionReceipt(
+            self.request_digest, self.pid, self.main_thread, self.native_thread_limit,
+            canonical_bytes(self.native_pools),
+        )
+
 
 class _KernelReader:
     """Finite, owned kernel values; deliberately no database/Reader delegation."""
@@ -222,7 +261,7 @@ def _apply_native_thread_limits() -> None:
         raise RuntimeError("CPU native runtime did not apply the selected thread bound")
 
 
-def _initialize(capsule: bytes, stop, cancellation=None, native_threads: int = 1) -> None:
+def _initialize(capsule: bytes | None, stop, cancellation=None, native_threads: int = 1) -> None:
     import os
 
     global _WORKER_STOP, _WORKER_CANCELLATION, _WORKER_NATIVE_THREADS
@@ -235,10 +274,11 @@ def _initialize(capsule: bytes, stop, cancellation=None, native_threads: int = 1
     ):
         os.environ[variable] = str(native_threads)
     _apply_native_thread_limits()
-    prepared = hydrate_capsule(capsule)
-    _apply_native_thread_limits()
     _WORKER_RELEASES.clear()
-    _WORKER_RELEASES[prepared.release_id] = prepared
+    if capsule is not None:
+        prepared = hydrate_capsule(capsule)
+        _WORKER_RELEASES[prepared.release_id] = prepared
+    _apply_native_thread_limits()
     _WORKER_STOP = stop
     _WORKER_CANCELLATION = cancellation
 
@@ -312,12 +352,37 @@ def _compute(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) 
     )
 
 
+def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
+    """Private prepared target work, never a fabricated legacy task or Reader."""
+    import os
+
+    from .formal_products import FormalEvidenceOptions, formal_product_values, formal_profile_assets
+    from .formal_evidence import grammar_identity
+    from .source_products import FrozenNativeSource
+
+    packet = json.loads(content)
+    if packet["profile"] != "formal-source-native" or packet["assets"] != formal_profile_assets().digest or packet["grammar"] != grammar_identity():
+        raise ValueError("CPU formal packet differs from captured implementation/grammar assets")
+    # This is private owned transport from an acquired parent, not external ingress.
+    # Schema/source/model admission and full typed result validation stay there.
+    source = FrozenNativeSource(packet["source"].encode())
+    options = FormalEvidenceOptions.model_validate_json(packet["options"])
+    _apply_native_thread_limits()
+    content_value = formal_product_values(source, options, packet["member_contracts"], check_active=_worker_active)
+    result = canonical_bytes(content_value)
+    if len(result) > max_reply_bytes:
+        raise CapacityExceeded("CPU formal result exceeds admitted reply byte capacity")
+    _worker_active()
+    return CPUReply(sha256(content).hexdigest(), result, os.getpid(), threading.current_thread() is threading.main_thread(), native_thread_limit=_WORKER_NATIVE_THREADS, native_pools=_WORKER_NATIVE_POOLS)
+
+
 def _dispatch(
     content: bytes,
     capsules: tuple[bytes, ...],
     max_reply_bytes: int,
     slot: int = -1,
     generation: int = 0,
+    profile: Literal["legacy", "formal-source-native"] = "legacy",
 ) -> CPUReply:
     import os
 
@@ -325,6 +390,10 @@ def _dispatch(
     _WORKER_REQUEST = None if slot < 0 else (slot, generation)
     try:
         _worker_active()
+        if profile == "formal-source-native":
+            return _compute_formal(content, max_reply_bytes)
+        if profile != "legacy":
+            raise ValueError("CPU dispatch has no admitted source-native profile")
         return _compute(content, capsules, max_reply_bytes)
     except Exception as error:
         return CPUReply(
@@ -334,6 +403,8 @@ def _dispatch(
             True,
             type(error).__name__,
             str(error)[:2048],
+            native_thread_limit=_WORKER_NATIVE_THREADS,
+            native_pools=_WORKER_NATIVE_POOLS,
         )
 
 
@@ -346,6 +417,7 @@ class _InputAdmission:
     active: bool = True
     retired: bool = False
     submitted: bool = False
+    reservation: OwnedByteReservation | None = None
 
 
 class CPUHandle:
@@ -582,11 +654,13 @@ def _report_cleanup_failure(error: BaseException) -> None:
 
 class CPUExecutionScope:
     def __init__(
-        self, prepared: PreparedRelease, policy: CharacterizationExecutionPolicy | None = None
+        self, prepared: PreparedRelease, policy: CharacterizationExecutionPolicy | None = None,
+        *, budget: OwnedByteBudget | None = None, retain_schema: bool = True,
     ):
         self.prepared = prepared
+        self.retain_schema = retain_schema
         self.policy = policy or CharacterizationExecutionPolicy()
-        self.budget = OwnedByteBudget(self.policy.max_owned_bytes)
+        self.budget = budget or OwnedByteBudget(self.policy.max_owned_bytes)
         self._pool: ProcessPoolExecutor | None = None
         self._pool_ownership: _PoolOwnership | None = None
         self._submissions: set[threading.Event] = set()
@@ -610,9 +684,9 @@ class CPUExecutionScope:
             if self._closed:
                 raise RuntimeError("CPU invocation is closed")
             if self._pool is None:
-                capsule = release_capsule(self.prepared)
-                self.budget.reserve(len(capsule))
-                self._capsule_bytes = len(capsule)
+                capsule = release_capsule(self.prepared) if self.retain_schema else None
+                self._capsule_bytes = 0 if capsule is None else len(capsule)
+                self.budget.reserve(self._capsule_bytes)
                 self._pool = ProcessPoolExecutor(
                     max_workers=self.policy.workers,
                     mp_context=self._context,
@@ -627,7 +701,11 @@ class CPUExecutionScope:
                 self._pool_ownership = _PoolOwnership.capture(self._pool)
             return self._pool
 
-    def try_admit(self, check_active: Callable[[], None] = lambda: None) -> _InputAdmission | None:
+    def prepare(self) -> None:
+        """Retain the one schema capsule before request credits consume capacity."""
+        self._executor()
+
+    def try_admit(self, check_active: Callable[[], None] = lambda: None, *, reservation: OwnedByteReservation | None = None) -> _InputAdmission | None:
         check_active()
         for handle in tuple(self._handles):
             if handle._cancelled:
@@ -643,13 +721,22 @@ class CPUExecutionScope:
                 raise CapacityExceeded(
                     "CPU policy cannot hold preparation and one complete request"
                 )
-            try:
-                self.budget.reserve(size)
-            except CapacityExceeded:
-                return None
+            shared = None
+            if reservation is None:
+                try:
+                    self.budget.reserve(size)
+                except CapacityExceeded:
+                    return None
+            else:
+                if reservation.budget is not self.budget or reservation.size < size:
+                    raise ValueError("CPU request requires its existing complete shared byte credit")
+                shared = reservation.share()
             lock = self._cancellation.get_lock()
             if not lock.acquire(timeout=0.1):
-                self.budget.release(size)
+                if shared is None:
+                    self.budget.release(size)
+                else:
+                    shared.release()
                 raise RuntimeError("CPU cancellation state did not become available")
             try:
                 slot = self._free.pop(0)
@@ -659,7 +746,7 @@ class CPUExecutionScope:
                 flags[slot * 2 + 1] = 0
             finally:
                 lock.release()
-            permit = _InputAdmission(self, slot, generation, size)
+            permit = _InputAdmission(self, slot, generation, size, reservation=shared)
             self._admissions[id(permit)] = permit
             return permit
 
@@ -667,8 +754,9 @@ class CPUExecutionScope:
         with self._lock:
             if not permit.active or (self._closed and not self._physical_retired):
                 return
-            self.budget.release(permit.reserved - retained)
-            permit.reserved = retained
+            if permit.reservation is None:
+                self.budget.release(permit.reserved - retained)
+                permit.reserved = retained
             permit.active = False
             self._free.append(permit.slot)
 
@@ -683,7 +771,10 @@ class CPUExecutionScope:
             if permit.active:
                 permit.active = False
                 self._free.append(permit.slot)
-            self.budget.release(permit.reserved)
+            if permit.reservation is None:
+                self.budget.release(permit.reserved)
+            else:
+                permit.reservation.release()
             permit.reserved = 0
             permit.retired = True
             self._admissions.pop(id(permit), None)
@@ -695,9 +786,18 @@ class CPUExecutionScope:
         releases: Mapping[str, PreparedRelease],
         check_active: Callable[[], None] = lambda: None,
     ) -> CPUHandle:
+        return self._submit(admission, content, releases, check_active, "legacy")
+
+    def submit_formal(self, admission, content: bytes, check_active: Callable[[], None] = lambda: None) -> CPUHandle:
+        return self._submit(admission, content, {}, check_active, "formal-source-native")
+
+    def _submit(self, admission, content, releases, check_active, profile) -> CPUHandle:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
             raise ValueError("CPU input admission is not active for this invocation")
+        if profile == "legacy" and not self.retain_schema:
+            self.release_admission(admission)
+            raise ValueError("schema-free CPU scope refuses legacy schema-dependent work")
         capsules = tuple(
             release_capsule(value)
             for key, value in releases.items()
@@ -725,6 +825,7 @@ class CPUExecutionScope:
                 self.policy.max_reply_bytes,
                 admission.slot,
                 admission.generation,
+                *((profile,) if profile != "legacy" else ()),
             )
             with self._lock:
                 handle = CPUHandle(

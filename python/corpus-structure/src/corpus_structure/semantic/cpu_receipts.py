@@ -5,15 +5,17 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from .identity import canonical_bytes
 
 
 @dataclass(frozen=True)
 class CPUExecutionReceipt:
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
     request_digest: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
     pid: Annotated[int, Field(strict=True, ge=1)]
     main_thread: Annotated[bool, Field(strict=True)]

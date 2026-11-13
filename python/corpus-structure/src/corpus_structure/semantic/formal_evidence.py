@@ -7,6 +7,7 @@ character map to the original PDF. Normalized syntax and domain validity are sep
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from decimal import Decimal
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import lark
 from lark import Token, Tree, UnexpectedInput
@@ -414,10 +415,34 @@ def _native_bounds(node: Token | Tree) -> tuple[int, int] | None:
     return (start, end) if type(start) is int and type(end) is int else None
 
 
+class FormalSource(Protocol):
+    """The recognizer consumes selected immutable source facts, never a reader."""
+
+    @property
+    def text(self) -> str: ...
+    @property
+    def pieces(self) -> tuple[dict[str, Any], ...]: ...
+    @property
+    def items(self) -> tuple[dict[str, Any], ...]: ...
+    @property
+    def health(self) -> dict[str, Any]: ...
+
+
+@dataclass(frozen=True)
+class FormalIdentity:
+    """Explicit identity policy at extraction, distinct from execution custody."""
+
+    source: bytes
+    projection: str
+    view: str | int
+    semantic: bool = False
+
+
 class _LayerBuilder:
-    def __init__(self, view: PreparedSourceView, operation: Mapping[str, Any]):
+    def __init__(self, view: FormalSource, operation: Mapping[str, Any], identity: FormalIdentity):
         self.view = view
-        self.operation = dict(operation)
+        self.identity = identity
+        self.operation = {} if identity.semantic else dict(operation)
         self.occurrences: dict[str, dict[str, Any]] = {}
         self.annotations: list[dict[str, Any]] = []
         self.memberships: list[dict[str, Any]] = []
@@ -433,19 +458,19 @@ class _LayerBuilder:
             if start != 0 or end != 0 or piece["item_ref"] not in self.items:
                 raise ValueError("formal native atom has no projected character interval")
             extent = dict(
-                projection=self.view.ref.projection_digest,
-                source_view_id=self.view.ref.id,
+                projection=self.identity.projection,
+                **({} if self.identity.semantic else {"source_view_id": self.identity.view}),
                 native_pointer=piece["item_ref"],
                 synthetic=False,
             )
-            local_id = occurrence_id(self.view.ref.native_product, [extent])
+            local_id = occurrence_id(json.loads(self.identity.source), [extent])
             self.occurrences[local_id] = {"local_id": local_id, "extents": [extent]}
             return local_id
         if not piece["start"] <= start < end <= piece["end"]:
             raise ValueError("formal source extent exceeds its exact native piece")
         extent = dict(
-            projection=self.view.ref.projection_digest,
-            source_view_id=self.view.ref.id,
+            projection=self.identity.projection,
+            **({} if self.identity.semantic else {"source_view_id": self.identity.view}),
             native_pointer=piece["item_ref"],
             start=start,
             end=end,
@@ -458,7 +483,7 @@ class _LayerBuilder:
         pages.discard(None)
         if len(pages) == 1:
             extent["page"] = next(iter(pages))
-        local_id = occurrence_id(self.view.ref.native_product, [extent])
+        local_id = occurrence_id(json.loads(self.identity.source), [extent])
         self.occurrences[local_id] = {"local_id": local_id, "extents": [extent]}
         return local_id
 
@@ -473,7 +498,9 @@ class _LayerBuilder:
                 vocabulary="formal-source-fields-1",
                 native_scheme=scheme,
                 native_label=value,
-                rule_id=_identity("source-field-policy", kind, grammar_identity()),
+                rule_id=_identity("source-field-policy", kind)
+                if self.identity.semantic
+                else _identity("source-field-policy", kind, grammar_identity()),
                 occurrences=[occurrence],
                 status="native_evidence",
             )
@@ -501,6 +528,12 @@ class _LayerBuilder:
         macros=None,
     ) -> str:
         parent = self.occurrence(piece, start, end)
+        if self.identity.semantic:
+            grammar = (
+                "formal-math" if family == "formal.math"
+                else "formal-lexical" if family == "formal.lexical"
+                else "formal-field"
+            )
         identity = _identity(
             "input",
             self.operation,
@@ -583,8 +616,8 @@ class _LayerBuilder:
                 region=_identity(
                     "region",
                     self.operation,
-                    self.view.ref.id,
-                    self.view.ref.projection_digest,
+                    self.identity.view,
+                    self.identity.projection,
                     piece["item_ref"],
                     start,
                     end,
@@ -951,71 +984,28 @@ class _LayerBuilder:
             )
 
 
-def build_formal_layer(
-    view: PreparedSourceView,
-    prepared: PreparedRelease,
-    operation: Mapping[str, Any],
+def extract_formal_facts(
+    builder: _LayerBuilder,
+    selected: Sequence[Mapping[str, Any]],
     *,
-    math_start: math_grammar.Kind = "any_value",
-    parse_seconds: float = math_grammar.PARSE_SECONDS,
-    max_forest_nodes: int = 20000,
-    check_active: Callable[[], None] = lambda: None,
-    source_scope: Mapping[str, Any] | None = None,
-    max_inline_chars: int = 2048,
-    macros: Mapping[str, MacroDef] | None = None,
-) -> LayerReport:
-    """Recognize privately, then validate one detached publishable source-bound layer.
-
-    ``operation`` comes from the execution owner's immutable task determinants. This
-    function never invents runtime/model/input identity and performs no native algebra.
-    """
-    required = {
-        "key",
-        "version",
-        "runtime",
-        "configuration",
-        "input",
-        "model",
-        "grammar",
-        "context",
-    }
-    if not required <= operation.keys() or any(not operation[key] for key in required):
-        raise ValueError("formal producer requires authoritative operation determinants")
-    if math_start not in math_grammar.STARTS or parse_seconds <= 0 or max_forest_nodes < 1:
-        raise ValueError("invalid formal parser request")
-    builder = _LayerBuilder(view, operation)
-    builder.macros = dict(macros or {})
-    selected: list[dict[str, Any]]
-    if source_scope is not None:
-        expected = dict(
-            source_view_id=view.ref.id,
-            key=view.ref.key,
-            base_document=view.ref.native_product.values(),
-            section_pointer=view.ref.section_pointer,
-            membership=view.ref.membership,
-            projection_digest=view.ref.projection_digest,
-            recipe_digest=view.ref.recipe_digest,
-        )
-        if source_scope["source_view_ids"] != [view.ref.id] or source_scope["source_views"] != [
-            expected
-        ]:
-            raise ValueError(
-                "formal source selection differs from the actual immutable source view"
-            )
-        selected = list(source_scope["selectors"])
-        if any(selector["projection"] != view.ref.projection_digest for selector in selected):
-            raise ValueError("formal selected source has a different projection")
-    else:
-        selected = [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))]
+    math_start: math_grammar.Kind,
+    parse_seconds: float,
+    max_forest_nodes: int,
+    max_inline_chars: int,
+    check_active: Callable[[], None],
+) -> list[dict[str, Any]]:
+    """One actual nomination/parser/reducer implementation shared by both projections."""
+    view = builder.view
     native_pieces = [piece for piece in view.pieces if piece["kind"] == "native_text"]
     for selector in selected:
         a, b = selector.get("start", 0), selector.get("end", len(view.text))
         if not 0 <= a <= b <= len(view.text):
             raise ValueError("formal selected source bounds exceed the actual projection")
-        if selector.get("native_pointer") and not any(
-            piece["item_ref"] == selector["native_pointer"] for piece in native_pieces
+        if selector.get("native_pointer") and not (
+            any(piece["item_ref"] == selector["native_pointer"] for piece in native_pieces)
+            or builder.items.get(selector["native_pointer"], {}).get("label") == "formula"
         ):
-            raise ValueError("formal selector does not name a selected native text piece")
+            raise ValueError("formal selector does not name a selected native source atom")
 
     def matches(piece, selector):
         if selector.get("native_pointer") and selector["native_pointer"] != piece.get("item_ref"):
@@ -1067,7 +1057,7 @@ def build_formal_layer(
         text = view.text[start:end]
         selectors.append(
             dict(
-                projection=view.ref.projection_digest,
+                projection=builder.identity.projection,
                 native_pointer=piece["item_ref"],
                 start=start,
                 end=end,
@@ -1375,7 +1365,73 @@ def build_formal_layer(
                 check_active=check_active,
             )
     if not selectors:
-        selectors = [dict(projection=view.ref.projection_digest, start=0, end=0)]
+        selectors = [dict(projection=builder.identity.projection, start=0, end=0)]
+    return selectors
+
+
+def build_formal_layer(
+    view: PreparedSourceView,
+    prepared: PreparedRelease,
+    operation: Mapping[str, Any],
+    *,
+    math_start: math_grammar.Kind = "any_value",
+    parse_seconds: float = math_grammar.PARSE_SECONDS,
+    max_forest_nodes: int = 20000,
+    check_active: Callable[[], None] = lambda: None,
+    source_scope: Mapping[str, Any] | None = None,
+    max_inline_chars: int = 2048,
+    macros: Mapping[str, MacroDef] | None = None,
+) -> LayerReport:
+    """Recognize privately, then validate one detached publishable source-bound layer.
+
+    ``operation`` comes from the execution owner's immutable task determinants. This
+    function never invents runtime/model/input identity and performs no native algebra.
+    """
+    required = {
+        "key",
+        "version",
+        "runtime",
+        "configuration",
+        "input",
+        "model",
+        "grammar",
+        "context",
+    }
+    if not required <= operation.keys() or any(not operation[key] for key in required):
+        raise ValueError("formal producer requires authoritative operation determinants")
+    if math_start not in math_grammar.STARTS or parse_seconds <= 0 or max_forest_nodes < 1:
+        raise ValueError("invalid formal parser request")
+    builder = _LayerBuilder(view, operation, FormalIdentity(
+        canonical_bytes(view.ref.native_product.values()), view.ref.projection_digest, view.ref.id,
+    ))
+    builder.macros = dict(macros or {})
+    selected: list[dict[str, Any]]
+    if source_scope is not None:
+        expected = dict(
+            source_view_id=view.ref.id,
+            key=view.ref.key,
+            base_document=view.ref.native_product.values(),
+            section_pointer=view.ref.section_pointer,
+            membership=view.ref.membership,
+            projection_digest=view.ref.projection_digest,
+            recipe_digest=view.ref.recipe_digest,
+        )
+        if source_scope["source_view_ids"] != [view.ref.id] or source_scope["source_views"] != [
+            expected
+        ]:
+            raise ValueError(
+                "formal source selection differs from the actual immutable source view"
+            )
+        selected = list(source_scope["selectors"])
+        if any(selector["projection"] != view.ref.projection_digest for selector in selected):
+            raise ValueError("formal selected source has a different projection")
+    else:
+        selected = [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))]
+    selectors = extract_formal_facts(
+        builder, selected, math_start=math_start, parse_seconds=parse_seconds,
+        max_forest_nodes=max_forest_nodes, max_inline_chars=max_inline_chars,
+        check_active=check_active,
+    )
     scope = dict(
         source_view_ids=[view.ref.id],
         source_views=[
