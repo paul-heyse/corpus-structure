@@ -150,53 +150,22 @@ def _consumer_declaration() -> dict[str, Any]:
     return value
 
 
-@pytest.fixture(scope="module")
-def ddo_kernel_template(native_server, semantic_head_template):
-    """Install once through normal candidate authoring; genuine sessions share its clone."""
-    from alembic.migration import MigrationContext
-    from alembic.operations import Operations
-
-    from corpus_structure.semantic.native_candidate import prepare_series_candidate
-    from corpus_structure.semantic.native_objects import admit_native
-    from native_test_support import SemanticTemplate
-
-    name = "cs_ddo_kernel_" + uuid4().hex[:12]
-    with native_server.database(
-        name, semantic_head_template.name, policy=semantic_head_template.policy
-    ) as engine:
-        with engine.begin() as connection:
-            candidate, authoring = prepare_series_candidate(connection, owned_authoring=True)
-            assert candidate.upgrade_ops is not None
-            from alembic.operations.ops import OpContainer
-
-            operations = Operations(MigrationContext.configure(connection))
-
-            def apply(operation):
-                if isinstance(operation, OpContainer):
-                    for child in operation.ops:
-                        apply(child)
-                else:
-                    operations.invoke(operation)
-
-            apply(candidate.upgrade_ops)
-            admit_native(connection, authoring.desired)
-        engine.dispose()
-        yield SemanticTemplate(name, native_server.policy(name))
-
-
 @pytest.fixture
-def ddo_kernel_engine(native_server, ddo_kernel_template):
+def ddo_kernel_engine(native_server, semantic_head_template):
     name = "cs_ddo_case_" + uuid4().hex[:12]
     with native_server.database(
-        name, ddo_kernel_template.name, policy=ddo_kernel_template.policy
+        name, semantic_head_template.name, policy=semantic_head_template.policy
     ) as engine:
         yield engine
 
 
 @pytest.fixture
 def kernel(ddo_kernel_engine, tmp_path):
-    """Real archived target/runtime under the explicitly verified acquired native candidate."""
-    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    """Real archived target/runtime admitted against the installed frozen migration."""
+    from corpus_structure.semantic.data_operation_admission import (
+        admit_data_operation_release,
+        bound_data_operation_model,
+    )
     from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
     from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
     from corpus_structure.semantic.releases import persist_release
@@ -248,16 +217,7 @@ declarations: [{name: test-operations, path: operations.yaml}]
     )
     with ddo_kernel_engine.begin() as connection:
         persist_release(connection, bundle, dependencies, profile, prepared)
-        # The module fixture authenticated the *acquired* candidate catalog with
-        # admit_native before commit. Frozen Python admission is a separate root
-        # qualification after registration; native enforcement is exercised here.
-        native = next(
-            a for a in prepared.artifacts if a.kind == "data_operation_native_definitions.json"
-        )
-        connection.execute(
-            text("SELECT sem.admit_data_operation_definitions(CAST(:p AS jsonb))"),
-            {"p": json.dumps({**json.loads(native.content), "release_id": prepared.release_id})},
-        )
+        admit_data_operation_release(connection, prepared)
         persist_runtime_binding(connection, prepared, runtime)
         connection.execute(insert(table("data.project")).values(project_id="ddo-test"))
     identities = {(item.owner, item.domain): item.key for item in model.identities}
@@ -268,14 +228,16 @@ declarations: [{name: test-operations, path: operations.yaml}]
         "runtime": runtime.runtime_id,
         "identities": identities,
         "recipe": identities["urn:ddo-test:source", "recipe"],
-        "kind": identities["primitive:integer", "kind"]
-        if ("primitive:integer", "kind") in identities
-        else next(
-            i.key
-            for i in model.identities
-            if i.domain == "kind"
-            and any(k.semantic_id == i.owner and k.name == "integer" for k in model.kinds)
-        ),
+        "kind": identities[
+            next(
+                role.kind
+                for op in model.operations
+                if op.semantic_id == "urn:ddo-test:source"
+                for role in op.roles
+                if role.direction == "output"
+            ),
+            "kind",
+        ],
     }
 
 
@@ -577,7 +539,10 @@ def test_revoked_receipt_stays_inspectable_while_current_admission_changes_gener
         assert inspected["state"] == "committed"
         result = storage.invoke("read_demand_result", demand)
         assert result["uses"][0]["fate"] == "unavailable"
-        current = storage.invoke("attach_data_request", wire)
+        current = storage.invoke(
+            "attach_data_request",
+            {**wire, "binding": {**wire["binding"], "read_id": result["read_id"]}},
+        )
         assert current["generation"] == first["generation"] + 1
         assert current["task_id"] != first["task_id"]
     assert publish(kernel, first, intent)["receipt_id"] == receipt["receipt_id"]
@@ -693,7 +658,7 @@ def test_integer_kind_rejects_equivalent_json_number_with_wrong_meaning_tag(kern
 
 
 def test_directly_revoked_producer_cannot_be_rehabilitated_by_rebinding(kernel):
-    _, _, wire, attached = attach(kernel)
+    demand, _, wire, attached = attach(kernel)
     fence = claim(kernel, attached)
     intent = retain(kernel, fence)
     receipt = publish(kernel, fence, intent)
@@ -708,6 +673,9 @@ def test_directly_revoked_producer_cannot_be_rehabilitated_by_rebinding(kernel):
                 "reason": "producer behavior is defective",
             },
         )
+    with kernel["engine"].begin() as connection:
+        fresh = DataOperationStorage(connection).invoke("read_demand_result", demand)
+    wire = {**wire, "binding": {**wire["binding"], "read_id": fresh["read_id"]}}
     with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="rehabilitate"):
         DataOperationStorage(connection).invoke(
             "attach_data_request",
@@ -828,7 +796,7 @@ def test_direct_writer_cannot_bypass_admitted_binding_predicate_with_real_inputs
             "urn:ddo-test:consumer",
             "subject:one",
             (ResolvedRoleBinding("source", "present", (member,)),),
-            b"{}",
+            canonical_bytes(semantic_value({})),
             "inference:test",
             b"{}",
             canonical_bytes(result["trust_snapshot"]),

@@ -49,8 +49,10 @@ def fixture_source(
 ):
     declaration = copy.deepcopy(metadata or claim_source_item__data_operation__)
     name = "ddo_port_" + tmp_path.name.replace("-", "_")
-    source = (f"{header}\ndef derive({signature}) -> str:\n    {body}\n"
-              f"derive__data_operation__ = {declaration!r}\n")
+    source = (
+        f"{header}\ndef derive({signature}) -> str:\n    {body}\n"
+        f"derive__data_operation__ = {declaration!r}\n"
+    )
     path = tmp_path / (name + ".py")
     path.write_text(source)
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -326,16 +328,20 @@ def test_import_and_reexport_rebinding_refuses_before_original_callable_body(
         modules = {
             source.module: importlib.import_module(source.module) for source in collection.sources
         }
+
         def check():
             return _verify_runtime_sources(model, model.operations[0], collection, modules)
+
         check()
     else:
         port = resolve_python_port(
             model, collection, model.operations[0].semantic_id, authorize=lambda _: None
         )
         assert port.invoke_python(()).outputs[0].value() == "2"
+
         def check():
             return port.invoke_python(())
+
     application = importlib.import_module(package + ".application")
     api = importlib.import_module(package + ".api")
     called = []

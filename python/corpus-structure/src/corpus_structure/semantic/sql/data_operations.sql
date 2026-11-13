@@ -788,7 +788,7 @@ BEGIN
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation) THEN RAISE EXCEPTION 'projection operation outside frozen demand'; END IF;
  SELECT coalesce(jsonb_object_agg(scope.scope,scope.epoch),'{}') INTO snapshot FROM ops.data_trust_scope scope WHERE scope.project_id=d.project_id AND EXISTS(SELECT FROM jsonb_array_elements(d.root) root WHERE scope.scope=ops.ddo_scope(d.project_id,root->>'original_source'));
  IF snapshot IS DISTINCT FROM p_trust OR (boundary.id IS NOT NULL AND boundary.trust_snapshot IS DISTINCT FROM snapshot) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
- PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
+ PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) JOIN sem.data_kind_contract kind ON kind.kind_contract=input_role.value->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
  RETURN QUERY
  WITH admitted AS MATERIALIZED (
   SELECT x.id AS product_id,x.kind_contract AS parent_kind,x.subject AS parent_subject,x.original_source AS parent_source,x.analyzed_scope AS parent_scope,x.canonical_body,
@@ -813,7 +813,7 @@ BEGIN
   ) projected
   LEFT JOIN kb.data_member_role member_role ON member_role.product_id=a.product_id AND member_role.member_id=projected.member_id
   WHERE (p_subject IS NULL OR projected.projected_subject=p_subject)
-   AND EXISTS(SELECT FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) role WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation AND role->>'kind_contract'=projected.projected_kind)
+   AND EXISTS(SELECT FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation AND input_role.value->>'kind_contract'=projected.projected_kind)
  )
  SELECT candidate.product_id,candidate.projected_kind,candidate.projected_subject,candidate.projected_source,candidate.projected_scope,
   coalesce((SELECT jsonb_agg(to_jsonb(coverage_row)-'product_id'-'member_id' ORDER BY coverage_row.ordinal) FROM kb.data_member_coverage coverage_row WHERE coverage_row.product_id=candidate.product_id AND coverage_row.member_id=candidate.member_id),'[]'),

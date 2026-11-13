@@ -246,7 +246,17 @@ def bound_task_listing(
         return TaskListing(run_id=None, tasks=[], total=0, limit=limit)
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     query = (
-        select(t, c.c.name.label("configuration"), m.c.name.label("method"))
+        select(
+            t.c.id,
+            t.c.stage,
+            t.c.unit_key,
+            t.c.trigger,
+            t.c.status,
+            t.c.reason,
+            t.c.cost,
+            c.c.name.label("configuration"),
+            m.c.name.label("method"),
+        )
         .join(c, t.c.method_config_id == c.c.id)
         .join(m, c.c.method_id == m.c.id)
         .where(t.c.run_id == run)

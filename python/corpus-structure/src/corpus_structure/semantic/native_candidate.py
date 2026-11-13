@@ -334,6 +334,7 @@ _CURRENT_SOURCE_GUARDS = {
     ("eval", "guard_scientific_decisions"): "execution_projection.sql",
     ("sem", "require_execution_operation"): "execution_projection.sql",
     ("ops", "guard_task_method_contract"): "current_operation_guards.sql",
+    ("ops", "guard_task_configuration"): "current_operation_guards.sql",
     ("ops", "require_atomic_evaluation"): "current_operation_guards.sql",
     ("data", "is_bound_statement"): "closure.sql",
     ("data", "publish_derived_batch_v2"): "derived_publication.sql",
@@ -2139,3 +2140,16 @@ def prepare_series_candidate(
 def definition_sql(definitions) -> str:
     """Inspection/admission input; frozen revisions execute serialized native operations."""
     return native_sql_script(statement for item in definitions for statement in item.install_sql)
+
+
+def authored_admission_sql(authoring):
+    """Retain the exact descriptor/guard normalized inside physical authoring."""
+    names = ("execution_contract_descriptor", "require_execution_release")
+    selected = {
+        item.identity.name: item
+        for item in authoring.desired
+        if item.identity.schema == "data" and item.identity.name in names
+    }
+    if set(selected) != set(names):
+        raise NativeAuthoringError("native authoring lacks its exact admission descriptor/guard")
+    return native_sql_script(statement for name in names for statement in selected[name].statements)

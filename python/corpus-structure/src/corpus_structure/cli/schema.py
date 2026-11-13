@@ -472,9 +472,8 @@ def author_native_candidate(
     from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.native_candidate import (
-        candidate_admission_sql,
+        authored_admission_sql,
         prepare_series_candidate,
-        series_native_definitions,
     )
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.refusals import SemanticRefusal
@@ -549,19 +548,10 @@ def author_native_candidate(
                 "SET LOCAL ROLE " + conn.dialect.identifier_preparer.quote(migration_role),
             )
             compile(python_source, "native_candidate.py", "exec")
-            desired_identities = {item.identity for item in authoring.desired}
-            admission = candidate_admission_sql(
-                conn,
-                series_native_definitions(conn),
-                authoring.desired,
-                retire=frozenset(
-                    item.identity
-                    for item in native
-                    if item.after is None and item.identity not in desired_identities
-                ),
-                predecessor_state=predecessor_state,
-                target_metadata=target_metadata,
-            )
+            # Reuse the admission already normalized with the candidate's new
+            # physical row types in scope; rebuilding after its savepoint rolls
+            # back cannot resolve those types and would author a second answer.
+            admission = authored_admission_sql(authoring)
             products = {
                 "native_candidate.py": python_source.encode(),
                 "native_operations.json": canonical_bytes(

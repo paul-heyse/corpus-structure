@@ -143,3 +143,5 @@ python/corpus-structure/semantic_alembic/versions/semantic_bep_located_v2_* filt
 # Frozen qualification source packets and non-answer submission receipts.
 docs/design_review/evidence/2026-11-12_bep-tc-qualification/choice-source-panel/**/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-12_bep-tc-qualification/choice-source-panel/**/*.stderr filter=lfs diff=lfs merge=lfs -text
+
+python/corpus-structure/semantic_alembic/versions/semantic_ddo_kernel_v1_* filter=lfs diff=lfs merge=lfs -text

@@ -226,7 +226,15 @@ class ProposalSession:
             from corpus_structure.semantic.observations import source_value
             from corpus_structure.semantic.operations import binding_of, observation_key
 
-            row = conn.execute(select(tasks).where(tasks.c.id == self.task_id)).mappings().one()
+            row = (
+                conn.execute(
+                    select(tasks.c.run_id, tasks.c.input_hash, tasks.c.invocation_key).where(
+                        tasks.c.id == self.task_id
+                    )
+                )
+                .mappings()
+                .one()
+            )
             binding = binding_of(conn, row["run_id"])
             key = observation_key(
                 binding,

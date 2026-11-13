@@ -396,7 +396,11 @@ def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[Privat
     statement = (
         select(
             selected.c.id.label("selected_task_id"),
-            origin,
+            origin.c.id,
+            origin.c.run_id,
+            origin.c.unit_type,
+            origin.c.unit_id,
+            origin.c.unit_key,
             results.c.task_id.label("report_task_id"),
             results.c.body,
         )

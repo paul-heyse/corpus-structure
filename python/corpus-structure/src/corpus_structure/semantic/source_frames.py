@@ -45,7 +45,9 @@ def packet_bound_source_tasks(run_id: int, *, cut_id: int | None = None):
     """
     tasks, members, cuts = map(table, ("ops.task", "ops.cut_task", "ops.input_cut"))
     origin = tasks.alias("packet_bound_origin")
-    query = select(origin).where(origin.c.packet_hash.is_not(None), origin.c.status != "skipped")
+    query = select(origin.c.id, origin.c.unit_type).where(
+        origin.c.packet_hash.is_not(None), origin.c.status != "skipped"
+    )
     if cut_id is not None:
         return (
             query.join(members, members.c.origin_task_id == origin.c.id)

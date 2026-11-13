@@ -1540,7 +1540,15 @@ def agent_packet(
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     row = (
         conn.execute(
-            select(t, c.c.params, m.c.name.label("method"), m.c.version.label("method_version"))
+            select(
+                t.c.unit_type,
+                t.c.unit_id,
+                t.c.unit_key,
+                t.c.packet_hash,
+                c.c.params,
+                m.c.name.label("method"),
+                m.c.version.label("method_version"),
+            )
             .join(c, t.c.method_config_id == c.c.id)
             .join(m, m.c.id == c.c.method_id)
             .where(t.c.id == task_id, t.c.run_id == run_id)

@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION ops.guard_task_method_contract() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE declaration ops.method; dimensions jsonb; model_product jsonb; dimension text; actual text;
 BEGIN
+ IF to_jsonb(NEW)->>'data_request_id' IS NOT NULL THEN RETURN NEW; END IF;
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  SELECT m.* INTO STRICT declaration FROM ops.method m JOIN ops.method_config c ON c.method_id=m.id
  WHERE c.id=NEW.method_config_id;
@@ -44,4 +45,26 @@ BEGIN
   RAISE EXCEPTION 'evaluation output must commit with its completed EvaluationResult' USING ERRCODE='23514';
  END IF;
  RETURN NULL;
+END $fn$;
+
+-- Forward source from semantic_0018_packet_snapshot.sql; data tasks use the request fence.
+CREATE OR REPLACE FUNCTION ops.guard_task_configuration() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE r ops.run; c ops.method_config; m ops.method;
+BEGIN
+ IF to_jsonb(NEW)->>'data_request_id' IS NOT NULL THEN RETURN NEW; END IF;
+ SELECT * INTO STRICT r FROM ops.run WHERE id=NEW.run_id;
+ SELECT * INTO STRICT c FROM ops.method_config WHERE id=NEW.method_config_id;
+ SELECT * INTO STRICT m FROM ops.method WHERE id=c.method_id;
+ IF r.options ? 'operation_versions' AND r.options->'operation_versions'->>m.name IS DISTINCT FROM m.version THEN
+   RAISE EXCEPTION 'task operation differs from immutable run snapshot';
+ END IF;
+ IF m.tier='agent' OR m.family='agent' THEN
+   IF r.options ? 'agent_configs' AND NOT EXISTS(SELECT 1 FROM jsonb_each(r.options->'agent_configs') AS declared WHERE declared.value=c.params) THEN
+     RAISE EXCEPTION 'agent task configuration differs from immutable run snapshot';
+   END IF;
+ ELSIF r.options ? 'configs' AND r.options->'configs'->>m.name IS DISTINCT FROM c.config_hash THEN
+   RAISE EXCEPTION 'source task configuration differs from immutable run snapshot';
+ END IF;
+ RETURN NEW;
 END $fn$;

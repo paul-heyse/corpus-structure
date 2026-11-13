@@ -148,12 +148,12 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
             recreate=frozenset({recreated.identity}),
         )
 
-    def admission(conn, products, desired, *, retire, **kwargs):
-        # The temporary drop remains in migration operations, while admission
-        # receives only the permanently absent identity. A desired identity marked
-        # retired is rightly rejected by native_admission_sql's existing guard.
-        assert desired == (recreated,)
-        assert retire == frozenset({retired.identity})
+    def admission(authoring):
+        # Serialization receives the exact normalized authoring result; a
+        # temporary recreation must remain desired, never become retirement.
+        assert authoring.desired == (recreated,)
+        assert authoring.retire == frozenset({retired.identity})
+        assert authoring.recreate == frozenset({recreated.identity})
         return "SELECT 1;"
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
@@ -173,8 +173,7 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
     monkeypatch.setattr(migrations, "migration_fence", lambda _: None)
     monkeypatch.setattr(migrations, "current_revision", lambda conn: "106")
     monkeypatch.setattr(native_candidate, "prepare_series_candidate", prepare)
-    monkeypatch.setattr(native_candidate, "series_native_definitions", lambda conn: ())
-    monkeypatch.setattr(native_candidate, "candidate_admission_sql", admission)
+    monkeypatch.setattr(native_candidate, "authored_admission_sql", admission)
     out = tmp_path / "candidate"
     intent = tmp_path / "intent.yaml"
     intent.write_text(

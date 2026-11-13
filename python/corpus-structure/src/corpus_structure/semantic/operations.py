@@ -829,6 +829,7 @@ def prepare_unit_completion(
             select(
                 task_table.c.attempt,
                 task_table.c.claimed_by,
+                task_table.c.unit_type,
                 task_table.c.unit_key,
                 task_table.c.unit_id,
                 task_table.c.run_id,
