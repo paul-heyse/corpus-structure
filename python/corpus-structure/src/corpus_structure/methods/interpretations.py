@@ -6,9 +6,19 @@ change extracted records. Focus coordinates remain owned by the referenced recor
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
+from corpus_structure.core.method import (
+    Digest,
+    MethodContext,
+    Resources,
+    SourceRunContext,
+    UnitRef,
+    UnitResult,
+    UnitView,
+)
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import ExternalSourceRef
@@ -28,7 +38,9 @@ class _AuthoredSourceMethod:
     confidence_source = None
     resources = Resources()
 
-    def select(self, run, cfg):
+    def select(
+        self, run: SourceRunContext, cfg: AuthoredInterpretationConfig | AuthoredSourceRecordsConfig
+    ) -> tuple[UnitRef, ...]:
         selected = [
             view
             for view in run.reader.source_views()
@@ -43,7 +55,9 @@ class _AuthoredSourceMethod:
             )
         return (UnitRef(TaskUnitType.SOURCE_VIEW, selected[0].id, selected[0].key),)
 
-    def input_digest(self, unit, cfg):
+    def input_digest(
+        self, unit: UnitView, cfg: AuthoredInterpretationConfig | AuthoredSourceRecordsConfig
+    ) -> Digest:
         return Digest(canonical_bytes(cfg.model_dump(mode="json")))
 
 
@@ -52,7 +66,9 @@ class TerminologyInterpretationMethod(_AuthoredSourceMethod):
     semantic_type = "terminology.interpretation"
     Config = AuthoredInterpretationConfig
 
-    def run(self, units, cfg, ctx):
+    def run(
+        self, units: Sequence[UnitView], cfg: AuthoredInterpretationConfig, ctx: MethodContext
+    ) -> tuple[UnitResult, ...]:
         from corpus_structure.semantic.contributions import operation_identity
         from corpus_structure.semantic.interpretations import interpretation_contribution
 
@@ -137,7 +153,9 @@ class AuthorSourceRecordsMethod(_AuthoredSourceMethod):
     family = MethodFamily.EXTRACT
     Config = AuthoredSourceRecordsConfig
 
-    def run(self, units, cfg, ctx):
+    def run(
+        self, units: Sequence[UnitView], cfg: AuthoredSourceRecordsConfig, ctx: MethodContext
+    ) -> tuple[UnitResult, ...]:
         outputs = []
         for unit in units:
             ctx.check_active()
@@ -160,3 +178,127 @@ class AuthorSourceRecordsMethod(_AuthoredSourceMethod):
                 UnitResult(ref=unit.ref, outcome=ObservationOutcome.PRODUCED, records=records)
             )
         return tuple(outputs)
+
+
+# Shared family meaning is inherited once; supplying declarations and public
+# subclass entrypoints remain separate facts in the effective compiler products.
+_AuthoredSourceMethod.__data_operation__ = {
+    "abstract": True,
+    "profile": "selection",
+    "subject": "exact-original-source-view",
+    "context": ["project", "source-view", "native-product", "projection", "source-recipe"],
+    "entrypoints": ["select", "input_digest", "run"],
+    "roles": [
+        {
+            "name": "authored",
+            "kind": "urn:corpus:kind:authored-source-content",
+            "direction": "input",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+            "support": {
+                "provenance": "exact",
+                "identity_requirements": ["episode"],
+                "source": "original-source-view",
+                "coverage": "all-authored-members",
+                "closure": ["native-product", "projection", "source-recipe"],
+            },
+        },
+        {
+            "name": "retained",
+            "kind": "urn:corpus:kind:authored-source-result",
+            "direction": "output",
+            "minimum": 1,
+            "maximum": None,
+            "collection": "sequence",
+            "presence": "required",
+        },
+    ],
+    "kinds": [
+        {
+            "id": "urn:corpus:kind:authored-source-content",
+            "primitive": "json",
+            "scope": "original-source-view",
+            "interpretation": "located-authored-content-v1",
+        },
+        {
+            "id": "urn:corpus:kind:authored-source-result",
+            "primitive": "json",
+            "scope": "original-source-view",
+            "interpretation": "authored-unit-result-v1",
+        },
+    ],
+    "applicability": ["exactly-one-selected-original-view", "authored-record-project-view-match"],
+    "invariants": ["retained-authorship", "exact-source-coordinate-custody"],
+    "coverage": "all-explicitly-authored-members",
+    "outcomes": ["produced", "invalid-source", "invalid-authored-content", "cancelled"],
+    "precision": "exact-authored-payload",
+    "dependencies": [],
+    "effects": [],
+    "capabilities": {
+        "forms": ["batch"],
+        "preparation": "validated-authored-config",
+        "cancellation": "member-boundary",
+        "ownership": "immutable-selected-source-and-config",
+        "limits": ["one-to-one-hundred-authored-members"],
+    },
+    "behavior": "retain-authored-source-content-v1",
+    "parameters": {},
+    "binding": {"operator": "scan", "roles": ["authored"]},
+    "opaque": [
+        {
+            "reference": "pydantic",
+            "contract": "pydantic2-authored-config-v1",
+            "role": "typed-validation",
+        },
+        {
+            "reference": "corpus_structure.core.method",
+            "contract": "source-method-typed-ports-v1",
+            "role": "typed-input-result",
+        },
+        {
+            "reference": "corpus_structure.core.vocab",
+            "contract": "source-method-enumerations-v1",
+            "role": "outcome-type",
+        },
+        {
+            "reference": "corpus_structure.semantic.identity.canonical_bytes",
+            "contract": "canonical-json-v1",
+            "role": "input-value-encoding",
+        },
+        {
+            "reference": "corpus_structure.semantic.structural_products.ExternalSourceRef",
+            "contract": "exact-external-source-reference-v1",
+            "role": "source-support",
+        },
+        {
+            "reference": "corpus_structure.semantic.contributions.operation_identity",
+            "contract": "authored-operation-identity-v1",
+            "role": "operation-key",
+        },
+        {
+            "reference": "corpus_structure.semantic.interpretations.interpretation_contribution",
+            "contract": "interpretation-contribution-v1",
+            "role": "authored-result-validation",
+        },
+        {
+            "reference": "collections.abc.Sequence",
+            "contract": "python-3.14-sequence-v1",
+            "role": "type-interpretation",
+        },
+    ],
+    "bound_inputs": ["run", "cfg", "ctx"],
+}
+TerminologyInterpretationMethod.__data_operation__ = {
+    "abstract": False,
+    "id": "urn:corpus:operation:interpret-terminology",
+}
+MeasurementInterpretationMethod.__data_operation__ = {
+    "abstract": False,
+    "id": "urn:corpus:operation:interpret-measurement",
+}
+AuthorSourceRecordsMethod.__data_operation__ = {
+    "abstract": False,
+    "id": "urn:corpus:operation:author-source-records",
+}

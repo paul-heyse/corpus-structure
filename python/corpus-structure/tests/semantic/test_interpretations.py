@@ -5,7 +5,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -193,7 +193,7 @@ def test_independent_offline_authoring_consumer(prepared, tmp_path):
 def test_authored_kernel_retains_explicit_decision_without_reextracting(prepared, tmp_path):
     from types import SimpleNamespace
 
-    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.method import MethodContext, UnitRef, UnitView
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.interpretations import (
         AuthoredInterpretationConfig,
@@ -221,7 +221,10 @@ def test_authored_kernel_retains_explicit_decision_without_reextracting(prepared
     method = TerminologyInterpretationMethod()
     ref = UnitRef(TaskUnitType.SOURCE_VIEW, 1, "source")
     context = SimpleNamespace(reader=reader, check_active=lambda: None)
-    (result,) = method.run([SimpleNamespace(ref=ref)], cfg, context)
+    # These deliberately partial ports isolate the authored retention kernel.
+    (result,) = method.run(
+        [cast(UnitView, SimpleNamespace(ref=ref))], cfg, cast(MethodContext, context)
+    )
     assert result.contributions is not None
     assert result.contribution_operations is not None
     assert len(result.contributions) == 1
@@ -271,7 +274,7 @@ def test_offline_error_inventory_and_file_bounds(tmp_path):
 def test_authored_source_records_decode_json_lists_without_scalar_loss(prepared):
     from types import SimpleNamespace
 
-    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.method import MethodContext, UnitRef, UnitView
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.interpretations import AuthorSourceRecordsMethod
     from corpus_structure.semantic.record_contracts import (
@@ -306,7 +309,10 @@ def test_authored_source_records_decode_json_lists_without_scalar_loss(prepared)
     cfg = method.Config.model_validate(authored)
     ref = UnitRef(TaskUnitType.SOURCE_VIEW, pin["source_view_id"], pin["source"])
     ctx = SimpleNamespace(reader=SimpleNamespace(prepared=prepared), check_active=lambda: None)
-    (result,) = method.run([SimpleNamespace(ref=ref)], cfg, ctx)
+    # These deliberately partial ports isolate the authored retention kernel.
+    (result,) = method.run(
+        [cast(UnitView, SimpleNamespace(ref=ref))], cfg, cast(MethodContext, ctx)
+    )
     assert result.records is not None
     assert isinstance(result.records[0]["fields"], tuple)
     fields = {f["role"]: f for f in result.records[0]["fields"]}

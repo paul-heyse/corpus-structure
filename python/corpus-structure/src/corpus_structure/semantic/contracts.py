@@ -1798,7 +1798,11 @@ def _collection_defaults(
 
 
 def compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProducts:
-    """Compile only explicit immutable inputs, with bounded reuse of pure products."""
+    """Compile the legacy catalog and retain its installed runtime approval boundary.
+
+    The closed data-operation target uses ``compile_data_operations`` instead;
+    supplying source declarations does not enter this legacy admission path.
+    """
     try:
         hash(inputs)
     except TypeError:
@@ -1814,7 +1818,7 @@ def _compile_execution_model_cached(
 
 
 def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProducts:
-    """Compile only supplied immutable bytes; no application defaults, imports or invocation."""
+    """Compile archived catalog bytes plus legacy code-owned runtime admission."""
 
     from .prepare import prepare_release
 

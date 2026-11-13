@@ -47,14 +47,10 @@ def runtime_fingerprint(
     if inputs is not None and digests is not None:
         raise ValueError("supply runtime inputs or their digests, not both")
     captured = runtime_implementation_digests(inputs) if digests is None else tuple(sorted(digests))
-    return (
-        "runtime-code:"
-        + sha256(
-            canonical_bytes(
-                {"version": "runtime-code-1", "python": sys.version, "inputs": captured}
-            )
-        ).hexdigest()
-    )
+    from .data_operation_identity import runtime_artifact_identity
+
+    artifact = runtime_artifact_identity({"python": sys.version, "inputs": captured})
+    return "runtime-code:" + artifact.digest
 
 
 def _document(content: bytes, keys: set[str]) -> dict[str, Any]:

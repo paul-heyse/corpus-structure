@@ -38,6 +38,58 @@ def claim_source_item(index: int) -> str:
     return f"claims/{index}"
 
 
+# This actual source-address operation supplies a closed implementation-owned
+# profile without importing its module during contract preparation.
+claim_source_item__data_operation__ = {
+    "id": "urn:corpus:operation:claim-source-item",
+    "profile": "derivation",
+    "subject": "source-proposal-list",
+    "context": ["source-proposal-list"],
+    "roles": [
+        {
+            "name": "index",
+            "parameter": "index",
+            "kind": "integer",
+            "direction": "input",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+            "support": {
+                "provenance": "value_substitution",
+                "source": "selected-proposal-list",
+                "coverage": "one-original-ordinal",
+            },
+        },
+        {
+            "name": "address",
+            "kind": "string",
+            "direction": "output",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+        },
+    ],
+    "applicability": ["selected-source-proposal-list"],
+    "invariants": ["nonnegative-integer-ordinal", "boolean-is-not-an-ordinal"],
+    "coverage": "one-list-relative-address",
+    "outcomes": ["addressed", "invalid-index"],
+    "precision": "exact-integer-decimal-spelling",
+    "dependencies": [],
+    "effects": [],
+    "capabilities": {
+        "forms": ["scalar"],
+        "preparation": "none",
+        "cancellation": "call-boundary",
+        "ownership": "immutable-input-value",
+    },
+    "behavior": "proposal-claim-list-address-v1",
+    "parameters": {},
+    "binding": {"operator": "scan", "roles": ["index"]},
+}
+
+
 def occurrence_key(release_id: str, realization: str, source: str, item: str) -> str:
     """Two occurrences differ by source/item; a retry uses the same complete tuple."""
     if not all((release_id, realization, source, item)):

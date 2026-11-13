@@ -409,6 +409,14 @@ def _compiler_stack() -> tuple[tuple[str, str], ...]:
     )
 
 
+def enum_requires_vocabulary(enum) -> bool:
+    """The shared admitted enum profile's external-membership requirement."""
+    return any(
+        getattr(enum, key, None)
+        for key in ("reachable_from", "concepts", "include", "minus", "inherits")
+    )
+
+
 def _view_and_vocabularies(
     bundle: SourceBundle,
     dependencies: ResolvedDependencies,
@@ -452,10 +460,7 @@ def _view_and_vocabularies(
     for name, enum in sorted(view.all_enums().items()):
         if enum.matches:
             _fail("unsupported_enum", name, "matches is not executable", "unsupported")
-        dynamic = any(
-            getattr(enum, key, None)
-            for key in ("reachable_from", "concepts", "include", "minus", "inherits")
-        )
+        dynamic = enum_requires_vocabulary(enum)
         if dynamic:
             result = resolved.get(name)
             if result is None:
@@ -580,56 +585,15 @@ def _prepare_release_cached(
     return _prepare_release_uncached(bundle, dependencies, profile, stack)
 
 
-def _prepare_release_uncached(
-    bundle: SourceBundle,
-    dependencies: ResolvedDependencies,
-    profile: PreparationProfile,
-    stack: tuple[tuple[str, str], ...],
-) -> PreparedRelease:
-    """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    execution = None
-    if profile.version == "semantic-2":
-        from .composed import execution_model_from_dependencies
+def effective_class_definitions(
+    view: SchemaView, profile: PreparationProfile, enum_names
+) -> tuple[ClassDefinition, ...]:
+    """Materialize effective classes before boundaries, artifacts or release identity.
 
-        try:
-            execution = execution_model_from_dependencies(dependencies)
-        except (ValueError, KeyError, TypeError) as exc:
-            _fail("execution_model", "execution", str(exc))
-    elif any(a.name.startswith("execution/") for a in dependencies.artifacts):
-        _fail("execution_model", "execution", "execution inputs require semantic-2")
-    operation_inputs = {}
-    for dependency in dependencies.artifacts:
-        if dependency.name in {
-            "operation/domain-rules.yaml",
-            "operation/rule-view.yaml",
-            "operation/scientific-policy.json",
-        }:
-            try:
-                declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
-            except (yaml.YAMLError, ValueError) as exc:
-                _fail("operation_rules", dependency.name, str(exc))
-            if not isinstance(declared, dict):
-                _fail("operation_rules", dependency.name, "rules must be a mapping")
-            operation_inputs[dependency.name] = declared
-    from .ontology import OntologyPreparation
-
-    ontology_preparation = OntologyPreparation(
-        {
-            source.name: source.content
-            for source in dependencies.artifacts
-            if source.name in dependencies.ontology_sources
-        }
-    )
-    inspection_index: dict = {}
-    view, vocabularies, diagnostics = _view_and_vocabularies(
-        bundle,
-        dependencies,
-        profile,
-        inspection_index=inspection_index,
-        ontology_preparation=ontology_preparation,
-    )
-    rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
-    enum_types = {s.enum: tuple(m.value for m in s.members) for s in vocabularies}
+    Both the legacy release builder and the supplied-input data-operation compiler
+    consume this one normalization phase; it acquires no application implementation.
+    """
+    enum_types = set(enum_names)
     definitions: list[ClassDefinition] = []
     classes = {str(name): cls for name, cls in view.all_classes().items()}
     for name in sorted(classes):
@@ -793,6 +757,72 @@ def _prepare_release_uncached(
                 bool(cls.abstract),
             )
         )
+    return tuple(definitions)
+
+
+def _prepare_release_uncached(
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies,
+    profile: PreparationProfile,
+    stack: tuple[tuple[str, str], ...],
+) -> PreparedRelease:
+    """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
+    execution = None
+    data_operation_target = any(
+        a.name.startswith("data-operations/") for a in dependencies.artifacts
+    )
+    if data_operation_target and any(
+        a.name.startswith("execution/") for a in dependencies.artifacts
+    ):
+        _fail(
+            "execution_model",
+            "data-operations",
+            "target data-operation preparation cannot combine legacy execution admission inputs",
+        )
+    if profile.version == "semantic-2" and not data_operation_target:
+        from .composed import execution_model_from_dependencies
+
+        try:
+            execution = execution_model_from_dependencies(dependencies)
+        except (ValueError, KeyError, TypeError) as exc:
+            _fail("execution_model", "execution", str(exc))
+    elif any(a.name.startswith("execution/") for a in dependencies.artifacts):
+        _fail("execution_model", "execution", "execution inputs require semantic-2")
+    operation_inputs = {}
+    for dependency in dependencies.artifacts:
+        if dependency.name in {
+            "operation/domain-rules.yaml",
+            "operation/rule-view.yaml",
+            "operation/scientific-policy.json",
+        }:
+            try:
+                declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
+            except (yaml.YAMLError, ValueError) as exc:
+                _fail("operation_rules", dependency.name, str(exc))
+            if not isinstance(declared, dict):
+                _fail("operation_rules", dependency.name, "rules must be a mapping")
+            operation_inputs[dependency.name] = declared
+    from .ontology import OntologyPreparation
+
+    ontology_preparation = OntologyPreparation(
+        {
+            source.name: source.content
+            for source in dependencies.artifacts
+            if source.name in dependencies.ontology_sources
+        }
+    )
+    inspection_index: dict = {}
+    view, vocabularies, diagnostics = _view_and_vocabularies(
+        bundle,
+        dependencies,
+        profile,
+        inspection_index=inspection_index,
+        ontology_preparation=ontology_preparation,
+    )
+    rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
+    enum_types = {s.enum: tuple(m.value for m in s.members) for s in vocabularies}
+    definitions = effective_class_definitions(view, profile, enum_types)
+    classes = {str(name): cls for name, cls in view.all_classes().items()}
     from .record_contracts import validate_record_declarations
 
     validate_record_declarations(tuple(definitions))
@@ -863,9 +893,19 @@ def _prepare_release_uncached(
         },
         effective_bindings["qualification"],
     )
+    from .composed import data_operations_from_dependencies
+
+    data_operations = data_operations_from_dependencies(
+        bundle, dependencies, tuple(definitions), vocabularies
+    )
     manifest = canonical_bytes(
         {
             "root": bundle.root,
+            **(
+                {"data_operation_model": sha256(data_operations.content).hexdigest()}
+                if data_operations is not None
+                else {}
+            ),
             **({"execution_model_id": execution.model_id} if execution is not None else {}),
             "profile": asdict(profile),
             "libraries": {
@@ -886,6 +926,8 @@ def _prepare_release_uncached(
         PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
+    if data_operations is not None:
+        artifacts.append(PreparedArtifact("data_operations.json", data_operations.content))
     from .inspection_metadata import prepare_inspection
 
     artifacts.append(prepare_inspection(inspection_index, view, tuple(definitions)))

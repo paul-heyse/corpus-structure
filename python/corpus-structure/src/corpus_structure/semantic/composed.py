@@ -111,3 +111,167 @@ def execution_model_from_dependencies(dependencies: ResolvedDependencies) -> Exe
         ),
     )
     return compile_execution_model(inputs)
+
+
+# This opt-in namespace archives the new effective products without routing
+# existing operations to the new runtime/storage protocol.
+_DATA_PREFIX = "data-operations/"
+_DATA_MANIFEST = _DATA_PREFIX + "manifest.json"
+
+
+def data_operation_dependencies(
+    dependencies: ResolvedDependencies,
+    declarations: tuple[SourceArtifact, ...] = (),
+    python_sources=None,
+) -> ResolvedDependencies:
+    """Package explicitly acquired operation inputs; never discover installed sources."""
+    from .data_operation_model import MODEL_VERSION
+
+    if any(item.name.startswith(_PREFIX) for item in dependencies.artifacts):
+        raise ValueError(
+            "target data-operation preparation cannot combine legacy execution admission inputs"
+        )
+    if any(item.name.startswith(_DATA_PREFIX) for item in dependencies.artifacts):
+        raise ValueError("data-operation inputs are already supplied or use a reserved name")
+    names = [source.name for source in declarations]
+    if len(names) != len(set(names)):
+        raise ValueError("duplicate data-operation declaration source")
+    sources = python_sources.sources if python_sources is not None else ()
+    module_names = [source.module for source in sources]
+    if len(module_names) != len(set(module_names)):
+        raise ValueError("duplicate data-operation Python module")
+    contracts = python_sources.boundary_contracts if python_sources is not None else ()
+    contract_names = [source.name for source in contracts]
+    if len(contract_names) != len(set(contract_names)):
+        raise ValueError("duplicate Python boundary contract")
+    manifest = {
+        "version": MODEL_VERSION,
+        "declarations": names,
+        "python": None
+        if python_sources is None
+        else {
+            "interpreter": python_sources.interpreter,
+            "interpretation": python_sources.interpretation,
+            "stub_policy": python_sources.stub_policy,
+            "boundary_contracts": contract_names,
+            "sources": [
+                {"module": s.module, "filename": s.filename, "stub": s.stub is not None}
+                for s in sources
+            ],
+        },
+    }
+    artifacts = [SourceArtifact(_DATA_MANIFEST, canonical_bytes(manifest))]
+    artifacts += [
+        SourceArtifact(_DATA_PREFIX + "declarations/" + s.name, s.content) for s in declarations
+    ]
+    for index, source in enumerate(sources):
+        artifacts.append(SourceArtifact(_DATA_PREFIX + f"python/{index}.py", source.content))
+        if source.stub is not None:
+            artifacts.append(SourceArtifact(_DATA_PREFIX + f"python/{index}.pyi", source.stub))
+    artifacts += [
+        SourceArtifact(_DATA_PREFIX + "contracts/" + s.name, s.content) for s in contracts
+    ]
+    return ResolvedDependencies(
+        (*dependencies.artifacts, *artifacts),
+        dependencies.vocabularies,
+        dependencies.ontology_sources,
+    )
+
+
+def data_operations_from_dependencies(
+    bundle: SourceBundle, dependencies: ResolvedDependencies, definitions, vocabularies=()
+):
+    """Compile one closed supplied manifest, or return None when the feature is absent."""
+    from .data_operation_compilation import compile_data_operations
+    from .data_operation_model import MODEL_VERSION
+    from .python_operation_sources import PythonSource, PythonSourceCollection
+
+    artifacts = [
+        source for source in dependencies.artifacts if source.name.startswith(_DATA_PREFIX)
+    ]
+    if not artifacts:
+        return None
+    supplied = {source.name: source for source in artifacts}
+    if len(supplied) != len(artifacts) or _DATA_MANIFEST not in supplied:
+        raise ValueError("data-operation inputs require one closed manifest")
+    manifest = json.loads(supplied[_DATA_MANIFEST].content)
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != {"version", "declarations", "python"}
+        or manifest["version"] != MODEL_VERSION
+    ):
+        raise ValueError("invalid data-operation input manifest")
+    names = manifest["declarations"]
+    if (
+        not isinstance(names, list)
+        or any(not isinstance(name, str) or not name for name in names)
+        or len(names) != len(set(names))
+    ):
+        raise ValueError("invalid data-operation declaration names")
+    expected = {_DATA_MANIFEST, *(_DATA_PREFIX + "declarations/" + name for name in names)}
+    declarations = tuple(
+        SourceArtifact(name, supplied[_DATA_PREFIX + "declarations/" + name].content)
+        for name in names
+    )
+    python = manifest["python"]
+    inputs = None
+    if python is not None:
+        if not isinstance(python, dict) or set(python) != {
+            "interpreter",
+            "interpretation",
+            "stub_policy",
+            "boundary_contracts",
+            "sources",
+        }:
+            raise ValueError("invalid Python operation input context")
+        if any(
+            not isinstance(python[key], str) or not python[key]
+            for key in ("interpreter", "interpretation", "stub_policy")
+        ):
+            raise ValueError("invalid Python operation interpretation context")
+        contracts = python["boundary_contracts"]
+        if (
+            not isinstance(contracts, list)
+            or any(not isinstance(name, str) or not name for name in contracts)
+            or len(set(contracts)) != len(contracts)
+        ):
+            raise ValueError("invalid Python boundary contract names")
+        expected.update(_DATA_PREFIX + "contracts/" + name for name in contracts)
+        sources = []
+        if not isinstance(python["sources"], list):
+            raise ValueError("invalid Python source manifest")
+        for index, record in enumerate(python["sources"]):
+            if (
+                not isinstance(record, dict)
+                or set(record) != {"module", "filename", "stub"}
+                or type(record["stub"]) is not bool
+                or any(
+                    not isinstance(record[key], str) or not record[key]
+                    for key in ("module", "filename")
+                )
+            ):
+                raise ValueError("invalid Python source manifest entry")
+            name = _DATA_PREFIX + f"python/{index}.py"
+            expected.add(name)
+            stub = None
+            if record["stub"]:
+                expected.add(name + "i")
+                stub = supplied[name + "i"].content
+            sources.append(
+                PythonSource(record["module"], supplied[name].content, record["filename"], stub)
+            )
+        inputs = PythonSourceCollection(
+            tuple(sources),
+            python["interpreter"],
+            python["interpretation"],
+            python["stub_policy"],
+            tuple(
+                SourceArtifact(name, supplied[_DATA_PREFIX + "contracts/" + name].content)
+                for name in contracts
+            ),
+        )
+    if set(supplied) != expected:
+        raise ValueError("data-operation input set differs from manifest")
+    return compile_data_operations(
+        bundle, declarations, inputs, definitions=definitions, vocabularies=tuple(vocabularies)
+    )

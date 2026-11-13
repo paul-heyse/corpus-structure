@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from hashlib import sha256
+from typing import Any
 
 import pytest
 
@@ -93,7 +94,7 @@ def test_exact_strings_and_rejections():
         semantic_value(OptionalValue("unknown", 4))
 
 
-def graph_records():
+def graph_records() -> dict[str, Any]:
     return {
         "nodes": [
             {"id": "urn:root", "category": "kind", "payload": {"required": True}},
@@ -233,7 +234,7 @@ def test_execution_cycle_requires_explicit_iteration_contract():
     assert graph.cyclic_components() == (("A",),)
 
 
-def slice_records():
+def slice_records() -> dict[str, Any]:
     return {**graph_records(), "unknowns": [], "boundaries": [], "normalization": "python-cst-v1"}
 
 
@@ -341,7 +342,12 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
     request = SemanticRequestKey("recipe:a", "subject:a", inputs, {}, "inference:a")
     first_identity = request.identity
     inputs["left"].append("product:b")
-    assert request.identity == first_identity  # Captured input never follows caller mutation.
+    assert request.identity == first_identity
+    assert request.inputs["left"] == ("product:a",)
+    with pytest.raises(TypeError):
+        request.inputs["right"] = ("product:c",)
+    with pytest.raises(TypeError):
+        request.inputs["left"][0] = "product:c"
     assert (
         SemanticRequestKey("recipe:a", "subject:a", inputs, {}, "inference:a").identity
         != first_identity
@@ -349,6 +355,9 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
     manifest = AdmissionManifest(
         first_identity.key, "binding:a", ["episode:1"], {"fence": 1}, "execution:a"
     )
+    assert manifest.selected_support == ("episode:1",)
+    with pytest.raises(TypeError):
+        manifest.authorization["fence"] = 2
     assert replace(manifest, selected_support=["episode:2"]).identity != manifest.identity
     assert replace(manifest, binding_revision="binding:b").identity != manifest.identity
     assert request.identity == first_identity
@@ -367,3 +376,19 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
     )
     assert a != b
     assert artifact == runtime_artifact_identity({"executable": "sha256:binary"})
+
+
+def test_actual_unbound_runtime_cache_consumes_separate_artifact_identity():
+    import sys
+
+    from corpus_structure.semantic.runtime_bindings import runtime_fingerprint
+
+    captured = (("module.py", "a" * 64), ("asset", "b" * 64))
+    expected = runtime_artifact_identity({"python": sys.version, "inputs": tuple(sorted(captured))})
+    assert runtime_fingerprint(digests=captured) == "runtime-code:" + expected.digest
+    assert runtime_fingerprint(digests=tuple(reversed(captured))) == runtime_fingerprint(
+        digests=captured
+    )
+    assert runtime_fingerprint(digests=(("module.py", "c" * 64),)) != runtime_fingerprint(
+        digests=captured
+    )

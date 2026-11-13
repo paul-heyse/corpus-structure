@@ -13,6 +13,7 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from hashlib import sha256
+from types import MappingProxyType
 from typing import Any, Literal
 
 import networkx as nx
@@ -294,6 +295,22 @@ def eligibility_fingerprint(eligibility: Any) -> CanonicalIdentity:
     return canonical_identity("eligibility", eligibility)
 
 
+def validate_opaque_boundary(boundary: Mapping[str, Any]) -> None:
+    """Require captured bytes or an immutable resolved contract, for every frontend."""
+    for name in ("reference", "contract", "role"):
+        _identifier(boundary.get(name), f"opaque boundary {name}")
+    digest = boundary.get("content_digest")
+    if digest is None:
+        # Resolution/admission belongs to the effective-model owner. A mutable
+        # contract name alone cannot stand in for its immutable resolved revision.
+        if not re.fullmatch(r"contract:[0-9a-f]{64}", boundary["contract"]):
+            raise ValueError(
+                "opaque boundary requires captured content or resolved contract revision"
+            )
+    elif not isinstance(digest, str) or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", digest):
+        raise ValueError("opaque boundary content_digest must be a SHA-256 digest")
+
+
 def implementation_slice_fingerprint(
     records: Mapping[str, Any], root: str, *, unknowns: Iterable[Mapping[str, Any]] | None = None
 ) -> CanonicalIdentity:
@@ -307,18 +324,7 @@ def implementation_slice_fingerprint(
     normalization = _identifier(records.get("normalization"), "slice normalization contract")
     boundaries = list(records.get("boundaries", ()))
     for boundary in boundaries:
-        for name in ("reference", "contract", "role"):
-            _identifier(boundary.get(name), f"opaque boundary {name}")
-        digest = boundary.get("content_digest")
-        if digest is None:
-            # Resolution/admission belongs to the effective-model owner. A mutable
-            # contract name alone cannot stand in for its immutable resolved revision.
-            if not re.fullmatch(r"contract:[0-9a-f]{64}", boundary["contract"]):
-                raise ValueError(
-                    "opaque boundary requires captured content or resolved contract revision"
-                )
-        elif not isinstance(digest, str) or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", digest):
-            raise ValueError("opaque boundary content_digest must be a SHA-256 digest")
+        validate_opaque_boundary(boundary)
     boundaries.sort(key=lambda item: canonical_bytes(semantic_value(item)))
     return canonical_identity(
         "implementation-slice",
@@ -426,6 +432,19 @@ def execution_attestation(
     )
 
 
+def _owned_value(value: Any) -> Any:
+    """Own immutable semantic inputs so exposed fields agree with their identity bytes."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _owned_value(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_owned_value(item) for item in value)
+    if isinstance(value, CollectionValue):
+        return CollectionValue(value.kind, tuple(_owned_value(item) for item in value.members))
+    if isinstance(value, OptionalValue):
+        return OptionalValue(value.state, _owned_value(value.value))
+    return value
+
+
 @dataclass(frozen=True)
 class SemanticRequestKey:
     recipe: str
@@ -436,6 +455,8 @@ class SemanticRequestKey:
     identity: CanonicalIdentity = field(init=False)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "inputs", _owned_value(self.inputs))
+        object.__setattr__(self, "parameters", _owned_value(self.parameters))
         object.__setattr__(
             self,
             "identity",
@@ -462,6 +483,8 @@ class AdmissionManifest:
     identity: CanonicalIdentity = field(init=False)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "selected_support", _owned_value(self.selected_support))
+        object.__setattr__(self, "authorization", _owned_value(self.authorization))
         object.__setattr__(
             self,
             "identity",

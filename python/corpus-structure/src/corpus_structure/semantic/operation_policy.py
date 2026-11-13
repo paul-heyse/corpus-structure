@@ -235,3 +235,99 @@ def score_operation_event(
         x = (np.asarray(features) - parameters.means) / parameters.scales
         linear = np.dot(x, parameters.coefficients) + parameters.intercept
     return float(expit(linear))
+
+
+# Domain meaning is colocated with the typed callable. The closed compiler reads
+# this literal without importing this module or NumPy/SciPy.
+score_operation_event__data_operation__ = {
+    "id": "urn:corpus:operation:score-operation-event",
+    "profile": "derivation",
+    "subject": "fitted-operation-event",
+    "context": ["corpus_id", "event", "event_version", "producer_version"],
+    "roles": [
+        {
+            "name": "parameters",
+            "parameter": "parameters",
+            "kind": "urn:corpus:kind:operation-event-parameters",
+            "direction": "input",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+            "support": {
+                "provenance": "exact",
+                "identity_requirements": ["episode"],
+                "source": "fitted-corpus-event-producer",
+                "coverage": "ordered-feature-schema",
+            },
+        },
+        {
+            "name": "features",
+            "parameter": "features",
+            "kind": "float",
+            "direction": "input",
+            "minimum": 1,
+            "maximum": None,
+            "collection": "sequence",
+            "presence": "required",
+            "support": {
+                "provenance": "value_substitution",
+                "source": "same-event-subject",
+                "coverage": "all-fitted-features",
+            },
+        },
+        {
+            "name": "probability",
+            "kind": "float",
+            "direction": "output",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+        },
+    ],
+    "kinds": [
+        {
+            "id": "urn:corpus:kind:operation-event-parameters",
+            "python": "corpus_structure.semantic.operation_policy.OperationEventParameters",
+            "scope": "corpus-event-producer",
+            "invariants": ["finite-nonzero-scales", "matching-feature-shape"],
+            "interpretation": "operation-event-parameters-v1",
+        }
+    ],
+    "applicability": ["exact-fitted-corpus-event-version-producer"],
+    "invariants": ["finite-features", "matching-feature-shape", "probability-in-unit-interval"],
+    "coverage": "one-score-for-complete-feature-vector",
+    "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
+    "precision": "numpy-float64-scipy-expit-finite-errors-raised-v1",
+    "dependencies": [],
+    "effects": [],
+    "capabilities": {
+        "forms": ["scalar"],
+        "preparation": "fitted-parameters",
+        "cancellation": "call-boundary",
+        "ownership": "immutable-inputs",
+    },
+    "behavior": "operation-event-logistic-score-v1",
+    "parameters": {},
+    "binding": {"operator": "scan", "roles": ["parameters", "features"]},
+    "opaque": [
+        {
+            "reference": "numpy",
+            "contract": "numpy-float64-array-arithmetic-v1",
+            "role": "numerical-algorithm",
+        },
+        {
+            "reference": "scipy.special.expit",
+            "contract": "scipy-expit-v1",
+            "role": "numerical-algorithm",
+        },
+        {
+            "reference": "pydantic",
+            "contract": "pydantic2-operation-event-ingress-v1",
+            "role": "typed-validation",
+        },
+        {"reference": "typing", "contract": "python-3.14-typing-v1", "role": "type-interpretation"},
+    ],
+    "bound_inputs": [],
+}

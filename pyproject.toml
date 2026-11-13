@@ -4,13 +4,17 @@ version = "0.0.0"
 description = "The uv root: repo scripts, their tests and the dev tools. Product Python packages join as workspace members."
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "astroid==4.3.4",
     "corpus-evidence",
     "corpus-structure",
     "dipo==0.2.1",
+    "griffe==2.4.1",
+    "libcst==1.9.0",
     "maverick-coref==1.0.7",
     "pytorch-lightning==2.6.6",
     "sentencepiece==0.2.0",
     "tensorboard==2.18.0",
+    "ty==0.0.102",
 ]
 
 # Add product packages as members (e.g. members = ["python/*"]) and list them in `dependencies`
