@@ -135,3 +135,19 @@ The complete native union remains open. `ci db status --maintenance` confirmed t
 database remains at `semantic_bep_located_v2` with checkout head v4. Read-only PostgreSQL
 extension metadata also confirmed plpgsql_check is absent after candidate rollback; no deployment
 or activation occurred.
+
+## V4 full qualification and forward integration correction
+
+The full native/protocol/adjacent-control union **failed**, 129 passed / 13 failed,
+`0aaa980a87bc415f8c6c682ebacd2214`. Its retained receipt preserves every selected identity.
+The failures exposed trust-snapshot comparison across multiple original roots, a PDF-stage
+guard's ambiguous output-column name, obsolete product uniqueness missing analyzed scope,
+and retired-attempt attribution inconsistent with the task fence. Additional cases supplied
+invalid typed wire inputs or an empty population excluded by their fixture's contract; these
+must reach the intended native checks using valid declared inputs.
+
+The source corrections are authored as an ordinary successor after unchanged frozen v4.
+No failed migration is rewritten, and no working-database deployment is performed. The final
+candidate also actively checks the required PDF-stage ownership guard beside the declared DDO
+function inventory. Qualification and package acceptance remain open until the correction's
+actual native journeys pass.

@@ -2052,7 +2052,11 @@ def _prepare_series_authoring(
         item.identity
         for item in data_operation_native_definitions(connection)
         if item.identity.kind == "function"
-    )
+    ) | {
+        # This adjacent guard authenticates both legacy and runless PDF source
+        # ownership before DDO factual support can be retained.
+        NativeIdentity("function", "ops", "require_pdf_stage_owner", ("bigint", "bigint", "text")),
+    }
     authoring = prepare_native_authoring(
         connection,
         (*products, *admission_after),

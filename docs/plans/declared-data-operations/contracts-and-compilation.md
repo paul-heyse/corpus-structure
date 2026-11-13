@@ -364,8 +364,11 @@ not that the model is complete or the generated semantics are correct.
 | DDO-03 | Untrusted/caller-mutated nested payloads cannot change retained canonical state or gain protected authority. Strict JSON/Python differences and invalid defaults are intentional and covered. Effectful multi-output results retain atomic-bundle/receipt requirements; having a matching payload cannot satisfy a missing required effect. |
 
 Use focused compiler/pure-boundary tests while implementing these packages, and native binding
-checks when their real storage projections are available. Native checks use the project's working
-database under its ordinary custody; this plan does not require disposable databases. Real provider
+checks when their real storage projections are available. Native checks use clones and seeds of
+the deployed head under the isolation classes selected by the
+[test-system plan's accepted RC03](../test-system-target-design_2026-11-13.md#rule-changes-confirmed-by-the-operator).
+The working database is not a test lane; rollback-only candidate authoring retains its separate
+working-database custody. Real provider
 execution, assembled migration, serving/evaluation journeys and complete functional/repository
 qualification belong to the new series's integrated qualification scope. These packages neither
 inherit another plan's qualification nor require a campaign after every slice. The coordinator
