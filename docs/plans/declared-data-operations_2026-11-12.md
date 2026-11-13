@@ -439,6 +439,34 @@ the accepted target or close multi-package findings from source reviews.
 
 These are concrete unfinished obligations, not merely a request to run a final test suite:
 
+**Execution resumed · 2026-11-13.** The operator approved execution of all remaining scope,
+including DDO-12. Preserve the persistent database until coordinated DDO-11 cutover; native
+successors are authored by temporarily replaying the registered forward chain in a rollback-only
+transaction. Registration and isolated native tests do not deploy that chain to the working database.
+The prior 442-case receipt retains its original source and scope.
+
+Current increments retain the sufficient binding through the ready-to-port handoff, apply frozen
+semantic parameters to the original callable, refuse stale definition/eligibility bindings, expose
+native compute/reconcile disposition and retain exact request/generation completion observations
+separately from the pinned frontier. Explicit core NetworkX dispatch now also covers demand closure.
+Closed source profiles can opt into Griffe postcollection dataclass/TypedDict enrichment; their
+selection is archived, generated constructor/default-factory/type facts remain modeled, and actual
+Python signatures remain distinct from expanded wire boundaries. Runtime generated-constructor,
+bound-receiver and resource/batch/stream capability admission remains unfinished.
+
+Invalid retained-intent recovery now has a native source implementation: validated replacement
+bindings can advance a pending/expired generation while preserving the old intent and task;
+an active lease refuses takeover. Fencing does not establish physical child retirement. The frozen
+`semantic_ddo_recovery_v1` successor is registered and its scoped native controls pass; integrated
+consumer qualification is required before this obligation can close. The [authoring receipt](../design_review/evidence/2026-11-13_ddo-intent-recovery/README.md)
+records exact artifacts, pending-chain rollback and the unchanged persistent database.
+
+New worker-local test reports were removed with worktree cleanup before durable retention. Their
+reported results are not accepted as durable qualification evidence. Root receipt
+`ba0f1c0e4370468c934da63ce2e16df3` (170/171 passed, one corrected deployment expectation) is
+[retained](../design_review/evidence/2026-11-13_cli-ba0f1c0e4370468c934da63ce2e16df3/README.md),
+and root qualification supplies the accepted replacement scope.
+
 1. **DDO-03:** close the required adapter-capability profiles against real immediate consumers.
    Batch/stream, preparation/resource ownership, effectful and atomic multi-output invocation need
    their explicit suitable adapters and conformance checks before use. Complete the real consumer
@@ -449,8 +477,10 @@ These are concrete unfinished obligations, not merely a request to run a final t
    boundary, reacquiring its target/predecessor and exact source/release bindings. Normal frozen
    catalog admission is tested in isolated databases; the actual captured-source execution/publication
    vertical journey remains. Production adoption effects still require DDO-11 preservation/cutover custody.
-   Close **invalidated retained-intent generation recovery**: valid exact adoption exists, but
-   invalidated retained support currently refuses without a complete new-generation recovery path.
+   Finish **invalidated retained-intent generation recovery** across real support-substitution
+   consumers: native runtime-invalidation generation/active-lease controls now pass, while
+   invalidated upstream support with an admitted equivalent replacement and DDO-06 physical
+   retirement still require integrated consumer qualification.
    Do not permit a replacement answer in the old generation or rewrite original producer evidence.
 3. **DDO-05:** qualify actual discovery expansion, closed aggregate fan-in, explicit producer
    alternatives and dependency-derived frontier with the native implementation and real consumer
@@ -462,6 +492,44 @@ These are concrete unfinished obligations, not merely a request to run a final t
    Refused generic-schema/member or provider features need admission before a dependent consumer;
    no implicit fallback supplies them. No package or source-review finding is closed by these
    foundations alone.
+
+### Resumed execution verification · 2026-11-13
+
+**Tested:** the final frozen-head native union **passed, 61/61**, managed
+`780320d32c3f4cb7a519230f4b322045`. It covers the registered recovery successor, runtime-invalidated
+retained-intent generation replacement, active-lease refusal, immutable historical inspection,
+stale producer fencing, binding/identity controls and acquired-start chained deployment recovery.
+
+```sh
+uv run ci test --workers 2 --json -- \
+  python/corpus-structure/tests/semantic/test_data_operation_storage.py \
+  python/corpus-structure/tests/semantic/test_data_operation_binding_native.py \
+  python/corpus-structure/tests/semantic/test_data_operation_identity_native.py \
+  python/corpus-structure/tests/semantic/test_model_deployment.py \
+  python/corpus-structure/tests/semantic/test_migration_chain.py \
+  python/corpus-structure/tests/semantic/test_native_candidate_cli.py
+```
+
+The [durable native receipt](../design_review/evidence/2026-11-13_cli-780320d32c3f4cb7a519230f4b322045/README.md)
+retains exact scope/source. The earlier five-path source/preparation/port/demand union passed
+121/121 (`21cc20694c554d8aa4308f4e402c7498`,
+[receipt](../design_review/evidence/2026-11-13_cli-21cc20694c554d8aa4308f4e402c7498/README.md)); subsequent
+changes include formatting and native authoring repairs. These are bounded results, not DDO-12.
+The ten-path intermediate run passed 170/171; its corrected acquired-start assertion is covered
+by the final native union. No claim of a final all-series union follows.
+
+`uv run ci check --only types --json` **passed** `9e1e3818cdd1456e85673920ba817e2b`;
+`uv run ci check --only lint --json` **passed** `548f68db067f4d6dbeda980f69d455f9`.
+`uv run ci db status --maintenance --json` confirms the persistent working database remains at
+`semantic_bep_located_v2`, with repository head `semantic_ddo_recovery_v1`.
+Final `uv run ci docs check --json` **passed** `cfa6a73093e043c78b2e9f0883742f44`
+(959 canonical pages, zero link errors). `uv run ci evidence check --json` **passed**
+`69e35f78aebc49ed807f8a3cf5abc9a0` (zero errors, 42 historical warnings; subsequent native
+receipt retained through the same owner). Root `just turn-end` passed with no source changes.
+Only isolated qualification databases installed the successor. All worker edits are merged,
+conflicts reconciled, and implementation worktrees/branches removed. Operator reference edits
+remain untouched. DDO-03–05 and every multi-package finding remain open at the stated consumer
+boundaries; DDO-06–12 remain open, including all final provider/book/fault qualification.
 
 ### Closeout verification
 

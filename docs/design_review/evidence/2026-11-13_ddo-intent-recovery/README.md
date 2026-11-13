@@ -26,6 +26,6 @@ The initial preview `fcb4795372d74365bfc8e967697ffbc1` predates the completed an
 custody repair; the later preview above owns registration. Neither preview authorizes deployment.
 The subsequent deployment-account repair changes helper source custody: future adoption must
 reacquire/review current source and target, rather than treating this candidate as deploy-ready.
-Existing frozen predecessor files were not edited. Native successor qualification is recorded in
-the coordinator after the installed frozen-head controls settle. Full DDO-12 qualification remains
+Existing frozen predecessor files were not edited. Native successor qualification passed through `uv run ci test --workers 2 --json --` on
+the coordinator’s six-path native union, 61/61, `780320d32c3f4cb7a519230f4b322045`. Full DDO-12 qualification remains
 open with the unfinished functional scope.
