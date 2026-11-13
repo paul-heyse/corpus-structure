@@ -245,3 +245,38 @@ def test_prepared_kernel_profile_reuses_exact_same_cpu_owner_and_parent_validati
     finally:
         cpu.close()
     assert cpu.budget.used_bytes == 0
+
+
+def test_prepared_kernel_injects_only_owned_cooperative_control(tmp_path, monkeypatch):
+    import importlib
+    import inspect
+
+    from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+
+    name = "controlled_kernel_" + tmp_path.name.replace("-", "_")
+    source = ("from collections.abc import Callable\n"
+              "def run(value: int, *, check_active: Callable[[], None]) -> str:\n"
+              "    check_active()\n    return str(value + 3)\n")
+    path = tmp_path / (name + ".py")
+    path.write_text(source)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    function = importlib.import_module(name).run
+    signature = inspect.signature(function)
+    descriptor = PythonCPUDescriptor(
+        ((name, str(path), source.encode()),), name + ".run", (),
+        verification="prepared-kernel", control_parameter="check_active",
+    )
+    bound = signature.bind(value=4, check_active=lambda: None)
+    packet = json.loads(descriptor.packet(bound.arguments, signature))
+    assert packet["arguments"] == {"value": "4"}
+    with pytest.raises(ValueError, match="only prepared kernels"):
+        replace(descriptor, verification="closed-slice")
+    cpu = scope()
+    try:
+        reply = drive_prepared_work(plan_cpu_call(
+            descriptor, bound, signature, verify=lambda: None,
+            execution_owner=SimpleNamespace(cpu=cpu, reservation=None), check_active=lambda: None,
+        ), lambda: None)
+        assert reply.content == b'"7"'
+    finally:
+        cpu.close()

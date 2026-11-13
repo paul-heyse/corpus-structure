@@ -34,6 +34,7 @@ class _Call(BaseModel):
     receiver: bool
     verification: Literal["closed-slice", "prepared-kernel"]
     arguments: dict[str, str]
+    control_parameter: str | None
 
 
 @dataclass(frozen=True)
@@ -45,26 +46,28 @@ class PythonCPUDescriptor:
     expected_nodes: tuple[str, ...]
     receiver: bool = False
     verification: Literal["closed-slice", "prepared-kernel"] = "closed-slice"
+    control_parameter: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.control_parameter is not None and (
+            self.verification != "prepared-kernel" or not self.control_parameter
+        ):
+            raise ValueError("only prepared kernels can bind an owned CPU control parameter")
 
     def packet(self, arguments, signature) -> bytes:
-        return canonical_bytes(
-            {
-                "sources": [
-                    dict(module=module, path=path, content=base64.b64encode(content).decode())
-                    for module, path, content in self.sources
-                ],
-                "entrypoint": self.entrypoint,
-                "expected_nodes": self.expected_nodes,
-                "receiver": self.receiver,
-                "verification": self.verification,
-                "arguments": {
-                    name: TypeAdapter(signature.parameters[name].annotation)
-                    .dump_json(value)
-                    .decode()
-                    for name, value in arguments.items()
-                },
-            }
-        )
+        return canonical_bytes({
+            "sources": [dict(module=module, path=path, content=base64.b64encode(content).decode())
+                        for module, path, content in self.sources],
+            "entrypoint": self.entrypoint,
+            "expected_nodes": self.expected_nodes,
+            "receiver": self.receiver,
+            "verification": self.verification,
+            "control_parameter": self.control_parameter,
+            "arguments": {
+                name: TypeAdapter(signature.parameters[name].annotation).dump_json(value).decode()
+                for name, value in arguments.items() if name != self.control_parameter
+            },
+        })
 
 
 def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, check_active):
@@ -199,22 +202,22 @@ def execute_python_call(content: bytes, check_active, prepare_runtime=lambda: No
     call = _Call.model_validate_json(content, strict=True)
     function, verify = _load(call)
     signature = inspect.signature(function, eval_str=True)
-    if set(call.arguments) != set(signature.parameters):
+    controls = set() if call.control_parameter is None else {call.control_parameter}
+    if controls and (call.verification != "prepared-kernel"
+                     or not controls <= set(signature.parameters)):
+        raise ValueError("CPU control requires its admitted prepared-kernel parameter")
+    if set(call.arguments) != set(signature.parameters) - controls:
         raise ValueError("CPU call arguments differ from acquired original signature")
     arguments = {
         name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True)
         for name, value in call.arguments.items()
     }
-    positional = tuple(
-        arguments[p.name]
-        for p in signature.parameters.values()
-        if p.kind == inspect.Parameter.POSITIONAL_ONLY
-    )
-    keywords = {
-        name: value
-        for name, value in arguments.items()
-        if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
-    }
+    if call.control_parameter is not None:
+        arguments[call.control_parameter] = check_active
+    positional = tuple(arguments[p.name] for p in signature.parameters.values()
+                       if p.kind == inspect.Parameter.POSITIONAL_ONLY)
+    keywords = {name: value for name, value in arguments.items()
+                if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY}
     bound = signature.bind(*positional, **keywords)
     prepare_runtime()
     check_active()
