@@ -398,7 +398,7 @@ def _dispatch(
     max_reply_bytes: int,
     slot: int = -1,
     generation: int = 0,
-    profile: Literal["legacy", "formal-source-native"] = "legacy",
+    profile: Literal["legacy", "formal-source-native", "closed-python"] = "legacy",
 ) -> CPUReply:
     import os
 
@@ -408,6 +408,21 @@ def _dispatch(
         _worker_active()
         if profile == "formal-source-native":
             return _compute_formal(content, max_reply_bytes)
+        if profile == "closed-python":
+            from .data_operation_cpu import execute_python_call
+
+            _apply_native_thread_limits()
+            result = execute_python_call(content, _worker_active, _apply_native_thread_limits)
+            if len(result) > max_reply_bytes:
+                raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
+            return CPUReply(
+                sha256(content).hexdigest(),
+                result,
+                os.getpid(),
+                threading.current_thread() is threading.main_thread(),
+                native_thread_limit=_WORKER_NATIVE_THREADS,
+                native_pools=_WORKER_NATIVE_POOLS,
+            )
         if profile != "legacy":
             raise ValueError("CPU dispatch has no admitted source-native profile")
         return _compute(content, capsules, max_reply_bytes)
@@ -829,6 +844,11 @@ class CPUExecutionScope:
         self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
     ) -> CPUHandle:
         return self._submit(admission, content, {}, check_active, "formal-source-native")
+
+    def submit_closed_python(
+        self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
+    ) -> CPUHandle:
+        return self._submit(admission, content, {}, check_active, "closed-python")
 
     def _submit(self, admission, content, releases, check_active, profile) -> CPUHandle:
         check_active()

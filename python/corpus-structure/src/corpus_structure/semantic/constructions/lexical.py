@@ -3,6 +3,7 @@
 Classification is independent of grammar inference. The same policy is used by
 legacy direct recognition and the retained primary formal characterization.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,6 +32,7 @@ LEXICAL = {
     "FUNCTION": r"(?i:define|assume|suppose|let|consider|example|definition|prove|show)",
 }
 
+
 @dataclass(frozen=True, slots=True)
 class ProtectedAtom:
     start: int
@@ -57,11 +59,17 @@ def classify(text: str, atoms=()) -> tuple[PositionedTerminal, ...]:
     boundaries = [0, *(p for atom in ordered for p in (atom.start, atom.end)), len(text)]
     result = []
     for terminal, raw in {**LEXICAL, "WS": r"\s+"}.items():
-        pattern = raw if terminal in {"QUOTE", "QUESTION", "PUNCT", "COMMA", "WS"} else r"(?<!\w)(?:" + raw + r")(?!\w)"
-        for index in range(0, len(boundaries)-1, 2):
-            start, end = boundaries[index:index+2]
-            result.extend(PositionedTerminal(terminal, start+m.start(), start+m.end(), m.group())
-                          for m in re.finditer(pattern, text[start:end]))
+        pattern = (
+            raw
+            if terminal in {"QUOTE", "QUESTION", "PUNCT", "COMMA", "WS"}
+            else r"(?<!\w)(?:" + raw + r")(?!\w)"
+        )
+        for index in range(0, len(boundaries) - 1, 2):
+            start, end = boundaries[index : index + 2]
+            result.extend(
+                PositionedTerminal(terminal, start + m.start(), start + m.end(), m.group())
+                for m in re.finditer(pattern, text[start:end])
+            )
     return tuple(result)
 
 
@@ -74,5 +82,5 @@ def region_terminals(values, text: str, start: int, end: int) -> tuple[Positione
         a, b = max(start, row.start), min(end, row.end)
         if (a, b) != (row.start, row.end) and row.terminal != "WS":
             raise ValueError("construction region cuts a retained lexical observation")
-        result.append(PositionedTerminal(row.terminal,a-start,b-start,text[a:b]))
+        result.append(PositionedTerminal(row.terminal, a - start, b - start, text[a:b]))
     return tuple(result)

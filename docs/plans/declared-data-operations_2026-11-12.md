@@ -385,10 +385,10 @@ owner; passing this foundation does not qualify the redesigned production pipeli
 
 ## DDO-03–05 partial implementation checkpoint · 2026-11-13
 
-**Implemented; package completion remains open.** All three implementation worktrees were merged
-into main, conflicts reconciled and merged worktrees/branches deleted. Worker assignments are
-concluded. This checkpoint supersedes the earlier instruction to start DDO-03; it does not change
-the accepted target or close multi-package findings from source reviews.
+**Implemented; package completion remains open.** The earlier foundation worktrees were merged
+and removed. Current execution has three active isolated implementation worktrees; their source
+and retained receipts are integrating on main. This checkpoint does not change the accepted
+target or close multi-package findings from source reviews.
 
 ### Integrated capability and present boundary
 
@@ -444,8 +444,9 @@ execution of the approved remaining DDO-03–05, DDO-06 and DDO-07 scope.
 - Direct ports now support exact closed receivers, original tuple-native batch calls and
   atomic typed-mapping output bundles. The acquired execution boundary retains original
   source names separately from explicit runtime locations, validates exact native/runtime
-  correspondence and carries canonical typed output meaning. Generated records, prepared
-  resources, streams and effects still need their concrete applicable capability profiles.
+  correspondence and carries canonical typed output meaning. Generated records, streams and effects still need their concrete applicable profiles. Prepared
+  formal and learned spaCy capabilities now have explicit acquired profiles; their actual native
+  publication and subsequent family consumers remain in qualification/integration.
 - Four actual colocated consumer contracts cover shared-document source views, optional
   exact-one M1 projection, distinct structural passage/reading associations and retained
   contextual occurrences. Explicit subject fields preserve member identity. Frozen source
@@ -461,8 +462,12 @@ execution of the approved remaining DDO-03–05, DDO-06 and DDO-07 scope.
   intent retention/publication, exact reconciliation, bounded hydration and physical work.
   It scans pinned continuation pages and replenishes from fresh native sweeps. Dynamic
   claim admission and injected native renewal preserve independent uncertain-claim custody.
-  Actual callable-to-publication and exceptional-exit controls are being qualified; their
-  source implementation alone is not verified closure.
+  Prepared plans share one schema-free CPU owner, predeclared native host group and transferable
+  byte reservation. Exact typed renewal loss affects one claim; known-retired infrastructure failures
+  retain immutable native attempt records. Bounded failure results retain successful sibling receipts
+  and distinguish their total count from the displayed subset. Generic pure-call CPU dispatch and
+  actual callable-to-publication/exceptional-exit controls remain in qualification; source alone is
+  not verified closure.
 - The first native source/publication qualification failed 39/62 cases, with 23 passes,
   `2031b6142f4d4f61b8f30a746b80eb8c`. Thirty-four failures share a request-attachment
   SQL alias ambiguity, four expose a fixture's overbroad request construction and one
@@ -470,15 +475,22 @@ execution of the approved remaining DDO-03–05, DDO-06 and DDO-07 scope.
   and the combined follow-up successor must be tested before any native closure claim.
 - Original-source handoff requires typed factual support, rather than a synthetic computational
   derivation. [ADR-0096](../adr/0096-original-source-admission.md) accepts the target detail;
-  existing document/native/cut/view custody and frozen selectors must authenticate the source
-  before it enters the new bindings. The source receipt, support/trust branch, actual source
-  bridge and their immediate consumers are active DDO-03/04/05/07 prerequisites, not closed
-  by direct DTO or provider tests.
+  existing document/native/cut/view custody and frozen selectors authenticate the source. The
+  generic source receipt, separately typed support/trust/revocation branch and exact-scope binding
+  projection are integrated in source; admission never fabricates a computational episode. Their
+  native source-to-publication/revocation control awaits the combined successor. Pending/expired
+  request invalidation now considers current support/runtime before any intent exists, preserving
+  active leases and historical generations. These remain active DDO-03/04/05/07 obligations until
+  actual native qualification, rather than closing on DTO/provider tests.
 - Host/provider replies now retain original host-generation/request/profile/digests and
-  logical-member correspondence. Authentic provider qualification and durable native
-  execution-evidence integration remain open. The formal and learned spaCy target families
-  are actively integrating one original-source model; parser deadlines require the existing
-  bounded CPU process owner, not ordinary worker threads.
+  logical-member correspondence. The common captured execution envelope retains actual CPU process/native-thread facts and
+  provider receipts separately from product meaning. Native envelope publication remains open.
+  Formal and learned spaCy target families share the original-source model and exact nominal
+  four-field member packets. The spaCy product retains available language columns from the same
+  inference; a separate declared canonical-sentence projection excludes native-label-only changes
+  from canonical downstream input identity. Actual CUDA profile controls passed 67/67,
+  `8bf9402cc7a7458281a5a1fcc6e4df78`, with retained source/context. Full ancestry/table context,
+  independent HanLP, constructions/context/composition and the other DDO-07 families remain active.
 
 Frozen `semantic_ddo_population_v1` follows `semantic_ddo_renewal_v1` through the normal
 rollback-only chain; [authoring custody](../design_review/evidence/2026-11-13_ddo-population-and-cancellation/README.md).
@@ -493,6 +505,16 @@ Bounded checks **passed**: 33 source-port/runtime cases, root receipt
 `71480333f47f4d9cbae7b124d1aaec32`. Receipts are retained with their original source/context.
 Integrated Pyrefly **passed** `b857ccb5dcb84c3ca0f26f195235428d` before the subsequent CLI/context
 merges; those changes receive their affected checks. Failed/intermediate receipts are preserved.
+The integrated wire/original-support/demand/formal selection **passed 81/81**,
+`d1ebcf88a5ca47db8ac6848c84d374c9`, using `uv run ci test --workers 2 --json --` with
+`test_data_operation_wire.py`, `test_data_operation_original_support.py`,
+`test_data_operation_demands.py` and `test_formal_products.py`. Physical owner/evidence controls
+**passed 55/55**, `c1cbfa4e9a0e41769eab8843ed2b0a1f`; explicit retirement-uncertainty control
+**passed 1/1**, `22674cb4c2d04575bfb1e62ac63c5fb1`. Each is targeted native-process or functional
+evidence for its stated boundary, not complete DDO-06/07 qualification. Pyrefly **passed**
+`9dac405c780d4ccc8473601c28c9b34c`; Ruff **passed** `0948567ba4ff43e781722e5f24482599`,
+before subsequent worker merges. Reassess affected checks after integration.
+
 Full provider/book/series qualification remains **not_run**, with functional scope still open.
 
 ### Remaining functional scope and next execution

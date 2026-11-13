@@ -201,8 +201,8 @@ def test_cooperative_cancellation_prevents_complete_product(profile):
 
 def test_immediate_construction_boundary_reuses_formal_facts_without_parser(profile, monkeypatch):
     from corpus_structure.semantic import formal_evidence
-    from corpus_structure.semantic.formal_readings import FormalSourceReadings
     from corpus_structure.semantic.data_product_reference import DataProductMemberReference
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings
 
     source = selected(profile, "Quantity: 2 kg")
     product = profile.run(source, FormalEvidenceOptions())
@@ -749,7 +749,11 @@ def test_primary_lexicon_is_consumed_without_reclassification(profile, monkeypat
     readings = FormalSourceReadings.from_products((product,), source)
     atoms, terminals = readings.positioned(start=0, end=len(source.value["text"]))
     assert not atoms
-    assert {(row.terminal, row.text) for row in terminals} >= {("QUANT", "All"), ("COPULA", "are"), ("WORD", "samples")}
+    assert {(row.terminal, row.text) for row in terminals} >= {
+        ("QUANT", "All"),
+        ("COPULA", "are"),
+        ("WORD", "samples"),
+    }
 
     def no_classification(*args, **kwargs):
         pytest.fail("construction reclassified primary source language")
@@ -767,10 +771,14 @@ def test_primary_lexicon_protects_fields_and_rejects_forged_slices(profile):
 
     source = selected(profile, "All samples use Quantity: 2 kg.")
     product = profile.run(source, FormalEvidenceOptions())
-    atoms, terminals = FormalSourceReadings.from_products((product,), source).positioned(start=0,end=len(source.value["text"]))
+    atoms, terminals = FormalSourceReadings.from_products((product,), source).positioned(
+        start=0, end=len(source.value["text"])
+    )
     assert atoms
-    assert all(not (atom.start < row.end and row.start < atom.end) for atom in atoms for row in terminals)
-    body=product.value.model_dump(mode="json",exclude_unset=True)
-    body["lexicon"][0]["terminals"][0]["text"]="forged"
-    with pytest.raises(ValueError,match="original unprotected slice"):
-        validate_formal_product(profile.prepared,body,source,model=profile.model)
+    assert all(
+        not (atom.start < row.end and row.start < atom.end) for atom in atoms for row in terminals
+    )
+    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body["lexicon"][0]["terminals"][0]["text"] = "forged"
+    with pytest.raises(ValueError, match="original unprotected slice"):
+        validate_formal_product(profile.prepared, body, source, model=profile.model)

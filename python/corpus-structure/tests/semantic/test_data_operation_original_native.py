@@ -43,18 +43,33 @@ classes: {Marker: {}}
     operation = _declaration()
     operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
     operation["roles"][0].update(maximum=1, collection="scalar")
-    operation["roles"].insert(0, {
-        "name": "source", "kind": "DdoSelectedNativeSource", "direction": "input",
-        "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
-        "support": {
-            "provenance": "value_substitution", "source": "same-original",
-            "coverage": "selected-scope", "identity_requirements": [],
-            "origins": ["original-source"],
+    operation["roles"].insert(
+        0,
+        {
+            "name": "source",
+            "kind": "DdoSelectedNativeSource",
+            "direction": "input",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+            "support": {
+                "provenance": "value_substitution",
+                "source": "same-original",
+                "coverage": "selected-scope",
+                "identity_requirements": [],
+                "origins": ["original-source"],
+            },
         },
-    })
-    (tmp_path / "operations.yaml").write_bytes(canonical_bytes({
-        "version": "data-operation-model-v1", "operations": [operation],
-    }))
+    )
+    (tmp_path / "operations.yaml").write_bytes(
+        canonical_bytes(
+            {
+                "version": "data-operation-model-v1",
+                "operations": [operation],
+            }
+        )
+    )
     (tmp_path / "target.yaml").write_text("""version: data-operation-inputs-v1
 root: target
 schemas: [{name: target, path: schema.yaml}, {name: core, path: core.yaml}]
@@ -90,13 +105,18 @@ def test_authentic_original_fact_admission_publication_and_revocation(
         persist_runtime_binding(connection, prepared, runtime)
         acquired = acquire_original_source_selection(connection, prepared, reference, selectors)
         intent = freeze_demand(
-            model, roots=(acquired.root,), targets=("urn:original-fact-test:consume",),
-            inference="inference:original-value", execution_profile="execution:original-fact",
+            model,
+            roots=(acquired.root,),
+            targets=("urn:original-fact-test:consume",),
+            inference="inference:original-value",
+            execution_profile="execution:original-fact",
             original_sources=(acquired.selection(),),
         )
         storage = DataOperationStorage(connection)
         demand = DemandPlanner(model, storage).register(
-            intent, project=private_source.project_id, release=prepared.release_id,
+            intent,
+            project=private_source.project_id,
+            release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
         snapshot = storage.invoke("read_demand_result", demand)
@@ -108,68 +128,121 @@ def test_authentic_original_fact_admission_publication_and_revocation(
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == 0
         # Repeated authenticated admission neither invents an episode nor a new value.
-        repeated = storage.invoke("admit_original_source_view", {
-            "demand_id": demand["demand_id"], "selection_name": acquired.name,
-            **acquired.selection().record(),
-        })
+        repeated = storage.invoke(
+            "admit_original_source_view",
+            {
+                "demand_id": demand["demand_id"],
+                "selection_name": acquired.name,
+                **acquired.selection().record(),
+            },
+        )
         assert repeated["admission_id"] == admission["admission_id"]
         assert repeated["product_id"] == admission["product_id"]
         selected = DemandPlanner(model, storage).ready(snapshot, authorization=b"{}")
         assert len(selected) == 1
         ready = selected[0]
         binding = json.loads(ready.binding)
-        assert binding["support"] == [{
-            "kind": "original-source", "admission_id": admission["admission_id"],
-            "source_reference": admission["source_reference"], "role": "source", "position": 0,
-        }]
+        assert binding["support"] == [
+            {
+                "kind": "original-source",
+                "admission_id": admission["admission_id"],
+                "source_reference": admission["source_reference"],
+                "role": "source",
+                "position": 0,
+            }
+        ]
         assert "support_derivation_id" not in binding["inputs"][0]
         assert ready.resolved.roles[0].members[0].support_episodes == ()
         # An identical subject/source with a different selector scope cannot see this fact.
-        wrong_scope = connection.execute(text(
-            "SELECT count(*) FROM ops.data_binding_rows(:demand,:operation,"
-            "CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
-        ), {
-            "demand": demand["demand_id"], "operation": ready.operation,
-            "trust": json.dumps(snapshot["trust_snapshot"]), "read": snapshot["read_id"],
-            "subject": acquired.root.subject, "source": acquired.root.original_source,
-            "scope": json.dumps({"source": acquired.source.value["source"], "selectors": []}),
-        }).scalar_one()
+        wrong_scope = connection.execute(
+            text(
+                "SELECT count(*) FROM ops.data_binding_rows(:demand,:operation,"
+                "CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
+            ),
+            {
+                "demand": demand["demand_id"],
+                "operation": ready.operation,
+                "trust": json.dumps(snapshot["trust_snapshot"]),
+                "read": snapshot["read_id"],
+                "subject": acquired.root.subject,
+                "source": acquired.root.original_source,
+                "scope": json.dumps({"source": acquired.source.value["source"], "selectors": []}),
+            },
+        ).scalar_one()
         assert wrong_scope == 0
         native = json.loads(ready.native)
-        claimed = storage.invoke("claim_data_request", {
-            "request_id": native["request_id"], "holder": "original-test", "lease_seconds": 30,
-        })
-        fence = {key: claimed[key] for key in (
-            "request_id", "generation", "task_id", "attempt", "holder"
-        )}
-        output_kind = next(role.kind for op in model.operations if op.semantic_id == ready.operation
-                           for role in op.roles if role.direction == "output")
-        kind = next(item.key for item in model.identities
-                    if item.owner == output_kind and item.domain == "kind")
-        retained = storage.invoke("retain_data_completion_intent", {
-            **fence, "runtime_id": runtime.runtime_id, "completion": {
-                "outcome": "success", "inputs": binding["inputs"], "support": binding["support"],
-                "implementation_revision": "source-value-consumer-v1", "outputs": [{
-                    "role": "result", "position": 0, "multiplicity": 1,
-                    "product": {"kind_contract": kind, "body": semantic_value(7), "members": []},
-                }],
+        claimed = storage.invoke(
+            "claim_data_request",
+            {
+                "request_id": native["request_id"],
+                "holder": "original-test",
+                "lease_seconds": 30,
             },
-        })
-        published = storage.invoke("publish_data_derivation", {
-            **fence, "intent_id": retained["intent_id"],
-        })
+        )
+        fence = {
+            key: claimed[key]
+            for key in ("request_id", "generation", "task_id", "attempt", "holder")
+        }
+        output_kind = next(
+            role.kind
+            for op in model.operations
+            if op.semantic_id == ready.operation
+            for role in op.roles
+            if role.direction == "output"
+        )
+        kind = next(
+            item.key
+            for item in model.identities
+            if item.owner == output_kind and item.domain == "kind"
+        )
+        retained = storage.invoke(
+            "retain_data_completion_intent",
+            {
+                **fence,
+                "runtime_id": runtime.runtime_id,
+                "completion": {
+                    "outcome": "success",
+                    "inputs": binding["inputs"],
+                    "support": binding["support"],
+                    "implementation_revision": "source-value-consumer-v1",
+                    "outputs": [
+                        {
+                            "role": "result",
+                            "position": 0,
+                            "multiplicity": 1,
+                            "product": {
+                                "kind_contract": kind,
+                                "body": semantic_value(7),
+                                "members": [],
+                            },
+                        }
+                    ],
+                },
+            },
+        )
+        published = storage.invoke(
+            "publish_data_derivation",
+            {
+                **fence,
+                "intent_id": retained["intent_id"],
+            },
+        )
         assert published["derivation_id"]
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation_support")) == 0
         assert (
             connection.scalar(text("SELECT count(*) FROM ops.data_derivation_original_support"))
             == 1
         )
-        storage.invoke("revoke_data_support", {
-            "project_id": private_source.project_id,
-            "original_source": acquired.root.original_source,
-            "selector_kind": "original-admission", "selector": admission["admission_id"],
-            "reason": "original source trust withdrawn",
-        })
+        storage.invoke(
+            "revoke_data_support",
+            {
+                "project_id": private_source.project_id,
+                "original_source": acquired.root.original_source,
+                "selector_kind": "original-admission",
+                "selector": admission["admission_id"],
+                "reason": "original source trust withdrawn",
+            },
+        )
         current = storage.invoke("read_demand_result", demand)
         assert current["original_source_admissions"] == []
         assert current["uses"][0]["fate"] == "unavailable"
@@ -178,8 +251,12 @@ def test_authentic_original_fact_admission_publication_and_revocation(
         assert connection.scalar(text("SELECT count(*) FROM ops.original_source_admission")) == 1
         with connection.begin_nested() as savepoint:
             with pytest.raises(DBAPIError, match="revoked"):
-                storage.invoke("admit_original_source_view", {
-                    "demand_id": demand["demand_id"], "selection_name": acquired.name,
-                    **acquired.selection().record(),
-                })
+                storage.invoke(
+                    "admit_original_source_view",
+                    {
+                        "demand_id": demand["demand_id"],
+                        "selection_name": acquired.name,
+                        **acquired.selection().record(),
+                    },
+                )
             savepoint.rollback()

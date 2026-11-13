@@ -107,7 +107,6 @@ class _PythonWork:
     def __init__(self, future: Future, release):
         self.future, self.release = future, release
         self.retired = False
-        self.parent_done = False
         self.drained = False
 
     def collect(self):
@@ -117,8 +116,7 @@ class _PythonWork:
         self.future.cancel()
 
     def retire(self):
-        # Reply/draft credit transfers to the parent through publication. The
-        # parent releases it; retiring the future alone cannot release those bytes.
+        # The request retains its own shared lease through publication.
         if not self.future.done():
             return False
         if (
@@ -127,7 +125,7 @@ class _PythonWork:
             and isinstance(self.future.exception(), NativeRetirementUncertain)
         ):
             return False
-        if self.parent_done and not self.retired:
+        if not self.retired:
             self.release()
             self.retired = True
         return True
@@ -148,8 +146,6 @@ class _RequestExecution:
         except BaseException:
             share.release()
             raise
-        # The enclosing request retains a separate lease through publication.
-        work.parent_done = True
         self.invocation.python_work.append(work)
         return work
 
@@ -320,16 +316,6 @@ class NativeDemandExecutor:
                     prepared=self.prepared,
                 )
         return self.ports[operation]
-
-    def _invoke(self, port, inputs, ready, owner, claim):
-        owner.check_claim(claim)
-        if port.operation.capabilities.preparation != "none":
-            return port.invoke_python(
-                inputs,
-                binding=ready.binding_result,
-                check_active=lambda: owner.check_claim(claim),
-            )
-        return port.invoke_python(inputs, binding=ready.binding_result)
 
     def _renew(self, connection: Connection, claim: OwnedClaim):
         if not isinstance(claim, NativeRequestClaim):
@@ -544,9 +530,11 @@ class NativeDemandExecutor:
             owner.settle(claim, release)
         except Exception as cleanup:
             error.add_note("failed attempt release: " + str(cleanup))
-            raise ExceptionGroup("computation and exact attempt release failed", [error, cleanup]) from cleanup
+            raise ExceptionGroup(
+                "computation and exact attempt release failed", [error, cleanup]
+            ) from cleanup
 
-    def _execute(self, ready, owner, pool):
+    def _execute(self, ready, owner):
         reservation = self.budget.admit(self.reservation)
         physical = _RequestExecution(self._physical, reservation)
         claim, phase = None, "claim"
@@ -561,26 +549,14 @@ class NativeDemandExecutor:
                 phase = "computation"
                 port = self._port(ready.operation)
                 inputs = self._hydrate(ready)
-                if port.operation.capabilities.preparation != "none":
-                    answer = yield from physical.relay(
-                        port.plan_python(
-                            inputs,
-                            binding=ready.binding_result,
-                            check_active=lambda: owner.check_claim(claim),
-                            execution_owner=physical,
-                        )
+                answer = yield from physical.relay(
+                    port.plan_python(
+                        inputs,
+                        binding=ready.binding_result,
+                        check_active=lambda: owner.check_claim(claim),
+                        execution_owner=physical,
                     )
-                else:
-
-                    def calculate():
-                        return self._invoke(port, inputs, ready, owner, claim)
-
-                    def submit():
-                        work = physical.submit_python(calculate)
-                        physical.handles.append(work)
-                        return work
-
-                    (answer,) = yield (PreparedWork(submit),)
+                )
                 phase = "settlement"
                 retained = self._retain_answer(ready, claim, answer, port, owner)
                 receipt = self._publish(claim, retained, owner)
@@ -599,10 +575,9 @@ class NativeDemandExecutor:
         finally:
             reservation.release()
 
-    def _execute_batch(self, ready, owner, pool):
-        reserve = len(ready) * self.reservation
-        self.budget.reserve(reserve)
-        work_items: list[_PythonWork] = []
+    def _execute_batch(self, ready, owner):
+        reservation = self.budget.admit(len(ready) * self.reservation)
+        physical = _RequestExecution(self._physical, reservation)
         pending, receipts, failures = [], [], []
         try:
             for item in ready:
@@ -637,50 +612,44 @@ class NativeDemandExecutor:
                     error.add_note("native obligation: " + item.obligation)
                     failures.append(error)
             if pending:
-
-                def calculate():
-                    active, rejected = [], []
-                    for row in pending:
-                        try:
-                            owner.check_claim(row[2])
-                        except ClaimFenceLost as error:
-                            rejected.append((row, error))
-                        else:
-                            active.append(row)
-                    answer = (
-                        active[0][4].invoke_batch_python(
-                            tuple(
-                                PythonBatchMember(member, inputs, item.binding_result)
-                                for member, item, _, inputs, _ in active
+                active, rejected = [], []
+                for row in pending:
+                    try:
+                        owner.check_claim(row[2])
+                    except ClaimFenceLost as error:
+                        rejected.append((row, error))
+                    else:
+                        active.append(row)
+                for (_, _item, claim, _, _), error in rejected:
+                    self._failed_requests.add((claim.request_id, claim.generation))
+                    failures.append(error)
+                pending = tuple(active)
+                try:
+                    answer = None
+                    if pending:
+                        # One original batch remains useful while any member has
+                        # authority. Each logical result settles under its own fence.
+                        answer = yield from physical.relay(
+                            pending[0][4].plan_batch_python(
+                                tuple(
+                                    PythonBatchMember(member, inputs, item.binding_result)
+                                    for member, item, _, inputs, _ in pending
+                                ),
+                                check_active=owner,
+                                execution_owner=physical,
                             )
                         )
-                        if active
-                        else None
-                    )
-                    return tuple(active), tuple(rejected), answer
-
-                def submit():
-                    work = _PythonWork(pool.submit(calculate), lambda: self.budget.release(reserve))
-                    work_items.append(work)
-                    return work
-
-                try:
-                    (computed,) = yield (PreparedWork(submit),)
-                    active, rejected, answer = computed
-                    for (_, _item, claim, _, _), error in rejected:
-                        self._failed_requests.add((claim.request_id, claim.generation))
-                        failures.append(error)
-                    pending = active
                     if answer is not None and tuple(
                         member for member, _ in answer.members
                     ) != tuple(row[0] for row in pending):
                         raise ValueError("native batch member correspondence differs")
                 except Exception as error:
                     for _, _item, claim, _, _ in pending:
-                        try:
-                            self._known_failure(claim, owner, error, phase="computation")
-                        except Exception as release_error:
-                            failures.append(release_error)
+                        if physical.retired():
+                            try:
+                                self._known_failure(claim, owner, error, phase="computation")
+                            except Exception as release_error:
+                                failures.append(release_error)
                         self._failed_requests.add((claim.request_id, claim.generation))
                     failures.append(error)
                 else:
@@ -702,13 +671,9 @@ class NativeDemandExecutor:
                             failures.append(error)
             return _ExecutionResult(tuple(receipts), tuple(failures))
         finally:
-            if not work_items:
-                self.budget.release(reserve)
-            else:
-                work_items[0].parent_done = True
-                work_items[0].retire()
+            reservation.release()
 
-    def _drive_page(self, snapshot, authorization, owner, pool):
+    def _drive_page(self, snapshot, authorization, owner):
         with self.engine.begin() as connection:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
             ready = tuple(
@@ -731,10 +696,8 @@ class NativeDemandExecutor:
                 if self.model.operation(item.operation).capabilities.forms == ("batch",):
                     groups.setdefault(item.operation, []).append(item)
                 else:
-                    plans.append(self._execute(item, owner, pool))
-            plans.extend(
-                self._execute_batch(tuple(items), owner, pool) for items in groups.values()
-            )
+                    plans.append(self._execute(item, owner))
+            plans.extend(self._execute_batch(tuple(items), owner) for items in groups.values())
             results = yield ReadyGroup(tuple(plans), max_active=self.capacity)
             for result in results:
                 receipts.extend(result.receipts)
@@ -862,7 +825,7 @@ class NativeDemandExecutor:
                                             seen_discovered.add(identity)
                                             progress = True
                         settled, selected, fulfilled, errors = self._drive_page(
-                            page, authorization, owner, pool
+                            page, authorization, owner
                         )
                         self._member_failures.extend(errors)
                         progress = (

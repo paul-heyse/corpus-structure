@@ -1,0 +1,18 @@
+id: https://corpus-structure.dev/semantic/data-operation-source-profile
+name: data_operation_source_profile
+prefixes:
+  dsp: https://corpus-structure.dev/semantic/data-operation-source-profile/
+default_prefix: dsp
+default_range: string
+classes:
+  DdoSourceProfile:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: Exact selected source character and native math-layout measurements; no recognition or scientific interpretation.
+    attributes:
+      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
+      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      chars: {range: integer, required: true, minimum_value: 0}
+      math_share: {range: float, required: true, minimum_value: 0, maximum_value: 1}
+      inline_math: {range: integer, required: true, minimum_value: 0}
+      display_math: {range: integer, required: true, minimum_value: 0}

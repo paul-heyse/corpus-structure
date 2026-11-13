@@ -240,13 +240,8 @@ def _blocks(source: FrozenNativeSource):
     from corpus_structure.methods.source_preparation import annotation_block_owner
 
     selected = source.value
-    nodes: dict[str, dict[str, Any]] = {
-        item["self_ref"]: {
-            **item,
-            **({"parent": {"$ref": item["parent"]}} if "parent" in item else {}),
-        }
-        for item in selected["items"]
-    }
+    nodes = {item["self_ref"]: item for item in source.native_items()}
+    ancestry = source.selector_index()
     grouped: dict[str, list[int]] = {}
     for index, piece in enumerate(selected["pieces"]):
         if piece["kind"] == "native_text":
@@ -279,10 +274,7 @@ def _blocks(source: FrozenNativeSource):
             relevant = [
                 selector
                 for selector in selected["selectors"]
-                if (
-                    "native_pointer" not in selector
-                    or selector["native_pointer"] in {pointer, *pointers}
-                )
+                if (any(ancestry.matches(selector, member) is not False for member in pointers))
                 and ("page" not in selector or selector["page"] in pages)
                 and selector.get("start", 0) < end
                 and start < selector.get("end", len(selected["text"]))
@@ -292,7 +284,7 @@ def _blocks(source: FrozenNativeSource):
             eligible = any(
                 selector.get("start", 0) <= start
                 and end <= selector.get("end", len(selected["text"]))
-                and ("native_pointer" not in selector or selector["native_pointer"] == pointer)
+                and all(ancestry.matches(selector, member) is True for member in pointers)
                 and ("page" not in selector or pages == {selector["page"]})
                 for selector in relevant
             )

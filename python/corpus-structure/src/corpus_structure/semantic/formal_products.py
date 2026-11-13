@@ -138,11 +138,15 @@ class FormalEvidenceProduct:
         from .data_operation_identity import body_identity, product_identity
 
         definition = self.prepared.index.definitions["DdoFormalProduct"]
-        contract = next(identity.key for identity in self.model.identities
-                        if (identity.owner, identity.domain) == (definition.iri, "kind"))
+        contract = next(
+            identity.key
+            for identity in self.model.identities
+            if (identity.owner, identity.domain) == (definition.iri, "kind")
+        )
         value = self.value.model_dump(mode="python", exclude_unset=True)
         return product_identity(
-            kind=contract, subject=source_subject(value["source"]),
+            kind=contract,
+            subject=source_subject(value["source"]),
             body=body_identity(value).key,
         ).key
 
@@ -244,37 +248,65 @@ def validate_formal_product(
                     for piece in selected["pieces"]
                 ):
                     raise ValueError("formal occurrence escapes its original native piece")
+
                 def selected_pointer(selector, pointer=pointer):
                     wanted = selector.get("native_pointer")
                     actual = pointer
-                    items = {row["self_ref"]: row for row in (*selected["items"], *selected.get("ancestors",()))}
+                    items = {
+                        row["self_ref"]: row
+                        for row in (*selected["items"], *selected.get("ancestors", ()))
+                    }
                     seen = set()
                     while wanted and actual != wanted and actual not in seen:
                         seen.add(actual)
                         parent = items.get(actual, {}).get("parent")
-                        actual = parent.get("$ref") if isinstance(parent,dict) else parent
+                        actual = parent.get("$ref") if isinstance(parent, dict) else parent
                     return wanted is None or actual == wanted
+
                 if not any(
                     selected_pointer(selector)
-                    and selector.get("start", 0) <= a < b <= selector.get("end", len(selected["text"]))
+                    and selector.get("start", 0)
+                    <= a
+                    < b
+                    <= selector.get("end", len(selected["text"]))
                     for selector in selected["selectors"]
                 ):
                     raise ValueError("formal occurrence escapes the selected examined scope")
-    if any(not any(region["selector"]==selector for region in checked["lexicon"]) for selector in selected["selectors"]):
+    if any(
+        not any(region["selector"] == selector for region in checked["lexicon"])
+        for selector in selected["selectors"]
+    ):
         raise ValueError("primary lexicon does not retain every examined selector")
     for region in checked["lexicon"]:
-        selector=region["selector"]
-        if selector not in selected["selectors"] or not selector.get("start",0)<=region["start"]<=region["end"]<=selector.get("end",len(selected["text"])):
+        selector = region["selector"]
+        if selector not in selected["selectors"] or not selector.get("start", 0) <= region[
+            "start"
+        ] <= region["end"] <= selector.get("end", len(selected["text"])):
             raise ValueError("primary lexicon differs from exact examined region")
         for atom in region["atoms"]:
-            if atom["occurrence"] not in indexes["occurrences"] or not region["start"] <= atom["start"] < atom["end"] <= region["end"]:
+            if (
+                atom["occurrence"] not in indexes["occurrences"]
+                or not region["start"] <= atom["start"] < atom["end"] <= region["end"]
+            ):
                 raise ValueError("primary lexical protection has no exact retained occurrence")
-            extents=indexes["occurrences"][atom["occurrence"]]["extents"]
-            if (min(e.get("start",-1) for e in extents),max(e.get("end",-1) for e in extents)) != (atom["start"],atom["end"]):
+            extents = indexes["occurrences"][atom["occurrence"]]["extents"]
+            if (
+                min(e.get("start", -1) for e in extents),
+                max(e.get("end", -1) for e in extents),
+            ) != (atom["start"], atom["end"]):
                 raise ValueError("primary lexical protection changes its retained occurrence")
         for row in region["terminals"]:
-            if not region["start"]<=row["start"]<row["end"]<=region["end"] or row["text"]!=selected["text"][row["start"]:row["end"]] or any(atom["start"]<row["end"] and row["start"]<atom["end"] for atom in region["atoms"]):
-                raise ValueError("primary lexical observation differs from its original unprotected slice")
+            if (
+                not region["start"] <= row["start"] < row["end"] <= region["end"]
+                or row["text"] != selected["text"][row["start"] : row["end"]]
+                or any(
+                    atom["start"] < row["end"] and row["start"] < atom["end"]
+                    for atom in region["atoms"]
+                )
+            ):
+                raise ValueError(
+                    "primary lexical observation differs from its original unprotected slice"
+                )
         if region["availability"] != "available" and (region["atoms"] or region["terminals"]):
             raise ValueError("unsupported primary lexicon cannot assert characterized terminals")
     validate_evidence(data, indexes)
@@ -344,8 +376,7 @@ def formal_member_contracts(
 
 def formal_positioned_lexicon(builder, selected):
     """Primary categories outside whole original atoms and positioned formal fields."""
-    from .constructions.lexical import ProtectedAtom
-    from .constructions.lexical import classify
+    from .constructions.lexical import ProtectedAtom, classify
 
     occurrences = builder.occurrences
     protected = []
@@ -357,44 +388,87 @@ def formal_positioned_lexicon(builder, selected):
             if "start" in extent and extent["start"] < extent["end"]:
                 protected.append((extent["start"], extent["end"], parent))
     for piece in builder.view.pieces:
-        if piece["kind"] == "native_text" and builder.items.get(piece["item_ref"], {}).get("label") in {"formula", "reference", "reference_marker"}:
-            protected.append((piece["start"],piece["end"],builder.occurrence(piece,piece["start"],piece["end"])))
+        if piece["kind"] == "native_text" and builder.items.get(piece["item_ref"], {}).get(
+            "label"
+        ) in {"formula", "reference", "reference_marker"}:
+            protected.append(
+                (
+                    piece["start"],
+                    piece["end"],
+                    builder.occurrence(piece, piece["start"], piece["end"]),
+                )
+            )
     protected = sorted(set(protected))
-    protected = [(a,b,o) for a,b,o in protected if not any(c<=a and b<=d and (a,b)!=(c,d) for c,d,_ in protected)]
-    if any(a<c<b<d for a,b,_ in protected for c,d,_ in protected):
+    protected = [
+        (a, b, o)
+        for a, b, o in protected
+        if not any(c <= a and b <= d and (a, b) != (c, d) for c, d, _ in protected)
+    ]
+    if any(a < c < b < d for a, b, _ in protected for c, d, _ in protected):
         raise ValueError("primary formal protection has crossing original atoms")
     result = []
     for selector in selected:
-        lower,upper=selector.get("start",0),selector.get("end",len(builder.view.text))
-        admitted=[]
+        lower, upper = selector.get("start", 0), selector.get("end", len(builder.view.text))
+        admitted = []
         for piece in builder.view.pieces:
-            if piece["kind"]!="native_text":
+            if piece["kind"] != "native_text":
                 continue
-            wanted=selector.get("native_pointer")
-            pointer=piece["item_ref"]
-            seen=set()
-            while wanted and pointer!=wanted and pointer not in seen:
+            wanted = selector.get("native_pointer")
+            pointer = piece["item_ref"]
+            seen = set()
+            while wanted and pointer != wanted and pointer not in seen:
                 seen.add(pointer)
-                parent=builder.items.get(pointer,{}).get("parent")
-                pointer=parent.get("$ref") if isinstance(parent,dict) else parent
-            if wanted and pointer!=wanted:
+                parent = builder.items.get(pointer, {}).get("parent")
+                pointer = parent.get("$ref") if isinstance(parent, dict) else parent
+            if wanted and pointer != wanted:
                 continue
-            a,b=max(lower,piece["start"]),min(upper,piece["end"])
-            if a<b:
-                if admitted and all(p["kind"]!="native_text" for p in builder.view.pieces if admitted[-1][1]<p["end"] and p["start"]<a):
-                    admitted[-1]=(admitted[-1][0],b)
+            a, b = max(lower, piece["start"]), min(upper, piece["end"])
+            if a < b:
+                if admitted and all(
+                    p["kind"] != "native_text"
+                    for p in builder.view.pieces
+                    if admitted[-1][1] < p["end"] and p["start"] < a
+                ):
+                    admitted[-1] = (admitted[-1][0], b)
                 else:
-                    admitted.append((a,b))
+                    admitted.append((a, b))
         if not admitted:
-            admitted=[(lower,lower)]
-        for start,end in admitted:
-            intervals = [(a,b,o) for a,b,o in protected if start<=a<b<=end]
-            if any(a<end and start<b and not start<=a<b<=end for a,b,_ in protected):
-                result.append(dict(selector=dict(selector),start=start,end=end,availability="unsupported",reason="selected source cuts a protected original atom",atoms=[],terminals=[]))
+            admitted = [(lower, lower)]
+        for start, end in admitted:
+            intervals = [(a, b, o) for a, b, o in protected if start <= a < b <= end]
+            if any(a < end and start < b and not start <= a < b <= end for a, b, _ in protected):
+                result.append(
+                    dict(
+                        selector=dict(selector),
+                        start=start,
+                        end=end,
+                        availability="unsupported",
+                        reason="selected source cuts a protected original atom",
+                        atoms=[],
+                        terminals=[],
+                    )
+                )
                 continue
-            atoms=tuple(ProtectedAtom(a-start,b-start,o) for a,b,o in intervals)
-            terminals=classify(builder.view.text[start:end],atoms)
-            result.append(dict(selector=dict(selector),start=start,end=end,availability="available",atoms=[dict(start=a,end=b,occurrence=o) for a,b,o in intervals],terminals=[dict(terminal=row.terminal,start=row.start+start,end=row.end+start,text=row.text) for row in terminals]))
+            atoms = tuple(ProtectedAtom(a - start, b - start, o) for a, b, o in intervals)
+            terminals = classify(builder.view.text[start:end], atoms)
+            result.append(
+                dict(
+                    selector=dict(selector),
+                    start=start,
+                    end=end,
+                    availability="available",
+                    atoms=[dict(start=a, end=b, occurrence=o) for a, b, o in intervals],
+                    terminals=[
+                        dict(
+                            terminal=row.terminal,
+                            start=row.start + start,
+                            end=row.end + start,
+                            text=row.text,
+                        )
+                        for row in terminals
+                    ],
+                )
+            )
     return result
 
 

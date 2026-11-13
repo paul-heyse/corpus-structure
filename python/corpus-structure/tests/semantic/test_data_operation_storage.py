@@ -798,6 +798,10 @@ def test_failed_completion_is_historical_but_never_reusable_fulfillment(kernel):
     receipt = publish(kernel, fence, intent)
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
+        observed = storage.invoke("read_demand_result", demand)
+        assert observed["uses"][0]["fate"] == "failed"
+        assert observed["uses"][0]["completion_state"] == "failed"
+        assert observed["uses"][0]["products"] == []
         current = storage.invoke("attach_data_request", wire)
         assert current["fate"] == "attached"
         assert current["derivation_id"] is None
@@ -1678,16 +1682,23 @@ def test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generat
         None if state == "pending" else claim(kernel, old, seconds=30 if state == "active" else 1)
     )
     replacement = prepare_data_operation_runtime(
-        kernel["prepared"], kernel["runtime_inputs"], execution_profile="execution:test",
+        kernel["prepared"],
+        kernel["runtime_inputs"],
+        execution_profile="execution:test",
         observed={"host": "unretained-replacement"},
     )
     with kernel["engine"].begin() as connection:
         persist_runtime_binding(connection, kernel["prepared"], replacement)
-        DataOperationStorage(connection).invoke("revoke_data_support", {
-            "project_id": "ddo-test", "original_source": "source:test",
-            "selector_kind": "runtime", "selector": kernel["runtime"],
-            "reason": "runtime invalidated before completion intent",
-        })
+        DataOperationStorage(connection).invoke(
+            "revoke_data_support",
+            {
+                "project_id": "ddo-test",
+                "original_source": "source:test",
+                "selector_kind": "runtime",
+                "selector": kernel["runtime"],
+                "reason": "runtime invalidated before completion intent",
+            },
+        )
     updated = {**kernel, "runtime": replacement.runtime_id}
     if state == "active":
         with pytest.raises(DBAPIError, match="active producer lease"):
@@ -1709,13 +1720,16 @@ def test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generat
         ).one()
         assert row.runtime_id == replacement.runtime_id
         assert row.binding["read_id"] == binding["binding"]["read_id"]
-        assert connection.scalar(text(
-            "SELECT count(*) FROM ops.data_completion_intent WHERE request_id=:id"
-        ), {"id": old["request_id"]}) == 0
-        # Fencing publication is distinct from claiming physical retirement.
-        assert connection.scalar(text("SELECT status FROM ops.task WHERE id=:id"),
-                                 {"id": old["task_id"]}) == (
-            "pending" if fence is None else "running"
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.data_completion_intent WHERE request_id=:id"),
+                {"id": old["request_id"]},
+            )
+            == 0
         )
+        # Fencing publication is distinct from claiming physical retirement.
+        assert connection.scalar(
+            text("SELECT status FROM ops.task WHERE id=:id"), {"id": old["task_id"]}
+        ) == ("pending" if fence is None else "running")
     successor = claim(updated, current, holder="unretained-successor")
     assert publish(updated, successor, retain(updated, successor))["derivation_id"]
