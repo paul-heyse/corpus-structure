@@ -27,18 +27,33 @@ PDF_CONTRACT_DIGEST = sha256(
 
 if TYPE_CHECKING:
     from .contracts import ExecutionModelProducts
+    from .pdf_domain import PdfDomainContract
 
 
 @dataclass(frozen=True, slots=True)
 class PreparedPdfContext:
     release_id: str | None
     boundary: PreparedRelease
-    execution: ExecutionModelProducts
+    _execution: ExecutionModelProducts | None
     contract_digest: str
     staging: SourceArtifact | None = field(default=None, repr=False)
+    domain: PdfDomainContract | None = field(default=None, repr=False)
+
+    @property
+    def execution(self) -> ExecutionModelProducts:
+        if self._execution is None:
+            raise ValueError("target PDF context has no legacy execution model")
+        return self._execution
+
+    def require_operation(self, name: str):
+        if self.domain is not None:
+            return self.domain.require_operation(name)
+        return self.execution.require_operation(name)
 
     @property
     def native_schema_digest(self) -> str:
+        if self.domain is not None:
+            return self.domain.source("implementation/pdf/docling-validation.schema.json").digest
         digest = dict(self.execution.implementation_digests).get(
             "pdf/docling-validation.schema.json"
         )
@@ -138,6 +153,20 @@ def pdf_context_for_release(conn: Connection, prepared: PreparedRelease) -> Prep
 
     inputs = table("sem.input")
     release_id = prepared.release_id
+    if prepared.execution_model_id is None:
+        from .data_operation_admission import bound_data_operation_model
+        from .pdf_domain import read_pdf_domain
+
+        model = bound_data_operation_model(prepared)
+        if not any(op.capabilities.preparation == "pdf-native" for op in model.operations):
+            raise ValueError("producer release has no declared native PDF capability")
+        domain = read_pdf_domain(conn, release_id)
+        schema = domain.source("schema/pdf_products")
+        staging = domain.source("implementation/pdf/staging-model.yaml")
+        return PreparedPdfContext(
+            release_id, _boundary(domain.schema), None, schema.digest,
+            SourceArtifact("pdf/staging-model.yaml", staging.content), domain,
+        )
     payload = execution_payload(prepared)
     if payload is None:
         raise ValueError("producing task has no archived execution binding")
@@ -415,7 +444,7 @@ def prepare_pdf_product(
     publication_kind: Literal["native", "integrated"] = "native",
 ) -> PreparedPdfProduct:
     context = trusted_pdf_context() if context is None else context
-    context.execution.require_operation("prepare_native_document")
+    context.require_operation("prepare_native_document")
     supplied = dict(payload)
     document = supplied.pop("document")
     # This transformation is an internal boundary only. The persisted wire document stays JSON.
@@ -623,13 +652,13 @@ def store_pdf_original(
     recipe_bytes: bytes,
 ) -> str:
     """Retain source before inference behind the producing attempt and release."""
-    from .contracts import require_database_operation
+    from .pdf_domain import require_pdf_database_action
 
     context = pdf_context_for_task(conn, task_id)
-    context.execution.require_operation("retain_pdf_original")
+    context.require_operation("retain_pdf_original")
     if context.release_id is None:
         raise ValueError("source custody requires an archived release")
-    require_database_operation(conn, context.release_id, "retain_pdf_original")
+    require_pdf_database_action(conn, context.release_id, "retain_pdf_original")
     if not original.startswith(b"%PDF-"):
         raise ValueError("PDF original has no PDF header")
     from ._operation_calls import retain_pdf_original

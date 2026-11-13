@@ -126,6 +126,23 @@ def require_call_context(
     from .identity import canonical_bytes
     from .refusals import SemanticRefusal
 
+    if prepared.execution_model_id is None:
+        import json
+
+        artifacts = [
+            a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json"
+        ]
+        if len(artifacts) != 1:
+            raise SemanticRefusal("release lacks an unambiguous native call correspondence")
+        calls = [
+            call for owner, call in json.loads(artifacts[0].content)
+            if owner == operation and call["id"] == variant
+        ]
+        if len(calls) != 1 or sha256(canonical_bytes(calls)).hexdigest() != expected_digest:
+            raise SemanticRefusal(
+                f"{operation}/{variant}: incompatible consumer call correspondence"
+            )
+        return
     model = bound_execution_model(prepared)
     calls = [call for call in model.require_operation(operation).calls if call.id == variant]
     if (

@@ -417,7 +417,7 @@ def prepare_integrated_pdf_product(
     caller must retain the submitted image and raw response bytes even for failed passes.
     """
     context = trusted_pdf_context() if context is None else context
-    context.execution.require_operation("prepare_integrated_pdf")
+    context.require_operation("prepare_integrated_pdf")
     supplied = dict(payload)
     custody = PreparedPdfOriginal(original) if isinstance(original, bytes) else original
     content = supplied.get("content")
@@ -586,7 +586,7 @@ def store_pdf_observation(
     archived = pdf_context_for_task(conn, task_id)
     if context is not None and context != archived:
         raise ValueError("PDF context differs from producing task release")
-    archived.execution.require_operation("publish_pdf_observation")
+    archived.require_operation("publish_pdf_observation")
     if (
         archived.release_id is None
         or not product._validated
@@ -628,7 +628,7 @@ def store_integrated_pdf_product(
     archived = pdf_context_for_task(conn, task_id)
     if context is not None and context != archived:
         raise ValueError("PDF context differs from producing task release")
-    archived.execution.require_operation("publish_integrated_pdf")
+    archived.require_operation("publish_integrated_pdf")
     if (
         archived.release_id is None
         or not product._validated

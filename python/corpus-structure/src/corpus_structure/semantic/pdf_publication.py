@@ -683,9 +683,9 @@ def validate_pdf_build(
 
     check_active()
     with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-        from .contracts import require_database_operation
+        from .pdf_domain import require_pdf_database_action
 
-        require_database_operation(conn, frozen.build.release_id, "validate_pdf_build")
+        require_pdf_database_action(conn, frozen.build.release_id, "validate_pdf_build")
         existing = calls.lookup_pdf_validation(
             conn,
             build_id=frozen.build.build_id,

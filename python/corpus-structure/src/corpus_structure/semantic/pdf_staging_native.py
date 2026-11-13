@@ -40,7 +40,9 @@ def native_payload_size_sql(relation, *, alias="s") -> str:
 
 
 def stage_native_sql() -> str:
-    sql = """
+    from .pdf_domain_native import pdf_domain_native_sql
+
+    sql = pdf_domain_native_sql() + """
 CREATE OR REPLACE FUNCTION ops.pdf_task_context(p_task bigint)
 RETURNS TABLE(project_id text,release_id text,run_id bigint,request_id text,generation bigint,
  document_id bigint,source_digest text)
@@ -138,7 +140,7 @@ RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_tem
 DECLARE owner record; original_digest text; recipe_digest text;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(owner.release_id,'retain_pdf_original');
+ PERFORM ops.require_pdf_operation(owner.release_id,'retain_pdf_original');
  IF p_original IS NULL OR substring(p_original FROM 1 FOR 5)<>convert_to('%PDF-','UTF8')
  OR p_recipe IS NULL OR octet_length(p_recipe)=0 THEN
  RAISE EXCEPTION 'original PDF or recipe bytes unavailable' USING ERRCODE='23514'; END IF;
@@ -172,11 +174,10 @@ RETURNS SETOF ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET search_p
 DECLARE owner record; build ops.pdf_stage_build; id text;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(owner.release_id,'begin_pdf_build');
- IF p_source IS NULL OR p_recipe IS NULL OR NOT EXISTS(
- SELECT FROM sem.input WHERE release_id=owner.release_id AND input_kind='dependency'
- AND input_name='execution/implementation/pdf/docling-validation.schema.json'
- AND content_digest=p_schema AND encode(sha256(content),'hex')=p_schema)
+ PERFORM ops.require_pdf_operation(owner.release_id,'begin_pdf_build');
+ IF p_source IS NULL OR p_recipe IS NULL OR p_schema IS DISTINCT FROM
+ encode(sha256(ops.pdf_contract_input(owner.release_id,
+ 'implementation/pdf/docling-validation.schema.json')),'hex')
  OR p_key IS NULL OR p_key=''
  OR octet_length(p_key)>1024 OR NOT
  EXISTS(SELECT FROM ops.source_build s WHERE s.task_id=p_task
@@ -252,7 +253,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_tem
 DECLARE build ops.pdf_stage_build;
 BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(build.release_id,'adopt_pdf_batch');
+ PERFORM ops.require_pdf_operation(build.release_id,'adopt_pdf_batch');
 """
     relations = [metadata.tables[name] for name in STAGE_FAMILIES.values()]
     pg = dialect()
@@ -277,7 +278,7 @@ DECLARE build ops.pdf_stage_build; receipt ops.pdf_stage_receipt; n bigint; byte
  total bigint:=0; total_bytes bigint:=0; hashes text:=''; digest text;
 BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(build.release_id,'adopt_pdf_batch');
+ PERFORM ops.require_pdf_operation(build.release_id,'adopt_pdf_batch');
  IF p_key IS NULL OR p_key='' OR octet_length(p_key)>1024 THEN
  RAISE EXCEPTION 'invalid private replay key'
  USING ERRCODE='23514'; END IF;
@@ -346,7 +347,7 @@ RETURNS SETOF ops.pdf_stage_receipt LANGUAGE plpgsql SECURITY DEFINER SET
 DECLARE build ops.pdf_stage_build;
 BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(build.release_id,'inspect_pdf_progress');
+ PERFORM ops.require_pdf_operation(build.release_id,'inspect_pdf_progress');
  RETURN QUERY SELECT * FROM ops.pdf_stage_receipt WHERE build_id=p_build ORDER BY replay_key;
 END $stage$;
 CREATE OR REPLACE FUNCTION ops.resume_pdf_build(p_build text,p_task bigint,p_attempt bigint,
@@ -355,7 +356,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_tem
 DECLARE owner record; build ops.pdf_stage_build;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(owner.release_id,'resume_pdf_build');
+ PERFORM ops.require_pdf_operation(owner.release_id,'resume_pdf_build');
  IF p_build IS NULL THEN RAISE EXCEPTION 'private PDF resume binding differs'
  USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task
@@ -372,7 +373,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_tem
 DECLARE build ops.pdf_stage_build;
 BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(build.release_id,'abandon_pdf_build');
+ PERFORM ops.require_pdf_operation(build.release_id,'abandon_pdf_build');
  IF NOT ops.execution_edge(build.release_id,'pdf_private_build','open','abandoned') THEN
  RAISE EXCEPTION 'private PDF abandonment transition unavailable' USING ERRCODE='23514'; END IF;
  UPDATE ops.pdf_stage_build SET state='abandoned' WHERE build_id=p_build;

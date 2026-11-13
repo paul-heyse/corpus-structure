@@ -77,7 +77,7 @@ def read_pdf_observations(
     from .pdf_contracts import pdf_context_for_run
 
     context = pdf_context_for_run(conn, request.run_id)
-    context.execution.require_operation("read_pdf_product")
+    context.require_operation("read_pdf_product")
     states = context.execution.lifecycle("task").states
     terminal = {
         value.value
@@ -320,16 +320,23 @@ def _record_product_identity(conn, task_id, product_key, content_digest, record_
     # context owns selected projections; neither substitutes for this custody.
     context = pdf_context_for_task(conn, task_id)
     try:
-        operation = context.execution.require_operation("read_pdf_product")
+        operation = context.require_operation("read_pdf_product")
     except (PreparationError, StopIteration) as error:
         raise NativeDocumentUnavailable(
             "PDF read ABI is unsupported; qualify an archived reader"
         ) from error
-    binding = next(
-        item for item in context.execution.implementations if item.id == operation.implementation
-    )
+    if context.domain is None:
+        operation = context.execution.require_operation("read_pdf_product")
+        binding = next(
+            item for item in context.execution.implementations
+            if item.id == operation.implementation
+        )
+        owner, symbol = binding.owner, binding.symbol
+    else:
+        binding = context.domain.require_operation("read_pdf_product")["implementation"]
+        owner, symbol = binding["owner"], binding["symbol"]
     implementation = approved_implementations()["read_pdf_product"]
-    if (binding.owner, binding.symbol) != (
+    if (owner, symbol) != (
         implementation.__module__.removeprefix("corpus_structure."),
         implementation.__qualname__,
     ):
@@ -393,7 +400,7 @@ def _pdf_product_identity(
         raise NativeDocumentUnavailable("PDF product differs from its archived contract")
     if identity["kind"] != "recognition_observation":
         raise NativeDocumentUnavailable("current source content requires a published record")
-    context.execution.require_operation("read_pdf_product")
+    context.require_operation("read_pdf_product")
     return dict(identity)
 
 

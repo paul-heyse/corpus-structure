@@ -699,7 +699,7 @@ class PublishedPdfReader:
 
         if not hasattr(self, "_prepared_native_mapping"):
             context = self._payload_context()
-            context.execution.require_operation("read_pdf_product")
+            context.require_operation("read_pdf_product")
             digest = self.revision["schema_digest"]
             if digest != context.native_schema_digest:
                 raise PublishedSchemaUnavailable(
@@ -766,7 +766,7 @@ class PublishedPdfReader:
         """Retain assessed integration health without hydrating native content."""
         from itertools import islice
 
-        self._payload_context().execution.require_operation("read_pdf_product")
+        self._payload_context().require_operation("read_pdf_product")
         with closing(self.iter_rows("companion", {"family": "health"}, batch_size=3)) as rows:
             health_rows = [self.decode_companion_row(row) for row in islice(rows, 3)]
         if len(health_rows) > 2:

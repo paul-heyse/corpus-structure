@@ -51,6 +51,7 @@ class DataOperationInputs(BaseModel):
     python: PythonInputs | None = None
     consumer_bindings: bool = False
     source_bindings: bool = False
+    pdf_contracts: bool = False
 
 
 @dataclass(frozen=True)
@@ -152,6 +153,10 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
         ),
         sources,
     )
+    if declared.pdf_contracts:
+        from .pdf_domain import pdf_domain_dependencies
+
+        dependencies = pdf_domain_dependencies(dependencies)
     return AcquiredDataOperationInputs(
         bundle,
         dependencies,

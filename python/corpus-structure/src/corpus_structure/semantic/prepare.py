@@ -979,6 +979,9 @@ def _prepare_release_uncached(
                 ),
             )
             artifacts.extend(PreparedArtifact(name, content) for name, content in generated.files)
+    from .pdf_domain import pdf_domain_artifacts
+
+    artifacts.extend(pdf_domain_artifacts(dependencies))
     from .inspection_metadata import prepare_inspection
 
     artifacts.append(prepare_inspection(inspection_index, view, tuple(definitions)))

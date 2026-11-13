@@ -413,7 +413,7 @@ BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
  SELECT * INTO STRICT root_ FROM ops.source_build WHERE task_id=p_task AND \
 release_id=owner.release_id;
- PERFORM sem.require_execution_operation(owner.release_id,'retain_pdf_stage_recipe');
+ PERFORM ops.require_pdf_operation(owner.release_id,'retain_pdf_stage_recipe');
  PERFORM convert_from(p_recipe,'UTF8')::jsonb;
  IF p_recipe IS NULL OR octet_length(p_recipe)=0 THEN RAISE EXCEPTION 'empty stage recipe'; END IF;
  digest_:=encode(sha256(p_recipe),'hex');
@@ -474,7 +474,7 @@ b.state='abandoned' THEN
  THEN RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
  IF p_kind IS DISTINCT FROM (SELECT kind FROM ops.pdf_frozen_build WHERE build_id=p_build)
  THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF; RETURN f; END IF;
- PERFORM sem.require_execution_operation(b.release_id,'freeze_pdf_build');
+ PERFORM ops.require_pdf_operation(b.release_id,'freeze_pdf_build');
 """
     )
     stage = {
@@ -538,7 +538,7 @@ body_ jsonb:=p_body; payload_ bytea; profile_ text; metadata_ json; projection_ 
 alternatives_ jsonb; prior_ jsonb; property_ text; item_ jsonb;
 BEGIN
  b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(b.release_id,'adopt_pdf_companion_batch');
+ PERFORM ops.require_pdf_operation(b.release_id,'adopt_pdf_companion_batch');
  IF p_family IS NULL OR p_local IS NULL OR p_local='' OR jsonb_typeof(p_body)<>'object' OR
  octet_length(p_body::text)>65536 THEN RAISE EXCEPTION 'invalid typed PDF companion' USING \
 ERRCODE='23514'; END IF;
@@ -680,7 +680,7 @@ bigint,p_holder text,p_frozen text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE b ops.pdf_stage_build;
 BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM sem.require_execution_operation(b.release_id,'prepare_pdf_build');
+ PERFORM ops.require_pdf_operation(b.release_id,'prepare_pdf_build');
 """
     for family in (
         "header",
@@ -894,7 +894,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_tem
 DECLARE b ops.pdf_stage_build; contract_ text;
 BEGIN
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
+ PERFORM ops.require_pdf_operation(b.release_id,'validate_pdf_build');
  contract_:=ops.pdf_validation_contract(b.release_id);
  INSERT INTO ops.pdf_native_validation VALUES(p_build,p_frozen,contract_,p_passed) ON CONFLICT \
 DO NOTHING;
@@ -1107,7 +1107,7 @@ BEGIN
   PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
  END IF;
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
+ PERFORM ops.require_pdf_operation(b.release_id,'validate_pdf_build');
  IF b.state<>'frozen' THEN RAISE EXCEPTION 'PDF check requires a frozen private build'; END IF;
  contract_:=ops.pdf_validation_contract(b.release_id);
  IF p_check='seal' THEN
@@ -1193,7 +1193,7 @@ BEGIN
  END IF;
  PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
+ PERFORM ops.require_pdf_operation(b.release_id,'validate_pdf_build');
  SELECT * INTO prior_validation FROM ops.lookup_pdf_validation(
  p_build,p_task,p_attempt,p_holder,p_frozen);
  IF FOUND THEN RETURN NEXT prior_validation; RETURN; END IF;
@@ -1246,7 +1246,7 @@ BEGIN
  SELECT * INTO prior FROM ops.pdf_published_revision WHERE build_id=p_build;
  IF FOUND THEN IF prior.product_key IS DISTINCT FROM p_key THEN RAISE EXCEPTION 'published key \
 replay differs'; END IF; RETURN NEXT prior; RETURN; END IF;
- PERFORM sem.require_execution_operation(b.release_id,'seal_pdf_build');
+ PERFORM ops.require_pdf_operation(b.release_id,'seal_pdf_build');
  -- Finalized projection membership is immutable under the model-owned write
  -- isolation guard. Consume its qualified receipt inside the short task fence.
  SELECT * INTO STRICT v FROM ops.lookup_pdf_validation(
@@ -1268,10 +1268,8 @@ ct_key,input_content_digest)
 oduct_key',c.body->>'content_digest'
  FROM kb.pdf_record_companion c WHERE c.product_id=p_build AND c.family='input';
  INSERT INTO kb.source_artifact(artifact_digest,content)
- SELECT b.schema_digest,content FROM sem.input WHERE release_id=b.release_id AND \
-input_kind='dependency'
- AND input_name='execution/implementation/pdf/docling-validation.schema.json' AND \
-encode(sha256(content),'hex')=b.schema_digest
+ SELECT b.schema_digest,ops.pdf_contract_input(b.release_id,
+ 'implementation/pdf/docling-validation.schema.json')
  ON CONFLICT DO NOTHING;
  INSERT INTO ops.pdf_product_artifact(task_id,product_key,artifact_digest)
  SELECT p_task,p_key,a.artifact_digest FROM kb.source_artifact a
@@ -1409,7 +1407,8 @@ c.ordinal,c.local_id LIMIT 1) AS health,NULL::bytea AS payload
  FROM ops.pdf_published_revision p JOIN ops.pdf_build_validation v ON v.build_id=p.build_id
  JOIN sem.input contract_input ON contract_input.release_id=p.release_id
  AND contract_input.input_kind='dependency'
- AND contract_input.input_name='execution/schema/pdf_products';
+ AND contract_input.input_name IN ('execution/schema/pdf_products',
+ 'pdf-domain/schema/pdf_products');
 ALTER VIEW ops.pdf_selected_product OWNER TO corpus_sem_publisher;
 GRANT SELECT ON ops.pdf_selected_product TO corpus_sem_writer,corpus_sem_reader,corpus_sem_evalua\
 tor,corpus_sem_admitter;
@@ -1422,7 +1421,7 @@ search_path=pg_catalog,pg_temp AS $$
 DECLARE owner record;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(owner.release_id,'inspect_pdf_build');
+ PERFORM ops.require_pdf_operation(owner.release_id,'inspect_pdf_build');
  RETURN QUERY SELECT * FROM ops.pdf_stage_build WHERE task_id=p_task AND replay_key=p_key AND \
 release_id=owner.release_id;
 END $$;

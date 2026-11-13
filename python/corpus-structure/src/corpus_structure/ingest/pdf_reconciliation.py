@@ -60,7 +60,7 @@ def _context(context, operation):
         from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 
         context = trusted_pdf_context()
-    context.execution.require_operation(operation)
+    context.require_operation(operation)
     return context
 
 

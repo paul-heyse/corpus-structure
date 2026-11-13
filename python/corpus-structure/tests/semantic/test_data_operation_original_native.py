@@ -78,6 +78,9 @@ schemas: [{name: target, path: schema.yaml}, {name: core, path: core.yaml}]
 declarations: [{name: operations, path: operations.yaml}]
 source_bindings: true
 """)
+    if getattr(request, "param", None) == "DdoOriginalDocument":
+        manifest = tmp_path / "target.yaml"
+        manifest.write_text(manifest.read_text() + "pdf_contracts: true\n")
     return prepare_data_operation_inputs(tmp_path, "target.yaml")
 
 

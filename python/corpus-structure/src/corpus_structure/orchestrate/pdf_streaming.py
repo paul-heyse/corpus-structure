@@ -165,9 +165,9 @@ def run_private_pdf_build(
                 schema_digest=schema_digest,
                 replay_key=replay_key,
             )
-            from corpus_structure.semantic.contracts import require_database_operation
+            from corpus_structure.semantic.pdf_domain import require_pdf_database_action
 
-            require_database_operation(connection, build.release_id, "stage_pdf_producer")
+            require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
         with producer(build, check_active) as batches:
             for batch in batches:
                 check_active()
@@ -283,9 +283,9 @@ def run_private_native_pdf_build(
                         schema_digest=schema_digest,
                         replay_key=replay_key,
                     )
-                    from corpus_structure.semantic.contracts import require_database_operation
+                    from corpus_structure.semantic.pdf_domain import require_pdf_database_action
 
-                    require_database_operation(connection, build.release_id, "stage_pdf_producer")
+                    require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
                     from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
                     from corpus_structure.semantic.pdf_payloads import (
                         prepare_payload_family,
@@ -550,7 +550,7 @@ def replay_private_pdf_build(
     owned_check: Callable[[], None] | None = None,
 ) -> PdfBuildRef:
     """Explicitly resume exact durable IPC output without invoking recognition again."""
-    from corpus_structure.semantic.contracts import require_database_operation
+    from corpus_structure.semantic.pdf_domain import require_pdf_database_action
     from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, resume_pdf_build
 
     cancellation = cancellation or BorrowerCancellation()
@@ -567,7 +567,7 @@ def replay_private_pdf_build(
             check_claim_active()
 
         with _pdf_transaction(engine, cancellation) as connection:
-            require_database_operation(connection, build.release_id, "stage_pdf_producer")
+            require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
             resumed = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)
         batches = ipc_replay_batches(replays, check_active)
         try:
