@@ -384,19 +384,36 @@ definitions:
     - multiplicity
     additionalProperties: false
   endpoint:
-    type: object
-    properties:
-      role:
-        $ref: '#/definitions/identifier'
-      product_id:
-        $ref: '#/definitions/identifier'
-      member_id:
-        $ref: '#/definitions/identifier'
-    required:
-    - role
-    - product_id
-    - member_id
-    additionalProperties: false
+    oneOf:
+    - type: object
+      properties:
+        scope:
+          const: local
+        role:
+          $ref: '#/definitions/identifier'
+        member_id:
+          $ref: '#/definitions/identifier'
+      required:
+      - scope
+      - role
+      - member_id
+      additionalProperties: false
+    - type: object
+      properties:
+        scope:
+          const: external
+        role:
+          $ref: '#/definitions/identifier'
+        member_id:
+          $ref: '#/definitions/identifier'
+        product_id:
+          $ref: '#/definitions/identifier'
+      required:
+      - scope
+      - role
+      - member_id
+      - product_id
+      additionalProperties: false
   coverage:
     type: object
     properties:
@@ -434,7 +451,7 @@ definitions:
       member_id:
         $ref: '#/definitions/identifier'
       body:
-        $ref: '#/definitions/tagged_mapping'
+        $ref: '#/definitions/semantic_value'
       coordinates:
         type: array
         items:
@@ -460,9 +477,12 @@ definitions:
         items:
           $ref: '#/definitions/choice'
         minItems: 0
+      context:
+        $ref: '#/definitions/member_context'
     required:
     - member_id
     - body
+    - context
     additionalProperties: false
   product:
     type: object
@@ -682,6 +702,11 @@ definitions:
         $ref: '#/definitions/json_value'
       body:
         $ref: '#/definitions/semantic_value'
+      body_state:
+        type: string
+        enum:
+        - not_requested
+        - present
     required:
     - role
     - position
@@ -692,8 +717,20 @@ definitions:
     - subject
     - original_source
     - analyzed_scope
-    - body
+    - body_state
     additionalProperties: false
+    oneOf:
+    - properties:
+        body_state:
+          const: not_requested
+      not:
+        required:
+        - body
+    - properties:
+        body_state:
+          const: present
+      required:
+      - body
   result_use:
     type: object
     properties:
@@ -865,6 +902,11 @@ definitions:
         $ref: '#/definitions/read_snapshot'
       frontier_at:
         $ref: '#/definitions/frontier_at'
+      view:
+        type: string
+        enum:
+        - frontier
+        - products
     required:
     - demand_id
     - selection
@@ -874,6 +916,7 @@ definitions:
     - read_id
     - read_snapshot
     - frontier_at
+    - view
     additionalProperties: false
   register_data_demand_request:
     type: object
@@ -1424,6 +1467,12 @@ definitions:
         $ref: '#/definitions/read_snapshot'
       frontier_at:
         $ref: '#/definitions/frontier_at'
+      view:
+        type: string
+        enum:
+        - frontier
+        - products
+        default: frontier
     required:
     - demand_id
     additionalProperties: false
@@ -1483,6 +1532,11 @@ definitions:
         $ref: '#/definitions/read_snapshot'
       frontier_at:
         $ref: '#/definitions/frontier_at'
+      view:
+        type: string
+        enum:
+        - frontier
+        - products
     required:
     - demand_id
     - selection
@@ -1499,7 +1553,37 @@ definitions:
     - read_id
     - read_snapshot
     - frontier_at
+    - view
     additionalProperties: false
+    allOf:
+    - if:
+        properties:
+          view:
+            const: frontier
+      then:
+        properties:
+          uses:
+            items:
+              properties:
+                products:
+                  items:
+                    properties:
+                      body_state:
+                        const: not_requested
+    - if:
+        properties:
+          view:
+            const: products
+      then:
+        properties:
+          uses:
+            items:
+              properties:
+                products:
+                  items:
+                    properties:
+                      body_state:
+                        const: present
   population_reference:
     type: object
     properties:
@@ -1526,6 +1610,8 @@ definitions:
     type: string
     minLength: 1
     description: Server-selected cutoff timestamp pinned by the authenticated read receipt.
+  member_context:
+    $ref: '#/definitions/root_subject'
 operations:
 - name: register_data_demand
   profile: command
