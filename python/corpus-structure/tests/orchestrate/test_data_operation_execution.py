@@ -5,7 +5,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import insert, text
 
-from corpus_structure.orchestrate.data_operations import NativeDemandExecutor, NativeDemandExecutionError
+from corpus_structure.orchestrate.data_operations import (
+    NativeDemandExecutionError,
+    NativeDemandExecutor,
+)
 from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
@@ -117,17 +120,24 @@ def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(ex
     model = bound_data_operation_model(prepared)
     intent = freeze_demand(
         model,
-        roots=(RootSubject("subject:one", "source:one", b"{}"),
-               RootSubject("subject:two", "source:two", b"{}")),
+        roots=(
+            RootSubject("subject:one", "source:one", b"{}"),
+            RootSubject("subject:two", "source:two", b"{}"),
+        ),
         targets=("urn:ddo-execution:answer", "urn:ddo-execution:broken"),
-        inference="exact", execution_profile="execution:test",
+        inference="exact",
+        execution_profile="execution:test",
     )
     with engine.begin() as conn:
         demand = DemandPlanner(model, DataOperationStorage(conn)).register(
-            intent, project="execution", release=prepared.release_id, runtime=runtime.runtime_id,
+            intent,
+            project="execution",
+            release=prepared.release_id,
+            runtime=runtime.runtime_id,
         )["demand_id"]
-    executor = NativeDemandExecutor(engine, prepared, runtime, sources,
-                                    runtime_locations=locations, schema=bundle)
+    executor = NativeDemandExecutor(
+        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle
+    )
     with pytest.raises(NativeDemandExecutionError) as caught:
         executor.run(demand, limit=1)
     result = caught.value.result

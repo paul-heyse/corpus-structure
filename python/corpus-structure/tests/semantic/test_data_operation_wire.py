@@ -847,15 +847,29 @@ def test_attempt_release_requires_confirmed_physical_retirement_and_closed_failu
 
 
 def test_original_source_support_reference_never_relabels_a_computation_episode():
-    reference = {"kind": "original-source", "admission_id": "original-admission:one",
-                 "source_reference": "a" * 64, "role": "source", "position": 0}
+    reference = {
+        "kind": "original-source",
+        "admission_id": "original-admission:one",
+        "source_reference": "a" * 64,
+        "role": "source",
+        "position": 0,
+    }
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
     completion = {
-        "request_id": "request:one", "generation": 1, "task_id": 1, "attempt": 1,
-        "holder": "owner", "runtime_id": "runtime:one",
-        "completion": {"outcome": "success", "inputs": [], "outputs": [],
-                       "implementation_revision": "implementation:one", "support": [reference]},
+        "request_id": "request:one",
+        "generation": 1,
+        "task_id": 1,
+        "attempt": 1,
+        "holder": "owner",
+        "runtime_id": "runtime:one",
+        "completion": {
+            "outcome": "success",
+            "inputs": [],
+            "outputs": [],
+            "implementation_revision": "implementation:one",
+            "support": [reference],
+        },
     }
     assert validate_native_wire("retain_data_completion_intent", "input", completion) == completion
     reference["derivation_id"] = reference["admission_id"]

@@ -458,6 +458,15 @@ def test_frozen_root_identity_includes_source_and_canonical_analyzed_scope():
     assert ordered == reverse
     assert len(ordered.record["roots"]) == 2
     with pytest.raises(ValueError, match="duplicate root context"):
-        freeze_demand(compiled, roots=(first, RootSubject(
-            "same-view", "source:one", b'{"end":3,"start":0}',
-        )), **arguments)
+        freeze_demand(
+            compiled,
+            roots=(
+                first,
+                RootSubject(
+                    "same-view",
+                    "source:one",
+                    b'{"end":3,"start":0}',
+                ),
+            ),
+            **arguments,
+        )

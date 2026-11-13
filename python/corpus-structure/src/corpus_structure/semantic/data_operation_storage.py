@@ -40,8 +40,10 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     return (
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
-        SourceArtifact("native/data-operation-support.py",
-            Path(__file__).with_name("data_operation_support.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-support.py",
+            Path(__file__).with_name("data_operation_support.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-execution-evidence.py",
             Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
@@ -537,6 +539,7 @@ def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
     members = root.get("properties", {}).get("members")
     if members is None:
         return {"not": {}}
+
     def variants(value):
         value = resolve(value)
         branches = value.get("oneOf", value.get("anyOf"))

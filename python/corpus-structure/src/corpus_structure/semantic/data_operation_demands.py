@@ -83,8 +83,12 @@ def freeze_demand(
 
     if not targets or not inference or not execution_profile:
         raise ValueError("demand requires targets, inference and an execution profile")
-    if len({(root.subject, root.original_source, canonical_bytes(json.loads(root.analyzed_scope)))
-            for root in roots}) != len(roots):
+    if len(
+        {
+            (root.subject, root.original_source, canonical_bytes(json.loads(root.analyzed_scope)))
+            for root in roots
+        }
+    ) != len(roots):
         raise ValueError("duplicate root context")
     if any(not root.subject or not root.original_source for root in roots):
         raise ValueError("root subject and source must be explicit")
@@ -193,7 +197,8 @@ def freeze_demand(
                         for root in roots
                     ),
                     key=lambda root: (
-                        root["subject"], root["original_source"],
+                        root["subject"],
+                        root["original_source"],
                         canonical_bytes(root["analyzed_scope"]),
                     ),
                 ),
@@ -327,9 +332,14 @@ class DemandPlanner:
         if result.get("state") == "cancelled":
             return result
         for name, source in record.get("original_sources", {}).items():
-            self.storage.invoke("admit_original_source_view", {
-                "demand_id": result["demand_id"], "selection_name": name, **source,
-            })
+            self.storage.invoke(
+                "admit_original_source_view",
+                {
+                    "demand_id": result["demand_id"],
+                    "selection_name": name,
+                    **source,
+                },
+            )
         for root in record["roots"]:
             for operation in record["operations"]:
                 if operation["operation"] not in record["root_operations"]:
@@ -690,8 +700,11 @@ class DemandPlanner:
                             "multiplicity": member.multiplicity,
                             "product_id": member.product,
                             "member_id": member.member,
-                            **({"support_derivation_id": member.support_episodes[0]}
-                               if member.support_episodes else {}),
+                            **(
+                                {"support_derivation_id": member.support_episodes[0]}
+                                if member.support_episodes
+                                else {}
+                            ),
                         }
                     )
             wire_binding = {

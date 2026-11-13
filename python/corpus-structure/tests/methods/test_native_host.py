@@ -517,7 +517,9 @@ def test_real_host_peer_failure_fences_and_proves_process_death(physical_host, m
     assert not native_host._live_group(host._process.pid)
 
 
-def test_inference_failure_with_unproven_cleanup_is_typed_and_stays_owned(physical_host, monkeypatch):
+def test_inference_failure_with_unproven_cleanup_is_typed_and_stays_owned(
+    physical_host, monkeypatch
+):
     selected = selection()
     host = physical_host(selected)
 

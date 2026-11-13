@@ -22,11 +22,14 @@ from sqlalchemy import Connection, Engine, select
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.work import PreparedWork, ReadyGroup, drive_prepared_work
+from corpus_structure.methods.native_host import NativeHostGroup, NativeRetirementUncertain
 from corpus_structure.semantic.claim_lifetime import (
-    ClaimFenceLost, ClaimSettlementUncertain, OwnedClaim, maintained_claims,
+    ClaimFenceLost,
+    ClaimSettlementUncertain,
+    OwnedClaim,
+    maintained_claims,
 )
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
-from corpus_structure.methods.native_host import NativeHostGroup, NativeRetirementUncertain
 from corpus_structure.semantic.data_operation_admission import (
     acquire_prepared_execution,
     acquire_python_execution,
@@ -43,6 +46,9 @@ from corpus_structure.semantic.data_operation_ports import (
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
     admitted_data_projection,
+)
+from corpus_structure.semantic.data_operation_support import (
+    support_reference_records as _support_records,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
@@ -76,7 +82,7 @@ class DemandAdvance:
     snapshot: bytes
     receipts: tuple[bytes, ...]
     receipt_count: int
-    snapshot_standing: str = 'fresh-read'
+    snapshot_standing: str = "fresh-read"
 
     @property
     def receipts_truncated(self) -> bool:
@@ -116,7 +122,8 @@ class _PythonWork:
         if not self.future.done():
             return False
         if (
-            not self.drained and not self.future.cancelled()
+            not self.drained
+            and not self.future.cancelled()
             and isinstance(self.future.exception(), NativeRetirementUncertain)
         ):
             return False
@@ -155,15 +162,20 @@ class _RequestExecution:
                     work = plan.throw(failure) if failure is not None else plan.send(value)
                 except StopIteration as result:
                     return result.value
-                if not isinstance(work, tuple) or not all(isinstance(item, PreparedWork) for item in work):
-                    raise TypeError('prepared capability must yield declared physical work')
+                if not isinstance(work, tuple) or not all(
+                    isinstance(item, PreparedWork) for item in work
+                ):
+                    raise TypeError("prepared capability must yield declared physical work")
+
                 def capture(item):
                     def submit():
                         handle = item.try_submit()
                         if handle is not None:
                             self.handles.append(handle)
                         return handle
+
                     return PreparedWork(submit, item.abandon)
+
                 try:
                     value = yield tuple(capture(item) for item in work)
                     failure = None
@@ -173,14 +185,17 @@ class _RequestExecution:
             plan.close()
 
     def retired(self):
-        return all([handle.retire() for handle in self.handles]) and self.cpu.reservation_retired(self.reservation)
+        return all([handle.retire() for handle in self.handles]) and self.cpu.reservation_retired(
+            self.reservation
+        )
 
 
 class _InvocationExecution:
     def __init__(self, executor, pool):
         self.pool, self.python_work = pool, []
-        self.cpu = CPUExecutionScope(executor.prepared, executor.policy,
-                                     budget=executor.budget, retain_schema=False)
+        self.cpu = CPUExecutionScope(
+            executor.prepared, executor.policy, budget=executor.budget, retain_schema=False
+        )
         self.native_hosts = NativeHostGroup(executor.policy)
         self.executor = executor
 
@@ -216,7 +231,7 @@ class _InvocationExecution:
                 # scope exits; its still-owned share retires on actual completion.
                 work.future.add_done_callback(lambda _, work=work: work.retire())
         if failures:
-            raise BaseExceptionGroup('native demand physical cleanup failed', failures)
+            raise BaseExceptionGroup("native demand physical cleanup failed", failures)
 
 
 class NativeDemandExecutor:
@@ -322,8 +337,8 @@ class NativeDemandExecutor:
         result = DataOperationStorage(connection).invoke(
             "renew_data_request", {**claim.fence, "lease_seconds": 300}
         )
-        if result['state'] == 'lost':
-            raise ClaimFenceLost(claim, result['reason'])
+        if result["state"] == "lost":
+            raise ClaimFenceLost(claim, result["reason"])
 
     def _hydrate(self, ready: ReadyDataRequest):
         pins = json.loads(ready.resolved.trust_evidence)
@@ -337,6 +352,7 @@ class NativeDemandExecutor:
                 read_id=pins["read_id"],
                 subject=ready.subject,
                 original_source=pins.get("original_source"),
+                analyzed_scope=pins.get("analyzed_scope"),
             )
             by_kind = {p.kind: p for p in projections}
             values = []
@@ -356,6 +372,8 @@ class NativeDemandExecutor:
                         relation.c.subject == member.subject,
                         relation.c.support_evidence == json.loads(member.support_evidence),
                         relation.c.support_episodes == list(member.support_episodes),
+                        relation.c.support_references
+                        == _support_records(member.support_references),
                         relation.c.position.is_not_distinct_from(member.position),
                         relation.c.multiplicity == member.multiplicity,
                     )
@@ -444,25 +462,38 @@ class NativeDemandExecutor:
 
     def _claim(self, ready, owner):
         with self.engine.begin() as connection:
-            claimed = DataOperationStorage(connection).invoke('claim_data_request', {
-                'request_id': json.loads(ready.native)['request_id'],
-                'holder': self.holder, 'lease_seconds': 300,
-            })
-        if claimed['state'] != 'claimed':
+            claimed = DataOperationStorage(connection).invoke(
+                "claim_data_request",
+                {
+                    "request_id": json.loads(ready.native)["request_id"],
+                    "holder": self.holder,
+                    "lease_seconds": 300,
+                },
+            )
+        if claimed["state"] != "claimed":
             return None, claimed
         claim = NativeRequestClaim(
-            claimed['request_id'], claimed['generation'], claimed['task_id'],
-            claimed['attempt'], claimed['holder'], self.prepared.release_id,
-            datetime.fromisoformat(claimed['lease_until'].replace('Z', '+00:00')),
+            claimed["request_id"],
+            claimed["generation"],
+            claimed["task_id"],
+            claimed["attempt"],
+            claimed["holder"],
+            self.prepared.release_id,
+            datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
         )
         owner.add_claim(claim)
         return claim, claimed
 
     def _publish(self, claim, retained, owner):
         def publish(connection):
-            return DataOperationStorage(connection).invoke('publish_data_derivation', {
-                **claim.fence, 'intent_id': retained,
-            })
+            return DataOperationStorage(connection).invoke(
+                "publish_data_derivation",
+                {
+                    **claim.fence,
+                    "intent_id": retained,
+                },
+            )
+
         receipt = canonical_bytes(owner.settle(claim, publish))
         self._receipt_count += 1
         if len(self._receipt_sink) < self._receipt_limit:
@@ -471,11 +502,17 @@ class NativeDemandExecutor:
 
     def _reconcile(self, claim, retained, owner):
         if not retained:
-            raise ValueError('native reconciliation lacks exact retained intent')
+            raise ValueError("native reconciliation lacks exact retained intent")
+
         def adopt(connection):
-            return DataOperationStorage(connection).invoke('adopt_data_completion_intent', {
-                **claim.fence, 'intent_id': retained,
-            })
+            return DataOperationStorage(connection).invoke(
+                "adopt_data_completion_intent",
+                {
+                    **claim.fence,
+                    "intent_id": retained,
+                },
+            )
+
         owner.retain(claim, adopt)
         return self._publish(claim, retained, owner)
 
@@ -487,49 +524,64 @@ class NativeDemandExecutor:
             owner.check_claim(claim)
         except ClaimFenceLost:
             return
+
         # Preserve the actual exception to the caller. The immutable native record
         # describes custody without copying protected values from exception text.
         def release(connection):
-            return DataOperationStorage(connection).invoke('release_data_attempt', {
-                **claim.fence, 'physical_retirement': 'confirmed',
-                'failure': {'code': type(error).__module__ + '.' + type(error).__qualname__,
-                            'message': phase + ' did not complete'},
-            })
+            return DataOperationStorage(connection).invoke(
+                "release_data_attempt",
+                {
+                    **claim.fence,
+                    "physical_retirement": "confirmed",
+                    "failure": {
+                        "code": type(error).__module__ + "." + type(error).__qualname__,
+                        "message": phase + " did not complete",
+                    },
+                },
+            )
+
         try:
             owner.settle(claim, release)
         except Exception as cleanup:
-            error.add_note('failed attempt release: ' + str(cleanup))
-            raise ExceptionGroup('computation and exact attempt release failed', [error, cleanup])
+            error.add_note("failed attempt release: " + str(cleanup))
+            raise ExceptionGroup("computation and exact attempt release failed", [error, cleanup]) from cleanup
 
     def _execute(self, ready, owner, pool):
         reservation = self.budget.admit(self.reservation)
         physical = _RequestExecution(self._physical, reservation)
-        claim, phase = None, 'claim'
+        claim, phase = None, "claim"
         try:
             claim, claimed = self._claim(ready, owner)
             if claim is None:
                 return _ExecutionResult()
-            phase = 'reconciliation'
-            if claimed['action'] == 'reconcile':
-                receipt = self._reconcile(claim, claimed.get('retained_intent_id'), owner)
+            phase = "reconciliation"
+            if claimed["action"] == "reconcile":
+                receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
             else:
-                phase = 'computation'
+                phase = "computation"
                 port = self._port(ready.operation)
                 inputs = self._hydrate(ready)
-                if port.operation.capabilities.preparation != 'none':
-                    answer = yield from physical.relay(port.plan_python(
-                        inputs, binding=ready.binding_result,
-                        check_active=lambda: owner.check_claim(claim), execution_owner=physical,
-                    ))
+                if port.operation.capabilities.preparation != "none":
+                    answer = yield from physical.relay(
+                        port.plan_python(
+                            inputs,
+                            binding=ready.binding_result,
+                            check_active=lambda: owner.check_claim(claim),
+                            execution_owner=physical,
+                        )
+                    )
                 else:
+
                     def calculate():
                         return self._invoke(port, inputs, ready, owner, claim)
+
                     def submit():
                         work = physical.submit_python(calculate)
                         physical.handles.append(work)
                         return work
+
                     (answer,) = yield (PreparedWork(submit),)
-                phase = 'settlement'
+                phase = "settlement"
                 retained = self._retain_answer(ready, claim, answer, port, owner)
                 receipt = self._publish(claim, retained, owner)
             return _ExecutionResult((receipt,))
@@ -539,9 +591,10 @@ class NativeDemandExecutor:
                     self._known_failure(claim, owner, error, phase=phase)
                 except Exception as release_error:
                     error = release_error
-            self._failed_requests.add((json.loads(ready.native)['request_id'],
-                                       json.loads(ready.native).get('generation')))
-            error.add_note('native obligation: ' + ready.obligation)
+            self._failed_requests.add(
+                (json.loads(ready.native)["request_id"], json.loads(ready.native).get("generation"))
+            )
+            error.add_note("native obligation: " + ready.obligation)
             return _ExecutionResult(failures=(error,))
         finally:
             reservation.release()
@@ -553,19 +606,21 @@ class NativeDemandExecutor:
         pending, receipts, failures = [], [], []
         try:
             for item in ready:
-                claim, phase = None, 'claim'
+                claim, phase = None, "claim"
                 try:
                     claim, claimed = self._claim(item, owner)
                     if claim is None:
                         continue
-                    if claimed['action'] == 'reconcile':
-                        phase = 'reconciliation'
-                        receipts.append(self._reconcile(claim, claimed.get('retained_intent_id'), owner))
+                    if claimed["action"] == "reconcile":
+                        phase = "reconciliation"
+                        receipts.append(
+                            self._reconcile(claim, claimed.get("retained_intent_id"), owner)
+                        )
                     else:
-                        phase = 'computation'
+                        phase = "computation"
                         port = self._port(item.operation)
                         inputs = self._hydrate(item)
-                        member = f'{claim.request_id}:{claim.generation}:{claim.attempt}'
+                        member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
                         pending.append((member, item, claim, inputs, port))
                 except Exception as error:
                     if claim is not None:
@@ -573,11 +628,16 @@ class NativeDemandExecutor:
                             self._known_failure(claim, owner, error, phase=phase)
                         except Exception as release_error:
                             error = release_error
-                    self._failed_requests.add((json.loads(item.native)['request_id'],
-                                               json.loads(item.native).get('generation')))
-                    error.add_note('native obligation: ' + item.obligation)
+                    self._failed_requests.add(
+                        (
+                            json.loads(item.native)["request_id"],
+                            json.loads(item.native).get("generation"),
+                        )
+                    )
+                    error.add_note("native obligation: " + item.obligation)
                     failures.append(error)
             if pending:
+
                 def calculate():
                     active, rejected = [], []
                     for row in pending:
@@ -587,46 +647,58 @@ class NativeDemandExecutor:
                             rejected.append((row, error))
                         else:
                             active.append(row)
-                    answer = active[0][4].invoke_batch_python(tuple(
-                        PythonBatchMember(member, inputs, item.binding_result)
-                        for member, item, _, inputs, _ in active
-                    )) if active else None
+                    answer = (
+                        active[0][4].invoke_batch_python(
+                            tuple(
+                                PythonBatchMember(member, inputs, item.binding_result)
+                                for member, item, _, inputs, _ in active
+                            )
+                        )
+                        if active
+                        else None
+                    )
                     return tuple(active), tuple(rejected), answer
+
                 def submit():
                     work = _PythonWork(pool.submit(calculate), lambda: self.budget.release(reserve))
                     work_items.append(work)
                     return work
+
                 try:
                     (computed,) = yield (PreparedWork(submit),)
                     active, rejected, answer = computed
-                    for (_, item, claim, _, _), error in rejected:
+                    for (_, _item, claim, _, _), error in rejected:
                         self._failed_requests.add((claim.request_id, claim.generation))
                         failures.append(error)
                     pending = active
-                    if answer is not None and tuple(member for member, _ in answer.members) != tuple(row[0] for row in pending):
-                        raise ValueError('native batch member correspondence differs')
+                    if answer is not None and tuple(
+                        member for member, _ in answer.members
+                    ) != tuple(row[0] for row in pending):
+                        raise ValueError("native batch member correspondence differs")
                 except Exception as error:
-                    for _, item, claim, _, _ in pending:
+                    for _, _item, claim, _, _ in pending:
                         try:
-                            self._known_failure(claim, owner, error, phase='computation')
+                            self._known_failure(claim, owner, error, phase="computation")
                         except Exception as release_error:
                             failures.append(release_error)
                         self._failed_requests.add((claim.request_id, claim.generation))
                     failures.append(error)
                 else:
                     for (_, item, claim, _, port), (_, result) in zip(
-                        pending, answer.members if answer is not None else (), strict=True,
+                        pending,
+                        answer.members if answer is not None else (),
+                        strict=True,
                     ):
                         try:
                             retained = self._retain_answer(item, claim, result, port, owner)
                             receipts.append(self._publish(claim, retained, owner))
                         except Exception as error:
                             try:
-                                self._known_failure(claim, owner, error, phase='settlement')
+                                self._known_failure(claim, owner, error, phase="settlement")
                             except Exception as release_error:
                                 error = release_error
                             self._failed_requests.add((claim.request_id, claim.generation))
-                            error.add_note('native obligation: ' + item.obligation)
+                            error.add_note("native obligation: " + item.obligation)
                             failures.append(error)
             return _ExecutionResult(tuple(receipts), tuple(failures))
         finally:
@@ -639,9 +711,15 @@ class NativeDemandExecutor:
     def _drive_page(self, snapshot, authorization, owner, pool):
         with self.engine.begin() as connection:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
-            ready = tuple(item for item in planner.ready(snapshot, authorization=authorization)
-                          if (json.loads(item.native)['request_id'],
-                              json.loads(item.native).get('generation')) not in self._failed_requests)
+            ready = tuple(
+                item
+                for item in planner.ready(snapshot, authorization=authorization)
+                if (
+                    json.loads(item.native)["request_id"],
+                    json.loads(item.native).get("generation"),
+                )
+                not in self._failed_requests
+            )
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             fulfilled = planner.fulfilled_request_ids
         receipts, failures = [], []
@@ -673,9 +751,10 @@ class NativeDemandExecutor:
         """Advance one complete bounded-page sweep, including later independent work."""
         return self.run(demand, authorization=authorization, limit=limit, max_rounds=1)
 
-    def _result(self, demand, snapshot, *, standing='fresh-read'):
-        return DemandAdvance(demand, snapshot, tuple(self._receipt_sink),
-                             self._receipt_count, standing)
+    def _result(self, demand, snapshot, *, standing="fresh-read"):
+        return DemandAdvance(
+            demand, snapshot, tuple(self._receipt_sink), self._receipt_count, standing
+        )
 
     @contextmanager
     def _report_execution_failure(self, demand):
@@ -687,7 +766,7 @@ class NativeDemandExecutor:
             if not self._receipt_count and not self._member_failures:
                 raise
             failures = (*self._member_failures, error)
-            result = self._result(demand, self._last_snapshot or b'{}', standing='last-pinned')
+            result = self._result(demand, self._last_snapshot or b"{}", standing="last-pinned")
             raise NativeDemandExecutionError(result, failures) from error
 
     def run(
@@ -804,8 +883,11 @@ class NativeDemandExecutor:
                 )
             result = self._result(demand, canonical_bytes(final))
             if self._member_failures:
-                raise NativeDemandExecutionError(result, tuple(self._member_failures)) from ExceptionGroup(
-                    'native demand execution failures', self._member_failures,
+                raise NativeDemandExecutionError(
+                    result, tuple(self._member_failures)
+                ) from ExceptionGroup(
+                    "native demand execution failures",
+                    self._member_failures,
                 )
             return result
         finally:

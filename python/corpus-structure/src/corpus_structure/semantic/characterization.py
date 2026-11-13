@@ -635,6 +635,7 @@ def validate_layer_structure(
 
 def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
     """Shared local graph closure for legacy layers and source-native formal products."""
+
     def refs(values, index, label):
         if any(value not in index for value in values):
             raise ValueError(f"dangling {label} reference")

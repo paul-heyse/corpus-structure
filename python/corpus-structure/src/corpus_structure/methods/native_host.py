@@ -394,7 +394,9 @@ class NativeHost:
                 except BaseException as cleanup:
                     raise NativeRetirementUncertain(
                         "native inference retirement remains unproven"
-                    ) from BaseExceptionGroup("native inference and retirement failed", [error, cleanup])
+                    ) from BaseExceptionGroup(
+                        "native inference and retirement failed", [error, cleanup]
+                    )
             raise
 
     def close(self, *, grace_seconds=5.0):

@@ -861,13 +861,16 @@ def test_direct_writer_cannot_bypass_admitted_binding_predicate_with_real_inputs
         product = use["products"][0]["product_id"]
         # This row really is admitted and available; its value (5) violates 10<=x<=20.
         native_row = connection.execute(
-            text("SELECT body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),"
-                 ":read,:subject,:source,CAST(:scope AS jsonb))"),
+            text(
+                "SELECT body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),"
+                ":read,:subject,:source,CAST(:scope AS jsonb))"
+            ),
             {
                 "d": demand["demand_id"],
                 "o": "urn:ddo-test:consumer",
                 "t": json.dumps(result["trust_snapshot"]),
-                "read": result["read_id"], "subject": result["root"][0]["subject"],
+                "read": result["read_id"],
+                "subject": result["root"][0]["subject"],
                 "source": result["root"][0]["original_source"],
                 "scope": json.dumps(result["root"][0]["analyzed_scope"]),
             },
