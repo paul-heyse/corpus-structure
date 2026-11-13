@@ -2043,6 +2043,16 @@ def _prepare_series_authoring(
     admission_after = _admission_definitions(
         connection, admission, source="native-admission:forward"
     )
+    from .data_operation_storage import data_operation_native_definitions
+
+    # This inventory owns DDO functions; do not infer membership from SQL names.
+    # Check only the assembled desired candidate, after its physical and native
+    # dependencies exist. Frozen predecessor normalization keeps its interpretation.
+    checked_functions = frozenset(
+        item.identity
+        for item in data_operation_native_definitions(connection)
+        if item.identity.kind == "function"
+    )
     authoring = prepare_native_authoring(
         connection,
         (*products, *admission_after),
@@ -2050,6 +2060,7 @@ def _prepare_series_authoring(
         retire=retire,
         recreate=recreate,
         owned_authoring=owned_authoring,
+        check_plpgsql=checked_functions,
     )
     return authoring
 

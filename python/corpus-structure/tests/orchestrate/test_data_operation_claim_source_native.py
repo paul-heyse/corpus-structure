@@ -84,7 +84,9 @@ def test_production_claim_source_item_prepares_with_authoritative_builtin_kinds(
 
 
 def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel_engine, tmp_path):
-    bundle, dependencies, profile, prepared, model, actual, captured = _prepare_production_claim(tmp_path)
+    bundle, dependencies, profile, prepared, model, actual, captured = _prepare_production_claim(
+        tmp_path
+    )
     module = "corpus_structure.semantic.identity"
     operation_id = "urn:corpus:operation:claim-source-item"
     runtime = prepare_data_operation_runtime(

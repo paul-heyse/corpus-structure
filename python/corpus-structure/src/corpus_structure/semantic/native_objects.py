@@ -669,21 +669,34 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
     for item in definitions:
         if item.identity.kind != "function":
             continue
-        metadata = connection.execute(
-            text("""SELECT l.lanname, t.typname AS result_type,
+        metadata = (
+            connection.execute(
+                text("""SELECT l.lanname, t.typname AS result_type,
                 EXISTS (SELECT FROM unnest(p.proargtypes) argument(oid)
                     JOIN pg_type a ON a.oid=argument.oid WHERE a.typtype='p') AS pseudo_argument
                 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
                 JOIN pg_type t ON t.oid=p.prorettype
                 WHERE p.oid=CAST(:signature AS regprocedure)"""),
-            {"signature": item.identity.qualified},
-        ).mappings().one()
+                {"signature": item.identity.qualified},
+            )
+            .mappings()
+            .one()
+        )
         if metadata["lanname"] != "plpgsql":
             continue
         if metadata["pseudo_argument"] or metadata["result_type"] in {
-            "trigger", "event_trigger", "anyelement", "anyarray", "anynonarray",
-            "anyenum", "anyrange", "anymultirange", "anycompatible",
-            "anycompatiblearray", "anycompatiblenonarray", "anycompatiblerange",
+            "trigger",
+            "event_trigger",
+            "anyelement",
+            "anyarray",
+            "anynonarray",
+            "anyenum",
+            "anyrange",
+            "anymultirange",
+            "anycompatible",
+            "anycompatiblearray",
+            "anycompatiblenonarray",
+            "anycompatiblerange",
             "anycompatiblemultirange",
         }:
             raise NativeAuthoringError(
@@ -693,12 +706,20 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
         selected.append(item)
     if not selected:
         return
-    extension = connection.execute(text("""SELECT e.extversion, n.nspname
+    extension = (
+        connection.execute(
+            text("""SELECT e.extversion, n.nspname
         FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
-        WHERE e.extname='plpgsql_check'""")).mappings().one_or_none()
+        WHERE e.extname='plpgsql_check'""")
+        )
+        .mappings()
+        .one_or_none()
+    )
     if extension is None:
-        available = connection.scalar(text("""SELECT EXISTS(SELECT FROM
-            pg_available_extension_versions WHERE name='plpgsql_check' AND version='2.10')"""))
+        available = connection.scalar(
+            text("""SELECT EXISTS(SELECT FROM
+            pg_available_extension_versions WHERE name='plpgsql_check' AND version='2.10')""")
+        )
         if not available:
             raise NativeAuthoringError(
                 "PL/pgSQL authoring requires available plpgsql_check extension version 2.10"
@@ -715,13 +736,17 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
         schema = extension["nspname"]
     checker = _quote(schema) + ".plpgsql_check_function_tb"
     for item in selected:
-        errors = connection.execute(
-            text(f"""SELECT sqlstate, lineno, message FROM {checker}(
+        errors = (
+            connection.execute(
+                text(f"""SELECT sqlstate, lineno, message FROM {checker}(
                 CAST(:signature AS regprocedure), fatal_errors=>false,
                 without_warnings=>true, use_incomment_options=>false)
                 WHERE level='error' LIMIT 8"""),
-            {"signature": item.identity.qualified},
-        ).mappings().all()
+                {"signature": item.identity.qualified},
+            )
+            .mappings()
+            .all()
+        )
         if errors:
             diagnostics = "; ".join(
                 f"SQLSTATE {error['sqlstate']} line {error['lineno']}: "

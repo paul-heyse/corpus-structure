@@ -22,27 +22,41 @@ def definition(connection, name, arguments, returns, body, *, language="plpgsql"
 
 
 def checker(connection):
-    return connection.execute(text("""SELECT e.extversion,n.nspname FROM pg_extension e
-        JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='plpgsql_check'""")).all()
+    return connection.execute(
+        text("""SELECT e.extversion,n.nspname FROM pg_extension e
+        JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='plpgsql_check'""")
+    ).all()
 
 
-@pytest.mark.parametrize(("returns", "expression", "state"), [
-    ("jsonb", "selected->'key' - 'version'", "42725"),
-    ("boolean", "'{}'::jsonb <@ selected->'dependencies'", "42883"),
-])
-def test_precedence_errors_refused_before_registration(semantic_bare_engine, returns, expression, state):
+@pytest.mark.parametrize(
+    ("returns", "expression", "state"),
+    [
+        ("jsonb", "selected->'key' - 'version'", "42725"),
+        ("boolean", "'{}'::jsonb <@ selected->'dependencies'", "42883"),
+    ],
+)
+def test_precedence_errors_refused_before_registration(
+    semantic_bare_engine, returns, expression, state
+):
     with semantic_bare_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
         before = checker(connection)
         selected = definition(
-            connection, "bad", "selected jsonb", returns,
+            connection,
+            "bad",
+            "selected jsonb",
+            returns,
             "BEGIN RETURN " + expression + "; END",
         )
         # PostgreSQL CREATE and catalog normalization alone accept these bodies.
         assert prepare_native_authoring(connection, (selected,), owned_authoring=True).desired
-        with pytest.raises(NativeAuthoringError, match=r"checker_test.bad\(jsonb\).*SQLSTATE " + state):
+        with pytest.raises(
+            NativeAuthoringError, match=r"checker_test.bad\(jsonb\).*SQLSTATE " + state
+        ):
             prepare_native_authoring(
-                connection, (selected,), owned_authoring=True,
+                connection,
+                (selected,),
+                owned_authoring=True,
                 check_plpgsql=frozenset({selected.identity}),
             )
         assert checker(connection) == before
@@ -54,21 +68,33 @@ def test_later_dependency_warnings_and_rollback(semantic_bare_engine):
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
         before = checker(connection)
         selected = definition(
-            connection, "first", "n integer", "integer",
+            connection,
+            "first",
+            "n integer",
+            "integer",
             "DECLARE unused integer; BEGIN RETURN checker_test.later(n); END",
         )
         later = definition(
-            connection, "later", "n integer", "integer", "SELECT n + 1", language="sql",
+            connection,
+            "later",
+            "n integer",
+            "integer",
+            "SELECT n + 1",
+            language="sql",
         )
         result = prepare_native_authoring(
-            connection, (selected, later), owned_authoring=True,
+            connection,
+            (selected, later),
+            owned_authoring=True,
             check_plpgsql=frozenset({selected.identity, later.identity}),
         )
         assert [item.identity for item in result.desired] == [selected.identity, later.identity]
         assert result.desired[0].catalog["owner"] == selected.owner
         assert all("plpgsql_check" not in item.catalog_json for item in result.desired)
         assert checker(connection) == before
-        assert connection.scalar(text("SELECT to_regprocedure('checker_test.first(integer)')")) is None
+        assert (
+            connection.scalar(text("SELECT to_regprocedure('checker_test.first(integer)')")) is None
+        )
 
 
 def test_existing_checker_schema_and_acl_preserved(semantic_bare_engine):
@@ -81,19 +107,27 @@ def test_existing_checker_schema_and_acl_preserved(semantic_bare_engine):
         before = checker(connection)
         selected = definition(connection, "valid", "n integer", "integer", "BEGIN RETURN n; END")
         result = prepare_native_authoring(
-            connection, (selected,), owned_authoring=True,
+            connection,
+            (selected,),
+            owned_authoring=True,
             check_plpgsql=frozenset({selected.identity}),
         )
         assert checker(connection) == before == [("2.10", "checker_extension")]
         assert result.desired[0].catalog["acl"] == [[selected.owner, "EXECUTE", False]]
 
 
-@pytest.mark.parametrize(("arguments", "returns", "body"), [
-    ("n anyelement", "anyelement", "BEGIN RETURN n; END"),
-    ("", "trigger", "BEGIN RETURN NEW; END"),
-])
+@pytest.mark.parametrize(
+    ("arguments", "returns", "body"),
+    [
+        ("n anyelement", "anyelement", "BEGIN RETURN n; END"),
+        ("", "trigger", "BEGIN RETURN NEW; END"),
+    ],
+)
 def test_selected_unsupported_context_refuses_explicitly(
-    semantic_bare_engine, arguments, returns, body,
+    semantic_bare_engine,
+    arguments,
+    returns,
+    body,
 ):
     with semantic_bare_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
@@ -102,7 +136,9 @@ def test_selected_unsupported_context_refuses_explicitly(
         assert prepare_native_authoring(connection, (selected,), owned_authoring=True).desired
         with pytest.raises(NativeAuthoringError, match="concrete ordinary function context"):
             prepare_native_authoring(
-                connection, (selected,), owned_authoring=True,
+                connection,
+                (selected,),
+                owned_authoring=True,
                 check_plpgsql=frozenset({selected.identity}),
             )
 
@@ -111,12 +147,17 @@ def test_comment_options_cannot_hide_errors(semantic_bare_engine):
     with semantic_bare_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
         selected = definition(
-            connection, "hidden", "n integer", "integer",
+            connection,
+            "hidden",
+            "n integer",
+            "integer",
             "/* @plpgsql_check_options: relid = checker_test.missing_relation */ "
             "BEGIN RETURN n->'bad'; END",
         )
         with pytest.raises(NativeAuthoringError, match="SQLSTATE 42883"):
             prepare_native_authoring(
-                connection, (selected,), owned_authoring=True,
+                connection,
+                (selected,),
+                owned_authoring=True,
                 check_plpgsql=frozenset({selected.identity}),
             )

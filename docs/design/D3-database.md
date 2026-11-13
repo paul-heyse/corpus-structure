@@ -2421,6 +2421,24 @@ preview generation is separate. Committed revisions execute byte-bound payloads,
 calling mutable generators. Historical head `semantic_pg_20261101` supplied projections and
 compiler18 admission at that dated boundary. A head marker alone does not establish native admission.
 
+**Implemented; helper checks Tested · 2026-11-13; integrated authoring qualification open.**
+The final DDO candidate normalization actively checks its declared ordinary PL/pgSQL function
+identities with `plpgsql_check_function_tb` after all candidate dependencies are installed.
+PostgreSQL's `CREATE FUNCTION`/`check_function_bodies` does not fully type-check deferred embedded
+SQL. The installed [plpgsql_check 2.10.16](https://github.com/okbob/plpgsql_check/blob/v2.10.16/README.md)
+provides this responsibility through PostgreSQL's own parser/evaluator. Authoring requires the
+available extension SQL version 2.10, uses its existing schema when already installed, and
+otherwise creates it only inside the rollback-only normalization savepoint. Runtime databases
+need no new extension installation. Frozen predecessor/backfill normalization is not reinterpreted.
+
+Explicit selected identities supply scope; checker errors refuse authoring with signature, SQLSTATE
+and line diagnostics. Warnings and in-comment overrides do not authorize a change. Selected trigger
+or polymorphic contexts require explicit supported context rather than silent omission. Dynamic
+SQL and unknown record shapes limit static coverage; this check complements actual native functional
+tests. Seven independent PostgreSQL controls cover both discovered operator/type failures, valid
+and later-defined dependencies, existing checker-schema/ACL custody and rollback cleanup. The
+[DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns integrated acceptance.
+
 **Implemented; native correspondence Tested, 2026-11-10.** Development currently runs
 `semantic_ptd_completion_repairs`, with semantic compiler19 and execution compiler28. The
 [typed-domain coordinator](../plans/postgresql-typed-domain_2026-11-09.md#ptd-11-execution-and-adoption--2026-11-10)
