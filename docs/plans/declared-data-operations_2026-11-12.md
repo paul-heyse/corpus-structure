@@ -397,7 +397,9 @@ owner; passing this foundation does not qualify the redesigned production pipeli
 
 ## DDO-03–05 partial implementation checkpoint · 2026-11-13
 
-**Implemented; package completion remains open.** The earlier foundation worktrees were merged
+**Historical incremental account; current execution is recorded under [Audit repair execution](#audit-repair-execution--2026-11-13).**
+The following receipts retain their original source and scope; their then-open obligations do not
+override that current account. The earlier foundation worktrees were merged
 and removed. Current execution has three active isolated implementation worktrees; their source
 and retained receipts are integrating on main. This checkpoint does not change the accepted
 target or close multi-package findings from source reviews.
@@ -988,8 +990,10 @@ The acceptance details and commands are in the qualification companion. Record e
 D1–D8 and accepted decision records, preserving exact old review/evidence history. Never delete plan
 or evidence files. Authoring publication checks are separate from product qualification.
 
-**Next:** settle the completion-audit gaps DDO-CA-01–05 with their package owners, then resume the [DDO-03–05 remaining functional scope](#remaining-functional-scope-and-next-execution),
-starting with invalidated-intent recovery and real-consumer integration before dependent adoption.
+**Next:** settle final v5 union `2a1fdebfd77749378ce7d4598cba5d68`, repair any remaining failure,
+and reconcile its exact required selection, final source/context and finding/package dispositions.
+The current execution owns DDO-CA-01–05 and remaining DDO-03–05; the preceding historical
+incremental obligations are realized by the current assembled implementation, subject to that acceptance.
 DDO-07/08 production profiles must close their
 required kind/implementation/context facts before invoking or reusing target results. DDO-11
 preservation remains a prerequisite for adoption effects; DDO-12 owns the final required union.
