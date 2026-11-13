@@ -1480,7 +1480,7 @@ class ClosedPythonSources:
                     if kind == "opaque":
                         return kind, targets
                     if kind == "instance":
-                        results: list[tuple[str, tuple[str, ...]]] = []
+                        nominal_results: list[tuple[str, tuple[str, ...]]] = []
                         for target in targets:
                             try:
                                 cls = extractor.resolve(target)
@@ -1498,18 +1498,19 @@ class ClosedPythonSources:
                                         "an admitted concrete receiver model",
                                     )
                                 )
-                                results.append(("callable", (member.path,)))
+                                nominal_results.append(("callable", (member.path,)))
                             elif (
                                 isinstance(member, griffe.Attribute)
                                 and "property" not in member.labels
                             ):
                                 reference(path, member.path, "implementation_determinant", location)
-                                results.append(annotated_value(member.annotation))
+                                nominal_results.append(annotated_value(member.annotation))
                             else:
                                 return "unknown", ()
                         return (
-                            results[0]
-                            if results and all(item == results[0] for item in results)
+                            nominal_results[0]
+                            if nominal_results
+                            and all(item == nominal_results[0] for item in nominal_results)
                             else ("unknown", ())
                         )
                     if kind in {"module", "class", "receiver"}:
