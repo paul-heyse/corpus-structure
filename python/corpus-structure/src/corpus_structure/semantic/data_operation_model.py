@@ -65,6 +65,8 @@ class InputSupport:
     authorization: tuple[str, ...] = ()
     closure: tuple[str, ...] = ()
     identity_requirements: tuple[Literal["episode", "provider", "alternative"], ...] = ()
+    source_set: str | None = None
+    source_reference_field: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,10 @@ def operation_role_record(role: OperationRole) -> dict:
     record = asdict(role)
     if role.subject_field is None:
         record.pop("subject_field")
+    if role.support is not None:
+        for name in ("source_set", "source_reference_field"):
+            if record["support"][name] is None:
+                record["support"].pop(name)
     return record
 
 
@@ -129,6 +135,7 @@ class BindingExpression:
         "absent",
         "range",
         "membership",
+        "covers",
     ]
     roles: tuple[str, ...] = ()
     fields: tuple[BindingField, ...] = ()
@@ -378,6 +385,10 @@ class EffectiveDataOperationModel:
             for role in operation["roles"]:
                 if role["subject_field"] is None:
                     role.pop("subject_field")
+                if role["support"] is not None:
+                    for name in ("source_set", "source_reference_field"):
+                        if role["support"][name] is None:
+                            role["support"].pop(name)
             if not operation["result_fields"]:
                 operation.pop("result_fields")
         if self.version == ARCHIVED_MODEL_VERSION:
@@ -434,6 +445,7 @@ class ResolvedOperationBinding:
     trust_evidence: bytes
     execution_profile: str
     replicate: str | None = None
+    source_sets: bytes = b"{}"
 
 
 def read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
@@ -472,6 +484,10 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
         archived_fields = expected - historical.keys() if archived_v1 else expected
 
         def structure(value, _):
+            if cls is InputSupport and isinstance(value, dict):
+                if archived_v1 and ("source_set" in value or "source_reference_field" in value):
+                    raise ValueError("v1 support cannot declare a source set")
+                value = {"source_set": None, "source_reference_field": None, **value}
             if cls is OperationRole and isinstance(value, dict):
                 if archived_v1 and "subject_field" in value:
                     raise ValueError("v1 role cannot declare a subject association")

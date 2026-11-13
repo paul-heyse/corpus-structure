@@ -19,13 +19,19 @@ _SQL = Path(__file__).with_name("sql") / "data_operation_bindings.sql"
 
 def binding_native_sources() -> tuple[SourceArtifact, ...]:
     return (
-        SourceArtifact("native/data-operation-bindings.sql", _SQL.read_bytes()),
+        SourceArtifact("native/data-operation-bindings.sql", binding_native_sql().encode()),
         SourceArtifact("native/data-operation-binding-native.py", Path(__file__).read_bytes()),
     )
 
 
 def binding_native_sql() -> str:
-    return _SQL.read_text()
+    from .identity import canonical_bytes
+    from .structural_products import ExternalSourceRef
+
+    # Reuse the authoritative typed domain contract at the native boundary.
+    # Capturing the rendered SQL freezes the complete selected schema content.
+    schema = canonical_bytes(ExternalSourceRef.model_json_schema()).decode().replace("'", "''")
+    return _SQL.read_text().replace("__DDO_EXTERNAL_SOURCE_SCHEMA__", schema)
 
 
 def binding_native_definitions(connection: Connection) -> tuple[NativeDefinition, ...]:

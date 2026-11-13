@@ -17,6 +17,7 @@ from pydantic import TypeAdapter
 from .data_operation_compilation import project_operation_binding
 from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding
 from .identity import canonical_bytes
+from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
@@ -68,6 +69,7 @@ def freeze_demand(
     discovery: tuple[DiscoverySelection, ...] = (),
     inference: str,
     execution_profile: str,
+    source_sets: tuple[FrozenSourceSet, ...] = (),
 ) -> DemandIntent:
     """Freeze the selected closure, not the union of every possible producer."""
     from .data_operation_bindings import effective_binding_parameters
@@ -79,6 +81,7 @@ def freeze_demand(
         raise ValueError("duplicate root subject")
     if any(not root.subject or not root.original_source for root in roots):
         raise ValueError("root subject and source must be explicit")
+    frozen_source_sets = source_sets_record(source_sets)
     supplied = {item.operation: item for item in selections}
     if len(supplied) != len(selections):
         raise ValueError("duplicate operation selection")
@@ -139,6 +142,9 @@ def freeze_demand(
         if not isinstance(parameters, dict) or not isinstance(choices, dict):
             raise ValueError("operation parameters and choices must be mappings")
         parameters = effective_binding_parameters(operation, parameters)
+        required_source_sets = {role.support.source_set for role in operation.roles if role.support is not None and role.support.source_set is not None}
+        if not required_source_sets <= frozen_source_sets.keys():
+            raise ValueError("selected operation lacks its explicit frozen source set")
         selected.append(
             {
                 "operation": operation_id,
@@ -152,6 +158,9 @@ def freeze_demand(
                 "eligibility": identities[operation_id, "eligibility"],
             }
         )
+    declared_source_sets = {role.support.source_set for operation_id in closure for role in operations[operation_id].roles if role.support is not None and role.support.source_set is not None}
+    if frozen_source_sets.keys() != declared_source_sets:
+        raise ValueError("frozen source sets must exactly match selected operation declarations")
     return DemandIntent(
         canonical_bytes(
             {
@@ -171,6 +180,7 @@ def freeze_demand(
                 "targets": sorted(set(targets)),
                 "operations": selected,
                 "root_operations": sorted(root_operations),
+                **({"source_sets": frozen_source_sets} if frozen_source_sets else {}),
                 "discovery": [asdict(item) for item in discovery],
                 "inference": inference,
                 "execution_profile": execution_profile,
@@ -407,6 +417,8 @@ class DemandPlanner:
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
                 populations=populations,
+                source_sets=read_source_sets(frozen.get("source_sets", {})),
+                original_source=obligation["original_source"],
             )
             binding = execute_binding(self.storage.connection, compiled)
             if not binding.sufficient:

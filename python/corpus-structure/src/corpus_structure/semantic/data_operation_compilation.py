@@ -84,6 +84,7 @@ _BINDING_OPERATORS = {
     "absent",
     "range",
     "membership",
+    "covers",
 }
 _METADATA_FIELDS = {
     "id",
@@ -280,6 +281,11 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         _fail(operation, "membership requires typed value and collection operands")
     if operator == "membership" and operands[1].kind == "field":
         _fail(operation, "membership universe requires a frozen sequence or population")
+    if operator == "covers" and (
+        len(operands) != 2 or operands[0].kind != "field"
+        or operands[1].kind not in {"parameter", "literal"}
+    ):
+        _fail(operation, "covers requires a qualified scalar field and frozen sequence")
     if operator in {"equal", "join"} and operands and len(operands) < 2:
         _fail(operation, "equality requires two or more operands")
     return BindingExpression(
@@ -589,7 +595,7 @@ def _validate_binding_fields(
             )
             if json.loads(kinds[property_id].facts)["range"] != expected:
                 _fail(owner, "operand type differs from projected field range")
-    if expression.operator in {"equal", "join", "range", "membership"} and expression.operands:
+    if expression.operator in {"equal", "join", "range", "membership", "covers"} and expression.operands:
         types = {
             aliases.get(operand.value_type, operand.value_type) for operand in expression.operands
         }
@@ -1020,6 +1026,8 @@ def compile_data_operations(
                         "authorization",
                         "closure",
                         "identity_requirements",
+                        "source_set",
+                        "source_reference_field",
                     },
                 )
                 if data.get("provenance") not in {"exact", "value_substitution"}:
@@ -1029,6 +1037,22 @@ def compile_data_operations(
                     _fail(semantic_id, "unsupported input support identity dimension")
                 if data["provenance"] == "exact" and "episode" not in identity_requirements:
                     _fail(semantic_id, "exact provenance requires explicit episode identity")
+                source_set = data.get("source_set")
+                source_reference_field = data.get("source_reference_field")
+                if (source_set is None) != (source_reference_field is None):
+                    _fail(semantic_id, "source sets require an explicit owned reference field")
+                if (source_set is not None) != (data.get("source") == "frozen-source-set"):
+                    _fail(semantic_id, "frozen source-set policy requires its explicit set and reference field")
+                if source_set is not None:
+                    source_set = _text(source_set, semantic_id + "/source_set")
+                    source_reference_field = _text(source_reference_field, semantic_id + "/source_reference_field")
+                    prop = kinds.get(kind + "/property/" + source_reference_field)
+                    facts = json.loads(prop.facts) if prop is not None else {}
+                    target = kinds.get(facts.get("range"))
+                    target_facts = json.loads(target.facts) if target is not None else {}
+                    primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
+                    if prop is None or prop.category != "property" or facts.get("multivalued") or primitive not in {"str", "string", "uri", "uriorcurie"}:
+                        _fail(semantic_id, "source reference requires an owned scalar identifier property")
                 support = InputSupport(
                     data["provenance"],
                     _text(data.get("source"), semantic_id),
@@ -1036,6 +1060,8 @@ def compile_data_operations(
                     _strings(data.get("authorization", []), semantic_id),
                     _strings(data.get("closure", []), semantic_id),
                     cast(Any, identity_requirements),
+                    source_set,
+                    source_reference_field,
                 )
             elif record.get("support") is not None:
                 _fail(semantic_id, "support requirements belong to input roles")
@@ -1666,14 +1692,17 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
             "population_witness": witness,
             "selected_alternative": actual.selected_alternative,
         }
+    parameters = {
+        "parameters": decode_semantic_value(json.loads(binding.parameters)),
+        "replicate": binding.replicate,
+    }
+    if binding.source_sets != b"{}":
+        parameters["source_sets"] = json.loads(binding.source_sets)
     request = SemanticRequestKey(
         recipe,
         binding.subject,
         values,
-        {
-            "parameters": decode_semantic_value(json.loads(binding.parameters)),
-            "replicate": binding.replicate,
-        },
+        parameters,
         binding.inference,
     )
     admission = AdmissionManifest(

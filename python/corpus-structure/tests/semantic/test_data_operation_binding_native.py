@@ -441,3 +441,43 @@ def test_native_subject_association_preserves_original_subject(binding_native_co
     assert matches({}, "view:original") is True
     assert matches({}, "b") is False
     assert value["subject"] == "view:original"
+
+
+def test_native_covers_requires_every_requested_value(binding_native_connection):
+    node = {"operator": "covers", "operands": [field(), {"kind": "parameter", "name": "allowed", "value_type": "integer"}]}
+    assert evaluate(binding_native_connection, node, context(1, 2, 3)) is True
+    assert evaluate(binding_native_connection, node, context(1, 2)) is False
+    facts = context(1, 2)
+    facts["parameters"]["allowed"] = []
+    assert evaluate(binding_native_connection, node, facts) is True
+    facts["parameters"]["allowed"] = [2, 2]
+    assert evaluate(binding_native_connection, node, facts) is True
+    facts["parameters"]["allowed"] = [True]
+    with pytest.raises(DBAPIError, match="type|boolean|integer"):
+        evaluate(binding_native_connection, node, facts)
+
+
+def test_native_source_set_authenticates_exact_original_pins(binding_native_connection):
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry, source_sets_record
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+    reference = ExternalSourceRef(project_id="project", run_id=1, cut_id=2, release_id="release", result_revision=0,
+                                  source_view_id=3, native_task_id=4, native_product_key="native:key",
+                                  native_content_digest="a"*64, projection_digest="b"*64, recipe_digest="c"*64, coordinate_version=3)
+    pin = SourceSetEntry.from_structural_source(reference, original_source="foreign-source", subject="view:original",
+                                               analyzed_scope=b'{"page":1}', product="product:original", member="member:original")
+    scopes = source_sets_record((FrozenSourceSet("inputs", (pin,)),))
+    binding_native_connection.execute(text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project')"), {"sets": json.dumps(scopes)})
+    actual = {"product": pin.product, "member": pin.member, "subject": pin.subject, "original_source": pin.original_source,
+              "analyzed_scope": {"page": 1}, "meaning_body": ["mapping", [["source_ref", ["string", reference.identity]]]]}
+    roledef = {"support": {"source_set": "inputs", "source_reference_field": "source_ref"}}
+    query = text("SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),'analysis-root',CAST(:sets AS jsonb))")
+    def admitted(row):
+        return binding_native_connection.execute(query, {"role": json.dumps(roledef), "row": json.dumps(row), "sets": json.dumps(scopes)}).scalar_one()
+    assert admitted(actual) is True
+    for key, value in (("original_source", "analysis-root"), ("member", "other"), ("subject", "relabeled"), ("analyzed_scope", {"page": 2})):
+        assert admitted({**actual, key: value}) is False
+    forged = json.loads(json.dumps(scopes))
+    forged["inputs"][0]["source_reference"] = "0"*64
+    with pytest.raises(DBAPIError, match="original qualified reference"):
+        binding_native_connection.execute(text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project')"), {"sets": json.dumps(forged)})

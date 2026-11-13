@@ -1188,3 +1188,23 @@ def test_subject_association_is_owned_typed_semantic_role_meaning():
     value["roles"][0].update(kind="Base", subject_field="value")
     with pytest.raises(PreparationError, match="scalar subject identifier"):
         compile_data_operations(schema_bundle(), declarations=declarations(value))
+
+
+def test_source_set_policy_is_owned_typed_and_part_of_definition():
+    from corpus_structure.semantic.data_operation_model import read_effective_data_operations
+
+    value = contract()
+    value["roles"][0]["kind"] = "Other"
+    baseline = compile_data_operations(schema_bundle(), declarations=declarations(value))
+    support = value["roles"][0]["support"]
+    support.update(source="frozen-source-set", source_set="inputs", source_reference_field="unrelated")
+    compiled = compile_data_operations(schema_bundle(), declarations=declarations(value))
+    assert compiled.operations[0].roles[0].support.source_set == "inputs"
+    assert read_effective_data_operations(compiled.content).content == compiled.content
+    assert identity(compiled) != identity(baseline)
+    support["source_reference_field"] = "missing"
+    with pytest.raises(PreparationError, match="owned scalar"):
+        compile_data_operations(schema_bundle(), declarations=declarations(value))
+    support.pop("source_reference_field")
+    with pytest.raises(PreparationError, match="explicit owned"):
+        compile_data_operations(schema_bundle(), declarations=declarations(value))
