@@ -35,6 +35,7 @@ from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.managed import OperationAccount
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
+from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.storage_target import StorageTarget
 
 if TYPE_CHECKING:
@@ -387,6 +388,8 @@ def derive_(
 class NativeCandidateResult(BaseModel):
     database: str
     predecessor: str
+    acquired_revision: str | None = None
+    native_base: NativeMigrationBase | None = None
     output: str
     native_operations: int
     ordinary_operations: int
@@ -457,6 +460,7 @@ def author_native_candidate(
     predecessor_state: Path | None,
     *,
     expected_predecessor: str | None = None,
+    native_base: NativeMigrationBase | None = None,
     expected_target: StorageTarget | None = None,
     target_metadata: MetaData | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
@@ -528,6 +532,17 @@ def author_native_candidate(
             predecessor = current_revision(conn)
             if predecessor is None:
                 raise SemanticRefusal("native authoring requires a migrated semantic database")
+            if native_base is not None:
+                from corpus_structure.semantic.migration_chain import frozen_base_location
+                from corpus_structure.semantic.migrations import ALEMBIC_DIR, upgrade
+
+                if (predecessor != native_base.acquired_revision
+                    or expected_predecessor != native_base.predecessor):
+                    raise SemanticRefusal("native authoring base differs from the preview")
+                with frozen_base_location(ALEMBIC_DIR, native_base) as location:
+                    upgrade(conn, native_base.predecessor,
+                            expected_predecessor=predecessor, script_location=location)
+                predecessor = current_revision(conn)
             if expected_predecessor is not None and predecessor != expected_predecessor:
                 raise SemanticRefusal("native authoring predecessor differs from the preview")
             script, authoring = prepare_series_candidate(
@@ -569,6 +584,8 @@ def author_native_candidate(
     return NativeCandidateResult(
         database=authoring_database,
         predecessor=predecessor,
+        acquired_revision=predecessor if native_base is None else native_base.acquired_revision,
+        native_base=native_base,
         output="",
         native_operations=len(native),
         ordinary_operations=len(upgrade_ops.ops) - len(native),

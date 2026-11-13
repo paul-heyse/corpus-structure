@@ -39,8 +39,9 @@ from corpus_structure.settings import DeploymentDatabaseSettings
 from .archive_faults import administrative_archive_edit
 
 
+@pytest.mark.parametrize("pending_base", [False, True])
 def test_exact_native_deployment_resumes_before_separate_activation(
-    semantic_database_at, native_settings, tmp_path, monkeypatch
+    semantic_database_at, native_settings, tmp_path, monkeypatch, pending_base
 ):
     from corpus_structure.cli import model as commands
     from corpus_structure.cli import recipes
@@ -56,6 +57,9 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     script = scripts.get_revision(revision)
     assert script is not None and isinstance(script.down_revision, str)
     predecessor = script.down_revision
+    prior_script = scripts.get_revision(predecessor)
+    assert prior_script is not None and isinstance(prior_script.down_revision, str)
+    starting_revision = prior_script.down_revision if pending_base else predecessor
     ancestors = {Path(item.path).name for item in scripts.iterate_revisions(predecessor, "base")}
     products = {
         product: Path(script.path)
@@ -90,7 +94,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             "postgresql", username=original.username, password=original.password
         ).render_as_string(hide_password=False)
 
-    with semantic_database_at(predecessor) as engine:
+    with semantic_database_at(starting_revision) as engine:
         settings = native_settings.model_copy(
             update={
                 "deployment": DeploymentDatabaseSettings.model_validate(
@@ -128,15 +132,22 @@ def test_exact_native_deployment_resumes_before_separate_activation(
                 (versions / source.name).symlink_to(source)
         monkeypatch.setattr(migrations, "ALEMBIC_DIR", versions.parent)
         with engine.begin() as conn:
-            assert current_revision(conn) == predecessor
+            assert current_revision(conn) == starting_revision
             identity = acquired_target(conn, purpose="maintenance")
             conn.execute(insert(project).values(project_id="model-deployment-control"))
+        from corpus_structure.semantic.migration_chain import registered_base
+
+        native_base = (
+            registered_base(versions.parent, starting_revision, predecessor)
+            if pending_base else None
+        )
         binding = Candidate(
             workspace=str(tmp_path),
             model_revision="fixture",
             generator=generator_fingerprint(tmp_path),
             revision=revision,
             predecessor=predecessor,
+            deployment_base=native_base,
             target=target_fingerprint(destination),
             target_profile=profile,
             authoring_target=target_fingerprint(settings),
@@ -243,7 +254,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
                     report=lambda _: pytest.fail("unexpected effect"),
                 )
         finally:
-            write_installed_revision(predecessor)
+            write_installed_revision(starting_revision)
 
         with engine.begin() as conn:
             conn.exec_driver_sql("ALTER VIEW data.selected_fact RENAME TO selected_fact_drift")

@@ -41,6 +41,7 @@ from corpus_structure.cli.target import (
     current_selection,
     selection_summary,
 )
+from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -86,6 +87,8 @@ class PreviewEffectsReport(EffectGuidance):
     acquired_target: StorageTarget | None
     selection: ConfiguredSelection | None = None
     authoring_target: StorageTarget | None
+    native_base: NativeMigrationBase | None = None
+    deployment_base: NativeMigrationBase | None = None
     predecessor: str | None
     release: str | None
     release_artifacts_sha256: str | None = None
@@ -137,6 +140,8 @@ class CandidateInspection(EffectGuidance):
     acquired_target: StorageTarget | None
     selection: ConfiguredSelection | None = None
     authoring_target: StorageTarget | None
+    native_base: NativeMigrationBase | None = None
+    deployment_base: NativeMigrationBase | None = None
     registration: Literal["verified", "unverified", "not_applicable"]
     registration_detail: str | None
     dependency_available: bool
@@ -395,6 +400,12 @@ def _target_summary(profile: DeploymentProfile | None, target: StorageTarget | N
     return f"{profile} · acquired identity unavailable" if profile else "unbound"
 
 
+def _base_summary(base: NativeMigrationBase | None) -> str:
+    if base is None:
+        return "already installed"
+    return " → ".join((base.acquired_revision, *base.revisions))
+
+
 def _apply_view(report: ModelResult) -> Table:
     return report_fields(
         ("Result", report.result_id),
@@ -505,6 +516,8 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Target fingerprint", report.target or "unbound"),
         ("Authoring target", _target_summary(None, report.authoring_target)),
         ("Predecessor", report.predecessor or "not applicable"),
+        ("Pending authoring base", _base_summary(report.native_base)),
+        ("Pending deployment base", _base_summary(report.deployment_base)),
         ("Release", report.release or "unavailable"),
         ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
         ("Changed paths", _path_summary(report.changed_paths)),
@@ -698,6 +711,8 @@ def inspect_preview(
                 acquired_target=staged.target_identity,
                 selection=current_selection(ctx, staged.target_profile),
                 authoring_target=staged.authoring_identity,
+                native_base=staged.native_base,
+                deployment_base=staged.deployment_base,
                 predecessor=staged.request.native_predecessor,
                 release=staged.local_release,
                 release_artifacts_sha256=staged.release_artifacts_sha256,
@@ -732,6 +747,8 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
         ("Native revision", report.native_revision or "not applicable"),
         ("Predecessor", report.predecessor or "not applicable"),
+        ("Pending authoring base", _base_summary(report.native_base)),
+        ("Pending deployment base", _base_summary(report.deployment_base)),
         ("Registration", report.registration),
         ("Registration detail", report.registration_detail or "none"),
         ("Dependency", "available" if report.dependency_available else "unavailable"),
@@ -973,6 +990,8 @@ def inspect_candidate(
                 acquired_target=binding.target_identity,
                 selection=current_selection(ctx, binding.target_profile),
                 authoring_target=binding.authoring_identity,
+                native_base=binding.native_base,
+                deployment_base=binding.deployment_base,
                 registration=status,
                 registration_detail=detail,
                 dependency_available=dependency_available,
@@ -1040,10 +1059,10 @@ def preview(
         prepare_preview,
     )
     from corpus_structure.schema.model_deployment import (
+        capture_authoring_base,
         capture_target,
         deployment_settings,
         target_fingerprint,
-        verify_predecessor,
     )
 
     expected = (ModelError, ResultError, OSError, ValueError, yaml.YAMLError)
@@ -1070,6 +1089,8 @@ def preview(
                 authoring_target = None
                 target_identity = None
                 authoring_identity = None
+                native_base = None
+                deployment_base = None
                 if bound.native_predecessor or bound.deployment:
                     model_stage(result, "bind deployment target")
                     settings = state(ctx).settings()
@@ -1077,15 +1098,23 @@ def preview(
                     target = target_fingerprint(destination)
                     if bound.native_predecessor:
                         authoring_target = target_fingerprint(settings)
-                        authoring_identity = verify_predecessor(
+                        authoring_identity, native_base = capture_authoring_base(
                             settings, authoring_target, bound.native_predecessor
                         )
-                    target_identity = (
-                        authoring_identity
-                        if profile == "development" and authoring_identity is not None
-                        else capture_target(destination, purpose="maintenance")
+                    if profile == "development" and authoring_identity is not None:
+                        target_identity, deployment_base = authoring_identity, native_base
+                    elif bound.native_predecessor:
+                        target_identity, deployment_base = capture_authoring_base(
+                            destination, target, bound.native_predecessor
+                        )
+                    else:
+                        target_identity = capture_target(destination, purpose="maintenance")
+                    result.record_target(
+                        target_identity,
+                        deployment_base.acquired_revision
+                        if deployment_base else bound.native_predecessor,
+                        None, None,
                     )
-                    result.record_target(target_identity, bound.native_predecessor, None, None)
                 sql_holder[0] = sql_holder[0].model_copy(
                     update={
                         "custody": dict(
@@ -1129,7 +1158,10 @@ def preview(
                     )
                     if target_identity is not None:
                         result.record_target(
-                            target_identity, bound.native_predecessor, None, release
+                            target_identity,
+                            deployment_base.acquired_revision
+                            if deployment_base else bound.native_predecessor,
+                            None, release
                         )
                 if bound.archive_release:
                     model_stage(result, "compare archived release")
@@ -1170,6 +1202,8 @@ def preview(
                     authoring_target=authoring_target,
                     target_identity=target_identity,
                     authoring_identity=authoring_identity,
+                    native_base=native_base,
+                    deployment_base=deployment_base,
                     comparison=impact,
                     local_release=release,
                     expected_physical=physical_id,
@@ -1254,10 +1288,17 @@ def apply(
                         staged.authoring_target,
                         staged.request.native_predecessor,
                         staged.authoring_identity,
+                        **(
+                            {"native_base": staged.native_base}
+                            if staged.native_base is not None else {}
+                        ),
                     ) as target:
                         acquired = target
                         result.record_target(
-                            target, staged.request.native_predecessor, None, staged.local_release
+                            target,
+                            staged.native_base.acquired_revision
+                            if staged.native_base else staged.request.native_predecessor,
+                            None, staged.local_release
                         )
                         yield target
 
@@ -1427,6 +1468,10 @@ def candidate(
                             None,
                             expected_predecessor=staged.request.native_predecessor,
                             expected_target=staged.authoring_identity,
+                            **(
+                                {"native_base": staged.native_base}
+                                if staged.native_base is not None else {}
+                            ),
                             target_metadata=target_metadata,
                             retire=retired,
                             recreate=recreated,
@@ -1438,7 +1483,7 @@ def candidate(
                         if native.acquired_target is not None:
                             result.record_target(
                                 native.acquired_target,
-                                staged.request.native_predecessor,
+                                native.acquired_revision or staged.request.native_predecessor,
                                 None,
                                 prepared.release_id,
                             )
