@@ -1443,7 +1443,7 @@ def test_new_demand_cannot_restore_a_cancelled_producer_fence(kernel):
             {"id": current["request_id"]},
         ).one()
         assert current_request.runtime_id == replacement.runtime_id
-        assert current_request.release_id == updated["prepared"].release_id
+        assert current_request.release_id == kernel["prepared"].release_id
         assert current_request.binding["read_id"] == current_binding["binding"]["read_id"]
         assert connection.scalar(
             text("SELECT release_id FROM ops.task WHERE id=:id"), {"id": current["task_id"]}
