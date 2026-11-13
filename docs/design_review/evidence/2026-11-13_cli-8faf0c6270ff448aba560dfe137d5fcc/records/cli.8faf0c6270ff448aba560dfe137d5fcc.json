@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.8faf0c6270ff448aba560dfe137d5fcc",
+  "title": "Retained CLI invocation 8faf0c6270ff448aba560dfe137d5fcc",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for DDO-04 worker crash with unknown cause?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "1cbae84ce5fdde239200aa722854f0fda5a9e0c16242e91164b511c84af59bc1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "a2a1af95ae723829d9e9fd940a70d443e6324e0099e4964610677a50461364c7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The retained invocation settled as failed.",
+  "consumed_by": [
+    "DDO-04 worker crash with unknown cause"
+  ]
+}

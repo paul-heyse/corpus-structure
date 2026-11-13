@@ -20,6 +20,11 @@ unknowns withhold reuse identity. The coordinator distinguishes the successful r
 from actual inherited-family extraction/refusal and future production admission.
 
 <a id="I01"></a>
+**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
+implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
+owns delivered behavior, exact qualification and all remaining functional scope. The target below
+continues to govern unfinished work; this companion is not a second completion ledger.
+
 ## Authoring authority and effective model — I01
 
 DDO-00 inventories the actual semantic owner of each supported operation. Externally defined

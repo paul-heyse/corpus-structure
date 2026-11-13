@@ -5,6 +5,11 @@
 Consumes DDO-01–03 contracts and provides the actual native interfaces for DDO-05–11.
 No native objects described below exist merely because this document names them.
 
+**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
+implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
+owns delivered behavior, exact qualification and all remaining functional scope. The target below
+continues to govern unfinished work; this companion is not a second completion ledger.
+
 ## Target and representation
 
 Extend the trusted physical LinkML model and its SQLAlchemy metadata. Candidate semantic releases

@@ -20,6 +20,11 @@ distinguishes implemented compiler/identity foundations and actual targeted test
 2026-11-12**, at product source `8c0f4f951`. Generated ports, native normalization/admission and
 production reuse/caller cutover are not established by pure preparation or framing parity.
 
+**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
+implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
+owns delivered behavior, exact qualification and all remaining functional scope. The target below
+continues to govern unfinished work; this companion is not a second completion ledger.
+
 ## Responsibility and delivered contracts
 
 One composed released model governs every supported domain operation: source capture and

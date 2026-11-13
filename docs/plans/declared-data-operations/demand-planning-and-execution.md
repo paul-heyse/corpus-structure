@@ -17,6 +17,11 @@ No database access, provider execution, tests or protected reference-answer read
 to author this document. Paths below beginning with a package name are relative to
 `python/corpus-structure/src/corpus_structure/`.
 
+**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
+implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
+owns delivered behavior, exact qualification and all remaining functional scope. The target below
+continues to govern unfinished work; this companion is not a second completion ledger.
+
 ## Outcome and foundation assessment
 
 A native Demand is the authoritative immutable request. It selects target contracts and explicit

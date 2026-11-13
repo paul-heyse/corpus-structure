@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.4b41695a2bdf45048ad369df7c4948f7",
+  "title": "Retained CLI invocation 4b41695a2bdf45048ad369df7c4948f7",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for DDO-03 repaired regressions?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "8793a5998feaf0c4df8f24f20ba1cf0c942e1ad16f8e4e8dda2d3b6e006a3928"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "f06ad13d273a29126b722067b11a7bf2d0e53a0bceb33a6368b2a6a5d17636f9"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The retained invocation settled as failed.",
+  "consumed_by": [
+    "DDO-03 repaired regressions"
+  ]
+}

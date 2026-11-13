@@ -1,7 +1,8 @@
 # Declared data operations — total governing model
 
-**Status: In execution · 2026-11-12. DDO-00–02 complete at their preparation/compiler/identity
-foundation boundary, with targeted qualification passed. DDO-03–12 remain open.**
+**Status: Partial implementation checkpoint · 2026-11-13. DDO-00–02 complete at their
+preparation/compiler/identity foundation boundary. DDO-03–05 have integrated implementation;
+their remaining obligations and qualification are open. DDO-06–12 remain open.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no scope, prerequisites or acceptance limits. Current code/data remain the implementation baseline.
@@ -17,8 +18,10 @@ capabilities with explicit triggers, not mandatory investigations. The Python-in
 consumes [its review](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md)
 at `0907dcc23`; its source-qualified RC01–03 were explicitly accepted on 2026-11-12.
 The [execution receipt](#ddo-0002-execution-receipt--2026-11-12) distinguishes implemented foundations
-and actual checks from the remaining **Proposed** target. No production migration, deployment,
-activation or provider inference was run for this increment.
+and actual checks from the remaining **Proposed** target. The
+[DDO-03–05 checkpoint](#ddo-0305-partial-implementation-checkpoint--2026-11-13) records the integrated
+implementation and remaining scope. Native candidate installation is exercised in isolated test
+databases; no production deployment, activation or provider inference was run.
 Apply core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding. No new broad diagnostic audit
 is initiated by authoring. This coordinator is the single owner of scheduled finding/package state.
 
@@ -172,7 +175,8 @@ actual duplicated mappings/lists with consumers, while DDO-11 preserves archived
 ## Execution queue and readiness
 
 DDO-00–02 are **complete at their scoped foundation boundary; targeted qualification passed,
-2026-11-12 local / 13 UTC**. DDO-03–12 remain **open/not implemented**.
+2026-11-12 local / 13 UTC**. DDO-03–05 are **partially implemented/open**; their checkpoint below
+is the authoritative remaining-work account. DDO-06–12 remain **open**.
 Rows describe dependencies, not mandatory stage-wide
 barriers or separate agent assignments. Interface agreement permits design, not a claim of usable
 native behavior. Product-family slices carry immediate consumers; no late consumer repair phase.
@@ -379,6 +383,200 @@ provider execution, book processing, permanent database writes/migration, activa
 answer reads are **not_run** for this increment. DDO-12 remains the assembled final qualification
 owner; passing this foundation does not qualify the redesigned production pipeline.
 
+## DDO-03–05 partial implementation checkpoint · 2026-11-13
+
+**Implemented; package completion remains open.** All three implementation worktrees were merged
+into main, conflicts reconciled and merged worktrees/branches deleted. Worker assignments are
+concluded. This checkpoint supersedes the earlier instruction to start DDO-03; it does not change
+the accepted target or close multi-package findings from source reviews.
+
+### Integrated capability and present boundary
+
+- **DDO-03:** the versioned effective model carries typed operands, literal/parameter/population
+  facts, kind-universe/projection-family policies and selected versus potential dependencies.
+  `data_operation_bindings.py` lowers the admitted form through SQLAlchemy Core and produces one
+  immutable binding/explanation result. `data_operation_binding_native.py` and its captured SQL
+  enforce that same archived binding AST at native attach/publication boundaries. Literal/range/
+  membership, optional input, alternatives and closed-population predicates retain explicit
+  unknown/refusal states. Unsupported nested aggregate/choice under absence refuses.
+- Direct original-callable ports use captured source, exact runtime alias/global correspondence,
+  nominal JSON/Python ingress, defaults and immutable results. Their currently admitted invocation
+  profile is **scalar pure**. The actual `claim_source_item` is covered by direct-port checks;
+  this is not admission of every production adapter. Necessary native/wire calls, nominal IDs and
+  closed Draft7 schemas are generated from one captured fixed protocol through the existing shared
+  renderer. Generic JSONSchema local nominal references outside the owned wire namespace refuse
+  rather than acquiring an invented kind identity.
+- **DDO-04:** fixed physical declarations and captured native SQL supply demand/request/product/
+  member/support/population/read/intent/derivation relations, guarded calls and purpose grants.
+  Existing task/attempt/lease ownership is reused. Native checks authenticate typed canonical
+  bodies, nominal container/member contracts and explicit member context; family projections are
+  governed by the **member** kind. Local endpoints explicitly name local scope without a product
+  self-hash cycle. Unbacked artifact hashes and unsupported provider identity profiles refuse.
+- Exact retained intent/adoption/publication distinguishes producer attribution, current fenced
+  publisher and committed replay. Append-only revocation and authenticated support rebinding
+  preserve historical evidence. Pinned native reads carry an immutable transaction visibility cut
+  and continuation; frontier reads defer full bodies. These are tested bounded primitives;
+  the remaining package obligations below and production adoption are not complete.
+- Explicit target preparation archives manifest, effective model, source closure, generated ports/
+  schemas, native definitions and runtime inputs. Release/archive/runtime-binding paths recognize
+  this explicit target separately from selected legacy inputs; normal target admission checks the
+  actual frozen native catalog. Forward revision `semantic_ddo_kernel_v1` is now registered;
+  targeted native tests use the real frozen migration and normal `admit_data_operation_release` catalog admission. The earlier
+  test-only acquired-candidate bypass was removed. The persistent development database remains at
+  `semantic_bep_located_v2`; deployment and activation were not performed.
+- **DDO-05:** frozen demands retain roots, explicit producer/discovery selections, dependency
+  closure, parameters including exact tagged meaning, inference/execution profiles and replicates.
+  `DemandPlanner` registers/expands/resumes native obligations and performs bounded Core binding
+  selection against pinned source/subject scope, retaining native attachment and common binding
+  results. Population receipt/support identity is distinct from stable semantic membership.
+  This is a planner foundation, not the migrated production book driver or DDO-06 execution owner.
+- Legacy generated calls were regenerated from the current trusted physical contract after task
+  nullability changed. Their public legacy result fields stay required and use explicit native-row
+  refusal for missing legacy fields. Selected legacy producers/readers remain until their actual
+  coordinated replacement; this regeneration is not production migration or activation.
+
+### Remaining functional scope and next execution
+
+These are concrete unfinished obligations, not merely a request to run a final test suite:
+
+1. **DDO-03:** close the required adapter-capability profiles against real immediate consumers.
+   Batch/stream, preparation/resource ownership, effectful and atomic multi-output invocation need
+   their explicit suitable adapters and conformance checks before use. Complete the real consumer
+   forms named in contracts/demand plans (shared-base source views, exact selected projection,
+   distinct passages/readings and retained occurrence population), native/explanation parity and
+   typed nominal member-family integration. Preserve unsupported-profile refusal in the meantime.
+2. **DDO-04:** deploy the already registered forward revision only at the authorized adoption
+   boundary, reacquiring its target/predecessor and exact source/release bindings. Normal frozen
+   catalog admission is tested in isolated databases; the actual captured-source execution/publication
+   vertical journey remains. Production adoption effects still require DDO-11 preservation/cutover custody.
+   Close **invalidated retained-intent generation recovery**: valid exact adoption exists, but
+   invalidated retained support currently refuses without a complete new-generation recovery path.
+   Do not permit a replacement answer in the old generation or rewrite original producer evidence.
+3. **DDO-05:** qualify actual discovery expansion, closed aggregate fan-in, explicit producer
+   alternatives and dependency-derived frontier with the native implementation and real consumer
+   shapes, including resume/continuation and typed downstream handoff. A frozen Python declaration
+   or synthetic planner storage double alone does not establish these native journeys.
+4. Keep DDO-06 execution ownership/drain, DDO-07 staged artifacts/provider identity, DDO-08 remaining
+   adapters/effects, DDO-09/10 independent-strength grouping and selected reuse/read policy,
+   DDO-11 adoption/retirement and DDO-12 assembled qualification with their existing owners.
+   Refused generic-schema/member or provider features need admission before a dependent consumer;
+   no implicit fallback supplies them. No package or source-review finding is closed by these
+   foundations alone.
+
+### Closeout verification
+
+**Tested · 2026-11-13:** final targeted union **passed, 442 selected / 442 passed**,
+managed `e332a3ef0884454988beaad5af1166b7`. Its
+[durable receipt](../design_review/evidence/2026-11-13_cli-e332a3ef0884454988beaad5af1166b7/README.md)
+preserves the exact selection, actual six-worker context, reports and source observations. No
+provider execution is selected. This is the closeout union for this partial implementation, not
+DDO-12 qualification or a claim that all DDO-03–05 functional scope is complete.
+
+```sh
+uv run ci test --workers 6 --json -- \
+  python/corpus-structure/tests/semantic/test_data_operation_compilation.py \
+  python/corpus-structure/tests/semantic/test_data_operation_identity.py \
+  python/corpus-structure/tests/semantic/test_data_operation_identity_native.py \
+  python/corpus-structure/tests/semantic/test_data_operation_bindings.py \
+  python/corpus-structure/tests/semantic/test_data_operation_binding_native.py \
+  python/corpus-structure/tests/semantic/test_data_operation_ports.py \
+  python/corpus-structure/tests/semantic/test_data_operation_artifacts.py \
+  python/corpus-structure/tests/semantic/test_data_operation_wire.py \
+  python/corpus-structure/tests/semantic/test_data_operation_member_contracts.py \
+  python/corpus-structure/tests/semantic/test_data_operation_preparation.py \
+  python/corpus-structure/tests/semantic/test_data_operation_runtime.py \
+  python/corpus-structure/tests/semantic/test_data_operation_demands.py \
+  python/corpus-structure/tests/semantic/test_data_operation_storage.py \
+  python/corpus-structure/tests/semantic/test_operation_call_generation.py \
+  python/corpus-structure/tests/schema/test_model_change_preview.py \
+  python/corpus-structure/tests/semantic/test_model_deployment.py \
+  python/corpus-structure/tests/semantic/test_archive_reader.py \
+  python/corpus-structure/tests/semantic/test_archive_wire.py \
+  python/corpus-structure/tests/semantic/test_runtime_bindings_native.py \
+  python/corpus-structure/tests/semantic/test_core_operation_calls.py \
+  python/corpus-structure/tests/semantic/test_operations.py \
+  python/corpus-structure/tests/semantic/test_domain_operations.py \
+  python/corpus-structure/tests/semantic/test_consolidation.py \
+  python/corpus-structure/tests/semantic/test_statement_anchors.py \
+  python/corpus-structure/tests/semantic/test_source_frame_admission.py \
+  python/corpus-structure/tests/semantic/test_proposals.py \
+  python/corpus-structure/tests/intervene/test_automated_receipts.py \
+  python/corpus-structure/tests/semantic/test_native_candidate_cli.py
+```
+
+`uv run ci check --only types --json` **passed** `4648e4089fc842c7a111ddb8ada13753`;
+`uv run ci check --only lint --json` **passed** `237f6a6ef87d444a8d646becaffdb335`. Both
+recipe outputs were retained durably with `ci evidence retain`. Final source was formatted before
+this union. Subsequent registration refresh reproduced identical frozen migration bytes; receipt/
+plan/status changes do not alter the qualified production or test source. Source/test commit `c2da716c6` preserves the qualified bytes. Root `just turn-end` passed with
+1189 Python files unchanged and no safe-fix source changes. `uv run ci docs check --json`
+**passed** `9e7cd45393344cf59db1defeb34545e3` (955 canonical pages, zero link errors; existing
+phase0 descriptor-tag warnings). `uv run ci evidence check --json` **passed**
+`f236f0e888dc4099bff1d3bb92cc3d95` (408 records / 224 folders, zero errors, 42 historical warnings).
+Final receipt-only updates leave qualified product/test bytes unchanged.
+
+**Repaired failures and preserved limits:**
+
+- Initial native installation/publication failures `cbcecbae334546c0ab70cc6847d6c4fa`,
+  `0e5c2a69fdb04421ac3f7157821715b8`, `01b82773168144acb4583578589ef777`,
+  `76f2eb3b3b0641f88ac5e69389f4da15`, `ad314ba96f4448a9ba2443f005fa824d`,
+  `bb865ac90a634ad89abc754df6fb2ae2`, `a0d3bf2c2909430aa579957bee1168a6`,
+  `f2147b8173234711807ff158917430b6` and `7223e14847e64677b2ca8e47da19c9a1`
+  exposed trigger dependency/ownership, native type normalization, fixture migration recursion,
+  SQL precedence/alias and composite-row shape defects. The final union exercises the repaired
+  native installation, exact publication/replay, permissions, takeover, revocation, snapshots,
+  immutable content, invalid bodies and direct-writer predicate refusal.
+- Existing-consumer regressions `7a1193b8bfc94c3892c078a5f914d9cc`,
+  `55303ce073194f1ab49a31b1380ecb3e`, `36b1e3091f074f9c9c81fcad26e10350` and
+  `0acef7d328ad4f3cafc142b044895bd4` prompted generated-call refresh, adaptation of the CLI
+  preparation stub, explicit consumed task columns throughout affected completion/consolidation/
+  source-frame/agent consumers, and the frozen forward migration required to align compiled and
+  deployed physical descriptors. Intermediate runtime-pin drift occurred while source files were
+  still being edited; the final union ran against stable source. It does not establish a cause
+  for unrelated earlier process failures.
+- Failed union `4b41695a2bdf45048ad369df7c4948f7` (308 passed / 8 failed) is
+  [retained](../design_review/evidence/2026-11-13_cli-4b41695a2bdf45048ad369df7c4948f7/README.md).
+  Native `3862aa550f3b45f6b76f970ff6fb0c04` (23 passed / 3 failed) is
+  [retained](../design_review/evidence/2026-11-13_cli-3862aa550f3b45f6b76f970ff6fb0c04/README.md).
+  Repairs preserve typed parameter encoding and require fresh pinned reads after revocation;
+  deliberately invalid inputs still reach native enforcement. The final union covers all their
+  selected identities on the final source.
+- Worker crash `8faf0c6270ff448aba560dfe137d5fcc` is
+  [retained with incomplete worker reporting](../design_review/evidence/2026-11-13_cli-8faf0c6270ff448aba560dfe137d5fcc/README.md).
+  Its exact node passed in single-worker `6a6894c840374e0fa649d9168808ca7d` and the final union.
+  Cause remains **unknown**; no memory or migration-cause claim is made.
+- Managed candidate `8ed280dd74a24ebeb3e26574a1517257` refused because the CLI rebuilt native
+  definitions after rolling back the new row-type scaffolding. `authored_admission_sql` now reuses
+  the exact normalized admission from production authoring; it does not generate another answer.
+  `1bb2a8f541704c9ca18d5643d0d80ca6` then correctly refused a stale preview after that repair.
+  Fresh authoring/registration passed, and the actual CLI plus its 14 targeted regression cases
+  are covered. Typing/lint failures encountered during integration were repaired; their original
+  managed receipts retain their original scope, not qualification credit.
+
+### Frozen migration and handoff boundary
+
+The [native request and receipt](../design_review/evidence/2026-11-13_ddo-native-kernel/README.md)
+record rollback-only authoring against the acquired `corpus_structure_dev` on PostgreSQL18/corpus,
+port5434, OID25921445/system7701811359771751232. Final preview `f500ce98465a4260845d5772d2e0db53`,
+apply `12ea0387dc004636842dd284a8d88062`, candidate `b0a0b07c907144eab227f891ba28caab` and
+registration `2ae5b1b7cd7e420fb21d700cb03f0c25` **passed**. Candidate and preview are held while
+DDO-04/11 still consume them. `ci model change inspect-candidate` reports registration verified
+and dependency available; a future effect must reacquire its prerequisites and exact source binding.
+No deployment authorization is inferred from an inspection's suggested command.
+
+Revision `semantic_ddo_kernel_v1` adds 26 tables, two task columns, five nullable task fields under
+the explicit legacy/target task constraint, two indexes and guarded native transitions. Inspection
+found no table or column drops. Frozen upgrade/state/admission artifacts are stored through Git LFS;
+registration refresh after formatting reproduced their hashes exactly. The native test fixture now
+uses this normal frozen head and real catalog admission, removing its former acquired-candidate bypass.
+`uv run ci db status --maintenance --json` confirms the persistent database still at
+`semantic_bep_located_v2`, with repository head `semantic_ddo_kernel_v1`; it was not migrated or activated.
+
+Broad series/provider/book/fault qualification is **not_run** at this partial checkpoint; DDO-12
+retains the assembled qualification obligation. Original source/reference/evidence and held result
+`0a78c71ce1a949e38e906c9c5392c1f3` remain protected. All worker assignments are concluded; only the
+main worktree remains. Operator library-reference edits remain untouched and uncommitted.
+
 ## Investigations, risks and evidence boundaries
 
 Authoring resolved compiler ordering through effective IR/stable references, typed relational forms,
@@ -410,7 +608,8 @@ The acceptance details and commands are in the qualification companion. Record e
 D1–D8 and accepted decision records, preserving exact old review/evidence history. Never delete plan
 or evidence files. Authoring publication checks are separate from product qualification.
 
-**Next:** DDO-03 typed invocation/native/wire correspondence and DDO-04 actual native acquisition.
+**Next:** resume the [DDO-03–05 remaining functional scope](#remaining-functional-scope-and-next-execution),
+starting with invalidated-intent recovery and real-consumer integration before dependent adoption.
 DDO-07/08 production profiles must close their
 required kind/implementation/context facts before invoking or reusing target results. DDO-11
 preservation remains a prerequisite for adoption effects; DDO-12 owns the final required union.

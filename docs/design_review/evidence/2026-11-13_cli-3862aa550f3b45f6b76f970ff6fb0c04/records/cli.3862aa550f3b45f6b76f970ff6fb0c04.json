@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.3862aa550f3b45f6b76f970ff6fb0c04",
+  "title": "Retained CLI invocation 3862aa550f3b45f6b76f970ff6fb0c04",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for DDO-04 repaired native failures?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "c7d9f434363e54ab645daab486df48114d36f3eccbe70cfe991b429e6e44012c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "4c53a81083c24bef448338896187808a5429e4a1ba8beb3f93e0cbcf5b813d8e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The retained invocation settled as failed.",
+  "consumed_by": [
+    "DDO-04 repaired native failures"
+  ]
+}

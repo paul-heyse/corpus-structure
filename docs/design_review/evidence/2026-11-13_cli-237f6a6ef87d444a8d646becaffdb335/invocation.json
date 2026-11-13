@@ -1,0 +1,11 @@
+{
+  "id": "237f6a6ef87d444a8d646becaffdb335",
+  "action": "recipe.ruff-check",
+  "stage": "recipe",
+  "started": 1794557202.781892,
+  "settled": 1794557202.9475439,
+  "outcome": "passed",
+  "artifact_role": "recipe-output",
+  "custody": "settled",
+  "operation_account": null
+}

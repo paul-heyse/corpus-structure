@@ -1,0 +1,6 @@
+baseline: HEAD
+packs: [statistics]
+native_predecessor: semantic_bep_located_v2
+native_revision: semantic_ddo_kernel_v1
+deployment: true
+deployment_profile: development

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.237f6a6ef87d444a8d646becaffdb335",
+  "title": "Retained CLI invocation 237f6a6ef87d444a8d646becaffdb335",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did recipe.ruff-check produce for DDO-03-DDO-05?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "14c778bf3b42f0576fa19be3c3a63cde650186ae5515d6a623f56dde8d9983ef"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/recipe-output.json",
+      "role": "retained-artifact",
+      "sha256": "86a189dc4cc1328a76edca40b54a75fc4377c914a90fc60380c5468a88b66678"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The retained invocation settled as passed.",
+  "consumed_by": [
+    "DDO-03-DDO-05"
+  ]
+}

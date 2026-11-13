@@ -6,14 +6,19 @@ at `7c5368faa`. Implements its I01–I07 planning amendments within DDO-00–12;
 [coordinator](../declared-data-operations_2026-11-12.md) alone owns progress and scheduled dispositions.
 The operator selected explicit conditional triggers rather than mandatory candidate investigations.
 The coordinator's DDO-00–02 receipt records implemented pure typed graph/closure/identity kernels
-and their bounded checks. Runtime native snapshots, readiness, public graph explanations and
-assembled qualification remain later packages; this companion is not a second progress ledger.
+and their bounded checks. Candidate native snapshots and bounded readiness now have integrated foundations. Real-consumer
+integration, public graph explanations and assembled qualification remain open; this companion is not a second progress ledger.
 
 This companion owns shared projection/algorithm contracts. Contracts and compilation owns their
 integration into effective definitions and identities; products/support owns native acquisition and
 admission; demand execution owns actual readiness; interfaces owns public results. Those owners
 link here rather than independently defining graph policy. Apply core 3.3, heuristics,
 code-intelligence 1.4 and test-assessment 1.2. Expected benefits are Proposed and qualitative.
+
+**Execution checkpoint · 2026-11-13:** integrated DDO-03–05 foundations are partially
+implemented. The [coordinator checkpoint](../declared-data-operations_2026-11-12.md#ddo-0305-partial-implementation-checkpoint--2026-11-13)
+owns delivered behavior, exact qualification and all remaining functional scope. The target below
+continues to govern unfinished work; this companion is not a second completion ledger.
 
 ## Projection contract and physical route — I01
 

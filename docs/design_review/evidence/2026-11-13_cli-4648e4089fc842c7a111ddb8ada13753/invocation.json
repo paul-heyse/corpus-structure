@@ -1,0 +1,11 @@
+{
+  "id": "4648e4089fc842c7a111ddb8ada13753",
+  "action": "recipe.types",
+  "stage": "recipe",
+  "started": 1794557201.2019978,
+  "settled": 1794557202.580078,
+  "outcome": "passed",
+  "artifact_role": "recipe-output",
+  "custody": "settled",
+  "operation_account": null
+}
