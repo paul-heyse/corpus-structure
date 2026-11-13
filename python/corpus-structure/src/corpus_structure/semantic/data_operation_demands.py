@@ -280,6 +280,7 @@ class DemandPlanner:
         self.model = model
         self.storage = storage
         self.selected_population_ids: tuple[str, ...] = ()
+        self.fulfilled_request_ids: tuple[str, ...] = ()
 
     def register(
         self,
@@ -409,6 +410,7 @@ class DemandPlanner:
 
     def ready(self, snapshot: dict, *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
         self.selected_population_ids = ()
+        self.fulfilled_request_ids = ()
         if snapshot.get("state") == "cancelled":
             return ()
 
@@ -630,6 +632,7 @@ class DemandPlanner:
                 },
             )
             if native["fate"] == "fulfilled":
+                self.fulfilled_request_ids += (native["request_id"],)
                 continue
             ready.append(
                 ReadyDataRequest(
