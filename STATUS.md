@@ -1,8 +1,10 @@
 # Status
 
-_Updated 2026-11-12. NetworkX review 7c5368faa integrated into the DDO plan series. Production source 8c0f4f951 remains unchanged; all DDO implementation packages remain open. No database/migration/provider execution._
+_Updated 2026-11-12. Python-introspection plan-improvement review published against efdd85f44. DDO plans and production source 8c0f4f951 remain unchanged; all implementation packages remain open. No database/migration/provider execution._
 
 ## Current authority and outcome
+
+- [Python introspection review](docs/plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md) proposes implementation-owned contracts for coupled Python operations, one effective DDO model, conservative operation-slice recipe determinants and derived interfaces/docs/drift. I01–I07 and source-qualified RC01–03 are proposals, not adopted plan changes. Inference success alone does not establish exhaustive dependency coverage; supported profiles/explicit boundaries are required.
 
 - [Graph projections and analysis](docs/plans/declared-data-operations/graph-projections-and-analysis.md) owns shared typed snapshot/algorithm/lifecycle contracts, NetworkX 3.7 API details/source links and full capability selection. I01–I07 from review 7c5368faa are integrated into the coordinator and all seven existing companions. The operator selected conditional revisit triggers rather than mandatory optional-feature investigations; no production adoption is claimed.
 
@@ -14,8 +16,8 @@ _Updated 2026-11-12. NetworkX review 7c5368faa integrated into the DDO plan seri
 
 ## Evidence and qualification
 
-- Plan-authoring checks on 2026-11-12: `uv run ci docs check --json` passed 41bc5d19a3b34ef3bc8c586010e9c9e1 (939 canonical pages, zero link errors; existing phase-0 descriptor-tag warnings). `uv run python -` linked-source inspection passed: all 56 distinct version-specific source paths exist in selected NetworkX 3.7. Final maintenance/publication checks accompany this commit.
-- Source inspection and a bounded independent consistency check support the plan integration. Product/native/provider tests, database queries, semantic probes and benchmarks are not_run for documentation-only authoring. Future package checks are obligations, not passing receipts.
+- Review publication check on 2026-11-12: `uv run ci docs check --json` passed 506d663c355f46c59bff2e7b84ad713c (940 canonical pages, zero link errors; existing phase-0 descriptor-tag warnings). Final maintenance/publication checks accompany the commit.
+- `uv run python -` distribution inspection and `uv run ty --help` passed availability/interface checks for operator-installed LibCST1.9.0/Astroid4.3.4/ty0.0.102/Griffe2.4.1; pyrefly1.4.0 remains checker. Full references and selected sources were inspected, with independent ownership/fingerprint review. Semantic probes, extraction/LSP integration, product/native/provider tests and benchmarks are not_run; proposed profile qualification remains future work.
 
 - [Preservation census](docs/design_review/evidence/2026-11-12_declared-data-operations-planning/README.md): partial metadata investigation, read-only corpus_structure_dev/PG18.6 snapshot on2026-11-12local/13UTC;12table counts and329FKs, no protected answers/source bodies/credentials. Exact root/external-reference closure remains DDO-00/11 work before destructive steps.
 - Compiler/binding realization was grounded in current source and selected LinkML1.12.1/Pydantic2.14.1/SQLAlchemy2.1.6/NetworkX3.7 mechanisms. No dependency changed. Tests, migrations and model/provider runs are not_run for plan authoring.
@@ -25,7 +27,7 @@ _Updated 2026-11-12. NetworkX review 7c5368faa integrated into the DDO plan seri
 
 ## Next
 
-- When implementation is requested, start DDO-00 and DDO-01–03 including the shared graph projection/identity kernels. Runtime consumers require actual DDO-04 acquisition; preserve exact source/support closure before destructive adoption. The coordinator owns I01–I07 scheduled dispositions; optional features do not add final qualification obligations. Other plan qualification is not a dependency.
+- When plan revision is requested, resolve the Python-introspection review RC01–03 and integrate selected recommendations into DDO. The existing NetworkX-amended plan remains current until then. Production execution starts DDO-00/01–03; runtime consumers require actual DDO-04 acquisition and preservation closure precedes destructive adoption. Optional features do not add final qualification obligations.
 - DDO-12 owns a fresh final-source applicable compiler/native/fault/provider/consumer/retained-book union after functional replacement and retirement. Missing required obligations remain open; expected benefits need no benchmark merely to quantify them.
-- Operator-owned docs/libraries/scientific_compute/networkx.md changes and untracked Astroid.md, griffe.md and ty.md under docs/libraries/python_introspection/ remain untouched and excluded from this commit.
+- Operator-owned pyproject.toml/uv.lock dependency additions, docs/libraries/scientific_compute/networkx.md changes and untracked Astroid.md/griffe.md/ty.md references remain untouched and excluded from this review commit.
 - Work remains on main; no worktrees were created. No push. Preserve unrelated/operator edits.

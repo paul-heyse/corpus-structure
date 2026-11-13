@@ -41,6 +41,11 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Declared data operations with Python introspection](declared-data-operations-python-introspection_2026-11-12.md):
+  implementation-owned contracts, conservative operation dependency fingerprints, source-derived
+  interfaces/documentation and concrete LibCST/Astroid/Griffe/ty capability dispositions.
+  Proposed rule impacts require adoption decisions; DDO plans remain unchanged.
+
 - [Declared data operations with NetworkX](declared-data-operations-networkx_2026-11-12.md):
   full overview/addendum coverage, faithful declaration and runtime projections, shared topology,
   precise cycle/impact diagnostics, preserved typed matching, explicit backend lifecycle and
