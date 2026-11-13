@@ -169,8 +169,8 @@ def _pdf_payload_definitions(connection, sql, *, source, current_source=False):
     return tuple(definitions.values())
 
 
-def _pdf_predecessor_declarations(paths, *, owner):
-    """Project bounded PDF prerequisites from the complete frozen baseline prefix.
+def _frozen_predecessor_declarations(paths, *, owner, names):
+    """Project selected prerequisites from the complete frozen baseline prefix.
 
     A later revision can inherit a function without repeating its CREATE. Native
     inventory applies later ACL/owner changes and explicit overload retirement;
@@ -224,7 +224,7 @@ def _pdf_predecessor_declarations(paths, *, owner):
                 statement, inventory.get(signature, {}), owner=current_owner
             )
             name = tuple(part.sval for part in statement.funcname or ())
-            if len(name) != 2 or name[0] != "ops" or name[1] not in _PDF_PAYLOAD_FUNCTIONS:
+            if name not in names:
                 continue
             declaration = prepared.excerpt(index)
             if not statement.replace:
@@ -237,6 +237,34 @@ def _pdf_predecessor_declarations(paths, *, owner):
         for signature, (source, declaration) in declarations.items()
         if signature in inventory
     )
+
+
+def _pdf_predecessor_declarations(paths, *, owner):
+    return _frozen_predecessor_declarations(
+        paths, owner=owner, names={("ops", name) for name in _PDF_PAYLOAD_FUNCTIONS}
+    )
+
+
+def _declared_function_predecessors(connection, products):
+    """Backfill newly managed existing helpers from their frozen source authority."""
+    from .migrations import ALEMBIC_DIR
+
+    owner = semantic_namespace_owner(connection)
+    paths = tuple(path for path in ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")
+                  if int(path.name.split("_")[1]) <= 65)
+    # Source guards retain their dedicated historical migration-owner ACL handling.
+    separately_owned = (_RETIRED_SOURCE_FUNCTIONS | set(_CURRENT_SOURCE_GUARDS)
+                        | {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")})
+    names = {(item.identity.schema, item.identity.name) for item in products
+             if item.identity.kind == "function"} - separately_owned
+    result = []
+    for source, sql, facts in _frozen_predecessor_declarations(paths, owner=owner, names=names):
+        definition = definition_from_sql(connection, sql, source=source, owner=facts["owner"],
+            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]))
+        if definition.owner == owner:
+            definition = replace(definition, bind_owner=True, role_bindings=(("$migration_owner", "sem_namespace_owner"),))
+        result.append(definition)
+    return tuple(result)
 
 
 def _pdf_predecessor_definitions(connection):
@@ -1866,11 +1894,13 @@ def _prepare_series_authoring(
         desired = {item.identity for item in products}
         newly_managed = tuple(
             item
-            for item in series_predecessor_definitions(connection)
+            for item in (*_declared_function_predecessors(connection, products),
+                         *series_predecessor_definitions(connection))
             if item.identity not in known
             and item.identity in desired
             and source.permits_backfill(item.identity)
         )
+        newly_managed = tuple({item.identity: item for item in newly_managed}.values())
         if newly_managed:
             # Normalization uses frozen declarations, never adoption of deployed
             # bodies. The transition still refuses an unexpected live predecessor.
