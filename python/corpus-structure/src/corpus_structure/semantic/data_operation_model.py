@@ -524,7 +524,10 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
             if cls is InputSupport and isinstance(value, dict):
                 if archived_v1 and ("source_set" in value or "source_reference_field" in value):
                     raise ValueError("v1 support cannot declare a source set")
-                value = {"source_set": None, "source_reference_field": None, **value}
+                if archived_v1 and "origins" in value:
+                    raise ValueError("v1 support cannot declare origin eligibility")
+                value = {"source_set": None, "source_reference_field": None,
+                         "origins": ["computation"], **value}
             if cls is OperationRole and isinstance(value, dict):
                 if archived_v1 and "subject_field" in value:
                     raise ValueError("v1 role cannot declare a subject association")

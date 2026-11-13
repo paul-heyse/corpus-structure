@@ -83,3 +83,12 @@ def test_original_support_cannot_enter_undeclared_computational_origin():
             "kind": "computation", "derivation_id": "admission:one",
             "admission_id": "admission:one",
         }])
+
+
+def test_original_origin_and_historical_default_survive_owned_archive_roundtrip():
+    from corpus_structure.semantic.data_operation_model import read_effective_data_operations
+
+    for model in (governed(), governed(origins=["original-source"])):
+        restored = read_effective_data_operations(model.content)
+        assert restored.content == model.content
+        assert restored.operations[0].roles[0].support == model.operations[0].roles[0].support
