@@ -6,6 +6,29 @@ prefixes:
 default_prefix: dsn
 default_range: string
 classes:
+  DdoNativeTableCell:
+    is_a: SourceRecordProduct
+    description: Actual native textual and grid-cell context; original PDF bounding geometry is outside this language projection.
+    attributes:
+      text: {}
+      row_span: {range: integer}
+      col_span: {range: integer}
+      start_row_offset_idx: {range: integer}
+      end_row_offset_idx: {range: integer}
+      start_col_offset_idx: {range: integer}
+      end_col_offset_idx: {range: integer}
+      column_header: {range: boolean}
+      row_header: {range: boolean}
+      row_section: {range: boolean}
+      fillable: {range: boolean}
+      ref: {}
+  DdoNativeTableData:
+    is_a: SourceRecordProduct
+    attributes:
+      num_rows: {range: integer}
+      num_cols: {range: integer}
+      orientation: {}
+      table_cells: {range: DdoNativeTableCell, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   DdoNativeSourceCoordinate:
     is_a: SourceRecordProduct
     description: Semantic source identity and original projection coordinates; physical run/view custody is separate.
@@ -35,6 +58,16 @@ classes:
       text: {}
       orig: {}
       parent: {}
+      name: {}
+      level: {range: integer}
+      content_layer: {}
+      marker: {}
+      enumerated: {range: boolean}
+      children: {multivalued: true, minimum_cardinality: 0}
+      captions: {multivalued: true, minimum_cardinality: 0}
+      footnotes: {multivalued: true, minimum_cardinality: 0}
+      references: {multivalued: true, minimum_cardinality: 0}
+      data: {range: DdoNativeTableData, inlined: true}
       prov: {range: DdoNativeSourcePage, inlined: true, multivalued: true}
   DdoNativeSourceRecognition:
     is_a: SourceRecordProduct
@@ -42,14 +75,15 @@ classes:
       pointer: {required: true, pattern: '^.+$'}
       outcome: {required: true, pattern: '^.+$'}
   DdoSelectedNativeSource:
+    description: Exact selected original text, ancestry, links and native table-grid context. Native-pointer selectors filter captured selected atoms by retained descendant ancestry and never widen the original view. PDF/image/bounding-box geometry remains owned by the original published records.
     annotations:
       cs:data_universe: source
     is_a: SourceRecordProduct
-    description: Already selected source facts and exact examined-scope request, with no reader or ambient selection capability.
     attributes:
       source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
       text: {required: true}
       pieces: {range: DdoNativeSourcePiece, inlined: true, multivalued: true, minimum_cardinality: 0}
+      ancestors: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
       items: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
       recognition: {range: DdoNativeSourceRecognition, inlined: true, multivalued: true}
       selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
