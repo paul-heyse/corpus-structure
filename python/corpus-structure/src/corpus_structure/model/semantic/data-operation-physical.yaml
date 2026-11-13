@@ -14,6 +14,7 @@ classes:
       body_schema: {range: json_payload, required: true}
       meaning_schema: {range: json_payload, required: true}
       member_schema: {range: json_payload, required: true}
+      member_contracts: {range: json_payload, required: true}
       families: {range: json_payload, required: true}
       universe: {range: string, required: true}
     unique_keys:
@@ -158,6 +159,7 @@ classes:
     attributes:
       product_id: {range: string, required: true}
       member_id: {range: string, required: true}
+      kind_contract: {range: string, required: true}
       subject: {range: string, required: true}
       original_source: {range: string, required: true}
       analyzed_scope: {range: json_payload, required: true}
@@ -166,8 +168,9 @@ classes:
       primary_key: {unique_key_slots: [product_id, member_id]}
     annotations:
       ph:read_roles: '[]'
+      ph:indexes: '[["product_id","subject","kind_contract"]]'
       ph:immutability: intrinsic
-      ph:foreign_keys: '[{"columns": ["product_id"], "target": "kb.data_product.id"}]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "kb.data_product.id"}, {"columns":["kind_contract"],"target":"sem.data_kind_contract.kind_contract"}]'
   data_member_coordinate:
     in_subset: [kb]
     attributes:
@@ -265,7 +268,7 @@ classes:
       created_at: {range: timestamp, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
-      unique_0: {unique_key_slots: [request_id, generation, producer_task_id, producer_attempt]}
+      unique_0: {unique_key_slots: [request_id, generation]}
     annotations:
       ph:read_roles: '[]'
       ph:immutability: intrinsic

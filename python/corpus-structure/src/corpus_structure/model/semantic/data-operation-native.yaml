@@ -1127,6 +1127,13 @@ definitions:
         $ref: '#/definitions/identifier'
       trust_snapshot:
         $ref: '#/definitions/trust_snapshot'
+      action:
+        type: string
+        enum: [compute, reconcile, reuse]
+      retained_intent_id:
+        anyOf:
+        - $ref: '#/definitions/identifier'
+        - type: 'null'
     required:
     - request_id
     - generation
@@ -1135,6 +1142,8 @@ definitions:
     - derivation_id
     - use_id
     - trust_snapshot
+    - action
+    - retained_intent_id
     additionalProperties: false
   claim_data_request_request:
     type: object
@@ -1180,6 +1189,13 @@ definitions:
           minLength: 1
         trust_snapshot:
           $ref: '#/definitions/trust_snapshot'
+        action:
+          type: string
+          enum: [compute, reconcile]
+        retained_intent_id:
+          anyOf:
+          - $ref: '#/definitions/identifier'
+          - type: 'null'
       required:
       - state
       - request_id
@@ -1189,6 +1205,8 @@ definitions:
       - holder
       - lease_until
       - trust_snapshot
+      - action
+      - retained_intent_id
       additionalProperties: false
   retain_data_completion_intent_request:
     type: object

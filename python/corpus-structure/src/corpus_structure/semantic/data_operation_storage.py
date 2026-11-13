@@ -35,6 +35,7 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     return (SourceArtifact('native/data-operation-protocol.yaml', (_ROOT / 'data-operation-native.yaml').read_bytes()),
             SourceArtifact('native/data-operations.sql', _SQL.read_bytes()),
             SourceArtifact('native/data-operation-storage.py', Path(__file__).read_bytes()),
+            SourceArtifact('native/data-operation-member-contracts.py', Path(__file__).with_name('data_operation_member_contracts.py').read_bytes()),
             SourceArtifact('native/data-operation-physical.yaml', (_ROOT / 'data-operation-physical.yaml').read_bytes()),
             *binding_native_sources(), *wire_native_sources())
 
@@ -42,7 +43,7 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
 def _captured(sources) -> dict[str, bytes]:
     result = {source.name: source.content for source in sources}
     required = {'native/data-operation-protocol.yaml', 'native/data-operations.sql',
-                'native/data-operation-storage.py', 'native/data-operation-physical.yaml', 'native/data-operation-bindings.sql',
+                'native/data-operation-storage.py', 'native/data-operation-member-contracts.py', 'native/data-operation-physical.yaml', 'native/data-operation-bindings.sql',
                 'native/data-operation-binding-native.py', 'native/data-operation-wire.sql',
                 'native/data-operation-wire-native.py', 'native/data-operation-wire.py'}
     if not required <= result.keys():
@@ -304,7 +305,7 @@ def _meaning_schema(prepared, kind, model) -> dict[str, Any]:
             choices.append(pair)
             if prop.required:
                 required.append({'contains': pair})
-        entries = {'type': 'array', 'items': {'anyOf': choices} if choices else False}
+        entries: dict[str, Any] = {'type': 'array', 'items': {'anyOf': choices} if choices else False}
         if required:
             entries['allOf'] = required
         definitions[key] = tagged('mapping', entries)
@@ -342,7 +343,7 @@ def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
             continue
         packet = resolve(variant.get('items', {}))
         fields = packet.get('properties', {})
-        if not {'member_id', 'context', 'body'} <= fields.keys():
+        if not {'member_id', 'kind_contract', 'context', 'body'} <= fields.keys():
             return {'not': {}}
         candidates.append(fields['body'])
     if not candidates:
@@ -357,7 +358,14 @@ def data_operation_definition_projection(prepared: PreparedRelease,
     """Compile the fixed native projection for authenticated release archiving."""
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     kinds = []
+    from .data_operation_member_contracts import derive_member_kinds
     used = {role.kind for operation in model.operations for role in operation.roles}
+    pending = list(used)
+    while pending:
+        for member_kind in derive_member_kinds(model, pending.pop()):
+            if member_kind not in used:
+                used.add(member_kind)
+                pending.append(member_kind)
     for kind in model.kinds:
         if kind.semantic_id not in used:
             continue
@@ -366,13 +374,18 @@ def data_operation_definition_projection(prepared: PreparedRelease,
             raise ValueError('cannot admit an incomplete effective kind')
         facts = json.loads(kind.facts)
         schema = _kind_schema(prepared, kind)
+        member_kinds = derive_member_kinds(model, kind.semantic_id)
+        member_schema = _member_schema(schema) if member_kinds else {'not': {}}
+        if member_kinds and member_schema == {'not': {}}:
+            raise ValueError('nominal container members require member_id/kind_contract/context/body packets')
         universe = facts.get('universe', 'ordinary')
         if universe not in {'ordinary', 'source', 'evaluator'}:
             raise ValueError('unknown effective kind data universe')
         kinds.append({'kind_contract': contract, 'kind': kind.semantic_id,
             'body_schema': schema,
             'meaning_schema': _meaning_schema(prepared, kind, model),
-            'member_schema': _member_schema(schema),
+            'member_schema': member_schema,
+            'member_contracts': [ids[member, 'kind'] for member in member_kinds],
             'families': facts.get('projection_families', []),
             'universe': universe})
     operations = []
@@ -551,7 +564,9 @@ def data_operation_native_definitions(connection):
     from linkml_runtime.utils.schemaview import SchemaView
     from .metadata import metadata
 
-    declared = SchemaView(str(_ROOT / 'data-operation-physical.yaml')).schema.classes
+    schema = SchemaView(str(_ROOT / 'data-operation-physical.yaml')).schema
+    assert schema is not None
+    declared = schema.classes
     for model_class in sorted(declared):
         relation = next(table for table in metadata.tables.values()
                         if table.info.get('model_class') == model_class)

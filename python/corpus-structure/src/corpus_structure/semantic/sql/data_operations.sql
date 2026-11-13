@@ -336,8 +336,9 @@ BEGIN
  IF (SELECT count(*) FROM jsonb_array_elements(rv->'value') other WHERE (other->>'product',other->>'member',other->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR other->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR other->'support_episodes'=mv->'support_episodes')) <>
  (SELECT count(*) FROM jsonb_array_elements(b->'inputs') actual WHERE actual->>'role'=roledef->>'name' AND (actual->>'product_id',actual->>'member_id',actual->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR actual->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR mv->'support_episodes'=(SELECT coalesce(jsonb_agg(episode ORDER BY episode),'[]') FROM (SELECT DISTINCT support->>'derivation_id' episode FROM jsonb_array_elements(b->'support') support WHERE support->>'role'=roledef->>'name' AND support->>'position' IS NOT DISTINCT FROM actual->>'position') selected))) THEN RAISE EXCEPTION 'semantic member occurrence counts differ from native manifest'; END IF;
  SELECT * INTO STRICT x FROM kb.data_product WHERE id=item->>'product_id';
+ PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_kind_contract kind WHERE kind.kind_contract=x.kind_contract;
  SELECT body INTO member_body FROM kb.data_product_member WHERE product_id=x.id AND member_id=item->>'member_id';
- IF (mv->>'kind',mv->>'subject',mv->>'original_source',mv->>'multiplicity') IS DISTINCT FROM (x.kind_contract,coalesce((SELECT member.subject FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.subject),x.original_source,item->>'multiplicity') OR mv->'analyzed_scope' IS DISTINCT FROM coalesce((SELECT member.analyzed_scope FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.analyzed_scope) THEN RAISE EXCEPTION 'semantic request member differs from native product/member'; END IF;
+ IF (mv->>'kind',mv->>'subject',mv->>'original_source',mv->>'multiplicity') IS DISTINCT FROM (coalesce((SELECT member.kind_contract FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.kind_contract),coalesce((SELECT member.subject FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.subject),x.original_source,item->>'multiplicity') OR mv->'analyzed_scope' IS DISTINCT FROM coalesce((SELECT member.analyzed_scope FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.analyzed_scope) THEN RAISE EXCEPTION 'semantic request member differs from native product/member'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(c)-'product_id'-'member_id' ORDER BY c.ordinal),'[]') INTO expected FROM kb.data_member_coverage c WHERE c.product_id=x.id AND c.member_id=item->>'member_id';
  IF mv->'coverage' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'semantic input coverage differs from native projection'; END IF;
  IF roledef->>'presence'='alternative' OR roledef->'identity_requirements' ? 'alternative' THEN
@@ -361,7 +362,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.attach_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; o ops.data_obligation; d ops.data_demand; def sem.data_operation_definition;
- r ops.data_request; key text; snapshot jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint;
+ r ops.data_request; key text; snapshot jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint; retained_id text;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['obligation_id','request_meaning','binding','replicate'],ARRAY['rebind_derivation','request_key']);
  IF p->'request_meaning'->>0='ddo' THEN
@@ -395,12 +396,12 @@ BEGIN
  PERFORM ops.ddo_fields(item,ARRAY['role','position','multiplicity','product_id'],ARRAY['member_id','support_derivation_id']);
  SELECT value INTO declared FROM jsonb_array_elements(def.input_roles) WHERE value->>'name'=item->>'role';
  PERFORM ops.ddo_authorize(k.universe) FROM sem.data_kind_contract k WHERE k.kind_contract=declared->>'kind_contract';
- IF declared IS NULL OR NOT EXISTS(SELECT FROM kb.data_product x JOIN sem.data_kind_release kr ON kr.kind_contract=x.kind_contract AND kr.release_id=d.release_id
+ IF declared IS NULL OR NOT EXISTS(SELECT FROM kb.data_product x JOIN sem.data_kind_release kr ON kr.kind_contract=declared->>'kind_contract' AND kr.release_id=d.release_id
  WHERE x.id=item->>'product_id' AND x.project_id=d.project_id AND x.original_source=o.original_source
- AND x.kind_contract=declared->>'kind_contract' AND (item->>'member_id' IS NULL OR EXISTS(SELECT FROM kb.data_product_member m WHERE m.product_id=x.id AND m.member_id=item->>'member_id')))
+ AND ((item->>'member_id' IS NULL AND x.kind_contract=declared->>'kind_contract') OR EXISTS(SELECT FROM kb.data_product_member m WHERE m.product_id=x.id AND m.member_id=item->>'member_id' AND m.kind_contract=declared->>'kind_contract')))
  OR (item->>'position')::integer<0 OR (item->>'multiplicity')::integer<1 THEN RAISE EXCEPTION 'input role/member/kind/source mismatch'; END IF;
  IF NOT EXISTS(SELECT FROM ops.data_derivation_output outp JOIN jsonb_array_elements(p->'binding'->'support') s ON s->>'derivation_id'=outp.derivation_id
- WHERE s->>'role'=item->>'role' AND s->>'position' IS NOT DISTINCT FROM item->>'position' AND (item->>'support_derivation_id' IS NULL OR item->>'support_derivation_id'=s->>'derivation_id') AND outp.product_id=item->>'product_id' AND (item->>'member_id' IS NULL OR outp.member_id IS NULL OR outp.member_id IS NOT DISTINCT FROM item->>'member_id')) THEN RAISE EXCEPTION 'input lacks selected authentic producing support'; END IF;
+ WHERE s->>'role'=item->>'role' AND s->>'position' IS NOT DISTINCT FROM item->>'position' AND (item->>'support_derivation_id' IS NULL OR item->>'support_derivation_id'=s->>'derivation_id') AND outp.product_id=item->>'product_id' AND ((item->>'member_id' IS NULL AND outp.member_id IS NULL) OR (item->>'member_id' IS NOT NULL AND (outp.member_id IS NULL OR outp.member_id=item->>'member_id')))) THEN RAISE EXCEPTION 'input lacks selected authentic producing support'; END IF;
  END LOOP;
  FOR declared IN SELECT value FROM jsonb_array_elements(def.input_roles) LOOP
  SELECT coalesce(sum((v->>'multiplicity')::integer),0) INTO cnt FROM jsonb_array_elements(p->'binding'->'inputs') v WHERE v->>'role'=declared->>'name';
@@ -429,14 +430,15 @@ BEGIN
  UPDATE ops.data_request SET live_task_id=task WHERE id=r.id RETURNING * INTO r;
  END IF;
  END IF;
+ SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
  usekey:='use:'||ops.ddo_digest(jsonb_build_array(o.id,r.id,r.generation,episode,p->'binding',snapshot));
  INSERT INTO ops.demand_use VALUES(usekey,d.id,o.id,CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,r.id,r.generation,episode,p->'binding',snapshot,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
- RETURN jsonb_build_object('payload',jsonb_build_object('request_id',r.id,'generation',r.generation,'task_id',r.live_task_id,'fate',CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,'derivation_id',episode,'use_id',usekey,'trust_snapshot',snapshot));
+ RETURN jsonb_build_object('payload',jsonb_build_object('request_id',r.id,'generation',r.generation,'task_id',r.live_task_id,'fate',CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,'derivation_id',episode,'use_id',usekey,'trust_snapshot',snapshot,'action',CASE WHEN episode IS NOT NULL THEN 'reuse' WHEN retained_id IS NOT NULL THEN 'reconcile' ELSE 'compute' END,'retained_intent_id',retained_id));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.claim_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb;
+DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; retained_id text;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','holder','lease_seconds']);
  IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease'; END IF;
@@ -449,7 +451,8 @@ BEGIN
  IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  PERFORM ops.ddo_assert_support(r,r.binding->'support');
  UPDATE ops.task SET status='running',attempt=attempt+1,claimed_by=p->>'holder',lease_until=clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer),started_at=coalesce(started_at,clock_timestamp()) WHERE id=t.id RETURNING * INTO t;
- RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot));
+ SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
+ RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.retain_data_completion_intent(p_payload jsonb) RETURNS jsonb
@@ -470,8 +473,8 @@ BEGIN
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
- SELECT * INTO STRICT old FROM ops.data_completion_intent WHERE request_id=r.id AND generation=r.generation AND producer_task_id=t.id AND producer_attempt=t.attempt;
- IF old.id<>key THEN RAISE EXCEPTION 'attempt completion intent is immutable'; END IF;
+ SELECT * INTO STRICT old FROM ops.data_completion_intent WHERE request_id=r.id AND generation=r.generation;
+ IF old.id<>key THEN RAISE EXCEPTION 'immutable retained intent must be adopted; a generation cannot replace its answer'; END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('intent_id',key,'payload_digest',old.payload_digest));
 END $$;
 CREATE OR REPLACE FUNCTION ops.adopt_data_completion_intent(p_payload jsonb) RETURNS jsonb
@@ -504,7 +507,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_install_product(r ops.data_request,o jsonb) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE k sem.data_kind_contract; key text; b jsonb; bd text; m jsonb; raw jsonb; f jsonb; n bigint; previous kb.data_product; packet jsonb; member_context jsonb;
+DECLARE k sem.data_kind_contract; key text; b jsonb; bd text; m jsonb; raw jsonb; f jsonb; n bigint; previous kb.data_product; packet jsonb; member_context jsonb; member_kind sem.data_kind_contract;
 BEGIN
  PERFORM ops.ddo_fields(o,ARRAY['kind_contract','body','members'],ARRAY['artifact_digest']);
  SELECT * INTO STRICT k FROM sem.data_kind_contract WHERE kind_contract=o->>'kind_contract';
@@ -525,20 +528,27 @@ BEGIN
  SELECT * INTO STRICT previous FROM kb.data_product WHERE id=key;
  IF (previous.kind_contract,previous.project_id,previous.subject,previous.original_source,previous.body_digest) IS DISTINCT FROM (k.kind_contract,r.project_id,r.subject,r.original_source,bd) OR previous.canonical_body IS DISTINCT FROM b OR previous.analyzed_scope IS DISTINCT FROM r.analyzed_scope THEN RAISE EXCEPTION 'product identity/custody collision'; END IF;
  FOR m,n IN SELECT value,ord-1 FROM jsonb_array_elements(o->'members') WITH ORDINALITY entry(value,ord) LOOP
- PERFORM ops.ddo_fields(m,ARRAY['member_id','context','body'],ARRAY['coordinates','roles','endpoints','coverage','choices']);
+ PERFORM ops.ddo_fields(m,ARRAY['member_id','kind_contract','context','body'],ARRAY['coordinates','roles','endpoints','coverage','choices']);
  PERFORM ops.ddo_fields(m->'context',ARRAY['subject','original_source','analyzed_scope']);
  packet:=data.ddo_field(b,'members')->1->(n::integer);
  member_context:=m->'context';
- IF packet->>0<>'mapping' OR jsonb_array_length(packet->1)<>3
+ IF packet->>0<>'mapping' OR jsonb_array_length(packet->1)<>4
  OR data.ddo_field(packet,'member_id') IS DISTINCT FROM jsonb_build_array('string',m->>'member_id')
+ OR data.ddo_field(packet,'kind_contract') IS DISTINCT FROM jsonb_build_array('string',m->>'kind_contract')
  OR data.ddo_field(packet,'body') IS DISTINCT FROM data.ddo_normalize(m->'body')
  OR data.ddo_json(data.ddo_field(packet,'context')) IS DISTINCT FROM member_context
  OR nullif(member_context->>'subject','') IS NULL OR member_context->>'original_source' IS DISTINCT FROM r.original_source THEN RAISE EXCEPTION 'member context/body differs from canonical container packet'; END IF;
+ SELECT * INTO STRICT member_kind FROM sem.data_kind_contract WHERE kind_contract=m->>'kind_contract';
+ PERFORM ops.ddo_authorize(member_kind.universe);
+ IF NOT k.member_contracts ? member_kind.kind_contract
+ OR NOT EXISTS(SELECT FROM sem.data_kind_release release_kind WHERE release_kind.release_id=r.release_id AND release_kind.kind_contract=member_kind.kind_contract)
+ OR NOT public.json_matches_schema(member_kind.meaning_schema::json,data.ddo_normalize(m->'body')::json)
+ OR NOT public.json_matches_schema(member_kind.body_schema::json,data.ddo_json(data.ddo_normalize(m->'body'))::json) THEN RAISE EXCEPTION 'member kind/body differs from declared nominal container member contract'; END IF;
  IF nullif(m->>'member_id','') IS NULL OR NOT public.json_matches_schema(k.member_schema::json,data.ddo_json(data.ddo_normalize(m->'body'))::json) THEN RAISE EXCEPTION 'invalid member contract'; END IF;
  raw:=data.ddo_json(data.ddo_normalize(m->'body'));
  IF EXISTS(SELECT FROM (VALUES('coordinates','coordinate'),('roles','role'),('endpoints','endpoint'),('coverage','coverage'),('choices','choice')) fields(field,family) WHERE (k.families ? family AND coalesce(raw->field,'[]') IS DISTINCT FROM coalesce(m->field,'[]')) OR (NOT k.families ? family AND coalesce(m->field,'[]')<>'[]'::jsonb)) THEN RAISE EXCEPTION 'member projection differs from semantic body'; END IF;
- INSERT INTO kb.data_product_member VALUES(key,m->>'member_id',member_context->>'subject',member_context->>'original_source',member_context->'analyzed_scope',data.ddo_normalize(m->'body')) ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM kb.data_product_member WHERE product_id=key AND member_id=m->>'member_id' AND body=data.ddo_normalize(m->'body') AND subject=member_context->>'subject' AND original_source=member_context->>'original_source' AND analyzed_scope=member_context->'analyzed_scope') THEN RAISE EXCEPTION 'member local identity collision'; END IF;
+ INSERT INTO kb.data_product_member VALUES(key,m->>'member_id',member_kind.kind_contract,member_context->>'subject',member_context->>'original_source',member_context->'analyzed_scope',data.ddo_normalize(m->'body')) ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM kb.data_product_member WHERE product_id=key AND member_id=m->>'member_id' AND kind_contract=member_kind.kind_contract AND body=data.ddo_normalize(m->'body') AND subject=member_context->>'subject' AND original_source=member_context->>'original_source' AND analyzed_scope=member_context->'analyzed_scope') THEN RAISE EXCEPTION 'member local identity collision'; END IF;
  END LOOP;
  -- All local endpoints exist before family insertion. Cross-product endpoints require exact custody.
  FOR m IN SELECT value FROM jsonb_array_elements(o->'members') LOOP
@@ -609,9 +619,9 @@ BEGIN
  FOR o IN SELECT value FROM jsonb_array_elements(i.payload->'outputs') LOOP
  PERFORM ops.ddo_fields(o,ARRAY['role','position','multiplicity','product'],ARRAY['member_id']);
  SELECT value INTO roledef FROM jsonb_array_elements(def.output_roles) WHERE value->>'name'=o->>'role';
- IF roledef IS NULL OR roledef->>'kind_contract' IS DISTINCT FROM o->'product'->>'kind_contract' THEN RAISE EXCEPTION 'output role/kind mismatch'; END IF;
+ IF roledef IS NULL OR (o->>'member_id' IS NULL AND roledef->>'kind_contract' IS DISTINCT FROM o->'product'->>'kind_contract') THEN RAISE EXCEPTION 'output role/kind mismatch'; END IF;
  product:=ops.ddo_install_product(r,o->'product');
- IF o->>'member_id' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.data_product_member member WHERE member.product_id=product AND member.member_id=o->>'member_id') THEN RAISE EXCEPTION 'output member is outside its qualified product'; END IF;
+ IF o->>'member_id' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.data_product_member member WHERE member.product_id=product AND member.member_id=o->>'member_id' AND member.kind_contract=roledef->>'kind_contract') THEN RAISE EXCEPTION 'output member is outside its qualified product'; END IF;
  INSERT INTO ops.data_derivation_output VALUES(episode,o->>'role',(o->>'position')::integer,(o->>'multiplicity')::integer,product,o->>'member_id');
  END LOOP;
  IF result_state='success' THEN
@@ -736,9 +746,9 @@ BEGIN
  FOR k IN SELECT value FROM jsonb_array_elements(p->'kinds') LOOP
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'kinds') kind WHERE kind->>'semantic_id'=k->>'kind' AND coalesce(kind->'facts'->'json'->>'universe','ordinary')=k->>'universe' AND coalesce(kind->'facts'->'json'->'projection_families','[]')=k->'families') THEN RAISE EXCEPTION 'kind purpose/projection policy differs from archived facts'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') a WHERE a->>'owner'=k->>'kind' AND a->>'domain'='kind' AND a->>'key'=k->>'kind_contract') THEN RAISE EXCEPTION 'kind identity differs from archived effective model'; END IF;
- INSERT INTO sem.data_kind_contract VALUES(k->>'kind_contract',k->>'kind',k->'body_schema',k->'meaning_schema',k->'member_schema',k->'families',k->>'universe') ON CONFLICT DO NOTHING;
+ INSERT INTO sem.data_kind_contract VALUES(k->>'kind_contract',k->>'kind',k->'body_schema',k->'meaning_schema',k->'member_schema',k->'member_contracts',k->'families',k->>'universe') ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM sem.data_kind_contract WHERE kind_contract=k->>'kind_contract';
- IF (old.kind,old.universe) IS DISTINCT FROM (k->>'kind',k->>'universe') OR old.body_schema IS DISTINCT FROM k->'body_schema' OR old.meaning_schema IS DISTINCT FROM k->'meaning_schema' OR old.member_schema IS DISTINCT FROM k->'member_schema' OR old.families IS DISTINCT FROM k->'families' THEN RAISE EXCEPTION 'kind contract changed under stable identity'; END IF;
+ IF (old.kind,old.universe) IS DISTINCT FROM (k->>'kind',k->>'universe') OR old.body_schema IS DISTINCT FROM k->'body_schema' OR old.meaning_schema IS DISTINCT FROM k->'meaning_schema' OR old.member_schema IS DISTINCT FROM k->'member_schema' OR old.member_contracts IS DISTINCT FROM k->'member_contracts' OR old.families IS DISTINCT FROM k->'families' THEN RAISE EXCEPTION 'kind contract changed under stable identity'; END IF;
  INSERT INTO sem.data_kind_release VALUES(p->>'release_id',old.kind_contract) ON CONFLICT DO NOTHING;
  END LOOP;
  FOR o IN SELECT value FROM jsonb_array_elements(p->'operations') LOOP
@@ -759,6 +769,14 @@ BEGIN
  RETURN jsonb_build_object('release_id',p->>'release_id','model_digest',p->>'model_digest');
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_kind_access(contract text) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE universe text;
+BEGIN
+ SELECT kind.universe INTO STRICT universe FROM sem.data_kind_contract kind WHERE kind.kind_contract=contract;
+ PERFORM ops.ddo_authorize(universe);
+ RETURN true;
+END $$;
 CREATE OR REPLACE FUNCTION ops.data_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source text DEFAULT NULL)
 RETURNS TABLE(product text,kind_contract text,subject text,original_source text,analyzed_scope jsonb,coverage jsonb,support_episodes jsonb,support_evidence jsonb,"position" bigint,multiplicity bigint,member text,provider_identity text,alternative_identity text,body jsonb,meaning_body jsonb)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -766,24 +784,40 @@ DECLARE d ops.data_demand; snapshot jsonb; boundary ops.data_demand_read;
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p_demand;
  IF p_read IS NOT NULL THEN SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_read AND demand_id=d.id; END IF;
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') x WHERE x->>'operation'=p_operation) THEN RAISE EXCEPTION 'projection operation outside frozen demand'; END IF;
- SELECT coalesce(jsonb_object_agg(s.scope,s.epoch),'{}') INTO snapshot FROM ops.data_trust_scope s WHERE s.project_id=d.project_id AND EXISTS(SELECT FROM jsonb_array_elements(d.root) root WHERE s.scope=ops.ddo_scope(d.project_id,root->>'original_source'));
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation) THEN RAISE EXCEPTION 'projection operation outside frozen demand'; END IF;
+ SELECT coalesce(jsonb_object_agg(scope.scope,scope.epoch),'{}') INTO snapshot FROM ops.data_trust_scope scope WHERE scope.project_id=d.project_id AND EXISTS(SELECT FROM jsonb_array_elements(d.root) root WHERE scope.scope=ops.ddo_scope(d.project_id,root->>'original_source'));
  IF snapshot IS DISTINCT FROM p_trust OR (boundary.id IS NOT NULL AND boundary.trust_snapshot IS DISTINCT FROM snapshot) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
- -- Validate all relevant purposes before emitting any row.
- PERFORM ops.ddo_authorize(k.universe) FROM sem.data_operation_definition op CROSS JOIN LATERAL jsonb_array_elements(op.input_roles) role JOIN sem.data_kind_contract k ON k.kind_contract=role->>'kind_contract' WHERE op.release_id=d.release_id AND op.operation_id=p_operation;
- RETURN QUERY SELECT x.id,x.kind_contract,coalesce(m.subject,x.subject),x.original_source,coalesce(m.analyzed_scope,x.analyzed_scope),
- coalesce((SELECT jsonb_agg(to_jsonb(c)-'product_id'-'member_id' ORDER BY c.ordinal) FROM kb.data_member_coverage c WHERE c.product_id=x.id AND c.member_id=m.member_id),'[]'),
- jsonb_build_array(episode.id),jsonb_build_object('demand_id',d.id,'use_id',u.id,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at),
- coalesce(mr.position,outp.position)::bigint,coalesce(mr.multiplicity,outp.multiplicity)::bigint,m.member_id,NULL::text,producing_request.operation_id,data.ddo_json(coalesce(m.body,x.canonical_body)),coalesce(m.body,x.canonical_body)
- FROM ops.demand_use u JOIN ops.data_derivation episode ON episode.id=u.derivation_id
- JOIN ops.data_request producing_request ON producing_request.id=episode.request_id
- JOIN ops.data_derivation_output outp ON outp.derivation_id=episode.id JOIN kb.data_product x ON x.id=outp.product_id
- LEFT JOIN kb.data_product_member m ON m.product_id=x.id AND (outp.member_id IS NULL OR outp.member_id=m.member_id)
- LEFT JOIN kb.data_member_role mr ON mr.product_id=m.product_id AND mr.member_id=m.member_id
- WHERE u.demand_id=d.id AND u.fate='fulfilled' AND x.project_id=d.project_id
- AND (p_subject IS NULL OR coalesce(m.subject,x.subject)=p_subject)
- AND (p_source IS NULL OR x.original_source=p_source) AND (boundary.id IS NULL OR ops.ddo_read_visible(u.created_at,u.created_xid,boundary)) AND ops.ddo_use_valid(u,boundary)
- AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation AND (jsonb_array_length(selected->'dependencies')=0 OR selected->'dependencies' ? producing_request.operation_id))
- AND EXISTS(SELECT FROM sem.data_operation_definition op CROSS JOIN LATERAL jsonb_array_elements(op.input_roles) role WHERE op.release_id=d.release_id AND op.operation_id=p_operation AND role->>'kind_contract'=x.kind_contract)
- AND NOT EXISTS(SELECT FROM ops.demand_use later WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(later.created_at,later.created_xid,boundary)));
+ PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
+ RETURN QUERY
+ WITH admitted AS MATERIALIZED (
+  SELECT x.id AS product_id,x.kind_contract AS parent_kind,x.subject AS parent_subject,x.original_source AS parent_source,x.analyzed_scope AS parent_scope,x.canonical_body,
+   outp.member_id AS output_member,outp.position AS output_position,outp.multiplicity AS output_multiplicity,episode.id AS episode_id,u.id AS use_id,producer.operation_id AS producer_operation
+  FROM ops.demand_use u JOIN ops.data_derivation episode ON episode.id=u.derivation_id
+  JOIN ops.data_request producer ON producer.id=episode.request_id
+  JOIN ops.data_derivation_output outp ON outp.derivation_id=episode.id JOIN kb.data_product x ON x.id=outp.product_id
+  WHERE u.demand_id=d.id AND u.fate='fulfilled' AND x.project_id=d.project_id
+   AND (p_source IS NULL OR x.original_source=p_source)
+   AND (boundary.id IS NULL OR ops.ddo_read_visible(u.created_at,u.created_xid,boundary))
+   AND ops.ddo_use_valid(u,boundary)
+   AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation AND (jsonb_array_length(selected->'dependencies')=0 OR selected->'dependencies' ? producer.operation_id))
+   AND NOT EXISTS(SELECT FROM ops.demand_use later WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(later.created_at,later.created_xid,boundary)))
+ ), candidates AS MATERIALIZED (
+  SELECT a.product_id,a.parent_kind,projected.*,a.episode_id,a.use_id,a.producer_operation,
+   coalesce(member_role.position,a.output_position)::bigint AS occurrence_position,
+   coalesce(member_role.multiplicity,a.output_multiplicity)::bigint AS occurrence_multiplicity
+  FROM admitted a CROSS JOIN LATERAL (
+   SELECT NULL::text AS member_id,a.parent_kind AS projected_kind,a.parent_subject AS projected_subject,a.parent_source AS projected_source,a.parent_scope AS projected_scope,a.canonical_body AS projected_body WHERE a.output_member IS NULL
+   UNION ALL
+   SELECT m.member_id,m.kind_contract,m.subject,m.original_source,m.analyzed_scope,m.body FROM kb.data_product_member m WHERE m.product_id=a.product_id AND (a.output_member IS NULL OR a.output_member=m.member_id)
+  ) projected
+  LEFT JOIN kb.data_member_role member_role ON member_role.product_id=a.product_id AND member_role.member_id=projected.member_id
+  WHERE (p_subject IS NULL OR projected.projected_subject=p_subject)
+   AND EXISTS(SELECT FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) role WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation AND role->>'kind_contract'=projected.projected_kind)
+ )
+ SELECT candidate.product_id,candidate.projected_kind,candidate.projected_subject,candidate.projected_source,candidate.projected_scope,
+  coalesce((SELECT jsonb_agg(to_jsonb(coverage_row)-'product_id'-'member_id' ORDER BY coverage_row.ordinal) FROM kb.data_member_coverage coverage_row WHERE coverage_row.product_id=candidate.product_id AND coverage_row.member_id=candidate.member_id),'[]'),
+  jsonb_build_array(candidate.episode_id),jsonb_build_object('demand_id',d.id,'use_id',candidate.use_id,'trust_snapshot',snapshot,'read_id',boundary.id,'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at),
+  candidate.occurrence_position,candidate.occurrence_multiplicity,candidate.member_id,NULL::text,candidate.producer_operation,data.ddo_json(candidate.projected_body),candidate.projected_body
+ FROM candidates candidate
+ WHERE ops.ddo_kind_access(candidate.parent_kind) AND ops.ddo_kind_access(candidate.projected_kind);
 END $$;
