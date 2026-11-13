@@ -625,6 +625,50 @@ definitions:
     - original_source
     - analyzed_scope
     additionalProperties: false
+  population_selection_evidence:
+    type: object
+    properties:
+      parent_population_id:
+        $ref: '#/definitions/identifier'
+      read_id:
+        $ref: '#/definitions/read_id'
+      obligation_id:
+        $ref: '#/definitions/identifier'
+      operation_id:
+        $ref: '#/definitions/identifier'
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+      role:
+        $ref: '#/definitions/identifier'
+      definition:
+        $ref: '#/definitions/identifier'
+      eligibility:
+        $ref: '#/definitions/identifier'
+      filter:
+        $ref: '#/definitions/json_value'
+      parameter_meaning:
+        $ref: '#/definitions/semantic_value'
+      choices:
+        $ref: '#/definitions/parameter_map'
+    required: [parent_population_id, read_id, obligation_id, operation_id, subject, original_source, analyzed_scope, role, definition, eligibility, filter, parameter_meaning, choices]
+    additionalProperties: false
+  population_producer_context:
+    type: object
+    properties:
+      operation_id:
+        $ref: '#/definitions/identifier'
+      subject:
+        $ref: '#/definitions/identifier'
+      original_source:
+        $ref: '#/definitions/identifier'
+      analyzed_scope:
+        $ref: '#/definitions/json_value'
+    required: [operation_id, subject, original_source, analyzed_scope]
+    additionalProperties: false
   population_evidence:
     type: object
     properties:
@@ -640,6 +684,10 @@ definitions:
         $ref: '#/definitions/identifier'
       admission_use_id:
         $ref: '#/definitions/identifier'
+      producer_context:
+        $ref: '#/definitions/population_producer_context'
+      selection:
+        $ref: '#/definitions/population_selection_evidence'
     required:
     - product_id
     - derivation_id
@@ -1075,6 +1123,19 @@ definitions:
     required:
     - use_id
     - fate
+    additionalProperties: false
+  select_data_population_request:
+    type: object
+    properties:
+      obligation_id:
+        $ref: '#/definitions/identifier'
+      population_name:
+        $ref: '#/definitions/identifier'
+      parent_population_id:
+        $ref: '#/definitions/identifier'
+      read_id:
+        $ref: '#/definitions/read_id'
+    required: [obligation_id, population_name, parent_population_id, read_id]
     additionalProperties: false
   close_data_population_request:
     type: object
@@ -1761,6 +1822,14 @@ operations:
   result: record_data_fate_result
   purposes:
   - write
+  - evaluate
+- name: select_data_population
+  profile: read
+  request: select_data_population_request
+  result: close_data_population_result
+  purposes:
+  - write
+  - read
   - evaluate
 - name: close_data_population
   profile: command
