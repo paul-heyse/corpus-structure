@@ -110,3 +110,13 @@ both authenticity checks. Five real PL/pgSQL controls **passed**,
 `a364c4c2afd24f8a8e365817c2817c3b`, including mixed origins and forged-original refusal.
 Checker diagnostics now collect bounded errors across selected functions; nine controls **passed**,
 `d0238fe821a3401db105b74f93d49873`. V4 remains unregistered until the refreshed candidate passes.
+
+
+The current context boundary also distinguishes an explicit JSON-null scope from an omitted
+SQL-NULL projection parameter. It uses SQLAlchemy's `JSON.NULL` marker in the existing exact
+JSONB type and comparisons; semantic body/parameter null meanings are unchanged. Three genuine
+PostgreSQL binding/comparison controls and the combined binding selection **passed 34/34**,
+`6799cdf1069f4993a78e0a1120997493`. Original-source predicate coverage is a bounded native
+parameter/predicate control: current authentic original-source builders emit object scopes, and
+no null original admission was fabricated. A genuine computational null-root native journey is
+part of the pending v4 union.
