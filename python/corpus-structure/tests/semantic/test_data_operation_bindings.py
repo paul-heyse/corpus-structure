@@ -444,7 +444,11 @@ def test_python_field_facts_share_schema_property_shape_and_typed_binding():
             {"kind": "parameter", "value_type": "integer", "name": "maximum"},
         ],
     }
-    source = f"class Item:\n    value: int\ndef derive(x: Item) -> int:\n    return x.value\nderive__data_operation__ = {raw!r}\n"
+    source = (
+        "class Item:\n    value: int\n"
+        "def derive(x: Item) -> int:\n    return x.value\n"
+        f"derive__data_operation__ = {raw!r}\n"
+    )
     product = compile_data_operations(
         python_sources=PythonSourceCollection(
             (PythonSource("fixture", source.encode(), "fixture.py"),)
@@ -466,3 +470,138 @@ def test_python_field_facts_share_schema_property_shape_and_typed_binding():
                 (PythonSource("fixture", wrong.encode(), "fixture.py"),)
             )
         )
+
+
+def test_optional_demand_filter_preserves_absence_and_explicit_value(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "optional",
+        roles=("items",),
+        children=(
+            BindingExpression(
+                "equal",
+                operands=(field(), BindingOperand("parameter", "integer", name="occurrence")),
+            ),
+        ),
+    )
+    product = model(
+        expression, parameters={"occurrence": {"value_type": "integer", "required": False}}
+    )
+    unfiltered = execute_binding(
+        connection, compile_binding(product, "urn:op", (projection,), subject="doc")
+    )
+    filtered = execute_binding(
+        connection,
+        compile_binding(
+            product, "urn:op", (projection,), subject="doc", parameters={"occurrence": 2}
+        ),
+    )
+    assert {member.product for member in unfiltered.roles[0].members} == {"p1", "p2", "p3"}
+    assert [member.product for member in filtered.roles[0].members] == ["p2"]
+    with pytest.raises(ValueError):
+        compile_binding(
+            product, "urn:op", (projection,), subject="doc", parameters={"occurrence": None}
+        )
+
+
+def test_frozen_branch_selects_only_declared_alternative(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "choice",
+        choice_parameter="producer",
+        children=(
+            BindingExpression("scan", roles=("left",)),
+            BindingExpression("scan", roles=("right",)),
+        ),
+    )
+    product = model(expression, names=("left", "right"), minimum=0, presence="optional")
+    result = execute_binding(
+        connection,
+        compile_binding(
+            product, "urn:op", (projection,), subject="doc", choices={"producer": "right"}
+        ),
+    )
+    assert result.sufficient
+    assert result.roles[0].state == "known-absent" and result.roles[0].population_witness
+    assert {member.product for member in result.roles[1].members} == {"p1", "p2", "p3"}
+    with pytest.raises(ValueError, match="exactly one"):
+        compile_binding(
+            product, "urn:op", (projection,), subject="doc", choices={"producer": "unknown"}
+        )
+
+
+def test_population_scopes_output_and_member_distinctness(storage):
+    connection, table, projection = storage
+    population = PopulationBinding(
+        "retained", "population:subset", True, ("m2",), b'{"closed":true}'
+    )
+    expression = BindingExpression(
+        "forall",
+        roles=("items",),
+        population="retained",
+        children=(BindingExpression("scan", roles=("items",)),),
+    )
+    result = execute_binding(
+        connection,
+        compile_binding(
+            model(expression), "urn:op", (projection,), subject="doc", populations=(population,)
+        ),
+    )
+    assert [member.member for member in result.roles[0].members] == ["m2"]
+    assert json.loads(result.roles[0].population_witness)["identity"] == "population:subset"
+    connection.execute(table.update().values(product="same-product"))
+    pair = model(BindingExpression("distinct", roles=("left", "right")), names=("left", "right"))
+    distinct = execute_binding(
+        connection, compile_binding(pair, "urn:op", (projection,), subject="doc")
+    )
+    assert distinct.sufficient and len(distinct.roles[0].members) == 3
+
+
+def test_bag_multiplicity_and_sequence_ordinal_defects_remain_explicit(storage):
+    connection, table, projection = storage
+    connection.execute(table.update().where(table.c.value == 2).values(multiplicity=3))
+    bag = model(BindingExpression("scan", roles=("items",)), collection="bag", minimum=5, maximum=5)
+    result = execute_binding(
+        connection, compile_binding(bag, "urn:op", (projection,), subject="doc")
+    )
+    assert result.sufficient and sum(member.multiplicity for member in result.roles[0].members) == 5
+    sequence = replace(
+        bag,
+        operations=(
+            replace(
+                bag.operations[0],
+                roles=(replace(bag.operations[0].roles[0], collection="sequence"),),
+            ),
+        ),
+    )
+    invalid = execute_binding(
+        connection, compile_binding(sequence, "urn:op", (projection,), subject="doc")
+    )
+    assert invalid.status == "invalid"
+    connection.execute(table.update().values(multiplicity=1, position=0))
+    invalid = execute_binding(
+        connection, compile_binding(sequence, "urn:op", (projection,), subject="doc")
+    )
+    assert invalid.status == "invalid" and any(
+        reason.code == "sequence-ordinal" for reason in invalid.reasons
+    )
+
+
+def test_unknown_kind_and_unadmitted_fingerprint_cannot_be_ready(storage):
+    connection, table, projection = storage
+    product = model(BindingExpression("scan", roles=("items",)))
+    incomplete = replace(
+        product,
+        identities=tuple(identity for identity in product.identities if identity.domain != "kind"),
+    )
+    result = execute_binding(
+        connection, compile_binding(incomplete, "urn:op", (projection,), subject="doc")
+    )
+    assert result.status == "unknown" and any(
+        reason.code == "unknown-contract" for reason in result.reasons
+    )
+    connection.execute(table.update().values(kind_contract="kind:other"))
+    rejected = execute_binding(
+        connection, compile_binding(product, "urn:op", (projection,), subject="doc")
+    )
+    assert not rejected.sufficient and rejected.roles[0].members == ()
