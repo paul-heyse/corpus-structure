@@ -246,19 +246,23 @@ def json_schema_properties(schema: dict[str, Any]) -> tuple[tuple[str, dict[str,
     return tuple(result)
 
 
-def json_schema_field_type(schema: dict[str, Any]) -> tuple[str, bool]:
+def json_schema_field_type(
+    schema: dict[str, Any], *, nominal_namespace: str | None = None
+) -> tuple[str, bool]:
     """Project a range without relabelling constrained objects as primitive JSON."""
     root = {key: value for key, value in schema.items() if key not in {"definitions", "$schema"}}
     if "$ref" in root:
-        return KIND_PREFIX + root["$ref"].removeprefix("#/definitions/"), False
+        if nominal_namespace is None:
+            raise ValueError("unsupported nominal projection for non-wire local JSON Schema references; use the LinkML or captured Python nominal owner")
+        return nominal_namespace + root["$ref"].removeprefix("#/definitions/"), False
     alternatives = root.get("oneOf", root.get("anyOf"))
     if alternatives:
-        projected = {json_schema_field_type(schema_closure(item, schema.get("definitions", {}))) for item in alternatives}
+        projected = {json_schema_field_type(schema_closure(item, schema.get("definitions", {})), nominal_namespace=nominal_namespace) for item in alternatives}
         if len(projected) == 1:
             return projected.pop()
     if root.get("type") == "array" and isinstance(root.get("items"), dict):
         element = schema_closure(root["items"], schema.get("definitions", {}))
-        return json_schema_field_type(element)[0], True
+        return json_schema_field_type(element, nominal_namespace=nominal_namespace)[0], True
     primitive = root.get("type")
     if primitive is None:
         values = root.get("enum", [root["const"]] if "const" in root else [])

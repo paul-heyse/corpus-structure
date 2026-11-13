@@ -1628,16 +1628,27 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
 
 def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
     """Realize the same closed wire schema as typed model fields, without a shadow catalog."""
-    from .data_operation_wire import json_schema_field_type, json_schema_properties
+    from .data_operation_wire import KIND_PREFIX, json_schema_field_type, json_schema_properties, schema_closure
 
     for kind in tuple(kinds.values()):
-        schema = json.loads(kind.facts).get("json_schema")
+        kind_facts = json.loads(kind.facts)
+        schema = kind_facts.get("json_schema")
         if schema is None:
             continue
+        namespace = KIND_PREFIX if kind.semantic_id.startswith(KIND_PREFIX) and kind_facts.get("scope") == "native-wire" else None
         for name, field_schema, required in json_schema_properties(schema):
-            target, multivalued = json_schema_field_type(field_schema)
+            try:
+                target, multivalued = json_schema_field_type(field_schema, nominal_namespace=namespace)
+            except ValueError as exc:
+                _fail(kind.semantic_id, "unsupported nominal JSON Schema property projection: " + str(exc))
             if target not in kinds:
                 _fail(kind.semantic_id, "wire property range lacks an effective kind: " + target)
+            if target.startswith(KIND_PREFIX):
+                local_name = target.removeprefix(KIND_PREFIX)
+                definitions = field_schema.get("definitions", {})
+                target_schema = json.loads(kinds[target].facts).get("json_schema")
+                if local_name not in definitions or target_schema != schema_closure(definitions[local_name], definitions):
+                    _fail(kind.semantic_id, "unsupported nominal JSON Schema property projection: local definition differs from its declared wire owner")
             root = field_schema
             prop_id = kind.semantic_id + "/property/" + name
             prop = PropertyDefinition(
