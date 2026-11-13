@@ -16,6 +16,7 @@ import yaml
 from sqlalchemy import insert
 
 from corpus_structure.semantic.data_operation_admission import (
+    acquire_publication_port,
     admit_data_operation_release,
     bound_data_operation_model,
 )
@@ -52,7 +53,7 @@ from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 from corpus_structure.semantic.structural_products import ExternalSourceRef
 
-from .test_data_operation_storage import _declaration, claim, publish
+from .test_data_operation_storage import _declaration, claim
 from .test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
 
 PREFIX = "https://corpus-structure.dev/semantic/data-operation-consumers/"
@@ -326,10 +327,17 @@ def _publish(kernel, demand, root, group, body):
                 },
             },
         )
-    receipt = publish(kernel, fence, intent)
-    product = contextual_product_identity(
-        kind=contract, context=context, body=body_identity(body).key
-    ).key
+    from corpus_structure.semantic.data_operation_ports import RoleValue
+    with kernel["engine"].begin() as connection:
+        port = acquire_publication_port(connection, kernel["prepared"])
+        value = RoleValue("request", port.request_kind, canonical_bytes({**fence, "intent_id": intent["intent_id"]}))
+        completed = port.invoke_json(value)
+        receipt = completed.result.value()
+        replay = port.invoke_json(value)
+        assert replay.receipt_id == completed.receipt_id
+        assert replay.derivation_id == completed.derivation_id
+        assert replay.result.value()["replayed"] is True
+    product = contextual_product_identity(kind=contract, context=context, body=body_identity(body).key).key
     with kernel["engine"].begin() as connection:
         parent = DataOperationStorage(connection).invoke(
             "close_data_population",
