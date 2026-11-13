@@ -41,6 +41,11 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Declared data operations with NetworkX](declared-data-operations-networkx_2026-11-12.md):
+  full overview/addendum coverage, faithful declaration and runtime projections, shared topology,
+  precise cycle/impact diagnostics, preserved typed matching, explicit backend lifecycle and
+  conditional analytics. Proposals only; DDO plans remain unchanged.
+
 - [PM2 structuring and DMA-13](pm2-structuring-and-dma13_2026-11-09.md):
   independent assessment of the Pro proposals, question and comparison visibility,
   source-backed composition, workflow qualification and conditional execution improvements.
