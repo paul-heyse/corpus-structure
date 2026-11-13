@@ -223,6 +223,12 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted target · 2026-11-13.** DDO request and product identities carry complete qualified
+subject context: project, local subject, original source and analyzed scope. Local occurrence
+headers remain distinct from that context. D1 and the DDO coordinator own implementation scope.
+
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md)
+
 **Proposed accepted final execution target · 2026-11-11.** D1 uses CUDA/BF16 with120second inference; HanLP, GLiNER, Maverick, DiPO and spaCy learned inference target CUDA/FP32 in one shared root Python3.14 runtime host with model-local streams and the tested Protobuf override. Profile/device/precision/thread changes freeze before registration under their appropriate provenance; physical count/byte overrides preserve exact source, observation and retained batch identities. [D4](D4-method-catalog.md#selected-provider-execution-profiles-and-complete-settings) owns selected profiles and complete settings propagation.
 
 > Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
@@ -441,6 +447,12 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Accepted target · 2026-11-13.** Native DDO attachment and publication reconstruct complete
+subject context from authenticated demand/request custody. Caller-supplied local names do not
+replace native context authority. D3 and the DDO coordinator own implementation scope.
+
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md)
 
 **Proposed accepted operation-lineage target · 2026-11-12.** Actual capture, primary and analytical
 runs share a typed operation identity in existing immutable native run options. Original product
@@ -665,6 +677,12 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target · 2026-11-13.** Current DDO identity projections use the same explicit qualified
+subject context in Python and native correspondence. JSON scope numbers retain decimal value
+meaning; historical frozen encodings retain their original interpretation.
+
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md)
 
 **Proposed accepted final execution target · 2026-11-11.** Result-neutral execution settings resolve through one policy owner; inference profile/device/precision/thread changes retain frozen result-affecting authority before registration. Freeze semantic demand, exact source/release/dependency selections and freshness seed once, then reuse them during supported recovery. BEP qualifies bounded actual-provider/consumer fixtures first; the full retained capture496/cut614 run (316views/518pages) and book acceptance are operator-deferred; acceptance of this target establishes neither implementation nor qualification. [D6](D6-orchestration-metrics-policies.md#final-characterization-policy-and-retained-recovery) owns the boundary; the [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns completion. Activation, selection and TC-plan reconciliation remain separate.
 

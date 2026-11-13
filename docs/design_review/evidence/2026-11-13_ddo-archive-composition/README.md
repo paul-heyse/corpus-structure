@@ -1,6 +1,6 @@
 # Typed archive and declared input composition
 
-**Authoring in progress · 2026-11-13.** This normal forward successor follows
+**Registered; native qualification in progress · 2026-11-13.** This normal forward successor follows
 `semantic_ddo_original_v1`, retaining complete original-source model content while replacing
 the oversized whole-archive JSONB transport. It also integrates concrete nominal input
 refinement, owned nested subject paths and genuine runless PDF staging foundations.
@@ -48,5 +48,12 @@ retain the literal acquired migration operator, distinct from namespace-owner bi
 catalog comparison still checks exact owner and ACL; no writer-purpose rebinding is introduced.
 The clean original-v1 predecessor and metadata controls **passed 7/7**,
 `947ec01d14064464ac4dc1b23b9932de` (root), replacing the earlier failed before-state diagnostic.
-The replacement v2 request remains unregistered until the final contextual identity and port
-repairs are integrated. Native consumer qualification follows registration.
+The replacement v2 preview **passed**, `e3eabeddb45545fab3c3984114030a97`, with no
+generated path changes. Rollback-only candidate **passed**,
+`cd4414ade9db47cabd635234b61714fa`; registration **passed**,
+`e27fd20b3c1e4407a61d875f2c5f7dc8`, writing the exact four
+`semantic_ddo_archive_v2` files after `semantic_ddo_original_v1`. The bound release is
+`release:612a15fb97da0414263b1d7ad9b0aa665d69e93f8731b52e742cf71fbac1cf48`.
+`uv run ci db status --maintenance --json` confirmed the persistent revision remains
+`semantic_bep_located_v2`, with checkout head `semantic_ddo_archive_v2`. Native consumer
+qualification is running in isolated databases; registration does not establish those results.
