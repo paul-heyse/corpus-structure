@@ -165,6 +165,20 @@ def population(name, *members):
     )
 
 
+def hydrated_component_selection(method, binding, records):
+    """Independent body fixtures exercise consumer algorithms, not native custody."""
+    from corpus_structure.semantic.data_operation_consumers import (
+        HydratedConsumerSelection, SelectedConsumerValue,
+    )
+    from corpus_structure.semantic.identity import canonical_bytes
+    selected = method.select_bound(binding)
+    return HydratedConsumerSelection(selected, tuple(
+        (role.role, tuple(SelectedConsumerValue(member, canonical_bytes(records[member.member]))
+                         for member in role.members for _ in range(member.multiplicity)))
+        for role in selected.roles
+    ))
+
+
 def test_native_consumer_resolves_shared_base_document_views(consumer_model):
     rows = [
         dict(
@@ -192,6 +206,12 @@ def test_native_consumer_resolves_shared_base_document_views(consumer_model):
         )
         assert result.status == "ready"
         assert [member.subject for member in result.roles[0].members] == ["view:one"]
+        from corpus_structure.methods.native_evidence import NativeEvidenceMethod
+        method = NativeEvidenceMethod()
+        inputs = hydrated_component_selection(method, result, {row["id"]: row for row in rows})
+        document, views = method.select_hydrated(inputs)
+        assert document == "document"
+        assert [view.member.member for view in views] == ["view:one"]
 
 
 def test_m1_consumer_optional_projection_is_exact_one_eligible_view(consumer_model):
@@ -240,6 +260,10 @@ def test_m1_consumer_optional_projection_is_exact_one_eligible_view(consumer_mod
             if role.role == "projection"
             for member in role.members
         ] == ["one"]
+        from corpus_structure.methods.m1_source import M1Candidates
+        method = M1Candidates()
+        inputs = hydrated_component_selection(method, result, {row["id"]: row for row in rows})
+        assert [view.member.member for view in method.select_hydrated(inputs)] == ["one"]
         result = execute_binding(
             connection,
             compile_binding(
@@ -301,6 +325,14 @@ def test_contextual_consumer_requires_every_requested_occurrence_id(consumer_mod
                 ),
             )
             assert result.status == status
+            if status == "ready":
+                from corpus_structure.methods.contextual_candidates import ContextualCandidates
+                method = ContextualCandidates()
+                records = {row["id"]: row for values in groups.values() for row in values}
+                inputs = hydrated_component_selection(method, result, records)
+                view, occurrences = method.select_hydrated(inputs)
+                assert view.member.subject == "view"
+                assert [row.value()["occurrence_id"] for row in occurrences] == ["one"]
 
 
 def test_structural_consumer_keeps_two_original_sources_and_reading_associations(consumer_model):
@@ -385,6 +417,12 @@ def test_structural_consumer_keeps_two_original_sources_and_reading_associations
             ),
         )
         assert result.status == "ready"
+        from corpus_structure.methods.structural_products import StructuralComparisonMethod
+        method = StructuralComparisonMethod()
+        records = {row["id"]: row for row in (*passages, *readings)}
+        inputs = hydrated_component_selection(method, result, records)
+        left, right = method.select_hydrated(inputs)
+        assert (left[0].value()["passage_id"], right[0].value()["passage_id"]) == ("left", "right")
         assert {member.original_source for role in result.roles for member in role.members} == {
             "original:left",
             "original:right",

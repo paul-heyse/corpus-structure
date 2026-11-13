@@ -241,3 +241,23 @@ def acquire_python_execution(
         runtime.runtime_id,
         json.loads(runtime.manifest)["attestation"],
     )
+
+
+def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
+    """Acquire the fixed receipt-bearing native command, not Python effect callbacks."""
+    from .data_operation_ports import ResolvedPublicationPort
+    from .data_operation_storage import DataOperationStorage, require_data_operation_native
+
+    model = bound_data_operation_model(prepared)
+    operation = model.operation('data.publish_data_derivation')
+    if operation.profile != 'command' or not operation.effects:
+        raise SemanticRefusal('publication requires its captured effectful command contract')
+    roles = {role.name: role for role in operation.roles}
+    if set(roles) != {'request', 'result'}:
+        raise SemanticRefusal('publication command correspondence differs')
+    contracts = {identity.owner: identity.key for identity in model.identities
+                 if identity.domain == 'kind'}
+    require_data_operation_native(connection, prepared)
+    return ResolvedPublicationPort(DataOperationStorage(connection),
+                                   contracts[roles['request'].kind],
+                                   contracts[roles['result'].kind])

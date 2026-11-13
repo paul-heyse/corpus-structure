@@ -212,7 +212,9 @@ class ClosedPythonSources:
         selected = inputs.generated_interfaces
         if len(selected) != len(set(selected)) or set(selected) - {
             "dataclasses",
+            "dataclasses-runtime",
             "unpack-typeddict",
+            "unpack-typeddict-runtime",
         }:
             _fail(
                 "python/generated_interfaces",
@@ -335,11 +337,11 @@ class ClosedPythonSources:
         roots = [model for model in self.collection.members.values()]
         for model in roots:
             collect(model)
-        if "dataclasses" in self.inputs.generated_interfaces:
+        if {"dataclasses", "dataclasses-runtime"} & set(self.inputs.generated_interfaces):
             extensions = griffe.Extensions(griffe.DataclassesExtension())
             for model in roots:
                 extensions.call("on_package", pkg=model)
-        if "unpack-typeddict" in self.inputs.generated_interfaces:
+        if {"unpack-typeddict", "unpack-typeddict-runtime"} & set(self.inputs.generated_interfaces):
             extensions = griffe.load_extensions("unpack_typeddict")
             for cls in classes:
                 extensions.call("on_class", cls=cls, loader=None)
@@ -384,6 +386,79 @@ class ClosedPythonSources:
                 continue
             if isinstance(init, griffe.Function) and init.path not in self.definitions:
                 self.generated[init.path] = init
+
+    def _runtime_typeddict(self, path: str) -> bool:
+        if "unpack-typeddict-runtime" not in self.inputs.generated_interfaces or path not in self.definitions:
+            return False
+        module_name, node = self.definitions[path]
+        if not isinstance(node, cst.ClassDef) or node.decorators or node.keywords or len(node.bases) != 1:
+            return False
+        for statement in node.body.body:
+            if not isinstance(statement, cst.SimpleStatementLine):
+                return False
+            for value in statement.body:
+                if isinstance(value, cst.AnnAssign) and value.value is None:
+                    continue
+                if isinstance(value, cst.Pass) or (isinstance(value, cst.Expr) and isinstance(value.value, (cst.SimpleString, cst.ConcatenatedString))):
+                    continue
+                return False
+        module = self.modules[module_name]
+        names = module.names.get(node.bases[0].value, set())
+        names = names() if callable(names) else names
+        return {name.name for name in names} == {"typing.TypedDict"}
+
+    def _runtime_dataclass(self, path: str) -> bool:
+        if "dataclasses-runtime" not in self.inputs.generated_interfaces or path not in self.definitions:
+            return False
+        module_name, node = self.definitions[path]
+        if not isinstance(node, cst.ClassDef) or node.keywords:
+            return False
+        module = self.modules[module_name]
+        for statement in node.body.body:
+            if isinstance(statement, cst.FunctionDef):
+                if statement.decorators or statement.name.value.startswith("__"):
+                    return False
+                continue
+            if not isinstance(statement, cst.SimpleStatementLine):
+                return False
+            for value in statement.body:
+                if isinstance(value, (cst.AnnAssign, cst.Pass)):
+                    continue
+                if isinstance(value, cst.Expr) and isinstance(value.value, (cst.SimpleString, cst.ConcatenatedString)):
+                    continue
+                return False
+        if any(parent == path and isinstance(self.definitions[name][1], cst.FunctionDef)
+               and name.rsplit(".", 1)[-1].startswith("__")
+               for name, parent in self.parents.items()):
+            return False
+        if len(node.decorators) != 1:
+            return False
+        decorator = node.decorators[0].decorator
+        function = decorator.func if isinstance(decorator, cst.Call) else decorator
+        names = module.names.get(function, set())
+        names = names() if callable(names) else names
+        if {name.name for name in names} != {"dataclasses.dataclass"}:
+            return False
+        if isinstance(decorator, cst.Call):
+            for arg in decorator.args:
+                if arg.keyword is None or arg.keyword.value not in {"kw_only", "frozen", "init"}:
+                    return False
+                if not isinstance(arg.value, cst.Name) or arg.value.value not in {"True", "False"}:
+                    return False
+                if arg.keyword.value == "init" and arg.value.value != "True":
+                    return False
+        return True
+
+    def _runtime_dataclass_field(self, path: str, value) -> bool:
+        if not self._runtime_dataclass(path.rsplit(".", 1)[0]) or not isinstance(value, cst.Call):
+            return False
+        module_name, _ = self.definitions[path]
+        module = self.modules[module_name]
+        names = module.names.get(value.func, set())
+        names = names() if callable(names) else names
+        return ({name.name for name in names} == {"dataclasses.field"}
+                and all(arg.keyword is not None and arg.keyword.value in {"default", "default_factory", "kw_only"}
+                        for arg in value.args))
 
     @staticmethod
     def _expression(value: str | griffe.Expr | None) -> Any:
@@ -583,7 +658,9 @@ class ClosedPythonSources:
             lineage.append(cls)
             for base in cls.bases:
                 target = getattr(base, "canonical_path", None) or str(base)
-                if target in {"object", "builtins.object"}:
+                if target in {"object", "builtins.object"} or (
+                    self._runtime_typeddict(cls.path) and target == "typing.TypedDict"
+                ):
                     continue
                 if "." not in target:
                     target = self._module_for(cls.path) + "." + target
@@ -615,7 +692,7 @@ class ClosedPythonSources:
         ancestors(obj)
         if not unknowns:
             try:
-                lineage = [obj, *obj.mro()]
+                lineage = [obj] if self._runtime_typeddict(obj.path) else [obj, *obj.mro()]
             except (ValueError, griffe.AliasResolutionError) as exc:
                 _fail(reference, "unsupported inherited Python kind MRO: " + str(exc))
         else:
@@ -658,7 +735,11 @@ class ClosedPythonSources:
                 if isinstance(actual, griffe.Attribute) and not name.startswith("_"):
                     effective[name] = {
                         "name": name,
-                        "annotation": str(actual.annotation) if actual.annotation else None,
+                        "annotation": (
+                            str(actual.annotation).removeprefix("NotRequired[").removeprefix("Required[")[:-1]
+                            if self._runtime_typeddict(cls.path) and str(actual.annotation).startswith(("NotRequired[", "Required["))
+                            else str(actual.annotation) if actual.annotation else None
+                        ),
                         "default": str(actual.value) if actual.value is not None else None,
                         "owner": actual.path,
                         **(
@@ -933,6 +1014,10 @@ class ClosedPythonSources:
             return max(matches, key=lambda b: len(b.reference)) if matches else None
 
         def reference(path: str, target: str, relation: str, location: str) -> None:
+            if ("unpack-typeddict-runtime" in self.inputs.generated_interfaces and target in {
+                "typing.TypedDict", "typing.Unpack", "typing.NotRequired", "typing.Required"
+            }):
+                return
             boundary = boundary_for(target)
             if boundary is not None:
                 if not boundary.contract or not boundary.role:
@@ -997,14 +1082,11 @@ class ClosedPythonSources:
                 owner = path.rsplit(".", 1)[0]
                 todo.append(owner)
                 edges.add(SemanticEdge(node_id, "python:" + owner, "implementation_determinant"))
-                unknowns.add(
-                    SourceUnknown(
-                        path,
-                        path,
-                        "generated constructor runtime behavior requires "
-                        "an admitted analysis model",
+                if not (self._runtime_dataclass(owner) or self._runtime_typeddict(owner)):
+                    unknowns.add(
+                        SourceUnknown(path, path,
+                            "generated constructor runtime behavior requires an admitted analysis model")
                     )
-                )
                 return
             if path not in self.definitions:
                 unknowns.add(SourceUnknown(path, path, "entrypoint body is not supplied"))
@@ -1035,6 +1117,8 @@ class ClosedPythonSources:
                             SemanticEdge(node_id, "python:" + child, "implementation_determinant")
                         )
 
+                runtime_dataclass = self._runtime_dataclass(path)
+
                 class HeaderReferences(cst.CSTVisitor):
                     def visit_Name(self, node: cst.Name) -> None:
                         candidates = module.names.get(node, set())
@@ -1047,12 +1131,14 @@ class ClosedPythonSources:
                                 if candidate.source == QualifiedNameSource.IMPORT
                                 else module_name + "." + candidate.name
                             )
-                            if target != path:
+                            if target != path and not (
+                                runtime_dataclass and target == "dataclasses.dataclass"
+                            ):
                                 reference(path, target, "implementation_determinant", location)
 
                 for header in (*node.decorators, *node.bases, *node.keywords):
                     header.visit(HeaderReferences())
-                if node.decorators or node.keywords:
+                if (node.decorators or node.keywords) and not self._runtime_dataclass(path):
                     unknowns.add(
                         SourceUnknown(
                             path,
@@ -1066,6 +1152,8 @@ class ClosedPythonSources:
                     assert isinstance(cls, griffe.Class)
                     for base in cls.bases:
                         target = getattr(base, "canonical_path", None) or str(base)
+                        if self._runtime_typeddict(path) and target == "typing.TypedDict":
+                            continue
                         reference(
                             path,
                             target if "." in target else module_name + "." + target,
@@ -1109,6 +1197,7 @@ class ClosedPythonSources:
                         admitted_constant = self._closed_alias_binding(path)
                         # Supplied definition aliases are checked through their own nodes;
                         # unsupported builtin aliases cannot hide a dynamic call target.
+                admitted_constant = admitted_constant or self._runtime_dataclass_field(path, node.value)
                 if not admitted_constant:
                     unknowns.add(
                         SourceUnknown(
@@ -1247,6 +1336,8 @@ class ClosedPythonSources:
                     return "value", ()
                 return "unknown", ()
 
+            extractor = self
+
             class References(cst.CSTVisitor):
                 def visit_Name(self, node: cst.Name) -> None:
                     candidates = module.names.get(node, set())
@@ -1361,7 +1452,24 @@ class ClosedPythonSources:
                             location,
                         )
 
-                def visit_Call(self, node: cst.Call) -> None:
+                def visit_Call(self, node: cst.Call) -> bool | None:
+                    if extractor._runtime_dataclass_field(path, node):
+                        for arg in node.args:
+                            if arg.keyword.value == "default_factory":
+                                names = module.names.get(arg.value, set())
+                                names = names() if callable(names) else names
+                                if len(names) != 1:
+                                    unknowns.add(SourceUnknown(path, location, "dataclass factory requires one captured target"))
+                                for candidate in names:
+                                    target = (candidate.name if candidate.source == QualifiedNameSource.IMPORT
+                                              else module_name + "." + candidate.name)
+                                    reference(path, target, "implementation_determinant", location)
+                            else:
+                                try:
+                                    ast.literal_eval(module.wrapper.module.code_for_node(arg.value))
+                                except (ValueError, SyntaxError):
+                                    unknowns.add(SourceUnknown(path, location, "dataclass field option requires a literal"))
+                        return False
                     expression = node.func
                     text = module.wrapper.module.code_for_node(expression)
                     first = text.split(".")[0]

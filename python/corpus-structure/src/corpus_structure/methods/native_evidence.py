@@ -282,14 +282,19 @@ def _batch_sentences(
     yield from flush()
 
 
+def _one_selected_document(documents):
+    documents = set(documents)
+    if len(documents) != 1:
+        raise ValueError("native evidence requires one document")
+    return next(iter(documents))
+
+
 def select_document_scope(run, base, scope) -> Iterable[UnitRef]:
     refs = [run.reader.source_view_ref(identity) for identity in scope["source_view_ids"]]
     if not refs or any(ref is None or ref.native_product != base for ref in refs):
         raise ValueError("native evidence source is outside the run's selected base document")
-    documents = {ref.document_id for ref in refs if ref is not None}
-    if len(documents) != 1:
-        raise ValueError("native evidence requires one document")
-    return (UnitRef(TaskUnitType.DOCUMENT, next(iter(documents))),)
+    document = _one_selected_document(ref.document_id for ref in refs if ref is not None)
+    return (UnitRef(TaskUnitType.DOCUMENT, document),)
 
 
 class NativeEvidenceMethod:
@@ -373,6 +378,25 @@ class NativeEvidenceMethod:
         return BoundConsumerSelection.from_binding(
             binding, operation=self.__selection_operation__["id"]
         )
+
+    def select_bound_native(self, connection, model, binding, *, demand_id,
+                            read_id, trust_snapshot, max_bytes):
+        from corpus_structure.semantic.data_operation_consumers import hydrate_consumer_selection
+        selected = self.select_bound(binding)
+        hydrated = hydrate_consumer_selection(
+            connection, model, selected, demand_id=demand_id, read_id=read_id,
+            trust_snapshot=trust_snapshot, max_bytes=max_bytes,
+        )
+        return self.select_hydrated(hydrated)
+
+    def select_hydrated(self, inputs):
+        """Execute the actual document selection over exact admitted view bodies."""
+        self.select_bound(inputs.selection.binding)
+        values = inputs.role("views")
+        document = _one_selected_document(value.value()["document_subject"] for value in values)
+        if document != inputs.selection.subject:
+            raise ValueError("selected source views differ from the requested document")
+        return document, values
 
     def select(self, run, cfg: NativeEvidenceConfig) -> Iterable[UnitRef]:
         return select_document_scope(run, *cfg.require_selection())

@@ -38,7 +38,7 @@ class PythonInputs(BaseModel):
     interpretation: str
     stub_policy: str
     boundary_contracts: tuple[NamedInput, ...] = ()
-    generated_interfaces: tuple[Literal["dataclasses", "unpack-typeddict"], ...] = ()
+    generated_interfaces: tuple[Literal["dataclasses", "unpack-typeddict", "dataclasses-runtime", "unpack-typeddict-runtime"], ...] = ()
 
 
 class DataOperationInputs(BaseModel):

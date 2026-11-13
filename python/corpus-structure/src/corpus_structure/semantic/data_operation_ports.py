@@ -11,11 +11,13 @@ import ast
 import builtins
 import copy
 import dis
+import dataclasses
 import importlib
 import importlib.util
 import inspect
 import json
-from collections.abc import Callable, Mapping
+import typing
+from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -241,6 +243,71 @@ def project_product_members(
 
 
 @dataclass(frozen=True)
+class StreamPortTerminal:
+    """Explicit terminal standing; observed prefixes confer no completion."""
+
+    state: Literal["complete", "cancelled", "failed"]
+    items: int
+
+
+class PortDataStream:
+    """One acquired iterator with bounded, pull-driven validation and owned close."""
+
+    def __init__(self, port, iterator, annotation, check_active):
+        if not isinstance(iterator, Iterator):
+            raise PortRefusal("stream callable did not return an iterator")
+        self._port, self._iterator = port, iterator
+        self._annotation, self._check_active = annotation, check_active
+        self._count = 0
+        self.terminal: StreamPortTerminal | None = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *error):
+        self.close()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> tuple[int, PortCompletion]:
+        if self.terminal is not None:
+            raise StopIteration
+        try:
+            self._check_active()
+            self._port.verify_runtime()
+            self._port.authorize(self._port.identity)
+            try:
+                value = next(self._iterator)
+            except StopIteration:
+                self._port.verify_runtime()
+                self.terminal = StreamPortTerminal("complete", self._count)
+                self._close_iterator()
+                raise
+            self._port.verify_runtime()
+            completed = self._port._complete(value, self._annotation)
+            position = self._count
+            self._count += 1
+            return position, completed
+        except StopIteration:
+            raise
+        except BaseException:
+            self.terminal = StreamPortTerminal("failed", self._count)
+            self._close_iterator()
+            raise
+
+    def _close_iterator(self):
+        close = getattr(self._iterator, "close", None)
+        if close is not None:
+            close()
+
+    def close(self):
+        if self.terminal is None:
+            self.terminal = StreamPortTerminal("cancelled", self._count)
+            self._close_iterator()
+
+
+@dataclass(frozen=True)
 class ResolvedPythonPort:
     identity: PythonPortIdentity
     model: EffectiveDataOperationModel
@@ -307,6 +374,23 @@ class ResolvedPythonPort:
             )
         )
 
+    def open_stream_python(self, values, *, binding=None, check_active=lambda: None):
+        """Invoke original data iterator; each pull preserves ingress and authority."""
+        if self.operation.capabilities.forms != ("stream",):
+            raise PortRefusal("operation has no admitted data stream capability")
+        annotation = self.signature.return_annotation
+        if get_origin(annotation) not in (Iterator, Generator):
+            raise PortRefusal("stream result requires Iterator[T] or Generator[T, None, None]")
+        arguments = get_args(annotation)
+        if len(arguments) not in (1, 3) or (
+            len(arguments) == 3 and arguments[1:] != (type(None), type(None))
+        ):
+            raise PortRefusal("data stream cannot receive values or hide a terminal result")
+        bound = self._arguments(values, route="python", binding=binding, signature=self.signature)
+        check_active()
+        iterator = self.function(*bound.args, **bound.kwargs)
+        return PortDataStream(self, iterator, arguments[0], check_active)
+
     def invoke_python(
         self, values: tuple[PythonRoleValue, ...], *, binding: BindingResult | None = None
     ) -> PortCompletion:
@@ -360,19 +444,31 @@ class ResolvedPythonPort:
             if role.parameter is None:
                 raise PortRefusal("input role has no authoritative callable parameter: " + name)
             parameter = signature.parameters[role.parameter]
-            adapter = TypeAdapter(parameter.annotation)
+            annotation = _input_annotation(parameter)
+            adapter = TypeAdapter(annotation)
             if name in supplied:
                 value = supplied[name]
                 if route == "json":
                     assert isinstance(value, RoleValue)
-                    checked = adapter.validate_json(value.content, strict=True)
+                    if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
+                        raw = value.value()
+                        fields = {field.name for field in dataclasses.fields(annotation) if field.init}
+                        if not isinstance(raw, dict) or set(raw) - fields:
+                            raise PortRefusal("dataclass JSON ingress contains undeclared fields")
+                        checked = _validated_python_input(annotation, adapter.validate_json(value.content, strict=True))
+                    else:
+                        checked = adapter.validate_json(value.content, strict=True)
                 else:
                     assert isinstance(value, PythonRoleValue)
-                    checked = adapter.validate_python(_untrusted_value(value.value), strict=True)
+                    checked = _validated_python_input(annotation, value.value)
             elif parameter.default is not inspect.Parameter.empty:
                 checked = adapter.validate_python(_untrusted_value(parameter.default), strict=True)
             else:
                 raise PortRefusal("missing callable input role: " + name)
+            if typing.is_typeddict(annotation):
+                raw = value.value() if route == "json" else value.value
+                if not isinstance(raw, dict) or set(raw) - set(annotation.__annotations__):
+                    raise PortRefusal("TypedDict ingress contains undeclared fields")
             if role.collection != "scalar":
                 length = len(checked)
                 if length < role.minimum or (role.maximum is not None and length > role.maximum):
@@ -411,11 +507,17 @@ class ResolvedPythonPort:
             for p in signature.parameters.values()
             if p.kind == inspect.Parameter.POSITIONAL_ONLY
         )
-        keywords = {
-            name: value
-            for name, value in arguments.items()
-            if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
-        }
+        keywords = {}
+        for name, value in arguments.items():
+            parameter = signature.parameters[name]
+            if parameter.kind == inspect.Parameter.VAR_KEYWORD:
+                if set(keywords) & set(value):
+                    raise PortRefusal("expanded TypedDict conflicts with callable parameters")
+                keywords.update(value)
+            elif parameter.kind != inspect.Parameter.POSITIONAL_ONLY:
+                if name in keywords:
+                    raise PortRefusal("expanded TypedDict conflicts with callable parameters")
+                keywords[name] = value
         bound = signature.bind(*positional, **keywords)
         return bound
 
@@ -528,6 +630,26 @@ class ResolvedPythonPort:
         )
 
 
+def _validated_python_input(annotation, value):
+    if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
+        if type(value) is not annotation:
+            raise PortRefusal("typed Python dataclass ingress requires its exact nominal class")
+        # Existing instances may have bypassed __init__ or later mutated fields.
+        # Reconstruct only validated declared fields; do not run a second factory.
+        result = object.__new__(annotation)
+        fields = dataclasses.fields(annotation)
+        if set(vars(value)) != {field.name for field in fields}:
+            raise PortRefusal("typed dataclass ingress has missing or undeclared fields")
+        annotations = inspect.get_annotations(annotation, eval_str=True)
+        for field in fields:
+            checked = TypeAdapter(annotations[field.name]).validate_python(
+                _untrusted_value(object.__getattribute__(value, field.name)), strict=True
+            )
+            object.__setattr__(result, field.name, copy.deepcopy(checked))
+        return result
+    return TypeAdapter(annotation).validate_python(_untrusted_value(value), strict=True)
+
+
 def _untrusted_value(value: Any) -> Any:
     """Model instances can have bypassed validation; reconstruct their public fields."""
     if isinstance(value, BaseModel):
@@ -627,7 +749,7 @@ def resolve_python_port(
     selected = model.operation(operation)
     if (
         selected.effects
-        or selected.capabilities.forms not in (("scalar",), ("batch",))
+        or selected.capabilities.forms not in (("scalar",), ("batch",), ("stream",))
         or selected.capabilities.preparation != "none"
         or selected.capabilities.cancellation not in ("none", "call-boundary")
     ):
@@ -741,6 +863,12 @@ def resolve_python_port(
             return_annotation=element(signature.return_annotation),
         )
     logical_return = (logical_signature or signature).return_annotation
+    if selected.capabilities.forms == ("stream",):
+        arguments = get_args(logical_return)
+        if get_origin(logical_return) not in (Iterator, Generator) or not arguments:
+            raise PortRefusal("stream result requires a typed data iterator")
+        if selected.result_fields:
+            raise PortRefusal("stream atomic bundles require a separately declared stream adapter")
     if selected.result_fields:
         return_args = get_args(logical_return)
         if (
@@ -753,7 +881,13 @@ def resolve_python_port(
             raise PortRefusal("atomic result fields require required scalar roles and dict[str, T]")
     if (
         any(
-            p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+            (p.kind == inspect.Parameter.VAR_POSITIONAL
+             or (p.kind == inspect.Parameter.VAR_KEYWORD and not (
+                 "unpack-typeddict-runtime" in sources.generated_interfaces
+                 and get_origin(p.annotation) is typing.Unpack
+                 and len(get_args(p.annotation)) == 1
+                 and typing.is_typeddict(get_args(p.annotation)[0])
+             )))
             or p.annotation is inspect.Parameter.empty
             for p in signature.parameters.values()
         )
@@ -853,11 +987,29 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
     expected_nodes = {
         n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")
     }
-    _verify_closed_runtime_sources(sources, modules, paths, expected_nodes)
+    standard_references = {}
+    if operation.capabilities.forms == ("stream",):
+        standard_references = {
+            "collections.abc.Iterator": Iterator,
+            "collections.abc.Generator": Generator,
+            "typing.Iterator": typing.Iterator,
+            "typing.Generator": typing.Generator,
+        }
+    if "unpack-typeddict-runtime" in sources.generated_interfaces:
+        standard_references.update({"typing." + name: getattr(typing, name)
+                                    for name in ("TypedDict", "Unpack", "NotRequired", "Required")})
+    if "dataclasses-runtime" in sources.generated_interfaces:
+        standard_references.update({"dataclasses.dataclass": dataclasses.dataclass,
+                                    "dataclasses.field": dataclasses.field})
+    _verify_closed_runtime_sources(
+        sources, modules, paths, expected_nodes, standard_references=standard_references
+    )
 
 
-def _verify_closed_runtime_sources(sources, modules, paths, expected_nodes) -> None:
-    _verify_consumed_globals(sources, modules, expected_nodes)
+def _verify_closed_runtime_sources(
+    sources, modules, paths, expected_nodes, *, standard_references=None
+) -> None:
+    _verify_consumed_globals(sources, modules, expected_nodes, standard_references=standard_references)
     for source in sources.sources:
         module = modules[source.module]
         if paths[source.module].read_bytes() != source.content:
@@ -945,6 +1097,18 @@ def _verify_closed_runtime_sources(sources, modules, paths, expected_nodes) -> N
                     ):
                         raise PortRefusal("runtime builtin dependency was replaced: " + global_name)
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                owner_name = path.rsplit(".", 1)[0]
+                owner = module
+                for component in owner_name.removeprefix(source.module).strip(".").split("."):
+                    if component:
+                        owner = inspect.getattr_static(owner, component)
+                if ("dataclasses-runtime" in sources.generated_interfaces
+                        and isinstance(owner, type) and dataclasses.is_dataclass(owner)
+                        and isinstance(node.value, ast.Call)
+                        and _source_reference(node.value.func, module) is dataclasses.field):
+                    # Source field/default/factory correspondence is checked as one
+                    # generated constructor by the owning class below.
+                    continue
                 try:
                     if node.value is None:
                         raise PortRefusal("runtime determinant has no source value: " + name)
@@ -960,6 +1124,14 @@ def _verify_closed_runtime_sources(sources, modules, paths, expected_nodes) -> N
                 if type(value) is not type(expected) or value != expected:
                     raise PortRefusal("runtime constant determinant differs: " + name)
             elif isinstance(node, ast.ClassDef):
+                if ("unpack-typeddict-runtime" in sources.generated_interfaces
+                        and typing.is_typeddict(value)):
+                    _verify_generated_typeddict(value, node, module)
+                    continue
+                if ("dataclasses-runtime" in sources.generated_interfaces
+                        and dataclasses.is_dataclass(value)):
+                    _verify_generated_dataclass(value, node, module)
+                    continue
                 if (
                     not isinstance(value, type)
                     or type(value) is not type
@@ -997,6 +1169,138 @@ def _verify_closed_runtime_sources(sources, modules, paths, expected_nodes) -> N
                 )
 
 
+
+def _input_annotation(parameter):
+    annotation = parameter.annotation
+    if parameter.kind == inspect.Parameter.VAR_KEYWORD:
+        if get_origin(annotation) is not typing.Unpack or len(get_args(annotation)) != 1:
+            raise PortRefusal("variadic keywords require an admitted TypedDict boundary")
+        annotation = get_args(annotation)[0]
+        if not typing.is_typeddict(annotation):
+            raise PortRefusal("variadic keywords require a nominal TypedDict")
+    return annotation
+
+
+def _verify_generated_typeddict(value, node, module):
+    if len(node.bases) != 1 or node.decorator_list or node.keywords:
+        raise PortRefusal("TypedDict requires its closed standard class shape")
+    if _source_reference(node.bases[0], module) is not typing.TypedDict:
+        raise PortRefusal("TypedDict original base differs")
+    annotations, required, optional = {}, set(), set()
+    for declaration in node.body:
+        if isinstance(declaration, ast.Pass) or (isinstance(declaration, ast.Expr) and isinstance(declaration.value, ast.Constant)):
+            continue
+        if not isinstance(declaration, ast.AnnAssign) or not isinstance(declaration.target, ast.Name) or declaration.value is not None:
+            raise PortRefusal("TypedDict boundary contains unsupported executable members")
+        annotation = eval(compile(ast.Expression(declaration.annotation), module.__file__, "eval"), module.__dict__)
+        name = declaration.target.id
+        annotations[name] = annotation
+        (optional if get_origin(annotation) is typing.NotRequired else required).add(name)
+    if (value.__annotations__ != annotations or value.__required_keys__ != required
+            or value.__optional_keys__ != optional or not value.__total__):
+        raise PortRefusal("TypedDict runtime fields differ from captured declaration")
+
+
+def _verify_generated_dataclass(value, node, module):
+    """Check the selected standard transformation without running a factory."""
+    if type(value) is not type or len(node.decorator_list) != 1 or node.keywords:
+        raise PortRefusal("generated dataclass requires one captured standard decorator")
+    decorator = node.decorator_list[0]
+    function = decorator.func if isinstance(decorator, ast.Call) else decorator
+    if _source_reference(function, module) is not dataclasses.dataclass:
+        raise PortRefusal("generated dataclass decorator correspondence differs")
+    expected_bases = tuple(_source_reference(base, module) for base in node.bases) or (object,)
+    if value.__bases__ != expected_bases:
+        raise PortRefusal("generated dataclass source bases differ")
+    options = {}
+    if isinstance(decorator, ast.Call):
+        if decorator.args:
+            raise PortRefusal("dataclass options must be named literals")
+        for keyword in decorator.keywords:
+            if keyword.arg not in {"init", "kw_only", "frozen"}:
+                raise PortRefusal("unsupported generated dataclass option")
+            options[keyword.arg] = ast.literal_eval(keyword.value)
+    if options.get("init", True) is not True:
+        raise PortRefusal("generated dataclass requires init=True")
+    actual_fields = {field.name: field for field in dataclasses.fields(value)}
+    expected_names = {field.name for base in value.__bases__ if dataclasses.is_dataclass(base)
+                      for field in dataclasses.fields(base)}
+    for declaration in node.body:
+        if isinstance(declaration, ast.FunctionDef) and declaration.name in {"__init__", "__new__", "__post_init__"}:
+            raise PortRefusal("custom dataclass construction needs an explicit model")
+        if not isinstance(declaration, ast.AnnAssign) or not isinstance(declaration.target, ast.Name):
+            continue
+        name = declaration.target.id
+        expected_names.add(name)
+        actual = actual_fields.get(name)
+        if actual is None:
+            raise PortRefusal("generated dataclass field correspondence differs")
+        annotation = eval(compile(ast.Expression(declaration.annotation), module.__file__, "eval"), module.__dict__)
+        if actual.type != annotation:
+            raise PortRefusal("generated dataclass field annotation differs")
+        default, factory = dataclasses.MISSING, dataclasses.MISSING
+        kw_only = options.get("kw_only", False)
+        if isinstance(declaration.value, ast.Call):
+            if _source_reference(declaration.value.func, module) is not dataclasses.field:
+                raise PortRefusal("dataclass field requires its captured standard model")
+            if declaration.value.args:
+                raise PortRefusal("dataclass field options must be named")
+            for keyword in declaration.value.keywords:
+                if keyword.arg == "default_factory":
+                    factory = _source_reference(keyword.value, module)
+                    if not inspect.isfunction(factory) or factory.__module__ != module.__name__:
+                        raise PortRefusal("dataclass factory requires a captured function")
+                elif keyword.arg == "default":
+                    default = ast.literal_eval(keyword.value)
+                elif keyword.arg == "kw_only":
+                    kw_only = ast.literal_eval(keyword.value)
+                else:
+                    raise PortRefusal("unsupported dataclass field option")
+        elif declaration.value is not None:
+            default = ast.literal_eval(declaration.value)
+        if (actual.default_factory is not factory or actual.kw_only != kw_only
+                or type(actual.default) is not type(default) or actual.default != default):
+            raise PortRefusal("dataclass default or factory correspondence differs")
+    if set(actual_fields) != expected_names:
+        raise PortRefusal("generated dataclass acquired undeclared fields")
+    parameters = value.__dataclass_params__
+    if parameters.frozen != options.get("frozen", False) or not parameters.init:
+        raise PortRefusal("generated dataclass runtime options differ")
+    specification = []
+    for field in actual_fields.values():
+        specification.append((field.name, field.type, dataclasses.field(
+            default=field.default, default_factory=field.default_factory,
+            kw_only=field.kw_only)))
+    expected = dataclasses.make_dataclass(value.__name__, specification,
+                                        frozen=parameters.frozen,
+                                        kw_only=options.get("kw_only", False))
+    if value.__init__.__code__ != expected.__init__.__code__:
+        raise PortRefusal("generated dataclass constructor implementation differs")
+    allowed = set(vars(expected)) | {"__firstlineno__", "__static_attributes__", "__annotate_func__"}
+    if "__slotnames__" in vars(value):
+        if value.__slotnames__ != []:
+            raise PortRefusal("generated dataclass has unexpected runtime slots")
+        allowed.add("__slotnames__")  # copyreg caches the absence of slots during deepcopy.
+    allowed.update(declaration.name for declaration in node.body
+                   if isinstance(declaration, (ast.FunctionDef, ast.ClassDef)))
+    allowed.update(declaration.target.id for declaration in node.body
+                   if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name))
+    if set(vars(value)) - allowed:
+        raise PortRefusal("generated dataclass acquired undeclared class behavior: " + repr(sorted(set(vars(value)) - allowed)))
+    for name in ("__setattr__", "__delattr__", "__getattribute__"):
+        actual_method = inspect.getattr_static(value, name)
+        expected_method = inspect.getattr_static(expected, name)
+        if inspect.isfunction(expected_method):
+            if not inspect.isfunction(actual_method) or actual_method.__code__ != expected_method.__code__:
+                raise PortRefusal("generated dataclass mutation behavior differs")
+        elif actual_method is not expected_method:
+            raise PortRefusal("generated dataclass field access behavior differs")
+    actual_closure = tuple(cell.cell_contents for cell in value.__init__.__closure__ or ())
+    expected_closure = tuple(cell.cell_contents for cell in expected.__init__.__closure__ or ())
+    if any(left is not right for left, right in zip(actual_closure, expected_closure, strict=True)):
+        raise PortRefusal("generated dataclass constructor closure differs")
+
+
 def _code_globals(code: CodeType) -> set[str]:
     names = {str(i.argval) for i in dis.get_instructions(code) if i.opname == "LOAD_GLOBAL"}
     for constant in code.co_consts:
@@ -1005,7 +1309,9 @@ def _code_globals(code: CodeType) -> set[str]:
     return names
 
 
-def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None:
+def _verify_consumed_globals(
+    sources, modules, expected_nodes: set[str], *, standard_references=None
+) -> None:
     """Authenticate each consumed global along its full closed import/alias chain.
 
     Verifying dep.helper alone says nothing about application.alias. Every link
@@ -1013,6 +1319,7 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
     We inspect only captured modules; an opaque import needs a different admitted
     runtime capability rather than an ambient import fallback.
     """
+    standard_references = standard_references or {}
     bindings: dict[tuple[str, str], tuple[str, Any]] = {}
     uses: list[tuple[str, str]] = []
     attribute_uses: list[tuple[str, str, tuple[str, ...]]] = []
@@ -1187,7 +1494,9 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
             expected = module_value(target if aliased else target.split(".")[0])
         elif tag == "from":
             target, member = content
-            if target in modules and (target, member) in bindings:
+            if target + "." + member in standard_references:
+                expected = standard_references[target + "." + member]
+            elif target in modules and (target, member) in bindings:
                 expected = resolve(target, member)
             elif target + "." + member in modules:
                 expected = module_value(target + "." + member)
@@ -1236,3 +1545,40 @@ def _verify_consumed_globals(sources, modules, expected_nodes: set[str]) -> None
                     + member
                 )
             value = resolve(value.__name__, member)
+
+
+@dataclass(frozen=True)
+class NativeCommandCompletion:
+    """A returned native effect receipt, never a payload-shaped stand-in."""
+
+    operation: str
+    result: RoleValue
+    receipt_id: str
+    derivation_id: str
+
+
+@dataclass(frozen=True)
+class ResolvedPublicationPort:
+    """Publication command boundary; transaction/receipt authority stays native."""
+
+    storage: Any
+    request_kind: str
+    result_kind: str
+
+    def invoke_json(self, value: RoleValue) -> NativeCommandCompletion:
+        if value.role != 'request' or value.kind_contract != self.request_kind:
+            raise PortRefusal('publication command requires its captured nominal request')
+        result = self.storage.invoke('publish_data_derivation', value.value())
+        if (
+            type(result.get('receipt_id')) is not str or not result['receipt_id']
+            or type(result.get('derivation_id')) is not str or not result['derivation_id']
+            or type(result.get('replayed')) is not bool
+        ):
+            raise PortRefusal('native publication did not return its required effect receipt')
+        from .data_operation_identity import semantic_value
+        return NativeCommandCompletion(
+            'data.publish_data_derivation',
+            RoleValue('result', self.result_kind, canonical_bytes(result),
+                      canonical_bytes(semantic_value(result))),
+            result['receipt_id'], result['derivation_id'],
+        )

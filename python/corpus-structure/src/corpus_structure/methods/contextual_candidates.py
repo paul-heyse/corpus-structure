@@ -941,6 +941,24 @@ class ContextualCandidates:
             binding, operation=self.__selection_operation__["id"]
         )
 
+    def select_bound_native(self, connection, model, binding, *, demand_id,
+                            read_id, trust_snapshot, max_bytes):
+        from corpus_structure.semantic.data_operation_consumers import hydrate_consumer_selection
+        selected = self.select_bound(binding)
+        hydrated = hydrate_consumer_selection(
+            connection, model, selected, demand_id=demand_id, read_id=read_id,
+            trust_snapshot=trust_snapshot, max_bytes=max_bytes,
+        )
+        return self.select_hydrated(hydrated)
+
+    def select_hydrated(self, inputs):
+        self.select_bound(inputs.selection.binding)
+        view = inputs.one("view")
+        occurrences = inputs.role("occurrences")
+        if any(value.value()["view_subject"] != view.member.subject for value in occurrences):
+            raise ValueError("retained occurrence population differs from its selected view")
+        return view, occurrences
+
     def select(self, run, cfg):
         selected = tuple(
             UnitRef(TaskUnitType.SOURCE_VIEW, view.id, view.key)
