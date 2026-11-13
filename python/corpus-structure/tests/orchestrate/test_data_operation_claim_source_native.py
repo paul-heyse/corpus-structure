@@ -1,5 +1,6 @@
 """A captured production callable executes through native demand custody."""
 
+import json
 from pathlib import Path
 
 from sqlalchemy import insert, text
@@ -9,11 +10,7 @@ from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
 )
-from corpus_structure.semantic.data_operation_demands import (
-    DemandPlanner,
-    RootSubject,
-    freeze_demand,
-)
+from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
 from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -25,7 +22,6 @@ from corpus_structure.semantic.runtime_binding_store import persist_runtime_bind
 
 from ..semantic.test_data_operation_storage import (
     _declaration,
-    attach,
     claim,
     publish,
     retain,
@@ -48,14 +44,9 @@ types:
 classes:
   Thing: {}
 """)
-    (tmp_path / "seed.yaml").write_bytes(
-        canonical_bytes(
-            {
-                "version": "data-operation-model-v1",
-                "operations": [_declaration()],
-            }
-        )
-    )
+    (tmp_path / "seed.yaml").write_bytes(canonical_bytes({
+        "version": "data-operation-model-v1", "operations": [_declaration()],
+    }))
     (tmp_path / "target.yaml").write_text(f"""version: data-operation-inputs-v1
 root: target
 schemas: [{{name: target, path: schema.yaml}}]
@@ -74,10 +65,7 @@ python:
     assert operation.outcomes == ("addressed", "invalid-index")
     assert len(model.implementation_slices) == 1 and model.implementation_slices[0].complete
     runtime = prepare_data_operation_runtime(
-        prepared,
-        dependencies.artifacts,
-        execution_profile="execution:test",
-        observed={},
+        prepared, dependencies.artifacts, execution_profile="execution:test", observed={},
     )
     with ddo_kernel_engine.begin() as connection:
         persist_release(connection, bundle, dependencies, profile, prepared)
@@ -88,39 +76,29 @@ python:
     identities = {(item.owner, item.domain): item.key for item in model.identities}
     source = model.operation("urn:ddo-test:source")
     kernel = {
-        "engine": ddo_kernel_engine,
-        "model": model,
-        "prepared": prepared,
-        "runtime": runtime.runtime_id,
-        "identities": identities,
+        "engine": ddo_kernel_engine, "model": model, "prepared": prepared,
+        "runtime": runtime.runtime_id, "identities": identities,
         "kind": identities[source.roles[0].kind, "kind"],
     }
-    # Establish the input through ordinary native admission, claim and publication.
-    _, _, _, attached = attach(kernel)
-    fence = claim(kernel, attached)
-    publish(kernel, fence, retain(kernel, fence, outputs=(7,)))
-
     intent = freeze_demand(
-        model,
-        roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
-        targets=(operation_id,),
-        inference="inference:test",
-        execution_profile="execution:test",
+        model, roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
+        targets=("urn:ddo-test:source", operation_id),
+        inference="inference:test", execution_profile="execution:test",
     )
     with ddo_kernel_engine.begin() as connection:
         demand = DemandPlanner(model, DataOperationStorage(connection)).register(
-            intent,
-            project="ddo-test",
-            release=prepared.release_id,
-            runtime=runtime.runtime_id,
+            intent, project="ddo-test", release=prepared.release_id, runtime=runtime.runtime_id,
         )["demand_id"]
+        planner = DemandPlanner(model, DataOperationStorage(connection))
+        initial = planner.ready(planner.resume(demand), authorization=b"{}")
+        assert len(initial) == 1 and initial[0].operation == "urn:ddo-test:source"
+    # Establish the input in this demand through native claim and publication.
+    fence = claim(kernel, json.loads(initial[0].native))
+    publish(kernel, fence, retain(kernel, fence, outputs=(7,)))
     executor = NativeDemandExecutor(
-        ddo_kernel_engine,
-        prepared,
-        runtime,
+        ddo_kernel_engine, prepared, runtime,
         PythonSourceCollection((PythonSource(module, captured, "identity.py"),)),
-        runtime_locations={module: actual},
-        schema=bundle,
+        runtime_locations={module: actual}, schema=bundle,
     )
     completed = executor.advance(demand)
     assert completed.receipt_count == 1 and len(completed.receipts) == 1
@@ -131,15 +109,13 @@ python:
     assert resumed.receipt_count == 0 and resumed.receipts == ()
     with ddo_kernel_engine.begin() as connection:
         result = DataOperationStorage(connection).invoke(
-            "read_demand_result",
-            {"demand_id": demand, "view": "products"},
+            "read_demand_result", {"demand_id": demand, "view": "products"},
         )
-        assert len(result["uses"]) == 1
-        use = result["uses"][0]
+        assert len(result["uses"]) == 2
+        use = next(use for use in result["uses"]
+                   if any(product["role"] == "address" for product in use["products"]))
         assert use["fate"] == "fulfilled"
         assert [product["body"] for product in use["products"]] == [["string", "claims/7"]]
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 2
-        assert (
-            connection.scalar(text("SELECT count(*) FROM ops.task WHERE run_id IS NOT NULL")) == 0
-        )
+        assert connection.scalar(text("SELECT count(*) FROM ops.task WHERE run_id IS NOT NULL")) == 0
