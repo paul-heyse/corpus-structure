@@ -386,6 +386,7 @@ def test_local_function_alias_rebinding_is_checked_transitively(tmp_path, monkey
 
 def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatch):
     from corpus_structure.semantic.data_operation_bindings import BindingResult
+    from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
@@ -402,7 +403,16 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
         port.identity.definition, port.identity.eligibility, (),
     )
     values = (PythonRoleValue("index", kind(model, "index"), 7),)
-    assert port.invoke_python(values, binding=binding).outputs[0].value() == "selected:7"
+    resolved = binding.resolved(
+        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="cpu"
+    )
+    ready = ReadyDataRequest(
+        "obligation:one", binding.operation, binding.subject, b"{}", b"{}",
+        b'{"action":"compute","retained_intent_id":null}', b"{}", resolved, binding,
+    )
+    assert port.invoke_python(values, binding=ready.binding_result).outputs[0].value() == "selected:7"
+    with pytest.raises(ValueError, match="original binding"):
+        replace(ready, binding_result=replace(binding, parameters=b"different"))
     assert port.invoke_json((RoleValue("index", kind(model, "index"), b"7"),), binding=binding).outputs[0].value() == "selected:7"
     for altered in (replace(binding, definition="stale"), replace(binding, eligibility="stale")):
         with pytest.raises(PortRefusal, match="admitted contract"):

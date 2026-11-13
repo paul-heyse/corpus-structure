@@ -247,17 +247,22 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
     ],
 )
 def test_ready_request_retains_native_execution_disposition(native, expected):
+    from corpus_structure.semantic.data_operation_bindings import BindingResult
     from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
     from corpus_structure.semantic.data_operation_model import ResolvedOperationBinding
 
     binding = ResolvedOperationBinding(
         "op:result", "subject:one", (), b"{}", "exact", b"{}", b"{}", "cpu"
     )
+    original = BindingResult(
+        "op:result", "subject:one", (), "ready", (), b"{}", b"{}",
+        "data-operation-model-v2", "definition:one", "eligibility:one", (),
+    )
 
     def request():
         return ReadyDataRequest(
             "obligation:one", "op:result", "subject:one", b"{}", b"{}",
-            canonical_bytes(native), b"{}", binding,
+            canonical_bytes(native), b"{}", binding, original,
         )
 
     if expected is None:

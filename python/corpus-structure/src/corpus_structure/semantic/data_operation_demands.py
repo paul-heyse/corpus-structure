@@ -19,6 +19,7 @@ from .data_operation_model import EffectiveDataOperationModel, ResolvedOperation
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
+    from .data_operation_bindings import BindingResult
     from .data_operation_storage import DataOperationStorage
 
 
@@ -188,8 +189,21 @@ class ReadyDataRequest:
     native: bytes
     binding: bytes
     resolved: ResolvedOperationBinding
+    binding_result: BindingResult
 
     def __post_init__(self) -> None:
+        if not self.binding_result.sufficient or (
+            self.binding_result.operation,
+            self.binding_result.subject,
+            self.binding_result.roles,
+            self.binding_result.parameters,
+        ) != (
+            self.resolved.operation,
+            self.resolved.subject,
+            self.resolved.roles,
+            self.resolved.parameters,
+        ):
+            raise ValueError("ready request must retain its sufficient original binding")
         disposition = json.loads(self.native)
         action = disposition.get("action")
         retained = disposition.get("retained_intent_id")
@@ -494,6 +508,7 @@ class DemandPlanner:
                     canonical_bytes(native),
                     canonical_bytes(wire_binding),
                     resolved,
+                    binding,
                 )
             )
         return tuple(ready)
