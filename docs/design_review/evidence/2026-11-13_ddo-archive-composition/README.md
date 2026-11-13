@@ -1,6 +1,6 @@
 # Typed archive and declared input composition
 
-**Registered v2; native runtime correction authoring · 2026-11-13.** This normal forward successor follows
+**Registered through v3; native qualification open · 2026-11-13.** This normal forward successor follows
 `semantic_ddo_original_v1`, retaining complete original-source model content while replacing
 the oversized whole-archive JSONB transport. It also integrates concrete nominal input
 refinement, owned nested subject paths and genuine runless PDF staging foundations.
@@ -72,3 +72,10 @@ PostgreSQL controls against the production predicate **passed**,
 `d637175a193b4c9595392ebf8c90caac`. Normal `correction.yaml` authoring follows v2 with
 `semantic_ddo_archive_v3`; v2's frozen bytes remain unchanged. V2 applies cleanly and its faulty
 query is not invoked during migration replay. No persistent database reached v2.
+
+
+The correction preview **passed**, `54ce24c7cdab4af3b40f2eb5cc455215`; rollback-only
+candidate **passed**, `935373f39ad74d269ff9f2624ed73345`; registration **passed**,
+`bf573b6244724f25bb70175ee8c02d4f`. This successor changes three native functions and
+no physical table operation. The acquired database stayed at `semantic_bep_located_v2`.
+The corrected native journeys remain open until actual runtime checks pass.
