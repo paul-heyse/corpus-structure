@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import math
+from datetime import date
+from decimal import Decimal
+
 import pytest
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -156,3 +160,35 @@ def test_frozen_parameter_defaults_match_the_later_binding_manifest():
             compiled,
             selections=(OperationSelection("op:result", parameters=b'{"threshold":null}'),),
         )
+
+
+def test_frozen_typed_parameters_survive_jsonb_display_loss():
+    from corpus_structure.semantic.data_operation_identity import (
+        decode_semantic_value,
+        semantic_value,
+    )
+
+    values = {"zero": -0.0, "day": date(2026, 11, 13), "amount": Decimal("1.25")}
+    compiled = model(
+        operation(
+            "op:result",
+            parameters={
+                "zero": {"value_type": "float"},
+                "day": {"value_type": "date"},
+                "amount": {"value_type": "decimal"},
+            },
+        )
+    )
+    intent = freeze(
+        compiled,
+        selections=(
+            OperationSelection(
+                "op:result", parameter_meaning=canonical_bytes(semantic_value(values))
+            ),
+        ),
+    )
+    selected = intent.record["operations"][0]
+    restored = decode_semantic_value(selected["parameter_meaning"])
+    assert math.copysign(1, restored["zero"]) == -1
+    assert restored["day"] == date(2026, 11, 13)
+    assert restored["amount"] == Decimal("1.25")
