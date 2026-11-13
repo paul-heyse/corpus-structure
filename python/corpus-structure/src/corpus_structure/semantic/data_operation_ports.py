@@ -252,7 +252,11 @@ class ResolvedPythonPort:
             value_type = get_args(self.signature.return_annotation)[1]
             adapter = TypeAdapter(value_type)
             encoded_outputs = tuple(
-                RoleValue(role.name, contracts[role.kind], adapter.dump_json(checked[correspondence[role.name]]))
+                RoleValue(
+                    role.name,
+                    contracts[role.kind],
+                    adapter.dump_json(checked[correspondence[role.name]]),
+                )
                 for role in outputs
             )
             return PortCompletion(self.operation.semantic_id, encoded_outputs)
@@ -388,7 +392,8 @@ def resolve_python_port(
         return_args = get_args(signature.return_annotation)
         if (
             get_origin(signature.return_annotation) is not dict
-            or len(return_args) != 2 or return_args[0] is not str
+            or len(return_args) != 2
+            or return_args[0] is not str
             or {name for name, _ in selected.result_fields} != {role.name for role in outputs}
             or any(role.collection != "scalar" or role.presence != "required" for role in outputs)
         ):

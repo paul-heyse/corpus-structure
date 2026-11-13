@@ -459,64 +459,99 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
 
 def bundle_metadata():
     value = copy.deepcopy(claim_source_item__data_operation__)
-    value['roles'].append({**value['roles'][-1], 'name': 'other'})
-    value['result_fields'] = {'address': 'left', 'other': 'right'}
+    value["roles"].append({**value["roles"][-1], "name": "other"})
+    value["result_fields"] = {"address": "left", "other": "right"}
     return value
 
 
-def test_explicit_atomic_mapping_outputs_preserve_roles_and_archived_correspondence(tmp_path, monkeypatch):
+def test_explicit_atomic_mapping_outputs_preserve_roles_and_archived_correspondence(
+    tmp_path, monkeypatch
+):
     from corpus_structure.semantic.data_operation_model import read_effective_data_operations
 
     model, inputs = fixture_source(
-        tmp_path, monkeypatch, 'index: int',
+        tmp_path,
+        monkeypatch,
+        "index: int",
         'return {"left": str(index), "right": str(index + 1)}',
-        returns='dict[str, str]', metadata=bundle_metadata(),
+        returns="dict[str, str]",
+        metadata=bundle_metadata(),
     )
     reopened = read_effective_data_operations(model.content)
     assert reopened == model
-    assert dict(reopened.operations[0].result_fields) == {'address': 'left', 'other': 'right'}
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
-    values = (PythonRoleValue('index', kind(model, 'index'), 7),)
+    assert dict(reopened.operations[0].result_fields) == {"address": "left", "other": "right"}
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    values = (PythonRoleValue("index", kind(model, "index"), 7),)
     completed = port.invoke_python(values)
-    assert [(v.role, v.value()) for v in completed.outputs] == [('address', '7'), ('other', '8')]
-    assert [v.kind_contract for v in completed.outputs] == [kind(model, 'address'), kind(model, 'other')]
-    assert port.invoke_json((RoleValue('index', kind(model, 'index'), b'7'),)) == completed
+    assert [(v.role, v.value()) for v in completed.outputs] == [("address", "7"), ("other", "8")]
+    assert [v.kind_contract for v in completed.outputs] == [
+        kind(model, "address"),
+        kind(model, "other"),
+    ]
+    assert port.invoke_json((RoleValue("index", kind(model, "index"), b"7"),)) == completed
 
 
-@pytest.mark.parametrize('body', [
-    'return {"left": str(index)}',
-    'return {"left": str(index), "right": str(index), "extra": "surprise"}',
-    'return {"left": str(index), "right": 3}',
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        'return {"left": str(index)}',
+        'return {"left": str(index), "right": str(index), "extra": "surprise"}',
+        'return {"left": str(index), "right": 3}',
+    ],
+)
 def test_invalid_atomic_mapping_never_returns_partial_completion(tmp_path, monkeypatch, body):
-    model, inputs = fixture_source(tmp_path, monkeypatch, 'index: int', body,
-        returns='dict[str, str]', metadata=bundle_metadata())
-    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: int",
+        body,
+        returns="dict[str, str]",
+        metadata=bundle_metadata(),
+    )
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     with pytest.raises((PortRefusal, ValidationError)):
-        port.invoke_python((PythonRoleValue('index', kind(model, 'index'), 1),))
+        port.invoke_python((PythonRoleValue("index", kind(model, "index"), 1),))
 
 
-@pytest.mark.parametrize('mapping', [
-    {'address': 'left'}, {'address': 'left', 'other': 'left'},
-    {'address': 'left', 'unknown': 'right'},
-])
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"address": "left"},
+        {"address": "left", "other": "left"},
+        {"address": "left", "unknown": "right"},
+    ],
+)
 def test_invalid_output_correspondence_refuses_compilation(tmp_path, monkeypatch, mapping):
     from corpus_structure.semantic.types import PreparationError
 
     metadata = bundle_metadata()
-    metadata['result_fields'] = mapping
-    with pytest.raises(PreparationError, match='result fields'):
-        fixture_source(tmp_path, monkeypatch, 'index: int',
+    metadata["result_fields"] = mapping
+    with pytest.raises(PreparationError, match="result fields"):
+        fixture_source(
+            tmp_path,
+            monkeypatch,
+            "index: int",
             'return {"left": str(index), "right": str(index)}',
-            returns='dict[str, str]', metadata=metadata)
+            returns="dict[str, str]",
+            metadata=metadata,
+        )
 
 
 def test_atomic_field_nominal_kind_must_match_original_return_type(tmp_path, monkeypatch):
     from corpus_structure.semantic.types import PreparationError
 
     metadata = bundle_metadata()
-    metadata['roles'][-1]['kind'] = 'integer'
-    with pytest.raises(PreparationError, match='kind differs'):
-        fixture_source(tmp_path, monkeypatch, 'index: int',
+    metadata["roles"][-1]["kind"] = "integer"
+    with pytest.raises(PreparationError, match="kind differs"):
+        fixture_source(
+            tmp_path,
+            monkeypatch,
+            "index: int",
             'return {"left": str(index), "right": str(index)}',
-            returns='dict[str, str]', metadata=metadata)
+            returns="dict[str, str]",
+            metadata=metadata,
+        )

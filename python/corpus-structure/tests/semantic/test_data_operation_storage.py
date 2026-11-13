@@ -1224,7 +1224,9 @@ def test_native_request_renewal_uses_exact_runless_fence_and_does_not_shorten_le
         assert after >= before.lease_until
     publish(kernel, fence, retain(kernel, fence))
     with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="stale"):
-        DataOperationStorage(connection).invoke("renew_data_request", {**fence, "lease_seconds": 30})
+        DataOperationStorage(connection).invoke(
+            "renew_data_request", {**fence, "lease_seconds": 30}
+        )
 
 
 @pytest.mark.parametrize("field", ["generation", "task_id", "attempt", "holder"])
@@ -1233,7 +1235,9 @@ def test_native_request_renewal_refuses_a_different_fence(kernel, field):
     fence = claim(kernel, attached)
     altered = {**fence, field: "different" if field == "holder" else fence[field] + 1}
     with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="stale"):
-        DataOperationStorage(connection).invoke("renew_data_request", {**altered, "lease_seconds": 30})
+        DataOperationStorage(connection).invoke(
+            "renew_data_request", {**altered, "lease_seconds": 30}
+        )
 
 
 def test_native_request_renewal_cannot_revive_an_expired_attempt(kernel):
@@ -1241,25 +1245,43 @@ def test_native_request_renewal_cannot_revive_an_expired_attempt(kernel):
     fence = claim(kernel, attached, seconds=1)
     time.sleep(1.05)
     with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="stale"):
-        DataOperationStorage(connection).invoke("renew_data_request", {**fence, "lease_seconds": 30})
+        DataOperationStorage(connection).invoke(
+            "renew_data_request", {**fence, "lease_seconds": 30}
+        )
 
 
 def test_native_request_renewal_preserves_a_shared_demand_after_one_detaches(kernel):
     _, first, _, attached = attach(kernel)
-    _, second, _, shared = attach(
-        kernel, targets=("urn:ddo-test:source", "urn:ddo-test:sample")
-    )
+    _, second, _, shared = attach(kernel, targets=("urn:ddo-test:source", "urn:ddo-test:sample"))
     assert shared["request_id"] == attached["request_id"]
     assert second["obligation_id"] != first["obligation_id"]
     fence = claim(kernel, attached)
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        storage.invoke("record_data_fate", {
-            "obligation_id": first["obligation_id"], "fate": "cancelled", "selection": {},
-        })
-        assert storage.invoke("renew_data_request", {**fence, "lease_seconds": 30})["state"] == "renewed"
-        storage.invoke("record_data_fate", {
-            "obligation_id": second["obligation_id"], "fate": "cancelled", "selection": {},
-        })
-    with kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="no attached demand"):
-        DataOperationStorage(connection).invoke("renew_data_request", {**fence, "lease_seconds": 30})
+        storage.invoke(
+            "record_data_fate",
+            {
+                "obligation_id": first["obligation_id"],
+                "fate": "cancelled",
+                "selection": {},
+            },
+        )
+        assert (
+            storage.invoke("renew_data_request", {**fence, "lease_seconds": 30})["state"]
+            == "renewed"
+        )
+        storage.invoke(
+            "record_data_fate",
+            {
+                "obligation_id": second["obligation_id"],
+                "fate": "cancelled",
+                "selection": {},
+            },
+        )
+    with (
+        kernel["engine"].begin() as connection,
+        pytest.raises(DBAPIError, match="no attached demand"),
+    ):
+        DataOperationStorage(connection).invoke(
+            "renew_data_request", {**fence, "lease_seconds": 30}
+        )

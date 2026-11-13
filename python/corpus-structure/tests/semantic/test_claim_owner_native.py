@@ -556,7 +556,10 @@ def test_uncertain_member_keeps_sibling_renewal_and_settlement(
         with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
             owner.settle(first, completion(prepared, first))
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": second.task_id}) == "empty"
+        assert (
+            conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": second.task_id})
+            == "empty"
+        )
 
 
 def test_retained_uncertain_completion_can_reconcile_through_same_owner(
@@ -569,6 +572,7 @@ def test_retained_uncertain_completion_can_reconcile_through_same_owner(
         @contextmanager
         def connect(self):
             with semantic_writer_engine.connect() as conn:
+
                 class Connection:
                     @contextmanager
                     def begin(self):
@@ -580,6 +584,7 @@ def test_retained_uncertain_completion_can_reconcile_through_same_owner(
 
                     def __getattr__(self, name):
                         return getattr(conn, name)
+
                 yield Connection()
 
     owner = claim_lifetime.ClaimOwner(
@@ -593,3 +598,25 @@ def test_retained_uncertain_completion_can_reconcile_through_same_owner(
     assert result.transaction == "replay"
     assert not owner.active and not owner.uncertain
     owner.check_settled()
+
+
+def test_exceptional_exit_reports_every_uncertain_sibling(
+    semantic_db_engine, semantic_writer_engine
+):
+    _, owned = claims(semantic_db_engine, semantic_writer_engine, 2)
+    primary = OperationConflict("independent sibling failed")
+    with (
+        pytest.raises(OperationConflict) as caught,
+        claim_lifetime.maintained_claims(semantic_writer_engine, owned, "owner") as owner,
+    ):
+        for claim in owned:
+            owner.uncertain[(claim.task_id, claim.attempt, "owner")] = (
+                claim_lifetime.ClaimSettlementUncertain(claim, "owner", lambda conn: None)
+            )
+        raise primary
+    assert caught.value is primary
+    assert len(primary.__notes__) == 2
+    for claim in owned:
+        assert any(
+            f"task {claim.task_id}, attempt {claim.attempt}" in note for note in primary.__notes__
+        )

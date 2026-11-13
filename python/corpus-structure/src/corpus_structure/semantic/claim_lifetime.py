@@ -64,9 +64,22 @@ class ClaimOwner:
 
     def check_settled(self) -> None:
         """Unresolved completion custody must remain visible at owner exit."""
-        self()
+        try:
+            self()
+        except Exception as error:
+            self.note_uncertainties(error)
+            raise
         if self.uncertain:
-            raise next(iter(self.uncertain.values()))
+            error = next(iter(self.uncertain.values()))
+            self.note_uncertainties(error)
+            raise error
+
+    def note_uncertainties(self, error: BaseException) -> None:
+        for uncertainty in self.uncertain.values():
+            if uncertainty is not error:
+                note = str(uncertainty)
+                if note not in getattr(error, "__notes__", ()):
+                    error.add_note(note)
 
     def settle(self, claim: ClaimedTask, completion: Callable[[Connection], object]):
         """Serialize renewal and finite exact completion/replay, retaining per-task durability."""
@@ -294,6 +307,8 @@ def maintained_claims(
         owner.check_settled()
     finally:
         primary = sys.exception()
+        if primary is not None:
+            owner.note_uncertainties(primary)
         stop.set()
         cancellation.request_cancel()
         thread.join()

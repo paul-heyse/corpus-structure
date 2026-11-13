@@ -669,8 +669,14 @@ def test_custom_local_schema_definition_never_relabels_an_existing_wire_kind():
 
 
 def test_request_renewal_wire_requires_exact_fence_and_bounded_duration():
-    payload = {"request_id": "request:one", "generation": 2, "task_id": 3,
-               "attempt": 4, "holder": "producer", "lease_seconds": 30}
+    payload = {
+        "request_id": "request:one",
+        "generation": 2,
+        "task_id": 3,
+        "attempt": 4,
+        "holder": "producer",
+        "lease_seconds": 30,
+    }
     assert validate_native_wire("renew_data_request", "input", payload) == payload
     for altered in (
         {key: value for key, value in payload.items() if key != "generation"},

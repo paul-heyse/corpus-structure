@@ -1131,22 +1131,23 @@ def compile_data_operations(
                     annotation_kind(by_parameter[role.parameter].annotation, role)
             outputs = [role for role in roles if role.direction == "output"]
             if result_fields:
+                result_annotation: ast.expr | None = None
                 try:
-                    annotation = ast.parse(surface.returns, mode="eval").body
+                    result_annotation = ast.parse(surface.returns, mode="eval").body
                 except SyntaxError:
                     _fail(surface.exposed, "result correspondence requires a typed mapping return")
                 if not (
-                    isinstance(annotation, ast.Subscript)
-                    and isinstance(annotation.value, ast.Name)
-                    and annotation.value.id == "dict"
-                    and isinstance(annotation.slice, ast.Tuple)
-                    and len(annotation.slice.elts) == 2
-                    and isinstance(annotation.slice.elts[0], ast.Name)
-                    and annotation.slice.elts[0].id == "str"
+                    isinstance(result_annotation, ast.Subscript)
+                    and isinstance(result_annotation.value, ast.Name)
+                    and result_annotation.value.id == "dict"
+                    and isinstance(result_annotation.slice, ast.Tuple)
+                    and len(result_annotation.slice.elts) == 2
+                    and isinstance(result_annotation.slice.elts[0], ast.Name)
+                    and result_annotation.slice.elts[0].id == "str"
                 ):
                     _fail(surface.exposed, "result correspondence requires dict[str, T] return")
                 for role in outputs:
-                    annotation_kind(ast.unparse(annotation.slice.elts[1]), role)
+                    annotation_kind(ast.unparse(result_annotation.slice.elts[1]), role)
             elif len(outputs) == 1:
                 annotation_kind(surface.returns, outputs[0])
         dimensions = []
