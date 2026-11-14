@@ -18,7 +18,7 @@ def address(scope=b'{"page":1}'):
 def test_declared_record_pin_has_exact_original_coordinates_without_task_or_view_alias():
     pin = address().pin()
     assert pin == {
-        "source": "source:section", "document": "original:doc", "projection_digest": "a" * 64,
+        "format": "declared-native-source-v1", "source": '["product:source","member:section"]', "subject": "source:section", "document": "original:doc", "projection_digest": "a" * 64,
         "section_pointer": "#/groups/3", "membership": "descendants", "project_id": "p",
         "original_source": "original:doc", "analyzed_scope_meaning": '["mapping",[["page",["decimal","1"]]]]',
         "source_product": "product:source", "source_member": "member:section", "kind_contract": "kind:source",
@@ -53,3 +53,36 @@ def test_declared_projection_refuses_independent_pin_override():
     bundle = SourceBundle("observations", (SourceArtifact("observations", yaml.safe_dump(module).encode()),))
     with pytest.raises(ValueError, match="independently changed"):
         declared_record_inputs(bundle)
+
+
+def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredSourceSlice
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, evidence_anchor
+    from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+
+    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
+    prepared = prepare_release(declared_record_inputs(source_product_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))))
+    text = "A valve opens."
+    source = FrozenNativeSource.from_projection(
+        prepared, document="original:doc", section_pointer="#/groups/0", membership="descendants",
+        text=text, pieces=[{"kind": "native_text", "item_ref": "#/texts/0", "source_field": "text", "start": 0, "end": len(text)}],
+        items=[{"self_ref": "#/texts/0", "label": "text", "text": text, "orig": text, "prov": []}],
+    )
+    member = BoundRoleMember("product:population", "kind:source", "subject:section", "original:doc", b'{"page":1}', b'{}', (), b'{}', member="member:one")
+    frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
+    assert not hasattr(frame, "source_view_id") and not hasattr(frame, "native_product")
+    preparation = PreparedNativeSources((frame,))
+    context = NativeSourceContext(frame, (), (DeclaredSourceSlice(frame.source_key, 2, 7),), "definition", "declared-test", "selected", version=2, preparation=preparation)
+    assert context.text == "valve"
+    (piece,) = context.map_span(0, 5, literal="valve")
+    assert piece.quote == "valve" and (piece.start, piece.end) == (2, 7)
+    anchor, coordinate = evidence_anchor(context, piece)
+    assert anchor["pin"]["source_product"] == "product:population"
+    assert anchor["pin"]["source_member"] == "member:one"
+    assert anchor["pin"]["subject"] == "subject:section"
+    assert "source_view_id" not in anchor["pin"]
+    prepared.validate_python("RecordAnchor", anchor)
+    assert coordinate["text"] == "A valve opens."

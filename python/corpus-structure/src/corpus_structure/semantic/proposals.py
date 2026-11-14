@@ -163,6 +163,14 @@ class NativeFrameSource:
     native_context: str
     version: int = 2
 
+    @property
+    def source_key(self):
+        return self.source_view_id
+
+    @property
+    def original_key(self):
+        return self.native_product
+
     def __post_init__(self) -> None:
         from .identity import canonical_bytes
 
@@ -352,7 +360,15 @@ def native_address(
     """Typed native address encoded canonically, never parsed as an HTML locator."""
     from .identity import canonical_bytes
 
-    value: dict[str, Any] = {"product_digest": frame.native_product.content_digest}
+    from .declared_record_sources import DeclaredNativeFrameSource
+
+    if isinstance(frame, DeclaredNativeFrameSource):
+        pin = frame.pin.values()
+        value = {name: pin[name] for name in ("source_product", "document", "projection_digest", "section_pointer", "membership")}
+        if "source_member" in pin:
+            value["source_member"] = pin["source_member"]
+    else:
+        value = {"product_digest": frame.native_product.content_digest}
     if pointer is not None:
         if start is not None or end is not None or not pointer.startswith("#/"):
             raise ValueError("native item address cannot mix projected offsets")
@@ -360,12 +376,9 @@ def native_address(
     else:
         if start is None or end is None or not 0 <= start < end <= len(frame.text):
             raise ValueError("native projection address lies outside its source view")
-        value.update(
-            source_view_id=frame.source_view_id,
-            projection_digest=frame.projection_digest,
-            start=start,
-            end=end,
-        )
+        value.update(projection_digest=frame.projection_digest, start=start, end=end)
+        if not isinstance(frame, DeclaredNativeFrameSource):
+            value["source_view_id"] = frame.source_view_id
     return "pdf:" + canonical_bytes(value).decode()
 
 

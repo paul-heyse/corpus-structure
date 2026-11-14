@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import yaml
 
 from .data_operation_model import BoundRoleMember, SubjectContext, json_context_meaning
-from .observations import observation_inputs
-from .source_products import FrozenNativeSource
 from .types import SourceArtifact, SourceBundle
+from .identity import canonical_bytes
+
+if TYPE_CHECKING:
+    from .source_products import FrozenNativeSource
 
 
 @dataclass(frozen=True)
@@ -45,7 +47,9 @@ class DeclaredRecordSource:
 
     def pin(self) -> dict[str, Any]:
         return {
-            "source": self.context.subject,
+            "format": "declared-native-source-v1",
+            "source": canonical_bytes([self.product, self.member]).decode(),
+            "subject": self.context.subject,
             "document": self.document,
             "projection_digest": self.projection,
             "section_pointer": self.section_pointer,
@@ -68,6 +72,8 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
     """
     canonical = (Path(__file__).parents[1] / "model/semantic/observations.yaml").read_bytes()
     supplied = next((item.content for item in bundle.sources if item.name == "observations"), canonical)
+    from .observations import observation_inputs
+
     module = yaml.safe_load(supplied)
     prior = module["classes"]["RecordSourcePin"]["attributes"]
     canonical_attributes = yaml.safe_load(canonical)["classes"]["RecordSourcePin"]["attributes"]
@@ -78,11 +84,12 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
     module["classes"]["RecordSourcePin"]["attributes"] = {
         name: {"range": "string", **({"required": True} if name != "source_member" else {})}
         for name in (
-            "source", "document", "projection_digest", "section_pointer", "membership",
+            "source", "subject", "document", "projection_digest", "section_pointer", "membership",
             "project_id", "original_source", "analyzed_scope_meaning", "source_product",
             "source_member", "kind_contract",
         )
     }
+    module["classes"]["RecordSourcePin"]["attributes"]["format"] = {"range": "string", "required": True, "equals_string": "declared-native-source-v1"}
     module["classes"]["RecordSourcePin"]["attributes"]["projection_digest"]["pattern"] = "^[0-9a-f]{64}$"
     if prior not in (canonical_attributes, module["classes"]["RecordSourcePin"]["attributes"]):
         raise ValueError("declared record projection refuses an independently changed source pin")
@@ -95,3 +102,131 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
         )
         return SourceBundle(bundle.root, sources)
     return observation_inputs(bundle, model_content=content)
+
+
+@dataclass(frozen=True)
+class DeclaredSourcePin:
+    content: str
+
+    @property
+    def source_key(self):
+        return self.values()["source"]
+
+    @property
+    def original_key(self):
+        return self.values()["original_source"]
+
+    @property
+    def section_pointer(self):
+        return self.values()["section_pointer"]
+
+    @property
+    def membership(self):
+        return self.values()["membership"]
+
+    def values(self):
+        import json
+        return json.loads(self.content)
+
+
+@dataclass(frozen=True)
+class DeclaredSourceSlice:
+    source: str
+    start: int
+    end: int
+    coordinate_space: str = "native_projection"
+    precision: str = "exact"
+
+    def __post_init__(self):
+        if not self.source or type(self.start) is not int or type(self.end) is not int or not 0 <= self.start < self.end or self.coordinate_space != "native_projection" or self.precision != "exact":
+            raise ValueError("declared source slice requires an exact original-relative address and extent")
+
+    @property
+    def source_key(self):
+        return self.source
+
+
+@dataclass(frozen=True)
+class DeclaredNativeFrameSource:
+    """Native language frame over an admitted semantic member, never a fake view row."""
+
+    source_content: str
+    pin_content: str
+    version: int = 4
+    _text: str = field(init=False, repr=False, compare=False)
+    _context: str = field(init=False, repr=False, compare=False)
+    _coordinate: tuple[str, str, str] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        value = self.value
+        coordinate = value["source"]
+        pin = self.pin.values()
+        if self.version != 4 or pin.get("format") != "declared-native-source-v1" or any(
+            pin.get(field) != coordinate[source_field]
+            for field, source_field in (("document", "document"), ("projection_digest", "projection"), ("section_pointer", "section_pointer"), ("membership", "membership"))
+        ):
+            raise ValueError("declared frame pin differs from its exact native coordinate")
+        object.__setattr__(self, "_text", value["text"])
+        object.__setattr__(self, "_coordinate", (coordinate["section_pointer"], coordinate["membership"], coordinate["projection"]))
+        object.__setattr__(self, "_context", canonical_bytes({
+            "items": value["items"], "pieces": value["pieces"],
+            "ancestors": value.get("ancestors", []),
+            "health": {"formula_outcomes": value.get("recognition", [])},
+        }).decode())
+
+    @property
+    def record(self):
+        return {"source_content": self.source_content, "pin_content": self.pin_content, "version": self.version}
+
+    @classmethod
+    def acquire(cls, prepared, value, member, *, project):
+        from .source_products import FrozenNativeSource
+
+        source = FrozenNativeSource.acquire(prepared, value)
+        address = DeclaredRecordSource.from_bound(source, member, project=project)
+        return cls(source.content.decode(), canonical_bytes(address.pin()).decode())
+
+    @property
+    def value(self):
+        import json
+        return json.loads(self.source_content)
+
+    @property
+    def pin(self):
+        return DeclaredSourcePin(self.pin_content)
+
+    @property
+    def source_key(self):
+        return self.pin.source_key
+
+    @property
+    def unit_ref(self):
+        return self.source_key
+
+    @property
+    def original_key(self):
+        return self.pin.original_key
+
+    @property
+    def text(self):
+        return self._text
+
+    @property
+    def sentences(self):
+        return ()
+
+    @property
+    def section_pointer(self):
+        return self._coordinate[0]
+
+    @property
+    def membership(self):
+        return self._coordinate[1]
+
+    @property
+    def projection_digest(self):
+        return self._coordinate[2]
+
+    @property
+    def native_context(self):
+        return self._context

@@ -21,10 +21,13 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import JsonValue
 
+from .declared_record_sources import DeclaredNativeFrameSource, DeclaredSourcePin, DeclaredSourceSlice
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 from .proposals import NativeFrameSource, NativeProposalFrame, native_address
 from .types import PreparedRelease
+
+type SourceFrame = NativeFrameSource | DeclaredNativeFrameSource
 
 if TYPE_CHECKING:
     from .source_views import PreparedSourceView
@@ -59,8 +62,8 @@ class NativeSourcePin:
 
     def __post_init__(self) -> None:
         if (
-            type(self.source_view_id) is not int
-            or self.source_view_id < 1
+            type(self.source_key) is not int
+            or self.source_key < 1
             or not self.unit_ref
             or not self.section_pointer.startswith("#/")
             or self.membership not in {"direct", "descendants"}
@@ -70,14 +73,24 @@ class NativeSourcePin:
         for digest in (self.projection_digest, self.recipe_digest):
             _require_digest(digest)
 
+    @property
+    def source_key(self):
+        return self.source_view_id
+
+    @property
+    def original_key(self):
+        return self.native_product
+
     @classmethod
-    def from_source(cls, source: NativeFrameSource) -> NativeSourcePin:
+    def from_source(cls, source: SourceFrame) -> SourcePin:
+        if isinstance(source, DeclaredNativeFrameSource):
+            return source.pin
         return cls(**{name: getattr(source, name) for name in cls.__dataclass_fields__})
 
     def values(self) -> dict[str, JsonValue]:
         """JSON source identity, preserving every pin and coordinate version."""
         return {
-            "source_view_id": self.source_view_id,
+            "source_view_id": self.source_key,
             "unit_ref": self.unit_ref,
             "native_product": {
                 "task_id": self.native_product.task_id,
@@ -94,13 +107,16 @@ class NativeSourcePin:
 
 @dataclass(frozen=True)
 class RelatedNativeSource:
-    source: NativeFrameSource
+    source: SourceFrame
     relationship: ContextRelationship
     reason: str
 
     def __post_init__(self) -> None:
         if not isinstance(self.relationship, ContextRelationship) or not self.reason.strip():
             raise ContextRefused("related source needs a typed relationship and reason")
+
+
+type SourcePin = NativeSourcePin | DeclaredSourcePin
 
 
 class RetrievalOutcome(StrEnum):
@@ -141,7 +157,7 @@ class SourceContextRead:
     """Owned source views and the metadata universe considered before hydration."""
 
     sources: tuple[PreparedSourceView, ...]
-    candidates: tuple[NativeSourcePin, ...]
+    candidates: tuple[SourcePin, ...]
     membership_digest: str
     outcome: RetrievalOutcome
     terminal_reason: str
@@ -161,9 +177,9 @@ class ContextRetrieval:
     reason: str
     scope_ref: str
     membership_digest: str
-    candidates: tuple[NativeSourcePin, ...]
-    selected: tuple[int, ...]
-    excluded: tuple[int, ...]
+    candidates: tuple[SourcePin, ...]
+    selected: tuple[int | str, ...]
+    excluded: tuple[int | str, ...]
     outcome: RetrievalOutcome
     terminal_reason: str
 
@@ -182,7 +198,7 @@ class ContextRetrieval:
         ):
             raise ContextRefused("retrieval needs typed relationship, outcome and declared reasons")
         _require_digest(self.membership_digest)
-        ids = {pin.source_view_id for pin in self.candidates}
+        ids = {pin.source_key for pin in self.candidates}
         if (
             len(ids) != len(self.candidates)
             or len(set(self.selected)) != len(self.selected)
@@ -203,10 +219,14 @@ class SourceSlice:
     coordinate_space: Literal["native_projection"] = "native_projection"
     precision: Literal["exact"] = "exact"
 
+    @property
+    def source_key(self):
+        return self.source_view_id
+
     def __post_init__(self) -> None:
         if (
-            type(self.source_view_id) is not int
-            or self.source_view_id < 1
+            type(self.source_key) is not int
+            or self.source_key < 1
             or type(self.start) is not int
             or type(self.end) is not int
             or not 0 <= self.start < self.end
@@ -232,7 +252,7 @@ class SyntheticText:
 class SourceInterval:
     model_start: int
     model_end: int
-    source: NativeSourcePin
+    source: SourcePin
     source_start: int
     source_end: int
     locator: str
@@ -254,7 +274,7 @@ class SyntheticInterval:
 class NativeSpanEvidence:
     """One literal piece, with its own source pin and independently located quote."""
 
-    source: NativeSourcePin
+    source: SourcePin
     start: int
     end: int
     locator: str
@@ -270,7 +290,7 @@ class NativeSpanEvidence:
 class PreparedCapturedCoordinate:
     """Released supplied coordinate input; native ingress must still authenticate custody."""
 
-    selected: NativeFrameSource
+    selected: SourceFrame
     coordinate_json: str
     release: InitVar[PreparedRelease]
     coordinate_id: str = field(init=False)
@@ -281,6 +301,8 @@ class PreparedCapturedCoordinate:
     text: str = field(init=False)
 
     def __post_init__(self, release):
+        if isinstance(self.selected, DeclaredNativeFrameSource):
+            raise ContextRefused("captured coordinates require their declared original-relative binding")
         from .record_contracts import validate_anchor_binding
 
         row = release.validate_json("RecordCoordinateText", self.coordinate_json).model_dump(
@@ -294,7 +316,7 @@ class PreparedCapturedCoordinate:
             product_digest=self.selected.native_product.content_digest,
             projection_digest=self.selected.projection_digest,
             recipe_digest=self.selected.recipe_digest,
-            source_view_id=self.selected.source_view_id,
+            source_view_id=self.selected.source_key,
         )
         if not row["pin"]["source"].strip() or any(
             row["pin"].get(key) != value for key, value in expected.items()
@@ -352,7 +374,7 @@ class CapturedRecognitionSlice:
 class CapturedRecognitionInterval:
     model_start: int
     model_end: int
-    source: NativeSourcePin
+    source: SourcePin
     coordinate: PreparedCapturedCoordinate
     source_start: int
     source_end: int
@@ -364,7 +386,7 @@ class CapturedRecognitionInterval:
 class CapturedSpanEvidence:
     """Captured text address, deliberately without a canonical locator or source_field."""
 
-    source: NativeSourcePin
+    source: SourcePin
     coordinate: PreparedCapturedCoordinate
     start: int
     end: int
@@ -422,8 +444,8 @@ class NativeSpanReading:
 
 @dataclass(frozen=True)
 class PreparedNativeSource:
-    source: NativeFrameSource
-    pin: NativeSourcePin = field(init=False)
+    source: SourceFrame
+    pin: SourcePin = field(init=False)
     pieces: tuple[Mapping, ...] = field(init=False)
     ends: tuple[int, ...] = field(init=False)
     ancestors: tuple[str, ...] = field(init=False)
@@ -472,7 +494,7 @@ class PreparedNativeSource:
             tuple(item.get("self_ref", item.get("pointer")) for item in context["ancestors"]),
         )
         object.__setattr__(
-            self, "dependency_digest", sha256(canonical_bytes(asdict(self.source))).hexdigest()
+            self, "dependency_digest", sha256(canonical_bytes(self.source.record if isinstance(self.source, DeclaredNativeFrameSource) else asdict(self.source))).hexdigest()
         )
 
     def selected_pieces(self, start, end):
@@ -508,12 +530,12 @@ class PreparedNativeSource:
 class PreparedNativeSources:
     """Invocation-owned immutable preparation; dropping the owner releases all indexes."""
 
-    sources: tuple[NativeFrameSource, ...]
+    sources: tuple[SourceFrame, ...]
     max_sources: int = 16
     captured: tuple[PreparedCapturedCoordinate, ...] = ()
     max_captured: int = 64
     max_captured_chars: int = 1_048_576
-    by_id: Mapping[int, PreparedNativeSource] = field(init=False)
+    by_id: Mapping[int | str, PreparedNativeSource] = field(init=False)
     captured_by_id: Mapping[str, PreparedCapturedCoordinate] = field(init=False)
 
     def __post_init__(self):
@@ -524,7 +546,7 @@ class PreparedNativeSources:
             or not 0 < len(self.sources) <= self.max_sources
         ):
             raise ContextRefused("prepared sources require a bounded immutable tuple")
-        prepared = {source.source_view_id: PreparedNativeSource(source) for source in self.sources}
+        prepared = {source.source_key: PreparedNativeSource(source) for source in self.sources}
         if len(prepared) != len(self.sources):
             raise ContextRefused("prepared source identities must be distinct")
         object.__setattr__(self, "by_id", MappingProxyType(prepared))
@@ -553,7 +575,7 @@ class PreparedNativeSources:
         )
 
     def require(self, source):
-        prepared = self.by_id.get(source.source_view_id)
+        prepared = self.by_id.get(source.source_key)
         if prepared is None or prepared.source is not source:
             raise ContextRefused("context source is not its exact invocation-owned preparation")
         return prepared
@@ -568,9 +590,9 @@ class NativeSourceContext:
     keep their original direct-ancestor restriction; this context is not such a frame.
     """
 
-    primary: NativeFrameSource
+    primary: SourceFrame
     related: tuple[RelatedNativeSource, ...]
-    pieces: tuple[SourceSlice | CapturedRecognitionSlice | SyntheticText, ...]
+    pieces: tuple[SourceSlice | DeclaredSourceSlice | CapturedRecognitionSlice | SyntheticText, ...]
     purpose: str
     policy: str
     terminal_reason: str
@@ -587,12 +609,14 @@ class NativeSourceContext:
         init=False
     )
     dependency_digest: str = field(init=False)
-    _native_sources: Mapping[int, PreparedNativeSource] = field(
+    _native_sources: Mapping[int | str, PreparedNativeSource] = field(
         init=False, repr=False, compare=False
     )
     _interval_ends: tuple[int, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        if isinstance(self.primary, DeclaredNativeFrameSource) and (self.version != 2 or self.preparation is None):
+            raise ContextRefused("declared source context requires its explicit invocation-owned preparation")
         if self.version not in {1, 2} or (self.version == 2 and self.preparation is None):
             raise ContextRefused("unsupported native source context version or missing preparation")
         if not all(value.strip() for value in (self.purpose, self.policy, self.terminal_reason)):
@@ -613,20 +637,20 @@ class NativeSourceContext:
             raise ContextRefused("context source bound exceeded")
         if not self.pieces or max(len(self.pieces), len(self.retrievals)) > self.max_pieces:
             raise ContextRefused("context piece bound exceeded")
-        by_id = {source.source_view_id: source for source in sources}
+        by_id = {source.source_key: source for source in sources}
         if len(by_id) != len(sources) or len({source.unit_ref for source in sources}) != len(
             sources
         ):
             raise ContextRefused("context sources must have distinct source and unit identities")
         preparation = self.preparation or PreparedNativeSources(tuple(sources), self.max_sources)
-        contexts = {source.source_view_id: preparation.require(source) for source in sources}
+        contexts = {source.source_key: preparation.require(source) for source in sources}
         object.__setattr__(self, "_native_sources", MappingProxyType(contexts))
         pins = {identity: prepared.pin for identity, prepared in contexts.items()}
         known_pins = dict(pins)
         for pin in (*pins.values(), *candidate_pins):
-            if pin.native_product != self.primary.native_product:
+            if pin.original_key != self.primary.original_key:
                 raise ContextRefused("context supports only sources of the same pinned product")
-            if known_pins.setdefault(pin.source_view_id, pin) != pin:
+            if known_pins.setdefault(pin.source_key, pin) != pin:
                 raise ContextRefused(
                     "retrieval source pin is stale or contradicts another source pin"
                 )
@@ -640,20 +664,20 @@ class NativeSourceContext:
             if self.version == 1:
                 NativeProposalFrame(**_source_fields(self.primary), context_sources=ancestors)
             elif any(
-                source.section_pointer not in contexts[self.primary.source_view_id].ancestors
+                source.section_pointer not in contexts[self.primary.source_key].ancestors
                 or source.membership != "direct"
                 for source in ancestors
             ):
                 raise ContextRefused("context requires a distinct direct ancestor")
         for result in self.retrievals:
             selected = {
-                pin.source_view_id: pin
+                pin.source_key: pin
                 for pin in result.candidates
-                if pin.source_view_id in result.selected
+                if pin.source_key in result.selected
             }
             if any(pins.get(identity) != pin for identity, pin in selected.items()):
                 raise ContextRefused("retrieval selected source is absent or stale")
-            related = {entry.source.source_view_id: entry.relationship for entry in self.related}
+            related = {entry.source.source_key: entry.relationship for entry in self.related}
             if any(related.get(identity) != result.relationship for identity in selected):
                 raise ContextRefused(
                     "retrieval selected relationship differs from its related source"
@@ -681,7 +705,7 @@ class NativeSourceContext:
             coordinate = preparation.captured_by_id.get(captured_id)
             if (
                 coordinate is None
-                or coordinate.selected.native_product != self.primary.native_product
+                or coordinate.selected.original_key != self.primary.original_key
             ):
                 raise ContextRefused(
                     "captured dependency is absent or outside the selected native product"
@@ -716,32 +740,32 @@ class NativeSourceContext:
             if isinstance(piece, CapturedRecognitionSlice):
                 coordinate = preparation.captured_by_id[piece.coordinate_id]
                 source = coordinate.selected
-                if by_id.get(source.source_view_id) is not source or piece.end > len(
+                if by_id.get(source.source_key) is not source or piece.end > len(
                     coordinate.text
                 ):
                     raise ContextRefused(
                         "captured slice is absent or outside its selected captured text"
                     )
-                consumed.add(source.source_view_id)
+                consumed.add(source.source_key)
                 text = coordinate.text[piece.start : piece.end]
                 append(
                     text,
                     CapturedRecognitionInterval(
                         position,
                         position + len(text),
-                        pins[source.source_view_id],
+                        pins[source.source_key],
                         coordinate,
                         piece.start,
                         piece.end,
                     ),
                 )
                 continue
-            if not isinstance(piece, SourceSlice):
+            if not isinstance(piece, (SourceSlice, DeclaredSourceSlice)):
                 raise ContextRefused("unsupported context piece")
-            source = by_id.get(piece.source_view_id)
+            source = by_id.get(piece.source_key)
             if source is None or piece.end > len(source.text):
                 raise ContextRefused("source slice is absent or outside its pinned projection")
-            for native in contexts[source.source_view_id].selected_pieces(piece.start, piece.end):
+            for native in contexts[source.source_key].selected_pieces(piece.start, piece.end):
                 start, end = max(piece.start, native["start"]), min(piece.end, native["end"])
                 if start >= end:
                     continue
@@ -750,15 +774,15 @@ class NativeSourceContext:
                 if native["kind"] == "synthetic_separator":
                     interval = SyntheticInterval(position, model_end, "source projection separator")
                 else:
-                    consumed.add(source.source_view_id)
+                    consumed.add(source.source_key)
                     interval = SourceInterval(
                         position,
                         model_end,
-                        pins[source.source_view_id],
+                        pins[source.source_key],
                         start,
                         end,
                         native_address(source, start=start, end=end),
-                        contexts[source.source_view_id].item_locators[
+                        contexts[source.source_key].item_locators[
                             (native["item_ref"], native.get("cell_index"))
                         ],
                         native.get("cell_index"),
@@ -774,10 +798,10 @@ class NativeSourceContext:
         object.__setattr__(self, "_interval_ends", tuple(row.model_end for row in intervals))
         identity: dict[str, Any] = {
             "version": self.version,
-            "primary": contexts[self.primary.source_view_id].dependency_digest,
+            "primary": contexts[self.primary.source_key].dependency_digest,
             "related": [
                 dict(
-                    source=contexts[entry.source.source_view_id].dependency_digest,
+                    source=contexts[entry.source.source_key].dependency_digest,
                     relationship=entry.relationship,
                     reason=entry.reason,
                 )
@@ -858,7 +882,7 @@ class NativeSourceContext:
             left, right = max(start, row.model_start), min(end, row.model_end)
             source_start = row.source_start + left - row.model_start
             source_end = source_start + right - left
-            source = self._native_sources[row.source.source_view_id].source
+            source = self._native_sources[row.source.source_key].source
             evidence.append(
                 NativeSpanEvidence(
                     row.source,
@@ -922,12 +946,12 @@ def _require_digest(value: str) -> None:
         raise ContextRefused("context dependency requires a SHA-256 digest")
 
 
-def _source_fields(source: NativeFrameSource) -> dict:
+def _source_fields(source: SourceFrame) -> dict:
     """Keep product and sentence types when reusing the old frame's validator."""
     return {name: getattr(source, name) for name in NativeFrameSource.__dataclass_fields__}
 
 
-def _source_context(source: NativeFrameSource) -> dict:
+def _source_context(source: SourceFrame) -> dict:
     if isinstance(source, NativeProposalFrame) and source.context_sources:
         raise ContextRefused("context sources must be supplied explicitly as related sources")
     context = json.loads(source.native_context)
@@ -939,15 +963,23 @@ def _source_context(source: NativeFrameSource) -> dict:
         for pointer in (*items, *ancestors)
     ):
         raise ContextRefused("source context has unsupported native pointers")
-    projection = dict(
-        text=source.text,
-        pieces=context["pieces"],
-        items=items,
-        ancestors=ancestors,
-        health=context["health"],
-    )
-    if sha256(canonical_bytes(projection)).hexdigest() != source.projection_digest:
-        raise ContextRefused("source projection differs from its retained digest")
+    if isinstance(source, DeclaredNativeFrameSource):
+        from .source_products import native_projection_identity
+
+        value = source.value
+        projection = native_projection_identity(source.text, value["pieces"], value["items"], value.get("recognition", ()), value.get("ancestors", ()))
+        if projection != source.projection_digest:
+            raise ContextRefused("declared native projection differs from its selected source")
+    else:
+        projection = dict(
+            text=source.text,
+            pieces=context["pieces"],
+            items=items,
+            ancestors=ancestors,
+            health=context["health"],
+        )
+        if sha256(canonical_bytes(projection)).hexdigest() != source.projection_digest:
+            raise ContextRefused("source projection differs from its retained digest")
     position = 0
     for piece in context["pieces"]:
         if (
@@ -968,8 +1000,10 @@ def _source_context(source: NativeFrameSource) -> dict:
     return context
 
 
-def record_source_pin(source: NativeFrameSource) -> dict[str, Any]:
+def record_source_pin(source: SourceFrame) -> dict[str, Any]:
     """The existing record/contribution pin shape for an owned source view."""
+    if isinstance(source, DeclaredNativeFrameSource):
+        return source.pin.values()
     product = source.native_product
     return dict(
         source=source.unit_ref,
@@ -978,7 +1012,7 @@ def record_source_pin(source: NativeFrameSource) -> dict[str, Any]:
         product_digest=product.content_digest,
         projection_digest=source.projection_digest,
         recipe_digest=source.recipe_digest,
-        source_view_id=source.source_view_id,
+        source_view_id=source.source_key,
     )
 
 
@@ -995,7 +1029,7 @@ def evidence_anchor(
     """
     from .record_contracts import anchor_identity
 
-    prepared = context._native_sources.get(piece.source.source_view_id)
+    prepared = context._native_sources.get(piece.source.source_key)
     if prepared is None or prepared.pin != piece.source:
         raise ContextRefused("evidence belongs to another source context")
     source = prepared.source

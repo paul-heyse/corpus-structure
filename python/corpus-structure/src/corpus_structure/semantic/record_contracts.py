@@ -185,8 +185,11 @@ def validate_anchor_binding(anchor, primary_pin):
             if anchor["pin"] != primary_pin:
                 raise ValueError("primary source binding differs from record pin")
         elif binding["relationship"] == "selected_context":
-            keys = ("native_product_task_id", "product_key", "product_digest")
-            if any(anchor["pin"][key] != primary_pin[key] for key in keys):
+            if primary_pin.get("format") == "declared-native-source-v1":
+                keys = ("format", "document", "original_source", "project_id")
+            else:
+                keys = ("native_product_task_id", "product_key", "product_digest")
+            if any(anchor["pin"].get(key) != primary_pin[key] for key in keys):
                 raise ValueError("related selected context requires the same native product")
         else:
             raise ValueError("unsupported source binding relationship")
