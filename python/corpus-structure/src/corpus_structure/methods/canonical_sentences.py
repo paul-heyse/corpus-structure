@@ -21,7 +21,7 @@ class CanonicalSentenceProjection:
             {
                 "name": "inventory",
                 "parameter": "inventory",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSentenceInventory",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 1,
                 "maximum": 1,

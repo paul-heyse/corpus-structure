@@ -29,7 +29,7 @@ from corpus_structure.semantic.constructions.resources import construction_diges
 from corpus_structure.semantic.formal_products import FormalEvidenceProduct
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.sentence_products import SentenceInventory
+from corpus_structure.semantic.sentence_products import SourceAnnotations
 from corpus_structure.semantic.source_products import FrozenNativeSource
 
 from .annotation_rules import AnnotationRule, PreparedAnnotationRules
@@ -511,7 +511,7 @@ class ConstructionOperation:
             },
             {
                 "name": "sentences",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSentenceInventory",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 0,
                 "maximum": 1,
@@ -589,7 +589,7 @@ class ConstructionOperation:
                 "role": "nominal-boundary",
             },
             {
-                "reference": "corpus_structure.semantic.sentence_products.SentenceInventory",
+                "reference": "corpus_structure.semantic.sentence_products.SourceAnnotations",
                 "contract": "characterization/construction-assets",
                 "role": "nominal-boundary",
             },
@@ -626,6 +626,6 @@ class ConstructionOperation:
         self,
         source: FrozenNativeSource,
         formal: tuple[FormalEvidenceProduct, ...],
-        sentences: SentenceInventory | None = None,
+        sentences: SourceAnnotations | None = None,
     ) -> ConstructionProduct:
         return execute_construction_profile(self, source, formal, sentences)

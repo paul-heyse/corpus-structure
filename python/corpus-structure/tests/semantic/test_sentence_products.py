@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import spacy
+from corpus_structure.ingest.sentences import SentenceConfig
 
 from corpus_structure.semantic import (
     SourceArtifact,
@@ -15,11 +17,11 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_products import (
-    SentenceSourceReadings,
+    SourceAnnotationReadings,
     prepare_sentence_profile,
     sentence_operation_sources,
     sentence_product_inputs,
-    validate_sentence_inventory,
+    validate_source_annotations,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
 
@@ -59,12 +61,14 @@ def selected(profile, text="The mean is 2. The variance is 4."):
         if text
         else []
     )
+    from corpus_structure.semantic.original_documents import original_document_subject
     projection = native_projection_identity(text, pieces, items, [])
     return FrozenNativeSource.acquire(
         profile.prepared,
         dict(
             source=dict(
                 document="document:" + sha256(text.encode()).hexdigest(),
+                document_subject=original_document_subject("document:" + sha256(text.encode()).hexdigest()),
                 section_pointer="#/groups/0",
                 membership="descendants",
                 projection=projection,
@@ -163,7 +167,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     profile, text, monkeypatch, gpu_host
 ):
     source = selected(profile, text)
-    product = profile.run(source, host=gpu_host, subject_context=_publication_context(source))
+    product = profile.run(source, host=gpu_host, subject_context=_publication_context(source), source_pin=_controlled_source_pin(source))
     sentences = product.inventory("sentence")
     assert [text[row["start"] : row["end"]] for row in sentences] == [
         part.strip() + "." for part in text.split(".") if part.strip()
@@ -179,9 +183,9 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     projection = canonical_projection_spec(profile.model, canonical_kind)
     canonical = canonical_packet_values(complete, projection)
     relabeled = json.loads(product.content)
-    for packet in relabeled["members"]:
-        if packet["body"]["record_type"] == "token":
-            packet["body"]["lemma"] = "another-native-label"
+    for block in relabeled["blocks"]:
+        for token in block["annotation"]["tokens"]:
+            token["lemma"] = "another-native-label"
     assert canonical_packet_values(relabeled, projection) == canonical
     assert canonical_bytes(relabeled) != product.content
     profile.prepared.validate_json("DdoCanonicalSentences", canonical_bytes(canonical))
@@ -194,7 +198,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         if item.owner == port.operation.roles[0].kind and item.domain == "kind"
     )
     completion = port.invoke_python((PythonRoleValue("inventory", input_kind, complete),))
-    assert len(completion.outputs[0].members) == len(complete["members"])
+    assert len(completion.outputs[0].members) == len(canonical["members"])
     native_contracts = {packet["kind_contract"] for packet in complete["members"]}
     assert all(
         json.loads(member)["kind_contract"] not in native_contracts
@@ -232,8 +236,8 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     assert all(token.get("head_ref") for token in original_tokens if token["dependency"])
     assert any(token["lemma"] for token in original_tokens)
     assert all(
-        row["attributes"]["DEP"] == "complete"
-        for row in json.loads(product.content)["annotation_columns"]
+        next(column["status"] for column in row["annotation"]["availability"] if column["attribute"] == "DEP") == "complete"
+        for row in json.loads(product.content)["blocks"]
     )
     assert all(
         set(packet) == {"member_id", "kind_contract", "context", "body"}
@@ -250,7 +254,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         "corpus_structure.semantic.sentence_products.pipeline",
         lambda *_: pytest.fail("sentence reader reran NLP"),
     )
-    reader = SentenceSourceReadings(product, source)
+    reader = SourceAnnotationReadings(product, source)
     assert reader.sentences() == sentences
     assert reader.annotation_availability()
     assert all(
@@ -267,9 +271,9 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         assert all(text[token["start"] : token["end"]] for token in tokens)
         assert all(token["piece_indices"] == [0] for token in tokens)
     changed = json.loads(product.content)
-    changed["members"][0]["body"]["start"] += 1
-    with pytest.raises(ValueError, match=r"member identity|coordinates"):
-        validate_sentence_inventory(profile.prepared, profile.model, changed, source)
+    changed["blocks"][0]["annotation"]["tokens"][0]["start"] = -1
+    with pytest.raises(ValueError):
+        validate_source_annotations(profile.prepared, profile.model, changed, source)
 
 
 def test_original_declared_sentence_capability_is_captured(profile):
@@ -278,7 +282,7 @@ def test_original_declared_sentence_capability_is_captured(profile):
     assert operation.capabilities.preparation == "resource"
     assert operation.capabilities.cancellation == "cooperative"
     assert operation.roles[0].kind.endswith("/DdoSelectedNativeSource")
-    assert operation.roles[1].kind.endswith("/DdoSentenceInventory")
+    assert operation.roles[1].kind.endswith("/DdoSourceAnnotations")
     assert operation.callable_surfaces[0].declaration.endswith("SentenceEvidenceOperation.run")
     assert all(implementation.complete for implementation in profile.model.implementation_slices)
 
@@ -349,7 +353,8 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
     assert completion.operation == "segment.sentences/source-native"
     assert completion.execution_evidence is not None
     assert json.loads(completion.execution_evidence) == []
-    assert json.loads(completion.outputs[0].content)["members"] == []
+    assert len(json.loads(completion.outputs[0].content)["members"]) == 1
+    assert json.loads(completion.outputs[0].content)["blocks"] == []
     with pytest.raises(PortRefusal, match="nominal"):
         port.invoke_python((PythonRoleValue("source", "another-kind", source),))
     monkeypatch.setattr(SentenceEvidenceOperation, "run", lambda *_: None)
@@ -360,10 +365,10 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
 def test_sentence_members_derive_from_actual_nominal_body_graph(profile):
     from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 
-    container = profile.prepared.index.definitions["DdoSentenceInventory"].iri
+    container = profile.prepared.index.definitions["DdoSourceAnnotations"].iri
     expected = {
         profile.prepared.index.definitions[name].iri
-        for name in ("DdoNativeToken", "DdoNativeSentence")
+        for name in ("DdoSourceAnnotationManifest",)
     }
     assert set(derive_member_kinds(profile.model, container)) == expected
 
@@ -478,41 +483,31 @@ def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile):
     assert port.native_selections[0].native.provider == "spacy"
 
 
-def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace():
-    import spacy
-
+def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace(monkeypatch):
+    from corpus_structure.ingest import annotations
     from corpus_structure.ingest.sentences import Block, make_doc, prepare_layout
-    from corpus_structure.semantic.sentence_products import _Block, _native_records
-
+    from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+    from corpus_structure.semantic.sentence_products import _Block, _detach_annotation_block, source_annotation_member_values
     nlp = spacy.blank("en")
+    monkeypatch.setattr(annotations, "pipeline", lambda _: nlp)
     text = "A  B."
     original = Block(text, (), (), ())
     layout = prepare_layout(nlp, original, start=7)
     doc = make_doc(nlp, original, layout, start=7)
     for token in doc:
         token.is_sent_start = token.i == 0
-    source = dict(
-        source=dict(
-            document="original", section_pointer="#/g", membership="direct", projection="a" * 64
-        ),
-        pieces=[dict(start=7, end=8), dict(start=8, end=10), dict(start=10, end=12)],
-    )
-    records, standing = _native_records(
-        source, _Block("block", 7, 12, original, (0, 2)), layout, doc
-    )
-    assert standing["start"] == 7 and standing["end"] == 12
-    tokens = [body for kind, body in records if kind == "token"]
+    source = dict(source=dict(document="original", section_pointer="#/g", membership="direct", projection="a" * 64),
+        items=[], pieces=[dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=7, end=8),
+                         dict(kind="synthetic_separator", start=8, end=10),
+                         dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=10, end=12)])
+    block = _detach_annotation_block(source, _Block("block", 7, 12, original, (0, 1, 2)), layout, doc,
+                                    DeclaredSourcePin("{}"), SentenceConfig(exclude=("ner",)), "controlled-profile")
+    records = source_annotation_member_values({"source": source["source"], "blocks": [block]})
+    tokens = [body for body in records if body["record_type"] == "token"]
     assert any(1 in token["piece_indices"] for token in tokens)
-    assert all(
-        token["piece_indices"]
-        == [
-            index
-            for index, piece in enumerate(source["pieces"])
-            if piece["start"] < token["end"] and token["start"] < piece["end"]
-        ]
-        for token in tokens
-    )
-    assert standing["attributes"]["LEMMA"] == "absent"
+    assert all(token["piece_indices"] == [index for index, piece in enumerate(source["pieces"])
+        if piece["start"] < token["end"] and token["start"] < piece["end"]] for token in tokens)
+    assert {row["attribute"]: row["status"] for row in block["annotation"]["availability"]}["LEMMA"] == "absent"
 
 
 def test_flat_original_formula_parent_preserves_protected_inline_atom(profile):
@@ -633,3 +628,14 @@ def _publication_context(source, *, document=False):
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
     )
+
+
+def _controlled_source_pin(source):
+    """Controlled input identity for provider checks; no native original-custody claim."""
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource, DeclaredSourcePin
+    context = _publication_context(source)
+    member = BoundRoleMember("controlled-original", "controlled-kind", context.subject,
+        context.original_source, context.analyzed_scope, b"{}", (), b"{}")
+    return DeclaredSourcePin(canonical_bytes(DeclaredRecordSource.from_bound(source, member,
+        project=context.project_id).pin()).decode())

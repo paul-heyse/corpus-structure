@@ -94,19 +94,15 @@ def canonical_projection_spec(model, container_kind):
 
 def canonical_packet_values(inventory: dict, projection: dict) -> dict:
     """One flat typed projection, preserving actual original IDs/context and packet order."""
-    packets = [
-        {
-            "member_id": packet["member_id"],
-            "kind_contract": projection["records"][packet["body"]["record_type"]]["kind_contract"],
-            "context": packet["context"],
-            "body": {
-                field: packet["body"][field]
-                for field in projection["records"][packet["body"]["record_type"]]["fields"]
-                if field in packet["body"]
-            },
-        }
-        for packet in inventory["members"]
-    ]
+    from .sentence_products import source_annotation_member_values
+    from .source_products import source_subject
+    context = dict(subject=source_subject(inventory["source"]), original_source=inventory["source"]["document"],
+                   analyzed_scope=dict(source=inventory["source"], selectors=inventory["selectors"]))
+    packets = [{"member_id": body["local_id"],
+                "kind_contract": projection["records"][body["record_type"]]["kind_contract"],
+                "context": context,
+                "body": {field: body[field] for field in projection["records"][body["record_type"]]["fields"] if field in body}}
+               for body in source_annotation_member_values(inventory)]
     coverage = [row for row in inventory["coverage"] if row["family"] in projection["families"]]
     return {
         **{key: inventory[key] for key in ("source", "selectors", "block_coverage")},
@@ -182,9 +178,13 @@ def canonical_profile_assets():
         for node in module.body
         if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
     ]
+    from .sentence_products import _semantic_nodes
     return SourceArtifact(
         "canonical/profile-assets",
-        canonical_bytes(dict(definitions=selected, families=SPACY_FAMILIES[:2])),
+        canonical_bytes(dict(definitions=selected, families=SPACY_FAMILIES[:2],
+            annotation_projection=_semantic_nodes(Path(__file__).with_name("sentence_products.py").read_bytes(),
+                ("_id", "source_annotation_member_values")),
+            original_subject=_semantic_nodes(Path(__file__).with_name("source_products.py").read_bytes(), ("source_subject",)))),
     )
 
 
@@ -192,6 +192,8 @@ def canonical_execution_custody():
     root = Path(__file__).parent
     paths = (
         Path(__file__),
+        root / "sentence_products.py",
+        root / "source_products.py",
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
         root / "data_operation_cpu.py",

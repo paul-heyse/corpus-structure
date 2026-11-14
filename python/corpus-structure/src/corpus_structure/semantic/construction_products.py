@@ -30,7 +30,7 @@ from .data_product_reference import DataProductReference, member_reference, refe
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
-from .sentence_products import SentenceInventory, SentenceSourceReadings, sentence_product_inputs
+from .sentence_products import SourceAnnotations, SourceAnnotationReadings, sentence_product_inputs
 from .source_products import FrozenNativeSource, source_subject
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
@@ -575,7 +575,7 @@ class PreparedConstructionProfile:
         formal: tuple[FormalEvidenceProduct, ...],
         options: ConstructionOptions | None = None,
         *,
-        sentences: SentenceInventory | None = None,
+        sentences: SourceAnnotations | None = None,
         check_active: Callable[[], None] = lambda: None,
         subject_context: SubjectContext | None = None,
     ):
@@ -587,7 +587,7 @@ class PreparedConstructionProfile:
         )
         native = None
         if sentences is not None:
-            SentenceSourceReadings(sentences, source)
+            SourceAnnotationReadings(sentences, source)
             native = CharacterizationSnapshot(sentences.semantic_id, sentences.content)
         value = construction_product_values(
             source,

@@ -66,13 +66,17 @@ def primary_operation_inputs(
         source_discovery_operation_sources(),
         source_profile_operation_sources(),
         sentence_operation_sources(sentence_configuration),
-        canonical_sentence_operation_sources(sentence_configuration=sentence_configuration),
-        hanlp_operation_sources(hanlp_selection, sentence_configuration=sentence_configuration),
+        canonical_sentence_operation_sources(
+            sentence_configuration=sentence_configuration, include_dependencies=False
+        ),
+        hanlp_operation_sources(
+            hanlp_selection,
+            sentence_configuration=sentence_configuration,
+            include_dependencies=False,
+        ),
         formal_operation_sources(),
         characterization_operation_sources(),
-        full_document_view_operation_sources(
-            sentence_configuration=sentence_configuration, hanlp_selection=hanlp_selection
-        ),
+        full_document_view_operation_sources(include_dependencies=False),
     )
     if capture_sources is not None:
         collections = (*collections, capture_sources)

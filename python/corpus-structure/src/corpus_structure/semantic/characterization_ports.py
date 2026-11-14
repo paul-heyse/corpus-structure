@@ -31,12 +31,14 @@ from .data_operation_outcomes import successful_return_outcome
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
     RetainedCharacterizationProduct,
+    EnrichedDocumentProduct,
     compose_enriched_document,
+    compose_enriched_document_values,
 )
 from .formal_products import FormalEvidenceProduct, _semantic_nodes, validate_formal_product
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
-from .sentence_products import SentenceInventory
+from .sentence_products import SourceAnnotations
 from .source_products import FrozenNativeSource, source_subject
 from .types import PreparedRelease, SourceArtifact
 
@@ -127,7 +129,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
                         "PreparedCharacterizationPort._formal",
                         "PreparedCharacterizationPort._retained",
                         "execute_" + profile + "_profile",
-                        *(("execute_" + profile + "_kernel",) if profile != "view" else ()),
+                        "execute_" + profile + "_kernel",
                     ),
                 ),
                 references=_semantic_nodes(
@@ -139,6 +141,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
                         "read_member_reference",
                     ),
                 ),
+                native_access=_semantic_nodes((root / "sentence_products.py").read_bytes(), ("_id", "source_annotation_member_values", "source_annotation_rows", "validate_source_annotations")) if profile == "construction" else (),
                 source_access=_semantic_nodes(
                     (root / "source_products.py").read_bytes(),
                     (
@@ -172,6 +175,8 @@ def _execution_custody() -> SourceArtifact:
         "formal_readings.py",
         "formal_products.py",
         "source_products.py",
+        "sentence_products.py",
+        "declared_record_sources.py",
         "data_product_reference.py",
         "data_operation_cpu.py",
         "data_operation_prepared_products.py",
@@ -274,6 +279,15 @@ def execute_contextual_kernel(
     )
 
 
+def execute_view_kernel(sources: tuple[FrozenNativeSource, ...], products: tuple[CharacterizationSnapshot, ...],
+    active: tuple[DataProductReference, ...], profile: str, required_families: tuple[str, ...], assets: str,
+    *, check_active: Callable[[], None]) -> dict[str, Any]:
+    if assets != _semantic_assets("view").digest:
+        raise ValueError("composition child lacks acquired semantic assets")
+    return compose_enriched_document_values(sources, products, active=active, profile=profile,
+        required_families=required_families, check_active=check_active)
+
+
 def execute_construction_profile(receiver, source, formal, sentences=None):
     return receiver.profile.run(
         source, formal, sentences=sentences, check_active=receiver.check_active
@@ -300,7 +314,7 @@ def execute_view_profile(receiver, sources, products, active, profile):
 def _body(prepared, name, value):
     if isinstance(
         value,
-        (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SentenceInventory),
+        (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SourceAnnotations),
     ):
         value = value.value
     if isinstance(value, BaseModel):
@@ -521,7 +535,15 @@ class PreparedCharacterizationPort(ABC):
                 kind,
                 canonical_bytes(_body(self.prepared, definition.name, value)),
             )
-            products.append(self._selected_product(product, binding, name, len(products)))
+            if member.member is not None:
+                from .data_operation_model import SubjectContext
+                context = SubjectContext(binding.subject_context.project_id, member.subject,
+                    member.original_source, member.analyzed_scope)
+                product = replace(product, subject_context=context,
+                    selected_product=member.product, selected_member=member.member)
+                products.append(product)
+            else:
+                products.append(self._selected_product(product, binding, name, len(products)))
         return tuple(products)
 
     def _inputs(self, values, binding):
@@ -559,15 +581,15 @@ class PreparedCharacterizationPort(ABC):
             )
         formal = self._formal(source, roles["formal"], binding)
         if self.family == "construction":
-            from .sentence_products import validate_sentence_inventory
+            from .sentence_products import validate_source_annotations
 
             native = (
                 None
                 if roles["sentences"] is None
-                else validate_sentence_inventory(
+                else validate_source_annotations(
                     self.prepared,
                     self.model,
-                    _body(self.prepared, "DdoSentenceInventory", roles["sentences"]),
+                    _body(self.prepared, "DdoSourceAnnotations", roles["sentences"]),
                     source,
                 )
             )
@@ -658,12 +680,18 @@ class PreparedCharacterizationPort(ABC):
         from .construction_products import validate_interpreted_product
         from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
 
-        if self.family == "view":
-            return self.invoke_python(values, binding=binding, check_active=check_active)
         self._verify()
         inputs = self._inputs(values, binding)
-        source, formal = inputs.source, inputs.formal
         products = ()
+        if isinstance(inputs, _DocumentInputs):
+            from .characterization import characterization_profiles
+            arguments = dict(sources=inputs.sources,
+                products=tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in inputs.products),
+                active=tuple(DataProductReference(product.semantic_id) for product in inputs.active), profile=inputs.profile,
+                required_families=tuple(characterization_profiles(self.prepared).get("full_characterization", ())),
+                assets=_semantic_assets(self.family).digest, check_active=check_active)
+        else:
+            source, formal = inputs.source, inputs.formal
         if isinstance(inputs, _ConstructionInputs):
             arguments = dict(
                 source=source,
@@ -679,7 +707,7 @@ class PreparedCharacterizationPort(ABC):
                 else CharacterizationSnapshot(inputs.native.semantic_id, inputs.native.content),
                 check_active=check_active,
             )
-        else:
+        elif isinstance(inputs, _ContextualInputs):
             constructions = inputs.constructions
             products = (*formal, *inputs.supporting, *constructions)
             arguments = dict(
@@ -719,7 +747,10 @@ class PreparedCharacterizationPort(ABC):
             execution_owner=execution_owner,
             check_active=check_active,
         )
-        if isinstance(inputs, _ConstructionInputs):
+        if isinstance(inputs, _DocumentInputs):
+            checked = self.prepared.validate_json("DdoEnrichedDocumentView", reply.content)
+            product = EnrichedDocumentProduct(canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)), self.prepared, self.model)
+        elif isinstance(inputs, _ConstructionInputs):
             product = validate_construction_product(
                 self.prepared,
                 self.model,
@@ -771,6 +802,7 @@ class PreparedContextualPort(PreparedCharacterizationPort):
 
 class PreparedDocumentViewPort(PreparedCharacterizationPort):
     family = "view"
+    kernel = staticmethod(execute_view_kernel)
     profiles = ("source_only", "selected_layers")
     operation_sources = staticmethod(document_view_operation_sources)
     bridge = staticmethod(execute_view_profile)

@@ -5,157 +5,509 @@ prefixes:
 default_prefix: dss
 default_range: string
 classes:
-  DdoNativeUnit:
-    is_a: SourceRecordProduct
-    abstract: true
-    attributes:
-      record_type: {required: true}
-  DdoNativeToken:
-    annotations:
-      cs:data_universe: source
-    is_a: DdoNativeUnit
-    description: Existing atom-preserving spaCy token with absolute original projection offsets.
-    attributes:
-      record_type: {equals_string: token, required: true}
-      local_id: {required: true, pattern: '^[0-9a-f]{64}$'}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-      space: {range: boolean, required: true}
-      role: {required: true, pattern: '^(prose|math|reference)$'}
-      lower: {value_presence: PRESENT}
-      is_alpha: {range: boolean, required: true}
-      is_space: {range: boolean, required: true}
-      is_punct: {range: boolean, required: true}
-      is_quote: {range: boolean, required: true}
-      like_num: {range: boolean, required: true}
-      sentence_ref: {}
-      lemma: {value_presence: PRESENT}
-      pos: {value_presence: PRESENT}
-      tag: {value_presence: PRESENT}
-      morphology: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      dependency: {value_presence: PRESENT}
-      sent_start: {range: boolean}
-      head_ref: {}
-      piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
-  DdoNativeSentence:
-    annotations:
-      cs:data_universe: source
-    is_a: DdoNativeUnit
-    attributes:
-      record_type: {equals_string: sentence, required: true}
-      local_id: {required: true, pattern: '^[0-9a-f]{64}$'}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-      token_ids: {multivalued: true, required: true, minimum_cardinality: 1}
   DdoSentenceCoverage:
     is_a: SourceRecordProduct
     attributes:
-      block_id: {required: true}
+      block_id:
+        required: true
       native_pointer: {}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 0}
-      outcome: {required: true, pattern: '^(complete|empty|unsupported)$'}
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 0
+      outcome:
+        required: true
+        pattern: ^(complete|empty|unsupported)$
       reason: {}
-  DdoNativeAnnotationAvailability:
-    is_a: SourceRecordProduct
-    attributes:
-      LEMMA: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
-      POS: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
-      TAG: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
-      MORPH: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
-      DEP: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
-      SENT_START: {required: true, pattern: '^(complete|partial|absent|not_applicable)$'}
-  DdoNativeBlockAnnotations:
-    is_a: SourceRecordProduct
-    attributes:
-      block_id: {required: true}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-      attributes: {range: DdoNativeAnnotationAvailability, inlined: true, required: true}
   DdoSentenceScope:
     is_a: SourceRecordProduct
     attributes:
-      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
-      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
   DdoSentenceContext:
     is_a: SourceRecordProduct
     attributes:
-      subject: {required: true}
-      original_source: {required: true}
-      analyzed_scope: {range: DdoSentenceScope, inlined: true, required: true}
-  DdoSentencePacket:
-    is_a: SourceRecordProduct
-    attributes:
-      member_id: {required: true}
-      kind_contract: {required: true}
-      context: {range: DdoSentenceContext, inlined: true, required: true}
-      body: {range: DdoNativeUnit, inlined: true, required: true}
-  DdoSentenceInventory:
-    annotations:
-      cs:data_universe: source
-    is_a: DdoCharacterizedProduct
-    description: Typed original token and sentence members; execution placement and model custody remain derivation evidence.
-    attributes:
-      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
-      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
-      outcome: {required: true, pattern: '^(complete|partial)$'}
-      block_coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      coverage: {range: DdoCharacterizationCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      annotation_columns: {range: DdoNativeBlockAnnotations, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      members: {range: DdoSentencePacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-
+      subject:
+        required: true
+      original_source:
+        required: true
+      analyzed_scope:
+        range: DdoSentenceScope
+        inlined: true
+        required: true
   DdoCanonicalUnit:
     is_a: SourceRecordProduct
     abstract: true
     attributes:
-      record_type: {required: true}
+      record_type:
+        required: true
   DdoCanonicalToken:
     annotations:
       cs:data_universe: source
     is_a: DdoCanonicalUnit
     attributes:
-      record_type: {equals_string: token, required: true}
-      local_id: {required: true}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-      space: {range: boolean, required: true}
-      role: {required: true, pattern: '^(prose|math|reference)$'}
+      record_type:
+        equals_string: token
+        required: true
+      local_id:
+        required: true
+      block_id:
+        required: true
+      ordinal:
+        range: integer
+        required: true
+        minimum_value: 0
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 1
+      space:
+        range: boolean
+        required: true
+      role:
+        required: true
+        pattern: ^(prose|math|reference)$
       sentence_ref: {}
-      piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
+      piece_indices:
+        range: integer
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
   DdoCanonicalSentence:
     annotations:
       cs:data_universe: source
     is_a: DdoCanonicalUnit
     attributes:
-      record_type: {equals_string: sentence, required: true}
-      local_id: {required: true}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-      token_ids: {multivalued: true, required: true, minimum_cardinality: 1}
+      record_type:
+        equals_string: sentence
+        required: true
+      local_id:
+        required: true
+      block_id:
+        required: true
+      ordinal:
+        range: integer
+        required: true
+        minimum_value: 0
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 1
+      token_ids:
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
   DdoCanonicalPacket:
     is_a: SourceRecordProduct
     attributes:
-      member_id: {required: true}
-      kind_contract: {required: true}
-      context: {range: DdoSentenceContext, inlined: true, required: true}
-      body: {range: DdoCanonicalUnit, inlined: true, required: true}
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSentenceContext
+        inlined: true
+        required: true
+      body:
+        range: DdoCanonicalUnit
+        inlined: true
+        required: true
   DdoCanonicalSentences:
     annotations:
       cs:data_universe: source
     is_a: DdoCharacterizedProduct
-    description: Declared canonical sentence/tokenization members independent of native linguistic labels.
+    description: Declared canonical sentence/tokenization members independent of native
+      linguistic labels.
     attributes:
-      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
-      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
-      outcome: {required: true, pattern: '^(complete|partial)$'}
-      block_coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      coverage: {range: DdoCharacterizationCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
-      members: {range: DdoCanonicalPacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+      outcome:
+        required: true
+        pattern: ^(complete|partial)$
+      block_coverage:
+        range: DdoSentenceCoverage
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      coverage:
+        range: DdoCharacterizationCoverage
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      members:
+        range: DdoCanonicalPacket
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  DdoAnnotationComponent:
+    is_a: SourceRecordProduct
+    attributes:
+      name:
+        range: string
+        required: true
+      factory:
+        range: string
+        required: true
+  DdoAnnotationAvailability:
+    is_a: SourceRecordProduct
+    attributes:
+      attribute:
+        range: string
+        required: true
+      status:
+        range: string
+        required: true
+        pattern: ^(complete|partial|absent|not_applicable)$
+  DdoAnnotationExtent:
+    is_a: SourceRecordProduct
+    attributes:
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 0
+  DdoAnnotationPiece:
+    is_a: SourceRecordProduct
+    attributes:
+      item_ref:
+        range: string
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 0
+      kind:
+        range: string
+        required: true
+        pattern: ^(native_text|synthetic_separator)$
+      cell_index:
+        range: integer
+      source_field:
+        range: string
+  DdoAnnotationToken:
+    is_a: SourceRecordProduct
+    attributes:
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 1
+      space:
+        range: boolean
+        required: true
+      role:
+        range: string
+        required: true
+        pattern: ^(prose|math|reference)$
+      lemma:
+        range: string
+        required: true
+      pos:
+        range: string
+        required: true
+      tag:
+        range: string
+        required: true
+      dependency:
+        range: string
+        required: true
+      morphology:
+        range: string
+        inlined: false
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      head:
+        range: integer
+        required: true
+        minimum_value: 0
+      sentence:
+        range: integer
+        minimum_value: 0
+      piece_indices:
+        range: integer
+        inlined: false
+        multivalued: true
+        minimum_cardinality: 1
+        value_presence: PRESENT
+        required: true
+  DdoAnnotationLexeme:
+    is_a: SourceRecordProduct
+    attributes:
+      lower:
+        range: string
+        required: true
+      is_alpha:
+        range: boolean
+        required: true
+      is_space:
+        range: boolean
+        required: true
+      is_punct:
+        range: boolean
+        required: true
+      is_quote:
+        range: boolean
+        required: true
+      like_num:
+        range: boolean
+        required: true
+      sent_start:
+        range: boolean
+  DdoAnnotationProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      source:
+        range: RecordSourcePin
+        required: true
+        inlined: true
+      block_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+        pattern: ^(paragraph|list_item|table_cell|caption)$
+      block_start:
+        range: integer
+        required: true
+        minimum_value: 0
+      block_end:
+        range: integer
+        required: true
+        minimum_value: 1
+      display_spans:
+        range: DdoAnnotationExtent
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      text_digest:
+        range: string
+        required: true
+      native_pieces:
+        range: DdoAnnotationPiece
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      layout_digest:
+        range: string
+        required: true
+      layout_recipe:
+        range: string
+        required: true
+      profile_recipe:
+        range: string
+        required: true
+      profile_digest:
+        range: string
+        required: true
+      spacy_version:
+        range: string
+        required: true
+      model:
+        range: string
+        required: true
+      model_version:
+        range: string
+        required: true
+      pipeline_config_digest:
+        range: string
+        required: true
+      dependency_digest:
+        range: string
+        required: true
+      components:
+        range: DdoAnnotationComponent
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      availability:
+        range: DdoAnnotationAvailability
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      tokens:
+        range: DdoAnnotationToken
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      sentences:
+        range: DdoAnnotationExtent
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+  DdoSourceAnnotationBlock:
+    is_a: SourceRecordProduct
+    attributes:
+      annotation:
+        range: DdoAnnotationProduct
+        required: true
+        inlined: true
+      lexemes:
+        range: DdoAnnotationLexeme
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      piece_offset:
+        range: integer
+        required: true
+        minimum_value: 0
+  DdoSourceAnnotationManifest:
+    is_a: DdoCharacterizedProduct
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        required: true
+        inlined: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 1
+        value_presence: PRESENT
+        required: true
+      coverage:
+        range: DdoCharacterizationCoverage
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      outcome:
+        range: string
+        required: true
+        pattern: ^(complete|partial)$
+  DdoSourceAnnotationPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        range: string
+        required: true
+      kind_contract:
+        range: string
+        required: true
+      context:
+        range: DdoSentenceContext
+        required: true
+        inlined: true
+      body:
+        range: DdoSourceAnnotationManifest
+        required: true
+        inlined: true
+  DdoSourceAnnotations:
+    is_a: SourceRecordProduct
+    description: One authoritative detached spaCy annotation population. A compact
+      manifest member supports document fan-in without hydrating full block annotations.
+    annotations:
+      cs:data_universe: source
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        required: true
+        inlined: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 1
+        value_presence: PRESENT
+        required: true
+      execution_profile:
+        range: string
+        required: true
+      outcome:
+        range: string
+        required: true
+        pattern: ^(complete|partial)$
+      block_coverage:
+        range: DdoSentenceCoverage
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      coverage:
+        range: DdoCharacterizationCoverage
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      blocks:
+        range: DdoSourceAnnotationBlock
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      members:
+        range: DdoSourceAnnotationPacket
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+        value_presence: PRESENT
+      configuration:
+        range: DdoSentenceConfiguration
+        inlined: true
+        required: true
+  DdoSentenceConfiguration:
+    is_a: SourceRecordProduct
+    attributes:
+      variant:
+        required: true
+      spacy_version:
+        required: true
+      model:
+        required: true
+      model_version:
+        required: true
+      exclude:
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      batch_size:
+        range: integer
+        required: true
+        minimum_value: 1

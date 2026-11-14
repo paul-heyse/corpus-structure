@@ -24,6 +24,8 @@ class RetainedCharacterizationProduct:
     model: EffectiveDataOperationModel
     kind: str
     subject_context: SubjectContext | None = None
+    selected_product: str | None = None
+    selected_member: str | None = None
 
     @classmethod
     def acquire(cls, prepared, model, kind, content, *, subject_context=None):
@@ -60,6 +62,8 @@ class RetainedCharacterizationProduct:
 
     @property
     def semantic_id(self):
+        if self.selected_product is not None:
+            return self.selected_product
         kind = next(
             row.key
             for row in self.model.identities
@@ -144,18 +148,8 @@ def _covers(source, examined, requested):
     return found or requested in examined
 
 
-def compose_enriched_document(
-    prepared,
-    model,
-    sources: tuple[FrozenNativeSource, ...],
-    products,
-    *,
-    active=(),
-    profile="selected_layers",
-    subject_context=None,
-):
-    """Compose exact retained inputs with original local offsets and source identities."""
-    sources = tuple(FrozenNativeSource.acquire(prepared, source.value) for source in sources)
+def compose_enriched_document_values(sources, products, *, active=(), profile="selected_layers", required_families=(), check_active=lambda: None):
+    """Pure finite fan-in over parent-validated source and compact product snapshots."""
     if not sources:
         raise ValueError("combined document view requires explicit original source snapshots")
     source_by_key = {canonical_bytes(source.value["source"]): source for source in sources}
@@ -167,7 +161,8 @@ def compose_enriched_document(
     document = next(iter(documents))
     owned = {}
     for product in products:
-        body = product.value.model_dump(mode="json", exclude_unset=True)
+        check_active()
+        body = json.loads(product.content)
         if canonical_bytes(body["source"]) not in source_by_key:
             raise ValueError("combined view product has no retained original source coordinate")
         pin = DataProductReference(product.semantic_id)
@@ -192,20 +187,20 @@ def compose_enriched_document(
         for row in body["coverage"]:
             if "family" in row:
                 by_family.setdefault((coordinate, row["family"]), []).append((pin, row))
-    declared_profiles = characterization_profiles(prepared)
-    if profile == "full_characterization" and not declared_profiles.get("full_characterization"):
+    if profile == "full_characterization" and not required_families:
         raise ValueError("full characterization requires its captured declared family profile")
     required = (
         [
             (coordinate, family)
             for coordinate in source_by_key
-            for family in declared_profiles["full_characterization"]
+            for family in required_families
         ]
         if profile == "full_characterization"
         else list(by_family)
     )
     coverage = []
     for coordinate, family in required:
+        check_active()
         source = source_by_key[coordinate]
         rows = by_family.get((coordinate, family), ())
         successful = [
@@ -245,7 +240,7 @@ def compose_enriched_document(
     complete = all(row["outcome"] in {"complete", "empty"} for row in coverage) and all(
         all("family" in row for row in owned[pin][1]["coverage"]) for pin in active
     )
-    value = dict(
+    return dict(
         original_document=document,
         sources=[source.value for source in sources],
         profile=profile,
@@ -254,6 +249,14 @@ def compose_enriched_document(
         coverage=coverage,
         outcome="complete" if complete else "partial",
     )
+
+
+def compose_enriched_document(prepared, model, sources: tuple[FrozenNativeSource, ...], products,
+    *, active=(), profile="selected_layers", subject_context=None):
+    """Compose exact retained inputs with original local offsets and source identities."""
+    sources = tuple(FrozenNativeSource.acquire(prepared, source.value) for source in sources)
+    value = compose_enriched_document_values(sources, products, active=active, profile=profile,
+        required_families=tuple(characterization_profiles(prepared).get("full_characterization", ())))
     checked = prepared.validate_json("DdoEnrichedDocumentView", canonical_bytes(value))
     return EnrichedDocumentProduct(
         canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),

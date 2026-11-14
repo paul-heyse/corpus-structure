@@ -48,7 +48,9 @@ _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-se
 
 
 def sentence_product_inputs(bundle: SourceBundle) -> SourceBundle:
-    bundle = source_product_inputs(bundle)
+    from .declared_record_sources import declared_record_inputs
+
+    bundle = declared_record_inputs(source_product_inputs(bundle))
     names = {source.name for source in bundle.sources}
     if names & {"data_operation_sentences", "data_operation_sentences_root"}:
         raise ValueError("sentence profile uses reserved source schema names")
@@ -81,7 +83,7 @@ def _id(source, kind, block_id, start, end):
 
 
 @dataclass(frozen=True)
-class SentenceInventory:
+class SourceAnnotations:
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
@@ -102,7 +104,7 @@ class SentenceInventory:
         kind = next(
             identity.key
             for identity in self.model.identities
-            if identity.owner == self.prepared.index.definitions["DdoSentenceInventory"].iri
+            if identity.owner == self.prepared.index.definitions["DdoSourceAnnotations"].iri
             and identity.domain == "kind"
         )
         value = self.value.model_dump(mode="python", exclude_unset=True)
@@ -113,127 +115,194 @@ class SentenceInventory:
         ).key
 
     @property
+    def configuration(self):
+        return SentenceConfig.model_validate(json.loads(self.content)["configuration"])
+
+    @property
     def value(self) -> BaseModel:
-        return self.prepared.validate_json("DdoSentenceInventory", self.content)
+        return self.prepared.validate_json("DdoSourceAnnotations", self.content)
 
     def inventory(self, kind: str) -> tuple[dict[str, Any], ...]:
         if kind not in {"sentence", "token"}:
             raise ValueError("unknown native sentence inventory kind")
         return tuple(
-            packet["body"]
-            for packet in json.loads(self.content)["members"]
-            if packet["body"]["record_type"] == kind
+            row
+            for row in source_annotation_member_values(json.loads(self.content))
+            if row["record_type"] == kind
         )
 
 
-def validate_sentence_inventory(
-    prepared: PreparedRelease,
-    model: EffectiveDataOperationModel,
-    value: Mapping[str, Any],
-    source: FrozenNativeSource,
-    *,
-    receipts: tuple[bytes, ...] = (),
-    subject_context: SubjectContext | None = None,
-) -> SentenceInventory:
-    checked = prepared.validate_json("DdoSentenceInventory", canonical_bytes(value)).model_dump(
+def source_annotation_rows(value):
+    """Restore the existing AnnotationProduct wire shape from its typed nominal projection."""
+    rows = []
+    for block in value["blocks"]:
+        annotation = block["annotation"]
+        rows.append(
+            {
+                **annotation,
+                "source": {"content": canonical_bytes(annotation["source"]).decode()},
+                "display_spans": [
+                    [span["start"], span["end"]] for span in annotation["display_spans"]
+                ],
+                "native_pieces": [
+                    {"item_ref": None, "cell_index": None, "source_field": None, **piece}
+                    for piece in annotation["native_pieces"]
+                ],
+                "tokens": [{"sentence": None, **token} for token in annotation["tokens"]],
+            }
+        )
+    return tuple(rows)
+
+
+def source_annotation_member_values(value):
+    """Read original units from detached annotations; no second stored token inventory."""
+    result = []
+    for block in value["blocks"]:
+        annotation, lexemes = block["annotation"], block["lexemes"]
+        sentences = annotation["sentences"]
+        sentence_ids = [
+            _id(value["source"], "sentence", annotation["block_id"], row["start"], row["end"])
+            for row in sentences
+        ]
+        token_ids = [
+            _id(value["source"], "token", annotation["block_id"], row["start"], row["end"])
+            for row in annotation["tokens"]
+        ]
+        tokens = []
+        for ordinal, (token, lexeme) in enumerate(zip(annotation["tokens"], lexemes, strict=True)):
+            piece_indices = [block["piece_offset"] + index for index in token["piece_indices"]]
+            body = {
+                "record_type": "token",
+                "local_id": token_ids[ordinal],
+                "block_id": annotation["block_id"],
+                "ordinal": ordinal,
+                **{
+                    key: token[key]
+                    for key in (
+                        "start",
+                        "end",
+                        "space",
+                        "role",
+                        "lemma",
+                        "pos",
+                        "tag",
+                        "morphology",
+                        "dependency",
+                    )
+                },
+                **lexeme,
+                "piece_indices": piece_indices,
+            }
+            if token.get("sentence") is not None:
+                body["sentence_ref"] = sentence_ids[token["sentence"]]
+            if token["dependency"]:
+                body["head_ref"] = token_ids[token["head"]]
+            tokens.append(body)
+            result.append(body)
+        for ordinal, (sentence, identifier) in enumerate(zip(sentences, sentence_ids, strict=True)):
+            result.append(
+                {
+                    "record_type": "sentence",
+                    "local_id": identifier,
+                    "block_id": annotation["block_id"],
+                    "ordinal": ordinal,
+                    **sentence,
+                    "token_ids": [
+                        token["local_id"]
+                        for token in tokens
+                        if token.get("sentence_ref") == identifier
+                    ],
+                }
+            )
+    return tuple(result)
+
+
+def annotation_manifest(value, *, kind_contract):
+    context = {
+        "subject": source_subject(value["source"]),
+        "original_source": value["source"]["document"],
+        "analyzed_scope": {"source": value["source"], "selectors": value["selectors"]},
+    }
+    return {
+        "member_id": "source-annotation-manifest:" + sha256(canonical_bytes(context)).hexdigest(),
+        "kind_contract": kind_contract,
+        "context": context,
+        "body": {key: value[key] for key in ("source", "selectors", "coverage", "outcome")},
+    }
+
+
+def validate_source_annotations(
+    prepared, model, value, source, *, receipts=(), subject_context=None, configuration=None
+):
+    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from .declared_record_sources import DeclaredNativeFrameSource
+
+    checked = prepared.validate_json("DdoSourceAnnotations", canonical_bytes(value)).model_dump(
         mode="json", exclude_unset=True
     )
     selected = source.value
-    expected_attributes = {"LEMMA", "POS", "TAG", "MORPH", "DEP", "SENT_START"}
-    columns = checked["annotation_columns"]
-    if len({row["block_id"] for row in columns}) != len(columns) or any(
-        set(row["attributes"]) != expected_attributes
-        or not 0 <= row["start"] < row["end"] <= len(selected["text"])
-        for row in columns
-    ):
-        raise ValueError(
-            "native annotation availability is not its closed actual attribute inventory"
-        )
+    frozen_configuration = SentenceConfig.model_validate(checked["configuration"])
+    if configuration is not None and configuration != frozen_configuration:
+        raise ValueError("annotation configuration differs from its captured model profile")
+    configuration = frozen_configuration
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
-        raise ValueError("sentence inventory differs from exact original source/scope")
-    by_id = {}
-    for packet in checked["members"]:
-        body = packet["body"]
-        if body["local_id"] in by_id or packet["member_id"] != body["local_id"]:
-            raise ValueError("sentence inventory repeats or relabels an original member")
-        if not 0 <= body["start"] < body["end"] <= len(selected["text"]):
-            raise ValueError("sentence inventory exceeds original projection coordinates")
-        if body["local_id"] != _id(
-            checked["source"], body["record_type"], body["block_id"], body["start"], body["end"]
-        ):
-            raise ValueError("sentence member identity differs from original source interval")
-        if packet["context"] != {
-            "subject": source_subject(selected["source"]),
-            "original_source": selected["source"]["document"],
-            "analyzed_scope": {"source": selected["source"], "selectors": selected["selectors"]},
-        }:
-            raise ValueError("sentence member context differs from original source")
-        nominal = "DdoNativeToken" if body["record_type"] == "token" else "DdoNativeSentence"
-        if packet["kind_contract"] != next(
-            identity.key
-            for identity in model.identities
-            if identity.owner == prepared.index.definitions[nominal].iri
-            and identity.domain == "kind"
-        ):
-            raise ValueError("sentence member differs from its nominal contract")
-        block = next((row for row in columns if row["block_id"] == body["block_id"]), None)
-        if block is None or not block["start"] <= body["start"] < body["end"] <= block["end"]:
-            raise ValueError("native unit exceeds its actual prepared block bounds")
-        by_id[body["local_id"]] = (body["record_type"], body)
-    if {row["block_id"] for row in columns} != {body["block_id"] for _kind, body in by_id.values()}:
-        raise ValueError("native annotation availability differs from analyzed token blocks")
-    for kind, body in by_id.values():
-        if kind == "sentence":
-            tokens = [by_id.get(identifier) for identifier in body["token_ids"]]
-            if not tokens or any(
-                token is None
-                or token[0] != "token"
-                or token[1].get("sentence_ref") != body["local_id"]
-                or token[1]["block_id"] != body["block_id"]
-                or not body["start"] <= token[1]["start"] < token[1]["end"] <= body["end"]
-                for token in tokens
+        raise ValueError("source annotations differ from exact original source/scope")
+    rows = source_annotation_rows(checked)
+    if rows:
+        if configuration is None:
+            raise ValueError("annotation validation requires its captured model configuration")
+        frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+        products = restore_annotations(
+            rows,
+            source=frame,
+            profile=AnnotationProfile(
+                configuration, execution_profile=checked["execution_profile"]
+            ),
+            require_complete=False,
+        )
+        for product, block in zip(products, checked["blocks"], strict=True):
+            if len(product.tokens) != len(block["lexemes"]):
+                raise ValueError("native lexical columns differ from their actual token population")
+            expected = [
+                piece
+                for piece in selected["pieces"]
+                if piece["start"] < product.block_end and product.block_start < piece["end"]
+            ]
+            if (
+                block["piece_offset"]
+                != next(
+                    (
+                        index
+                        for index, piece in enumerate(selected["pieces"])
+                        if piece["start"] == product.block_start
+                    ),
+                    -1,
+                )
+                or [piece.to_wire() for piece in product.native_pieces] != expected
             ):
-                raise ValueError("sentence/token inventory membership is not exact")
-        else:
+                raise ValueError("annotations differ from original selected native pieces")
             if any(
-                not 0 <= index < len(selected["pieces"])
-                or selected["pieces"][index]["end"] <= body["start"]
-                or body["end"] <= selected["pieces"][index]["start"]
-                for index in body["piece_indices"]
+                not product.block_start <= row.start < row.end <= product.block_end
+                for row in product.sentences
             ):
-                raise ValueError("token references another original source piece")
-            if "head_ref" in body and (
-                body.get("dependency", "") == ""
-                or by_id.get(body["head_ref"], (None, {}))[0] != "token"
-                or by_id[body["head_ref"]][1]["block_id"] != body["block_id"]
+                raise ValueError("annotation sentences exceed the actual source block")
+            if any(
+                token.sentence is not None
+                and (
+                    not 0 <= token.sentence < len(product.sentences)
+                    or not product.sentences[token.sentence].start
+                    <= token.start
+                    < token.end
+                    <= product.sentences[token.sentence].end
+                )
+                for token in product.tokens
             ):
-                raise ValueError("native dependency head is outside its original token block")
-            if body.get("dependency") and "head_ref" not in body:
-                raise ValueError("native dependency label lacks its actual head reference")
-            if "sentence_ref" in body and by_id.get(body["sentence_ref"], (None,))[0] != "sentence":
-                raise ValueError("token references a missing canonical sentence")
-    for kind, body in by_id.values():
-        if kind == "sentence":
-            expected = [
-                token["local_id"]
-                for candidate_kind, token in by_id.values()
-                if candidate_kind == "token" and token.get("sentence_ref") == body["local_id"]
-            ]
-            if body["token_ids"] != expected:
-                raise ValueError("sentence inventory omits or reorders canonical token members")
-        else:
-            expected = [
-                index
-                for index, piece in enumerate(selected["pieces"])
-                if piece["start"] < body["end"] and body["start"] < piece["end"]
-            ]
-            if body["piece_indices"] != expected:
-                raise ValueError("token inventory omits original intersecting source pieces")
+                raise ValueError("annotation token/sentence membership is not exact")
     from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES
 
-    if {row["family"] for row in checked["coverage"]} != set(SPACY_FAMILIES) or len(
-        checked["coverage"]
-    ) != len(SPACY_FAMILIES):
+    if len(checked["coverage"]) != len(SPACY_FAMILIES) or {
+        row["family"] for row in checked["coverage"]
+    } != set(SPACY_FAMILIES):
         raise ValueError("native family coverage omits or repeats a declared spaCy family")
     if any(row["eligible"] != selected["selectors"] for row in checked["coverage"]):
         raise ValueError("native family coverage differs from frozen eligible source")
@@ -243,7 +312,15 @@ def validate_sentence_inventory(
         else "partial"
     ):
         raise ValueError("native product outcome differs from actual family coverage")
-    return SentenceInventory(canonical_bytes(checked), prepared, model, receipts, subject_context)
+    kind = next(
+        identity.key
+        for identity in model.identities
+        if identity.owner == prepared.index.definitions["DdoSourceAnnotationManifest"].iri
+        and identity.domain == "kind"
+    )
+    if checked["members"] != [annotation_manifest(checked, kind_contract=kind)]:
+        raise ValueError("annotation manifest differs from its actual selected source coverage")
+    return SourceAnnotations(canonical_bytes(checked), prepared, model, receipts, subject_context)
 
 
 @dataclass(frozen=True)
@@ -455,80 +532,55 @@ def spacy_family_coverage(selected, block_coverage, annotation_columns):
     return result
 
 
-def _native_records(selected, block, layout, doc):
-    """Detach native labels and source units once from the same authenticated Doc."""
-    from corpus_structure.ingest.annotations import annotation_availability, native_token_columns
+def _detach_annotation_block(
+    selected, block, layout, doc, source_pin, configuration, execution_profile
+):
+    from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
+    from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 
-    records = []
-    sentences = [(block.start + a, block.start + b) for a, b in boundaries(block.block, doc)]
-    sentence_ids = [_id(selected["source"], "sentence", block.block_id, a, b) for a, b in sentences]
-    tokens = []
-    for ordinal, (token, native) in enumerate(zip(layout.tokens, doc, strict=True)):
-        identifier = _id(selected["source"], "token", block.block_id, token.start, token.end)
-        sentence = next(
-            (
-                identity
-                for (a, b), identity in zip(sentences, sentence_ids, strict=True)
-                if a <= token.start < token.end <= b
-            ),
-            None,
-        )
-        body = dict(
-            local_id=identifier,
-            block_id=block.block_id,
-            ordinal=ordinal,
-            start=token.start,
-            end=token.end,
-            space=token.space,
-            role=token.role,
-            lower=native.lower_,
-            is_alpha=native.is_alpha,
-            is_space=native.is_space,
-            is_punct=native.is_punct,
-            is_quote=native.is_quote,
-            like_num=native.like_num,
-            piece_indices=[
-                index
-                for index in range(len(selected["pieces"]))
-                if selected["pieces"][index]["start"] < token.end
-                and token.start < selected["pieces"][index]["end"]
-            ],
-        )
-        columns = native_token_columns(native)
-        native_head = columns.pop("head")
-        body.update(columns)
-        body["sent_start"] = native.is_sent_start
-        if columns["dependency"]:
-            head = layout.tokens[native_head]
-            body["head_ref"] = _id(
-                selected["source"], "token", block.block_id, head.start, head.end
-            )
-        if sentence is not None:
-            body["sentence_ref"] = sentence
-        tokens.append(body)
-        records.append(("token", body))
-    for ordinal, ((start, end), identifier) in enumerate(zip(sentences, sentence_ids, strict=True)):
-        records.append(
-            (
-                "sentence",
-                dict(
-                    local_id=identifier,
-                    block_id=block.block_id,
-                    ordinal=ordinal,
-                    start=start,
-                    end=end,
-                    token_ids=[
-                        token["local_id"]
-                        for token in tokens
-                        if token.get("sentence_ref") == identifier
-                    ],
-                ),
-            )
-        )
-    availability = {row.attribute: row.status for row in annotation_availability(doc)}
-    return records, dict(
-        block_id=block.block_id, start=block.start, end=block.end, attributes=availability
+    nodes = {row["self_ref"]: row for row in selected["items"]}
+    label = nodes.get(block.block_id.split(":cell:")[0], {}).get("label")
+    kind = (
+        "table_cell"
+        if label == "table"
+        else "list_item"
+        if label == "list_item"
+        else "caption"
+        if label == "caption"
+        else "paragraph"
     )
+    pieces = tuple(ProjectedPiece(**selected["pieces"][index]) for index in block.pieces)
+    supplied = AnnotationInput(source_pin, block.block_id, kind, block.block, layout, pieces)
+    (annotation,) = annotate(
+        (supplied,),
+        AnnotationProfile(configuration, execution_profile=execution_profile),
+        processed_docs=(doc,),
+        require_complete=False,
+    )
+
+    def present(value):
+        if isinstance(value, dict):
+            return {key: present(item) for key, item in value.items() if item is not None}
+        if isinstance(value, (tuple, list)):
+            return [present(item) for item in value]
+        return value
+
+    value = present(asdict(annotation))
+    value["source"] = source_pin.values()
+    value["display_spans"] = [{"start": a, "end": b} for a, b in annotation.display_spans]
+    lexemes = [
+        dict(
+            lower=token.lower_,
+            is_alpha=token.is_alpha,
+            is_space=token.is_space,
+            is_punct=token.is_punct,
+            is_quote=token.is_quote,
+            like_num=token.like_num,
+            sent_start=token.is_sent_start,
+        )
+        for token in doc
+    ]
+    return {"annotation": value, "lexemes": present(lexemes), "piece_offset": block.pieces[0]}
 
 
 @dataclass(frozen=True)
@@ -537,6 +589,7 @@ class PreparedSentenceProfile:
     model: EffectiveDataOperationModel
     configuration: SentenceConfig
     asset_digest: str
+    selection: Any
 
     def run(
         self,
@@ -545,7 +598,8 @@ class PreparedSentenceProfile:
         check_active: Callable[[], None] = lambda: None,
         subject_context: SubjectContext | None = None,
         host: NativeHostGroup | None = None,
-    ) -> SentenceInventory:
+        source_pin=None,
+    ) -> SourceAnnotations:
         from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
         from corpus_structure.methods.native_host import NativeHostGroup
         from corpus_structure.settings import NemotronSettings
@@ -555,10 +609,21 @@ class PreparedSentenceProfile:
         selected = source.value
         blocks, coverage = _blocks(source)
         records, receipts, annotation_columns = [], [], []
+        selection = self.selection
         if blocks:
             nlp = pipeline(self.configuration)  # Tokenizer only; learned weights stay in CUDA host.
-            selection = nlp.selection()
-            if sentence_profile_assets(self.configuration).digest != self.asset_digest:
+            if source_pin is None:
+                raise ValueError(
+                    "source annotations require their actual admitted source/member pin"
+                )
+            if nlp.selection().native.fingerprint != selection.native.fingerprint:
+                raise ValueError(
+                    "tokenizer execution profile differs from captured spaCy selection"
+                )
+            if (
+                sentence_profile_assets(self.configuration, selection=selection).digest
+                != self.asset_digest
+            ):
                 raise ValueError("sentence model/assets changed after explicit preparation")
             # An explicitly supplied host belongs to the enclosing execution owner;
             # direct bounded calls acquire and drain their own original host.
@@ -596,33 +661,32 @@ class PreparedSentenceProfile:
                             (token.idx, len(token.text)) for token in doc
                         ] != [(token.idx, len(token.text)) for token in original]:
                             raise ValueError("spaCy changed the original admitted token population")
-                        detached, native_availability = _native_records(
-                            selected, block, layout, doc
+                        detached = _detach_annotation_block(
+                            selected,
+                            block,
+                            layout,
+                            doc,
+                            source_pin,
+                            self.configuration,
+                            selection.native.fingerprint,
                         )
-                        records.extend(detached)
-                        annotation_columns.append(native_availability)
+                        records.append(detached)
+                        annotation_columns.append(
+                            dict(
+                                block_id=block.block_id,
+                                start=block.start,
+                                end=block.end,
+                                attributes={
+                                    row["attribute"]: row["status"]
+                                    for row in detached["annotation"]["availability"]
+                                },
+                            )
+                        )
         context = dict(
             subject=source_subject(selected["source"]),
             original_source=selected["source"]["document"],
             analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
         )
-        packets = []
-        for kind, body in records:
-            body = {"record_type": kind, **body}
-            nominal = "DdoNativeToken" if kind == "token" else "DdoNativeSentence"
-            packets.append(
-                dict(
-                    member_id=body["local_id"],
-                    kind_contract=next(
-                        identity.key
-                        for identity in self.model.identities
-                        if identity.owner == self.prepared.index.definitions[nominal].iri
-                        and identity.domain == "kind"
-                    ),
-                    context=context,
-                    body=body,
-                )
-            )
         value = dict(
             source=selected["source"],
             selectors=selected["selectors"],
@@ -631,21 +695,30 @@ class PreparedSentenceProfile:
             else "complete",
             block_coverage=coverage,
             coverage=spacy_family_coverage(selected, coverage, annotation_columns),
-            annotation_columns=annotation_columns,
-            members=packets,
+            blocks=records,
+            configuration=self.configuration.model_dump(mode="json"),
+            execution_profile=selection.native.fingerprint,
         )
         value["outcome"] = (
             "complete"
             if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
             else "partial"
         )
+        kind = next(
+            identity.key
+            for identity in self.model.identities
+            if identity.owner == self.prepared.index.definitions["DdoSourceAnnotationManifest"].iri
+            and identity.domain == "kind"
+        )
+        value["members"] = [annotation_manifest(value, kind_contract=kind)]
         check_active()
-        return validate_sentence_inventory(
+        return validate_source_annotations(
             self.prepared,
             self.model,
             value,
             source,
             receipts=tuple(receipts),
+            configuration=self.configuration,
             subject_context=subject_context,
         )
 
@@ -654,20 +727,30 @@ def prepare_sentence_profile(
     prepared: PreparedRelease,
     model: EffectiveDataOperationModel,
     configuration: SentenceConfig | None = None,
+    *,
+    selection=None,
 ) -> PreparedSentenceProfile:
     configuration = configuration or SentenceConfig(exclude=("ner",))
     if (
         not {
             "DdoSelectedNativeSource",
-            "DdoNativeToken",
-            "DdoNativeSentence",
-            "DdoSentenceInventory",
+            "DdoAnnotationToken",
+            "DdoSourceAnnotationManifest",
+            "DdoSourceAnnotations",
         }
         <= prepared.index.definitions.keys()
     ):
         raise ValueError("sentence preparation requires its acquired nominal source/product model")
+    if selection is None:
+        from corpus_structure.methods.native_profiles import spacy_selection
+
+        selection = spacy_selection(configuration) if selection is None else selection
     return PreparedSentenceProfile(
-        prepared, model, configuration, sentence_profile_assets(configuration).digest
+        prepared,
+        model,
+        configuration,
+        sentence_profile_assets(configuration, selection=selection).digest,
+        selection,
     )
 
 
@@ -695,8 +778,14 @@ def _semantic_nodes(content: bytes, names: tuple[str, ...]):
     return result
 
 
-def sentence_execution_custody(configuration: SentenceConfig | None = None) -> SourceArtifact:
+def sentence_execution_custody(
+    configuration: SentenceConfig | None = None, *, selection=None
+) -> SourceArtifact:
     """Physical host/transport/adapter code is exact runtime custody."""
+    if selection is None:
+        from corpus_structure.methods.native_profiles import spacy_selection
+
+        selection = spacy_selection(configuration or SentenceConfig(exclude=("ner",)))
     root = Path(__file__).parent
     paths = (
         Path(__file__),
@@ -711,6 +800,7 @@ def sentence_execution_custody(configuration: SentenceConfig | None = None) -> S
                 "configuration": (configuration or SentenceConfig(exclude=("ner",))).model_dump(
                     mode="json"
                 ),
+                "selection": selection.declaration(),
                 "files": [
                     (str(path.relative_to(root.parent)), path.read_bytes().hex()) for path in paths
                 ],
@@ -719,14 +809,16 @@ def sentence_execution_custody(configuration: SentenceConfig | None = None) -> S
     )
 
 
-def sentence_profile_assets(configuration: SentenceConfig | None = None) -> SourceArtifact:
+def sentence_profile_assets(
+    configuration: SentenceConfig | None = None, *, selection=None
+) -> SourceArtifact:
     from importlib.metadata import version
 
     from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS, SPACY_FAMILIES
     from corpus_structure.methods.native_profiles import spacy_observation_policy, spacy_selection
 
     configuration = configuration or SentenceConfig(exclude=("ner",))
-    selection = spacy_selection(configuration)
+    selection = spacy_selection(configuration) if selection is None else selection
     root = Path(__file__).parent
     paths = (
         root / "source_products.py",
@@ -747,10 +839,13 @@ def sentence_profile_assets(configuration: SentenceConfig | None = None) -> Sour
                     Path(__file__).read_bytes(),
                     (
                         "_id",
-                        "validate_sentence_inventory",
+                        "validate_source_annotations",
                         "_Block",
                         "_blocks",
-                        "_native_records",
+                        "_detach_annotation_block",
+                        "source_annotation_rows",
+                        "source_annotation_member_values",
+                        "annotation_manifest",
                         "spacy_family_coverage",
                         "_semantic_nodes",
                         "sentence_profile_assets",
@@ -763,6 +858,11 @@ def sentence_profile_assets(configuration: SentenceConfig | None = None) -> Sour
                         "AnnotationAvailability",
                         "annotation_availability",
                         "native_token_columns",
+                        "AnnotationProfile",
+                        "AnnotationInput",
+                        "AnnotationProduct",
+                        "annotate",
+                        "restore_annotations",
                     ),
                 ),
                 "sources": [
@@ -779,9 +879,16 @@ def sentence_profile_assets(configuration: SentenceConfig | None = None) -> Sour
     )
 
 
-def sentence_operation_sources(configuration: SentenceConfig | None = None):
+def sentence_operation_sources(configuration: SentenceConfig | None = None, *, selection=None):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
+    from corpus_structure.methods.native_profiles import spacy_selection
+
+    selection = (
+        spacy_selection(configuration or SentenceConfig(exclude=("ner",)))
+        if selection is None
+        else selection
+    )
     path = Path(__file__).parents[1] / "methods/sentence_evidence.py"
     return PythonSourceCollection(
         (
@@ -795,29 +902,38 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None):
             ),
         ),
         boundary_contracts=(
-            sentence_profile_assets(configuration),
-            sentence_execution_custody(configuration),
+            sentence_profile_assets(configuration, selection=selection),
+            sentence_execution_custody(configuration, selection=selection),
         ),
     )
 
 
-def execute_sentence_profile(receiver, source: FrozenNativeSource) -> SentenceInventory:
-    return receiver.profile.run(source, check_active=receiver.check_active, host=receiver.host)
+def execute_sentence_profile(receiver, source: FrozenNativeSource) -> SourceAnnotations:
+    return receiver.profile.run(
+        source,
+        check_active=receiver.check_active,
+        host=receiver.host,
+        source_pin=receiver.source_pin,
+    )
 
 
 @dataclass(frozen=True)
-class SentenceSourceReadings:
+class SourceAnnotationReadings:
     """Immediate native/construction boundary consumes retained canonical units only."""
 
-    product: SentenceInventory
+    product: SourceAnnotations
     source: FrozenNativeSource
     _sentences: tuple[bytes, ...] = field(init=False, repr=False)
     _sentence_by_id: Mapping[str, bytes] = field(init=False, repr=False)
     _token_by_id: Mapping[str, bytes] = field(init=False, repr=False)
 
     def __post_init__(self):
-        validate_sentence_inventory(
-            self.product.prepared, self.product.model, json.loads(self.product.content), self.source
+        validate_source_annotations(
+            self.product.prepared,
+            self.product.model,
+            json.loads(self.product.content),
+            self.source,
+            configuration=self.product.configuration,
         )
         sentences = self.product.inventory("sentence")
         object.__setattr__(self, "_sentences", tuple(canonical_bytes(row) for row in sentences))
@@ -860,7 +976,15 @@ class SentenceSourceReadings:
         return self.tokens(sentence)
 
     def annotation_availability(self):
-        return tuple(json.loads(self.product.content)["annotation_columns"])
+        return tuple(
+            dict(
+                block_id=row["block_id"],
+                start=row["block_start"],
+                end=row["block_end"],
+                attributes={item["attribute"]: item["status"] for item in row["availability"]},
+            )
+            for row in source_annotation_rows(json.loads(self.product.content))
+        )
 
 
 @dataclass(frozen=True)
@@ -884,7 +1008,7 @@ class PreparedSentencePort:
                     "source", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=FrozenNativeSource
                 ),
             ),
-            return_annotation=SentenceInventory,
+            return_annotation=SourceAnnotations,
         )
 
     def _verify(self) -> None:
@@ -922,8 +1046,12 @@ class PreparedSentencePort:
         if len(retained) != len(self.custody) or any(
             retained.get(actual.name) != actual
             for actual in (
-                sentence_profile_assets(self.profile.configuration),
-                sentence_execution_custody(self.profile.configuration),
+                sentence_profile_assets(
+                    self.profile.configuration, selection=self.profile.selection
+                ),
+                sentence_execution_custody(
+                    self.profile.configuration, selection=self.profile.selection
+                ),
             )
         ):
             raise PortRefusal("sentence runtime/parser assets differ from acquired custody")
@@ -981,7 +1109,7 @@ class PreparedSentencePort:
             )
         from corpus_structure.ingest import annotations
 
-        for function in (_blocks, _native_records, validate_sentence_inventory):
+        for function in (_blocks, _detach_annotation_block, validate_source_annotations):
             if function.__code__ != declared(
                 Path(__file__).read_bytes(), __file__, function.__name__
             ):
@@ -1048,6 +1176,24 @@ class PreparedSentencePort:
             raise PortRefusal("sentence input differs from the frozen source binding")
         return source
 
+    def _source_pin(self, source, binding):
+        from .data_operation_ports import PortRefusal
+        from .declared_record_sources import DeclaredRecordSource, DeclaredSourcePin
+
+        if binding is None or binding.subject_context is None:
+            if not _blocks(source)[0]:
+                return None
+            raise PortRefusal("annotations require actual selected source/member custody")
+        members = [
+            member for role in binding.roles if role.role == "source" for member in role.members
+        ]
+        if len(members) != 1:
+            raise PortRefusal("annotations require one authentic source/member pin")
+        address = DeclaredRecordSource.from_bound(
+            source, members[0], project=binding.subject_context.project_id
+        )
+        return DeclaredSourcePin(canonical_bytes(address.pin()).decode())
+
     def _completion(self, product, binding=None):
         if binding is not None:
             product = replace(product, subject_context=binding.subject_context)
@@ -1092,7 +1238,7 @@ class PreparedSentencePort:
     def native_selections(self):
         from corpus_structure.methods.native_profiles import spacy_selection
 
-        return (spacy_selection(self.profile.configuration),)
+        return (self.profile.selection,)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         """Submit through the invocation's one shared host and work-handle owner."""
@@ -1105,8 +1251,9 @@ class PreparedSentencePort:
 
         def compute():
             self._verify()
+            source_pin = self._source_pin(source, binding)
             product = SentenceEvidenceOperation(
-                self.profile, check_active, execution_owner.native_hosts
+                self.profile, check_active, execution_owner.native_hosts, source_pin=source_pin
             ).run(source)
             self._verify()
             return self._completion(product, binding)
@@ -1127,7 +1274,9 @@ class PreparedSentencePort:
 
         self._verify()
         source = self._source(values, binding)
-        product = SentenceEvidenceOperation(self.profile, check_active, self.host).run(source)
+        product = SentenceEvidenceOperation(
+            self.profile, check_active, self.host, source_pin=self._source_pin(source, binding)
+        ).run(source)
         self._verify()
         return self._completion(product, binding)
 
@@ -1159,20 +1308,28 @@ def resolve_sentence_port(
         or len(inputs) != 1
         or len(outputs) != 1
         or inputs[0].kind != expected["DdoSelectedNativeSource"].iri
-        or outputs[0].kind != expected["DdoSentenceInventory"].iri
+        or outputs[0].kind != expected["DdoSourceAnnotations"].iri
         or inputs[0].parameter != "source"
     ):
         raise PortRefusal("operation does not establish the prepared sentence profile")
     captured = [artifact for artifact in custody if artifact.name == "sentences/execution-custody"]
     if len(captured) != 1:
         raise PortRefusal("sentence acquisition requires one frozen configuration custody")
-    frozen = SentenceConfig.model_validate(json.loads(captured[0].content)["configuration"])
+    record = json.loads(captured[0].content)
+    frozen = SentenceConfig.model_validate(record["configuration"])
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+
+    declaration = record["selection"]
+    native = NativeProfile.from_content(canonical_bytes(declaration["profile"]))
+    if native.fingerprint != declaration["fingerprint"]:
+        raise PortRefusal("spaCy captured selection fingerprint differs")
+    selection = NativeSelection(native, Path(declaration["assets"]))
     if configuration is not None and configuration != frozen:
         raise PortRefusal("sentence acquisition configuration differs from frozen custody")
     port = PreparedSentencePort(
         identity,
         selected,
-        prepare_sentence_profile(prepared, model, frozen),
+        prepare_sentence_profile(prepared, model, frozen, selection=selection),
         authorize,
         host,
         custody,
