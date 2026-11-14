@@ -213,6 +213,15 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         for member in completion.outputs[0].members
     )
     original_tokens = product.inventory("token")
+    native_tokens = [packet["body"] for packet in complete["members"] if packet["body"]["record_type"] == "native_token"]
+    assert [row["local_id"] for row in native_tokens] == [row["local_id"] for row in original_tokens]
+    assert [tuple(row[key] for key in ("block_id", "ordinal", "start", "end")) for row in native_tokens] == [tuple(row[key] for key in ("block_id", "ordinal", "start", "end")) for row in original_tokens]
+    assert all("lemma" not in row and "dependency" not in row for row in native_tokens)
+    changed = json.loads(product.content)
+    changed["members"][0]["body"]["start"] += 1
+    with pytest.raises(ValueError, match="actual retained native population"):
+        validate_source_annotations(profile.prepared, profile.model, changed, source)
+
     assert all(
         {
             "lemma",
@@ -380,7 +389,7 @@ def test_sentence_members_derive_from_actual_nominal_body_graph(profile):
 
     container = profile.prepared.index.definitions["DdoSourceAnnotations"].iri
     expected = {
-        profile.prepared.index.definitions[name].iri for name in ("DdoSourceAnnotationManifest",)
+        profile.prepared.index.definitions[name].iri for name in ("DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")
     }
     assert set(derive_member_kinds(profile.model, container)) == expected
 

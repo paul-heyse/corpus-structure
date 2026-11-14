@@ -57,18 +57,70 @@ def populate_named(
         for a in annotations.values()
         if a.get("native_token", {}).get("native_run") == run["local_id"]
     }
+    def blocks():
+        for product in products:
+            container = f"spacy/{view.ref.id}/{product.block_id}/block"
+            native = annotation_view(
+                product, view.text[product.block_start:product.block_end], prepared.vocab, required=()
+            )
+            refs = {index: ref for (owner, index), ref in token_refs.items() if owner == container}
+
+            def occurrences(index, *, refs=refs):
+                ids = annotations[refs[index]["local_id"]]["occurrences"]
+                for oid in ids:
+                    layer.occurrences.setdefault(oid, source_occurrences[oid])
+                return ids
+
+            yield product, native, dict(layer=native_pin.values(), local_id=container), refs, occurrences
+
+    _populate_named_blocks(layer, view, native_pin, prepared, blocks(), check_active=check_active, admitted=admitted)
+    return products
+
+
+def populate_named_products(layer, view, source, native, prepared, *, check_active=lambda: None, admitted=lambda a, b: True):
+    """Interpret actual detached native blocks, with governed product/member addresses."""
+    import json
+
+    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.sentence_products import source_annotation_member_values, source_annotation_rows
+
+    value = json.loads(native.content)
+    rows = source_annotation_rows(value)
+    if not rows:
+        return
+    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    products = restore_annotations(rows, source=frame, profile=AnnotationProfile(
+        SentenceConfig.model_validate(value["configuration"]), execution_profile=value["execution_profile"]
+    ), require_complete=False)
+    pin = DataProductReference(native.semantic_id)
+    tokens = {(row["block_id"], row["ordinal"]): row for row in source_annotation_member_values(value) if row["record_type"] == "token"}
+
+    def blocks():
+        for product in products:
+            native_view = annotation_view(product, view.text[product.block_start:product.block_end], prepared.vocab, required=())
+            refs = {index: member_reference(pin, row["local_id"]).values() for (owner, index), row in tokens.items() if owner == product.block_id}
+
+            def occurrences(index, *, product=product):
+                token = product.tokens[index]
+                return [layer.occurrence(view, token.start, token.end)]
+
+            yield product, native_view, dict(product_id=pin.product_id, block_id=product.block_id), refs, occurrences
+
+    _populate_named_blocks(layer, view, pin, prepared, blocks(), check_active=check_active, admitted=admitted)
+
+
+def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_active, admitted):
     rules = {(r.rule, r.variant): r for r in prepared.rules}
-    for product in products:
+    for product, native, container, token_refs, token_occurrences in blocks:
         check_active()
         selector = dict(
-            projection=view.ref.projection_digest, start=product.block_start, end=product.block_end
+            projection=layer.scope["selectors"][0]["projection"], start=product.block_start, end=product.block_end
         )
         if not admitted(product.block_start, product.block_end):
             continue
-        container = f"spacy/{view.ref.id}/{product.block_id}/block"
-        native = annotation_view(
-            product, view.text[product.block_start : product.block_end], prepared.vocab, required=()
-        )
         result = prepared.match(native)
         for rule, variant, availability in result.availability:
             declaration = rules[rule, variant]
@@ -78,7 +130,7 @@ def populate_named(
                 mechanism=declaration.mechanism,
                 protocol=NAMED_VOCABULARY,
                 dependency_digest=product.dependency_digest,
-                native_container=dict(layer=native_pin.values(), local_id=container),
+                native_container=container,
                 nodes=[],
                 piece_indices=[],
                 sentences=[],
@@ -101,13 +153,13 @@ def populate_named(
                 status="interpreted" if availability == "available" else "unknown",
                 named_match=body,
                 occurrences=[layer.occurrence(view, product.block_start, product.block_end)],
-                external_premises=[body["native_container"]],
+                external_premises=[] if layer.semantic else [body["native_container"]],
             )
         for match in result.matches:
             declaration = rules[match.rule, match.variant]
 
             def token(index, *, container=container):
-                return token_refs[container, index]
+                return token_refs[index]
 
             bindings: list[dict[str, Any]] = []
             for role in match.roles:
@@ -140,7 +192,7 @@ def populate_named(
                 mechanism=match.mechanism,
                 protocol=match.protocol,
                 dependency_digest=match.dependency_digest,
-                native_container=dict(layer=native_pin.values(), local_id=container),
+                native_container=container,
                 nodes=[token(index) for index in match.nodes],
                 piece_indices=list(match.piece_indices),
                 sentences=[
@@ -173,15 +225,13 @@ def populate_named(
                 status="interpreted",
                 occurrences=occurrences,
                 named_match=body,
-                external_premises=[body["native_container"], *body["nodes"]],
+                external_premises=body["nodes"] if layer.semantic else [body["native_container"], *body["nodes"]],
             )
             for role in match.roles:
                 for order, index in enumerate(role.nodes):
                     endpoint = token(index)
                     participant = identity("named-role-member", [endpoint, role.role])
-                    native_token = annotations[endpoint["local_id"]]
-                    for oid in native_token["occurrences"]:
-                        layer.occurrences.setdefault(oid, source_occurrences[oid])
+                    occurrences = token_occurrences(index)
                     layer.terms.setdefault(
                         participant,
                         dict(
@@ -191,7 +241,7 @@ def populate_named(
                             vocabulary=NAMED_VOCABULARY,
                             value=role.role,
                             status="interpreted" if role.status == "complete" else "unknown",
-                            occurrences=native_token["occurrences"],
+                            occurrences=occurrences,
                             external_premises=[endpoint],
                         ),
                     )
@@ -205,15 +255,14 @@ def populate_named(
                         scope=key,
                         structural=False,
                         family=NAMED_FAMILY,
-                        occurrences=native_token["occurrences"],
+                        occurrences=occurrences,
                         premises=[key],
                         external_premises=[endpoint],
                     )
             for binding in bindings:
                 for order, endpoint in enumerate(binding.get("antecedent_members", ())):
-                    native_token = annotations[endpoint["local_id"]]
-                    for oid in native_token["occurrences"]:
-                        layer.occurrences.setdefault(oid, source_occurrences[oid])
+                    occurrences = token_occurrences(next(index for index, ref in token_refs.items() if ref == endpoint))
+                    for oid in occurrences:
                         if oid not in layer.annotations[key]["occurrences"]:
                             layer.annotations[key]["occurrences"].append(oid)
                     participant = identity("named-role-member", [endpoint, "antecedent"])
@@ -226,7 +275,7 @@ def populate_named(
                             vocabulary=NAMED_VOCABULARY,
                             value="antecedent",
                             status="private_proposal",
-                            occurrences=native_token["occurrences"],
+                            occurrences=occurrences,
                             external_premises=[endpoint],
                         ),
                     )
@@ -242,7 +291,7 @@ def populate_named(
                         scope=key,
                         structural=False,
                         family=NAMED_FAMILY,
-                        occurrences=native_token["occurrences"],
+                        occurrences=occurrences,
                         premises=[key],
                         external_premises=[endpoint],
                     )
@@ -260,7 +309,6 @@ def populate_named(
                 "native columns or exceed their declared bounds"
             ),
         )
-    return products
 
 
 class RetainedNamedRules:

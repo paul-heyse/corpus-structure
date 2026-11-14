@@ -399,7 +399,9 @@ classes:
         required: true
         minimum_value: 0
   DdoSourceAnnotationManifest:
-    is_a: DdoCharacterizedProduct
+    is_a: DdoSourceAnnotationMember
+    mixins:
+    - DdoCharacterizedProduct
     attributes:
       source:
         range: DdoNativeSourceCoordinate
@@ -422,6 +424,31 @@ classes:
         range: string
         required: true
         pattern: ^(complete|partial)$
+  DdoSourceAnnotationMember:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      record_type: {required: true}
+  DdoNativeToken:
+    annotations: {cs:data_universe: source}
+    is_a: DdoSourceAnnotationMember
+    attributes:
+      record_type: {required: true, equals_string: native_token}
+      local_id: {required: true}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+  DdoNativeSentence:
+    annotations: {cs:data_universe: source}
+    is_a: DdoSourceAnnotationMember
+    attributes:
+      record_type: {required: true, equals_string: native_sentence}
+      local_id: {required: true}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
   DdoSourceAnnotationPacket:
     is_a: SourceRecordProduct
     attributes:
@@ -436,7 +463,7 @@ classes:
         required: true
         inlined: true
       body:
-        range: DdoSourceAnnotationManifest
+        range: DdoSourceAnnotationMember
         required: true
         inlined: true
   DdoSourceAnnotations:

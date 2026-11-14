@@ -216,6 +216,33 @@ def source_annotation_member_values(value: Mapping[str, Any]) -> tuple[dict[str,
     return tuple(result)
 
 
+def source_annotation_packets(prepared, model, value):
+    """Publish genuine native units from the already retained annotation population."""
+    from .characterization_manifests import manifest_contract
+
+    context = dict(
+        subject=source_subject(value["source"]),
+        original_source=value["source"]["document"],
+        analyzed_scope=dict(source=value["source"], selectors=value["selectors"]),
+    )
+    contracts = {name: manifest_contract(prepared, model, name) for name in ("DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")}
+    packets = []
+    for row in source_annotation_member_values(value):
+        name = "DdoNativeToken" if row["record_type"] == "token" else "DdoNativeSentence"
+        body = {key: row[key] for key in ("local_id", "block_id", "ordinal", "start", "end")}
+        body["record_type"] = "native_" + row["record_type"]
+        packets.append(dict(
+            member_id=row["local_id"],
+            kind_contract=contracts[name],
+            context=context,
+            body=body,
+        ))
+    return [*packets, annotation_manifest(
+        value,
+        kind_contract=contracts["DdoSourceAnnotationManifest"],
+    )]
+
+
 def annotation_manifest(value, *, kind_contract):
     from .characterization_manifests import compact_manifest
 
@@ -304,14 +331,8 @@ def validate_source_annotations(
         else "partial"
     ):
         raise ValueError("native product outcome differs from actual family coverage")
-    kind = next(
-        identity.key
-        for identity in model.identities
-        if identity.owner == prepared.index.definitions["DdoSourceAnnotationManifest"].iri
-        and identity.domain == "kind"
-    )
-    if checked["members"] != [annotation_manifest(checked, kind_contract=kind)]:
-        raise ValueError("annotation manifest differs from its actual selected source coverage")
+    if checked["members"] != source_annotation_packets(prepared, model, checked):
+        raise ValueError("annotation members differ from their actual retained native population")
     return SourceAnnotations(canonical_bytes(checked), prepared, model, receipts, subject_context)
 
 
@@ -691,13 +712,7 @@ class PreparedSentenceProfile:
             if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
             else "partial"
         )
-        kind = next(
-            identity.key
-            for identity in self.model.identities
-            if identity.owner == self.prepared.index.definitions["DdoSourceAnnotationManifest"].iri
-            and identity.domain == "kind"
-        )
-        value["members"] = [annotation_manifest(value, kind_contract=kind)]
+        value["members"] = source_annotation_packets(self.prepared, self.model, value)
         check_active()
         return validate_source_annotations(
             self.prepared,
@@ -852,6 +867,7 @@ def sentence_profile_assets(
                         "_detach_annotation_block",
                         "source_annotation_rows",
                         "source_annotation_member_values",
+                        "source_annotation_packets",
                         "annotation_manifest",
                         "spacy_family_coverage",
                         "_semantic_nodes",

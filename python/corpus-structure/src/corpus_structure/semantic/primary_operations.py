@@ -22,6 +22,22 @@ class PrimaryOperationInputs:
     sources: PythonSourceCollection
 
 
+def primary_operation_targets(workflow: str, *, captured: bool) -> tuple[str, ...]:
+    """Choose an explicit product capability; the admitted model owns its closure."""
+    if workflow == "capture":
+        if not captured:
+            raise ValueError("capture requires an actual declared PDF capture input")
+        return ("source.pdf_views/discovery",)
+    if workflow == "characterize":
+        return ("text.compose_view/captured-full-native" if captured else "text.compose_view/full-native",)
+    if workflow == "phase0":
+        raise ValueError(
+            "phase0 target requires completed mathematical extraction, normalization and symbol-scope "
+            "producer adoption; select explicit admitted operations for the available scope"
+        )
+    raise ValueError("unknown declared primary workflow")
+
+
 def primary_operation_inputs(
     bundle: SourceBundle,
     *,
@@ -30,6 +46,8 @@ def primary_operation_inputs(
     dependencies: ResolvedDependencies | None = None,
     capture_sources: PythonSourceCollection | None = None,
     learned_selections=None,
+    construction_options=None,
+    sentence_selection=None,
 ) -> PrimaryOperationInputs:
     """Acquire the selected full primary profile without starting a provider.
 
@@ -67,7 +85,7 @@ def primary_operation_inputs(
     collections = (
         source_discovery_operation_sources(),
         source_profile_operation_sources(),
-        sentence_operation_sources(sentence_configuration),
+        sentence_operation_sources(sentence_configuration, selection=sentence_selection),
         canonical_sentence_operation_sources(
             sentence_configuration=sentence_configuration, include_dependencies=False
         ),
@@ -77,7 +95,7 @@ def primary_operation_inputs(
             include_dependencies=False,
         ),
         formal_operation_sources(),
-        characterization_operation_sources(),
+        characterization_operation_sources(construction_options=construction_options),
         full_document_view_operation_sources(include_dependencies=False),
     )
     if capture_sources is not None:

@@ -27,6 +27,8 @@ from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+
 from .data_product_reference import DataProductReference, member_reference, reference_inputs
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
@@ -135,6 +137,12 @@ class ConstructionOptions(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     max_region_chars: int = Field(default=4096, gt=0)
     parse_seconds: float = Field(default=2, gt=0)
+    annotation_rules: tuple[AnnotationRule, ...] = ()
+
+
+def load_construction_options(domain: Path) -> ConstructionOptions:
+    """Acquire domain-authored rules once before freezing operation custody."""
+    return ConstructionOptions.model_validate(yaml.safe_load((domain / "construction.yaml").read_bytes()))
 
 
 def interpreted_member_contracts(prepared, model):
@@ -290,6 +298,7 @@ def construction_product_values(
         {"selectors": selected["selectors"]},
         {"key": "text.constructions/source-native"},
         semantic=True,
+        families=(*FAMILIES, *(("construction.named_rules",) if options.annotation_rules else ())),
     )
     atom_references = {}
     for product in formal:
@@ -408,6 +417,19 @@ def construction_product_values(
                 for family in FAMILIES:
                     for selector in selected["selectors"]:
                         builder.record(family, selector, "partial", "; ".join(unavailable))
+    if options.annotation_rules:
+        from .constructions.named import NAMED_FAMILY, populate_named_products
+
+        if native is None:
+            for selector in selected["selectors"]:
+                builder.record(NAMED_FAMILY, selector, "unknown", "named rules require retained native annotations")
+        else:
+            populate_named_products(
+                builder, view, source, native,
+                PreparedAnnotationRules(vocab, rules=options.annotation_rules),
+                check_active=check_active,
+                admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
+            )
     if native is None:
         for family in GRAMMAR_FAMILIES:
             for selector in selected["selectors"]:
@@ -548,6 +570,28 @@ def validate_interpreted_product(
         ):
             if (ref["product_id"], ref["member_id"]) not in external:
                 raise ValueError("construction has dangling primary semantic member premise")
+    dependencies = {product.semantic_id: json.loads(product.content) for product in formal}
+    for annotation in inventory["annotations"]:
+        named = annotation.get("named_match")
+        if named is None:
+            continue
+        container = named["native_container"]
+        dependency = dependencies.get(container["product_id"])
+        blocks = [] if dependency is None else [
+            block["annotation"] for block in dependency.get("blocks", ())
+            if block["annotation"]["block_id"] == container["block_id"]
+        ]
+        if len(blocks) != 1 or blocks[0]["dependency_digest"] != named["dependency_digest"]:
+            raise ValueError("named rule lacks its exact original native block")
+        members = {packet["member_id"]: packet["body"] for packet in dependency["members"]}
+        for ref in (*named["nodes"], *(ref for binding in named["bindings"] for ref in (
+            binding["head"], *binding["members"], *binding.get("antecedent_members", ())
+        ))):
+            token = members.get(ref["member_id"])
+            if (ref["product_id"] != container["product_id"] or token is None
+                or token.get("record_type") != "native_token"
+                or token["block_id"] != container["block_id"]):
+                raise ValueError("named rule token leaves its exact original native block")
     policies = attachment_policies(prepared)
 
     def validate_basis(basis):

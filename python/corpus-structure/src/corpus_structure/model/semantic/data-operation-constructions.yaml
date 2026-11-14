@@ -49,6 +49,8 @@ classes:
         required: true
         equals_string: annotation
     slot_usage:
+      named_match:
+        range: DdoNamedMatch
       external_premises:
         range: DdoSemanticMemberReference
       required_external_choices:
@@ -342,3 +344,21 @@ classes:
     is_a: DdoContextualMember
     mixins:
     - DdoCharacterizedProduct
+
+  DdoNativeBlockReference:
+    is_a: DdoSemanticProductReference
+    description: An actual retained native block inside the exact annotation product; not a member address.
+    attributes:
+      block_id: {required: true, pattern: '^.+$'}
+  DdoNamedBinding:
+    is_a: CharacterizationNamedBinding
+    slot_usage:
+      head: {range: DdoSemanticMemberReference}
+      members: {range: DdoSemanticMemberReference}
+      antecedent_members: {range: DdoSemanticMemberReference}
+  DdoNamedMatch:
+    is_a: CharacterizationNamedMatch
+    slot_usage:
+      native_container: {range: DdoNativeBlockReference}
+      nodes: {range: DdoSemanticMemberReference}
+      bindings: {range: DdoNamedBinding}

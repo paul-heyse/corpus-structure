@@ -178,3 +178,16 @@ def test_captured_primary_profile_declares_capture_views_and_authentic_full_fani
     assert model.operation("text.compose_view/full-native").dependencies == (
         "source.selected_views/discovery",
     )
+
+
+def test_primary_workflow_targets_do_not_relabel_characterization_as_phase0():
+    import pytest
+    from corpus_structure.semantic.primary_operations import primary_operation_targets
+
+    assert primary_operation_targets("capture", captured=True) == ("source.pdf_views/discovery",)
+    assert primary_operation_targets("characterize", captured=False) == ("text.compose_view/full-native",)
+    assert primary_operation_targets("characterize", captured=True) == ("text.compose_view/captured-full-native",)
+    with pytest.raises(ValueError, match="normalization and symbol-scope"):
+        primary_operation_targets("phase0", captured=True)
+    with pytest.raises(ValueError, match="actual declared PDF capture"):
+        primary_operation_targets("capture", captured=False)

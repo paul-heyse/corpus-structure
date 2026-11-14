@@ -596,6 +596,11 @@ class ConstructionOperation:
         ],
         "assets": [
             {
+                "reference": "construction-configuration",
+                "contract": "characterization/construction-configuration",
+                "role": "frozen-construction-bounds-and-named-rules",
+            },
+            {
                 "reference": "construction-profile",
                 "contract": "characterization/construction-assets",
                 "role": "semantic-implementation-and-schema-assets",

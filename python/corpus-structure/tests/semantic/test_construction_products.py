@@ -433,3 +433,51 @@ def test_compact_family_members_preserve_parent_identity_and_complete_source_con
     assert json.loads(view.content)["products"] == [
         {"product_id": product.semantic_id} for product in (primary, symbolic, contextual)
     ]
+
+
+@pytest.mark.gpu
+def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(profiles, monkeypatch):
+    import json
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.methods.annotation_rules import AnnotationRule
+    from corpus_structure.methods.native_host import NativeHostGroup
+    from corpus_structure.semantic.sentence_products import prepare_sentence_profile
+    from corpus_structure.settings import NemotronSettings
+    from semantic.test_sentence_products import _controlled_source_pin
+
+    formal, construction = profiles
+    source = selected(formal, "Mean is finite.")
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    sentence_profile = prepare_sentence_profile(construction.prepared, construction.model)
+    with NativeHostGroup(CharacterizationExecutionPolicy(), NemotronSettings().endpoint) as host:
+        annotations = sentence_profile.run(source, host=host, subject_context=context, source_pin=_controlled_source_pin(source))
+    monkeypatch.setattr("corpus_structure.semantic.sentence_products.pipeline", lambda *_: pytest.fail("construction repeated native inference"))
+    rule = AnnotationRule(rule="copula", variant="is", mechanism="token", pattern=[{"LOWER": "is"}], bindings={"cue": {"node": "match"}})
+    product = construction.run(source, (primary,), ConstructionOptions(annotation_rules=(rule,)), sentences=annotations, subject_context=context)
+    inventory = product.inventory()
+    bindings = [row for row in inventory["annotations"] if row["kind"] == "construction.named_binding"]
+    assert len(bindings) == 1
+    match = bindings[0]["named_match"]
+    assert match["rule"] == "copula" and match["status"] == "matched"
+    assert match["native_container"] == {"product_id": annotations.semantic_id, "block_id": "#/texts/0"}
+    native_members = {row["member_id"]: row["body"] for row in json.loads(annotations.content)["members"]}
+    (ref,) = match["nodes"]
+    assert ref["product_id"] == annotations.semantic_id
+    token = native_members[ref["member_id"]]
+    assert source.value["text"][token["start"]:token["end"]] == "is"
+    assert any(row["family"] == "construction.named_rules" and row["outcome"] == "complete" for row in inventory["coverage"])
+    forged = json.loads(product.content)
+    for packet in forged["members"]:
+        if packet["body"].get("kind") == "construction.named_binding":
+            packet["body"]["named_match"]["native_container"]["block_id"] = "#/texts/foreign"
+    with pytest.raises(ValueError, match="exact original native block"):
+        validate_construction_product(construction.prepared, construction.model, forged, source, (primary, annotations), subject_context=context)
+
+
+def test_statistics_named_rule_configuration_belongs_to_construction_profile():
+    from corpus_structure.semantic.construction_products import load_construction_options
+
+    options = load_construction_options(Path(__file__).resolve().parents[4] / "domains/statistics")
+    assert len(options.annotation_rules) == 15
+    assert {("defining", "active_as"), ("naming", "passive_called_term"), ("condition_exception", "marked_clause")} <= {(rule.rule, rule.variant) for rule in options.annotation_rules}

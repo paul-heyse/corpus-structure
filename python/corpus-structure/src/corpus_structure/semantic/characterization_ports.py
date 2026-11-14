@@ -60,6 +60,8 @@ def _semantic_assets(profile: str) -> SourceArtifact:
             "constructions/lexical.py",
             "constructions/layers.py",
             "constructions/reuse.py",
+            "constructions/named.py",
+            "constructions/named_nominations.py",
             "constructions/grammars/prose.lark",
         ),
         "contextual": (*common, "constructions/evaluation.py"),
@@ -114,6 +116,8 @@ def _semantic_assets(profile: str) -> SourceArtifact:
                 )
                 if profile == "construction"
                 else (),
+                named_rule_engine=(root.parent / "methods/annotation_rules.py").read_bytes().hex() if profile == "construction" else None,
+                native_view=(root.parent / "ingest/annotation_views.py").read_bytes().hex() if profile == "construction" else None,
                 typed_profile=_semantic_nodes(
                     (root / "construction_products.py").read_bytes(), selected[profile]
                 ),
@@ -202,6 +206,10 @@ def _execution_custody() -> SourceArtifact:
         "constructions/declarations.py",
         "constructions/evaluation.py",
         "constructions/matching.py",
+        "constructions/named.py",
+        "constructions/named_nominations.py",
+        "../methods/annotation_rules.py",
+        "../ingest/annotation_views.py",
     )
     return SourceArtifact(
         "characterization/execution-custody",
@@ -224,8 +232,14 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
     )
 
 
-def construction_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
+def construction_configuration(options=None):
+    options = ConstructionOptions() if options is None else ConstructionOptions.model_validate(options)
+    return SourceArtifact("characterization/construction-configuration", canonical_bytes(options.model_dump(mode="json")))
+
+
+def construction_operation_sources(*, include_dependencies=True, construction_options=None) -> PythonSourceCollection:
     own = _operation_sources("construction_characterization", "construction")
+    own = replace(own, boundary_contracts=(*own.boundary_contracts, construction_configuration(construction_options)))
     if not include_dependencies:
         return own
     from .formal_products import formal_operation_sources
@@ -234,23 +248,23 @@ def construction_operation_sources(*, include_dependencies=True) -> PythonSource
     return combine_primary_sources(formal_operation_sources(), own)
 
 
-def contextual_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
+def contextual_operation_sources(*, include_dependencies=True, construction_options=None) -> PythonSourceCollection:
     own = _operation_sources("contextual_interpretation", "contextual")
     if not include_dependencies:
         return own
     from .primary_operations import combine_primary_sources
 
-    return combine_primary_sources(construction_operation_sources(), own)
+    return combine_primary_sources(construction_operation_sources(construction_options=construction_options), own)
 
 
 def document_view_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
     return _operation_sources("characterization", "view")
 
 
-def characterization_operation_sources() -> PythonSourceCollection:
+def characterization_operation_sources(*, construction_options=None) -> PythonSourceCollection:
     collections = (
-        construction_operation_sources(),
-        contextual_operation_sources(),
+        construction_operation_sources(construction_options=construction_options),
+        contextual_operation_sources(construction_options=construction_options),
         document_view_operation_sources(),
     )
     from .primary_operations import combine_primary_sources
@@ -412,6 +426,10 @@ class PreparedCharacterizationPort(ABC):
         signature = inspect.signature(self.endpoint.run, eval_str=True)
         return signature.replace(parameters=tuple(signature.parameters.values())[1:])
 
+    def construction_options(self):
+        assets = {asset.name: asset for asset in self.custody}
+        return ConstructionOptions.model_validate_json(assets["characterization/construction-configuration"].content)
+
     def _verify(self):
         import sys
 
@@ -441,10 +459,12 @@ class PreparedCharacterizationPort(ABC):
             self.operation,
             self.sources,
             self.custody,
-            assets=(_semantic_assets(self.family), _execution_custody()),
+            assets=(_semantic_assets(self.family), _execution_custody(), *((construction_configuration(self.construction_options()),) if self.family == "construction" else ())),
             functions=functions,
             authorize=self.authorize,
-            required_sources=self.operation_sources(include_dependencies=False),
+            required_sources=self.operation_sources(
+                include_dependencies=False, **({"construction_options": self.construction_options()} if self.family == "construction" else {})
+            ),
         )
 
     def _roles(self, values, binding):
@@ -717,7 +737,7 @@ class PreparedCharacterizationPort(ABC):
             return self._completion(None, binding)
         if isinstance(inputs, _ConstructionInputs):
             product = PreparedConstructionProfile(self.prepared, self.model).run(
-                inputs.source, inputs.formal, sentences=inputs.native, check_active=check_active
+                inputs.source, inputs.formal, self.construction_options(), sentences=inputs.native, check_active=check_active
             )
         elif isinstance(inputs, _ContextualInputs):
             product = PreparedContextualProfile(self.prepared, self.model).run(
@@ -777,7 +797,7 @@ class PreparedCharacterizationPort(ABC):
                     CharacterizationSnapshot(product.semantic_id, product.content)
                     for product in inputs.formal
                 ),
-                options=ConstructionOptions(),
+                options=self.construction_options(),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
                 assets=_semantic_assets(self.family).digest,
                 native=None
@@ -806,7 +826,7 @@ class PreparedCharacterizationPort(ABC):
         root = Path(__file__).parent
         sources = tuple(
             (
-                "corpus_structure.semantic." + name.removesuffix(".py").replace("/", "."),
+                "corpus_structure." + (root / name).resolve().relative_to(root.parent).as_posix().removesuffix(".py").replace("/", "."),
                 str((root / name).resolve()),
                 bytes.fromhex(content),
             )
