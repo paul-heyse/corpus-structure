@@ -59,7 +59,7 @@ class DossierOperation:
             {
                 "name": "definitions",
                 "parameter": "definitions",
-                "kind": "urn:corpus:structural:DeclaredDefinitionReport",
+                "kind": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,

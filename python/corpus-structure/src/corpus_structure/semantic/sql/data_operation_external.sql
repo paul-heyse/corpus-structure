@@ -83,7 +83,7 @@ BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['project_id'],ARRAY['demand_id','limit']);
  IF lim NOT BETWEEN 1 AND 64 THEN RAISE EXCEPTION 'invalid external queue bound'; END IF;
  result:='[]';
- FOR row_ IN SELECT packet.*,request.operation_id,request.subject FROM ops.data_external_packet packet
+ FOR row_ IN SELECT packet.id,packet.payload_digest,packet.request_id,packet.generation,packet.task_id,request.operation_id,request.subject FROM ops.data_external_packet packet
  JOIN ops.data_request request ON (request.id,request.generation,request.live_task_id)=(packet.request_id,packet.generation,packet.task_id)
  JOIN ops.task task ON task.id=packet.task_id
  WHERE request.project_id=p->>'project_id' AND ops.ddo_request_useful(request)

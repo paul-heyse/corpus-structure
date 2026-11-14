@@ -1400,11 +1400,14 @@ class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
     reports_input: tuple[DeclaredStructuralInputPin, ...] = ()
 
 
-class DeclaredDefinitionReport(DeclaredStructuralProductReport):
+class DeclaredDefinitionApplicabilityReport(DeclaredStructuralProductReport):
+    """Current usage result with independently bound exact component/relationship pins."""
+
     kind: Literal["definition_applicability"] = "definition_applicability"
     definition: DeclaredDefinitionProduct
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+    components_input: DeclaredStructuralInputPin
+    relationship_input: DeclaredStructuralInputPin
 
 
 class DeclaredArtifactReport(DeclaredStructuralProductReport):
@@ -1761,7 +1764,7 @@ DeclaredStructuralReport = Annotated[
     | DeclaredDossierReport
     | DeclaredConditionReport
     | DeclaredDefinitionComponentsReport
-    | DeclaredDefinitionReport
+    | DeclaredDefinitionApplicabilityReport
     | DeclaredArtifactReport
     | DeclaredClauseReport,
     Field(discriminator="kind"),

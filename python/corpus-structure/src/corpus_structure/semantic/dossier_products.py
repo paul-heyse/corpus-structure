@@ -226,7 +226,7 @@ class PreparedDossierInputs:
         from .structural_products import (
             DeclaredComparisonReport,
             DeclaredDefinitionComponentsReport,
-            DeclaredDefinitionReport,
+            DeclaredDefinitionApplicabilityReport,
             DeclaredDossierComparisonSelection,
             DeclaredDossierReport,
             DeclaredStructuralInput,
@@ -310,7 +310,7 @@ class PreparedDossierInputs:
         if root.scope != scope:
             raise ValueError("dossier scope differs from its actual selected root")
         for member, raw in pairs("definitions", definitions):
-            retain(member, raw, DeclaredDefinitionReport)
+            retain(member, raw, DeclaredDefinitionApplicabilityReport)
         for member, raw in pairs("comparisons", comparisons):
             retain(member, raw, DeclaredComparisonReport)
         for selected in TypeAdapter(tuple[DossierPassageSelection, ...]).validate_json(

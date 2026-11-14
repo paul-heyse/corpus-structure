@@ -178,7 +178,7 @@ def execute_definition_applicability(
     from .structural_products import (
         DeclaredDefinitionComponentsReport,
         DeclaredDefinitionProduct,
-        DeclaredDefinitionReport,
+        DeclaredDefinitionApplicabilityReport,
         DeclaredStructuralInput,
     )
 
@@ -249,7 +249,7 @@ def execute_definition_applicability(
         usage_frame=frame,
         defining_occurrence=defining_occurrence,
     )
-    result = DeclaredDefinitionReport(
+    result = DeclaredDefinitionApplicabilityReport(
         inputs=inputs,
         definition=DeclaredDefinitionProduct(
             usage_id=usage_id,
@@ -259,7 +259,8 @@ def execute_definition_applicability(
             readings=(reading,),
         ),
         sources_input=(exact.reference("source"),),
-        reports_input=(exact.reference("components"), exact.reference("relationship")),
+        components_input=exact.reference("components"),
+        relationship_input=exact.reference("relationship"),
     )
     profile.check_active()
     return result.model_dump(mode="json", exclude_none=True)

@@ -73,7 +73,7 @@ class DefinitionApplicabilityOperation:
             },
             {
                 "name": "result",
-                "kind": "urn:corpus:structural:DeclaredDefinitionReport",
+                "kind": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,
@@ -200,7 +200,7 @@ class DefinitionApplicabilityOperation:
             },
             {
                 "output_role": "result",
-                "records": "/reports_input/0",
+                "records": "/components_input",
                 "input_role": "components",
                 "comparisons": [
                     {
@@ -270,7 +270,7 @@ class DefinitionApplicabilityOperation:
             },
             {
                 "output_role": "result",
-                "records": "/reports_input/1",
+                "records": "/relationship_input",
                 "input_role": "relationship",
                 "comparisons": [
                     {

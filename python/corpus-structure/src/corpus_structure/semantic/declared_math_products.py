@@ -165,6 +165,7 @@ def math_operation_sources(options: DeclaredMathOptions | None = None):
             for name in (
                 "methods/math/declared.py",
                 "semantic/declared_math_products.py",
+                "semantic/declared_math_scope.py",
                 "semantic/data_operation_prepared_call.py",
             )
         ),

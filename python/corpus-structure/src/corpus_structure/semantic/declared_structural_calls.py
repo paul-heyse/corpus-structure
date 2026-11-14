@@ -53,7 +53,7 @@ def structural_operation_declarations():
         DeclaredComparisonReport,
         DeclaredConditionReport,
         DeclaredDefinitionComponentsReport,
-        DeclaredDefinitionReport,
+        DeclaredDefinitionApplicabilityReport,
         DeclaredDossierReport,
     )
 
@@ -62,7 +62,7 @@ def structural_operation_declarations():
         | DeclaredConditionReport
         | DeclaredDossierReport
         | DeclaredDefinitionComponentsReport
-        | DeclaredDefinitionReport
+        | DeclaredDefinitionApplicabilityReport
         | DeclaredArtifactReport
         | DeclaredClauseReport
     ).json_schema()
