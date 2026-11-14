@@ -69,7 +69,8 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(ddo_origin
         demand = DemandPlanner(model, DataOperationStorage(connection)).register(intent,
             project=retained.project_id, release=prepared.release_id, runtime=kernel.runtime)["demand_id"]
     executor = NativeDemandExecutor(kernel.purpose("write"), prepared,
-        kernel.preparation.runtime, _source_recipe()[1], schema=kernel.preparation.bundle)
+        kernel.preparation.runtime, _source_recipe()[1], schema=kernel.preparation.bundle,
+        admission_engine=kernel.purpose("admit"))
     actual = executor.run(demand)
     assert executor.budget.used_bytes == 0
     with case.admin.begin() as connection:
