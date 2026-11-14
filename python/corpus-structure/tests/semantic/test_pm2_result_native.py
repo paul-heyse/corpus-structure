@@ -16,8 +16,8 @@ from corpus_structure.methods.native_host_clients import HostedPM2
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, SourceMapSegment
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.pm2 import settle_pm2_claim
-from corpus_structure.orchestrate.pm2_stage import _interpretation_dependency_reader
+from semantic.retained_pm2_fixture import retain_pm2_fixture
+from semantic.retained_pm2_fixture import retained_interpretation_dependencies
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.identity import canonical_bytes
@@ -211,7 +211,7 @@ def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question
         digest = pm2_input_digest(mapping, profile, request, **options)
         held = _claim(case, digest)
         with maintained_claims(case.writer, (held,), held.holder) as owner:
-            settle_pm2_claim(
+            retain_pm2_fixture(
                 owner,
                 held,
                 cast(HostedPM2, SimpleNamespace(startup={**profile, "host_stream": 901})),
@@ -368,7 +368,7 @@ def _mapped_answer_and_limited_operation(case, *, provider_assets=None, tmp_path
                 case.writer, (held, limited_held), "records", interval=0.1
             ) as owner:
                 for claim, selected in ((held, request), (limited_held, oversized)):
-                    settle_pm2_claim(
+                    retain_pm2_fixture(
                         owner,
                         claim,
                         worker,
@@ -472,7 +472,7 @@ def _mapped_answer_and_limited_operation(case, *, provider_assets=None, tmp_path
             runtime_fingerprint=runtime,
         )
         stale = ref.model_copy(update={"cut_id": completed.cut_id + 1})
-        resolved = _interpretation_dependency_reader(conn, case.prepared, (ref, stale, ref))
+        resolved = retained_interpretation_dependencies(conn, case.prepared, (ref, stale, ref))
         native_reads = []
 
         def observe_native_read(_conn, _cursor, statement, _parameters, _context, _executemany):
@@ -636,9 +636,9 @@ def _settle_reassigned_dipo(case, tmp_path, admin, assets):
             maintained_claims(case.writer, (held,), held.holder) as stale,
             pytest.raises(OperationConflict, match="attempt lost"),
         ):
-            settle_pm2_claim(stale, held, worker, mapping, request, **completion)
+            retain_pm2_fixture(stale, held, worker, mapping, request, **completion)
         with maintained_claims(case.writer, (reassigned,), reassigned.holder) as current:
-            settle_pm2_claim(current, reassigned, worker, mapping, request, **completion)
+            retain_pm2_fixture(current, reassigned, worker, mapping, request, **completion)
 
 
 def _complete(case, conn, held, result):

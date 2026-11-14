@@ -1338,8 +1338,6 @@ def _read_analysis_implementation_inputs(
                 *M1_IMPLEMENTATION_SOURCES,
                 ("records/contextual-query.py", "methods/contextual_query.py"),
                 ("records/contextual-embeddings.py", "methods/contextual_embeddings.py"),
-                ("parsing/pm2-stage.py", "orchestrate/pm2_stage.py"),
-                ("parsing/pm2-settlement.py", "orchestrate/pm2.py"),
                 ("parsing/pm2-native.py", "methods/pm2_native.py"),
                 ("parsing/pm2-worker.py", "methods/pm2_worker.py"),
                 ("parsing/pm2-source.py", "methods/pm2_source.py"),

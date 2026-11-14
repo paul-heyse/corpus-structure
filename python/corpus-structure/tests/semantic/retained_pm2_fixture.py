@@ -1,8 +1,12 @@
-"""Complete a private PM2 observation under the existing maintained source claim."""
+"""Publish authentic historical PM2 fixture values under their real native claim.
+
+This test helper supplies no current operation execution, graph, queue or selection.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections import Counter
+from collections.abc import Mapping, Iterable, Callable
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, select
@@ -18,7 +22,8 @@ from corpus_structure.methods.pm2_result import (
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, PM2TokenMap
 from corpus_structure.methods.pm2_worker import Pm2WorkerError
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import OperationConflict, complete_unit_result
+from corpus_structure.semantic.operations import BoundReader, OperationConflict, complete_unit_result
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import Method
@@ -30,7 +35,7 @@ if TYPE_CHECKING:
     from corpus_structure.semantic.types import PreparedRelease
 
 
-def settle_pm2_claim(
+def retain_pm2_fixture(
     owner: ClaimOwner,
     claim: ClaimedTask,
     worker: HostedPM2 | ClassificationWorker | None,
@@ -149,3 +154,28 @@ def settle_pm2_claim(
             result=result,
         ),
     )
+
+
+def retained_interpretation_dependencies(
+    conn: Connection, prepared: PreparedRelease, references: Iterable[RetainedContributionRef]
+) -> Callable[[RetainedContributionRef], list[dict[str, Any]]]:
+    """Read each repeatedly used exact reference once within this read snapshot."""
+    remaining = Counter(references)
+    retained: dict[RetainedContributionRef, list[dict[str, Any]]] = {}
+
+    def resolve(ref: RetainedContributionRef) -> list[dict[str, Any]]:
+        if ref in retained:
+            rows = retained[ref]
+        else:
+            rows = BoundReader(
+                conn, ref.run_id, prepared, ref.cut_id, analysis=False
+            ).retained_source_contribution(ref)["contributions"]
+            if remaining[ref] > 1:
+                retained[ref] = rows
+        remaining[ref] -= 1
+        if remaining[ref] == 0:
+            retained.pop(ref, None)
+        return rows
+
+    return resolve
+

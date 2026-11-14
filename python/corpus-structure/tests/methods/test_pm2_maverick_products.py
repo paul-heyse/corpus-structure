@@ -12,7 +12,6 @@ from corpus_structure.methods.pm2_maverick_products import (
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import PM2TokenMap, ProviderToken, SourceMapRefused
-from corpus_structure.orchestrate.pm2_stage import _partition
 from methods.pm2_source_support import identity_map
 
 
@@ -74,9 +73,3 @@ def test_maverick_retains_nested_and_unassigned_detection_independently_of_clust
     paired = maverick_products(mapping, {**request, "predefined_mentions": [[2, 4]]}, reply)
     supplied = next(row for row in paired.products if row.key == "mention:2:4")
     assert supplied.value == dict(first=2, last=4, detected=False, supplied=True, clustered=False)
-
-
-def test_limit_fallback_splits_only_at_owned_sentence_boundaries():
-    bounds = [(1, 7), (8, 15), (16, 30), (31, 40)]
-    assert _partition((1, 40), bounds) == ((1, 16), (16, 40))
-    assert _partition((16, 30), bounds) == ()
