@@ -315,6 +315,82 @@ def _scalar_procedure_readings(proposals, passages) -> Iterable[dict[str, Any]]:
             )
 
 
+def located_participant(frame, context, pin, dependency, operation, start, end, *, role, pointer, region, extra=None, dependencies=(), reading_key=None):
+    """Project one genuine original-relative participant for structural consumers."""
+    if not 0 <= start < end <= len(frame.text):
+        raise ValueError("structural participant lies outside source")
+    anchors, mapped_coordinates = [], []
+    for piece in context.map_span(
+        start, end, literal=frame.text[start:end], allow_multiple=True
+    ):
+        anchor, coordinate = evidence_anchor(context, piece, native=True)
+        anchors.append(anchor)
+        mapped_coordinates.append(coordinate)
+    row = dict(
+        contract="RetainedContributionSemantics",
+        kind="occurrence",
+        semantic_type="structural.located_participant",
+        operation_key=operation,
+        item_key=f"{pointer}:{role}:{start}:{end}" + (f":{reading_key}" if reading_key else ""),
+        pin=pin,
+        anchors=tuple(anchors),
+        occurrence_id=occurrence_identity(anchors),
+        standing="retained_private",
+        score_state="missing",
+        disposition="located_proposal",
+        computation_dependencies=tuple(dict.fromkeys((dependency, *dependencies))),
+        value=source_value(
+            dict(
+                role=role,
+                source_pointer=pointer,
+                region=region,
+                text=frame.text[start:end],
+                start=start,
+                end=end,
+                **(extra or {}),
+            )
+        ),
+    )
+    row["contribution_id"] = contribution_identity(row)
+    return row, tuple(mapped_coordinates)
+
+
+def artifact_occurrence(item, found, node, source_work, dependency, field_start, *, artifact_type=SourceArtifactOccurrence):
+    """Project already characterized artifact facts, without unrelated structural work."""
+    # Caption status comes from the original native label, not surface position.
+    caption = node.get("label") == "caption"
+    pointer = found["primary_record"].payload["pointer"]
+    from .witnessed_source_links import retained_artifact_fields
+
+    aliases, _, title = retained_artifact_fields(
+        found["primary_record"], field_start
+    )
+
+    value = artifact_type.model_validate(
+        dict(
+            artifact_kind=found["artifact_kind"],
+            source_work=source_work,
+            controlled_code=found["controlled_code"],
+            title=title if caption else None,
+            **aliases,
+            revision=None,
+            revision_state="unknown",
+            occurrence_role="caption" if caption else "reference",
+            scope=pointer,
+            source_pointer=pointer,
+            dependencies=(dependency,),
+            primary_node=found["primary_node"],
+        )
+    ).model_dump(mode="json", exclude_none=True)
+    artifact = {
+        **item,
+        "semantic_type": "structural.artifact",
+        "value": source_value(value),
+    }
+    artifact["contribution_id"] = contribution_identity(artifact)
+    return artifact
+
+
 def discover_relations(
     frame,
     *,
@@ -398,43 +474,13 @@ def discover_relations(
         key = (start, end, role, pointer, operation, reading_key)
         if key in participants:
             return participants[key]
-        if not 0 <= start < end <= len(frame.text):
-            raise ValueError("structural participant lies outside source")
-        anchors = []
-        for piece in context.map_span(
-            start, end, literal=frame.text[start:end], allow_multiple=True
-        ):
-            anchor, coordinate = evidence_anchor(context, piece, native=True)
-            anchors.append(anchor)
-            coordinates[canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})] = (
-                coordinate
-            )
-        row = dict(
-            contract="RetainedContributionSemantics",
-            kind="occurrence",
-            semantic_type="structural.located_participant",
-            operation_key=operation,
-            item_key=f"{pointer}:{role}:{start}:{end}" + (f":{reading_key}" if reading_key else ""),
-            pin=pin,
-            anchors=tuple(anchors),
-            occurrence_id=occurrence_identity(anchors),
-            standing="retained_private",
-            score_state="missing",
-            disposition="located_proposal",
-            computation_dependencies=tuple(dict.fromkeys((dependency, *dependencies))),
-            value=source_value(
-                dict(
-                    role=role,
-                    source_pointer=pointer,
-                    region=region,
-                    text=frame.text[start:end],
-                    start=start,
-                    end=end,
-                    **(extra or {}),
-                )
-            ),
+        row, mapped = located_participant(
+            frame, context, pin, dependency, operation, start, end,
+            role=role, pointer=pointer, region=region, extra=extra,
+            dependencies=dependencies, reading_key=reading_key,
         )
-        row["contribution_id"] = contribution_identity(row)
+        for coordinate in mapped:
+            coordinates[canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})] = coordinate
         products.append(row)
         participants[key] = row
         return row
@@ -627,36 +673,8 @@ def discover_relations(
                     region=pointer,
                     extra={"primary_node": found["primary_node"]},
                 )
-                # Caption status comes from the original native label, not surface position.
+                artifact = artifact_occurrence(item, found, node, source_work, dependency, piece["start"])
                 caption = node.get("label") == "caption"
-                from .witnessed_source_links import retained_artifact_fields
-
-                aliases, _, title = retained_artifact_fields(
-                    found["primary_record"], piece["start"]
-                )
-
-                value = SourceArtifactOccurrence.model_validate(
-                    dict(
-                        artifact_kind=found["artifact_kind"],
-                        source_work=source_work,
-                        controlled_code=found["controlled_code"],
-                        title=title if caption else None,
-                        **aliases,
-                        revision=None,
-                        revision_state="unknown",
-                        occurrence_role="caption" if caption else "reference",
-                        scope=pointer,
-                        source_pointer=pointer,
-                        dependencies=(dependency,),
-                        primary_node=found["primary_node"],
-                    )
-                ).model_dump(mode="json", exclude_none=True)
-                artifact = {
-                    **item,
-                    "semantic_type": "structural.artifact",
-                    "value": source_value(value),
-                }
-                artifact["contribution_id"] = contribution_identity(artifact)
                 products.append(artifact)
                 code = normalized_code(found["controlled_code"])
                 if code is None or found["artifact_kind"] not in {"table", "figure"}:

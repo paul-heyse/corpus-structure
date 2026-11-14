@@ -76,3 +76,49 @@ def test_navigation_refuses_changed_source_scope_and_literal_evidence():
     occurrence["extents"][0]["text"] = "forged spelling"
     with pytest.raises(ValueError, match="literal original"):
         NativeNavigationIndex((CharacterizationSnapshot(retained.product_id, canonical_bytes(body)),), selected)
+
+
+def artifact_case(text="Table 2.1 (aliases: none)."):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredRecordSource
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.source_products import native_projection_identity, source_subject
+    from corpus_structure.semantic.structural_products import DeclaredStructuralInput, StructuralPassage
+
+    selected = source(text)
+    selected.value["source"]["projection"] = native_projection_identity(text, selected.value["pieces"], selected.value["items"])
+    selected.value["selectors"][0]["projection"] = selected.value["source"]["projection"]
+    selected.content = canonical_bytes(selected.value)
+    context = SubjectContext("p", source_subject(selected.value["source"]), "book", canonical_bytes({"source": selected.value["source"], "selectors": selected.value["selectors"]}))
+    pin = DeclaredRecordSource("book", selected.value["source"]["projection"], "#/groups/0", "direct", context, "product:source", None, "kind:source").pin()
+    frame = DeclaredNativeFrameSource(selected.content.decode(), canonical_bytes(pin).decode())
+    original = DeclaredStructuralSource.model_validate(pin)
+    passage = StructuralPassage(passage_id="caption", source_ref=original.identity, start=0, end=len(text), text=text, scope="local")
+    inputs = DeclaredStructuralInput(question="Read exact artifact", scope="local", inventory_id="explicit", policy_id="artifact-identity-5", sources=(original,), passages=(passage,), dependencies=("product:navigation",))
+    navigation = NativeNavigationIndex((product(selected),), selected).require()
+    return selected, frame, original, inputs, navigation
+
+
+def test_native_artifact_discovery_keeps_known_absence_and_actual_semantic_witnesses():
+    from corpus_structure.semantic.artifact_products import native_artifact_records
+
+    selected, frame, original, inputs, navigation = artifact_case()
+    (record,) = native_artifact_records(frame, selected, inputs, original.identity, "work:book", navigation)
+    assert record.artifact.controlled_code == "2.1" and record.artifact.artifact_kind == "table"
+    assert record.artifact.alias_state == "known_empty" and record.artifact.aliases == ()
+    assert record.artifact.alias_absence.text == "aliases: none"
+    assert record.citations[0].text == "Table 2.1"
+    assert record.primary_node.product_id == "product:navigation"
+    assert record.primary_node == record.artifact.primary_node
+    assert b"task_id" not in canonical_bytes(record.model_dump(mode="json"))
+    assert b"source_view_id" not in canonical_bytes(record.source_contribution)
+
+
+def test_native_artifact_discovery_retains_unknown_aliases_and_requires_complete_navigation():
+    from corpus_structure.semantic.artifact_products import native_artifact_records
+
+    selected, frame, original, inputs, navigation = artifact_case("Table 2.1.")
+    (record,) = native_artifact_records(frame, selected, inputs, original.identity, "work:book", navigation)
+    assert record.artifact.alias_state == "unknown" and record.artifact.alias_absence is None
+    with pytest.raises(ValueError, match="missing or incomplete"):
+        native_artifact_records(frame, selected, inputs, original.identity, "work:book", NativeNavigationIndex((), selected))

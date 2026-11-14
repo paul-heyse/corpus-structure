@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from typing import TypeVar
 
 from pydantic import Field, model_validator
 
@@ -34,6 +35,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import (
+    DeclaredArtifactRecord,
     StructuralInput,
     StructuralProductReport,
     StructuralValue,
@@ -81,7 +83,7 @@ class ArtifactIdentityConfig(StructuralValue):
 
 def discover_identity_records(frame, inputs, source_ref, source_work, *, primary_layers):
     from .scoped_relations import discover_relations
-    from .witnessed_source_links import navigation_index, retained_artifact_fields
+    from .witnessed_source_links import navigation_index
 
     index = navigation_index(
         primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
@@ -89,13 +91,20 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
     rows = discover_relations(frame, source_work=source_work, primary_layers=primary_layers)[
         "contributions"
     ]
+    return identity_records(frame, inputs, source_ref, rows, index)
+
+
+def identity_records(frame, inputs, source_ref, rows, index, *, artifact_type=SourceArtifactOccurrence, reference_type=ArtifactReferenceDesignator, record_type=ArtifactRecord, primary_reference=lambda reference: reference):
+    """Source-bound artifact assembly shared by native and sealed address owners."""
+    from .witnessed_source_links import retained_artifact_fields
+
     pieces = json.loads(frame.native_context)["pieces"]
     passages = tuple(p for p in inputs.passages if p.source_ref == source_ref)
     records = []
     for row in rows:
         if row["semantic_type"] != "structural.artifact":
             continue
-        artifact = SourceArtifactOccurrence.model_validate(source_python(row["value"]))
+        artifact = artifact_type.model_validate(source_python(row["value"]))
         citations = []
         labels = None
         named_target = None
@@ -129,7 +138,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
                             )
                         (fact,) = matches
                         _, labels, _ = retained_artifact_fields(fact, piece["start"])
-                        primary_node = fact.reference
+                        primary_node = primary_reference(fact.reference)
                         explicit = [
                             fact
                             for fact in index.select("artifact_explicit_reference", pointer)
@@ -144,7 +153,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
                             (target,) = explicit
                             lo, hi = target.span("cue")
                             if passage.start <= lo < hi <= passage.end:
-                                named_target = ArtifactReferenceDesignator(
+                                named_target = reference_type(
                                     target_code=target.payload["designator"],
                                     target_numbering=target.payload["numbering_namespace"],
                                     cue=ArtifactAliasSpan(
@@ -153,7 +162,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
                                         end=hi - piece["start"],
                                         text=target.text("cue"),
                                     ),
-                                    primary_node=target.reference,
+                                    primary_node=primary_reference(target.reference),
                                 )
                         citations.append(
                             ArtifactCitation(
@@ -168,7 +177,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
         if labels is None:
             continue
         records.append(
-            ArtifactRecord(
+            record_type(
                 contribution_id=row["contribution_id"],
                 occurrence_id=row["occurrence_id"],
                 artifact=artifact,
@@ -183,8 +192,11 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
     return tuple(records)
 
 
-def artifact_cohort(records: list[ArtifactRecord]) -> tuple[ArtifactRecord, ...]:
-    cohort: dict[tuple[str, str, str], ArtifactRecord] = {}
+
+_Record = TypeVar("_Record", ArtifactRecord, DeclaredArtifactRecord)
+
+def artifact_cohort(records: list[_Record]) -> tuple[_Record, ...]:
+    cohort: dict[tuple[str, str, str], _Record] = {}
     for record in sorted(records, key=lambda r: r.contribution_id):
         key = (record.occurrence_id, record.artifact.source_work, record.artifact.artifact_kind)
         previous = cohort.setdefault(key, record)
@@ -211,6 +223,12 @@ def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
         ).require()
         for source, frame in frames.items()
     }
+    return declared_artifact_relationships(records, inputs, indexes)
+
+
+def declared_artifact_relationships(records, inputs, indexes, *, endpoint_type=ArtifactDeclaredEndpoint, relationship_type=ArtifactDeclaredRelationship, primary_reference=lambda reference: reference):
+    """Resolve retained navigation facts through their actual nominal reference owner."""
+    passages = {passage.passage_id: passage for passage in inputs.passages}
     captions = defaultdict(list)
     declarations = []
     for record in records:
@@ -236,7 +254,7 @@ def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
                             citation.model_copy(
                                 update={"start": lo, "end": hi, "text": fact.text("cue")}
                             ),
-                            fact.reference,
+                            primary_reference(fact.reference),
                         )
                     )
             for fact in source_facts("artifact_relation"):
@@ -260,7 +278,7 @@ def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
                             fact.payload["designator"].lower(),
                         ),
                         fact.payload.get("revision"),
-                        fact.reference,
+                        primary_reference(fact.reference),
                     )
                 )
         if record.artifact.occurrence_role == "caption":
@@ -297,7 +315,7 @@ def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
                 else target.citations[0]
             )
             targets.append(
-                ArtifactDeclaredEndpoint(
+                endpoint_type(
                     record_id=target.contribution_id,
                     citation=citation,
                     work_cue=marker,
@@ -305,7 +323,7 @@ def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
                 )
             )
         output.append(
-            ArtifactDeclaredRelationship(
+            relationship_type(
                 kind=kind,
                 source_id=source.contribution_id,
                 origin=origin,
