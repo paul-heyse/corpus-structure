@@ -188,11 +188,14 @@ def hydrate_consumer_selection(
     This is not a new selector. No unselected body or mutable latest/default query
     can supply an input. Native custody and purpose remain enforced by its owner.
     """
-    from sqlalchemy import select
+    from itertools import batched
+
+    from sqlalchemy import BigInteger, and_, cast, column, select, values
 
     from .data_operation_identity import decode_semantic_value
-    from .data_operation_json import json_context_equal, json_loads
-    from .data_operation_storage import admitted_data_projection
+    from .data_operation_json import json_context_equal, json_context_value, json_loads
+    from .data_operation_projections import binding_columns
+    from .data_operation_storage import admitted_data_read
     from .data_operation_support import support_reference_records
     from .identity import canonical_bytes
 
@@ -209,7 +212,7 @@ def hydrate_consumer_selection(
         raise ValueError("native consumer hydration requires its acquired subject context")
     if type(max_bytes) is not int or max_bytes <= 0:
         raise ValueError("native hydration requires explicit positive packet capacity")
-    projections = admitted_data_projection(
+    read = admitted_data_read(
         connection,
         demand_id,
         binding.operation,
@@ -220,45 +223,108 @@ def hydrate_consumer_selection(
         original_source=context.original_source,
         analyzed_scope=json_loads(context.analyzed_scope),
     )
-    if set(binding.admission_evidence) != {
-        projection.admission_evidence for projection in projections
-    }:
+    expected_evidence = {read.admission_evidence} if read.accepted_kind_contracts else set()
+    if set(binding.admission_evidence) != expected_evidence:
         raise ValueError("retained consumer binding belongs to a different native read boundary")
-    by_kind = {projection.kind: projection for projection in projections}
-    declaration = model.operation(binding.operation)
-    result, used = [], 0
-    for role in binding.roles:
-        definition = next(item for item in declaration.roles if item.name == role.role)
-        relation = by_kind[definition.kind].relation
-        values = []
-        for member in role.members:
-            query = select(relation.c.meaning_body).where(
-                relation.c.product == member.product,
-                relation.c.member.is_not_distinct_from(member.member),
-                relation.c.kind_contract == member.kind_contract,
-                relation.c.subject == member.subject,
-                relation.c.original_source == member.original_source,
-                json_context_equal(relation.c.analyzed_scope, json_loads(member.analyzed_scope)),
-                relation.c.support_evidence == json_loads(member.support_evidence),
-                relation.c.support_episodes == list(member.support_episodes),
-                relation.c.support_references
-                == support_reference_records(member.support_references),
-                relation.c.position.is_not_distinct_from(member.position),
-                relation.c.multiplicity == member.multiplicity,
-            )
-            rows = connection.execute(query).scalars().all()
-            if len(rows) != 1:
+    declarations = {role.name: role for role in model.operation(binding.operation).roles}
+    relation = read.relation
+    pin_names = (
+        "product",
+        "member",
+        "kind_contract",
+        "subject",
+        "original_source",
+        "analyzed_scope",
+        "support_evidence",
+        "support_episodes",
+        "support_references",
+        "position",
+        "multiplicity",
+    )
+    columns = {item.name: item for item in binding_columns(decoder=True)}
+    selected_members = (
+        (role_ordinal, member_ordinal, role, member)
+        for role_ordinal, role in enumerate(binding.roles)
+        for member_ordinal, member in enumerate(role.members)
+    )
+    hydrated, used = {}, 0
+    # Thirteen binds per VALUES row stay well below the extended-query parameter
+    # ceiling. Pages bound SQL/driver state; the owned packet bound spans all pages.
+    for page in batched(selected_members, 1024):
+        members, records = {}, []
+        for role_ordinal, member_ordinal, role, member in page:
+            if member.kind_contract not in read.accepted_kind_contracts[declarations[role.role].kind]:
                 raise ValueError("retained consumer member no longer has one admitted body")
-            content = canonical_bytes(decode_semantic_value(rows[0]))
-            used += len(content) * member.multiplicity
-            if used > max_bytes:
-                raise ValueError("complete consumer inputs exceed owned packet capacity")
-            values.extend(
-                SelectedConsumerValue(member, content, canonical_bytes(rows[0]))
-                for _ in range(member.multiplicity)
+            members[role_ordinal, member_ordinal] = member
+            records.append(
+                (
+                    role_ordinal,
+                    member_ordinal,
+                    member.product,
+                    member.member,
+                    member.kind_contract,
+                    member.subject,
+                    member.original_source,
+                    json_context_value(json_loads(member.analyzed_scope)),
+                    json_context_value(json_loads(member.support_evidence)),
+                    list(member.support_episodes),
+                    support_reference_records(member.support_references),
+                    cast(member.position, columns["position"].type),
+                    member.multiplicity,
+                )
             )
-        result.append((role.role, tuple(values)))
-    return HydratedConsumerSelection(selection, tuple(result))
+        pins = values(
+            column("role_ordinal", BigInteger()),
+            column("member_ordinal", BigInteger()),
+            *(column(name, columns[name].type) for name in pin_names),
+            name="consumer_pins",
+        ).data(records)
+        predicates = [
+            relation.c[name].is_not_distinct_from(pins.c[name])
+            if name in {"member", "position"}
+            else json_context_equal(relation.c[name], pins.c[name])
+            if name == "analyzed_scope"
+            else relation.c[name] == pins.c[name]
+            for name in pin_names
+        ]
+        query = (
+            select(pins.c.role_ordinal, pins.c.member_ordinal, relation.c.meaning_body)
+            .select_from(pins.join(relation, and_(*predicates)))
+            .limit(len(page) + 1)
+        )
+        found = set()
+        # Fetch one body at a time: a driver batch of large bodies must not exceed
+        # the caller's owned packet before its capacity check can run.
+        with connection.execute(query.execution_options(yield_per=1)) as rows:
+            for row in rows:
+                key = row.role_ordinal, row.member_ordinal
+                if key in found:
+                    raise ValueError("retained consumer member no longer has one admitted body")
+                found.add(key)
+                member = members[key]
+                content = canonical_bytes(decode_semantic_value(row.meaning_body))
+                used += len(content) * member.multiplicity
+                if used > max_bytes:
+                    raise ValueError("complete consumer inputs exceed owned packet capacity")
+                hydrated[key] = SelectedConsumerValue(
+                    member, content, canonical_bytes(row.meaning_body)
+                )
+        if found != members.keys():
+            raise ValueError("retained consumer member no longer has one admitted body")
+    return HydratedConsumerSelection(
+        selection,
+        tuple(
+            (
+                role.role,
+                tuple(
+                    hydrated[role_ordinal, member_ordinal]
+                    for member_ordinal, member in enumerate(role.members)
+                    for _ in range(member.multiplicity)
+                ),
+            )
+            for role_ordinal, role in enumerate(binding.roles)
+        ),
+    )
 
 
 @dataclass(frozen=True)

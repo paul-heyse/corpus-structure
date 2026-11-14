@@ -10,6 +10,7 @@ import json
 from typing import Any
 
 import pytest
+from sqlalchemy import event
 
 from corpus_structure.semantic.data_operation_admission import (
     acquire_publication_port,
@@ -446,15 +447,28 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel, case)
             "structural": StructuralComparisonMethod,
             "occurrences": ContextualCandidates,
         }[case]()
-        result = method.select_bound_native(
-            connection,
-            model,
-            binding,
-            demand_id=demand["demand_id"],
-            read_id=snapshot["read_id"],
-            trust_snapshot=snapshot["trust_snapshot"],
-            max_bytes=1024 * 1024,
-        )
+        body_queries = []
+
+        def record_body_query(_, __, statement, ___, ____, _____):
+            if "ops.data_binding_rows(" in statement:
+                body_queries.append(statement)
+
+        event.listen(connection, "before_cursor_execute", record_body_query)
+        try:
+            result = method.select_bound_native(
+                connection,
+                model,
+                binding,
+                demand_id=demand["demand_id"],
+                read_id=snapshot["read_id"],
+                trust_snapshot=snapshot["trust_snapshot"],
+                max_bytes=1024 * 1024,
+            )
+        finally:
+            event.remove(connection, "before_cursor_execute", record_body_query)
+        assert len(body_queries) == 1
+        assert body_queries[0].count("ops.data_binding_rows(") == 1
+        assert "LATERAL" not in body_queries[0]
         if case == "document":
             assert result[0] == "document"
             assert [value.member.member for value in result[1]] == ["view:one", "view:two"]

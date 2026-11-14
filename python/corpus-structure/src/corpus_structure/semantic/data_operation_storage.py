@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -24,6 +24,7 @@ from .types import SourceArtifact
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
+    from sqlalchemy.sql.selectable import FromClause
 
     from .data_operation_model import EffectiveDataOperationModel
     from .types import PreparedRelease
@@ -845,7 +846,16 @@ def typed_field_projection(meaning, value, value_type, *, multivalued=False):
     return value, "json"
 
 
-def admitted_data_projection(
+@dataclass(frozen=True)
+class AdmittedDataRead:
+    """One authenticated binding-row base shared by selection and body hydration."""
+
+    relation: FromClause
+    accepted_kind_contracts: Mapping[str, tuple[str, ...]]
+    admission_evidence: bytes
+
+
+def admitted_data_read(
     connection: Connection,
     demand_id: str,
     operation_id: str,
@@ -862,9 +872,6 @@ def admitted_data_projection(
     The query rechecks the trust snapshot when executed. Evidence captures the same
     pins, and contains no claim that a raw product row is admissible evidence.
     """
-    from sqlalchemy import cast
-
-    from .data_operation_bindings import ProjectionBinding, ProjectionField
     from .data_operation_kind_refinements import input_kind_contracts
 
     operation = model.operation(operation_id)
@@ -881,15 +888,12 @@ def admitted_data_projection(
     # The native reader validates epoch meaning against this exact read_id.
     # Keep its canonical pins: a lazily materialized zero is not revocation.
     trust_snapshot = acquired["trust_snapshot"]
-    kinds = {kind.semantic_id: kind for kind in model.kinds}
     accepted = input_kind_contracts(
         model, (role.kind for role in operation.roles if role.direction == "input")
     )
     from .data_operation_projections import binding_columns
 
     columns = binding_columns(decoder=True)
-    json_columns = {item.name for item in binding_columns() if isinstance(item.type, JSONB)}
-    names = tuple(item.name for item in columns)
     relation = func.ops.data_binding_rows(
         demand_id,
         operation_id,
@@ -899,6 +903,56 @@ def admitted_data_projection(
         original_source,
         _binding_scope_parameter(analyzed_scope),
     ).table_valued(*columns)
+    return AdmittedDataRead(
+        relation,
+        accepted,
+        canonical_bytes(
+            {
+                "demand_id": demand_id,
+                "operation_id": operation_id,
+                "selection": acquired["selection"],
+                "trust_snapshot": trust_snapshot,
+                "read_id": read_id,
+                "read_snapshot": acquired["read_snapshot"],
+                "frontier_at": acquired["frontier_at"],
+            }
+        ),
+    )
+
+
+def admitted_data_projection(
+    connection: Connection,
+    demand_id: str,
+    operation_id: str,
+    trust_snapshot: dict,
+    model: EffectiveDataOperationModel,
+    *,
+    read_id: str,
+    subject: str | None = None,
+    original_source: str | None = None,
+    analyzed_scope: Any = _UNQUALIFIED_SCOPE,
+):
+    """Derive kind/property projections from the same admitted binding-row base."""
+    from .data_operation_bindings import ProjectionBinding, ProjectionField
+    from .data_operation_projections import binding_columns
+
+    read = admitted_data_read(
+        connection,
+        demand_id,
+        operation_id,
+        trust_snapshot,
+        model,
+        read_id=read_id,
+        subject=subject,
+        original_source=original_source,
+        analyzed_scope=analyzed_scope,
+    )
+    relation = read.relation
+    accepted = read.accepted_kind_contracts
+    operation = model.operation(operation_id)
+    kinds = {kind.semantic_id: kind for kind in model.kinds}
+    json_columns = {item.name for item in binding_columns() if isinstance(item.type, JSONB)}
+    names = tuple(relation.c.keys())
     projections = []
     for kind_id in sorted({role.kind for role in operation.roles if role.direction == "input"}):
         kind = kinds[kind_id]
@@ -983,17 +1037,7 @@ def admitted_data_projection(
                 kind_id,
                 scoped,
                 tuple(fields),
-                canonical_bytes(
-                    {
-                        "demand_id": demand_id,
-                        "operation_id": operation_id,
-                        "selection": acquired["selection"],
-                        "trust_snapshot": trust_snapshot,
-                        "read_id": read_id,
-                        "read_snapshot": acquired["read_snapshot"],
-                        "frontier_at": acquired["frontier_at"],
-                    }
-                ),
+                read.admission_evidence,
             )
         )
     return tuple(projections)
