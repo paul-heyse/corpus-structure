@@ -788,12 +788,19 @@ def compile_data_operations(
     definitions: tuple[ClassDefinition, ...] | None = None,
     vocabularies: tuple[VocabularySnapshot, ...] = (),
 ) -> EffectiveDataOperationModel:
-    """Compile the actual supplied inputs; no installed-model or target import fallback."""
+    """Compile supplied inputs without importing candidate code or ambient models.
+
+    Authored JSON-schema kinds own closed JSON shape. An explicit nominal_namespace
+    allows local definition ranges only when that entire namespace belongs to one
+    supplied source artifact. Producer implementation custody separately owns Python
+    validators and algorithms that JSON Schema cannot express.
+    """
     kinds, nodes, edges, aliases = _kind_products(schema, definitions, vocabularies)
     frontend = ClosedPythonSources(python_sources) if python_sources is not None else None
     authored: list[tuple[dict[str, Any], tuple, tuple[FactOrigin, ...], str | None]] = []
     slices = []
     seen_sources: set[str] = set()
+    kind_documents = []
     for source in declarations:
         if source.name in seen_sources:
             _fail(source.name, "duplicate operation declaration input")
@@ -805,6 +812,10 @@ def compile_data_operations(
         raw = _mapping(raw, source.name, {"version", "operations", "kinds"})
         if raw.get("version") != MODEL_VERSION:
             _fail(source.name, "unsupported operation declaration version")
+        if raw.get("kinds") and not raw.get("operations"):
+            kind_documents.append(
+                (raw, (), (FactOrigin("kind", "authored", source.name, source.name),), None)
+            )
         for value in raw.get("operations", []):
             value = dict(_mapping(value, source.name))
             if "kinds" in value:
@@ -830,7 +841,8 @@ def compile_data_operations(
                 )
             )
     # Register all semantic kind owners before resolving any operation/role references.
-    for raw, _, origins, _ in authored:
+    namespace_owners = {}
+    for raw, _, origins, _ in (*authored, *kind_documents):
         for record in raw.get("kinds", []):
             record = _mapping(
                 record,
@@ -845,11 +857,28 @@ def compile_data_operations(
                     "interpretation",
                     "references",
                     "json_schema",
+                    "nominal_namespace",
                     "universe",
                     "projection_families",
                 },
             )
             semantic_id = _text(record.get("id"), "kind/id")
+            namespace = record.get("nominal_namespace")
+            if namespace is not None:
+                namespace = _text(namespace, semantic_id + "/nominal_namespace")
+                if (
+                    record.get("json_schema") is None
+                    or not semantic_id.startswith(namespace)
+                    or not namespace.endswith((":", "/", "#"))
+                    or namespace in {"primitive:", "urn:corpus:data-wire:"}
+                ):
+                    _fail(
+                        semantic_id, "nominal schema namespace requires its own closed schema owner"
+                    )
+                owner = frozenset(origin.source for origin in origins)
+                if namespace in namespace_owners and namespace_owners[namespace] != owner:
+                    _fail(semantic_id, "nominal schema namespace has conflicting source owners")
+                namespace_owners[namespace] = owner
             if record.get("json_schema") is not None:
                 try:
                     checked_json_schema(record["json_schema"])
@@ -2042,7 +2071,7 @@ def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
         schema = kind_facts.get("json_schema")
         if schema is None:
             continue
-        namespace = (
+        namespace = kind_facts.get("nominal_namespace") or (
             KIND_PREFIX
             if kind.semantic_id.startswith(KIND_PREFIX) and kind_facts.get("scope") == "native-wire"
             else None
@@ -2059,10 +2088,20 @@ def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
                 )
             if target not in kinds:
                 _fail(kind.semantic_id, "wire property range lacks an effective kind: " + target)
-            if target.startswith(KIND_PREFIX):
-                local_name = target.removeprefix(KIND_PREFIX)
+            if namespace is not None and target.startswith(namespace):
+                local_name = target.removeprefix(namespace)
                 definitions = field_schema.get("definitions", {})
-                target_schema = json.loads(kinds[target].facts).get("json_schema")
+                target_facts = json.loads(kinds[target].facts)
+                target_schema = target_facts.get("json_schema")
+                if kind_facts.get("nominal_namespace") is not None and (
+                    target_facts.get("nominal_namespace") != namespace
+                    or {origin.source for origin in kinds[target].origins}
+                    != {origin.source for origin in kind.origins}
+                ):
+                    _fail(
+                        kind.semantic_id,
+                        "local nominal reference differs from its supplied schema owner",
+                    )
                 if local_name not in definitions or target_schema != schema_closure(
                     definitions[local_name], definitions
                 ):
