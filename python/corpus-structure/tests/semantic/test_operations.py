@@ -479,8 +479,7 @@ def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
 
     from corpus_structure.cli import orchestrate as cli
     from corpus_structure.cli.app import app
-    from corpus_structure.ingest.methods import METHODS
-    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+    from corpus_structure.orchestrate import project
 
     p = prepare_operation_scenario(commit_db_engine, observations=True, archive=True)
     e = commit_writer_engine
@@ -488,26 +487,18 @@ def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
     from pdf_acceptance_support import write_controlled_pdf
 
     write_controlled_pdf(corpus / "toy/input.pdf", ("Source",))
-    registry = MethodRegistry(
-        METHODS,
-        MethodsFile(
-            configs={
-                "ingest.pdf": {"default": {"originals": ["toy/input.pdf"]}},
-                "ingest.pdf_integrated": {"default": {"originals": ["toy/input.pdf"]}},
-                "segment.sentences": {"default": {}},
-                "profile.segments": {"default": {}},
-            }
-        ),
+    domain = tmp_path / "domains/test"
+    domain.mkdir(parents=True)
+    (domain / "methods.yaml").write_text(
+        "configs:\n  ingest.pdf:\n    default:\n      originals: [toy/input.pdf]\n"
     )
+    monkeypatch.setattr(project, "DOMAINS", domain.parent)
 
     @contextmanager
     def engine(_):
         yield e
 
     monkeypatch.setattr(cli, "ENGINE", engine)
-    monkeypatch.setattr(
-        cli, "PHASE0", lambda: {"registry_for": lambda _: registry, "domains": tmp_path}
-    )
     result = CliRunner().invoke(
         app,
         [

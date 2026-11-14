@@ -97,12 +97,6 @@ def source_selection(*, slice=None, scope=None, whole_document=False, corpus=Non
     return PackDefault()
 
 
-def validate_source_agent_policy(agent_mode, agent_reuse) -> None:
-    """Sealed legacy readers may still validate their recorded policy."""
-    if agent_mode != "complete" or agent_reuse != "full":
-        raise SourceRequestError("the retained policy requires complete mode and full packet reuse")
-
-
 def validate_source_roles(native, integrated) -> None:
     if native is not None and integrated is not None:
         raise SourceRequestError("select one exact native or integrated PDF input role")
