@@ -55,6 +55,15 @@ from semantic.data_operation_declaration_support import (
 
 
 @dataclass(frozen=True)
+class CapturedKernelInputs:
+    """Already production-composed immutable package inputs; no filesystem discovery."""
+
+    bundle: SourceBundle
+    dependencies: ResolvedDependencies
+    profile: PreparationProfile
+
+
+@dataclass(frozen=True)
 class KernelRecipe:
     name: str
     schema_text: str
@@ -66,6 +75,7 @@ class KernelRecipe:
     additional_files: tuple[tuple[str, bytes], ...] = ()
     python_sources: tuple[tuple[str, str, bytes], ...] = ()
     source_stage: str | None = None
+    captured_inputs: CapturedKernelInputs | None = None
 
     @property
     def model_version(self):
@@ -100,17 +110,42 @@ def _prepare_kernel(recipe: KernelRecipe, directory: Path | None = None) -> Kern
     owner = TemporaryDirectory(prefix="ddo-" + recipe.name + "-") if directory is None else None
     directory = Path(owner.name) if owner is not None else directory
     assert directory is not None
-    (directory / "schema.yaml").write_text(recipe.schema_text)
-    if recipe.declaration_content is not None:
-        (directory / recipe.declaration_path).write_bytes(recipe.declaration_content)
-    for name, content in recipe.additional_files:
-        (directory / name).write_bytes(content)
-    for _module, name, content in recipe.python_sources:
-        (directory / name).write_bytes(content)
-    (directory / "target.yaml").write_text(recipe.manifest_text)
-    bundle, dependencies, profile, prepared = prepare_data_operation_inputs(
-        directory, "target.yaml"
-    )
+    def source_file(name, content):
+        path = Path(name)
+        if path.is_absolute():
+            if not path.is_file() or path.read_bytes() != content:
+                raise ValueError("captured package source differs from its read-only file: " + name)
+            return
+        target = directory / path
+        if not target.resolve().is_relative_to(directory.resolve()):
+            raise ValueError("synthetic kernel source escapes its owned directory")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+
+    if recipe.captured_inputs is None:
+        (directory / "schema.yaml").write_text(recipe.schema_text)
+        if recipe.declaration_content is not None:
+            source_file(recipe.declaration_path, recipe.declaration_content)
+        for name, content in recipe.additional_files:
+            source_file(name, content)
+        for _module, name, content in recipe.python_sources:
+            source_file(name, content)
+        (directory / "target.yaml").write_text(recipe.manifest_text)
+        bundle, dependencies, profile, prepared = prepare_data_operation_inputs(directory, "target.yaml")
+    else:
+        from corpus_structure.semantic.composed import read_data_operation_inputs
+        from corpus_structure.semantic.prepare import prepare_release
+
+        if recipe.python_sources or recipe.additional_files or recipe.declaration_content is not None:
+            raise ValueError("captured kernel inputs cannot mix a second acquisition recipe")
+        captured = recipe.captured_inputs
+        bundle, dependencies, profile = captured.bundle, captured.dependencies, captured.profile
+        acquired = read_data_operation_inputs(dependencies)
+        if acquired is None or acquired[1] is None:
+            raise ValueError("captured kernel requires its production-composed Python sources")
+        for source in acquired[1].sources:
+            source_file(source.filename, source.content)
+        prepared = prepare_release(bundle, dependencies, profile)
     model = bound_data_operation_model(prepared)
     runtime = prepare_data_operation_runtime(
         prepared, dependencies.artifacts, execution_profile=recipe.execution_profile, observed={}
