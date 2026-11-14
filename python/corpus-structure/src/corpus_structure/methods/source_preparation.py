@@ -298,6 +298,7 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
         b - a <= max_chars
         and sum(piece["start"] < b and piece["end"] > a for piece in view.pieces) <= max_pieces
         and all(p is not None for p in prepared_cells.projections)
+        and (not isinstance(frame, DeclaredNativeFrameSource) or frame.contains_span(a, b))
     ):
         return [
             ContextSelection(
@@ -325,6 +326,8 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
         for start, end, index in sorted(selected):
             if previous is not None and index != previous:
                 pieces.append(SyntheticText("\n", "native table context cell separator"))
+            if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(start, end):
+                return None, "complete target/path cell is outside selected native scope"
             pieces.append(source_slice(frame, start, end))
             previous = index
         if not pieces:
@@ -679,6 +682,9 @@ def prepare_source(
                         else:
                             limits.append("remaining coherent region exceeds character bound")
             for a, b in ranges:
+                if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(a, b):
+                    limits.append("whole native context exceeds selected source scope")
+                    continue
                 count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
                 if b - a > max_chars or count > max_pieces:
                     limits.append(f"native context bound exceeded:{a}:{b}")
@@ -1221,6 +1227,10 @@ def _widen_contexts(
                 )
                 if enclosure is not None:
                     pointer, span, outcome, reason = enclosure
+                    if span is not None and isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(*span):
+                        span = None
+                        outcome = RetrievalOutcome.MISSING_SCOPE
+                        reason = "whole nearest native enclosure exceeds selected source scope"
                     if span is not None:
                         a, b = span
                         # Replace the consumed formula with its complete enclosure;
@@ -1277,6 +1287,9 @@ def _widen_contexts(
                 # A native item may contain several runs separated by synthetic
                 # projection intervals. Context serialization consumes those too.
                 target_count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
+                if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(a, b):
+                    local_dispositions.append((target, "missing_scope", "whole local native context exceeds selected source scope"))
+                    continue
                 if already_consumed(a, b):
                     local_dispositions.append((target, "selected", "already in primary context"))
                     continue
@@ -1365,18 +1378,29 @@ def _widen_contexts(
             for source in result.sources:
                 declared = isinstance(source, DeclaredNativeFrameSource)
                 identity = source.source_key if declared else source.ref.id
-                source_pieces = (
-                    json.loads(source.native_context)["pieces"] if declared else source.pieces
-                )
-                # Overlapping primary contents need no second source custody. Prefer
-                # explicit smaller views; broad projections remain an exclusion.
+                source_pieces = source.inspectable_pieces if declared else source.pieces
+                # Related sources retain their own exact selection. Never append
+                # their full raw projection merely because its carrier was bound.
+                ranges = []
+                for piece in source_pieces:
+                    if piece["kind"] != "native_text":
+                        continue
+                    start, end = piece["start"], piece["end"]
+                    if ranges and (ranges[-1][1] == start or (declared and source.contains_span(ranges[-1][0], end))):
+                        ranges[-1] = (ranges[-1][0], end)
+                    else:
+                        ranges.append((start, end))
+                if not declared:
+                    ranges = [(0, len(source.text))]
                 target_pieces = tuple(p for p in source_pieces if p["kind"] == "native_text")
                 overlaps = any(p["item_ref"] in local for p in target_pieces)
+                inspected_chars = sum(end - start for start, end in ranges)
                 if (
                     overlaps
-                    or not source.text.strip()
-                    or chars + 1 + len(source.text) > max_chars
-                    or count + 1 + len(source_pieces) > max_pieces
+                    or not ranges
+                    or not any(source.text[start:end].strip() for start, end in ranges)
+                    or chars + len(ranges) + inspected_chars > max_chars
+                    or count + len(ranges) + len(source_pieces) > max_pieces
                     or (identity not in related and len(related) >= 8)
                     or (
                         identity in selected_relations
@@ -1394,16 +1418,11 @@ def _widen_contexts(
                         request.relationship,
                         request.reason,
                     )
-                pieces.extend(
-                    (
-                        SyntheticText("\n", "context piece separator"),
-                        source_slice(
-                            source if declared else related[identity].source, 0, len(source.text)
-                        ),
-                    )
-                )
-                chars += 1 + len(source.text)
-                count += 1 + len(source_pieces)
+                for start, end in ranges:
+                    pieces.extend((SyntheticText("\n", "context piece separator"),
+                        source_slice(source if declared else related[identity].source, start, end)))
+                chars += len(ranges) + inspected_chars
+                count += len(ranges) + len(source_pieces)
                 selected.append(identity)
                 selected_relations[identity] = (request.relationship, request.reason)
             if outcome == RetrievalOutcome.SELECTED:

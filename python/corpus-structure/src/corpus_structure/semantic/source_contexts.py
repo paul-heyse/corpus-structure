@@ -245,6 +245,8 @@ class SourceSlice:
 def source_slice(source: SourceFrame, start: int, end: int) -> SourceSlice | DeclaredSourceSlice:
     """Keep a frame's actual address profile when selecting an original text extent."""
     if isinstance(source, DeclaredNativeFrameSource):
+        if not source.contains_span(start, end):
+            raise ContextRefused("context extent is outside its exact selected native source scope")
         return DeclaredSourceSlice(source.source_key, start, end)
     return SourceSlice(source.source_key, start, end)
 
@@ -783,6 +785,8 @@ class NativeSourceContext:
             if not isinstance(piece, (SourceSlice, DeclaredSourceSlice)):
                 raise ContextRefused("unsupported context piece")
             source = by_id.get(piece.source_key)
+            if isinstance(source, DeclaredNativeFrameSource) and not source.contains_span(piece.start, piece.end):
+                raise ContextRefused("context extent is outside its exact selected native source scope")
             if source is None or piece.end > len(source.text):
                 raise ContextRefused("source slice is absent or outside its pinned projection")
             for native in contexts[source.source_key].selected_pieces(piece.start, piece.end):

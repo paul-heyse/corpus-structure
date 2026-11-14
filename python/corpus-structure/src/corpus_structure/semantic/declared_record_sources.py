@@ -328,3 +328,41 @@ class DeclaredNativeFrameSource:
     @property
     def ancestors(self):
         return tuple(deepcopy(self._native_columns["ancestors"]))
+
+
+    @cached_property
+    def selected_ranges(self):
+        """Exact inspectable original extents from this member's own frozen selectors."""
+        from .source_products import NativeSourceSelectorIndex
+
+        value = self.value
+        ancestry = NativeSourceSelectorIndex.from_value(value)
+        nodes = {row["self_ref"]: row for row in value["items"]}
+        intervals = []
+        for selector in value["selectors"]:
+            start, end = selector.get("start", 0), selector.get("end", len(self.text))
+            if "native_pointer" not in selector and "page" not in selector:
+                intervals.append((start, end))
+                continue
+            for piece in value["pieces"]:
+                if piece["kind"] != "native_text" or ancestry.matches(selector, piece["item_ref"]) is not True:
+                    continue
+                pages = {row["page_no"] for row in nodes[piece["item_ref"]].get("prov", ()) if "page_no" in row}
+                if "page" in selector and pages != {selector["page"]}:
+                    continue
+                intervals.append((max(start, piece["start"]), min(end, piece["end"])))
+        merged = []
+        for start, end in sorted((a, b) for a, b in intervals if a < b):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+            else:
+                merged.append((start, end))
+        return tuple(merged)
+
+    def contains_span(self, start, end):
+        return any(a <= start < end <= b for a, b in self.selected_ranges)
+
+    @property
+    def inspectable_pieces(self):
+        """Whole selected native pieces; clipped atoms remain unsupported, not empty."""
+        return tuple(piece for piece in self.pieces if self.contains_span(piece["start"], piece["end"]))
