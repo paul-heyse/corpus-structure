@@ -975,7 +975,7 @@ def declaration_sentences_products(products, source, passage, *, supporting):
         terms = {row["local_id"]: row for row in facts["terms"]}
         occurrences = {row["local_id"]: row for row in facts["occurrences"]}
 
-        def read(term):
+        def read(term) -> Any:
             children = term.get("children", ())
             if not children:
                 return json.loads(term["value"])
