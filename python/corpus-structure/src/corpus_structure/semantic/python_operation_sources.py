@@ -281,7 +281,9 @@ class ClosedPythonSources:
             parts = source.module.split(".")
             for n in range(1, len(parts)):
                 name = ".".join(parts[:n])
-                if name not in self.collection:
+                try:
+                    self.collection.get_member(name)
+                except KeyError:
                     parent = self.collection.get_member(".".join(parts[: n - 1])) if n > 1 else None
                     model = griffe.Module(parts[n - 1], parent=parent)
                     self.collection.set_member(name, model)
@@ -293,11 +295,10 @@ class ClosedPythonSources:
                 parent=parent,
                 modules_collection=self.collection,
             )
-            previous = (
-                self.collection.get_member(source.module)
-                if source.module in self.collection
-                else None
-            )
+            try:
+                previous = self.collection.get_member(source.module)
+            except KeyError:
+                previous = None
             if previous is not None:
                 # A supplied package initializer replaces its synthetic parent only once.
                 for name, child in previous.members.items():
