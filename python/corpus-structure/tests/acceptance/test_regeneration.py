@@ -19,12 +19,26 @@ def native_request(tmp_path, monkeypatch):
     from corpus_structure.semantic import data_operation_service
 
     request = tmp_path / "request.json"
-    request.write_text(json.dumps({
-        "project_id": "p", "release_id": "r", "runtime_id": "t",
-        "roots": [{"subject": "source", "original_source": "book", "analyzed_scope": {}}],
-        "targets": ["operation"], "execution_profile": "profile",
-    }))
-    snapshot = {"demand_id": "demand:one", "project_id": "p", "release_id": "r", "runtime_id": "t", "state": "active", "obligations": [{"fate": "awaiting-inputs"}]}
+    request.write_text(
+        json.dumps(
+            {
+                "project_id": "p",
+                "release_id": "r",
+                "runtime_id": "t",
+                "roots": [{"subject": "source", "original_source": "book", "analyzed_scope": {}}],
+                "targets": ["operation"],
+                "execution_profile": "profile",
+            }
+        )
+    )
+    snapshot = {
+        "demand_id": "demand:one",
+        "project_id": "p",
+        "release_id": "r",
+        "runtime_id": "t",
+        "state": "active",
+        "obligations": [{"fate": "awaiting-inputs"}],
+    }
 
     class Engine:
         @contextmanager
@@ -36,37 +50,84 @@ def native_request(tmp_path, monkeypatch):
         yield Engine()
 
     monkeypatch.setattr(demands, "ENGINE", engine)
-    monkeypatch.setattr(demands, "acquired_target", lambda conn, *, purpose: StorageTarget(
-        database="controlled-routing", database_oid=1, system_identifier="controlled-routing",
-        host="localhost", port=5434, purpose=purpose,
-    ))
+    monkeypatch.setattr(
+        demands,
+        "acquired_target",
+        lambda conn, *, purpose: StorageTarget(
+            database="controlled-routing",
+            database_oid=1,
+            system_identifier="controlled-routing",
+            host="localhost",
+            port=5434,
+            purpose=purpose,
+        ),
+    )
     monkeypatch.setattr(demands, "create_native_demand", lambda *args, **kwargs: snapshot)
-    monkeypatch.setattr(data_operation_service, "execute_data_demand", lambda *args, **kwargs: DemandAdvance("demand:one", json.dumps(snapshot).encode(), (), 0))
+    monkeypatch.setattr(
+        data_operation_service,
+        "execute_data_demand",
+        lambda *args, **kwargs: DemandAdvance("demand:one", json.dumps(snapshot).encode(), (), 0),
+    )
     return request, snapshot, data_operation_service
 
 
-def test_native_frontdoor_reports_pending_fates_without_synthetic_run(cli, native_request, tmp_path):
+def test_native_frontdoor_reports_pending_fates_without_synthetic_run(
+    cli, native_request, tmp_path
+):
     request, snapshot, _ = native_request
     results = tmp_path / "results"
-    result = cli("run", "parsers", "--request", str(request), "--source-root", str(tmp_path), "--json", env={"CORPUS_CI_RESULTS": str(results)})
+    result = cli(
+        "run",
+        "parsers",
+        "--request",
+        str(request),
+        "--source-root",
+        str(tmp_path),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(results)},
+    )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
     assert report["native"]["snapshot"] == snapshot
     assert "run_id" not in report["native"]
     manifest = json.loads((results / report["id"] / "manifest.json").read_text())
-    assert manifest["details"]["observation_bindings"] == {"demand_id": "demand:one", "project": "p", "release_id": "r", "runtime_id": "t"}
+    assert manifest["details"]["observation_bindings"] == {
+        "demand_id": "demand:one",
+        "project": "p",
+        "release_id": "r",
+        "runtime_id": "t",
+    }
 
 
-def test_native_frontdoor_failure_retains_demand_and_useful_sibling_receipts(cli, native_request, tmp_path, monkeypatch):
+def test_native_frontdoor_failure_retains_demand_and_useful_sibling_receipts(
+    cli, native_request, tmp_path, monkeypatch
+):
     request, snapshot, service = native_request
-    receipt = {"receipt_id": "receipt:actual-native-owner", "physical": {"task_id": 23, "attempt": 1}}
+    receipt = {
+        "receipt_id": "receipt:actual-native-owner",
+        "physical": {"task_id": 23, "attempt": 1},
+    }
 
     def fail(*args, **kwargs):
-        raise NativeDemandExecutionError(DemandAdvance("demand:one", json.dumps(snapshot).encode(), (json.dumps(receipt).encode(),), 1), (ValueError("controlled failed sibling"),))
+        raise NativeDemandExecutionError(
+            DemandAdvance(
+                "demand:one", json.dumps(snapshot).encode(), (json.dumps(receipt).encode(),), 1
+            ),
+            (ValueError("controlled failed sibling"),),
+        )
 
     monkeypatch.setattr(service, "execute_data_demand", fail)
     results = tmp_path / "results"
-    result = cli("run", "interpret", "--request", str(request), "--source-root", str(tmp_path), "--json", env={"CORPUS_CI_RESULTS": str(results)})
+    result = cli(
+        "run",
+        "interpret",
+        "--request",
+        str(request),
+        "--source-root",
+        str(tmp_path),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(results)},
+    )
     assert result.exit_code != 0
     (manifest_path,) = tuple(results.glob("*/manifest.json"))
     manifest = json.loads(manifest_path.read_text())

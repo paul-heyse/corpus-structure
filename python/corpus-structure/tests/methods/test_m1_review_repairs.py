@@ -3,11 +3,9 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy import Engine
 
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
 from corpus_structure.orchestrate.m1 import RetainedIntegratedConfig, RetainedIntegratedPdf

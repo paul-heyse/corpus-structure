@@ -517,8 +517,13 @@ def resolve_prepared_factory(model, sources, operation):
         verify_bindings()
         from .data_operation_effects import ReceiptBearingEffectPort
 
+        if isinstance(result, ReceiptBearingEffectPort):
+            method = result.effect_implementation
+            verify_callable(method.__module__ + "." + method.__qualname__, method)
         implementations = (
-            (result, result.effect_implementation()) if isinstance(result, ReceiptBearingEffectPort) else (result,)
+            (result, result.effect_implementation())
+            if isinstance(result, ReceiptBearingEffectPort)
+            else (result,)
         )
         for implementation in implementations:
             if hasattr(implementation, "plan_python"):

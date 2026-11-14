@@ -17,6 +17,8 @@ class ReceiptBearingEffectPort(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def plan_python(self, values, *, binding=None, check_active, execution_owner) -> Generator[Any, Any, Any]:
+    def plan_python(
+        self, values, *, binding=None, check_active, execution_owner
+    ) -> Generator[Any, Any, Any]:
         """Return a completion only after authenticating the actual native effect."""
         raise NotImplementedError

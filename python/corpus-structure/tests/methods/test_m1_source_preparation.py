@@ -3,17 +3,14 @@
 from dataclasses import replace
 from hashlib import sha256
 from types import SimpleNamespace
-from typing import cast
 
 import pytest
 import spacy
-from sqlalchemy import Engine
 
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods import source_preparation as prep
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_contexts import NativeSourcePin
 from methods.m1_source_preparation_support import (
     dense_table_source as dense_table_source,
@@ -147,14 +144,19 @@ def test_old_record_absence_and_new_inspected_empty_are_distinct():
 
 def test_source_request_refuses_legacy_task_pin_execution_authority():
     from pydantic import ValidationError
+
     from corpus_structure.orchestrate.source_request import SourceRunRequest
 
     for field in ("native_product", "integrated_product"):
         with pytest.raises(ValidationError):
-            SourceRunRequest.model_validate({
-                "project_id": "project", "release_id": "release", "runtime_id": "runtime",
-                field: {"task_id": 23, "product_key": "native", "content_digest": "a" * 64},
-            })
+            SourceRunRequest.model_validate(
+                {
+                    "project_id": "project",
+                    "release_id": "release",
+                    "runtime_id": "runtime",
+                    field: {"task_id": 23, "product_key": "native", "content_digest": "a" * 64},
+                }
+            )
 
 
 def test_m1_registry_has_no_agent_or_general_llm_route():

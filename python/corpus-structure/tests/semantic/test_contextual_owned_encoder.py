@@ -23,12 +23,33 @@ def test_owned_encoder_keeps_original_query_document_calls_and_vectors(monkeypat
         def run(texts, **options):
             calls.append((role, texts, options))
             return [(1.0, 0.0)] * len(texts)
+
         return run
 
-    model = SimpleNamespace(tokenizer=SimpleNamespace(encode=lambda text, **kwargs: tuple(text)), encode_query=encode("query"), encode_document=encode("document"))
-    monkeypatch.setattr(embeddings, "_owned_cpu_encoder", lambda *args: (model, (("controlled", "1"),), ()))
-    profile = embeddings.EncoderProfile("controlled-kernel", "a" * 40, 2, "query: ", "passage: ", "mean")
-    inputs = (embeddings.ContextInput("occurrence", "original", "query", "alpha", "alpha beta", 0, 5), embeddings.ContextInput("target", "target-source", "document", "alpha", "alpha description", 0, 5, representation_digest="actual-description"))
+    model = SimpleNamespace(
+        tokenizer=SimpleNamespace(encode=lambda text, **kwargs: tuple(text)),
+        encode_query=encode("query"),
+        encode_document=encode("document"),
+    )
+    monkeypatch.setattr(
+        embeddings, "_owned_cpu_encoder", lambda *args: (model, (("controlled", "1"),), ())
+    )
+    profile = embeddings.EncoderProfile(
+        "controlled-kernel", "a" * 40, 2, "query: ", "passage: ", "mean"
+    )
+    inputs = (
+        embeddings.ContextInput("occurrence", "original", "query", "alpha", "alpha beta", 0, 5),
+        embeddings.ContextInput(
+            "target",
+            "target-source",
+            "document",
+            "alpha",
+            "alpha description",
+            0,
+            5,
+            representation_digest="actual-description",
+        ),
+    )
     result = embeddings.encode_contexts(inputs, profile)
     assert [value.object_id for value in result.vectors] == ["occurrence", "target"]
     assert [row[0] for row in calls] == ["query", "document"]
@@ -40,9 +61,13 @@ def test_owned_encoder_keeps_original_query_document_calls_and_vectors(monkeypat
 def test_owned_encoder_refuses_changed_model_before_import_or_allocation(tmp_path):
     model = tmp_path / "weights"
     model.write_bytes(b"actual acquired bytes")
-    profile = embeddings.EncoderProfile("controlled-kernel", "a" * 40, 2, "query: ", "passage: ", "mean")
+    profile = embeddings.EncoderProfile(
+        "controlled-kernel", "a" * 40, 2, "query: ", "passage: ", "mean"
+    )
     with pytest.raises(ValueError, match="model bytes differ"):
-        embeddings._owned_cpu_encoder(canonical_bytes(profile.semantic_configuration), str(tmp_path), (("weights", "0" * 64),))
+        embeddings._owned_cpu_encoder(
+            canonical_bytes(profile.semantic_configuration), str(tmp_path), (("weights", "0" * 64),)
+        )
     prior = (("weights", model.stat()),)
     model.write_bytes(b"changed acquired bytes")
     with pytest.raises(ValueError, match="changed after verified loading"):
@@ -52,11 +77,15 @@ def test_owned_encoder_refuses_changed_model_before_import_or_allocation(tmp_pat
 def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(tmp_path):
     for name in ("config.json", "modules.json"):
         (tmp_path / name).write_text("{}")
-    profile = embeddings.EncoderProfile("controlled-source-capture", "a" * 40, 2, "query: ", "passage: ", "mean")
+    profile = embeddings.EncoderProfile(
+        "controlled-source-capture", "a" * 40, 2, "query: ", "passage: ", "mean"
+    )
     selection = ContextualEncoderSelection.acquire(profile, tmp_path)
     sources = contextual_encoder_operation_sources(selection)
     root = Path(__file__).parents[2] / "src/corpus_structure/model/semantic"
-    bundle = contextual_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))
+    bundle = contextual_inputs(
+        SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
+    )
     model = compile_data_operations(bundle, python_sources=sources)
     operation = model.operation("retrieve.contextual_vectors/declared")
     assert operation.capabilities.prepared_factory is not None

@@ -828,7 +828,6 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     commit_db_engine,
     tmp_path,
 ):
-    import json
     from pathlib import Path
 
     import yaml
@@ -895,7 +894,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         original_view_task, original_view_claim, _ = make_task(
             conn, old, compose=True, layers=(original_pin,)
         )
-        original_view_pin = compose_view(
+        compose_view(
             conn,
             task_id=original_view_task,
             attempt=original_view_claim.attempt,
@@ -1181,7 +1180,6 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
 def test_native_joint_layer_and_view_completion_uses_producing_layer(
     characterization_source, commit_writer_engine, commit_reader_engine
 ):
-    from pydantic import create_model
 
     from corpus_structure.core.method import UnitRef, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType

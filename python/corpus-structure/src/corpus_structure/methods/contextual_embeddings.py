@@ -10,13 +10,13 @@ import importlib
 import json
 import math
 import struct
-from time import monotonic
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
-from hashlib import file_digest, sha256
 from functools import lru_cache
+from hashlib import file_digest, sha256
 from pathlib import Path
 from threading import Event
+from time import monotonic
 from typing import Literal
 
 from corpus_structure.semantic.identity import canonical_bytes
@@ -293,9 +293,13 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
     root = Path(model_path)
     observations = ()
     if artifact_hashes:
-        if not root.is_dir() or any(Path(name).is_absolute() or ".." in Path(name).parts for name, _ in artifact_hashes):
+        if not root.is_dir() or any(
+            Path(name).is_absolute() or ".." in Path(name).parts for name, _ in artifact_hashes
+        ):
             raise ValueError("encoder acquisition escapes its selected model directory")
-        if {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()} != {name for name, _ in artifact_hashes}:
+        if {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()} != {
+            name for name, _ in artifact_hashes
+        }:
             raise ValueError("encoder model file population differs from acquired artifacts")
         observations = tuple((name, (root / name).stat()) for name, _ in artifact_hashes)
         for name, digest in artifact_hashes:
@@ -308,7 +312,10 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
 
     implementation = verify_encoder_implementation(profile)
     model = SentenceTransformer(
-        model_path, revision=profile.revision, device="cpu", trust_remote_code=False,
+        model_path,
+        revision=profile.revision,
+        device="cpu",
+        trust_remote_code=False,
         local_files_only=True,
     )
     model.float()
@@ -322,16 +329,26 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
 
 def _verify_cpu_artifacts(model_path, observations):
     root = Path(model_path)
-    if observations and {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()} != {name for name, _ in observations}:
+    if observations and {
+        path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+    } != {name for name, _ in observations}:
         raise ValueError("resident encoder model file population changed")
     for name, prior in observations:
         current = (Path(model_path) / name).stat()
-        if (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != (prior.st_dev, prior.st_ino, prior.st_size, prior.st_mtime_ns, prior.st_ctime_ns):
+        if (
+            current.st_dev,
+            current.st_ino,
+            current.st_size,
+            current.st_mtime_ns,
+            current.st_ctime_ns,
+        ) != (prior.st_dev, prior.st_ino, prior.st_size, prior.st_mtime_ns, prior.st_ctime_ns):
             raise ValueError("resident encoder acquisition changed after verified loading")
 
 
 def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_hashes, check_active):
-    model, implementation, observations = _owned_cpu_encoder(canonical_bytes(profile.semantic_configuration), model_path, artifact_hashes)
+    model, implementation, observations = _owned_cpu_encoder(
+        canonical_bytes(profile.semantic_configuration), model_path, artifact_hashes
+    )
     _verify_cpu_artifacts(model_path, observations)
     check_active()
     rendered, limited_queries = [], []
@@ -368,9 +385,7 @@ def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_ha
     vectors = []
     for role in ("query", "document"):
         check_active()
-        positions = [
-            i for i, item in enumerate(rendered) if item.role == role and i not in reused
-        ]
+        positions = [i for i, item in enumerate(rendered) if item.role == role and i not in reused]
         if not positions:
             continue
         encode = model.encode_query if role == "query" else model.encode_document
@@ -485,4 +500,11 @@ def encode_contexts(
             check_active()
 
     active()
-    return _encode_owned_cpu(profile, items, cached_vectors, model_path=profile.model if model_path is None else model_path, artifact_hashes=artifact_hashes, check_active=active)
+    return _encode_owned_cpu(
+        profile,
+        items,
+        cached_vectors,
+        model_path=profile.model if model_path is None else model_path,
+        artifact_hashes=artifact_hashes,
+        check_active=active,
+    )

@@ -230,8 +230,6 @@ def test_restoration_source_changes_construction_resource_identity_and_refuses_o
         ConstructionConfig(grammar=original)
 
 
-
-
 @pytest.mark.parametrize("coerced", [True, 2.0])
 def test_retained_configuration_cannot_coerce_frozen_wire_scalar_types(coerced):
     native, run = profile_and_run()
