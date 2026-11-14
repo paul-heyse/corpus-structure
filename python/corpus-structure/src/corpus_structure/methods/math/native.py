@@ -1644,42 +1644,22 @@ class NativeScopeContent:
         return self.canonical_text[segment.start : segment.end]
 
 
-def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
-    """Reuse positioned scope kernels on an in-memory lowering of one native section."""
+def native_scope_layout(*, root, text, items, ancestors, pieces, domains=()):
+    """Lower original source columns once for both admitted and historical scope readers."""
     from types import SimpleNamespace
 
     from corpus_structure.core.evidence import Segment
-    from corpus_structure.core.method import SourceObservationReference
-    from corpus_structure.core.payloads import ValuePayload
-    from corpus_structure.core.values import Formula, SetValue
-    from corpus_structure.core.vocab import MathKind, SegmentKind
+    from corpus_structure.core.vocab import SegmentKind
+    from .native_topology import prepare_native_topology_columns
 
-    kind_of = {
-        MathKind.FORMULA: "formula",
-        MathKind.RELATION: "relation",
-        MathKind.MEMBERSHIP: "member",
-        MathKind.SET: "set_expr",
-        MathKind.LIST: "list",
-    }
-    from .scope import resolve_scopes
-    from .spans import MathRelation, SpanValue, SymbolMention
-
-    view = ctx.reader.source_view(unit.ref.unit_id)
-    if getattr(unit, "context_only", False) or not getattr(view.ref, "analysis_eligible", True):
-        return native_context_result(unit, view, cfg, ctx.reader)
-    if cfg.binders is None:
-        raise ValueError("native symbol scope requires resolved primary binder configuration")
-    section = cfg.section()
-    primary_scope = _primary_scope(ctx.reader, view, cfg.binders, section.native_domain_rules)
-    domains = domain_blocks(view, section.native_domain_rules, primary_scope=primary_scope)
-    native = {item["self_ref"]: item for item in view.items if item.get("label") == "formula"}
-    pieces_by_ref = {p["item_ref"]: p for p in view.pieces if p.get("item_ref")}
+    native = {item["self_ref"]: item for item in items if item.get("label") == "formula"}
+    pieces_by_ref = {p["item_ref"]: p for p in pieces if p.get("item_ref")}
     selected = {
         pointer: SimpleNamespace(
             prepared=SimpleNamespace(latex=item["text"]),
             projected_start=pieces_by_ref[pointer]["start"]
             if pointer in pieces_by_ref
-            and view.text[pieces_by_ref[pointer]["start"] : pieces_by_ref[pointer]["end"]]
+            and text[pieces_by_ref[pointer]["start"] : pieces_by_ref[pointer]["end"]]
             == item["text"]
             else None,
         )
@@ -1697,11 +1677,13 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
             )
     # Native text/formula items may be fragments of the same mathematical sentence.
     # Partition only on attributed statement scopes, not on every PDF item/page boundary.
-    topology = native_topology(view)
+    topology = prepare_native_topology_columns(
+        root=root, text=text, items=items, ancestors=ancestors, pieces=pieces
+    )
     cuts = sorted(
         {
             0,
-            len(view.text),
+            len(text),
             *(value for bounds in topology.bounds.values() for value in bounds),
             *(value for start, end, _, _ in domains for value in (start, end)),
         }
@@ -1722,7 +1704,7 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     def paragraph_section(paragraph):
         owners = {
             topology.section(piece["item_ref"])
-            for piece in view.pieces
+            for piece in pieces
             if piece.get("item_ref") in topology.chains
             and piece["start"] < paragraph.end
             and paragraph.start < piece["end"]
@@ -1775,7 +1757,41 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
         section_segments[pointer] = segment
         return segment
 
-    content = NativeScopeContent(canonical_text=view.text, document=section_segment(topology.root))
+    content = NativeScopeContent(canonical_text=text, document=section_segment(topology.root))
+    return content, math_segments, selected, topology, section_segments
+
+
+def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
+    """Reuse positioned scope kernels on an in-memory lowering of one native section."""
+
+    from corpus_structure.core.evidence import Segment
+    from corpus_structure.core.method import SourceObservationReference
+    from corpus_structure.core.payloads import ValuePayload
+    from corpus_structure.core.values import Formula, SetValue
+    from corpus_structure.core.vocab import MathKind, SegmentKind
+
+    kind_of = {
+        MathKind.FORMULA: "formula",
+        MathKind.RELATION: "relation",
+        MathKind.MEMBERSHIP: "member",
+        MathKind.SET: "set_expr",
+        MathKind.LIST: "list",
+    }
+    from .scope import resolve_scopes
+    from .spans import MathRelation, SpanValue, SymbolMention
+
+    view = ctx.reader.source_view(unit.ref.unit_id)
+    if getattr(unit, "context_only", False) or not getattr(view.ref, "analysis_eligible", True):
+        return native_context_result(unit, view, cfg, ctx.reader)
+    if cfg.binders is None:
+        raise ValueError("native symbol scope requires resolved primary binder configuration")
+    section = cfg.section()
+    primary_scope = _primary_scope(ctx.reader, view, cfg.binders, section.native_domain_rules)
+    domains = domain_blocks(view, section.native_domain_rules, primary_scope=primary_scope)
+    content, math_segments, selected, topology, section_segments = native_scope_layout(
+        root=view.ref.section_pointer, text=view.text, items=view.items,
+        ancestors=view.ancestors, pieces=view.pieces, domains=domains,
+    )
     # This value is solely a pure-kernel lowering: it is never stored as kb.rendition.
     stored = ctx.reader.source_observations(view.ref.id, "extract.math", ObservationKind.MENTION)
     values = []

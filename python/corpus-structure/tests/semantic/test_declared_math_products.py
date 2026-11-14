@@ -28,7 +28,6 @@ from corpus_structure.semantic.declared_math_products import (
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
     formal_operation_sources,
-    formal_product_inputs,
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -43,10 +42,13 @@ def math_profile():
     from corpus_structure.semantic.formal_evidence import grammar_identity
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = formal_product_inputs(
+    from corpus_structure.semantic.construction_products import construction_product_inputs
+    from corpus_structure.semantic.characterization_ports import characterization_operation_sources
+
+    bundle = construction_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
-    captured = combine_primary_sources(formal_operation_sources(), math_operation_sources())
+    captured = combine_primary_sources(formal_operation_sources(), math_operation_sources(), characterization_operation_sources())
     dependencies = data_operation_dependencies(
         ResolvedDependencies(), (math_operation_declarations(),), captured
     )
@@ -104,7 +106,7 @@ def test_math_profiles_compile_without_a_legacy_execution_binding(math_profile):
     }
     assert (
         model.operation("normalize.formula/declared").roles[1].kind
-        == "urn:corpus:math:DeclaredMathProduct"
+        == "urn:corpus:math:DeclaredMathOccurrenceProduct"
     )
 
 
@@ -162,3 +164,44 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
     changed = {**actual, "items": [{**actual["items"][0], "occurrence_basis": "wrong"}]}
     with pytest.raises(ValueError, match="normalization context"):
         DeclaredMathNormalization(normalizer).run(source.value, changed)
+
+
+def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(math_profile, monkeypatch):
+    from corpus_structure.methods.math.declared import DeclaredMathScope
+    from corpus_structure.semantic.construction_products import (
+        ConstructionOptions, PreparedConstructionProfile,
+    )
+    from corpus_structure.semantic.constructions.math_scope import Binders
+    source, formal, source_member, formal_member = _inputs(math_profile)
+    binders = Binders(sentence_initial=("suppose",))
+    context = SubjectContext("outside-statistics", source_member.subject,
+        source_member.original_source, source_member.analyzed_scope)
+    model = bound_data_operation_model(math_profile.prepared)
+    construction = PreparedConstructionProfile(math_profile.prepared, model).run(
+        source, (formal,), ConstructionOptions(math_scope_binders=binders), subject_context=context)
+    profile = PreparedMathInputs(math_profile.prepared,
+        (_role("source", (source_member,)), _role("formal", (formal_member,)),
+         _role("inherited", ()), _role("ancestor_sources", ())),
+        "outside-statistics", DeclaredMathOptions(math_scope_binders=binders),
+        acquire_analysis_context_profile(), lambda: None)
+    original = DeclaredMathOccurrences(profile).run(source.value, formal.value.model_dump(mode="json", exclude_unset=True))
+    occurrence_member = replace(formal_member, product="product:occurrences", kind_contract="kind:math")
+    normalizer = replace(profile, roles=(_role("source", (source_member,)), _role("occurrences", (occurrence_member,))))
+    symbolic = DeclaredMathNormalization(normalizer).run(source.value, original)
+    scope_profile = replace(profile, roles=(_role("source", (source_member,)),
+        _role("occurrences", (occurrence_member,)), _role("symbolic", (replace(occurrence_member, product="product:symbolic"),)),
+        _role("constructions", (replace(formal_member, product=construction.semantic_id),)),
+        _role("inherited", ()), _role("ancestor_sources", ())))
+    from corpus_structure.methods.math import grammar
+    monkeypatch.setattr(grammar, "syntax", lambda *_a, **_kw: pytest.fail("scope reparsed primary syntax"))
+    result = DeclaredMathProduct.model_validate(DeclaredMathScope(scope_profile).run(source.value, original,
+        symbolic, construction.value.model_dump(mode="json", exclude_unset=True)))
+    assert result.phase == "scope" and result.outcome == "partial"
+    assert "retained source binder coverage unavailable or incomplete" in result.issues
+    assert result.items == ()
+    assert result.occurrence_input.product_id == "product:occurrences"
+    assert result.symbolic_input.product_id == "product:symbolic"
+    substituted = {**symbolic, "occurrence_input": {**symbolic["occurrence_input"], "product_id": "product:other"}}
+    with pytest.raises(ValueError, match="correspondence"):
+        DeclaredMathScope(scope_profile).run(source.value, original, substituted,
+            construction.value.model_dump(mode="json", exclude_unset=True))

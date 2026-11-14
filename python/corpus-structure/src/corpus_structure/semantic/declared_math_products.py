@@ -24,7 +24,8 @@ from .analysis_contracts import (
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
 from .declared_record_sources import DeclaredNativeFrameSource
-from .declared_structural_references import DeclaredProductRef, DeclaredStructuralSource
+from .declared_structural_references import DeclaredStructuralSource
+from .structural_products import DeclaredStructuralInputPin as DeclaredMathInput
 from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact
 
@@ -40,6 +41,9 @@ _PATHS = (
     "methods/math/transform.py",
     "semantic/analysis_contracts.py",
     "semantic/declared_math_products.py",
+    "semantic/declared_math_scope.py",
+    "methods/math/spans.py",
+    "methods/math/scope.py",
     "semantic/formal_forest.py",
     "semantic/constructions/math_scope.py",
 )
@@ -48,13 +52,39 @@ _PATHS = (
 class DeclaredMathProduct(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     source: DeclaredStructuralSource
-    phase: Literal["occurrences", "symbolic"]
-    formal_input: DeclaredProductRef | None = None
-    occurrence_input: DeclaredProductRef | None = None
-    inherited_inputs: tuple[DeclaredProductRef, ...] = ()
+    phase: Literal["occurrences", "symbolic", "scope"]
+    formal_input: DeclaredMathInput | None = None
+    occurrence_input: DeclaredMathInput | None = None
+    inherited_inputs: tuple[DeclaredMathInput, ...] = ()
+    symbolic_input: DeclaredMathInput | None = None
+    construction_input: DeclaredMathInput | None = None
+    source_declarations: tuple[dict[str, JsonValue], ...] = ()
     items: tuple[dict[str, JsonValue], ...]
     issues: tuple[str, ...] = ()
     outcome: Literal["complete", "partial"]
+
+
+class DeclaredMathOccurrenceProduct(DeclaredMathProduct):
+    phase: Literal["occurrences"] = "occurrences"
+    formal_input: DeclaredMathInput
+
+
+class DeclaredMathSymbolicProduct(DeclaredMathProduct):
+    phase: Literal["symbolic"] = "symbolic"
+    occurrence_input: DeclaredMathInput
+
+
+class DeclaredMathScopeProduct(DeclaredMathProduct):
+    phase: Literal["scope"] = "scope"
+    occurrence_input: DeclaredMathInput
+    symbolic_input: DeclaredMathInput
+    construction_input: DeclaredMathInput
+
+
+class _MathProductDeclarations(BaseModel):
+    occurrences: tuple[DeclaredMathOccurrenceProduct, ...] = ()
+    symbolic: tuple[DeclaredMathSymbolicProduct, ...] = ()
+    scopes: tuple[DeclaredMathScopeProduct, ...] = ()
 
 
 class DeclaredMathOptions(BaseModel):
@@ -82,9 +112,9 @@ def math_operation_declarations():
             {
                 "version": MODEL_VERSION,
                 "kinds": nominal_schema_kinds(
-                    DeclaredMathProduct.model_json_schema(),
+                    _MathProductDeclarations.model_json_schema(),
                     namespace=NAMESPACE,
-                    root_name="DeclaredMathProduct",
+                    root_name="DeclaredMathKinds",
                 ),
             }
         ),
@@ -181,7 +211,7 @@ class PreparedMathInputs:
         return member
 
     def reference(self, name):
-        return DeclaredProductRef.from_bound(self.member(name), project=self.project)
+        return DeclaredMathInput.from_bound(self.member(name), project=self.project)
 
     def frame(self, value):
         return DeclaredNativeFrameSource.acquire(
@@ -227,7 +257,7 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
         scope = retained_math_scope_products(
             (scope_product,),
             frozen,
-            binders=profile.options.math_scope_binders,
+            binders=None,
             rules=profile.options.math_domain_rules,
         )
         blocks = domain_blocks_columns(
@@ -261,7 +291,7 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
             )
         if product.source.section_pointer not in {row["self_ref"] for row in frame.ancestors}:
             raise ValueError("inherited mathematical product is not an explicit source ancestor")
-        reference = DeclaredProductRef.from_bound(pin, project=profile.project)
+        reference = DeclaredMathInput.from_bound(pin, project=profile.project)
         if (
             product.source.subject != pin.subject
             or product.source.analyzed_scope_meaning != reference.analyzed_scope_meaning
@@ -274,52 +304,28 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
         parent = parents.get((product.source.source_product, product.source.source_member))
         if parent is None or not product.source.matches_pin(parent.pin.values()):
             raise ValueError("inherited declarations require their exact retained ancestor source")
-        for item in product.items:
-            context = item.get("context")
-            if isinstance(context, dict):
-                before = before_descendant_columns(
-                    parent_items=parent.items,
-                    parent_ancestors=parent.ancestors,
-                    child_items=frame.items,
-                    child_ancestors=frame.ancestors,
-                    ancestor=parent.section_pointer,
-                    child_pointer=frame.section_pointer,
-                    pointer=item["pointer"],
-                )
-                if before is None:
-                    issues.append(
-                        "ancestor declaration source order unavailable: " + str(item["pointer"])
-                    )
-                if before is not True:
-                    continue
-                parent_scope = parent.source_key + ":section:" + parent.section_pointer
-                rows = context.get("declarations", [])
-                if not isinstance(rows, list):
-                    raise ValueError("ancestor declaration context must retain its typed sequence")
-                for row in rows:
-                    if (
-                        not isinstance(row, dict)
-                        or row.get("authority") != "source"
-                        or row.get("scope") != parent_scope
-                    ):
-                        continue
-                    declarations.append(
-                        {
-                            **row,
-                            "source_id": frame.source_key,
-                            "scope": frame.source_key + ":section:" + frame.section_pointer,
-                            "start": 0,
-                            "end": len(frame.items),
-                            "evidence": canonical_bytes(
-                                {
-                                    "ancestor_product": pin.product,
-                                    "ancestor_source": product.source.model_dump(mode="json"),
-                                    "declaration": row,
-                                    "before_descendant": True,
-                                }
-                            ).decode(),
-                        }
-                    )
+        for row in product.source_declarations:
+            if row.get("role") != "function" or row.get("scope") != parent.source_key + ":section:" + parent.section_pointer:
+                continue
+            before = before_descendant_columns(
+                parent_items=parent.items, parent_ancestors=parent.ancestors,
+                child_items=frame.items, child_ancestors=frame.ancestors,
+                ancestor=parent.section_pointer, child_pointer=frame.section_pointer,
+                pointer=row["pointer"],
+            )
+            if before is None:
+                issues.append("ancestor declaration source order unavailable: " + str(row["pointer"]))
+            if before is not True:
+                continue
+            declarations.append({
+                "symbol": row["symbol"], "role": "function", "authority": "source",
+                "source_id": frame.source_key,
+                "scope": frame.source_key + ":section:" + frame.section_pointer,
+                "start": 0, "end": len(frame.items),
+                "evidence": canonical_bytes({"ancestor_product": pin.product,
+                    "ancestor_source": product.source.model_dump(mode="json"),
+                    "declaration": row, "before_descendant": True}).decode(),
+            })
     supplied = {value.source.section_pointer for value in inherited}
     missing = {
         row["self_ref"]
@@ -357,12 +363,21 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
         and selected == {row.pointer for row in readings}
         and all(row.result.status.value == "ok" for row in readings)
     )
-    return DeclaredMathProduct(
+    from corpus_structure.methods.math.source_context import _heads
+    source_declarations = tuple(
+        {"symbol": name, "role": "function", "pointer": reading.pointer,
+         "recognized_start": bounds[0], "recognized_end": bounds[1],
+         "scope": reading.prepared.context.scope,
+         "rule_id": "function-definition-1"}
+        for reading in readings for name, bounds in _heads(reading.prepared.syntax())
+    )
+    return DeclaredMathOccurrenceProduct(
         source=DeclaredStructuralSource.model_validate(frame.pin.values()),
+        source_declarations=source_declarations,
         phase="occurrences",
         formal_input=profile.reference("formal"),
         inherited_inputs=tuple(
-            DeclaredProductRef.from_bound(pin, project=profile.project) for pin in pins
+            DeclaredMathInput.from_bound(pin, project=profile.project) for pin in pins
         ),
         items=json.loads(canonical_bytes(records)),
         issues=tuple(issues),
@@ -388,11 +403,12 @@ def execute_normalization(receiver, source, occurrences):
         check_active=profile.check_active,
     )
     original = {row["self_ref"]: row.get("orig", "") for row in frame.items}
-    return DeclaredMathProduct(
+    return DeclaredMathSymbolicProduct(
         source=product.source,
         phase="symbolic",
         occurrence_input=profile.reference("occurrences"),
         inherited_inputs=product.inherited_inputs,
+        source_declarations=product.source_declarations,
         items=json.loads(
             canonical_bytes(
                 tuple(
@@ -419,6 +435,7 @@ def math_kernel(
     from corpus_structure.methods.math.declared import (
         DeclaredMathNormalization,
         DeclaredMathOccurrences,
+        DeclaredMathScope,
     )
 
     profile = PreparedMathInputs(
@@ -429,11 +446,8 @@ def math_kernel(
         acquire_analysis_context_profile(),
         check_active,
     )
-    receiver = (
-        DeclaredMathOccurrences(profile)
-        if phase == "occurrences"
-        else DeclaredMathNormalization(profile)
-    )
+    receiver = {"occurrences": DeclaredMathOccurrences, "symbolic": DeclaredMathNormalization,
+                "scope": DeclaredMathScope}[phase](profile)
     return receiver.run(**arguments)
 
 
