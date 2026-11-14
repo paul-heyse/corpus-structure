@@ -7,7 +7,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from hashlib import sha256
 from itertools import combinations
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from pydantic import Field, JsonValue, TypeAdapter, model_validator
 from rapidfuzz.fuzz import ratio
@@ -234,7 +234,7 @@ def label_relation(left: ArtifactSourceLabel, right: ArtifactSourceLabel):
     return "same_observed" if left.value == right.value else "different_observed"
 
 
-def artifact_scope(record: ArtifactRecord) -> tuple[str, str]:
+def artifact_scope(record: ArtifactRecordValue) -> tuple[str, str]:
     return record.artifact.source_work, record.artifact.artifact_kind
 
 
@@ -266,8 +266,77 @@ class ArtifactDeclaredRelationship(StructuralValue):
     )
 
 
+class ArtifactOccurrenceValue(Protocol):
+    """Finite observed fields used by identity kernels, independent of address protocol."""
+
+    @property
+    def source_work(self) -> str: ...
+    @property
+    def artifact_kind(self) -> str: ...
+    @property
+    def controlled_code(self) -> str | None: ...
+    @property
+    def title(self) -> str | None: ...
+    @property
+    def aliases(self) -> tuple[str, ...]: ...
+    @property
+    def occurrence_role(self) -> str: ...
+    @property
+    def dependencies(self) -> tuple[str, ...]: ...
+
+
+class ArtifactDesignatorValue(Protocol):
+    @property
+    def target_code(self) -> str: ...
+    @property
+    def target_numbering(self) -> str: ...
+
+
+class ArtifactRecordValue(Protocol):
+    @property
+    def contribution_id(self) -> str: ...
+    @property
+    def occurrence_id(self) -> str: ...
+    @property
+    def artifact(self) -> ArtifactOccurrenceValue: ...
+    @property
+    def numbering(self) -> ArtifactSourceLabel: ...
+    @property
+    def revision(self) -> ArtifactSourceLabel: ...
+    @property
+    def explicit_reference(self) -> ArtifactDesignatorValue | None: ...
+
+
+class ArtifactRelationshipValue(Protocol):
+    @property
+    def contribution_id(self) -> str: ...
+
+
+class ArtifactNominationValue(Protocol):
+    @property
+    def left(self) -> str: ...
+    @property
+    def right(self) -> str: ...
+    @property
+    def relationship(self) -> ArtifactRelationshipValue: ...
+
+
+class ArtifactDeclaredEndpointValue(Protocol):
+    @property
+    def record_id(self) -> str: ...
+
+
+class ArtifactDeclaredRelationshipValue(Protocol):
+    @property
+    def source_id(self) -> str: ...
+    @property
+    def targets(self) -> tuple[ArtifactDeclaredEndpointValue, ...]: ...
+    @property
+    def identity(self) -> str: ...
+
+
 def artifact_reference_resolutions(
-    records: tuple[ArtifactRecord, ...],
+    records: tuple[ArtifactRecordValue, ...],
 ) -> tuple[ArtifactReferenceResolution, ...]:
     """Join explicit scoped designators to selected physical captions."""
     captions: dict[tuple[str, str, str, str], list[str]] = defaultdict(list)
@@ -303,7 +372,7 @@ def artifact_reference_resolutions(
     return tuple(resolutions)
 
 
-def artifact_score_status(a: ArtifactRecord, b: ArtifactRecord, *, excluded: bool = False):
+def artifact_score_status(a: ArtifactRecordValue, b: ArtifactRecordValue, *, excluded: bool = False):
     numbering = label_relation(a.numbering, b.numbering)
     av, bv = a.artifact, b.artifact
     if excluded or artifact_scope(a) != artifact_scope(b) or numbering == "different_observed":
@@ -319,10 +388,10 @@ def artifact_score_status(a: ArtifactRecord, b: ArtifactRecord, *, excluded: boo
 
 
 def pair_candidates(
-    records: tuple[ArtifactRecord, ...],
+    records: tuple[ArtifactRecordValue, ...],
     *,
-    external_nominations: tuple[ArtifactNomination, ...] = (),
-    declared_relationships: tuple[ArtifactDeclaredRelationship, ...] = (),
+    external_nominations: tuple[ArtifactNominationValue, ...] = (),
+    declared_relationships: tuple[ArtifactDeclaredRelationshipValue, ...] = (),
     explicit_references: tuple[ArtifactReferenceResolution, ...] = (),
     native_alias_pairs: tuple[tuple[str, str], ...] = (),
     title_threshold=70.0,
@@ -467,12 +536,12 @@ class ArtifactScoringPolicy(StructuralValue):
     title_u: float = Field(gt=0, lt=1)
 
 
-def alias_tokens(artifact: SourceArtifactOccurrence) -> tuple[str, ...]:
+def alias_tokens(artifact: ArtifactOccurrenceValue) -> tuple[str, ...]:
     return tuple(sorted({alias.strip().casefold() for alias in artifact.aliases}))
 
 
 @contextmanager
-def artifact_linker(records: tuple[ArtifactRecord, ...], policy: ArtifactScoringPolicy):
+def artifact_linker(records: tuple[ArtifactRecordValue, ...], policy: ArtifactScoringPolicy):
     """One bounded provider instance for the released fixed model."""
     import duckdb
     from splink import DuckDBAPI, Linker, SettingsCreator
@@ -538,7 +607,7 @@ def predict_artifact_pairs(linker, allowed: tuple[tuple[str, str], ...]):
 
 
 def score_pairs(
-    records: tuple[ArtifactRecord, ...],
+    records: tuple[ArtifactRecordValue, ...],
     pairs: tuple[ArtifactPair, ...],
     policy: ArtifactScoringPolicy,
 ) -> tuple[ArtifactPair, ...]:
@@ -576,7 +645,7 @@ def pair_identity(pair: ArtifactPair) -> str:
 
 
 def native_alias_candidates(
-    records: tuple[ArtifactRecord, ...], *, count_rules: bool = False
+    records: tuple[ArtifactRecordValue, ...], *, count_rules: bool = False
 ) -> tuple[tuple[tuple[str, str], ...], tuple[dict[str, JsonValue], ...]]:
     """Actual Splink array blocking; title-derived aliases must not be fabricated."""
     import duckdb
