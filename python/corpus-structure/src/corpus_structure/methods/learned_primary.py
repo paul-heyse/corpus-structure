@@ -1491,7 +1491,7 @@ class D1CandidatesPrimaryOperation:
             {
                 "name": "constructions",
                 "parameter": "constructions",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "direction": "input",
                 "minimum": 1,
                 "maximum": 1,
@@ -2979,7 +2979,7 @@ class ContextualNativePrimaryOperation:
             {
                 "name": "constructions",
                 "parameter": "constructions",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "direction": "input",
                 "minimum": 1,
                 "maximum": 1,
