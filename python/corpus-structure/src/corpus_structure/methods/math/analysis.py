@@ -1,6 +1,6 @@
 """Declared weak and contextual mathematical requests on retained native facts."""
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from corpus_structure.semantic.declared_math_analysis import execute_math_analysis
 
@@ -163,7 +163,7 @@ class WeakMathAnalysis:
         self.prepared, self.roles, self.context = prepared, roles, context
         self.options, self.context_profile, self.check_active = options, context_profile, check_active
 
-    def run(self, source: dict[str, Any], formal: dict[str, Any], demand: str = 'lexical', pointer: str = "", question: str = "", predicate: str = "", seconds: float = 2.0) -> dict[str, Any]:
+    def run(self, source: dict, formal: dict, demand: str = 'lexical', pointer: str = "", question: str = "", predicate: str = "", seconds: float = 2.0) -> dict:
         return execute_math_analysis(self, source=source, formal=formal, demand=demand, pointer=pointer, question=question, predicate=predicate, seconds=seconds)
 
 
@@ -446,5 +446,5 @@ class ContextualMathAnalysis:
         self.prepared, self.roles, self.context = prepared, roles, context
         self.options, self.context_profile, self.check_active = options, context_profile, check_active
 
-    def run(self, source: dict[str, Any], formal: dict[str, Any], constructions: dict[str, Any], inherited: tuple[dict[str, Any], ...] = (), ancestor_sources: tuple[dict[str, Any], ...] = (), demand: str = 'interpretation', pointer: str = "", question: str = "", predicate: str = "", seconds: float = 2.0) -> dict[str, Any]:
+    def run(self, source: dict, formal: dict, constructions: dict, inherited: tuple[dict, ...] = (), ancestor_sources: tuple[dict, ...] = (), demand: str = 'interpretation', pointer: str = "", question: str = "", predicate: str = "", seconds: float = 2.0) -> dict:
         return execute_math_analysis(self, source=source, formal=formal, constructions=constructions, inherited=inherited, ancestor_sources=ancestor_sources, demand=demand, pointer=pointer, question=question, predicate=predicate, seconds=seconds)
