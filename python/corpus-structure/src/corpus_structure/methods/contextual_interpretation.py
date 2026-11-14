@@ -292,6 +292,7 @@ class ContextualEvaluationOperation:
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
+            "prepared_factory": "acquire_port",
             "cancellation": "cooperative",
             "ownership": "immutable",
         },
@@ -354,6 +355,16 @@ class ContextualEvaluationOperation:
             }
         ],
     }
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        """Acquire this declared owner's prepared capability from exact native custody."""
+        from corpus_structure.semantic.characterization_ports import resolve_contextual_port
+
+        return resolve_contextual_port(
+            prepared, model, operation, identity=identity, authorize=authorize,
+            custody=custody, sources=sources,
+        )
 
     def __init__(self, profile, check_active):
         self.profile = profile

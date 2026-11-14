@@ -74,6 +74,7 @@ class HanlpEvidenceOperation:
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
+            "prepared_factory": "acquire_port",
             "cancellation": "cooperative",
             "ownership": "immutable",
         },
@@ -110,6 +111,16 @@ class HanlpEvidenceOperation:
             }
         ],
     }
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        """Acquire this declared owner's prepared capability from exact native custody."""
+        from corpus_structure.semantic.hanlp_products import resolve_hanlp_port
+
+        return resolve_hanlp_port(
+            prepared, model, operation, identity=identity, authorize=authorize,
+            custody=custody, sources=sources,
+        )
 
     def __init__(self, profile, check_active, host=None):
         self.profile, self.check_active, self.host = profile, check_active, host

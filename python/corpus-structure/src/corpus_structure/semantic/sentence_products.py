@@ -695,7 +695,7 @@ def _semantic_nodes(content: bytes, names: tuple[str, ...]):
     return result
 
 
-def sentence_execution_custody() -> SourceArtifact:
+def sentence_execution_custody(configuration: SentenceConfig | None = None) -> SourceArtifact:
     """Physical host/transport/adapter code is exact runtime custody."""
     root = Path(__file__).parent
     paths = (
@@ -708,6 +708,7 @@ def sentence_execution_custody() -> SourceArtifact:
         canonical_bytes(
             {
                 "version": "spacy-execution-custody-v1",
+                "configuration": (configuration or SentenceConfig(exclude=("ner",))).model_dump(mode="json"),
                 "files": [
                     (str(path.relative_to(root.parent)), path.read_bytes().hex()) for path in paths
                 ],
@@ -776,13 +777,13 @@ def sentence_profile_assets(configuration: SentenceConfig | None = None) -> Sour
     )
 
 
-def sentence_operation_sources():
+def sentence_operation_sources(configuration: SentenceConfig | None = None):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/sentence_evidence.py"
     return PythonSourceCollection(
         (PythonSource("corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)),),
-        boundary_contracts=(sentence_profile_assets(), sentence_execution_custody()),
+        boundary_contracts=(sentence_profile_assets(configuration), sentence_execution_custody(configuration)),
     )
 
 
@@ -892,7 +893,7 @@ class PreparedSentencePort:
             capabilities=canonical_bytes(asdict(operation.capabilities)),
             eligibility=ids[operation.semantic_id, "eligibility"],
         )
-        required_sources = sentence_operation_sources()
+        required_sources = sentence_operation_sources(self.profile.configuration)
         sources = self.sources if self.sources is not None else required_sources
         actual_sources = {source.module: source for source in sources.sources}
         if any(
@@ -906,7 +907,7 @@ class PreparedSentencePort:
         retained = {artifact.name: artifact for artifact in self.custody}
         if len(retained) != len(self.custody) or any(
             retained.get(actual.name) != actual
-            for actual in (sentence_profile_assets(), sentence_execution_custody())
+            for actual in (sentence_profile_assets(self.profile.configuration), sentence_execution_custody(self.profile.configuration))
         ):
             raise PortRefusal("sentence runtime/parser assets differ from acquired custody")
         expected["source_digest"] = sha256(
@@ -1124,6 +1125,7 @@ def resolve_sentence_port(
     host: NativeHostGroup | None = None,
     custody: tuple[SourceArtifact, ...] = (),
     sources=None,
+    configuration: SentenceConfig | None = None,
 ) -> PreparedSentencePort:
     from .data_operation_ports import PortRefusal
 
@@ -1144,10 +1146,16 @@ def resolve_sentence_port(
         or inputs[0].parameter != "source"
     ):
         raise PortRefusal("operation does not establish the prepared sentence profile")
+    captured = [artifact for artifact in custody if artifact.name == "sentences/execution-custody"]
+    if len(captured) != 1:
+        raise PortRefusal("sentence acquisition requires one frozen configuration custody")
+    frozen = SentenceConfig.model_validate(json.loads(captured[0].content)["configuration"])
+    if configuration is not None and configuration != frozen:
+        raise PortRefusal("sentence acquisition configuration differs from frozen custody")
     port = PreparedSentencePort(
         identity,
         selected,
-        prepare_sentence_profile(prepared, model),
+        prepare_sentence_profile(prepared, model, frozen),
         authorize,
         host,
         custody,

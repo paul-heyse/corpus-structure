@@ -54,6 +54,7 @@ class CanonicalSentenceProjection:
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
+            "prepared_factory": "acquire_port",
             "cancellation": "call-boundary",
             "ownership": "immutable-input-value",
         },
@@ -82,6 +83,16 @@ class CanonicalSentenceProjection:
             }
         ],
     }
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        """Acquire this declared owner's prepared capability from exact native custody."""
+        from corpus_structure.semantic.canonical_sentences import resolve_canonical_sentence_port
+
+        return resolve_canonical_sentence_port(
+            prepared, model, operation, identity=identity, authorize=authorize,
+            custody=custody, sources=sources,
+        )
 
     def __init__(self, profile):
         self.profile = profile

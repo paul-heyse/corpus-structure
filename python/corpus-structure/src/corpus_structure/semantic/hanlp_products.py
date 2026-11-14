@@ -509,7 +509,7 @@ def hanlp_profile_assets(selection):
     )
 
 
-def hanlp_execution_custody():
+def hanlp_execution_custody(selection=None):
     root = Path(__file__).parent
     paths = (
         Path(__file__),
@@ -519,7 +519,7 @@ def hanlp_execution_custody():
     )
     return SourceArtifact(
         "hanlp/execution-custody",
-        canonical_bytes([(path.name, path.read_bytes().hex()) for path in paths]),
+        canonical_bytes(dict(files=[(path.name, path.read_bytes().hex()) for path in paths], selection=selection.declaration() if selection is not None else None)),
     )
 
 
@@ -529,7 +529,7 @@ def hanlp_operation_sources(selection):
     path = Path(__file__).parents[1] / "methods/hanlp_evidence.py"
     return PythonSourceCollection(
         (PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),),
-        boundary_contracts=(hanlp_profile_assets(selection), hanlp_execution_custody()),
+        boundary_contracts=(hanlp_profile_assets(selection), hanlp_execution_custody(selection)),
     )
 
 
@@ -566,7 +566,7 @@ class PreparedHanlpPort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(hanlp_profile_assets(self.profile.selection), hanlp_execution_custody()),
+            assets=(hanlp_profile_assets(self.profile.selection), hanlp_execution_custody(self.profile.selection)),
             functions=(
                 (self.operation.callable_surfaces[0].declaration, HanlpEvidenceOperation.run),
                 (
@@ -751,7 +751,20 @@ def resolve_hanlp_port(
         or outputs[0].kind != expected["DdoHanlpInventory"].iri
     ):
         raise PortRefusal("operation lacks the exact prepared HanLP native profile")
-    selection = selection if selection is not None else prepare_hanlp_selection(assets)
+    if selection is None:
+        from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+        captured = [artifact for artifact in custody if artifact.name == "hanlp/execution-custody"]
+        if len(captured) != 1:
+            raise PortRefusal("HanLP acquisition requires its frozen native selection")
+        declaration = json.loads(captured[0].content)["selection"]
+        if not isinstance(declaration, dict):
+            raise PortRefusal("HanLP custody lacks its actual selected provider")
+        native = NativeProfile.from_content(canonical_bytes(declaration["profile"]))
+        if native.fingerprint != declaration["fingerprint"]:
+            raise PortRefusal("HanLP captured selection fingerprint differs")
+        selection = NativeSelection(native, Path(declaration["assets"]))
+        if assets is not None and Path(assets).absolute() != selection.assets.absolute():
+            raise PortRefusal("HanLP acquisition path differs from captured custody")
     profile = PreparedHanlpProfile(prepared, model, selection)
     port = PreparedHanlpPort(
         identity,

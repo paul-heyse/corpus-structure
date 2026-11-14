@@ -294,6 +294,7 @@ class FormalEvidenceOperation:
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
+            "prepared_factory": "acquire_port",
             "cancellation": "cooperative",
             "ownership": "immutable",
         },
@@ -325,6 +326,16 @@ class FormalEvidenceOperation:
             },
         ],
     }
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        """Acquire this declared owner's prepared capability from exact native custody."""
+        from corpus_structure.semantic.formal_products import resolve_formal_evidence_port
+
+        return resolve_formal_evidence_port(
+            prepared, model, operation, identity=identity, authorize=authorize,
+            custody=custody, sources=sources,
+        )
 
     def __init__(self, profile, options, check_active):
         self.profile = profile
