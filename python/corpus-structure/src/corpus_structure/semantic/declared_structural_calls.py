@@ -35,6 +35,7 @@ _PATHS = (
     "semantic/declared_structural_calls.py",
     "semantic/declared_structural_references.py",
     "semantic/structural_products.py",
+    "semantic/artifact_identity.py",
     "semantic/declared_candidate_products.py",
     "semantic/declared_record_sources.py",
     "semantic/contributions.py",
@@ -49,10 +50,15 @@ def structural_operation_declarations():
         DeclaredComparisonReport,
         DeclaredConditionReport,
         DeclaredDossierReport,
+        DeclaredDefinitionComponentsReport,
+        DeclaredDefinitionReport,
+        DeclaredArtifactReport,
+        DeclaredClauseReport,
     )
 
     schema = TypeAdapter(
-        DeclaredComparisonReport | DeclaredConditionReport | DeclaredDossierReport
+        DeclaredComparisonReport | DeclaredConditionReport | DeclaredDossierReport |
+        DeclaredDefinitionComponentsReport | DeclaredDefinitionReport | DeclaredArtifactReport | DeclaredClauseReport
     ).json_schema()
     return SourceArtifact(
         "structural/nominal-kinds.json",

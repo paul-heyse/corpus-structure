@@ -7,7 +7,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from hashlib import sha256
 from itertools import combinations
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, JsonValue, TypeAdapter, model_validator
 from rapidfuzz.fuzz import ratio
@@ -55,25 +55,7 @@ class SourceArtifactOccurrence(StructuralValue):
 
     @model_validator(mode="after")
     def provenance(self):
-        if self.alias_state == "observed":
-            if (
-                not self.alias_occurrences
-                or tuple(a.text for a in self.alias_occurrences) != self.aliases
-                or len(set(self.alias_occurrences)) != len(self.alias_occurrences)
-                or self.alias_absence is not None
-            ):
-                raise ValueError("observed aliases require distinct exact located evidence")
-        elif (
-            self.aliases
-            or self.alias_occurrences
-            or (self.alias_absence is not None) != (self.alias_state == "known_empty")
-        ):
-            raise ValueError("known empty aliases require explicit source evidence")
-        if (self.revision is not None) != (self.revision_state == "observed"):
-            raise ValueError("only observed revisions carry an interpreted revision")
-        if len(set(self.dependencies)) != len(self.dependencies):
-            raise ValueError("artifact dependencies repeat")
-        return self
+        return source_artifact_invariants(self)
 
 
 class ArtifactCitation(StructuralValue):
@@ -162,13 +144,7 @@ class ArtifactNomination(ArtifactPairKey):
 
     @model_validator(mode="after")
     def direction(self):
-        if (
-            tuple(e.role for e in self.endpoints) != ("attachment", "target")
-            or sorted(e.record_id for e in self.endpoints) != [self.left, self.right]
-            or self.left >= self.right
-        ):
-            raise ValueError("artifact nomination must preserve directed distinct endpoints")
-        return self
+        return artifact_nomination_invariants(self)
 
 
 ArtifactRoute = Literal[
@@ -678,129 +654,165 @@ class ArtifactIdentityProduct(StructuralValue):
 
     @model_validator(mode="after")
     def membership(self):
-        by_id = {r.contribution_id: r for r in self.records}
-        if self.protocol == "artifact-identity-5" and (
-            any(
-                record.primary_node is None
-                or record.artifact.primary_node != record.primary_node
-                or (
-                    record.explicit_reference is not None
-                    and record.explicit_reference.primary_node is None
-                )
-                for record in self.records
-            )
-            or any(nomination.primary_node is None for nomination in self.external_nominations)
-            or any(
-                declaration.primary_node is None
-                or any(
-                    (target.work_cue is None) != (target.work_primary_node is None)
-                    for target in declaration.targets
-                )
-                for declaration in self.declared_relationships or ()
-            )
+        return artifact_identity_invariants(self)
+
+
+def source_artifact_invariants(value: Any) -> Any:
+    if value.alias_state == "observed":
+        if (
+            not value.alias_occurrences
+            or tuple(a.text for a in value.alias_occurrences) != value.aliases
+            or len(set(value.alias_occurrences)) != len(value.alias_occurrences)
+            or value.alias_absence is not None
         ):
-            raise ValueError("current artifact identity requires exact primary source witnesses")
-        if len(by_id) != len(self.records):
-            raise ValueError("identity record identifiers repeat")
-        anchors = frozenset(self.known_anchor_ids)
-        if len(anchors) != len(self.known_anchor_ids) or not anchors <= by_id.keys():
-            raise ValueError("known anchors must be distinct selected artifact records")
-        by_pair = {(p.left, p.right): p for p in self.pairs}
-        if len(by_pair) != len(self.pairs):
-            raise ValueError("identity pairs repeat")
-        if self.route_counts != artifact_route_counts(self.pairs):
-            raise ValueError("artifact route counts differ from the selected pair ledger")
-        explicit_pairs = {
-            tuple(sorted((reference.attachment, target)))
-            for reference in self.explicit_references
-            for target in reference.targets
-        }
-        if self.explicit_references != artifact_reference_resolutions(
-            self.records
-        ) or explicit_pairs != {
-            key for key, pair in by_pair.items() if "explicit_reference" in pair.candidate_routes
-        }:
-            raise ValueError("artifact explicit reference differs from selected source targets")
-        for pair in self.pairs:
-            if pair.left >= pair.right or not {pair.left, pair.right} <= by_id.keys():
-                raise ValueError("identity pair outside exact cohort")
-            a, b = by_id[pair.left], by_id[pair.right]
-            if pair.scope_state == "compatible" and (
-                a.artifact.source_work,
-                a.artifact.artifact_kind,
-            ) != (b.artifact.source_work, b.artifact.artifact_kind):
-                raise ValueError("identity pair crosses source-work or artifact kind")
-            if pair.scope_state == "compatible" and pair.left in anchors and pair.right in anchors:
-                raise ValueError("distinct known artifact anchors cannot form a compatible pair")
-            if pair.score_status == "scored":
-                valid_score = (
-                    pair.scope_state == "compatible"
-                    and pair.model_id == self.policy.identity
-                    and pair.model_probability is not None
-                )
-            else:
-                valid_score = (
-                    pair.model_probability is None
-                    and pair.model_id is None
-                    and not pair.model_evidence
-                )
-            if not valid_score:
-                raise ValueError("identity score lacks selected frozen model custody")
-        nomination_ids = set()
-        nominated = set()
-        for nomination in self.external_nominations:
-            relation_id = nomination.relationship.contribution_id
-            key = (nomination.left, nomination.right)
+            raise ValueError("observed aliases require distinct exact located evidence")
+    elif (
+        value.aliases
+        or value.alias_occurrences
+        or (value.alias_absence is not None) != (value.alias_state == "known_empty")
+    ):
+        raise ValueError("known empty aliases require explicit source evidence")
+    if (value.revision is not None) != (value.revision_state == "observed"):
+        raise ValueError("only observed revisions carry an interpreted revision")
+    if len(set(value.dependencies)) != len(value.dependencies):
+        raise ValueError("artifact dependencies repeat")
+    return value
+
+
+def artifact_nomination_invariants(value: Any) -> Any:
+    if (
+        tuple(e.role for e in value.endpoints) != ("attachment", "target")
+        or sorted(e.record_id for e in value.endpoints) != [value.left, value.right]
+        or value.left >= value.right
+    ):
+        raise ValueError("artifact nomination must preserve directed distinct endpoints")
+    return value
+
+
+def artifact_identity_invariants(value: Any) -> Any:
+    by_id = {r.contribution_id: r for r in value.records}
+    if value.protocol == "artifact-identity-5" and (
+        any(
+            record.primary_node is None
+            or record.artifact.primary_node != record.primary_node
+            or (
+                record.explicit_reference is not None
+                and record.explicit_reference.primary_node is None
+            )
+            for record in value.records
+        )
+        or any(nomination.primary_node is None for nomination in value.external_nominations)
+        or any(
+            declaration.primary_node is None
+            or any(
+                (target.work_cue is None) != (target.work_primary_node is None)
+                for target in declaration.targets
+            )
+            for declaration in value.declared_relationships or ()
+        )
+    ):
+        raise ValueError("current artifact identity requires exact primary source witnesses")
+    if len(by_id) != len(value.records):
+        raise ValueError("identity record identifiers repeat")
+    anchors = frozenset(value.known_anchor_ids)
+    if len(anchors) != len(value.known_anchor_ids) or not anchors <= by_id.keys():
+        raise ValueError("known anchors must be distinct selected artifact records")
+    by_pair = {(p.left, p.right): p for p in value.pairs}
+    if len(by_pair) != len(value.pairs):
+        raise ValueError("identity pairs repeat")
+    if value.route_counts != artifact_route_counts(value.pairs):
+        raise ValueError("artifact route counts differ from the selected pair ledger")
+    explicit_pairs = {
+        tuple(sorted((reference.attachment, target)))
+        for reference in value.explicit_references
+        for target in reference.targets
+    }
+    if value.explicit_references != artifact_reference_resolutions(
+        value.records
+    ) or explicit_pairs != {
+        key for key, pair in by_pair.items() if "explicit_reference" in pair.candidate_routes
+    }:
+        raise ValueError("artifact explicit reference differs from selected source targets")
+    for pair in value.pairs:
+        if pair.left >= pair.right or not {pair.left, pair.right} <= by_id.keys():
+            raise ValueError("identity pair outside exact cohort")
+        a, b = by_id[pair.left], by_id[pair.right]
+        if pair.scope_state == "compatible" and (
+            a.artifact.source_work,
+            a.artifact.artifact_kind,
+        ) != (b.artifact.source_work, b.artifact.artifact_kind):
+            raise ValueError("identity pair crosses source-work or artifact kind")
+        if pair.scope_state == "compatible" and pair.left in anchors and pair.right in anchors:
+            raise ValueError("distinct known artifact anchors cannot form a compatible pair")
+        if pair.score_status == "scored":
+            valid_score = (
+                pair.scope_state == "compatible"
+                and pair.model_id == value.policy.identity
+                and pair.model_probability is not None
+            )
+        else:
+            valid_score = (
+                pair.model_probability is None
+                and pair.model_id is None
+                and not pair.model_evidence
+            )
+        if not valid_score:
+            raise ValueError("identity score lacks selected frozen model custody")
+    nomination_ids = set()
+    nominated = set()
+    for nomination in value.external_nominations:
+        relation_id = nomination.relationship.contribution_id
+        key = (nomination.left, nomination.right)
+        pair = by_pair.get(key)
+        if (
+            relation_id in nomination_ids
+            or pair is None
+            or "external_pairs" not in pair.candidate_routes
+            or relation_id not in pair.dependencies
+        ):
+            raise ValueError("external nomination lacks its exact pair and relationship proof")
+        nomination_ids.add(relation_id)
+        nominated.add(key)
+    if (value.protocol in {"artifact-identity-4", "artifact-identity-5"}) != (
+        value.declared_relationships is not None
+    ):
+        raise ValueError("artifact declaration ledger differs from the selected protocol")
+    for declaration in value.declared_relationships or ():
+        if declaration.outcome != (
+            "no_compatible_candidate"
+            if not declaration.targets
+            else "witnessed_candidate"
+            if len(declaration.targets) == 1
+            else "ambiguous"
+        ):
+            raise ValueError("artifact declaration does not preserve its target alternatives")
+        if declaration.source_id not in by_id:
+            raise ValueError("artifact declaration is outside the selected occurrence cohort")
+        for target in declaration.targets:
+            left, right = sorted((declaration.source_id, target.record_id))
+            key = (left, right)
             pair = by_pair.get(key)
             if (
-                relation_id in nomination_ids
-                or pair is None
+                pair is None
                 or "external_pairs" not in pair.candidate_routes
-                or relation_id not in pair.dependencies
+                or "artifact-declaration:" + declaration.identity not in pair.dependencies
             ):
-                raise ValueError("external nomination lacks its exact pair and relationship proof")
-            nomination_ids.add(relation_id)
+                raise ValueError("artifact declaration lacks its exact pair route")
             nominated.add(key)
-        if (self.protocol in {"artifact-identity-4", "artifact-identity-5"}) != (
-            self.declared_relationships is not None
-        ):
-            raise ValueError("artifact declaration ledger differs from the selected protocol")
-        for declaration in self.declared_relationships or ():
-            if declaration.outcome != (
-                "no_compatible_candidate"
-                if not declaration.targets
-                else "witnessed_candidate"
-                if len(declaration.targets) == 1
-                else "ambiguous"
-            ):
-                raise ValueError("artifact declaration does not preserve its target alternatives")
-            if declaration.source_id not in by_id:
-                raise ValueError("artifact declaration is outside the selected occurrence cohort")
-            for target in declaration.targets:
-                left, right = sorted((declaration.source_id, target.record_id))
-                key = (left, right)
-                pair = by_pair.get(key)
-                if (
-                    pair is None
-                    or "external_pairs" not in pair.candidate_routes
-                    or "artifact-declaration:" + declaration.identity not in pair.dependencies
-                ):
-                    raise ValueError("artifact declaration lacks its exact pair route")
-                nominated.add(key)
-        if nominated != {
-            key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes
-        }:
-            raise ValueError("external pair route lacks an authenticated nomination")
+    if nominated != {
+        key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes
+    }:
+        raise ValueError("external pair route lacks an authenticated nomination")
 
-        alias_pairs = {(p.left, p.right) for p in self.native_alias_pairs}
-        if len(alias_pairs) != len(self.native_alias_pairs) or alias_pairs != {
-            key for key, p in by_pair.items() if "native_alias_array" in p.candidate_routes
-        }:
-            raise ValueError("native alias pair ledger differs from candidate routes")
-        for left, right in alias_pairs:
-            a, b = by_id[left].artifact, by_id[right].artifact
-            if (a.source_work, a.artifact_kind) != (b.source_work, b.artifact_kind) or not set(
-                alias_tokens(a)
-            ) & set(alias_tokens(b)):
-                raise ValueError("native alias pair lacks compatible located alias evidence")
-        return self
+    alias_pairs = {(p.left, p.right) for p in value.native_alias_pairs}
+    if len(alias_pairs) != len(value.native_alias_pairs) or alias_pairs != {
+        key for key, p in by_pair.items() if "native_alias_array" in p.candidate_routes
+    }:
+        raise ValueError("native alias pair ledger differs from candidate routes")
+    for left, right in alias_pairs:
+        a, b = by_id[left].artifact, by_id[right].artifact
+        if (a.source_work, a.artifact_kind) != (b.source_work, b.artifact_kind) or not set(
+            alias_tokens(a)
+        ) & set(alias_tokens(b)):
+            raise ValueError("native alias pair lacks compatible located alias evidence")
+    return value
