@@ -1,6 +1,13 @@
 # Scenario and support ownership
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
 
 This companion owns the designs of TS-06 (support placement, import rules and recipe values),
 TS-07 (staged builders, focused consumers and the recipe memo) and TS-15 (one owner of the
@@ -10,8 +17,8 @@ package state, the dependency queue and the disposition of every finding named h
 **Baseline and evidence.** The original source reading was on `main` between `f03170a89` and
 `434023ee8`; revision source was inspected at `b1b4a4de0`, 2026-11-13. This revision incorporates
 [I03, I04, I05, I06 and I11](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md)
-of the plan-improvement review. Line citations are as read. Every design statement is
-**Proposed**. Source facts are
+of the plan-improvement review. Line citations are as read. Design statements were **Proposed**
+at original authoring and subsequently accepted through the coordinator. Baseline source facts are
 **Interface-checked by source inspection, 2026-11-13**. Durations quoted from the audit are
 **Measured** from stored results and are orders of magnitude. No package has a speed target.
 
@@ -19,7 +26,7 @@ of the plan-improvement review. Line citations are as read. Every design stateme
 as root `tests/…`, `scripts/…`, `conftest.py`, `pyproject.toml`. Section references (§4.3 and so
 on) are to the [source review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md).
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 - **Support modules already exist and show the target.** `tests/semantic/domain_scenarios.py`,
   `agent_scenarios.py`, `reference_scenarios.py`, `serving_scenarios.py`,
@@ -35,7 +42,7 @@ on) are to the [source review](../../design_review/reviews/design_review_test-sy
 - **Production memoizes preparation.** `_prepare_release_cached` is an `lru_cache(maxsize=8)` on
   its hashable inputs (`src/corpus_structure/semantic/prepare.py:592–598`).
 
-What is wrong today (DTA-009, DTA-018, DTA-029):
+Defects at the original inspection baseline (DTA-009, DTA-018, DTA-029):
 
 - A scenario is chosen by which fixture name a module imported. `private_source`
   (`native_record_fixtures.py:791–819`) merges a sibling fixture, `private_source_options`
@@ -179,7 +186,7 @@ none of the inspected consumers supplies that requirement.
 *Builders leave `test_*` modules, by consumer cluster.* Each cluster moves in one change with
 its importers, into a support module named for what it builds. The clusters, largest first:
 
-| Cluster | Owners today (importing files) | Notes |
+| Cluster | Owners at the inspection baseline (importing files) | Notes |
 |---|---|---|
 | Method assembly and fixtures | `methods/test_m1_source_preparation.py` (14), `test_scoped_relations.py` (11), `test_m1_producer.py` (9), `test_record_assembly.py` (8), `test_native_evidence.py`, `test_m1_source_profile.py`, `test_pm2_source.py` | Crosses into `tests/semantic/`; TS-15 touches the same files |
 | Record contracts, releases and staging | `semantic/test_record_contracts.py` (12), `test_releases.py` (8), `test_analytics.py` (8), `test_formal_evidence.py` (8), `test_proposals.py` (6) | `stage` from `test_releases.py` is used by `test_release_compatibility.py:102` |
@@ -259,7 +266,7 @@ python/corpus-structure/tests/semantic/test_review_cli_native.py`.
 For the lazy imports, use the existing conftest/CLI harness to check a cold non-CLI collection
 and representative `cli` consumers, observing imported modules rather than asserting duration.
 
-**Open premises.** Whether any double-loaded module's duplicated state changes a result was not
+**Original implementation premises (current dispositions: coordinator).** Whether any double-loaded module's duplicated state changes a result was not
 established; the rules remove the question.
 
 ## TS-07 — Staged builders, focused consumers and the recipe memo
@@ -275,7 +282,7 @@ an earlier stage. Line ranges are today's code for each stage.
 
 `build_record_source` (`tests/semantic/native_record_fixtures.py:292–646`):
 
-| Stage | Today | Adds to the output | Notes |
+| Stage | At the inspection baseline | Adds to the output | Notes |
 |---|---|---|---|
 | Prepared | `:309–397`, over `prepare_record_source` | Bundle, dependencies, profile, prepared release | Pure. The `sibling_originals` patch (`:387`) is not part of the recipe path: it stays in the per-test fixture that holds TS-03's override |
 | Release persisted | `:398–416` | Project and input realization | Admin commit |
@@ -285,7 +292,7 @@ an earlier stage. Line ranges are today's code for each stage.
 
 `build_domain_case` (`tests/semantic/domain_scenarios.py:65–651`):
 
-| Stage | Today | Options that affect it |
+| Stage | At the inspection baseline | Options that affect it |
 |---|---|---|
 | Release | `:96–199`, plus prior knowledge `:200–233` when `known` | `rules`, `graph`, `known`, `input_noise`, `nary`, `broken`, `formulas`, `global_person_identity`, `integer_alias`, `incomplete_key`, `membership_subtype`, `characterization` |
 | Views and run | `:234–267` | `duplicate`, `statement_packets` |
@@ -301,7 +308,7 @@ by dependency and reuse inspection, as recorded in TS-11.
 
 `build_resubmission_case` (`tests/semantic/agent_scenarios.py:36–174`):
 
-| Stage | Today |
+| Stage | At the inspection baseline |
 |---|---|
 | Prepared | `:49–95`, pure |
 | Release persisted | `:96–109`, with `activate_release` when composed |
@@ -314,7 +321,7 @@ finalized.
 
 **Focused consumers** (DTA-018) request the stage they read:
 
-| Consumer | Builds today | Requests in the target |
+| Consumer | Builds at the inspection baseline | Requests in the target |
 |---|---|---|
 | `tests/evaluate/test_record_policy_native.py:15–47` and the test at `:49` | The full `private_source` | The release-persisted stage and authored candidates; `eval.record_policy_full_correct` reads its arguments and one `sem.artifact` row |
 | `tests/semantic/test_cli_failures.py:228–239` | A full composed resubmission case, keeping only `prepared` | The release-persisted stage of the composed recipe |
@@ -387,7 +394,7 @@ release/views prefix, without a mandatory timing profile.
 layer is written out in seven places: construct `NativeEvidenceBuilder`, call
 `native.spacy(...)`, build `native_run("spacy", …)`, attach availability rows, finish.
 
-| Copy | Lines | Digest today | Availability rows |
+| Copy | Lines | Digest at the inspection baseline | Availability rows |
 |---|---|---|---|
 | `tests/methods/primary_reading_fixture.py` (`primary_product`) | `:140–167` | Overwritten with the pipeline digest (`:155`) | Mapped through `SPACY_COLUMNS` |
 | `tests/methods/navigation_fixture.py` | `:56–93` | Pipeline (`:78`) | `SPACY_COLUMNS` |
@@ -423,7 +430,7 @@ python/corpus-structure/tests/methods/test_construction_named.py
 python/corpus-structure/tests/methods/test_m1_producer.py
 python/corpus-structure/tests/methods/test_primary_reading_consumers.py`.
 
-**Open premise.** Which differences between copies other than the digest are intended was not
+**Original implementation premise (current disposition: coordinator).** Which differences between copies other than the digest are intended was not
 established for every site. Each surviving difference becomes an explicit argument; a difference
 with no consumer that depends on it is removed.
 

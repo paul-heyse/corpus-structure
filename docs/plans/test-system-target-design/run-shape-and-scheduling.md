@@ -1,6 +1,13 @@
 # Run shape and scheduling
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
 
 This companion owns the design of packages TS-04 and TS-12: the managed route sizes its workers
 to an explicit selection of test ids, and designated expensive preparation is kept on one worker
@@ -11,8 +18,9 @@ disposition and the rule decision RC02; nothing here restates them.
 **Baseline and evidence.** Original source was read at `main` `683e9a955`; revision source was
 inspected at `b1b4a4de0`, 2026-11-13, incorporating
 [I05 and I06](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md).
-Line citations are as read. Design statements are
-**Proposed**. Source facts are **Interface-checked by source inspection, 2026-11-13**. Durations
+Line citations are as read. Design statements were **Proposed** at original authoring and
+subsequently accepted through the coordinator. Baseline source facts are
+**Interface-checked by source inspection, 2026-11-13**. Durations
 quoted from the audit are **Measured** from stored results on a shared workstation and are
 orders of magnitude. No package here has a speed target. Paths `tests/…` and `src/…` are
 relative to `python/corpus-structure/`; root paths are written as root `tests/…`, `scripts/…`,
@@ -22,7 +30,7 @@ relative to `python/corpus-structure/`; root paths are written as root `tests/�
 [supporting document](../../design_review/reviews/test-system-target-design/options-and-classification.md),
 Part A.
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 **Worker count.** The managed route builds the pytest arguments in `_managed_pytest_args`
 (`scripts/test_receipts.py:1555–1593`). For the ordinary lane it passes `-n <workers>` when
@@ -156,7 +164,7 @@ skill reference states the rule.
 python/corpus-structure/tests/test_cli_test_evidence.py`, then the successful example above as
 the functional check.
 
-**Open premise.** That `-n 0` in the ordinary lane leaves receipt classification unchanged. The
+**Original implementation premise (current disposition: coordinator).** That `-n 0` in the ordinary lane leaves receipt classification unchanged. The
 fault lane already runs with `-n 0` through the same supervisor, and the successful example
 settles it for the ordinary lane.
 
@@ -206,7 +214,7 @@ when its consumers' own test bodies are cheap, so that running them on one worke
 beyond the preparation. A module whose bodies are expensive is not designated, because grouping
 would serialize real work.
 
-| Preparation | Fixtures today | Group |
+| Preparation | Fixtures at the inspection baseline | Group |
 |---|---|---|
 | Statistics pack, prepared | Before TS-06: consumer-qualified `stats` in `tests/orchestrate/test_policy.py:36–38`; `prepared` in `tests/semantic/test_interpretations.py:22–24`; `prepared` and `policy` in `tests/schema/test_rules.py:25–32`; `inputs` and `policy` in `tests/semantic/test_rule_literal_bindings.py:16–23`. After TS-06: distinctive shared preparation/policy names without qualifiers | one group for all four modules; duplicate matches for this value collapse |
 | HanLP profile | `profile` in `tests/semantic/test_hanlp_products.py:29–43` | its own group |
@@ -275,14 +283,14 @@ python/corpus-structure/tests/schema/test_rules.py
 python/corpus-structure/tests/semantic/test_rule_literal_bindings.py` and a reading of the
 recorded groups and executing workers.
 
-**Open premise.** That the four statistics-pack fixtures prepare the same value. They call
+**Original inspection premise.** That the four statistics-pack fixtures prepare the same value. They call
 `prepare_packs` on the same directory (`src/corpus_structure/semantic/regeneration.py:412–418`)
 and take its last element, so it holds by reading. TS-06's merge of the four into one fixture
-settles it by construction, and this package does not wait for that.
+settles it by construction. Current integration and evidence are owned by the coordinator.
 
 ## Native runner capacity integration
 
-**Proposed; TS-24/25 interaction.** [PostgreSQL tooling](postgresql-tooling.md) owns SQL/TAP
+**Accepted TS-24/25 interaction.** [PostgreSQL tooling](postgresql-tooling.md) owns SQL/TAP
 cohort execution and optional `pg_virtualenv` cluster lifetime. Its `pg_prove` job count consumes
 the same managed run capacity decision as pytest worker sizing; it is not a second automatic
 pool owner. The ordinary pytest lane retains TS-04's sizing above. Under TS-24's selected batch

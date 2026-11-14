@@ -1,6 +1,13 @@
 # Native lifecycle and deployment
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
 
 This companion owns the design of packages TS-00, TS-01 and TS-02: the two superseding decision
 records, one naming, lease and sweep authority for every database the tests create, and the
@@ -10,18 +17,20 @@ and the rule decisions RC01–RC05; nothing here restates their disposition.
 
 **Revision input:** the accepted integration of [I01, I02 and I10](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md),
 against clean source `b1b4a4de0` (2026-11-13). The target below replaces the earlier session-clone
-verification and shared semantic engine proposals; it remains **Proposed**, not implemented.
+verification and shared semantic engine proposals. Its implementation and evidence are now
+recorded by the coordinator; this paragraph preserves the accepted revision’s design basis.
 
 **Baseline and evidence.** Source was read at `main` `683e9a955` on 2026-11-13; another session
-was committing during authoring, so line citations are as read. Design statements are
-**Proposed**. Source facts are **Interface-checked by source inspection, 2026-11-13**. Durations
+was committing during authoring, so line citations are as read. Design statements were
+**Proposed** at original authoring and subsequently accepted through the coordinator. Baseline
+source facts are **Interface-checked by source inspection, 2026-11-13**. Durations
 quoted from the audit are **Measured** from stored results on a shared workstation and are
 orders of magnitude. Paths `tests/…` and `src/…` are relative to `python/corpus-structure/`;
 root paths are written as root `tests/…`, `scripts/…`, `docs/…`. Section references (§4.1 and so
 on) are to the
 [design review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md).
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 `PgAdmin` in `scripts/native_test_support.py` is the lifecycle owner and stays the only one.
 The series reuses, unchanged in meaning:
@@ -90,7 +99,7 @@ The review's §7 table is the reference; these rows carry the design.
 | Mechanism | Condition the design relies on | Reference |
 |---|---|---|
 | `CREATE DATABASE … TEMPLATE` | The source must have no connected session; concurrent clones of one source proceed; the database comment, `datacl` and settings are not copied, so the stamp is written per clone and policy is replayed | §7 rows 1 and 4; PostgreSQL 18 `sql-createdatabase` |
-| `ALTER DATABASE … RENAME TO` | Refused while a session is connected to the database; keeps the OID, and `pg_shdescription` is keyed by OID, so the ownership stamp survives | §7 row 2; documented, not yet exercised here (open premise) |
+| `ALTER DATABASE … RENAME TO` | Refused while a session is connected to the database; keeps the OID, and `pg_shdescription` is keyed by OID, so the ownership stamp survives | §7 row 2; originally an unexercised premise; current publication evidence is coordinator-owned |
 | Session advisory locks | Lock tags include the current database OID, so every lease is taken on `postgres`, as `PgAdmin.connect()` already defaults; a session lock ends with its session, including a dead client's | §7 row 5 |
 | `DROP DATABASE` | Each drop requests an immediate, forced, waited checkpoint for the whole cluster; fewer head drops is the safe lever | §7 row 3 |
 | xdist run identity | The `testrun_uid` session fixture is shared by a run's workers and generated locally without workers (`.venv/…/xdist/plugin.py:400–407`) | §7 row 6 |
@@ -521,7 +530,7 @@ python/corpus-structure/tests/semantic/test_execution_admission_expectations.py`
 `tests/scripts/test_test_receipts.py`, and the CLI testing controls. Record `uv run ci doctor`
 if the run meets an environment-shaped failure.
 
-**Open premises.**
+**Original implementation premises (current dispositions: coordinator).**
 
 | Premise | What settles it | If it fails |
 |---|---|---|

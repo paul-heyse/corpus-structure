@@ -1,6 +1,14 @@
 # Data-operations test alignment
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
+TS-21 and TS-22 remain gated on their DDO dependencies; their disposition stays with the coordinator.
 
 This companion owns the design of the test support, isolation, independent evidence, cutover
 transfer and final evidence mapping for the tests of the declared-data-operations (DDO) work:
@@ -11,7 +19,8 @@ document does not restate them.
 **Baseline and evidence labels.** The original inspection used `main` `074638c64`; the
 I07–I09 revision inspected the relevant source and current DDO owners at `b1b4a4de0`,
 2026-11-13. Original line citations are as read and may move; the lease and handover premises
-below are reconciled to that newer baseline. Every design statement is **Proposed**. Source facts are
+below were reconciled to that newer baseline. Design statements were **Proposed** at original
+authoring and subsequently accepted through the coordinator. Baseline source facts are
 **Interface-checked by source inspection, 2026-11-13**. Durations quoted from the audit are
 **Measured** from stored results on a shared workstation and are orders of magnitude. Paths
 written `tests/…` and `src/…` are relative to `python/corpus-structure/`; root paths are written
@@ -30,7 +39,7 @@ Parts B.2 and B.3; and the audit findings
 [DTA-035](../../design_review/test-audit/retirement-transfer.md#dta-035) and
 [DTA-036](../../design_review/test-audit/retirement-transfer.md#dta-036).
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 Thirty-seven `test_data_operation_*.py` modules exist (33 under `tests/semantic/`, 4 under
 `tests/orchestrate/`), plus `tests/test_cli_demands.py` and several product and source modules
@@ -76,7 +85,7 @@ states what isolation its claim needs.
 | Declaration builder | A vocabulary preset and explicit case fields | Nothing hidden: every field a test asserts on is an argument at the call site | A declaration mapping | TS-17 |
 | `compiled(recipe)` | A recipe value (TS-06 contract) | Whether this worker has already compiled it | The compiled effective model, memoized per process | TS-17 |
 | `admit_kernel(connection, recipe)` | A connection in an open transaction and a `KernelRecipe` | Nothing; it is the one persist, admit, bind, project sequence | Committed kernel rows when the caller commits, and a `Kernel` handle | TS-17 |
-| Interim `kernel` fixture | A `KernelRecipe` | Nothing | A fresh clone of the head per test with `admit_kernel` run on it: the isolation the tests have today | TS-17; removed by TS-18 |
+| Interim `kernel` fixture (original transition, retired by TS-18) | A `KernelRecipe` | Nothing | A fresh clone of the head per test with `admit_kernel` run on it: the isolation the tests have today | TS-17; removed by TS-18 |
 | `ddo_kernel(recipe)` | A `KernelRecipe`, the seed operation (TS-08) and the commit class (TS-05) | Which seed to clone | `scenario_seeds.commit_clone(recipe)`: a fresh commit-class clone of that recipe's sealed seed, with the handle exposing the purpose engines of that clone | TS-18 |
 | `expire_lease(kernel, task_id)` | A claimed data task | Nothing | The task's `lease_until` moved one second into the past, as the publisher role | TS-18 |
 | `WireCheckedStorage` | Hand-written replies per native operation | Whether each input and each reply satisfies the production wire | The reply, or the wire's own refusal | TS-20 |
@@ -102,11 +111,12 @@ head.
 **A new DDO native test, in the target.** It imports builders from support, names a
 `KernelRecipe` (an existing one, or a new value declared beside the others), and requests either
 `ddo_kernel(recipe)` for a committing claim or the rollback or read class for a claim that
-commits nothing. Between TS-17 and TS-18 the committing form is the interim `kernel` fixture
-with the same recipe. A test whose claim is a bare database requests a cold deployment fixture.
-It does not define a fixture that calls `persist_release`. TS-17 should land before DDO-06 adds
-native tests so that those start in this shape; both coordinators already record that
-dependency. Implementation readiness remains to be delivered.
+commits nothing. The original TS-17-to-TS-18 transition used an interim `kernel` fixture;
+the implemented committing route is `ddo_kernel` over the recipe seed. A test whose claim is a
+bare database requests a cold deployment fixture. It does not define a fixture that calls
+`persist_release`. The accepted dependency places TS-17 support before new DDO-06 native tests;
+both coordinators record it. Current readiness and its bounded evidence are owned by the
+test-system coordinator, separately from final qualification.
 
 ### Library and system mechanisms
 
@@ -138,7 +148,7 @@ Everything below designs to clones and seeds.
 
 Support modules live in the `semantic` test package (`tests/semantic/__init__.py` exists) and
 are imported by canonical absolute name, `from semantic.<module> import …`, from every
-directory including `tests/orchestrate/`. None is named `test_*`, so none is collected. Proposed
+directory including `tests/orchestrate/`. None is named `test_*`, so none is collected. Accepted
 modules, following the existing `*_support.py` naming in that directory:
 
 | Module (`tests/semantic/`) | Holds |
@@ -208,7 +218,7 @@ for data-operation releases, `admit_kernel` calls it and nothing else changes.
 
 The ten recipes:
 
-| Recipe | Today | Content | Shared by |
+| Recipe | At the inspection baseline | Content | Shared by |
 |---|---|---|---|
 | Storage | storage `:172–253` | `urn:ddo-test`; six declarations; one evaluator kind; `execution:test`; project `ddo-test` | storage (42 tests), service (1 test) |
 | Population | population `:33–142` | `urn:ddo-selection`; discover, consumer, child; `execution:test`; `ddo-test` | population (5) |
@@ -228,7 +238,7 @@ one source tree; that is intended. The runtime id includes `sys.version`
 
 ### Importers migrated
 
-| Module | Import today | Becomes |
+| Module | Import at the inspection baseline | Becomes |
 |---|---|---|
 | `test_data_operation_population_native.py` | `:29` `_declaration, claim, publish`; `:30` `ddo_kernel_engine` | declaration and demand support; the interim `kernel` fixture |
 | `test_data_operation_consumer_native.py` | `:56` `_declaration, claim`; `:57` `ddo_kernel_engine` | same |
@@ -282,7 +292,7 @@ replaces TS-17's interim `kernel` fixture, which is removed. The Python-side val
 runtime) come from the same per-process memo that built the seed, which is coherent because
 seeds are per worker. Tests that commit nothing stop cloning.
 
-| Module | Today | Target class | Seed or source |
+| Module | At the inspection baseline | Target class | Seed or source |
 |---|---|---|---|
 | `test_data_operation_storage.py` | `kernel` per test | commit from the storage seed for transaction/publication claims; `:756` and `:2171` read; forged-graph family rollback | STORAGE |
 | `test_data_operation_service.py` | `kernel` (one test), pure (one test) | commit from the storage seed; pure | storage |
@@ -374,7 +384,7 @@ be with its uuid name, produces a seed whose release id differs from the handle 
 consumer computes. The seed check compares the stored release id with the handle's and refuses
 the seed; it must not surface as a confusing refusal inside a test body.
 
-**Open premises.**
+**Original implementation premises (current dispositions: coordinator).**
 
 | Premise | Settled by | If it fails |
 |---|---|---|
@@ -658,8 +668,9 @@ Results are read from their managed receipts by id.
 The coordinator holds the one list
 ([Handovers to other owners](../test-system-target-design_2026-11-13.md#handovers-to-other-owners)).
 Current DDO owners already incorporate RC03, TS-05/06/17 readiness for new DDO-06 native tests,
-TS-21/22 consumption and the retirement ownership stated above. These are execution
-prerequisites still to deliver, not missing policy handovers. DDO’s paused execution state stays
+TS-21/22 consumption and the retirement ownership stated above. Non-gated support implementation
+and its evidence are recorded by the test-system coordinator; TS-21/22 retain their DDO gates.
+These are execution dependencies, not missing policy handovers. DDO’s paused execution state stays
 with its coordinator. Remaining handovers include DDO-12’s discriminating evidence mapping,
 coordinated identity-helper deletion if still needed, source-owner findings reconciliation,
 admission/deployment assurance and the surviving semantic coverage gaps. This companion does

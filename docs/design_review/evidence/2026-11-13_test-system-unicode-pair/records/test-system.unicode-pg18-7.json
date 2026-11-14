@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "id": "test-system.unicode-pg18-7",
+  "title": "Exact Unicode identity pair on PostgreSQL18.7",
+  "group": "Test system qualification",
+  "package": "TS-23",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the exact selected Python/UCD and PostgreSQL builtin collation agree on Unicode default folding over the supported PostgreSQL text domain?",
+  "answers": [
+    "TS-23"
+  ],
+  "method": "Read-only comparison of every supported scalar mapping, plus six independently specified sequence cases and a changed-determinant refusal at the Python admission boundary. No normalization is applied.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-13_test-system-unicode-pair/code/qualify.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "code/qualify.py",
+      "role": "read-only full scalar qualification",
+      "sha256": "44e163d441dc1acc82f10777fcda65e503405a2d09399406b5bbed2e851b8c07"
+    },
+    {
+      "path": "inputs/unicode_identity.before.py",
+      "role": "original campaign and probe implementation snapshot",
+      "sha256": "5c5c52129a0e2a8021edbb57ca601cb79ec4d7dbdad1c941bd2b6f62fca2c95a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/qualified-pair.json",
+      "role": "exact runtime pair, full mapping digest, independent cases and refusals",
+      "sha256": "361584fd3eaf42b020127fbb649c0960a16926a742ae753a152efa537753f291"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "changed_scalar_mappings",
+      "value": 1557,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "independent_sequence_cases",
+      "value": 6,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "mapping_digest",
+      "value": "97b00ff02d8ab202d343184b422f25c8ea8e0b30db3f9334ed3b2d909a615d02",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The exact CPython3.14.10/UCD16.0.0 and PostgreSQL18.7/UTF8/builtin pg_unicode_fast version1 pair agrees on every supported scalar mapping, excluding NUL and surrogates. Six independent sequences agree; composed and decomposed strings remain distinct. Exact observed determinants pass admission; previous18.6 and corrupted collation determinants refuse. This read-only qualification authorizes no schema change, deployment, activation or DDO resumption; integrated repairs retain their own targeted receipts.",
+  "consumed_by": [
+    "TS-23"
+  ]
+}

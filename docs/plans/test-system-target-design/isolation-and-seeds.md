@@ -1,6 +1,13 @@
 # Isolation classes and scenario seeds
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
 
 This companion owns the designs of TS-05 (isolation-class fixtures), TS-08 (the seed operation),
 TS-10 (rollback families and read-class checks) and TS-11 (commit-class consumers on recipe
@@ -9,7 +16,8 @@ dependency queue and the disposition of every finding named here; this page does
 
 **Baseline and evidence.** Source was read on `main` between `f03170a89` and `434023ee8`,
 2026-11-13, while another session was committing declared-data-operations (DDO) work; line
-citations are as read. Every design statement is **Proposed**. Source facts are
+citations are as read. Design statements were **Proposed** at original authoring and
+subsequently accepted through the coordinator. Baseline source facts are
 **Interface-checked by source inspection, 2026-11-13**. Durations quoted from the audit are
 **Measured** from stored results on a shared workstation and are orders of magnitude. Receipts
 that show one seed or one family clone per worker are functional evidence, not speed claims.
@@ -17,13 +25,14 @@ that show one seed or one family clone per worker are functional evidence, not s
 **Revision input:** [I01/I02/I10](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md)
 integrated against clean source `b1b4a4de0` (2026-11-13). The operator accepted I02's
 infrastructure-base change on 2026-11-13; TS-00 routes RC05 through the ADR-0032 successor.
-All fixture and production changes described here remain **Proposed**.
+The coordinator owns implementation and evidence for these accepted fixture and production
+contracts; acceptance is distinct from final qualification.
 
 **Paths.** `tests/…` and `src/…` are relative to `python/corpus-structure/`; root paths are written
 as root `tests/…`, `scripts/…`, `conftest.py`, `pyproject.toml`. Section references (§4.1 and so
 on) are to the [source review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md).
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 - **One lifecycle owner.** `PgAdmin.database(name, source, policy=…)` (`scripts/native_test_support.py:444`)
   leases an absent name, creates it through the acknowledged path, replays the captured policy and
@@ -202,9 +211,13 @@ no fixture or semantic durable-state comparator for it is introduced. Remove the
 semantic-role prerequisite from common infrastructure acquisition while retaining it at semantic
 consumers.
 
-**Example and failure case.** A check of `data.local_semantic_case_matches` requests `native_read`
-and runs seventeen cases on one clone. If someone later adds a temporary table to that function,
-every case fails with `25006`, naming the hidden write. A refusal case that calls `publish_batch`,
+**Original example and failure case.** The read-class design had
+`data.local_semantic_case_matches` request `native_read` and run seventeen cases on one clone;
+adding a temporary table would fail with `25006`. The accepted TS-24 tooling integration now
+realizes this semantic claim in the nineteen-case maintenance SQL family, with one clone/batch,
+rollback, independent expectations and exact logical mapping. It makes no reader-privilege
+claim; independent actual-principal controls preserve that obligation. The coordinator and
+assembled review own this disposition. A refusal case that calls `publish_batch`,
 which commits on its own connection, passes alone; the next case's absence check finds the
 committed batch and fails, pointing at the leak.
 
@@ -308,7 +321,7 @@ share one completed verification per process. By search, no test body calls `sce
 **Verification.** `uv run ci test -- python/corpus-structure/tests/semantic/test_serving_scenario_lifecycle.py
 python/corpus-structure/tests/semantic/test_serving.py`.
 
-**Open premises.** Whether any consumer re-reads a seeded `original_path` file is unsettled; the
+**Original implementation premises (current dispositions: coordinator).** Whether any consumer re-reads a seeded `original_path` file is unsettled; the
 read-only directory makes a read harmless and a write loud, so the first consumers settle it.
 TS-03 must expose whether an override is active.
 

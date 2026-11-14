@@ -1,6 +1,13 @@
 # Implementation snapshot and timing controls
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
 
 This companion owns the design of packages TS-03 and TS-16: the implementation-input production
 seam, which reads the implementation inputs once per process and gives tests an explicit
@@ -12,8 +19,9 @@ disposition; nothing here restates them.
 **Baseline and evidence.** Original source was read at `main` `683e9a955`; revision source was
 inspected at `b1b4a4de0`, 2026-11-13, incorporating
 [I04](../../plan_improvement_reviews/test-system-target-design_2026-11-13.md#I04) and its I03
-consumer. Line citations are as read. Design statements are
-**Proposed**. Source facts are **Interface-checked by source inspection, 2026-11-13**. Durations
+consumer. Line citations are as read. Design statements were **Proposed** at original authoring
+and subsequently accepted through the coordinator. Baseline source facts are
+**Interface-checked by source inspection, 2026-11-13**. Durations
 quoted from the audit are **Measured** from stored results and are orders of magnitude; the
 share of any test's time explained by the repeated reads is a source reading, not a profile.
 Paths `tests/…` and `src/…` are relative to `python/corpus-structure/`; root paths are written
@@ -21,7 +29,7 @@ as root `tests/…`. Section references are to the
 [design review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md)
 (§4.6 for the three production seams, §6.1 for DTA-032, §6.4 for DTA-026).
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 **Implementation inputs.** Two public readers in `src/corpus_structure/semantic/contracts.py`
 acquire the determinants from disk on every call, and nothing on that path is cached:
@@ -147,7 +155,7 @@ override query.
 
 ### Override validity across caches
 
-**Proposed scope rule (I04).** The override is process-wide and nestable. Entering an inner
+**Accepted scope rule (I04).** The override is process-wide and nestable. Entering an inner
 scope saves the outer override value; a `finally` restoration reinstalls it on either normal
 or exceptional exit. Returning from the outer scope restores the installed snapshot and its
 untouched warm caches. Both a snapshot override and the refusal marker count as active scopes.
@@ -191,7 +199,7 @@ input read. TS-07 adds its support-memo consumer controls after this contract ex
 **Consumers migrated.** The review named the fixture and four reader patches. Source shows one
 of those four and five further sites that patch the digest consumer, all of which move:
 
-| Site | Today | Target |
+| Site | At the inspection baseline | Target |
 |---|---|---|
 | `tests/semantic/native_record_fixtures.py:384–396` | Patches `contracts.analysis_implementation_inputs` to substitute one authored policy asset, for the rest of the test | Builds a snapshot from the installed analysis inputs with that artifact replaced and holds the override for the fixture's lifetime. An override is never a recipe field and never seedable, so this `sibling_originals` path stays on a per-test commit-class build, outside TS-11. The module is also touched by TS-06, TS-07 and TS-11 |
 | `tests/semantic/test_execution_release.py:244` | Patches `contracts.trusted_execution_inputs` to return inputs with a comment-only catalog change | Override with a snapshot built from the changed inputs |
@@ -241,7 +249,7 @@ python/corpus-structure/tests/math/test_property.py`, root
 `tests/test_native_render_preparation.py` and `tests/test_native_retained_reads.py`, and one
 consumer of the authored policy asset fixture.
 
-**Open premises.**
+**Original implementation premises (current dispositions: coordinator).**
 
 | Premise | What settles it | If it fails |
 |---|---|---|
@@ -266,7 +274,7 @@ coordinator's handovers to the broad audit.
 `cpu_execution._COOPERATIVE_CLOSE_SECONDS` and `cpu_execution._WORKER_EXIT_SECONDS` read at test
 time, with a stated slack, in place of literals tied to five seconds:
 
-| Line | Today | What it means |
+| Line | At the inspection baseline | What it means |
 |---|---|---|
 | `:78` | `4.5 <= elapsed < 12` | At least the cooperative grace less slack; less than both graces plus slack |
 | `:111` | `< 5` | Less than the cooperative grace: the close drained without waiting it out |
@@ -325,9 +333,10 @@ cancellation control is gated by an event.
 **Targeted verification.** `uv run ci test -- python/corpus-structure/tests/semantic/test_cpu_lifecycle.py
 python/corpus-structure/tests/semantic/test_cpu_execution.py`.
 
-**Open premise.** Whether the tests at `:137`, `:171` and `:201` wait a real grace today was
-not established by reading. Running them once with the shortened constants settles it; a test
-that does not wait needs only its derived upper bound.
+**Original inspection premise.** Whether the tests at `:137`, `:171` and `:201` waited a real
+grace was not established at the dated baseline. The accepted settling check used shortened
+constants; a test that does not wait needs only its derived upper bound. Current implementation
+and evidence are coordinator-owned rather than tracked here as an open premise.
 
 ## Outside this companion
 

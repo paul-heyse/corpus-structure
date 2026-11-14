@@ -1,6 +1,13 @@
 # Evidence contracts
 
-**Status:** Proposed plan; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
 
 This companion owns the designs of TS-09 (the refusal contract and its weak sites), TS-13
 (provider and controlled test identities, and prerequisites decided before setup) and TS-14
@@ -11,7 +18,8 @@ queue and the disposition of every finding named here.
 **Baseline and evidence.** The original source inspection used `main` between `f03170a89`
 and `434023ee8`; the I07–I09 revision inspected the relevant source and current DDO owners at
 `b1b4a4de0`, 2026-11-13. Original line citations are as read and may move. Every design
-statement is **Proposed**. Source facts are
+statement was **Proposed** at original authoring and subsequently accepted through the
+coordinator. Baseline source facts are
 **Interface-checked by source inspection, 2026-11-13**. The audit's site lists are carried with
 their own limits: counts for files it sampled may be incomplete.
 
@@ -19,7 +27,7 @@ their own limits: counts for files it sampled may be incomplete.
 as root `tests/…`, `scripts/…`, `conftest.py`, `pyproject.toml`. Section references (§4.4 and so
 on) are to the [source review](../../design_review/reviews/design_review_test-system-target-design_2026-11-13.md).
 
-## Current baseline and what is reused
+## Original inspection baseline and reused mechanisms
 
 - **The strongest refusal form already exists.** `tests/semantic/test_private_records.py:131–176`
   runs a positive control in a savepoint and rolls it back (`:139–149`), then asserts SQLSTATE and
@@ -112,7 +120,7 @@ and a block that raises nothing.
 *The sites.* Each row gets the three parts of the contract. "Add reach" means a positive control
 on the same state; "pin" means SQLSTATE plus message or constraint through the helper.
 
-| Site | Today | Change |
+| Site | At the inspection baseline | Change |
 |---|---|---|
 | `tests/semantic/test_publication.py:223–232` | Writer inserts a `data.entity` row with no realization; reader calls `data.begin_stage()`; any `DBAPIError` | Pin `42501` per statement. The missing realization would raise `23503`, so `42501` proves the privilege fence without new inputs |
 | `tests/semantic/test_arrow_publication.py:180–185` | Same writer-bypass shape | Pin `42501` |
@@ -131,7 +139,7 @@ on the same state; "pin" means SQLSTATE plus message or constraint through the h
 
 Found while confirming TS-10's families (2026-11-13):
 
-| Site | Today | Change |
+| Site | At the inspection baseline | Change |
 |---|---|---|
 | `tests/semantic/test_domain_operations.py:864–992` | `declaration`, `resolution` and `cut` use `match=None` (`:963–971`) | Pin all five refusals; `valid` is the family's reach |
 | `tests/semantic/test_imported_declaration_membership.py:228–333` | `revision` and `run` share one message; `entity`, `class` and `establishment` share another (`:308–313`) | Add SQLSTATE and, where the guard is one function for several mutations, the context; state in the table which mutations share a guard |
@@ -143,7 +151,7 @@ Found while confirming TS-10's families (2026-11-13):
 
 DDO sites, edited in coordination with TS-18 and the DDO session, which is changing the file:
 
-| Site | Today | Change |
+| Site | At the inspection baseline | Change |
 |---|---|---|
 | `tests/semantic/test_data_operation_storage.py:2019` forged-graph family | `match=r"graph\|closure\|discovery"` for each of four mutations | On TS-18’s STORAGE rollback family, register only the demand through the case connection; use an authentic same-state valid-registration control in a rolled-back savepoint, then pin reason and absent effects independently for dependency, roots, discovery and duplicate mutations |
 | `tests/semantic/test_data_operation_storage.py:40`, `test_data_operation_wire.py:111` | `len(...) == 18` | An authored set of names where the set is the claim; otherwise remove |
@@ -163,7 +171,7 @@ site, written in the commit, not by mutating production (DTA-001).
 
 **Verification.** `uv run ci test -- PATH` for each edited module, and the helper's own controls.
 
-**Open premises.** Some mutations may turn out to reach a different guard than their label
+**Original implementation premises (current dispositions: coordinator).** Some mutations may turn out to reach a different guard than their label
 suggests. That is a finding about the test's input: fix the mutation so it reaches the named
 guard, or relabel it; do not widen the expected reason.
 
@@ -250,12 +258,12 @@ remain native-required with item-bound acquisition on ordinary and infrastructur
 pure support remains pure. This closes DTA-028/DTA-018 only for the named consumers, and carries
 I09’s receipt-consumer obligations with them.
 
-**Verification planned.** Target runner/manifest/classifier controls cover default, provider-only,
+**Original verification design.** Target runner/manifest/classifier controls cover default, provider-only,
 explicit provider node, incompatible fault, empty selection, recollection/retry, aggregated
 missing prerequisites and teardown failure. Run the edited modules through `uv run ci test --
 PATH`; run selected provider modules through `uv run ci test --providers-only -- PATH` and read
-blocked identities and aggregate reasons by managed result ID. These are planned checks,
-**not_run** during this document revision. An actual asset-backed provider pass remains a
+blocked identities and aggregate reasons by managed result ID. These checks were planned and **not_run** during original authoring; current outcomes and
+source applicability are coordinator-owned. An actual asset-backed provider pass remains a
 separate obligation for TS-22/DDO-12; controlled success cannot discharge it.
 
 ## TS-14 — Preservation assertions, redaction order and exact task state
@@ -266,7 +274,7 @@ separate obligation for TS-22/DDO-12; controlled success cannot discharge it.
 
 *DTA-006: preservation where the claim is preservation.*
 
-| Site | Today | Change | Wrong implementation it then catches |
+| Site | At the inspection baseline | Change | Wrong implementation it then catches |
 |---|---|---|---|
 | `tests/semantic/test_identity_exclusions.py:124–143` | Row counts and one distinct `establishment` value | Assert which two entities were grounded: the exact set of `(entity, class, establishment)` memberships and the exclusion's endpoints | One that grounds the wrong entities, or one entity twice |
 | `tests/semantic/test_exclusion_comparison.py:106–119` | Compares a run with itself; requires no changes and equal examined counts | Compare two runs with one known difference and assert the exact change list. The changed run is a commit clone of the exclusion seed plus one change ([TS-08](isolation-and-seeds.md)) | A comparison that examines rows and always reports no change |
@@ -317,7 +325,7 @@ python/corpus-structure/tests/semantic/test_runtime_entrypoints.py
 python/corpus-structure/tests/semantic/test_exclusion_comparison.py
 python/corpus-structure/tests/semantic/test_reference_evaluation.py`.
 
-**Open premises.** Whether `safe_text` recognizes a credential by its `user:secret@` shape, by
+**Original implementation premises (current dispositions: coordinator).** Whether `safe_text` recognizes a credential by its `user:secret@` shape, by
 the scheme or by both decides where the boundary must fall; the implementer reads it and places
 the boundary so the surviving fragment matches no pattern. The state a `tool_failure` session
 leaves is read from production as described above.

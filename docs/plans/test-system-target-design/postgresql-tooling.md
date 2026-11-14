@@ -1,6 +1,14 @@
 # PostgreSQL tooling and cohort execution
 
-**Status:** Proposed; nothing implemented. **Created:** 2026-11-13.
+**Status:** Accepted design companion; the [coordinator](../test-system-target-design_2026-11-13.md)
+owns current implementation, findings and qualification state. **Created:** 2026-11-13.
+
+**Present-state framing, 2026-11-13.** Non-gated functional scope has reached the coordinator's
+integration boundary. The [assembled review](../../design_review/reviews/design_review_test-system-assembled_2026-11-13.md)
+assesses that implemented architecture within its stated scope. The contracts and original
+implementation instructions below retain the accepted design; dated source descriptions are
+baseline evidence, not current implementation or qualification claims.
+
 The [coordinator](../test-system-target-design_2026-11-13.md) owns state, decisions and
 completion. This companion owns TS-24/25, selected by the operator's instruction to use
 pgTAP, pg_prove and pg_virtualenv to make native infrastructure practical and efficient.
@@ -9,8 +17,10 @@ It composes the lifecycle, isolation and evidence owners; it creates no second d
 ## Basis and foundation assessment
 
 Source inspection, **Interface-checked, 2026-11-13**, at `b1b4a4de0`, builds on improvement
-review publication `823c7fac0`, especially I02/I07/I08/I09. All target behavior and duration
-benefits below are **Proposed**, not measured. Installed tools are pgTAP 1.3.4,
+review publication `823c7fac0`, especially I02/I07/I08/I09. Target behavior was **Proposed** at
+original authoring and subsequently accepted through the coordinator; current implementation
+and bounded evidence are recorded there. Duration benefits remain **Proposed**, not measured.
+Installed tools at that inspection were pgTAP 1.3.4,
 pg_prove 3.37 and postgresql-common 294. The
 [capability reference](<../../libraries/postgresql/pgTAP, pg_prove, and pg_virtualenv.md>)
 provides orientation; installed sources establish the selected version's details.
@@ -70,7 +80,8 @@ rules; no prove state selection or ambient rules discovery. Normalize Perl modul
 harness rules/spool inputs, supplying the intentional adapter path explicitly and retaining
 all output under the managed result. This addresses the scoped
 [review's F01](../../design_review/reviews/design_review_postgresql-tooling_2026-11-13.md#f01--ambient-proveharness-inputs-can-alter-execution);
-implementation and conflicting-configuration verification remain required.
+implementation and conflicting-configuration verification are acceptance requirements whose
+current evidence is coordinator-owned.
 A small Perl adapter using `TAP::Parser`/`TAP::Harness` produces the bounded structured case
 report and retains raw TAP/stderr/process status under the existing managed result. It must
 use the same pgTAP source handler as pg_prove, not implement SQL launching or TAP parsing anew.
@@ -98,7 +109,7 @@ path; retain independently authored envelopes and Python/app/purpose controls. N
 registry or compatibility runner is required. Complete the item/provenance mapping before
 replacing the current qualified Python path; a bounded prototype cannot close TS-24.
 
-**Execution refinements, Proposed; source-inspected 2026-11-13.** Installed pgTAP emits
+**Accepted execution refinements; source-inspected 2026-11-13.** Installed pgTAP emits
 four-space-indented child streams inside its bounded `# Subtest:` framing. Feed de-indented
 children and the enclosing stream to native TAP parsers; reject unexpected nested framing,
 TODO/SKIP substitutions and incomplete observations. Declare expected assertion counts
@@ -186,9 +197,10 @@ implementation basis for environment normalization, fast settings and cleanup;
 and the repository capability reference explain the public contract. Exact-version source
 inspection takes precedence over older implementation details in that overview.
 
-## Execution and remaining uncertainty
+## Original execution prerequisites and current evidence route
 
-Implement result/selection and endpoint contracts first, then one complete supported cohort
+**Original implementation requirements.** Implement result/selection and endpoint contracts first,
+then one complete supported cohort
 with its actual consumers. A focused source/probe investigation inside TS-24 must settle whether
 the selected family's SQL projection preserves every relevant expectation and whether selected
 subtest mapping can be made faithful using the installed parser. This is a feasibility prerequisite
@@ -201,7 +213,8 @@ The outcome remains selected tooling adoption with useful SQL and private-host c
 failed experiment does not silently turn it into an evaluated-but-unused package. Reassess the
 smallest owning integration if necessary. Benefits are structurally expected from amortized
 setup and client execution, without a benchmark quota or a claim that private startup is always
-cheaper than an already running server. No tests or probes were run while authoring this plan.
+cheaper than an already running server. No tests or probes were run during original plan
+authoring; subsequent implementation evidence is owned by the coordinator and linked evidence.
 
 The new runner/host boundary received the scoped
 [design/target review](../../design_review/reviews/design_review_postgresql-tooling_2026-11-13.md)

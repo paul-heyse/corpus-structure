@@ -160,9 +160,9 @@ def require_unicode_identity_pair(
         )
 
 
-# Independently qualified on 2026-11-03. This is an exact supported runtime pair,
+# Independently qualified on 2026-11-13. This is an exact supported runtime pair,
 # not a promise about other Python builds, UCDs, PostgreSQL versions or collations.
-# Evidence: docs/design_review/evidence/2026-11-03_unicode-identity/records/ac03.unicode.json.
+# Evidence: docs/design_review/evidence/2026-11-13_test-system-unicode-pair/records/test-system.unicode-pg18-7.json.
 QUALIFIED_PAIR = UnicodeIdentityQualification(
     PROFILE,
     DOMAIN,
@@ -173,8 +173,8 @@ QUALIFIED_PAIR = UnicodeIdentityQualification(
         "mapping_digest": "97b00ff02d8ab202d343184b422f25c8ea8e0b30db3f9334ed3b2d909a615d02",
     },
     {
-        "server_version": "18.6 (Ubuntu 18.6-1.pgdg24.04+2)",
-        "server_version_num": "180006",
+        "server_version": "18.7 (Ubuntu 18.7-1.pgdg24.04+2)",
+        "server_version_num": "180007",
         "encoding": "UTF8",
         "provider": "b",
         "recorded_version": "1",
