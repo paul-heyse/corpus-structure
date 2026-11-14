@@ -292,6 +292,50 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["request_id", "generation"], "target": "ops.data_request_generation.request_id,generation"}]'
+  data_external_packet:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+      producer_attempt: {range: integer, required: true}
+      producer_holder: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      payload: {range: json_payload, required: true}
+      payload_digest: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [request_id, generation]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["request_id", "generation"], "target": "ops.data_request_generation.request_id,generation"}, {"columns": ["task_id"], "target": "ops.task.id"}]'
+  data_external_receipt:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      packet_id: {range: string, required: true}
+      packet_digest: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+      attempt: {range: integer, required: true}
+      holder: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      admitting_principal: {range: string, required: true}
+      actor_assertion: {range: string, required: true}
+      model_assertion: {range: string, required: false}
+      result_digest: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [packet_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["packet_id"], "target": "ops.data_external_packet.id"}, {"columns": ["task_id"], "target": "ops.task.id"}]'
   data_intent_adoption:
     in_subset: [ops]
     attributes:

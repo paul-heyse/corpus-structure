@@ -792,12 +792,28 @@ def read_page(metadata):
         .where(episodes.c.id == selected_uses.c.derivation_id)
         .scalar_subquery()
     )
+    external_packets = metadata.tables["ops.data_external_packet"]
+    external_receipts = metadata.tables["ops.data_external_receipt"]
+
+    def awaiting_external(use):
+        return exists(
+            select(1)
+            .select_from(external_packets.join(requests, and_(requests.c.id == external_packets.c.request_id, requests.c.generation == external_packets.c.generation, requests.c.live_task_id == external_packets.c.task_id)))
+            .where(
+                use.c.fate == "attached",
+                external_packets.c.request_id == use.c.request_id,
+                external_packets.c.generation == use.c.generation,
+                func.ops.ddo_request_useful(requests.table_valued()),
+                ~exists(select(1).where(external_receipts.c.packet_id == external_packets.c.id)),
+            )
+        )
+
     result_uses = select(
         _aggregate(
             _obj(
                 use_id=selected_uses.c.id,
                 obligation_id=selected_uses.c.obligation_id,
-                fate=case((fulfilled_invalid, literal("unavailable")), else_=selected_uses.c.fate),
+                fate=case((fulfilled_invalid, literal("unavailable")), (awaiting_external(selected_uses), literal("awaiting-external")), else_=selected_uses.c.fate),
                 historical_fate=selected_uses.c.fate,
                 semantic_outcome=semantic_outcome,
                 completion_state=completion_state,
@@ -849,6 +865,7 @@ def read_page(metadata):
                         ),
                         literal("unavailable"),
                     ),
+                    (awaiting_external(latest), literal("awaiting-external")),
                     else_=func.coalesce(latest.c.fate, literal("waiting")),
                 ),
                 request_id=latest.c.request_id,

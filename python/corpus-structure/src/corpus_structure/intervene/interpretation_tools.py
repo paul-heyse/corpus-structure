@@ -9,7 +9,7 @@ from corpus_structure.serve.interpretations import InterpretationAnswer
 
 
 def register_interpretation_tools(server, reader_snapshot, source_snapshot):
-    from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+    from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
     from corpus_structure.semantic.interpretation_queries import measurement_groups
     from corpus_structure.serve.interpretations import answer, review_detail, term_lookup
 

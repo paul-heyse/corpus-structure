@@ -63,7 +63,7 @@ def register_record_tools(
     @tool_refusals(ProposalRefused, ValueError)
     def contextual_neighborhood(ctx: Context, request: NeighborhoodToolRequest) -> ToolResult:
         """Read exploratory mutual neighbors and separate witnessed relationships."""
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
 
         with snapshot(ctx, request.run_id) as conn:
             query = QueryContext(request.run_id, conn)
@@ -78,7 +78,7 @@ def register_record_tools(
     @tool_refusals(ProposalRefused, ValueError)
     def source_decision_diagnosis(ctx: Context, request: SourceDecisionToolRequest) -> ToolResult:
         """Read source representation, nominations and outcomes under an exact cut."""
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
 
         with snapshot(ctx, request.run_id) as conn:
             query = QueryContext(request.run_id, conn)
@@ -96,7 +96,7 @@ def register_record_tools(
         ctx: Context, request: SourceDecisionJourneyToolRequest
     ) -> ToolResult:
         """Follow one original source opportunity through explicit producer layers."""
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
 
         with snapshot(ctx, request.run_id) as conn:
             query = QueryContext(request.run_id, conn)
@@ -109,7 +109,7 @@ def register_record_tools(
     @tool_refusals(ProposalRefused, ValueError)
     def structural_gap(ctx: Context, request: GapRequest) -> ToolResult:
         """Inspect a selected binding, applicability or supported-comparison gap."""
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
         from corpus_structure.serve.structural_gaps import serve_structural_gap
 
         with snapshot(ctx, request.run_id) as conn:
@@ -122,7 +122,7 @@ def register_record_tools(
     @tool_refusals(ProposalRefused, ValueError)
     def structural_products(ctx: Context, request: StructuralRequest) -> ToolResult:
         """Read pinned cross-source proposals with original citations and explicit unknowns."""
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
         from corpus_structure.serve.structural_products import serve_structural_products
 
         with snapshot(ctx, request.run_id) as conn:
@@ -136,7 +136,7 @@ def register_record_tools(
     @tool_refusals(ProposalRefused, ValueError)
     def dossier_representation(ctx: Context, request: DossierRepresentationRequest) -> ToolResult:
         """Page selected dossier members with exact membership-bound continuation."""
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
         from corpus_structure.serve.structural_products import serve_dossier_representation
 
         with snapshot(ctx, request.run_id) as conn:
@@ -152,7 +152,7 @@ def register_record_tools(
 
         Inventory paging establishes neither source completeness nor public eligibility.
         """
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
         from corpus_structure.serve.contributions import serve_contributions
 
         with snapshot(ctx, request.run_id) as conn:
@@ -167,7 +167,7 @@ def register_record_tools(
         Use record_id/interpretation_id for inspection. Source handles keep the same
         completed run. A complete page population does not establish source coverage.
         """
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
         from corpus_structure.serve.record_results import serve_record_results
 
         with snapshot(ctx, request.run_id) as conn:
@@ -184,7 +184,7 @@ def register_record_tools(
         Scientific proposition support/opposition is explicitly unmodeled; source
         polarity/modality and repeated windows do not establish independent votes.
         """
-        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
         from corpus_structure.serve.record_support import serve_record_support
 
         with snapshot(ctx, request.run_id) as conn:

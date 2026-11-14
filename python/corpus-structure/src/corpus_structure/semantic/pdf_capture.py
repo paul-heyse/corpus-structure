@@ -123,6 +123,11 @@ def pdf_capture_operation_sources(
                 contract.read_bytes(),
                 str(contract),
             ),
+            PythonSource(
+                "corpus_structure.semantic.pdf_effect_contract",
+                Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
+                str(Path(__file__).with_name("pdf_effect_contract.py")),
+            ),
         ),
         boundary_contracts=(
             pdf_capture_assets(recipe),

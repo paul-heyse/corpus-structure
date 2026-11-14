@@ -150,13 +150,13 @@ def execute(
         str, typer.Argument(help="Exact retained native demand ID to execute or resume.")
     ],
     source_root: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             exists=True,
             file_okay=False,
             help="Explicit root of the retained executable source locations.",
         ),
-    ],
+    ] = None,
     project: Annotated[
         str | None, typer.Option(help="Require the retained demand to belong to this project.")
     ] = None,
@@ -181,7 +181,7 @@ def execute(
 def execute_request(
     ctx: typer.Context,
     *,
-    source_root: Path,
+    source_root: Path | None,
     demand: str | None = None,
     request: NativeDemandRequest | None = None,
     source_request=None,
@@ -212,7 +212,8 @@ def execute_request(
         expected=(ValueError, KeyError, OSError),
         scope={"demand_id": demand, "project": project},
     ) as invocation:
-        invocation.manifest.details["native_source_root"] = str(source_root.resolve())
+        if source_root is not None:
+            invocation.manifest.details["native_source_root"] = str(source_root.resolve())
         with (
             ENGINE(settings, purpose="write") as engine,
             ENGINE(settings, purpose="admit") as admitted,
@@ -298,3 +299,43 @@ def plan(
 
 def register(root: typer.Typer) -> None:
     root.add_typer(app, name="demands")
+
+
+@app.command("external")
+def external(
+    ctx: typer.Context,
+    action: Annotated[Literal["queue", "claim", "read", "renew", "submit", "inspect", "reconcile", "release"], typer.Argument()],
+    request: Annotated[Path, typer.Option(help="Exact external action arguments as JSON; '-' reads stdin.")],
+    project: Annotated[str | None, typer.Option(help="Native project scope.")] = None,
+    demand: Annotated[str | None, typer.Option(help="Restrict packet claims to this demand.")] = None,
+    json: JsonOpt = False,
+) -> None:
+    """Operate task-owned external packets without a parallel run/method queue."""
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
+
+    with managed_operation(result_store(ctx), "demands.external." + action, json=json,
+                           expected=(ValueError, KeyError, OSError, TypeError)) as invocation:
+        payload = wire_json_loads(read_request_bytes(request))
+        if not isinstance(payload, dict):
+            raise ValueError("external action arguments must be a JSON object")
+        argument_path = invocation.directory / "request.json"
+        argument_path.write_bytes(json_bytes(payload))
+        invocation.publish("request", argument_path)
+        settings = state(ctx).settings()
+        with ENGINE(settings, purpose="write") as engine:
+            with engine.begin() as connection:
+                invocation.record_target(acquired_target(connection, purpose="write"), None, None, None)
+            session = ExternalDataSession(engine, project or settings.runtime.default_project, demand_id=demand)
+            operation = {"queue": session.queue, "claim": session.claim, "read": session.read,
+                         "renew": session.renew, "submit": session.submit, "inspect": session.inspect,
+                         "reconcile": session.reconcile,
+                         "release": session.release}[action]
+            native = operation(**payload)
+        if action not in {"queue", "read", "inspect"}:
+            invocation.record_effect("native external " + action)
+        report_path = invocation.directory / "native.json"
+        report_path.write_bytes(json_bytes(native))
+        invocation.publish("native", report_path)
+        invocation.settle("passed", packet_id=native.get("packet_id"))
+        report = DemandActionReport(id=invocation.id, native=native)
+    _emit_demand(report, json=json)

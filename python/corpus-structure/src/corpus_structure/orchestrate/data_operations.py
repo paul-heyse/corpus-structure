@@ -827,6 +827,20 @@ class NativeDemandExecutor:
             phase = "reconciliation"
             if claimed["action"] == "reconcile":
                 receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
+            elif self.model.operation(ready.operation).external is not None:
+                phase = "external packet custody"
+
+                def retain_packet(connection):
+                    return DataOperationStorage(connection).invoke(
+                        "retain_external_data_packet",
+                        {**claim.fence, "runtime_id": self.runtime.runtime_id,
+                         "max_bytes": self.policy.max_packet_bytes},
+                    )
+
+                owner.settle(claim, retain_packet)
+                # Handoff retires this local claim. Delivery is awaiting work,
+                # and supplies no derivation/publication receipt.
+                return _ExecutionResult()
             else:
                 phase = "computation"
                 port = self._port(ready.operation)

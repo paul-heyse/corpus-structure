@@ -508,7 +508,7 @@ BEGIN
  FOR r IN SELECT req.* FROM ops.data_request req WHERE EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.request_id=req.id) ORDER BY req.id LOOP
  IF NOT ops.ddo_request_useful(r) AND r.live_task_id IS NOT NULL THEN
  PERFORM 1 FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- IF EXISTS(SELECT FROM ops.task WHERE id=r.live_task_id AND status IN ('pending','running')) THEN
+ IF EXISTS(SELECT FROM ops.task WHERE id=r.live_task_id AND status IN ('pending','running','awaiting_agent')) THEN
  UPDATE ops.data_request SET generation=generation+1,live_task_id=NULL WHERE id=r.id;
  END IF;
  END IF;
@@ -721,7 +721,13 @@ BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=o.demand_id;
  SELECT * INTO STRICT def FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=o.operation_id;
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
- IF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN RAISE EXCEPTION 'operation profile requires its own declared command/read execution contract'; END IF;
+ IF coalesce(ops.ddo_pdf_command_eligible(def),false) THEN
+ PERFORM ops.require_pdf_operation(d.release_id,'retain_pdf_original');
+ ELSIF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN
+ IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_writer','MEMBER') THEN RAISE EXCEPTION 'external command requires native write purpose' USING ERRCODE='42501'; END IF;
+ IF def.profile<>'command' OR def.support_contract->'external' IS NULL OR coalesce(def.support_contract->'effects','[]')='[]'::jsonb
+ OR EXISTS(SELECT FROM jsonb_array_elements(def.support_contract->'effects') effect WHERE effect->'authorization'<>'["native-purpose:write"]'::jsonb OR effect->>'idempotency'<>'external-packet' OR effect->>'fulfillment'<>'native-publication-receipt') THEN RAISE EXCEPTION 'operation profile requires its own declared command/read execution contract'; END IF;
+ END IF;
  PERFORM ops.ddo_fields(p->'binding',ARRAY['inputs','support','parameters','inference','request_inputs','populations','read_id']);
  IF data.ddo_field(p->'request_meaning','recipe') IS DISTINCT FROM jsonb_build_array('string',def.recipe)
  OR data.ddo_field(p->'request_meaning','subject') IS DISTINCT FROM jsonb_build_array('string',o.subject)
@@ -798,7 +804,7 @@ BEGIN
  AND (current_task.lease_until IS NULL OR current_task.lease_until>clock_timestamp()) THEN
  RAISE EXCEPTION 'invalid current generation still has an active producer lease'; END IF;
  IF current_task.status IN ('done','empty','failed','cancelled')
- OR ((invalid_current OR invalid_retained) AND (current_task.status='pending'
+ OR ((invalid_current OR invalid_retained) AND (current_task.status IN ('pending','awaiting_agent')
  OR (current_task.status='running' AND current_task.lease_until<=clock_timestamp()))) THEN
  IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(d.project_id,o.original_source)
  AND ((v.selector_kind='runtime' AND v.selector=d.runtime_id)
@@ -824,9 +830,9 @@ END $$;
 
 CREATE OR REPLACE FUNCTION ops.claim_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; retained_id text;
+DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; retained_id text; packet ops.data_external_packet;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['request_id','holder','lease_seconds']);
+ PERFORM ops.ddo_fields(p,ARRAY['request_id','holder','lease_seconds'],ARRAY['external_packet_id']);
  IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
@@ -834,9 +840,14 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  IF NOT ops.ddo_request_useful(r) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
+ SELECT * INTO packet FROM ops.data_external_packet WHERE request_id=r.id AND generation=r.generation;
+ SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
+ IF p ? 'external_packet_id' AND (packet.id IS NULL OR packet.id<>p->>'external_packet_id' OR packet.task_id<>t.id) THEN RAISE EXCEPTION 'external claim differs from its exact current packet/task'; END IF;
+ IF packet.id IS NOT NULL AND retained_id IS NULL AND p->>'external_packet_id' IS DISTINCT FROM packet.id THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  IF t.status='running' AND t.lease_until IS NULL THEN RAISE EXCEPTION 'running task has no publication lease'; END IF;
- IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
+ IF t.status NOT IN ('pending','running','awaiting_agent') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  PERFORM ops.ddo_assert_support(r,r.binding->'support');
+ IF packet.id IS NOT NULL THEN PERFORM ops.ddo_assert_external_active(r); END IF;
  UPDATE ops.task SET status='running',attempt=attempt+1,claimed_by=p->>'holder',lease_until=clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer),started_at=coalesce(started_at,clock_timestamp()) WHERE id=t.id RETURNING * INTO t;
  SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
  RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
@@ -998,7 +1009,7 @@ DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key 
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','completion']);
  PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision'],ARRAY['execution_evidence']);
- IF p->'completion' ? 'execution_evidence' AND ((p->'completion'->'execution_evidence') - 'version' - 'host_receipts' - 'cpu_receipts' - 'pdf_receipts' - 'provider_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
+ IF p->'completion' ? 'execution_evidence' AND ((p->'completion'->'execution_evidence') - 'version' - 'host_receipts' - 'cpu_receipts' - 'pdf_receipts' - 'provider_receipts' - 'external_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(p->'completion'->'execution_evidence'->'provider_receipts','[]')) receipt
  WHERE jsonb_array_length(receipt->'logical_members')=0 OR EXISTS(
  SELECT FROM jsonb_array_elements(receipt->'logical_members') member
@@ -1019,6 +1030,7 @@ BEGIN
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id AND implementation_revision=p->'completion'->>'implementation_revision') THEN RAISE EXCEPTION 'completion differs from admitted request/implementation'; END IF;
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
  PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
+ PERFORM ops.ddo_require_external_completion(p->'completion',r,t.id,t.attempt,t.claimed_by);
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
@@ -1272,6 +1284,7 @@ BEGIN
  IF result_state IN ('empty','failed') AND i.payload->'outputs'<>'[]'::jsonb THEN RAISE EXCEPTION 'non-success completion cannot publish outputs'; END IF;
  -- Reconciliation validates the original sealed producer, not the adopter's later fence.
  PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
+ PERFORM ops.ddo_require_external_completion(i.payload,r,i.producer_task_id,i.producer_attempt,i.producer_holder);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
@@ -1680,13 +1693,14 @@ BEGIN
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]')) ORDER BY ord),'[]') INTO expected_outputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='output';
  expected_support:=jsonb_build_object('policy',operation->'support_policy','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','capabilities',operation->'capabilities','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
  IF sem.ddo_provider_profile(p->>'release_id',operation) IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('provider_profile',sem.ddo_provider_profile(p->>'release_id',operation)); END IF;
+ IF operation->'external' IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('external',operation->'external'); END IF;
  IF coalesce(operation->'output_witnesses','[]')<>'[]'::jsonb THEN expected_support:=expected_support||jsonb_build_object('output_witnesses',operation->'output_witnesses'); END IF;
  IF o->'input_roles' IS DISTINCT FROM expected_inputs OR o->'output_roles' IS DISTINCT FROM expected_outputs
  OR o->'support_contract' IS DISTINCT FROM expected_support OR o->'profile' IS DISTINCT FROM operation->'profile'
  OR o->'binding' IS DISTINCT FROM (SELECT binding->'expression' FROM jsonb_array_elements(archived->'bindings') binding WHERE binding->>'semantic_id'=operation->>'binding')
  OR o->>'definition' IS DISTINCT FROM (SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=o->>'operation_id' AND id->>'domain'='definition')
  OR o->>'eligibility' IS DISTINCT FROM (SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=o->>'operation_id' AND id->>'domain'='eligibility')
- OR o->>'implementation_revision' IS DISTINCT FROM coalesce((SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=operation->>'implementation_root' AND id->>'domain'='implementation-slice'),operation->>'behavior') THEN RAISE EXCEPTION 'native definition projection disagrees with archived operation facts'; END IF;
+ OR o->>'implementation_revision' IS DISTINCT FROM coalesce((SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=operation->>'implementation_root' AND id->>'domain'='implementation-slice'),CASE WHEN operation->'external' IS NULL THEN operation->>'behavior' ELSE 'external:'||(o->>'recipe') END) THEN RAISE EXCEPTION 'native definition projection disagrees with archived operation facts'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') a WHERE a->>'owner'=o->>'operation_id' AND a->>'domain'='recipe' AND a->>'key'=o->>'recipe') THEN RAISE EXCEPTION 'recipe differs from archived effective model'; END IF;
  INSERT INTO sem.data_operation_definition VALUES(p->>'release_id',o->>'operation_id',o->>'recipe',o->>'profile',o->>'implementation_revision',o->'input_roles',o->'output_roles',o->'support_contract') ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition d WHERE d.release_id=p->>'release_id' AND d.operation_id=o->>'operation_id' AND d.recipe=o->>'recipe' AND d.profile=o->>'profile' AND d.implementation_revision=o->>'implementation_revision' AND d.input_roles=o->'input_roles' AND d.output_roles=o->'output_roles' AND d.support_contract=o->'support_contract') THEN RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;

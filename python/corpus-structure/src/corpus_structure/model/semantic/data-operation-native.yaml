@@ -714,6 +714,7 @@ definitions:
     - closed
     - awaiting-discovery
     - awaiting-inputs
+    - awaiting-external
     - awaiting-population
     - not-applicable
     - failed
@@ -1415,6 +1416,7 @@ definitions:
         $ref: '#/definitions/identifier'
       holder:
         $ref: '#/definitions/identifier'
+      external_packet_id: {$ref: '#/definitions/identifier'}
       lease_seconds:
         type: integer
         minimum: 1
@@ -2060,6 +2062,151 @@ definitions:
     required: [recipe, profile, implementation_revision, input_roles, output_roles, runtime]
     additionalProperties: false
 
+  retain_external_data_packet_request:
+    type: object
+    properties:
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      runtime_id: {$ref: '#/definitions/identifier'}
+      max_bytes: {$ref: '#/definitions/positive_integer'}
+    required: [request_id, generation, task_id, attempt, holder, runtime_id, max_bytes]
+    additionalProperties: false
+  retain_external_data_packet_result:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      state: {const: awaiting-external}
+    required: [packet_id, packet_digest, state]
+    additionalProperties: false
+  read_external_data_queue_request:
+    type: object
+    properties:
+      project_id: {$ref: '#/definitions/identifier'}
+      demand_id: {$ref: '#/definitions/identifier'}
+      limit: {type: integer, minimum: 1, maximum: 64}
+    required: [project_id]
+    additionalProperties: false
+  external_packet_head:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      operation_id: {$ref: '#/definitions/identifier'}
+      subject: {$ref: '#/definitions/identifier'}
+      state: {const: awaiting-external}
+    required: [packet_id, packet_digest, request_id, generation, task_id, operation_id, subject, state]
+    additionalProperties: false
+  read_external_data_queue_result:
+    type: object
+    properties:
+      packets: {type: array, maxItems: 64, items: {$ref: '#/definitions/external_packet_head'}}
+    required: [packets]
+    additionalProperties: false
+  read_external_data_packet_request:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      max_bytes: {$ref: '#/definitions/positive_integer'}
+    required: [packet_id, request_id, generation, task_id, attempt, holder, max_bytes]
+    additionalProperties: false
+  read_external_data_packet_result:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      packet: {$ref: '#/definitions/json_value'}
+    required: [packet_id, packet_digest, packet]
+    additionalProperties: false
+  admit_external_data_result_request:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      actor_assertion: {$ref: '#/definitions/identifier'}
+      model_assertion:
+        anyOf:
+        - {$ref: '#/definitions/identifier'}
+        - {type: 'null'}
+      completion: {$ref: '#/definitions/completion'}
+    required: [packet_id, request_id, generation, task_id, attempt, holder, actor_assertion, model_assertion, completion]
+    additionalProperties: false
+  admit_external_data_result_result:
+    type: object
+    properties:
+      receipt: {$ref: '#/definitions/ExternalExecutionReceipt'}
+      intent_id: {$ref: '#/definitions/identifier'}
+    required: [receipt, intent_id]
+    additionalProperties: false
+  release_external_data_packet_request:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      reason: {$ref: '#/definitions/identifier'}
+    required: [packet_id, request_id, generation, task_id, attempt, holder, reason]
+    additionalProperties: false
+  release_external_data_packet_result:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      state: {const: awaiting-external}
+      released: {const: true}
+    required: [packet_id, state, released]
+    additionalProperties: false
+  inspect_external_data_result_request:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+    required: [packet_id]
+    additionalProperties: false
+  inspect_external_data_result_result:
+    type: object
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      state: {enum: [awaiting-external, retained, committed, cancelled, superseded]}
+      receipt:
+        anyOf:
+        - {$ref: '#/definitions/ExternalExecutionReceipt'}
+        - {type: 'null'}
+      intent_id:
+        anyOf:
+        - {$ref: '#/definitions/identifier'}
+        - {type: 'null'}
+      publication: {$ref: '#/definitions/json_value'}
+    required: [packet_id, state, receipt, intent_id, publication]
+    additionalProperties: false
+
+  claim_external_data_packet_request:
+    type: object
+    additionalProperties: false
+    required: [packet_id, project_id, holder, lease_seconds]
+    properties:
+      packet_id: {$ref: '#/definitions/identifier'}
+      project_id: {$ref: '#/definitions/identifier'}
+      demand_id: {$ref: '#/definitions/identifier'}
+      holder: {$ref: '#/definitions/identifier'}
+      lease_seconds: {type: integer, minimum: 1, maximum: 86400}
+
 operations:
 - name: admit_authored_data
   profile: command
@@ -2194,3 +2341,41 @@ operations:
   - read
   - write
   - evaluate
+
+- name: retain_external_data_packet
+  profile: command
+  request: retain_external_data_packet_request
+  result: retain_external_data_packet_result
+  purposes: [write]
+- name: read_external_data_queue
+  profile: read
+  request: read_external_data_queue_request
+  result: read_external_data_queue_result
+  purposes: [write]
+- name: read_external_data_packet
+  profile: read
+  request: read_external_data_packet_request
+  result: read_external_data_packet_result
+  purposes: [write]
+- name: admit_external_data_result
+  profile: command
+  request: admit_external_data_result_request
+  result: admit_external_data_result_result
+  purposes: [write]
+- name: inspect_external_data_result
+  profile: read
+  request: inspect_external_data_result_request
+  result: inspect_external_data_result_result
+  purposes: [read, write]
+
+- name: release_external_data_packet
+  profile: command
+  request: release_external_data_packet_request
+  result: release_external_data_packet_result
+  purposes: [write]
+
+- name: claim_external_data_packet
+  profile: command
+  request: claim_external_data_packet_request
+  result: claim_data_request_result
+  purposes: [write]

@@ -307,6 +307,15 @@ class EffectiveIdentity:
 
 
 @dataclass(frozen=True)
+class ExternalExecutorContract:
+    version: Literal["external-executor-v1"]
+    instructions: str
+    requested_actor: str
+    requested_model: str | None
+    reference_scope: Literal["declared-inputs-only"]
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
@@ -336,6 +345,7 @@ class EffectiveOperation:
     result_fields: tuple[tuple[str, str], ...] = ()
     consumer_selection: ConsumerSelectionCapability | None = None
     output_witnesses: tuple[OutputWitnessGroup, ...] = ()
+    external: ExternalExecutorContract | None = None
 
     @property
     def recipe(self) -> bytes:
@@ -348,6 +358,7 @@ class EffectiveOperation:
                     else {}
                 ),
                 "id": self.semantic_id,
+                **({"external": asdict(self.external)} if self.external is not None else {}),
                 "profile": self.profile,
                 "subject": self.subject,
                 "context": self.context,
@@ -592,6 +603,10 @@ class EffectiveDataOperationModel:
         for binding in record["bindings"]:
             binding_record(binding["expression"])
         for operation in record["operations"]:
+            if operation["external"] is None:
+                operation.pop("external")
+            elif self.version != MODEL_VERSION:
+                raise ValueError("historical models cannot declare external executors")
             if self.version != MODEL_VERSION:
                 if operation["output_witnesses"]:
                     raise ValueError("historical models cannot declare output witnesses")
@@ -828,7 +843,9 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
             if cls is EffectiveOperation and isinstance(value, dict):
                 if historical_model and value.get("output_witnesses"):
                     raise ValueError("historical models cannot declare output witnesses")
-                value = {"result_fields": [], "output_witnesses": [], **value}
+                value = {"external": None, "result_fields": [], "output_witnesses": [], **value}
+                if historical_model and value["external"] is not None:
+                    raise ValueError("historical models cannot declare external executors")
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
             return build({**value, **historical}, cls)

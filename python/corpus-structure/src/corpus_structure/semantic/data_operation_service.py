@@ -149,7 +149,7 @@ def execute_data_demand(
     engine,
     demand_id: str,
     *,
-    source_root: Path,
+    source_root: Path | None = None,
     policy=None,
     project_id: str | None = None,
     admission_engine=None,
@@ -185,12 +185,23 @@ def execute_data_demand(
         bundle, dependencies, _, prepared = load_release_inputs(connection, snapshot["release_id"])
         runtime = runtime_binding_for_release(connection, prepared, snapshot["runtime_id"])
         captured = read_data_operation_inputs(dependencies)
-        if captured is None or captured[1] is None:
-            raise ValueError("demand execution requires its captured Python source context")
-        sources = captured[1]
-    root = source_root.resolve()
+        if captured is None:
+            raise ValueError("demand execution requires its captured operation declarations")
+        if captured[1] is None:
+            from .data_operation_admission import bound_data_operation_model
+            from .python_operation_sources import PythonSourceCollection
+
+            if any(operation.external is None for operation in bound_data_operation_model(prepared).operations):
+                raise ValueError("Python operations require their captured source context")
+            sources = PythonSourceCollection(())
+        else:
+            sources = captured[1]
+    if source_root is None and sources.sources:
+        raise ValueError("captured Python execution requires an explicit source root")
+    root = source_root.resolve() if source_root is not None else None
     locations = {}
     for source in sources.sources:
+        assert root is not None
         path = root / source.filename
         if not path.resolve().is_relative_to(root):
             raise ValueError("runtime source location escapes its explicit root")

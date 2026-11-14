@@ -13,6 +13,7 @@ from corpus_structure.methods.characterization_resources import ProviderExecutio
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
+from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
 from .pdf_publication import PdfExecutionReceipt
 
@@ -35,6 +36,7 @@ class NativeExecutionEvidence(BaseModel):
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
     provider_receipts: tuple[ProviderExecutionReceipt, ...] = ()
+    external_receipts: tuple[ExternalExecutionReceipt, ...] = ()
 
 
 @cache
@@ -70,6 +72,7 @@ def bind_execution_evidence(
     cpu_content: bytes | None = None,
     pdf_content: bytes | None = None,
     provider_content: bytes | None = None,
+    external_content: bytes | None = None,
 ) -> dict:
     """Bind the capability's original matched host receipts to its native attempt."""
     value = {
@@ -80,6 +83,7 @@ def bind_execution_evidence(
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
         "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
         "provider_receipts": json.loads(provider_content) if provider_content is not None else [],
+        "external_receipts": json.loads(external_content) if external_content is not None else [],
     }
     Draft7Validator(json.loads(execution_evidence_schema())).validate(value)
     checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
@@ -93,4 +97,7 @@ def bind_execution_evidence(
             for member in receipt.logical_members
         ):
             raise ValueError("provider logical receipt differs from native attempt")
+    for receipt in checked.external_receipts:
+        if (receipt.request_id, receipt.generation, receipt.task_id, receipt.attempt, receipt.holder, receipt.runtime_id) != (*claim, fence["holder"], runtime_id):
+            raise ValueError("external receipt differs from native attempt/runtime")
     return checked.model_dump(mode="json")

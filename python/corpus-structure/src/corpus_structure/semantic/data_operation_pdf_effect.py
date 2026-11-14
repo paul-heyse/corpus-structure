@@ -6,16 +6,10 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from .data_operation_effects import ReceiptBearingEffectPort
-from .data_operation_model import EffectContract
+from .pdf_effect_contract import PDF_CAPTURE_EFFECT
 from .data_operation_ports import PortRefusal
 from .pdf_publication import PdfExecutionReceipt, inspect_pdf_execution_receipt
 
-PDF_CAPTURE_EFFECT = EffectContract(
-    "publish_pdf_capture",
-    ("original-source", "owned-request-attempt"),
-    "request-generation/source-digest/recipe-digest",
-    "sealed-native-pdf-receipt",
-)
 
 
 @dataclass(frozen=True)

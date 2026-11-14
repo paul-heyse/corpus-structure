@@ -1,28 +1,20 @@
-"""Current extraction MCP entry point, using admitted semantic project/run bindings."""
+"""Current MCP entry point over native task-owned external demand packets."""
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastmcp import FastMCP
 
+from corpus_structure.semantic.data_operation_external import ExternalDataSession
 from corpus_structure.settings import Settings
 
 
-def build_server(
-    session: Any = None,
-    *,
-    semantic_run: int | None = None,
-    settings: Settings | None = None,
-) -> FastMCP:
-    """The current profile always uses semantic source and proposal contracts."""
-    from corpus_structure.intervene.semantic_server import build_semantic_server
+def build_server(session: ExternalDataSession | None = None, *, project: str | None = None,
+                 demand: str | None = None, settings: Settings | None = None) -> FastMCP:
+    from .external_server import build_external_server
 
-    return build_semantic_server(session=session, run_id=semantic_run, settings=settings)
+    return build_external_server(session, project=project, demand=demand, settings=settings)
 
 
-def serve(*, semantic_run: int | None = None, settings: Settings | None = None) -> None:
-    """Run the semantic project queue over stdio without a banner."""
-    build_server(semantic_run=semantic_run, settings=settings).run(
-        transport="stdio", show_banner=False
-    )
+def serve(*, project: str | None = None, demand: str | None = None,
+          settings: Settings | None = None) -> None:
+    build_server(project=project, demand=demand, settings=settings).run(transport="stdio", show_banner=False)

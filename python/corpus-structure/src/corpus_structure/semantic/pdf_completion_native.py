@@ -2,7 +2,23 @@
 
 
 def pdf_completion_native_sql() -> str:
+    from dataclasses import asdict
+    import json
+
+    from .pdf_effect_contract import PDF_CAPTURE_EFFECT, PDF_CAPTURE_FACTORY
+
     return """
+CREATE OR REPLACE FUNCTION ops.ddo_pdf_command_eligible(definition sem.data_operation_definition) RETURNS boolean
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $proof$
+ SELECT definition.profile='command'
+ AND definition.support_contract->'effects'='__PDF_CAPTURE_EFFECT__'::jsonb
+ AND definition.support_contract->'capabilities'->>'preparation'='pdf-native'
+ AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
+ AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='__PDF_CAPTURE_FACTORY__'
+ AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
+ AND definition.implementation_revision LIKE 'implementation-slice:%'
+$proof$;
+REVOKE ALL ON FUNCTION ops.ddo_pdf_command_eligible(sem.data_operation_definition) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.ddo_require_pdf_completion(p_completion jsonb,p_task bigint,
  p_attempt bigint,p_holder text,p_release text,p_operation text) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $proof$
@@ -40,4 +56,4 @@ BEGIN
 END $proof$;
 REVOKE ALL ON FUNCTION ops.ddo_require_pdf_completion(jsonb,bigint,bigint,text,text,text)
 FROM PUBLIC;
-"""
+""".replace("__PDF_CAPTURE_EFFECT__", json.dumps([asdict(PDF_CAPTURE_EFFECT)], separators=(",", ":"))).replace("__PDF_CAPTURE_FACTORY__", PDF_CAPTURE_FACTORY)

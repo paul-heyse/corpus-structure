@@ -13,10 +13,9 @@ from fastmcp import Context, FastMCP
 from fastmcp import __version__ as FASTMCP_VERSION
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
-from fastmcp.server.middleware import Middleware
 from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
-from mcp.types import CallToolResult, Implementation
+from mcp.types import CallToolResult
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Connection, Engine, func, select
 
@@ -59,40 +58,7 @@ QUEUE_ACK_MAX_BYTES = 8 * 1024 * 1024
 READ_UNIT_MAX_BYTES = 8 * 1024 * 1024
 
 
-def _stamp_mcp_result(wire: CallToolResult) -> CallToolResult:
-    """Include SDK delivery metadata before admitting any bounded tool result."""
-    meta = dict(wire.meta or {})
-    key = "io.modelcontextprotocol/serverInfo"
-    if meta.get(key) is None:
-        meta[key] = Implementation(name=MCP_SERVER_NAME, version=FASTMCP_VERSION).model_dump(
-            mode="json", by_alias=True, exclude_none=True
-        )
-    return wire.model_copy(update={"meta": meta})
-
-
-def _bounded_mcp_result(
-    value: BaseModel, max_bytes: int, *, presentation: str | None = None
-) -> ToolResult:
-    """Admit the actual full text-plus-structured result, retaining its exact wire form."""
-    from corpus_structure.semantic.query import ReadLimit
-
-    encoded = ToolResult(
-        content=presentation if presentation is not None else value,
-        structured_content=value.model_dump(mode="json"),
-    )
-    # The pinned SDK stamps this identity after dispatch on modern protocols. Author
-    # that same SDK-shaped metadata here so admission includes the final stamp, and
-    # the runner preserves it. Legacy protocols can carry this optional metadata;
-    # their serializer may omit resultType, so this complete-result bound remains safe.
-    wire = _stamp_mcp_result(
-        CallToolResult(
-            content=encoded.content,
-            structured_content=encoded.structured_content,
-        )
-    )
-    if len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8")) > max_bytes:
-        raise ReadLimit("complete MCP response exceeds byte budget", reason="oversized_item")
-    return ToolResult.from_mcp_result(wire)
+from .mcp_results import bounded_mcp_result as _bounded_mcp_result, _stamp_mcp_result
 
 
 def _invocation_event(task_id, attempt, holder, binding, event, **details):
@@ -142,58 +108,7 @@ def _invocation_event(task_id, attempt, holder, binding, event, **details):
     )
 
 
-class ObservationMiddleware(Middleware):
-    """Bind/reset each actual request; FastMCP carries this context into sync tool threads."""
-
-    def __init__(self, run_id: int | None = None):
-        self.run_id = run_id
-
-    async def on_call_tool(self, context, call_next):
-        import os
-
-        from corpus_structure.cli.observation_logging import (
-            INVOCATION_ENV,
-            PROVIDER_ENV,
-            bound,
-            capture,
-            event,
-            logger,
-        )
-
-        request = context.fastmcp_context
-        request_id = str(request.request_id) if request is not None else secrets.token_hex(12)
-        arguments = context.message.arguments or {}
-        task_id = arguments.get("task_id")
-        bindings = {"request_id": request_id, "stage": context.message.name}
-        if type(task_id) is int and task_id > 0:
-            bindings["task_id"] = task_id
-        endpoint = (
-            request.lifespan_context.get("observation_writer") if request is not None else None
-        )
-        with (
-            capture(
-                endpoint,
-                stream=None,
-                invocation_id=os.environ.get(INVOCATION_ENV),
-                provider_invocation=os.environ.get(PROVIDER_ENV),
-                run_id=self.run_id,
-            ),
-            bound(**bindings),
-        ):
-            event("mcp_tool_started", "MCP tool started", tool=context.message.name)
-            try:
-                result = await call_next(context)
-            except Exception as error:
-                logger().error(
-                    "MCP tool failed",
-                    kind="mcp_tool_failed",
-                    tool=context.message.name,
-                    exc_info=(type(error), error, error.__traceback__),
-                )
-                raise
-            else:
-                event("mcp_tool_finished", "MCP tool finished", tool=context.message.name)
-                return result
+from .mcp_observations import ObservationMiddleware
 
 
 def _rendered_artifact_result(engine, result, max_bytes):
