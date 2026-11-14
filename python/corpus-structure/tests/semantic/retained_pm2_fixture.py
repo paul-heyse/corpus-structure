@@ -9,7 +9,7 @@ from collections import Counter
 from collections.abc import Mapping, Iterable, Callable
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Connection, func, select
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.methods.native_profiles import admitted_startup_matches
