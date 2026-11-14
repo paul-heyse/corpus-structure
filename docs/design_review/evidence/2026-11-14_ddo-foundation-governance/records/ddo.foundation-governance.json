@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "id": "ddo.foundation-governance",
+  "title": "Declared-data foundations with complete frozen governance",
+  "group": "Declared data operations",
+  "package": "DDO-00–05",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the integrated declared-data foundation successor execute its exact rendered upgrade and independently admit native, physical and privilege catalogs in rollback-only authoring, then register without changing the persistent development target?",
+  "answers": [],
+  "method": "Managed fixed-source preview; replay of immutable registered predecessors; full rendered-upgrade execution inside a savepoint with independent native, privilege and frozen physical/catalog admission; all operation/SQL pages and ordinary DDL inspection; immutable registration and acquired-target read closure.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml --json",
+    "uv run ci model change inspect c09ac8c551fd41b8a495849b2b308abd --json",
+    "uv run ci model change candidate c09ac8c551fd41b8a495849b2b308abd --json",
+    "uv run ci model change inspect-candidate d1a42177213a44f9bcd291901c8fd4ed --view operations --limit 100 --json",
+    "uv run ci model change inspect-candidate d1a42177213a44f9bcd291901c8fd4ed --view operations --limit 100 --after 100 --json",
+    "uv run ci model change inspect-candidate d1a42177213a44f9bcd291901c8fd4ed --view operations --limit 100 --after 200 --json",
+    "uv run ci model change inspect-candidate d1a42177213a44f9bcd291901c8fd4ed --view sql --limit 100 --json",
+    "uv run ci results export d1a42177213a44f9bcd291901c8fd4ed --role candidate --destination /tmp/ddo-found-candidate-d1a421 --json",
+    "uv run ci model change register d1a42177213a44f9bcd291901c8fd4ed --json",
+    "uv run ci db status --maintenance --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "fixed final source 9885b8d47ad5d1922ac3df38ce4438293b00daa7 and exact successor request",
+      "sha256": "b5e2d44bf6722cc83459c1cb7b75a6bf9a411ece51575d2e43e266a3ea797b96"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/acquired-target-closure.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "63af58f9379141acfaf7ef578b639ed5214d39eb10dc3438de00db84daf37948"
+    },
+    {
+      "path": "results/candidate-inspection.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "a1d33d25c5621cf99a3fb28fb0b35af0b1c8016c16e62fbfa5dcd1747e0ae8a0"
+    },
+    {
+      "path": "results/catalog-diagnosis.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "594a8400bac60444d216f4d310b813e0ba01b5c476a1d8cd793b99fa0b257375"
+    },
+    {
+      "path": "results/dependency-diagnosis.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "83d76cbf6b9267dcb7a95ad01afa2085ccaccfc5da4fdfdfe3f7ce4ca21995ce"
+    },
+    {
+      "path": "results/frozen-artifact-inspection.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "904a4169fb46d33f7fe989abc5ad97dabf49abac8ebf47618b88144a1e9a117a"
+    },
+    {
+      "path": "results/policy-diagnosis.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "5647ae2e2305e22b7f768ecd89aa10ca3f2e672a8bdf70526b77dcdf4469214d"
+    },
+    {
+      "path": "results/registered-files.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "58f280dd7c3e7ae839e39e1b807be5e73bb974b2f738af4dd7ae525965d7b35b"
+    },
+    {
+      "path": "results/retained-authoring-attempts.json",
+      "role": "retained authoring inspection or bounded diagnosis",
+      "sha256": "ca1cf121cd25238accf1be571e7f98357a46c2017743a6af36c14c9ef63bdd32"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 19,
+      "of": null,
+      "unit": null,
+      "note": "15 changed function bodies and 4 new private provider functions"
+    },
+    {
+      "name": "privilege_normalizations",
+      "value": 212,
+      "of": null,
+      "unit": null,
+      "note": "207 tables and 5 schemas; unknown-before ACL facts remain explicitly unrecorded"
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": "4 CHECK replacement operations and 1 frozen physical-contract insertion"
+    },
+    {
+      "name": "final_literal_trigger_owners",
+      "value": 78,
+      "of": null,
+      "unit": null,
+      "note": "derived from final declared parent-table policy; intermediate frozen predecessor meaning remains unchanged"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Preview c09ac8c551fd41b8a495849b2b308abd, complete rollback-only candidate d1a42177213a44f9bcd291901c8fd4ed and registration 9e722ce4c1794745a3e57ba454cacb8c passed. semantic_ddo_found_v1 follows semantic_ddo_origeps_v1. Exact rendered upgrade plus independent native, privilege and physical/catalog admission passed before publication. The v2 tagged envelope contains 19 native and 212 privilege operations; frozen v1 predecessor operations decode exactly and 78 final trigger owners are literal publisher facts. Seven foundational reference-table declarations now explicitly preserve evaluator-only reads. Failed/interrupted predecessors are retained by managed IDs, never rewritten. Persistent development revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434; no deploy, activation or cutover occurred. Registration is separate from functional/provider qualification, which remains with the DDO coordinator.",
+  "consumed_by": [
+    "DDO-03",
+    "DDO-04",
+    "DDO-05"
+  ]
+}

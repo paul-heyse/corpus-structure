@@ -1,0 +1,7 @@
+baseline: 9885b8d47ad5d1922ac3df38ce4438293b00daa7
+packs:
+- statistics
+native_predecessor: semantic_ddo_origeps_v1
+native_revision: semantic_ddo_found_v1
+deployment: true
+deployment_profile: development
