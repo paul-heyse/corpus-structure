@@ -1,7 +1,7 @@
 """Native HanLP heads preserve exact canonical addresses and independent standings."""
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -225,6 +225,11 @@ def test_native_sentence_admission_refuses_changed_population_order_or_lengths(m
 
 def test_current_hanlp_preserves_borrowed_host_cancellation_and_provider_failure(profile):
     source, canonical, _, _ = inputs(profile)
+    from corpus_structure.semantic.characterization_manifests import append_manifest, manifest_contract
+
+    canonical = replace(canonical, content=canonical_bytes(append_manifest(
+        json.loads(canonical.content), manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest")
+    )))
 
     class Cancelled(Exception):
         pass
