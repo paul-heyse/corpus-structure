@@ -15,7 +15,7 @@ from corpus_structure.semantic.data_operation_demands import (
     RootSubject,
     freeze_demand,
 )
-from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_declaration_support import model, operation
 
@@ -288,7 +288,7 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         (),
         b"{}",
         b"{}",
-        "data-operation-model-v3",
+        MODEL_VERSION,
         "definition:one",
         "eligibility:one",
         (),

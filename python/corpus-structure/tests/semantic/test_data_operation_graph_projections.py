@@ -4,13 +4,13 @@ from dataclasses import replace
 
 import pytest
 
-from corpus_structure.semantic.data_operation_model import read_effective_data_operations
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION, read_effective_data_operations
 from semantic.data_operation_declaration_support import model, operation
 
 
 def test_current_model_archives_exact_interpretation_and_refuses_missing_projection():
     compiled = model(operation("op:alone"))
-    assert compiled.version == "data-operation-model-v3"
+    assert compiled.version == MODEL_VERSION
     assert [p.name for p in compiled.graph_projections] == [
         "semantic-reference",
         "potential-producers",

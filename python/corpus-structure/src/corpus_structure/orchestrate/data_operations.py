@@ -378,8 +378,8 @@ class NativeDemandExecutor:
     def _port(self, operation):
         if operation not in self.ports:
             selected = self.model.operation(operation)
-            if selected.effects:
-                raise PortRefusal("effectful operation requires its declared effect owner")
+            if selected.effects and selected.capabilities.prepared_factory is None:
+                raise PortRefusal("effectful operation requires its captured native effect owner")
             if selected.capabilities.preparation != "none":
                 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 
@@ -406,6 +406,10 @@ class NativeDemandExecutor:
                     custody=admission.custody,
                     sources=self.sources,
                 )
+                if selected.effects:
+                    from corpus_structure.semantic.data_operation_pdf_effect import PdfCaptureEffectPort
+                    if not isinstance(port, PdfCaptureEffectPort):
+                        raise PortRefusal("declared effect has no admitted receipt-bearing effect owner")
                 admission.authorize(port.identity)
                 if port.operation != selected:
                     raise PortRefusal("prepared capability differs from effective operation")

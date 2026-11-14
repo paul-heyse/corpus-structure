@@ -199,3 +199,39 @@ def test_cancelled_hung_pull_retires_the_owned_process_without_fulfilling_prefix
         cpu.close()
     assert all(not process.is_alive() for process in processes)
     assert cpu.budget.used_bytes == 0
+
+
+def test_uncertain_stream_submit_closes_pipes_but_keeps_cpu_admission(monkeypatch):
+    from corpus_structure.semantic.data_operation_stream import OwnedCPUStream
+    from semantic.data_operation_port_support import scope
+
+    cpu = scope()
+    cpu.prepare()
+    observed = []
+    original_pipe = cpu._context.Pipe
+    original_submit = cpu._pool.submit
+
+    def pipe(*args, **kwargs):
+        pair = original_pipe(*args, **kwargs)
+        observed.extend(pair)
+        return pair
+
+    def uncertain(*args, **kwargs):
+        original_submit(*args, **kwargs)
+        raise RuntimeError('stream submit acknowledgement lost')
+
+    monkeypatch.setattr(cpu._context, 'Pipe', pipe)
+    monkeypatch.setattr(cpu._pool, 'submit', uncertain)
+    admission = cpu.try_admit()
+    assert admission is not None
+    try:
+        with pytest.raises(RuntimeError, match='acknowledgement lost'):
+            OwnedCPUStream(cpu, admission, b'{}', lambda: None)
+        assert len(observed) == 2 and all(connection.closed for connection in observed)
+        assert admission.submitted and not admission.retired
+        assert cpu.budget.used_bytes > 0
+        with pytest.raises(RuntimeError, match='uncertain submission'):
+            cpu._executor()
+    finally:
+        cpu.close()
+    assert cpu.budget.used_bytes == 0

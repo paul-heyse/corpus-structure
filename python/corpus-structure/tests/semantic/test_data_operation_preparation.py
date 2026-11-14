@@ -15,6 +15,7 @@ from corpus_structure.semantic.data_operation_preparation import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.releases import _archive_bytes, _validate_manifest
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 
 
 def inputs(tmp_path):
@@ -28,7 +29,7 @@ classes:
     description: Explicit target input
 """)
     (tmp_path / "operations.yaml").write_text(
-        "version: data-operation-model-v3\noperations: []\nkinds: []\n"
+        "version: " + MODEL_VERSION + "\noperations: []\nkinds: []\n"
     )
     (tmp_path / "target.yaml").write_text("""version: data-operation-inputs-v1
 root: target

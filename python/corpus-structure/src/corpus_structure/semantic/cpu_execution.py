@@ -717,12 +717,14 @@ class CPUExecutionScope:
         self._free = list(range(self.policy.max_submissions))
         self._admissions: dict[int, _InputAdmission] = {}
         self._handles: set[CPUHandle] = set()
+        self._stream_transports = set()
+        self._submission_uncertain = False
         self.native_thread_reports: dict[int, dict[str, Any]] = {}
 
     def _executor(self):
         with self._lock:
-            if self._closed:
-                raise RuntimeError("CPU invocation is closed")
+            if self._closed or self._submission_uncertain:
+                raise RuntimeError("CPU invocation is closed or retains uncertain submission")
             if self._pool is None:
                 capsule = release_capsule(self.prepared) if self.retain_schema else None
                 self._capsule_bytes = 0 if capsule is None else len(capsule)
@@ -905,6 +907,9 @@ class CPUExecutionScope:
                 future.cancel()
                 raise CPURequestCancelled("CPU invocation closed during submission")
             return handle
+        except BaseException:
+            self._submission_uncertain = True
+            raise
         finally:
             with self._lock:
                 submitted.set()
@@ -1036,6 +1041,13 @@ class CPUExecutionScope:
                         failures.append(
                             RuntimeError("CPU stop signalling did not finish before deadline")
                         )
+                if self._physical_retired:
+                    for transport in tuple(self._stream_transports):
+                        if transport.drain_transport(monotonic() + _WORKER_EXIT_SECONDS):
+                            self._stream_transports.discard(transport)
+                        else:
+                            self._physical_retired = False
+                            failures.append(RuntimeError("CPU stream transport did not drain"))
                 if self._physical_retired and locked:
                     # Native submissions finished before retirement was proven,
                     # so include the handles they registered during close.

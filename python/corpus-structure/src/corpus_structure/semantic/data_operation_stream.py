@@ -15,6 +15,7 @@ class _Pull:
         self.stream = stream
         self.future = Future()
         self.thread = Thread(target=self._read, name='data-stream-pull', daemon=True)
+        self.stream.pulls.append(self)
         self.thread.start()
 
     def _read(self):
@@ -58,13 +59,23 @@ class _Pull:
 
 class OwnedCPUStream:
     def __init__(self, cpu, admission, packet, check_active):
+        self.cpu = cpu
+        self.pulls = []
+        self.handle = None
+        self.closed = False
         self.parent, self.child = cpu._context.Pipe(duplex=True)
+        cpu._stream_transports.add(self)
         self.check_active = check_active
         self.digest, self.ordinal = sha256(packet).hexdigest(), 0
         self.max_bytes = cpu.policy.max_reply_bytes
         self.fence = {"slot": admission.slot, "generation": admission.generation}
-        self.handle = cpu.submit_closed_python_stream(admission, packet, self.child, check_active)
-        self.closed = False
+        try:
+            self.handle = cpu.submit_closed_python_stream(admission, packet, self.child, check_active)
+        except BaseException:
+            self.parent.close()
+            self.child.close()
+            cpu._stream_transports.discard(self)
+            raise
 
     def pull(self):
         return _Pull(self)
@@ -79,6 +90,16 @@ class OwnedCPUStream:
         with suppress(OSError):
             self.child.close()
         self.handle.retire()
+        if all(not pull.thread.is_alive() for pull in self.pulls):
+            self.cpu._stream_transports.discard(self)
+
+    def drain_transport(self, deadline):
+        from time import monotonic
+        self.parent.close()
+        self.child.close()
+        for pull in tuple(self.pulls):
+            pull.thread.join(max(0, deadline - monotonic()))
+        return all(not pull.thread.is_alive() for pull in self.pulls)
 
 
 def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, check_active):

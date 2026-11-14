@@ -6,7 +6,7 @@ import pytest
 
 from corpus_structure.semantic.data_operation_bindings import BindingResult
 from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
-from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
 
 
 def retained(operation):
@@ -29,7 +29,7 @@ def retained(operation):
         (),
         b"{}",
         b"{}",
-        "data-operation-model-v3",
+        MODEL_VERSION,
         "definition:one",
         "eligibility:one",
         (b"{}",),

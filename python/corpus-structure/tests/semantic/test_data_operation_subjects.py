@@ -8,6 +8,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
 from semantic.data_operation_declaration_support import source_declaration
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 
 
 @pytest.mark.parametrize(
@@ -64,7 +65,7 @@ classes:
     declaration["roles"].insert(0, incoming)
     artifact = SourceArtifact(
         "operation",
-        canonical_bytes({"version": "data-operation-model-v3", "operations": [declaration]}),
+        canonical_bytes({"version": MODEL_VERSION, "operations": [declaration]}),
     )
     if valid:
         result = compile_data_operations(schema=schema, declarations=(artifact,))

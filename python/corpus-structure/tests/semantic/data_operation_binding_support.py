@@ -23,7 +23,7 @@ from corpus_structure.semantic.data_operation_bindings import (
     BindingResult,
     BindingStatus,
 )
-from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
@@ -269,7 +269,7 @@ def _authored_result(roles, *, status: BindingStatus = "ready", reasons=(), choi
         reasons=reasons,
         parameters=b'["mapping",[]]',
         choices=choices,
-        model_version="data-operation-model-v3",
+        model_version=MODEL_VERSION,
         definition="definition:fixed",
         eligibility="eligibility:fixed",
         admission_evidence=(b'{"trust":"pinned"}',),
