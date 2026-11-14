@@ -1,0 +1,18 @@
+[
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1.py",
+    "sha256": "654b95a0f1cec7f823cf69533dfcbbe575a4a9e79dd17dde506034d717626b6f"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1_admission.sql",
+    "sha256": "3924f9446cdbe9dda47356cca953c4b88d4677509659f6fe1466492e8baac2b8"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1_native.json",
+    "sha256": "2238cb0979d600cadfd41102b03f3027913eb50fe7cb0d730c95f15ea05b9294"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1_upgrade.txt",
+    "sha256": "b9395175351492cd9b16d857b1c0e3aa3b3c9da3b37132724d3a66ca15a47d33"
+  }
+]

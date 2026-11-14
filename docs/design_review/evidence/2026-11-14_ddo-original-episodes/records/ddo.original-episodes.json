@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.original-episodes",
+  "title": "Original facts have no invented computation episodes",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can native binding match an original-source-only input whose computation episode identity is absent, while preserving exact nonempty episodes for computed support?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-original-episodes/change.yaml --json",
+    "uv run ci model change candidate da138a71ac394faba8e940dbba93ea6d --json",
+    "uv run ci model change inspect-candidate 99e14876e8354197bec903c424580b25 --view operations --json",
+    "uv run ci model change inspect-candidate 99e14876e8354197bec903c424580b25 --view sql --json",
+    "uv run ci model change register 99e14876e8354197bec903c424580b25 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable original-episode successor",
+      "sha256": "de96b2506aa4f1c9050b699949780fe62bebaa3d98d8034102ce5c3ee62cc5f8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout hashes",
+      "sha256": "3c8ef801d65ac57308d48b646d09ffc49bb197abb24e2f6d40934cd2743e2fb1"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": "binding-validator body and two source/catalog descriptors"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and immutable registration passed for semantic_ddo_origeps_v1 after semantic_ddo_rolesup_v1. Two native member/occurrence comparisons normalize an absent computation-episode field to an empty episode set. Actual computation support still requires its exact nonempty episode list, and original-source references retain their independent exact admission/source checks. No synthetic episode is introduced. Owners and ACLs are unchanged. Authoring is separate from functional/provider qualification. No persistent deployment, activation or cutover occurred; persistent revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

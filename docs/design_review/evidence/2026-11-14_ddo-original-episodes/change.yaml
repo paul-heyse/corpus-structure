@@ -1,0 +1,6 @@
+baseline: HEAD
+packs: [statistics]
+native_predecessor: semantic_ddo_rolesup_v1
+native_revision: semantic_ddo_origeps_v1
+deployment: true
+deployment_profile: development
