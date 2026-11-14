@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "test-system.pdf-seal-producer",
+  "title": "PDF seal aligns derivation provenance with the current producer column",
+  "group": "test-system-target-design",
+  "package": "TS-09",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the forward guard correction use current producer provenance and allow authentic seal/reuse without restoring retired schema?",
+  "answers": [
+    "TS-09"
+  ],
+  "method": "Confirm current DDO producer-versus-adopter ownership, replace one retired-column reference, author and register a separate immutable successor, inspect exact SQL/ACL operations, and run the compatible-predecessor seal/reuse control with native identity and fixture boundary controls on isolated clones.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-13_test-system-pdf-guard-repair/seal-change.yaml --json",
+    "uv run ci model change candidate e0abdab9e29b4228a0fffd37d8b78a12 --json",
+    "uv run ci model change inspect-candidate b4371764ac044e64a6ecc4c42fd2bef5 --view operations --limit 10 --json",
+    "uv run ci model change inspect-candidate b4371764ac044e64a6ecc4c42fd2bef5 --view sql --limit 1 --json",
+    "uv run ci model change register b4371764ac044e64a6ecc4c42fd2bef5 --json",
+    "uv run ci test --workers 1 --json -- python/corpus-structure/tests/semantic/test_native_fixtures.py::test_head_is_sealed_and_has_no_migration_backend python/corpus-structure/tests/semantic/test_data_operation_identity_native.py python/corpus-structure/tests/semantic/test_pdf_publication.py::test_compatible_predecessor_reuses_exact_access_for_changed_companion python/corpus-structure/tests/test_db_fixtures.py::test_current_template_cold_build_is_sealed_and_disposed",
+    "uv run ci results show 11b3407a76f34ac09274b5585fe1fa6d --json",
+    "uv run ci db status --maintenance --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "seal-change.yaml",
+      "role": "Forward native-only successor request after the original-retention repair",
+      "sha256": "a6257e007c30d836a2a99417f1acad375a0409ec1501d01718611f7096f96b7a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/seal-native-operations.json",
+      "role": "Exact body-only operations with unchanged owners and ACLs",
+      "sha256": "2593791ed1ab1e0a94dce6de7b545d593a6ea7991cb706c93cb59c87f0e119de"
+    },
+    {
+      "path": "raw/seal-guard-sql.json",
+      "role": "Exact one-line before/after guard source",
+      "sha256": "46fd26ae3e37e4ec2185dd3103d5d9072fcb9e56ed8baaee96e420c0064b3751"
+    },
+    {
+      "path": "raw/seal-consumer-verification.json",
+      "role": "Preserved failed broad consumer attempt: 79 selected, 32 passed, 47 fixture setup failures",
+      "sha256": "bc4adfbc3910f4ccb0df80c0bbff3998637ac95262422591e101aa64f6985e7c"
+    },
+    {
+      "path": "raw/fixture-collection-after.txt",
+      "role": "Exact former mixed selection resolves each fixture once without executing databases",
+      "sha256": "e87dcd91da97a11544bf73cda02833c8b91ed55c0979332d3410a210b9a2b6bd"
+    },
+    {
+      "path": "raw/seal-cross-boundary-result.json",
+      "role": "Settled 11-identity native retry including compatible-predecessor seal/reuse and deployed identity controls",
+      "sha256": "4af22d12df58c4f4077f66ddf847086174db829d5673a07bc7881d386ee3fc21"
+    },
+    {
+      "path": "raw/seal-final-database.json",
+      "role": "Final persistent database identity and maintenance revision observation",
+      "sha256": "ff3b7ac4564294598d02911a655d555bcf0defc36953b0cca3c560e301518829"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "bounded clone identities passed",
+      "value": 11,
+      "of": 11,
+      "unit": "identities",
+      "note": "Includes the seal/reuse case, full deployed identity module, sealed-head and cold private-deployment controls."
+    },
+    {
+      "name": "native function-body transitions",
+      "value": 2,
+      "of": null,
+      "unit": "transitions",
+      "note": null
+    },
+    {
+      "name": "ordinary schema operations",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "A separate immutable successor semantic_test_pdf_seal_producer follows semantic_test_pdf_recipe_guard. It aligns check_pdf_build with ops.data_derivation.producer_task_id and changes neither the sealed-run alternative nor ddo_support_valid gate. Original producer provenance remains distinct from an adopting current publication fence; exact request/generation/intent checks stay with their existing owners. Compatible predecessor access survives a changed companion, native identity controls pass, and real clone acquisition crosses the former mixed-collector boundary. The earlier 79-case attempt remains failed with 32 passes and 47 fixture-lookup setup failures; the smaller retry does not qualify those 47 cases or establish broader DDO/adoption/support-validity qualification. The persistent development database remains at semantic_bep_located_v2 with the same OID/system identity: no deployment, adoption, activation, schema rollback or DDO cutover occurred.",
+  "consumed_by": [
+    "TS-09",
+    "test-system-target-design"
+  ]
+}

@@ -1,0 +1,6 @@
+baseline: HEAD
+packs: [statistics]
+native_predecessor: semantic_ddo_archive_v5
+native_revision: semantic_test_pdf_recipe_guard
+deployment: true
+deployment_profile: development

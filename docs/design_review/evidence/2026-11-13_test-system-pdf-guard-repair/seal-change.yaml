@@ -1,0 +1,6 @@
+baseline: HEAD
+packs: [statistics]
+native_predecessor: semantic_test_pdf_recipe_guard
+native_revision: semantic_test_pdf_seal_producer
+deployment: true
+deployment_profile: development

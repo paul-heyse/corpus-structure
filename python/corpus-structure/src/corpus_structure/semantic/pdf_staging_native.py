@@ -143,7 +143,7 @@ REVOKE ALL ON FUNCTION ops.require_pdf_stage_owner(bigint,bigint,text) FROM PUBL
 CREATE OR REPLACE FUNCTION ops.retain_pdf_original(p_task bigint,p_attempt bigint,p_holder text,
  p_original bytea,p_recipe bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE owner record; original_digest text; recipe_digest text;
+DECLARE owner record; original_digest text; recipe_digest_ text;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
  PERFORM ops.require_pdf_operation(owner.release_id,'retain_pdf_original');
@@ -152,21 +152,21 @@ BEGIN
  RAISE EXCEPTION 'original PDF or recipe bytes unavailable' USING ERRCODE='23514'; END IF;
  PERFORM convert_from(p_recipe,'UTF8')::jsonb;
  original_digest:=encode(sha256(p_original),'hex');
- recipe_digest:=encode(sha256(p_recipe),'hex');
+ recipe_digest_:=encode(sha256(p_recipe),'hex');
  IF original_digest IS DISTINCT FROM owner.source_digest THEN
  RAISE EXCEPTION 'original PDF differs from exact document custody' USING ERRCODE='23514'; END IF;
  INSERT INTO kb.source_artifact(artifact_digest,content) VALUES(original_digest,p_original),
- (recipe_digest,p_recipe) ON CONFLICT DO NOTHING;
+ (recipe_digest_,p_recipe) ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM kb.source_artifact
  WHERE artifact_digest=original_digest AND content=p_original)
  OR NOT EXISTS(SELECT FROM kb.source_artifact
- WHERE artifact_digest=recipe_digest AND content=p_recipe) THEN
+ WHERE artifact_digest=recipe_digest_ AND content=p_recipe) THEN
  RAISE EXCEPTION 'original PDF or recipe artifact digest conflict' USING ERRCODE='23514'; END IF;
  INSERT INTO ops.source_build(task_id,release_id,artifact_digest,recipe_digest)
- VALUES(p_task,owner.release_id,original_digest,recipe_digest) ON CONFLICT DO NOTHING;
+ VALUES(p_task,owner.release_id,original_digest,recipe_digest_) ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM ops.source_build source WHERE source.task_id=p_task
  AND source.release_id=owner.release_id AND source.artifact_digest=original_digest
- AND source.recipe_digest=recipe_digest) THEN
+ AND source.recipe_digest=recipe_digest_) THEN
  RAISE EXCEPTION 'original PDF source build replay differs' USING ERRCODE='23514'; END IF;
  RETURN original_digest;
 END $stage$;

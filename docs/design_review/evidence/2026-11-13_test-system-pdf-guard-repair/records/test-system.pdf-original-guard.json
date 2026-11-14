@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "test-system.pdf-original-guard",
+  "title": "PDF original retention local-name correction and exact replay guard",
+  "group": "test-system-target-design",
+  "package": "TS-09",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the forward correction remove the native recipe_digest ambiguity while preserving exact original/recipe replay and refusal atomicity?",
+  "answers": [
+    "TS-09"
+  ],
+  "method": "Rename the ambiguous PL/pgSQL local, author and inspect a rollback-only native candidate, register its immutable successor, and run authentic guard plus forward-deployment/resume controls on isolated clones with one worker.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-13_test-system-pdf-guard-repair/change.yaml --json",
+    "uv run ci model change candidate 75be1461b3d04d308f63d57a04d6c107 --json",
+    "uv run ci model change inspect-candidate f30321b9c826481db3e53d499cae59d6 --view operations --limit 10 --json",
+    "uv run ci model change inspect-candidate f30321b9c826481db3e53d499cae59d6 --view sql --limit 1 --json",
+    "uv run ci model change register f30321b9c826481db3e53d499cae59d6 --json",
+    "uv run ci test --workers 1 --json -- python/corpus-structure/tests/semantic/test_pdf_staging.py::test_original_pdf_retention_replays_exact_recipe_and_refuses_changed_recipe python/corpus-structure/tests/semantic/test_model_deployment.py::test_exact_native_deployment_resumes_before_separate_activation",
+    "uv run ci results show e0b76cad67e1435199d8009c1147d9a3 --json",
+    "uv run ci db status --maintenance --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "Native-only forward correction request; resolved bindings are in the typed operation report",
+      "sha256": "fa82285fdd8c98e44fd149cea35426db6be049c417f29d62213f58bbb73c1367"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/native-operations.json",
+      "role": "Exact candidate operation identities, body-only changes, unchanged owners and ACLs",
+      "sha256": "7bdc7cb33f0e7266eaf0399f1bbfe5b0ed358e419848de788564a94bd9165ee1"
+    },
+    {
+      "path": "raw/guard-sql.json",
+      "role": "Bounded exact before/after SQL and local-variable text changes",
+      "sha256": "eb5272d73f9cfe58b237c801f6016f379850ff343a1a862ca66d39c84dd19d34"
+    },
+    {
+      "path": "raw/clone-verification.json",
+      "role": "Managed result from the exact three-identity clone verification selection",
+      "sha256": "84c08fe8989c4ec89cbda9ead1b8ddfe93a73691fd6ebd9d3e2f9615b0a614b0"
+    },
+    {
+      "path": "raw/clone-result.json",
+      "role": "Settled managed clone result and qualification scope",
+      "sha256": "27997dc9593f4f2625c80f73536ba41cf8c8c37eaa54dd4d5c499fb8b65748dc"
+    },
+    {
+      "path": "raw/after-database.json",
+      "role": "Persistent database observation after rollback-only candidate and registration",
+      "sha256": "91174163418333045fe012056fab607df08927aa2f1459c02ce818b3ad5a454f"
+    },
+    {
+      "path": "raw/final-database.json",
+      "role": "Persistent database observation after clone verification",
+      "sha256": "91174163418333045fe012056fab607df08927aa2f1459c02ce818b3ad5a454f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "clone identities passed",
+      "value": 3,
+      "of": 3,
+      "unit": "identities",
+      "note": null
+    },
+    {
+      "name": "native function-body transitions",
+      "value": 2,
+      "of": null,
+      "unit": "transitions",
+      "note": null
+    },
+    {
+      "name": "ordinary schema operations",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The correction is registered as semantic_test_pdf_recipe_guard after unchanged v5 artifacts. Authentic initial retention and identical replay succeed; changing the recipe refuses with exact SQLSTATE/message/context and leaves neither a changed source build nor an alternate recipe artifact. Direct and pending-chain clone deployments resume successfully. The persistent development database remains at semantic_bep_located_v2; no persistent deployment, adoption, activation or DDO cutover occurred. This result establishes bounded guard/deployment behavior, not broader DDO qualification or TS-09 completion.",
+  "consumed_by": [
+    "TS-09",
+    "test-system-target-design"
+  ]
+}

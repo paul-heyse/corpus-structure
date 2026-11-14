@@ -1127,7 +1127,7 @@ BEGIN
   LEFT JOIN ops.run r ON r.id=t.run_id
   JOIN ops.pdf_frozen_build f ON f.build_id=p_build AND f.kind=p.kind
   WHERE ((r.sealed AND r.status IN ('consolidating','finished')) OR EXISTS(
-   SELECT FROM ops.data_derivation episode WHERE episode.task_id=t.id
+   SELECT FROM ops.data_derivation episode WHERE episode.producer_task_id=t.id
    AND ops.ddo_support_valid(episode.id)))
    AND p.source_digest=b.source_digest AND p.schema_digest=b.schema_digest
    AND p.recipe_digest=b.recipe_digest AND p.release_id=b.release_id
