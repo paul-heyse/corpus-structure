@@ -817,12 +817,16 @@ class M1Candidates:
                 json.loads(canonical_bytes(asdict(selection)))
                 for selection in prepared_source.selections
             ],
-            annotation_product=dict(
-                method=annotation_result["method"],
-                input_hash=annotation_result["input_hash"],
-                configuration_hash=annotation_result["configuration_hash"],
-                dependency_digest=sha256(canonical_bytes(annotation_result)).hexdigest(),
-                blocks=[product.dependency_digest for product in prepared_source.annotations],
+            annotation_product=(
+                {**annotation_result, "blocks": [product.dependency_digest for product in prepared_source.annotations]}
+                if "semantic_product" in annotation_result else
+                dict(
+                    method=annotation_result["method"],
+                    input_hash=annotation_result["input_hash"],
+                    configuration_hash=annotation_result["configuration_hash"],
+                    dependency_digest=sha256(canonical_bytes(annotation_result)).hexdigest(),
+                    blocks=[product.dependency_digest for product in prepared_source.annotations],
+                )
             ),
             annotation_errors=list(prepared_source.annotation_errors),
             exclusions=list(prepared_source.exclusions),

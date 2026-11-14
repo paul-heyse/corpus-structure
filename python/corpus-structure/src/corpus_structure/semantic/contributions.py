@@ -29,7 +29,11 @@ def occurrence_identity(anchors: Sequence[Mapping[str, Any]]) -> str:
         pieces.append(
             {
                 **{k: v for k, v in anchor.items() if k not in {"anchor_id", "binding", "pin"}},
-                "pin": {k: anchor["pin"][k] for k in ("product_key", "product_digest")},
+                "pin": (
+                    {key: anchor["pin"][key] for key in ("document", "projection_digest", "section_pointer", "membership")}
+                    if anchor["pin"].get("format") == "declared-native-source-v1"
+                    else {key: anchor["pin"][key] for key in ("product_key", "product_digest")}
+                ),
             }
         )
     return _identity("source-occurrence", pieces)
