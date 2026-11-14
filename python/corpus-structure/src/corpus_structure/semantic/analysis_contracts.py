@@ -366,15 +366,8 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 "unsupported expression-local declaration rule",
             )
         owners = {item.id: item for item in profile.ownership}
-        if len(owners) != len(profile.ownership) or set(owners) != {
-            "source",
-            "comparison",
-            "publication",
-            "capture",
-            "invocation",
-            "read",
-        }:
-            _fail("analysis_ownership", location, "declare all six owned preparation families")
+        if len(owners) != len(profile.ownership) or set(owners) != set(_OWNERSHIP_SUPPORT):
+            _fail("analysis_ownership", location, "declare exactly the implemented owned preparation families")
         for owner in profile.ownership:
             if (
                 owner.concept,
