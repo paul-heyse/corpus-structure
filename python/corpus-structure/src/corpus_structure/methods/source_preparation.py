@@ -7,6 +7,8 @@ Related native sources retain independent pins; recognition alternatives remain 
 
 from __future__ import annotations
 
+import json
+
 from bisect import bisect_left, bisect_right
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
@@ -30,7 +32,7 @@ from corpus_structure.ingest.pdf_hierarchy import (
 )
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice, DeclaredNativeFrameSource
 from corpus_structure.semantic.proposals import NativeFrameSource, native_source_frame
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -492,6 +494,7 @@ def prepare_source(
     formula_prose: bool = False,
     region_pointers: tuple[str, ...] | None = None,
     source_frame: SourceFrame | None = None,
+    context_population=None,
 ) -> PreparedCandidateSource:
     """Prepare annotations once per projected native piece, then coherent windows.
 
@@ -703,13 +706,16 @@ def prepare_source(
     related = ()
     if source_frame is not None and reader is not None:
         raise ValueError("explicit source-frame preparation requires declared related inputs")
-    if reader is not None:
+    if context_population is not None and source_frame is None:
+        raise ValueError("declared related population requires an explicit source frame")
+    if reader is not None or context_population is not None:
         selections, related = _widen_contexts(
             view,
             frame,
             selections,
             reader=reader,
             read_budget=read_budget,
+            context_population=context_population,
             max_chars=max_chars,
             max_pieces=max_pieces,
             check_active=check_active,
@@ -1078,7 +1084,7 @@ def _prose_formula_neighborhoods(selections, regions, *, first_window):
 
 
 def _widen_contexts(
-    view, frame, selections, *, reader, read_budget, max_chars, max_pieces, check_active
+    view, frame, selections, *, reader, read_budget, max_chars, max_pieces, check_active, context_population=None
 ):
     """Use explicit structural scope, retaining failed/limited retrieval dependencies.
 
@@ -1176,7 +1182,7 @@ def _widen_contexts(
                 (
                     p
                     for p in selected_pieces
-                    if isinstance(p, SourceSlice) and p.source_view_id == frame.source_view_id
+                    if isinstance(p, (SourceSlice, DeclaredSourceSlice)) and p.source_key == frame.source_key
                 ),
                 key=lambda p: p.start,
             ):
@@ -1207,13 +1213,13 @@ def _widen_contexts(
                             p
                             for p in pieces
                             if not (
-                                isinstance(p, SourceSlice)
-                                and p.source_view_id == frame.source_view_id
+                                isinstance(p, (SourceSlice, DeclaredSourceSlice))
+                                and p.source_key == frame.source_key
                                 and a <= p.start
                                 and p.end <= b
                             )
                         ]
-                        proposed = [SourceSlice(frame.source_view_id, a, b), *extra]
+                        proposed = [source_slice(frame, a, b), *extra]
                         proposed_chars = sum(
                             len(p.text) if isinstance(p, SyntheticText) else p.end - p.start
                             for p in proposed
@@ -1262,7 +1268,7 @@ def _widen_contexts(
                     pieces.extend(
                         (
                             SyntheticText("\n", "context piece separator"),
-                            SourceSlice(frame.source_view_id, a, b),
+                            source_slice(frame, a, b),
                         )
                     )
                     chars += 1 + b - a
@@ -1274,13 +1280,14 @@ def _widen_contexts(
                     local_dispositions.append(
                         (target, "resource_limit", "local context character/piece bound exceeded")
                     )
-            scope = f"selected-product:{frame.native_product.content_digest}:{request.pointer}"
+            original = frame.original_key if isinstance(frame, DeclaredNativeFrameSource) else frame.native_product.content_digest
+            scope = f"selected-product:{original}:{request.pointer}"
             remaining = (
                 15 - len(selected_relations) - sum(len(row.candidates) for row in retrievals)
             )
             key = canonical_bytes(
                 dict(
-                    source=frame.source_view_id,
+                    source=frame.source_key,
                     **asdict(request),
                     limit=max(1, min(4, remaining // 2)),
                 )
@@ -1302,12 +1309,12 @@ def _widen_contexts(
                 continue
             try:
                 if key not in reads:
-                    reads[key] = reader.context_sources(
-                        frame.source_view_id,
-                        request,
-                        limit=min(4, remaining // 2),
-                        read_budget=budget,
-                    )
+                    if context_population is not None:
+                        from corpus_structure.semantic.declared_contexts import select_related_context
+
+                        reads[key] = select_related_context(context_population, frame, request, limit=min(4, remaining // 2))
+                    else:
+                        reads[key] = reader.context_sources(frame.source_key, request, limit=min(4, remaining // 2), read_budget=budget)
                 result = reads[key]
             except ReadLimit as error:
                 retrievals.append(
@@ -1327,16 +1334,18 @@ def _widen_contexts(
             candidates, selected, excluded = result.candidates, [], []
             outcome, terminal = result.outcome, result.terminal_reason
             for source in result.sources:
-                identity = source.ref.id
+                declared = isinstance(source, DeclaredNativeFrameSource)
+                identity = source.source_key if declared else source.ref.id
+                source_pieces = json.loads(source.native_context)["pieces"] if declared else source.pieces
                 # Overlapping primary contents need no second source custody. Prefer
                 # explicit smaller views; broad projections remain an exclusion.
-                target_pieces = tuple(p for p in source.pieces if p["kind"] == "native_text")
+                target_pieces = tuple(p for p in source_pieces if p["kind"] == "native_text")
                 overlaps = any(p["item_ref"] in local for p in target_pieces)
                 if (
                     overlaps
                     or not source.text.strip()
                     or chars + 1 + len(source.text) > max_chars
-                    or count + 1 + len(source.pieces) > max_pieces
+                    or count + 1 + len(source_pieces) > max_pieces
                     or (identity not in related and len(related) >= 8)
                     or (
                         identity in selected_relations
@@ -1350,16 +1359,16 @@ def _widen_contexts(
                     continue
                 if identity not in related:
                     related[identity] = RelatedNativeSource(
-                        native_source_frame(source, ()), request.relationship, request.reason
+                        source if declared else native_source_frame(source, ()), request.relationship, request.reason
                     )
                 pieces.extend(
                     (
                         SyntheticText("\n", "context piece separator"),
-                        SourceSlice(identity, 0, len(source.text)),
+                        source_slice(source if declared else related[identity].source, 0, len(source.text)),
                     )
                 )
                 chars += 1 + len(source.text)
-                count += 1 + len(source.pieces)
+                count += 1 + len(source_pieces)
                 selected.append(identity)
                 selected_relations[identity] = (request.relationship, request.reason)
             if outcome == RetrievalOutcome.SELECTED:

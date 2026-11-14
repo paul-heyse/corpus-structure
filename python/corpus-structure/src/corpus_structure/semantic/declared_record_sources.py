@@ -146,6 +146,27 @@ class DeclaredSourceSlice:
         return self.source
 
 
+def native_language_items(items):
+    """Present exact typed pointer columns to the existing native language kernel.
+
+    Reference values retain their original-relative pointers. This reversible wire
+    projection introduces no source, task or view identity.
+    """
+    import json
+
+    result = json.loads(canonical_bytes(items))
+    for item in result:
+        if isinstance(item.get("parent"), str):
+            item["parent"] = {"$ref": item["parent"]}
+        for field in ("children", "captions", "footnotes", "references"):
+            if field in item:
+                item[field] = [{"$ref": pointer} for pointer in item[field]]
+        for cell in item.get("data", {}).get("table_cells", ()):
+            if isinstance(cell.get("ref"), str):
+                cell["ref"] = {"$ref": cell["ref"]}
+    return result
+
+
 @dataclass(frozen=True)
 class DeclaredNativeFrameSource:
     """Native language frame over an admitted semantic member, never a fake view row."""
@@ -169,7 +190,7 @@ class DeclaredNativeFrameSource:
         object.__setattr__(self, "_text", value["text"])
         object.__setattr__(self, "_coordinate", (coordinate["section_pointer"], coordinate["membership"], coordinate["projection"]))
         object.__setattr__(self, "_context", canonical_bytes({
-            "items": value["items"], "pieces": value["pieces"],
+            "items": native_language_items(value["items"]), "pieces": value["pieces"],
             "ancestors": value.get("ancestors", []),
             "health": {"formula_outcomes": value.get("recognition", [])},
         }).decode())

@@ -170,3 +170,40 @@ def test_declared_formula_occurrence_keeps_original_member_address_without_conve
     assert group.fields[0].spans[0].text == "x+y"
     other = DeclaredNativeFrameSource.acquire(prepared, native.value, replace(member, member="member:other"), project="p")
     assert not formula_matches_source(occurrence, other)
+
+
+def test_declared_related_context_selects_only_closed_native_link_members():
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation, select_related_context
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.source_contexts import SourceContextRequest, ContextRelationship, RetrievalOutcome
+    from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+
+    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
+    prepared = prepare_release(declared_record_inputs(source_product_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))))
+    values = []
+    members = []
+    for ordinal, label, text in ((0, "table", "A"), (1, "caption", "Caption")):
+        pointer = "#/texts/" + str(ordinal)
+        item = {"self_ref": pointer, "label": label, "text": text, "orig": text, "prov": []}
+        if ordinal == 0:
+            item["captions"] = [{"$ref": "#/texts/1"}]
+        source = FrozenNativeSource.from_projection(prepared, document="original:doc", section_pointer="#/groups/" + str(ordinal), membership="direct", text=text,
+            pieces=[{"kind": "native_text", "item_ref": pointer, "source_field": "text", "start": 0, "end": len(text)}], items=[item])
+        values.append(source.value)
+        members.append(BoundRoleMember("product:population", "kind:source", "subject:" + str(ordinal), "original:doc", b'{"page":1}', b'{}', (), b'{}', member="member:" + str(ordinal)))
+    witness = canonical_bytes({"identity": "population:actual-selection", "complete": True, "members": ["member:0", "member:1"], "evidence": {"derivation_id": "derived:selection"}})
+    role = ResolvedRoleBinding("related", "present", tuple(members), witness)
+    population = DeclaredContextPopulation.from_role(prepared, role, values, project="p")
+    primary = DeclaredNativeFrameSource.acquire(prepared, values[0], members[0], project="p")
+    request = SourceContextRequest("#/texts/0", ContextRelationship.CAPTION, ("caption",), "explicit caption link", ("#/texts/1",))
+    result = select_related_context(population, primary, request, limit=4)
+    assert result.outcome == RetrievalOutcome.SELECTED
+    assert [source.pin.values()["source_member"] for source in result.sources] == ["member:1"]
+    assert result.candidates == (population.sources[1].pin,)
+    with pytest.raises(ValueError, match="native links"):
+        select_related_context(population, primary, replace(request, targets=("#/texts/9",)), limit=4)
+    with pytest.raises(ValueError, match="complete native population"):
+        DeclaredContextPopulation.from_role(prepared, replace(role, population_witness=canonical_bytes({**__import__("json").loads(witness), "complete": False})), values, project="p")
