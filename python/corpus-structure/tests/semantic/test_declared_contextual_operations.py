@@ -8,6 +8,7 @@ import pytest
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderProfile, identity
 from corpus_structure.semantic.contextual_operations import (
     contextual_inputs,
+    contextual_inventory_values,
     contextual_interpretation_candidates,
     contextual_operation_sources,
     contextual_retrieval_values,
@@ -67,3 +68,11 @@ def test_contextual_retrieval_refuses_duplicate_or_foreign_vector_before_databas
     values["vectors"]["vectors"] = source_value(raw)
     with pytest.raises(ValueError, match="another representation"):
         contextual_retrieval_values(None, **values)
+
+
+def test_contextual_inventory_freezes_explicit_targets_without_legacy_reader():
+    targets = tuple(target_representation(key, "source:" + key, "alpha", "retained " + key, scope=scope) for key, scope in (("one", "selected"), ("two", "other")))
+    product = contextual_inventory_values({"source_selection": "actual-authored-selection", "scope": "selected", "targets": source_value([asdict(value) for value in targets]), "semantic_targets": source_value({})})
+    inventory = source_python(product["inventory"])
+    assert [value["target_id"] for value in inventory["targets"]] == ["one"]
+    assert inventory["source_selection"] == "actual-authored-selection"

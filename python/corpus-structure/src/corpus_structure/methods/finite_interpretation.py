@@ -25,7 +25,7 @@ class FiniteInterpretationOperation:
                 "kind": "https://corpus-structure.dev/semantic/data-operation-interpretation/DdoFiniteInterpretationPolicy",
                 "direction": "input", "minimum": 1, "maximum": 1,
                 "collection": "scalar", "presence": "required",
-                "support": {"provenance": "value_substitution", "source": "explicit-policy", "coverage": "complete-factor-inputs", "identity_requirements": []},
+                "support": {"provenance": "exact", "source": "explicit-policy", "coverage": "complete-factor-inputs", "origins": ["authored"], "identity_requirements": ["original-source"]},
             },
             {
                 "name": "result",

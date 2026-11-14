@@ -6,6 +6,16 @@ default_prefix: contextual
 default_range: string
 imports: [data_operation_candidate_inspection]
 classes:
+  DdoContextualTargetSelection:
+    is_a: SourceRecordProduct
+    attributes:
+      source_selection: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      reliable_type: {}
+      parent: {}
+      targets: {range: SourceValue, inlined: true, required: true}
+      semantic_targets: {range: SourceValue, inlined: true, required: true}
   DdoContextualInventory:
     is_a: SourceRecordProduct
     attributes:

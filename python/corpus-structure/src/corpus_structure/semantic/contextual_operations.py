@@ -162,3 +162,53 @@ def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, c
     port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.contextual_operations.ContextualRetrievalPlan.plan", authorize, (contextual_retrieval_assets(),), contextual_operation_sources(), functions=(("corpus_structure.semantic.contextual_operations.contextual_retrieval_values", contextual_retrieval_values),), requires_prepared_schema=True)
     plan.port = port
     return port
+
+
+def contextual_inventory_values(selection):
+    from pydantic import TypeAdapter
+
+    from .contextual_retrieval import TargetRepresentation, freeze_inventory
+    from .observations import source_python, source_value
+
+    targets = TypeAdapter(tuple[TargetRepresentation, ...]).validate_python(source_python(selection["targets"]))
+    meanings = source_python(selection["semantic_targets"])
+    inventory = freeze_inventory(targets, source_selection=selection["source_selection"], scope=selection["scope"], effective_version=selection.get("effective_version"), reliable_type=selection.get("reliable_type"), parent=selection.get("parent"), semantic_targets=meanings)
+    return {"inventory": source_value(asdict(inventory))}
+
+
+def execute_inventory_profile(receiver, selection):
+    return receiver.execute(selection)
+
+
+@dataclass
+class ContextualInventoryPlan:
+    prepared: Any
+    port: Any = None
+
+    def plan(self, arguments, *, binding, check_active, execution_owner):
+        from .data_operation_json import json_bytes
+        from .data_operation_prepared_call import PreparedCallResult
+
+        check_active()
+        selected = self.prepared.validate_json("DdoContextualTargetSelection", json_bytes(arguments.arguments["selection"])).model_dump(mode="python", exclude_unset=True)
+        product = contextual_inventory_values(selected)
+        checked = self.prepared.validate_json("DdoContextualInventory", json_bytes(product)).model_dump(mode="python", exclude_unset=True)
+        check_active()
+        yield from ()
+        return PreparedCallResult(checked)
+
+
+def resolve_inventory_port(prepared, model, operation, *, identity, authorize, custody, sources):
+    from corpus_structure.methods.contextual_declared import ContextualInventoryOperation
+
+    from .data_operation_ports import PortRefusal
+    from .data_operation_prepared_call import PreparedOriginalCallPort
+
+    selected = model.operation(operation)
+    if selected.semantic_id != ContextualInventoryOperation.__data_operation__["id"]:
+        raise PortRefusal("contextual inventory factory belongs to another operation")
+    receiver = ContextualInventoryOperation(contextual_inventory_values)
+    plan = ContextualInventoryPlan(prepared)
+    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.contextual_operations.ContextualInventoryPlan.plan", authorize, (contextual_retrieval_assets(),), contextual_operation_sources(), functions=(("corpus_structure.semantic.contextual_operations.contextual_inventory_values", contextual_inventory_values),), requires_prepared_schema=True)
+    plan.port = port
+    return port
