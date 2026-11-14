@@ -41,6 +41,13 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Declared data operations with SQLAlchemy and Alembic](declared-data-operations-sqlalchemy-alembic_2026-11-14.md):
+  full overview/addendum coverage against an already library-based baseline; DDO-09/10 read
+  projections through the existing Core-to-native route, compared table and schema privilege
+  operations, the stored fate set derived from the wire protocol, extended shared binding cases
+  and change-owned data steps; three observed defects. ORM, native ENUM, Alembic Utils and
+  revision branches have no current fit. Proposals only; DDO plans remain unchanged.
+
 - [DDO structural analysis, codemods and model-driven updates](declared-data-operations-ast-grep_2026-11-13.md):
   full ast-grep-py/LibCST capability comparison; owned regeneration, programmatic Python
   migration and bounded source updates through existing preview/apply. Ast-grep discovery is
