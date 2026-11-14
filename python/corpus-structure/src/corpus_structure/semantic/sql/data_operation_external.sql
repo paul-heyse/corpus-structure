@@ -40,9 +40,9 @@ BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','max_bytes']);
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
- key:='external-packet:'||ops.ddo_digest(jsonb_build_array(r.id,(p->>'generation')::integer));
+ key:='external-packet:'||ops.ddo_digest(jsonb_build_array(r.id,(p->>'generation')::bigint));
  -- Exact packet retention replay is historical custody, not new fulfillment.
- SELECT * INTO old FROM ops.data_external_packet WHERE id=key AND request_id=r.id AND generation=(p->>'generation')::integer;
+ SELECT * INTO old FROM ops.data_external_packet WHERE id=key AND request_id=r.id AND generation=(p->>'generation')::bigint;
  IF FOUND THEN RETURN jsonb_build_object('payload',jsonb_build_object('packet_id',old.id,'packet_digest',old.payload_digest,'state','awaiting-external')); END IF;
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
@@ -118,13 +118,13 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; packet ops.data_external_packet; t ops.task; receipt ops.data_external_receipt;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['packet_id','request_id','generation','task_id','attempt','holder','max_bytes']);
- SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=p->>'packet_id' AND request_id=p->>'request_id' AND generation=(p->>'generation')::integer;
+ SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=p->>'packet_id' AND request_id=p->>'request_id' AND generation=(p->>'generation')::bigint;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=packet.request_id;
  PERFORM ops.ddo_authorize_request(r);
  -- A producer may inspect/replay its already admitted exact result after a lost
  -- commit acknowledgement. This historical packet grants no new admission.
  SELECT * INTO receipt FROM ops.data_external_receipt WHERE packet_id=packet.id;
- IF receipt.id IS NOT NULL AND (receipt.request_id,receipt.generation,receipt.task_id,receipt.attempt,receipt.holder) IS NOT DISTINCT FROM (p->>'request_id',(p->>'generation')::integer,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder') THEN
+ IF receipt.id IS NOT NULL AND (receipt.request_id,receipt.generation,receipt.task_id,receipt.attempt,receipt.holder) IS NOT DISTINCT FROM (p->>'request_id',(p->>'generation')::bigint,(p->>'task_id')::bigint,(p->>'attempt')::bigint,p->>'holder') THEN
  IF octet_length(data.canonical_json(packet.payload))>(p->>'max_bytes')::integer THEN RAISE EXCEPTION 'historical external packet exceeds transport capacity'; END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('packet_id',packet.id,'packet_digest',packet.payload_digest,'packet',packet.payload));
  END IF;
@@ -138,7 +138,7 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('packet_id',packet.id,'packet_digest',packet.payload_digest,'packet',packet.payload));
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_external_completion(completion jsonb,r ops.data_request,producer_task bigint,producer_attempt integer,producer_holder text) RETURNS void
+CREATE OR REPLACE FUNCTION ops.ddo_require_external_completion(completion jsonb,r ops.data_request,producer_task bigint,producer_attempt bigint,producer_holder text) RETURNS void
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE definition sem.data_operation_definition; receipt ops.data_external_receipt; wire jsonb; packet ops.data_external_packet;
 BEGIN
@@ -167,7 +167,7 @@ DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; packet ops.data_exte
  completion jsonb; evidence jsonb; retained jsonb; digest_ text; key text; intent text;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['packet_id','request_id','generation','task_id','attempt','holder','actor_assertion','model_assertion','completion']);
- SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=p->>'packet_id' AND request_id=p->>'request_id' AND generation=(p->>'generation')::integer;
+ SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=p->>'packet_id' AND request_id=p->>'request_id' AND generation=(p->>'generation')::bigint;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=packet.request_id;
  PERFORM ops.ddo_authorize_request(r);
  completion:=p->'completion';
@@ -223,11 +223,11 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; packet ops.data_external_packet;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['packet_id','request_id','generation','task_id','attempt','holder','reason']);
- SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=p->>'packet_id' AND request_id=p->>'request_id' AND generation=(p->>'generation')::integer;
+ SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=p->>'packet_id' AND request_id=p->>'request_id' AND generation=(p->>'generation')::bigint;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=packet.request_id FOR UPDATE;
  PERFORM ops.ddo_authorize_request(r);
  SELECT * INTO STRICT t FROM ops.task WHERE id=packet.task_id FOR UPDATE;
- IF (r.generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM ((p->>'generation')::integer,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder') OR t.status NOT IN ('running','awaiting_agent') THEN RAISE EXCEPTION 'external release lost its exact packet/attempt fence'; END IF;
+ IF (r.generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM ((p->>'generation')::bigint,(p->>'task_id')::bigint,(p->>'attempt')::bigint,p->>'holder') OR t.status NOT IN ('running','awaiting_agent') THEN RAISE EXCEPTION 'external release lost its exact packet/attempt fence'; END IF;
  IF EXISTS(SELECT FROM ops.data_external_receipt WHERE packet_id=packet.id) THEN RAISE EXCEPTION 'retained external result requires publication reconciliation, not release'; END IF;
  -- Releasing logical permission does not assert an external actor/process stopped.
  UPDATE ops.task SET status='awaiting_agent',lease_until=NULL,error=jsonb_build_object('external_release',p->>'reason','physical_retirement','not-asserted') WHERE id=t.id;

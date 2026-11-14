@@ -1499,7 +1499,8 @@ Ordinary profile acquisition now supports explicit downstream composition, optio
 M1 configuration plus record schemas, optional contextual encoder snapshot/profile, mathematical
 policy and external protocol. These capture available capabilities; a native demand selects actual
 work. Deterministic named definitions do not acquire a GLiNER provider. The complete public assembly
-control is still being repaired, so individual module availability is not claimed as full adoption.
+control now passes bounded captured-input verification, including the learned/downstream/math
+profile; it does not establish actual-provider or complete native family qualification.
 
 Removed current machinery includes the graph/registry runner, source/phase0/M1 orchestration catalogs,
 readiness/preparation dispatcher, regional CPU facade and old kernel Reader packets, old source-run
@@ -1509,9 +1510,8 @@ remain. Historical fixture publication uses explicit real task/claim/frame/publi
 it supplies no current-provider qualification. The retained-reader MCP is explicitly selected; the
 ordinary external server uses native task-owned packet/result custody and bounded pinned reads.
 
-Remaining current integration includes public downstream assembly and bounded native/provider
-journeys against the external/lifecycle successor, plus final typing/lint and remaining finite
-historical fixture migration. Parser/interpretation flags and orphaned PM2 scheduler retirement are
+Remaining acceptance includes bounded native/provider journeys against the external/lifecycle
+successor and finite historical fixture checks. Configured typing and scoped lint now pass. Parser/interpretation flags and orphaned PM2 scheduler retirement are
 implemented. No package completion or final assembled qualification is claimed.
 
 **Pinned-source boundary:** `SourceRunRequest.retained_sources` currently admits authenticated
@@ -1550,12 +1550,17 @@ Focused managed receipts (all dated 2026-11-14; source/context bounds retained):
 | Explicit math analysis/CLI8 | `6ca019242ac547369132bcc412220cb6` passed6 and failed2 fixtures. Weak analysis passed its retry in `0967957126894836b27de1e2b0414e85`; exact ancestor-source/scope control passed its sole retry `0a4611e3c3ca4fae81f730cc976121cd`. Separate declaration-closure control remains failed in `637dbd8cb5734445a25806a5a089ed03`, pending source capture repair. |
 | Retained-reader MCP and rich exact wire11 | `6d66ca49234c40b7a7b0fa5d3fe64d89` passed11 selected controls. Historical native fixture publication has separate pending controls. |
 
+| Ordinary parser/interpretation CLI choices11 | `f5d880ccab9745abb0566974d76cc026` passed11, including provider/profile/question/focus choices and refusing semantic changes during exact Demand resume. |
+| Public downstream and optional provider acquisition | Exact failed public downstream control passed1 in `abc15b29d66441b98414002a3c314977`. Separate closed public learned/math/downstream profile and optional literal-M1/encoder capture/refusal controls passed5 in `94871cee8e2d44feb0d1e8f4c1afa805`. These are captured-input controls, not actual-provider execution. |
+| Complete math callable closure | `f47bd683a9304774b7bbbcec4ce34cd3` passed the sole failing compilation control after supported module-level imports and nominal wire annotations replaced unresolved source references. Compiler completeness was retained. |
+| Current HanLP batching/cancellation/failure controls6 | `59818058846140a38c3f71c0180066ad` passed5, failed the missing canonical-manifest fixture1; `e766bdff10034194a37f59f1a660bc0f` passed that sole retry. Actual-provider execution remains separate. |
+
 
 Passing cohorts are not replayed after fixes. These receipts do not establish final source qualification
-of subsequently changed shared profiles. Configured typing checks `756d85c55f8d4ab8aa61ff574f1e8b3a`
-and `af70d837c3764c428cca3fb5374bd651`, plus later `0dcce72404ff4f9395f2a7d4fe7d1f52`,
-`c2151f755d4040b8b40180b7f3ccf690` and `c6dd07c0bac04a9e89ebd3b40f603fa6`, failed during
-integration; the remaining identified consumer/type repairs and coherent endpoint check stay open. Ruff E501 remains excluded.
+of subsequently changed shared profiles. Earlier configured typing failures remain retained;
+`uv run ci check --only types --json` **passed** in `540bd344589b44188eade848a2b4caf2`
+after consumer and sealed JSON boundary repairs. Scoped `uv run ruff check` across the changed
+Python footprint **passed**, and `just turn-end` **passed**. Ruff E501 remains excluded.
 Full tests/checks, benchmarks and repository health sweeps are **not_run**, per operator. Actual
 bounded provider/current-capability journeys continue; no persistent deployment or cutover follows.
 
