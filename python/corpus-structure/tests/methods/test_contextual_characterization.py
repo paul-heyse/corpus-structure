@@ -4,19 +4,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.method import MethodSettings, UnitRef
-from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.methods.contextual_characterization import (
-    ContextualCharacterizationConfig,
-    ContextualCharacterizationMethod,
-    canonical_tokens,
-    reuse_native,
-)
 from corpus_structure.semantic.characterization import decode_layer, encode_layer
 from corpus_structure.semantic.contextual_characterization import (
     ContextInput,
     ContextPart,
     ContextualLayer,
+    canonical_tokens,
+    reuse_native,
 )
 from methods.contextual_characterization_support import (
     add_metadata as add_metadata,
@@ -251,32 +245,12 @@ def test_retained_native_reuse_does_not_invoke_any_provider(native_source, prepa
 def test_missing_native_evidence_cannot_become_empty_referent_or_host_inventory(
     native_source, prepared, tmp_path
 ):
-    _, _, _, view, base, scope, operation = native_source
-    reader = SimpleNamespace(
-        prepared=prepared,
-        source_views=lambda: [view.ref],
-        source_view_ref=lambda _: view.ref,
-        source_view=lambda _: view,
-        characterization_layers=lambda _: {},
-    )
-    unit = SimpleNamespace(
-        ref=UnitRef(TaskUnitType.DOCUMENT, 17), run=SimpleNamespace(reader=reader)
-    )
-    ctx = SimpleNamespace(
-        check_active=lambda: None,
-        characterization_operation=lambda _: dict(
-            operation, key="text.contextual_characterization"
-        ),
-        settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-    )
-    cfg = ContextualCharacterizationConfig(
-        characterization_base_document=base,
-        characterization_source_scope=scope,
-        native_mode="retained",
-    )
-    (result,) = ContextualCharacterizationMethod().run([unit], cfg, ctx)
-    assert result.characterization_layer is not None
-    coverage = {c["family"]: c for c in result.characterization_layer.payload["coverage"]}
+    builder = context_builder(native_source)
+    builder.structural()
+    reuse_native(builder, {})
+    builder.hypotheses()
+    report = builder.finish(prepared)
+    coverage = {row["family"]: row for row in report.payload["coverage"]}
     assert coverage["maverick.mentions"]["outcome"] == "failed"
     assert coverage["context.reference"]["outcome"] == "partial"
     assert coverage["context.host"]["outcome"] == "partial"
