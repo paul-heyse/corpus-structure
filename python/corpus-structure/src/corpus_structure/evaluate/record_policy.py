@@ -113,7 +113,7 @@ def whole_reading_correct(
 
 def _diagnostics(record: Mapping[str, Any], detail: Mapping[str, Any]) -> list[dict[str, Any]]:
     # One shared producer recipe retains first exact diagnostics for a native group.
-    from corpus_structure.methods.m1_readings import reading_diagnostics
+    from corpus_structure.semantic.reading_resolution_products import reading_diagnostics
 
     return reading_diagnostics(record, detail)
 
