@@ -18,6 +18,7 @@ from corpus_structure.methods.record_assembly import NativeRecordGroup, RoleInpu
 from corpus_structure.methods.record_packs import family_pack
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.proposals import NativeFrameSource
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     SourceSlice,
@@ -94,6 +95,7 @@ def test_forward_typed_population_and_limited_operations_are_preserved_without_r
     )
     assert canonical_bytes(copied.coordinate_texts) == canonical_bytes(batch.coordinate_texts)
     assert isinstance(copied.contributions[-1]["value"]["fields"], tuple)
+    assert isinstance(ctx.primary, NativeFrameSource)
     bound = bind_result(
         release(),
         source=ctx.primary.unit_ref,
@@ -520,6 +522,7 @@ def test_failed_parse_and_diagnostic_retention_bind_beside_earlier_useful_produc
         contributions=batch.contributions,
         coordinate_texts=batch.coordinate_texts,
     )
+    assert isinstance(ctx.primary, NativeFrameSource)
     terminal = bind_result(
         prepared,
         source=ctx.primary.unit_ref,

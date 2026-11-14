@@ -14,6 +14,7 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods import source_preparation as prep
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 from methods.m1_source_preparation_support import (
     dense_table_source as dense_table_source,
 )
@@ -283,6 +284,7 @@ def test_owned_neighbor_context_preserves_pins_maps_and_failed_retrieval(control
     assert context.version == 2 and context.preparation is result.preparation
     assert context.related[0].relationship == ContextRelationship.NEIGHBOR
     evidence = context.map_span(4, 20, literal="Population mean.")[0]
+    assert isinstance(evidence.source, NativeSourcePin)
     assert evidence.source.source_view_id == 8 and (evidence.start, evidence.end) == (0, 16)
     assert isinstance(context.intervals[1], SyntheticInterval)
     assert requests[0][3].max_bytes == 4_194_304
@@ -671,6 +673,7 @@ def test_formula_consumes_complete_same_primary_paragraph_once_with_exact_occurr
     assert context.text == view.text and context.text.count("x=1") == 1
     (evidence,) = context.map_span(formula["start"], formula["end"], literal="x=1")
     assert isinstance(evidence, NativeSpanEvidence)
+    assert isinstance(evidence.source, NativeSourcePin)
     assert (evidence.start, evidence.end, evidence.source.source_view_id) == (
         formula["start"],
         formula["end"],

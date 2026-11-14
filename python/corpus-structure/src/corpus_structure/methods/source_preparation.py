@@ -1386,14 +1386,8 @@ def _widen_contexts(
             outcome, terminal = result.outcome, result.terminal_reason
             for source in result.sources:
                 declared_frame = source if isinstance(source, DeclaredNativeFrameSource) else None
-                identity = (
-                    declared_frame.source_key if declared_frame is not None else source.ref.id
-                )
-                source_pieces = (
-                    declared_frame.inspectable_pieces
-                    if declared_frame is not None
-                    else source.pieces
-                )
+                identity = source.source_key if isinstance(source, DeclaredNativeFrameSource) else source.ref.id
+                source_pieces = declared_frame.inspectable_pieces if declared_frame is not None else source.pieces
                 # Related sources retain their own exact selection. Never append
                 # their full raw projection merely because its carrier was bound.
                 ranges = []

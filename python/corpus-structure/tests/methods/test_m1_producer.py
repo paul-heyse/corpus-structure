@@ -133,7 +133,7 @@ def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_prec
     from methods.record_assembly_support import release
 
     method = m1_source.M1Candidates()
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     prepared = release()
     baseline = configured_packs(prepared, cfg)
     guided = configured_packs(prepared, cfg, generic_role_guidance=True)
@@ -172,7 +172,7 @@ def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkey
     monkeypatch.setattr(
         method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
     )
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=owned_reader(source), check_active=lambda: None)
 
@@ -462,7 +462,7 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
         )
 
     monkeypatch.setattr(m1_source, "prepare_source", with_related_diagnostic)
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     (result,) = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
         cfg,
@@ -481,7 +481,7 @@ def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(mo
     monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
     from corpus_structure.orchestrate.m1 import registry
 
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     checks = []
     context = SimpleNamespace(
         reader=owned_reader(source),
@@ -587,7 +587,7 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
     monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
     from corpus_structure.orchestrate.m1 import registry
 
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7"))
     (result,) = method.run(
         (unit,),
@@ -699,7 +699,7 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     source = view()
     reader = owned_reader(source)
     method = m1_source.M1Candidates()
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     annotations, errors, annotation_result = consume_annotations(
         reader, source, AnnotationProfile(cfg.sentences)
     )
@@ -733,6 +733,7 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     assert isinstance(product, m1_source.M1CandidateProduct)
     assert product.outcome == ObservationOutcome.PRODUCED
     assert not hasattr(product, "ref")
+    assert product.records is not None
     (record,) = product.records
     fields = {field["role"]: field for field in record["fields"]}
     assert fields["term"]["original"] == "Mean"
@@ -747,7 +748,7 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
 
     source = view()
     method = m1_source.M1Candidates()
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     prepared_source = prepare_source(source, persisted_annotations=(), policy=cfg.policy)
     plan = method.plan_candidates(
         prepared=release(),
@@ -789,7 +790,7 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
 
     source = view()
     method = m1_source.M1Candidates()
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = m1_source.M1Config.model_validate(registry(ROOT / "domains/statistics").overlay(method.name, "default"))
     plan = method.plan_candidate_replies(
         prepared=release(),
         view=source,
