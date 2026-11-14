@@ -153,6 +153,24 @@ def source_annotation_rows(value):
     return tuple(rows)
 
 
+def retained_source_annotation_products(source, native):
+    """Restore captured blocks once from an authenticated nominal annotation input."""
+    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from .declared_record_sources import DeclaredNativeFrameSource
+
+    value = json.loads(native.content)
+    selected = source.value
+    if value["source"] != selected["source"] or value["selectors"] != selected["selectors"]:
+        raise ValueError("retained annotations differ from their exact original source/scope")
+    rows = source_annotation_rows(value)
+    if not rows:
+        return ()
+    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    return restore_annotations(rows, source=frame, profile=AnnotationProfile(
+        SentenceConfig.model_validate(value["configuration"]), execution_profile=value["execution_profile"]
+    ), require_complete=False)
+
+
 def source_annotation_member_values(value: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     """Read original units from detached annotations; no second stored token inventory."""
     result = []
@@ -866,6 +884,7 @@ def sentence_profile_assets(
                         "_blocks",
                         "_detach_annotation_block",
                         "source_annotation_rows",
+                        "retained_source_annotation_products",
                         "source_annotation_member_values",
                         "source_annotation_packets",
                         "annotation_manifest",

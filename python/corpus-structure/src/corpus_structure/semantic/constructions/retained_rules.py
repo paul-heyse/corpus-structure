@@ -273,7 +273,7 @@ def recognize_frames(
             view = annotation_view(
                 product,
                 text[product.block_start : product.block_end],
-                _frame_vocabulary(),
+                vocab,
                 required=_REQUIRED,
             )
             result = recognize_frame_result(view, layout=layout)
@@ -1847,8 +1847,6 @@ def populate(
         retained_annotation_profile,
     )
 
-    from .forest import identity
-
     family = PRIMARY_RULE_FAMILY
     if family not in layer.operation["produced_families"]:
         layer.operation["produced_families"].append(family)
@@ -1880,6 +1878,35 @@ def populate(
         for a in native_layer.payload["annotations"]
         if a.get("native_token", {}).get("native_run") == run["local_id"]
     }
+    native_references = {(product.block_id, index): dict(layer=native_pin.values(), local_id=native_annotations[f"spacy/{view.ref.id}/{product.block_id}/block", index]["local_id"]) for product in products for index in range(len(product.tokens))}
+    block_references = {product.block_id: [dict(layer=native_pin.values(), local_id=f"spacy/{view.ref.id}/{product.block_id}/block")] for product in products}
+    return _populate_source_readings(layer, view, native_pin, products, native_references, block_references, projection=view.ref.projection_digest, vocab=_frame_vocabulary(), check_active=check_active)
+
+
+def populate_source_reading_products(layer, view, source, native, *, annotation_products=None, vocab=None, check_active=lambda: None, admitted=lambda a, b: True):
+    """Run finite primary source rules over genuine native units, retaining semantic addresses."""
+    import json
+    from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
+    from corpus_structure.semantic.sentence_products import retained_source_annotation_products, source_annotation_member_values
+    from .matching import retained_native_vocab
+
+    vocab = retained_native_vocab(source, native) if vocab is None else vocab
+
+    native_products = retained_source_annotation_products(source, native) if annotation_products is None else annotation_products
+    products = tuple(product for product in native_products if admitted(product.block_start, product.block_end))
+    for product in native_products:
+        if product not in products and any(admitted(token.start, token.end) for token in product.tokens):
+            for selector in layer.scope["selectors"]:
+                layer.record(PRIMARY_RULE_FAMILY, selector, "unsupported", "selected source scope cuts a whole native block; no silent linguistic cut")
+    pin = DataProductReference(native.semantic_id)
+    tokens = {(row["block_id"], row["ordinal"]): row for row in source_annotation_member_values(json.loads(native.content)) if row["record_type"] == "token"}
+    references = {key: member_reference(pin, row["local_id"]).values() for key, row in tokens.items()}
+    return _populate_source_readings(layer, view, pin, products, references, {product.block_id: [] for product in products}, projection=view.projection, vocab=vocab, check_active=check_active)
+
+
+def _populate_source_readings(layer, view, native_pin, products, native_references, block_references, *, projection, vocab, check_active):
+    from .forest import identity
+    family = PRIMARY_RULE_FAMILY
     results, frame_ids, cue_ids = [], {}, {}
     layout_contexts = {}
 
@@ -1887,14 +1914,7 @@ def populate(
         key = identity("source-role", [native_pin.values(), product.block_id, span.tokens, label])
         if key not in layer.terms:
             occurrences = [layer.occurrence(view, a, b) for a, b in span.extents]
-            container = f"spacy/{view.ref.id}/{product.block_id}/block"
-            premises = [
-                dict(
-                    layer=native_pin.values(),
-                    local_id=native_annotations[container, index]["local_id"],
-                )
-                for index in span.tokens
-            ]
+            premises = [native_references[product.block_id, index] for index in span.tokens]
             layer.terms[key] = dict(
                 local_id=key,
                 family=family,
@@ -1919,12 +1939,7 @@ def populate(
             native_label=variant,
             status="interpreted",
             occurrences=occurrences,
-            external_premises=[
-                dict(
-                    layer=native_pin.values(),
-                    local_id=f"spacy/{view.ref.id}/{product.block_id}/block",
-                )
-            ],
+            external_premises=block_references[product.block_id],
             context=layout_contexts[product.block_id],
         )
         heading = next(
@@ -2045,7 +2060,7 @@ def populate(
             with_context=True,
         )
         focal = dict(
-            projection=view.ref.projection_digest, start=product.block_start, end=product.block_end
+            projection=projection, start=product.block_start, end=product.block_end
         )
         layout_contexts[product.block_id] = dict(
             focal=[focal], examined=[heading, focal] if heading is not None else [focal], gaps=[]
@@ -2155,7 +2170,7 @@ def populate(
         for candidate in result.unresolved_cues:
             cue(product, candidate)
         selector = dict(
-            projection=view.ref.projection_digest, start=product.block_start, end=product.block_end
+            projection=projection, start=product.block_start, end=product.block_end
         )
         blocking = tuple(
             issue
@@ -2263,7 +2278,7 @@ def populate(
             )
     if not products and not any(row["family"] == family for row in layer.coverage):
         for selector in layer.scope["selectors"]:
-            if selector["projection"] == view.ref.projection_digest:
+            if selector["projection"] == projection:
                 layer.record(
                     family, selector, "failed", "no retained whole-block native population"
                 )

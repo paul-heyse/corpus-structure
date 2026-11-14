@@ -458,6 +458,8 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(p
     binders = Binders(sentence_initial=("mean",))
     product = construction.run(source, (primary,), ConstructionOptions(annotation_rules=(rule,), math_scope_binders=binders), sentences=annotations, subject_context=context)
     inventory = product.inventory()
+    from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_VOCABULARY
+    assert any(row.get("vocabulary") == PRIMARY_RULE_VOCABULARY and row["kind"] == "predicate" for row in inventory["terms"])
     scope = retained_math_scope_products((product,), source, binders=binders)
     assert scope.complete and scope.sentences == ((0, len(source.value["text"])),)
     assert scope.flags(0) == {"initial"}

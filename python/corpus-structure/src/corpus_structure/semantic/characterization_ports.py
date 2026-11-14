@@ -63,6 +63,8 @@ def _semantic_assets(profile: str) -> SourceArtifact:
             "constructions/named.py",
             "constructions/named_nominations.py",
             "constructions/math_scope.py",
+            "constructions/retained_rules.py",
+            "constructions/retained_rules.json",
             "constructions/grammars/prose.lark",
         ),
         "contextual": (*common, "constructions/evaluation.py"),
@@ -153,6 +155,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
                         "_id",
                         "source_annotation_member_values",
                         "source_annotation_rows",
+                        "retained_source_annotation_products",
                         "validate_source_annotations",
                     ),
                 )
@@ -210,6 +213,7 @@ def _execution_custody() -> SourceArtifact:
         "constructions/named.py",
         "constructions/named_nominations.py",
         "constructions/math_scope.py",
+        "constructions/retained_rules.py",
         "../methods/annotation_rules.py",
         "../ingest/annotation_views.py",
     )

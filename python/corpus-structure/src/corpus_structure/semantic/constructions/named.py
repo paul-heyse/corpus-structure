@@ -77,24 +77,15 @@ def populate_named(
     return products
 
 
-def populate_named_products(layer, view, source, native, prepared, *, check_active=lambda: None, admitted=lambda a, b: True):
+def populate_named_products(layer, view, source, native, prepared, *, annotation_products=None, check_active=lambda: None, admitted=lambda a, b: True):
     """Interpret actual detached native blocks, with governed product/member addresses."""
     import json
 
-    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
-    from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
-    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-    from corpus_structure.semantic.sentence_products import source_annotation_member_values, source_annotation_rows
+    from corpus_structure.semantic.sentence_products import source_annotation_member_values, retained_source_annotation_products
 
     value = json.loads(native.content)
-    rows = source_annotation_rows(value)
-    if not rows:
-        return
-    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
-    products = restore_annotations(rows, source=frame, profile=AnnotationProfile(
-        SentenceConfig.model_validate(value["configuration"]), execution_profile=value["execution_profile"]
-    ), require_complete=False)
+    products = retained_source_annotation_products(source, native) if annotation_products is None else annotation_products
     pin = DataProductReference(native.semantic_id)
     tokens = {(row["block_id"], row["ordinal"]): row for row in source_annotation_member_values(value) if row["record_type"] == "token"}
 

@@ -394,7 +394,16 @@ def construction_product_values(
             retained_native_vocab,
         )
 
+        from .sentence_products import retained_source_annotation_products
+        from .constructions.retained_rules import populate_source_reading_products
+
+        native_products = retained_source_annotation_products(source, native)
         vocab = retained_native_vocab(source, native)
+        populate_source_reading_products(
+            builder, view, source, native, annotation_products=native_products, vocab=vocab,
+            check_active=check_active,
+            admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
+        )
         patterns = PreparedConstructions(vocab)
         pin = DataProductReference(native.semantic_id)
         for block, doc, annotations, start, _end in retained_native_documents(
@@ -439,6 +448,7 @@ def construction_product_values(
             populate_named_products(
                 builder, view, source, native,
                 PreparedAnnotationRules(vocab, rules=options.annotation_rules),
+                annotation_products=native_products,
                 check_active=check_active,
                 admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
             )
