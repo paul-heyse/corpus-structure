@@ -100,8 +100,10 @@ class PreparedPdfCapture:
         claim = execution_owner.claim
         if claim is None:
             raise ValueError("PDF capture requires an actual native producer claim")
+        from .original_documents import original_document_subject
+
         context = subject_context
-        if original["document"] != context.original_source or context.subject != original["document"]:
+        if original["document"] != context.original_source or context.subject != original_document_subject(original["document"]):
             raise ValueError("PDF capture original differs from the qualified native request")
         engine = execution_owner.engine
         check_active()

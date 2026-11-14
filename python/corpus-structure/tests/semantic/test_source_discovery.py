@@ -71,3 +71,34 @@ def test_source_discovery_refuses_foreign_original_and_repeated_complete_context
         profile.project(original(), (view, view), True)
     with pytest.raises(TypeError, match="explicit complete/partial"):
         selected_source_population(original(), (), complete=1, kind_contract="kind:test")
+
+
+def test_native_source_keeps_original_key_and_canonical_document_address(profile):
+    from corpus_structure.semantic.original_documents import original_document_subject
+    value = source(profile)
+    assert value["source"]["document"] == "document:one"
+    assert value["source"]["document_subject"] == original_document_subject("document:one")
+    assert value["source"]["document_subject"] != value["source"]["document"]
+    value["source"]["document_subject"] = original_document_subject("document:other")
+    with pytest.raises(ValueError, match="document address differs"):
+        FrozenNativeSource.acquire(profile.prepared, value)
+
+
+def test_acquire_preserves_body_under_its_older_pinned_source_contract(profile):
+    import yaml
+    from corpus_structure.semantic.source_products import source_product_inputs
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    bundle = source_product_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    old_sources = []
+    for artifact in bundle.sources:
+        if artifact.name == "data_operation_source":
+            old = yaml.safe_load(artifact.content)
+            del old["classes"]["DdoNativeSourceCoordinate"]["attributes"]["document_subject"]
+            artifact = SourceArtifact(artifact.name, yaml.safe_dump(old).encode())
+        old_sources.append(artifact)
+    older = prepare_release(SourceBundle(bundle.root, tuple(old_sources)))
+    value = source(profile)
+    del value["source"]["document_subject"]
+    preserved = FrozenNativeSource.acquire(older, value)
+    assert preserved.value == value
+    assert "document_subject" not in preserved.value["source"]

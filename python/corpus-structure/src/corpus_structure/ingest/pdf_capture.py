@@ -14,7 +14,6 @@ class PdfCaptureOperation:
             {"name": "original", "parameter": "original", "direction": "input",
              "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoOriginalDocument",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
-             "subject_field": "/document",
              "support": {"provenance": "exact", "origins": ["original-source"],
                          "identity_requirements": ["original-source"], "source": "same-original", "coverage": "whole-document"}},
             {"name": "result", "direction": "output",

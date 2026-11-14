@@ -66,7 +66,7 @@ BEGIN
  recognition:=recognition||jsonb_build_array(jsonb_build_object('pointer',original->'pointer','outcome',original->'outcome'));
  END LOOP;
  projection:=ops.ddo_digest(jsonb_build_object('text',text_value,'pieces',pieces,'items',atoms,'ancestors',ancestors,'recognition',recognition));
- coordinate:=jsonb_build_object('document',p_document,'section_pointer',p_section,'membership',p_membership,'projection',projection);
+ coordinate:=jsonb_build_object('document',p_document,'document_subject','original-document:'||ops.ddo_digest(jsonb_build_object('document',p_document)),'section_pointer',p_section,'membership',p_membership,'projection',projection);
  FOR selector IN SELECT value FROM jsonb_array_elements(p_selectors) LOOP
  PERFORM ops.ddo_fields(selector,ARRAY['projection'],ARRAY['native_pointer','page','start','end']);
  IF selector->>'projection' IS DISTINCT FROM p_projection_digest

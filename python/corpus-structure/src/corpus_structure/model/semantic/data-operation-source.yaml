@@ -43,6 +43,7 @@ classes:
     description: Semantic source identity and original projection coordinates; physical run/view custody is separate.
     attributes:
       document: {required: true, pattern: '^.+$'}
+      document_subject: {required: true, pattern: '^original-document:[0-9a-f]{64}$'}
       section_pointer: {required: true, pattern: '^.+$'}
       membership: {required: true, pattern: '^(direct|descendants)$'}
       projection: {required: true, pattern: '^[0-9a-f]{64}$'}

@@ -22,7 +22,6 @@ class SelectedSourceViewsOperation:
                 "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoOriginalDocument",
                 "direction": "input", "minimum": 1, "maximum": 1,
                 "collection": "scalar", "presence": "required",
-                "subject_field": "/document",
                 "support": {
                     "provenance": "exact", "source": "same-original",
                     "coverage": "whole-document", "origins": ["original-source"],
@@ -34,7 +33,7 @@ class SelectedSourceViewsOperation:
                 "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
                 "direction": "input", "minimum": 0, "maximum": None,
                 "collection": "set", "presence": "optional",
-                "subject_field": "/source/document",
+                "subject_field": "/source/document_subject",
                 "support": {
                     "provenance": "exact", "source": "same-original",
                     "coverage": "frozen-selected-view-set", "origins": ["original-source", "computation"],

@@ -14,6 +14,7 @@ import yaml
 from pydantic import BaseModel
 
 from .identity import canonical_bytes
+from .original_documents import original_document_subject
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-source.yaml"
@@ -201,6 +202,7 @@ def _projection_body(
     return dict(
         source=dict(
             document=document,
+            document_subject=original_document_subject(document),
             section_pointer=section_pointer,
             membership=membership,
             projection=projection,
@@ -222,6 +224,9 @@ class FrozenNativeSource:
     @classmethod
     def acquire(cls, prepared: PreparedRelease, value: Mapping[str, Any]) -> FrozenNativeSource:
         checked = _values(prepared.validate_json("DdoSelectedNativeSource", canonical_bytes(value)))
+        if ("document_subject" in checked["source"]
+                and checked["source"]["document_subject"] != original_document_subject(checked["source"]["document"])):
+            raise ValueError("selected source document address differs from its original key")
         text, pieces, items = checked["text"], checked.get("pieces", []), checked.get("items", [])
         ancestors = checked.get("ancestors", [])
         if len({item["self_ref"] for item in ancestors}) != len(ancestors):

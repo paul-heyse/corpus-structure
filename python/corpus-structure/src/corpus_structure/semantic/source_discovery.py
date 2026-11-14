@@ -14,6 +14,7 @@ import yaml
 
 from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
+from .original_documents import original_document_subject
 from .source_products import FrozenNativeSource, source_product_inputs, source_subject
 from .types import SourceArtifact, SourceBundle
 
@@ -93,7 +94,7 @@ def source_discovery_assets():
     algorithms = tuple((node.name, ast.dump(node, include_attributes=False)) for node in source.body if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in source_names)
     if {name for name, _ in algorithms} != source_names:
         raise ValueError("source discovery lacks its complete source interpretation")
-    return SourceArtifact("source-discovery/profile-assets", canonical_bytes({"version": "source-discovery-assets-ast-v1", "projection": selected, "model": _MODEL.read_bytes().hex(), "source": algorithms}))
+    return SourceArtifact("source-discovery/profile-assets", canonical_bytes({"version": "source-discovery-assets-ast-v1", "projection": selected, "model": _MODEL.read_bytes().hex(), "source": algorithms, "document_address": Path(__file__).with_name("original_documents.py").read_bytes().hex()}))
 
 
 def source_discovery_custody():
@@ -104,7 +105,7 @@ def source_discovery_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/source_discovery.py"
-    return PythonSourceCollection((PythonSource("corpus_structure.methods.source_discovery", path.read_bytes(), str(path)),), boundary_contracts=(source_discovery_assets(), source_discovery_custody()))
+    return PythonSourceCollection((PythonSource("corpus_structure.semantic.source_discovery", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.source_discovery", path.read_bytes(), str(path)),), boundary_contracts=(source_discovery_assets(), source_discovery_custody()))
 
 
 @dataclass(frozen=True)
@@ -167,7 +168,7 @@ class PreparedSourceDiscoveryPort:
                 raise PortRefusal("source discovery lacks its exact selected view population")
             views = ()
         parameters = decode_semantic_value(json.loads(binding.parameters))
-        if set(parameters) != {"complete"} or binding.subject != original["document"]:
+        if set(parameters) != {"complete"} or binding.subject != original_document_subject(original["document"]):
             raise PortRefusal("source discovery lacks its frozen selection standing or document subject")
         product = self.profile.project(original, tuple(views), parameters["complete"])
         output = next(role for role in self.operation.roles if role.direction == "output")

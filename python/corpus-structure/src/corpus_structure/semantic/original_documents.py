@@ -13,6 +13,13 @@ from .identity import canonical_bytes
 from .metadata import table
 
 
+def original_document_subject(document: str) -> str:
+    """Canonical whole-document address, distinct from the original document key."""
+    if not isinstance(document, str) or not document:
+        raise ValueError("original document address requires its nonempty retained key")
+    return "original-document:" + sha256(canonical_bytes({"document": document})).hexdigest()
+
+
 @dataclass(frozen=True)
 class OriginalDocumentAcquisition:
     name: str
@@ -22,7 +29,7 @@ class OriginalDocumentAcquisition:
     def root(self) -> RootSubject:
         coordinate = {"document": self.reference.document_key}
         return RootSubject(
-            "original-document:" + sha256(canonical_bytes(coordinate)).hexdigest(),
+            original_document_subject(self.reference.document_key),
             self.reference.document_key,
             canonical_bytes({**coordinate, "scope": "whole-document"}),
         )
