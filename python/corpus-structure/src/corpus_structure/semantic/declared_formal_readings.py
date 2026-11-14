@@ -30,8 +30,8 @@ def declared_formal_layers(products, source):
     for product in products:
         body = product.value
         if isinstance(body, BaseModel):
-            body = body.model_dump(mode="python", exclude_unset=True)
-        if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+            body = body.model_dump(mode="json", exclude_unset=True)
+        if canonical_bytes(body["source"]) != canonical_bytes(selected["source"]) or canonical_bytes(body["selectors"]) != canonical_bytes(selected["selectors"]):
             raise ValueError("formal inventory differs from its exact original source and analyzed scope")
         reference = DataProductReference(product.semantic_id)
         if reference in result:
