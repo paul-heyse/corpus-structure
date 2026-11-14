@@ -444,7 +444,6 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     for page in as_candidate_source(conversion.inline_candidates).iter_pages():
         spool.capture_candidates(page)
     candidate_source = spool.candidate_source
-    prepared = []
 
     class Engine:
         def predict_batch(self, inputs):
@@ -500,32 +499,19 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
             return Image.new("RGB", (20, 20))
 
     monkeypatch.setattr("corpus_structure.ingest.pdf_enrichment.PdfRegionRenderer", Renderer)
-    def retain(draft):
-        # This pure control consumes the record draft synchronously, as its production
-        # custody owner does; it does not claim database/provider qualification.
-        prepared.append(
-            {
-                "health": dict(draft.health),
-                **draft.metadata,
-                "derivation_mappings": list(draft.metadata["derivation_mappings"]),
-            }
-        )
-        return ProductReference(2, "math-enriched", "f" * 64)
-
     draft = enrich_selected_pdf(product, pin, ((section, membership),), cfg, b"captured-enrichment-recipe", candidate_source, worker, check_active=lambda: None)
     try:
-        reference = retain(draft)
+        reference = ProductReference(2, "math-enriched", "f" * 64)
         source_views = _drafts(1, reference, snapshot(draft.document), draft.health, (section,), membership, "release1", recognition_coverage=draft.metadata["recognition_coverage"])
     finally:
         worker.close()
     assert draft.companions["input"] == ({**pin.values(), "role": "structural"},)
-    assert len(prepared) == 1
     assert source_views[0].native_product == reference
     assert source_views[0].text == "1.1: Sets\nLet x be real."
-    assert prepared[0]["health"]["inline_coverage"] == "unknown"
+    assert draft.health["inline_coverage"] == "unknown"
     row = next(
         r
-        for r in prepared[0]["recognition_coverage"]
+        for r in draft.metadata["recognition_coverage"]
         if r["section_pointer"] == section and r["universe"] == "inline"
     )
     assert row["membership"] == membership
@@ -533,23 +519,23 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     assert row["outcome"] == expected_coverage
     assert source_views[0].health["inline_coverage"] == expected_coverage
     if unresolved_context:
-        assert prepared[0]["inline_alignment_reports"][0]["item_pointers"] == [paragraph.self_ref]
-        assert prepared[0]["inline_alignment_reports"][0]["candidate_index"] == 0
-        assert prepared[0]["derivation_mappings"] == []
+        assert draft.metadata["inline_alignment_reports"][0]["item_pointers"] == [paragraph.self_ref]
+        assert draft.metadata["inline_alignment_reports"][0]["candidate_index"] == 0
+        assert draft.metadata["derivation_mappings"] == []
         return
     if with_ancestor:
         (context,) = _drafts(1, reference, snapshot(draft.document), draft.health, (organization.sections[0].group_ref,), "direct", "release1", analysis_eligible=False, recognition_coverage=draft.metadata["recognition_coverage"])
         assert context.membership == "direct" and context.analysis_eligible is False
         assert context.text == "1: Parent\nParent context."
-        assert {r["section_pointer"] for r in prepared[0]["recognition_coverage"]} == {
+        assert {r["section_pointer"] for r in draft.metadata["recognition_coverage"]} == {
             s.group_ref for s in organization.sections[:2]
         }
-        assert len(prepared[0]["recognition_coverage"]) == 6
-    assert len(prepared[0]["derivation_mappings"]) == 3
-    assert {r["origin_pointer"] for r in prepared[0]["derivation_mappings"]} == {paragraph.self_ref}
-    assert "runtime_report" in prepared[0]
+        assert len(draft.metadata["recognition_coverage"]) == 6
+    assert len(draft.metadata["derivation_mappings"]) == 3
+    assert {r["origin_pointer"] for r in draft.metadata["derivation_mappings"]} == {paragraph.self_ref}
+    assert "runtime_report" in draft.metadata
     assert (
-        json.loads(prepared[0]["runtime_report"]["effective_options"])["do_formula_enrichment"]
+        json.loads(draft.metadata["runtime_report"]["effective_options"])["do_formula_enrichment"]
         is True
     )
 

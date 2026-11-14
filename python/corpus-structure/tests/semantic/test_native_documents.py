@@ -197,7 +197,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
     from corpus_structure.core.method import UnitRef, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
-    from corpus_structure.ingest.pdf_methods import _error_summary
+    from corpus_structure.ingest.pdf_health import error_summary
     from corpus_structure.semantic.operations import complete_unit_result
 
     page_no = next(iter(doc.pages))
@@ -228,7 +228,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
     application["inline_candidate_pages"][0]["candidates"][0]["font"] = None
     with pytest.raises(ValidationError) as invalid:
         prepare_pdf_product(application, original, schema, recipe)
-    summary = _error_summary(invalid.value)
+    summary = error_summary(invalid.value)
     assert "inline_candidate_pages.0.candidates.0.font" in summary
     legacy_arguments: dict[str, Any] = {"native_products": (product, qualified)}
     with pytest.raises(TypeError, match="native_products"):

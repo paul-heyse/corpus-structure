@@ -9,7 +9,7 @@ import sys
 from typing import Any
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import Connection, select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import MethodSettings
@@ -31,6 +31,7 @@ from corpus_structure.semantic.data_operation_service import DemandOperationSele
 from corpus_structure.semantic.data_operation_storage import native_operation_declarations, native_protocol_sources
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
+from corpus_structure.semantic.pdf_contracts import PreparedPdfContext
 from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
 from corpus_structure.semantic.pdf_effect_contract import PDF_ENRICHMENT_EFFECT, PDF_ENRICHMENT_FACTORY, PDF_INTEGRATION_EFFECT, PDF_INTEGRATION_FACTORY, PDF_ORGANIZATION_EFFECT, PDF_ORGANIZATION_FACTORY
 from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions, PdfIntegrationOptions, PdfRecognitionResources, pdf_transform_operation_sources
@@ -106,8 +107,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
     monkeypatch.setattr(pdf_recognition, "RecognitionWorker", ControlledRecognition)
     actual_store = pdf_integrated.store_pdf_observation
     refused_structural = []
-    def verify_selected_structure(connection, **arguments):
-        product = arguments["product"]
+    def verify_selected_structure(connection: Connection, *, task_id: int, attempt: int, holder: str, product: pdf_integrated.PreparedIntegratedPdfProduct, context: PreparedPdfContext | None = None) -> str:
         value = product.values()
         (selected,) = value["inputs"]
         assert selected["role"] == "structural"
@@ -119,12 +119,12 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         substituted["inputs"] = [{key: raw_capture[key] for key in ("task_id", "product_key", "content_digest", "role")}]
         artifacts = table("kb.source_artifact")
         original_bytes = bytes(connection.scalar(select(artifacts.c.content).where(artifacts.c.artifact_digest == value["artifact_digest"])))
-        forged = pdf_integrated.prepare_integrated_pdf_product(substituted, original_bytes, NemotronRecipe("2" * 64, "3" * 64).to_bytes(), artifacts=product.artifacts, context=arguments["context"])
+        forged = pdf_integrated.prepare_integrated_pdf_product(substituted, original_bytes, NemotronRecipe("2" * 64, "3" * 64).to_bytes(), artifacts=product.artifacts, context=context)
         with pytest.raises(DBAPIError, match="native recognition structural input differs from exact selected PDF publication") as rejected, connection.begin_nested():
-            actual_store(connection, **{**arguments, "product": forged})
-        assert rejected.value.orig.sqlstate == "23514"
+            actual_store(connection, task_id=task_id, attempt=attempt, holder=holder, product=forged, context=context)
+        assert getattr(rejected.value.orig, "sqlstate", None) == "23514"
         refused_structural.append(raw_capture)
-        return actual_store(connection, **arguments)
+        return actual_store(connection, task_id=task_id, attempt=attempt, holder=holder, product=product, context=context)
     monkeypatch.setattr(pdf_integrated, "store_pdf_observation", verify_selected_structure)
     recipe = OriginalSeedRecipe(RecordSourceRecipe(), _pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
