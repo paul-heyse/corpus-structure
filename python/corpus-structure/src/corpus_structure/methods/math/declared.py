@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from corpus_structure.semantic.declared_math_products import execute_occurrences, execute_normalization
+from corpus_structure.semantic.declared_math_scope import execute_scope
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.formal_forest import SourceNativeMathReadings
 from corpus_structure.semantic.source_products import FrozenNativeSource
@@ -590,8 +592,6 @@ class DeclaredMathOccurrences:
         ancestor_sources: tuple[dict, ...] = (),
         constructions: dict | None = None,
     ) -> dict:
-        from corpus_structure.semantic.declared_math_products import execute_occurrences
-
         return execute_occurrences(self, source, formal, inherited, ancestor_sources, constructions)
 
 
@@ -846,8 +846,6 @@ class DeclaredMathNormalization:
         self.profile = profile
 
     def run(self, source: dict, occurrences: dict) -> dict:
-        from corpus_structure.semantic.declared_math_products import execute_normalization
-
         return execute_normalization(self, source, occurrences)
 
 
@@ -1406,8 +1404,6 @@ class DeclaredMathScope:
         inherited: tuple[dict, ...] = (),
         ancestor_sources: tuple[dict, ...] = (),
     ) -> dict:
-        from corpus_structure.semantic.declared_math_scope import execute_scope
-
         return execute_scope(
             self, source, occurrences, symbolic, constructions, inherited, ancestor_sources
         )
