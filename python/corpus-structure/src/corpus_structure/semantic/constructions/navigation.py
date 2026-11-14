@@ -812,15 +812,8 @@ def populate_navigation(
     )
     from corpus_structure.semantic.characterization import annotation_reference
 
-    from .nodes import identity
-
-    items = {item["self_ref"]: item for item in (*view.ancestors, *view.items)}
-    pieces = [
-        p for p in view.pieces if p["kind"] == "native_text" and admitted(p["start"], p["end"])
-    ]
     products = []
     tokens = {}
-    incomplete = False
     for pin, report in dependencies.items():
         body = report.payload
         runs = [run for run in body.get("native_runs", ()) if run["provider"] == "spacy"]
@@ -841,6 +834,53 @@ def populate_navigation(
                 tokens.setdefault((native["container"], native["index"]), []).append(
                     annotation_reference(pin, annotation["local_id"]).values()
                 )
+    return _populate_navigation(
+        layer, view, products,
+        token_references=lambda block, index: tokens.get((f"spacy/{view.ref.id}/{block}/block", index), ()),
+        source_key=view.ref.id, projection=view.ref.projection_digest,
+        check_active=check_active, admitted=admitted,
+    )
+
+
+def populate_navigation_products(
+    layer, view, source, native, *, annotation_products=None,
+    check_active=lambda: None, admitted=lambda a, b: True,
+):
+    """Use exact native products and semantic member references in the shared kernel."""
+    from ..data_product_reference import DataProductReference, member_reference
+    from ..sentence_products import retained_source_annotation_products, source_annotation_member_values
+
+    products, tokens = (), {}
+    if native is not None:
+        products = retained_source_annotation_products(source, native) if annotation_products is None else tuple(annotation_products)
+        coordinate = source.value["source"]
+        body = json.loads(native.content)
+        if body["source"] != coordinate or body["selectors"] != source.value["selectors"]:
+            raise ValueError("navigation native input differs from its original source and analyzed scope")
+        product = DataProductReference(native.semantic_id)
+        for token in source_annotation_member_values(body):
+            if token["record_type"] == "token":
+                tokens.setdefault((token["block_id"], token["ordinal"]), []).append(
+                    member_reference(product, token["local_id"]).values()
+                )
+    return _populate_navigation(
+        layer, view, tuple(product for product in products if admitted(product.block_start, product.block_end)),
+        token_references=lambda block, index: tokens.get((block, index), ()),
+        source_key=view.key, projection=view.projection,
+        check_active=check_active, admitted=admitted,
+    )
+
+
+def _populate_navigation(
+    layer, view, products, *, token_references, source_key, projection,
+    check_active, admitted,
+):
+    """One finite navigation recognizer for retained native original coordinates."""
+    from .nodes import identity
+
+    items = {item["self_ref"]: item for item in (*view.ancestors, *view.items)}
+    pieces = [p for p in view.pieces if p["kind"] == "native_text" and admitted(p["start"], p["end"])]
+    incomplete = False
 
     def emit(
         kind, pointer, roles, *, native_tokens=(), status="complete", source_labels=(), **values
@@ -874,7 +914,7 @@ def populate_navigation(
         )
         if labels:
             navigation["source_labels"] = labels
-        key = identity("navigation", [view.ref.id, navigation])
+        key = identity("navigation", [source_key, navigation])
         regions = [
             (product.block_start, product.block_end)
             for product in products
@@ -885,7 +925,7 @@ def populate_navigation(
         if not regions:
             regions = [(a, b) for a, b, target in literal_regions if target == pointer]
         focal = [
-            dict(projection=view.ref.projection_digest, start=e["start"], end=e["end"])
+            dict(projection=projection, start=e["start"], end=e["end"])
             for role in bound
             for oid in role["occurrences"]
             for e in layer.occurrences[oid]["extents"]
@@ -901,7 +941,7 @@ def populate_navigation(
             context=dict(
                 focal=focal,
                 examined=[
-                    dict(projection=view.ref.projection_digest, start=a, end=b)
+                    dict(projection=projection, start=a, end=b)
                     for a, b in dict.fromkeys(regions)
                 ],
                 gaps=[],
@@ -1176,7 +1216,7 @@ def populate_navigation(
             scope="primary",
         )
         for i, s in enumerate(layer.scope["selectors"])
-        if s["projection"] == view.ref.projection_digest
+        if s["projection"] == projection
         and s.get("start", 0) < s.get("end", len(view.text))
     )
     for match in named_source_links(view.text, pieces, items, selections):
@@ -1216,7 +1256,7 @@ def populate_navigation(
         witness = match.witness
         native_tokens = []
         for name, index in witness.tokens.items():
-            references = tokens.get((f"spacy/{view.ref.id}/{witness.block}/block", index), ())
+            references = token_references(witness.block, index)
             if len(references) != 1:
                 incomplete = True
                 break
@@ -1247,7 +1287,7 @@ def populate_navigation(
                 ),
             )
     for selector in layer.scope["selectors"]:
-        if selector["projection"] == view.ref.projection_digest:
+        if selector["projection"] == projection:
             layer.record(
                 FAMILY,
                 selector,
@@ -1358,3 +1398,48 @@ class NavigationIndex:
         if not self.complete:
             raise ValueError("required primary navigation coverage is missing or incomplete")
         return self
+
+
+class NativeNavigationIndex(NavigationIndex):
+    """Read exact declared construction members; never recognize missing navigation."""
+
+    def __init__(self, products, source):
+        from ..data_product_reference import DataProductReference, member_reference
+
+        selected = source.value
+        projection = selected["source"]["projection"]
+        self.records, self.coverage = [], []
+        seen = set()
+        for product in products:
+            reference = DataProductReference(product.semantic_id)
+            if reference in seen:
+                raise ValueError("navigation input repeats a declared product")
+            seen.add(reference)
+            body = json.loads(product.content)
+            if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+                raise ValueError("navigation product differs from its exact original source and analyzed scope")
+            facts = product.inventory()
+            occurrences = {row["local_id"]: row for row in facts["occurrences"]}
+            self.coverage.extend(row for row in body["coverage"] if row["family"] == FAMILY)
+            for annotation in facts["annotations"]:
+                navigation = annotation.get("navigation")
+                if navigation is None:
+                    continue
+                if navigation["codec"] != CODEC or annotation["family"] != FAMILY:
+                    raise ValueError("unsupported declared navigation codec or family")
+                if annotation.get("required_choices") or annotation.get("required_external_choices"):
+                    raise ValueError("navigation projection requires explicit analytical choices")
+                identifiers = [identifier for role in navigation["roles"] for identifier in role["occurrences"]]
+                if any(identifier not in occurrences for identifier in identifiers):
+                    raise ValueError("navigation role has an unknown declared source occurrence")
+                extents = [extent for identifier in identifiers for extent in occurrences[identifier]["extents"]]
+                if not extents or any(
+                    extent.get("synthetic") or extent.get("projection") != projection
+                    or not (0 <= extent["start"] < extent["end"] <= len(selected["text"]))
+                    or extent.get("text") != selected["text"][extent["start"]:extent["end"]]
+                    for extent in extents
+                ):
+                    raise ValueError("navigation roles require exact literal original source evidence")
+                self.records.append(NavigationRecord(
+                    member_reference(reference, annotation["local_id"]), navigation, occurrences,
+                ))
