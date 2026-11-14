@@ -29,6 +29,7 @@ from corpus_structure.semantic.retained_contributions import RetainedContributio
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
+    MemberRole,
     ClauseField,
     ClauseFieldGroup,
     ClauseReading,
@@ -110,7 +111,7 @@ def _succession(left, right, *, sources, primary_layers, primary_readings=None):
         if len(facts) != 1 or facts[0].value != left.parent:
             return None
         lineages[passage.passage_id] = facts[0]
-    witnesses = []
+    witnesses: list[RevisionSuccession | DeclaredRevisionSuccession] = []
     for newer, older in ((left, right), (right, left)):
         declarations = lexical_fact_readings(
             (primary_readings or {}).get(older.source_ref, primary_layers),
@@ -319,7 +320,7 @@ def compare_clauses(
             for group in (side.groups or {}).values()
         )
     )
-    dimensions = []
+    dimensions: list[DimensionComparison | DeclaredDimensionComparison] = []
     for dimension in DIMENSIONS:
         if cancelled():
             raise InterruptedError("structural comparison cancelled")
@@ -467,7 +468,7 @@ def _threshold_inventory(passage, source, primary_layers):
     )
     bases = comparison_basis_readings(primary_layers, original, start=passage.start, end=passage.end)
     basis = bases[0] if len(bases) == 1 else None
-    results = []
+    results: list[ClauseField | DeclaredClauseField] = []
     for field in fields:
         if passage.text[field.start - passage.start : field.end - passage.start] != field.text:
             raise ValueError("retained threshold differs from the exact selected passage")
@@ -666,7 +667,7 @@ def read_retained_clause(
     ):
         raise ValueError("retained frame differs from exact selected passage")
 
-    members = {dimension: [] for dimension in DIMENSIONS}
+    members: dict[str, list[ClauseField | DeclaredClauseField]] = {dimension: [] for dimension in DIMENSIONS}
     incomplete = set()
 
     def located(dimension, extents, contribution_id, condition=None):
@@ -886,7 +887,7 @@ def select_dossier(
         ).hexdigest(),
     )
     roles = {m.role for m in ordered}
-    sections = (
+    sections: tuple[MemberRole, ...] = (
         "definition",
         "terminology",
         "usage",

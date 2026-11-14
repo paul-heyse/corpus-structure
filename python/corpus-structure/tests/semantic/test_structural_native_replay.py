@@ -646,9 +646,12 @@ def test_retained_comparison_groups_exact_occurrences(
         "No exceptions",
     )
     (empty_ref,) = exception.left_group.primary_witnesses
+    matching = tuple(layer for pin, layer in primary.items() if pin == empty_ref.product)
+    assert len(matching) == 1, "primary witness must retain its actual selected product address"
+    (retained_primary,) = matching
     empty_fact = next(
         row
-        for row in primary[empty_ref.layer].payload["annotations"]
+        for row in retained_primary.payload["annotations"]
         if row["local_id"] == empty_ref.local_id
     )
     assert empty_fact["kind"] == "formal.exception_empty" and empty_fact["native_label"] == "empty"
