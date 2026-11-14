@@ -49,7 +49,7 @@ def test_declared_record_pin_has_exact_original_coordinates_without_task_or_view
     assert address(b'{"page":true}').pin() != pin
 
 
-def test_declared_projection_changes_only_selected_pin_contract_and_retains_old_artifact():
+def test_declared_projection_retains_old_artifact_and_governs_source_and_primary_addresses():
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     raw = (root / "observations.yaml").read_bytes()
     bundle = SourceBundle("observations", (SourceArtifact("observations", raw),))
@@ -69,7 +69,10 @@ def test_declared_projection_changes_only_selected_pin_contract_and_retains_old_
         assert new["classes"]["RecordSourcePin"]["attributes"][required]["required"]
     old["classes"].pop("RecordSourcePin")
     new["classes"].pop("RecordSourcePin")
-    assert new == old
+    assert new["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"] == "DdoSemanticMemberReference"
+    assert old["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"] == "CharacterizationQualifiedReference"
+    assert "primary_layers" not in new["classes"]["SourceContributionOperation"]["attributes"]
+    assert new["classes"]["SourceContributionOperation"]["attributes"]["primary_products"]["range"] == "DdoSemanticProductReference"
     assert declared_record_inputs(projected).sources == projected.sources
 
 

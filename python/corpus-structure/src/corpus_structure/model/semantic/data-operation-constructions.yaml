@@ -49,6 +49,8 @@ classes:
         required: true
         equals_string: annotation
     slot_usage:
+      navigation:
+        range: DdoSemanticNavigation
       named_match:
         range: DdoNamedMatch
       external_premises:

@@ -57,7 +57,7 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
 
     model = yaml.safe_load(content)
     original = yaml.safe_load(characterization)["classes"]
-    family = {"CharacterizationAttachmentBasis"}
+    family = {"CharacterizationAttachmentBasis", *(name for name in original if name.startswith("CharacterizationNavigation"))}
     while True:
         expanded = family | {name for name, body in original.items() if body.get("is_a") in family}
         if expanded == family:
@@ -73,6 +73,7 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
                 key: (
                     "DdoSemanticMemberReference"
                     if key == "range" and item == "CharacterizationQualifiedReference"
+                    else target(item) if key == "range" and item in family
                     else retarget(item)
                 )
                 for key, item in value.items()

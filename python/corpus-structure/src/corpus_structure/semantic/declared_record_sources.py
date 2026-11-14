@@ -76,6 +76,9 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
     A target release receives a different pin shape and consequently a different
     kind contract. No caller edits a parallel record schema or weakens old fields.
     """
+    from .data_product_reference import reference_inputs
+
+    bundle = reference_inputs(bundle)
     canonical = (Path(__file__).parents[1] / "model/semantic/observations.yaml").read_bytes()
     supplied = next(
         (item.content for item in bundle.sources if item.name == "observations"), canonical
@@ -116,6 +119,19 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
     )
     if prior not in (canonical_attributes, module["classes"]["RecordSourcePin"]["attributes"]):
         raise ValueError("declared record projection refuses an independently changed source pin")
+    def governed_references(value):
+        if isinstance(value, dict):
+            return {key: ("DdoSemanticMemberReference" if key == "range" and item == "CharacterizationQualifiedReference" else governed_references(item)) for key, item in value.items()}
+        if isinstance(value, list):
+            return [governed_references(item) for item in value]
+        return value
+
+    module = governed_references(module)
+    operations = module["classes"]["SourceContributionOperation"]["attributes"]
+    primary = operations.pop("primary_layers", operations.get("primary_products", None))
+    if primary is None:
+        raise ValueError("declared record operation lacks its original primary reference contract")
+    operations["primary_products"] = {**primary, "range": "DdoSemanticProductReference"}
     content = yaml.safe_dump(module, sort_keys=True).encode()
     names = {item.name for item in bundle.sources}
     if "observations" in names:
