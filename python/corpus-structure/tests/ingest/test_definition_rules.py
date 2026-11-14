@@ -34,9 +34,7 @@ def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):
         text,
         controlled.vocab,
     )
-    recipe = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
-        "extract.m1_candidates"
-    ]["witnessed"]["annotation_rules"]
+    recipe = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())["annotation_rules"]
     matches = (
         PreparedAnnotationRules(
             controlled.vocab, rules=tuple(AnnotationRule.model_validate(r) for r in recipe)

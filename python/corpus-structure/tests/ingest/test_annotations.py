@@ -664,9 +664,7 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         text,
         controlled.vocab,
     )
-    raw = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
-        "extract.m1_candidates"
-    ]["witnessed"]["annotation_rules"]
+    raw = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())["annotation_rules"]
     rule = AnnotationRule.model_validate(
         next(row for row in raw if row["variant"] == "constructive_copula")
     )
@@ -777,9 +775,7 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         text,
         controlled.vocab,
     )
-    recipe = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
-        "extract.m1_candidates"
-    ]["witnessed"]["annotation_rules"]
+    recipe = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())["annotation_rules"]
     rules = tuple(AnnotationRule.model_validate(r) for r in recipe)
     matches = PreparedAnnotationRules(controlled.vocab, rules=rules).match(view).matches
     passage = StructuralPassage(

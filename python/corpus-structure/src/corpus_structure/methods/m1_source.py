@@ -15,7 +15,6 @@ from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitR
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import (
     ASSERTION_LITERAL_PACK,
     CUDA_WHITESPACE_PROFILE,
@@ -160,11 +159,6 @@ class M1Config(BaseModel):
     characterization_layers: tuple[dict[str, Any], ...] = ()
     model_config = ConfigDict(frozen=True, extra="forbid")
     local_schema: dict[str, Any] | None = None
-    annotation_rules: tuple[AnnotationRule, ...] = ()
-    formula_syntax: bool = False
-    formula_syntax_input_policy: Literal["recognized_only", "captured_native_text"] = (
-        "recognized_only"
-    )
     region_pointers: tuple[str, ...] | None = None
     source_projection_digest: str | None = Field(default=None, pattern="^[0-9a-f]{64}$")
     policy: Literal[
@@ -648,11 +642,6 @@ class M1Candidates:
                 formula_prose=cfg.formula_prose,
                 region_pointers=cfg.region_pointers,
             )
-        primary_layers = (
-            ctx.reader.primary_characterization(view.ref.id, families=("construction.named_rules",))
-            if cfg.annotation_rules
-            else {}
-        )
         product = self.produce_candidates(
             prepared=ctx.reader.prepared,
             view=view,
@@ -660,7 +649,6 @@ class M1Candidates:
             annotation_result=annotation_result,
             cfg=cfg,
             check_active=ctx.check_active,
-            primary_layers=primary_layers,
             provider_execution=getattr(ctx.reader, "provider_execution", None),
             generic_role_guidance=generic_role_guidance,
             source_capture_rules=source_capture_rules,
@@ -686,7 +674,6 @@ class M1Candidates:
         annotation_result,
         cfg,
         check_active,
-        primary_layers,
         provider_execution=None,
         generic_role_guidance=False,
         source_capture_rules=(),
@@ -699,7 +686,6 @@ class M1Candidates:
             annotation_result=annotation_result,
             cfg=cfg,
             check_active=check_active,
-            primary_layers=primary_layers,
             generic_role_guidance=generic_role_guidance,
             source_capture_rules=source_capture_rules,
         )
@@ -738,7 +724,6 @@ class M1Candidates:
         annotation_result,
         cfg,
         check_active,
-        primary_layers,
         generic_role_guidance=False,
         source_capture_rules=(),
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
@@ -750,7 +735,6 @@ class M1Candidates:
             annotation_result=annotation_result,
             cfg=cfg,
             check_active=check_active,
-            primary_layers=primary_layers,
             generic_role_guidance=generic_role_guidance,
             source_capture_rules=source_capture_rules,
         )
@@ -784,7 +768,6 @@ class M1Candidates:
         annotation_result,
         cfg,
         check_active,
-        primary_layers,
         generic_role_guidance=False,
         source_capture_rules=(),
     ):
@@ -896,40 +879,6 @@ class M1Candidates:
         details["local_execution"] = []
         if local_pack is not None:
             details["schema_packs"][local_pack.fingerprint] = asdict(local_pack)
-        if cfg.annotation_rules:
-            from corpus_structure.methods.contribution_adapter import adapt_annotation_matches
-            from corpus_structure.semantic.constructions.named import RetainedNamedRules
-
-            rules = RetainedNamedRules(primary_layers)
-            for product in prepared_source.annotations:
-                primary_ranges = tuple(
-                    (selection.start, selection.end) for selection in prepared_source.selections
-                )
-                if cfg.region_pointers is not None and not any(
-                    a < product.block_end and b > product.block_start for a, b in primary_ranges
-                ):
-                    continue
-                check_active()
-                match_result = rules.match(product, rules=cfg.annotation_rules)
-                matches = match_result.matches
-                if cfg.region_pointers is not None:
-                    matches = tuple(
-                        match
-                        for match in matches
-                        if any(
-                            all(a <= start < end <= b for start, end in match.extents)
-                            for a, b in primary_ranges
-                        )
-                    )
-                contribution_batches.append(
-                    adapt_annotation_matches(
-                        prepared_source.source,
-                        product,
-                        matches,
-                        rules=[rule.model_dump(mode="json") for rule in cfg.annotation_rules],
-                        availability=match_result.availability,
-                    )
-                )
         assemblies = []
         coverage = []
         details["execution"] = [
@@ -1134,25 +1083,6 @@ class M1Candidates:
                             context_digest=context.dependency_digest,
                             groups=[asdict(group) for group in captured],
                             diagnostics=[asdict(item) for item in assembled.diagnostics],
-                        )
-                    )
-            if cfg.formula_syntax and selection.families == ("formula_context",):
-                from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
-                from corpus_structure.methods.math.pdf import formula_occurrence
-
-                node = next(row for row in view.items if row["self_ref"] == selection.region)
-                if node.get("label") == "formula":
-                    health = {
-                        row["pointer"]: row["outcome"]
-                        for row in view.health.get("formula_outcomes", ())
-                    }
-                    status = health.get(selection.region, "unknown")
-                    if status not in {"succeeded", "failed", "unknown", "not_requested"}:
-                        status = "unknown"
-                    occurrence = formula_occurrence(context.primary, node, status)
-                    contribution_batches.append(
-                        adapt_formula_syntax(
-                            context, occurrence, input_policy=cfg.formula_syntax_input_policy
                         )
                     )
             if local_pack is not None:

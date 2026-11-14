@@ -131,17 +131,15 @@ class ControlledDecoder:
         )
 
 
-def owned_reader(source, *, annotation_rules=None):
+def owned_reader(source):
     """Persisted-operation-shaped fixture with actual local linguistic columns."""
 
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
     from corpus_structure.ingest.sentences import pipeline
-    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
     from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
     from corpus_structure.methods.source_preparation import annotation_inputs
     from corpus_structure.orchestrate.m1 import registry
     from corpus_structure.semantic.constructions.layers import ConstructionLayer
-    from corpus_structure.semantic.constructions.named import NAMED_FAMILY, populate_named
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
     from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
 
@@ -192,23 +190,13 @@ def owned_reader(source, *, annotation_rules=None):
         reference=101,
         execution=original_execution,
     )
-    named_cfg = source_registry.overlay(m1_source.M1Candidates.name, "witnessed")
-    assert isinstance(named_cfg, m1_source.M1Config)
-    rules = named_cfg.annotation_rules if annotation_rules is None else annotation_rules
     construction = ConstructionLayer(
         source.ref.native_product.values(),
         selected,
         dict(operation, key="text.constructions"),
-        families=(PRIMARY_RULE_FAMILY, NAMED_FAMILY),
+        families=(PRIMARY_RULE_FAMILY,),
     )
     populate(construction, source, native_pin, retained_native)
-    populate_named(
-        construction,
-        source,
-        native_pin,
-        retained_native,
-        PreparedAnnotationRules(nlp.vocab, rules=rules),
-    )
     retained_construction = construction.finish(
         reader.prepared, dependencies={native_pin: retained_native}
     )

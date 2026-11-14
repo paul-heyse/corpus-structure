@@ -846,9 +846,9 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
         .passages[0]
         .model_copy(update={"start": start, "end": len(source_text), "text": source_text[start:]})
     )
-    rules = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_bytes())
+    rules = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_bytes())
     config = DefinitionComponentsConfig(
-        annotation_rules=rules["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"],
+        annotation_rules=rules["annotation_rules"],
     )
     from methods.primary_reading_fixture import primary_product
 
@@ -968,8 +968,8 @@ def test_current_named_definition_primary_witness_crosses_released_batch():
 
     profile = AnnotationProfile()
     text, product = retained("The expected squared deviation is called variance.", profile)
-    declarations = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_bytes())
-    rules = declarations["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"]
+    declarations = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_bytes())
+    rules = declarations["annotation_rules"]
     cfg = DefinitionComponentsConfig(annotation_rules=rules)
     product = primary_product(text, product, profile, rules=cfg.annotation_rules)
     from corpus_structure.semantic.source_contexts import NativeSourcePin

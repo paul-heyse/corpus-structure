@@ -211,10 +211,6 @@ class PreparedM1Inputs:
         products = restore_annotations(
             source_annotation_rows(checked), source=frame, profile=profile
         )
-        if self.configuration.annotation_rules:
-            raise ValueError(
-                "M1 named-rule profile requires its declared lower-rule input operation"
-            )
         data = NativeCandidateData.from_frame(frame)
         prepared_source = prepare_source(
             data,
@@ -245,7 +241,6 @@ class PreparedM1Inputs:
                 annotation_result=annotation_info,
                 cfg=self.configuration,
                 check_active=self.check_active,
-                primary_layers={},
             )
         )
 
@@ -562,12 +557,6 @@ def resolve_m1_port(prepared, model, operation, *, identity, authorize, custody,
     )
     if configuration.native_execution_profile is None:
         raise PortRefusal("M1 requires its explicitly admitted numerical native execution profile")
-    if configuration.formula_syntax:
-        raise PortRefusal(
-            "M1 formula syntax profile requires an explicitly bound formal evidence operation"
-        )
-    if configuration.annotation_rules:
-        raise PortRefusal("M1 named-rule profile requires an explicitly bound lower-rule operation")
     native = NativeProfile(**configuration.native_execution_profile)
     selection = NativeSelection(native, configuration.snapshot)
     if gliner_selection(configuration.profile(), native.runtime_identity).native != native:

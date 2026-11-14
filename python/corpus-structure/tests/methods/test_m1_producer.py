@@ -36,7 +36,7 @@ from methods.m1_producer_support import (
 )
 
 
-def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outputs(monkeypatch):
+def test_local_schema_survives_empty_record_outputs(monkeypatch):
     """Real source preparation and native annotation restoration; controlled decoder only."""
     from corpus_structure.orchestrate.m1 import registry
 
@@ -71,15 +71,6 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
         .model_copy(
             update={
                 "local_schema": {"entities": ["term"]},
-                "annotation_rules": (
-                    m1_source.AnnotationRule(
-                        rule="copula",
-                        variant="is",
-                        mechanism="token",
-                        pattern=[{"LOWER": "is"}],
-                        bindings={"cue": {"node": "match"}},
-                    ),
-                ),
             }
         )
     )
@@ -87,42 +78,13 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
         cfg,
         SimpleNamespace(
-            reader=owned_reader(
-                source,
-                annotation_rules=m1_source.M1Config.model_validate(
-                    cfg.model_dump()
-                ).annotation_rules,
-            ),
+            reader=owned_reader(source),
             check_active=lambda: None,
         ),
     )
     assert result.contributions is not None
     types = {row["semantic_type"] for row in result.contributions}
-    assert {"source_rule.copula", "entity.term"} <= types
-    assert "source_role.cue" in types
-    (role,) = [row for row in result.contributions if row["semantic_type"] == "source_role.cue"]
-    assert role["component"]["kind"] == "located_role"
-    assert role["component"]["roles"] == (
-        dict(
-            role="cue",
-            anchor_ids=tuple(a["anchor_id"] for a in role["anchors"]),
-            head_token=1,
-            expansion="exact",
-            outcome="complete",
-        ),
-    )
-    assert [(a["start"], a["end"], a["source_piece"]) for a in role["anchors"]] == [(5, 7, "is")]
-    from methods.record_assembly_support import release
-
-    release().validate_python("SourceContribution", role)
-    assert role["component"]["interpretation"] == "unassessed"
-    assert role["standing"] == "retained_private"
-    assert result.contribution_operations is not None
-    assert all(
-        op["operation_version"] == "retained-annotation-rules-2"
-        for op in result.contribution_operations
-        if op["question"] == "propose_named_source_roles_from_retained_annotations"
-    )
+    assert "entity.term" in types
     assert not result.records
     assert result.parse_detail is not None and result.parse_detail["local_reports"]
 
@@ -663,42 +625,14 @@ def test_dense_native_structure_emits_only_the_explicit_context_target_cells(mon
     assert len({index for group in captured for index in group["cells"]}) == 270
 
 
-def test_witnessed_recipe_is_explicit_versioned_and_rejects_old_writer_config():
+@pytest.mark.parametrize("obsolete", ("annotation_rules", "formula_syntax", "formula_syntax_input_policy"))
+def test_literal_candidate_configuration_rejects_superseded_primary_branches(obsolete):
     from pydantic import ValidationError
-
     from corpus_structure.orchestrate.m1 import registry
-    from corpus_structure.semantic.identity import canonical_bytes
 
-    methods = registry(ROOT / "domains/statistics")
-    cfg = methods.overlay("extract.m1_candidates", "witnessed")
-    assert isinstance(cfg, m1_source.M1Config)
-    assert m1_source.M1Candidates.version == "10"
-    assert len(cfg.annotation_rules) == 15
-    assert {(r.rule, r.variant) for r in cfg.annotation_rules} == {
-        ("defining", "active_as"),
-        ("defining", "passive_as"),
-        ("defining", "active_to_be"),
-        ("defining", "passive_to_be"),
-        ("naming", "active_called_term"),
-        ("naming", "passive_called_term"),
-        ("defining", "passive_following_display"),
-        ("defining", "active_following_display"),
-        ("explanation", "given_following_display"),
-        ("definition_context", "numbered_label"),
-        ("definition_context", "labelled_copula_display"),
-        ("defining", "nominal_follows"),
-        ("defining", "constructive_copula"),
-        ("symbol_declaration", "denotes"),
-        ("condition_exception", "marked_clause"),
-    }
-    baseline = methods.overlay("extract.m1_candidates", "default")
-    assert isinstance(baseline, m1_source.M1Config)
-    assert not baseline.annotation_rules
-    assert canonical_bytes(cfg.model_dump(mode="json")) != canonical_bytes(
-        baseline.model_dump(mode="json")
-    )
-    with pytest.raises(ValidationError, match="annotation_token_rules"):
-        m1_source.M1Config.model_validate({**baseline.model_dump(), "annotation_token_rules": {}})
+    baseline = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+    with pytest.raises(ValidationError, match=obsolete):
+        m1_source.M1Config.model_validate({**baseline.model_dump(), obsolete: []})
 
 
 def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monkeypatch):
@@ -740,7 +674,6 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
         annotation_result=annotation_result,
         cfg=cfg,
         check_active=lambda: None,
-        primary_layers={},
     )
     assert isinstance(product, m1_source.M1CandidateProduct)
     assert product.outcome == ObservationOutcome.PRODUCED
@@ -775,7 +708,6 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
         },
         cfg=cfg,
         check_active=lambda: None,
-        primary_layers={},
     )
     request = next(plan)
     assert isinstance(request, m1_source.M1GlinerRequest)
@@ -818,7 +750,6 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
         },
         cfg=cfg,
         check_active=lambda: None,
-        primary_layers={},
     )
     request = next(plan)
     questions = 0
