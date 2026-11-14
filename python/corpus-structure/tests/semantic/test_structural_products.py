@@ -1,12 +1,16 @@
 """Independent structural expectations: unknown is not absence or equivalence."""
 
+from semantic.sealed_structural_fixture import (
+    comparison_descriptor,
+    comparison_result,
+)
+
 from types import SimpleNamespace
 
 import pytest
 
 from corpus_structure.methods.structural_products import (
     StructuralComparisonConfig,
-    StructuralComparisonMethod,
     compare_clauses,
     select_dossier,
 )
@@ -235,26 +239,13 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
         left_reading=references[0],
         right_reading=references[1],
     )
-    method = StructuralComparisonMethod()
-    assert method.select(None, cfg)[0].unit_key == value.identity
+    method = comparison_descriptor()
 
     def validate_inputs(actual):
         assert actual == value
 
-    result = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="run")),),
-        cfg,
-        SimpleNamespace(
-            check_active=lambda: None,
-            reader=SimpleNamespace(
-                retained_source_contribution=lambda r: retained[r.contribution_id],
-                validate_structural_inputs=validate_inputs,
-                primary_characterization=lambda source_view_id, **selection: select_primary_layers(
-                    primary, views[source_view_id], **selection
-                ),
-            ),
-        ),
-    )[0]
+    _projection_context = SimpleNamespace(check_active=lambda: None, reader=SimpleNamespace(retained_source_contribution=lambda r: retained[r.contribution_id], validate_structural_inputs=validate_inputs, primary_characterization=lambda source_view_id, **selection: select_primary_layers(primary, views[source_view_id], **selection)))
+    result = (comparison_result(_projection_context.reader, cfg, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key='run')),))[0].ref, check_active=_projection_context.check_active),)[0]
     assert result.structural_product is not None
     assert result.structural_product["kind"] == "qualified_comparison"
     report = StructuralProductReport.model_validate(result.structural_product)
@@ -265,4 +256,3 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
     assert action.outcome == "different_lexical_value"
     assert action.left_group is not None and action.left_group.members[0].lexical_value == "hello"
     assert action.right_group is not None and action.right_group.members[0].lexical_value == "world"
-    assert method.select(None, StructuralComparisonConfig()) == ()

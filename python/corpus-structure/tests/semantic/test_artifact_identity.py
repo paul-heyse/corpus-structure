@@ -1,5 +1,10 @@
 """Artifact candidates keep source-work scope and evidence, without merging authority."""
 
+from semantic.sealed_structural_fixture import (
+    artifact_descriptor,
+    artifact_result,
+)
+
 import json
 from types import SimpleNamespace
 
@@ -320,8 +325,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
-        ArtifactIdentityMethod,
-    )
+        )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.observations import observation_inputs
@@ -412,9 +416,8 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         ctx = SimpleNamespace(
             reader=Reader(inputs, reference.identity, frame, bind), check_active=lambda: None
         )
-        (result,) = ArtifactIdentityMethod().run(
-            (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),), cfg, ctx
-        )
+        _projection_context = ctx
+        (result,) = (artifact_result(_projection_context.reader, cfg, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref, check_active=_projection_context.check_active),)
         assert result.structural_product is not None
         from corpus_structure.semantic.refusals import SemanticRefusal
         from corpus_structure.semantic.structural_admission import structural_statement
@@ -436,7 +439,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
             prepared,
             source="run",
             method="structure.artifact_identity",
-            operation_version=ArtifactIdentityMethod.version,
+            operation_version=artifact_descriptor().version,
             configuration_hash="config",
             input_hash="input",
             invocation_key="invocation",

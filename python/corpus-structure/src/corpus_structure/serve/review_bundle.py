@@ -2624,7 +2624,9 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
     from corpus_structure.core.evidence import config_key
     from corpus_structure.methods.structural_products import (
         StructuralComparisonConfig,
-        StructuralComparisonMethod,
+        SEALED_COMPARISON_NAME,
+        SEALED_COMPARISON_VERSION,
+        SEALED_COMPARISON_PREDICATE_VERSION,
         compare_clauses,
         read_retained_clause,
     )
@@ -2638,7 +2640,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
         origin = raw["origin_task_id"]
         if (
             origin in origins
-            and (raw.get("body") or {}).get("method") == StructuralComparisonMethod.name
+            and (raw.get("body") or {}).get("method") == SEALED_COMPARISON_NAME
         ):
             if origin in captured:
                 raise ValueError("comparison producer raw result repeats")
@@ -2657,14 +2659,14 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
         version = body.get("operation_version")
         if (
             not isinstance(config, dict)
-            or version != StructuralComparisonMethod.version
+            or version != SEALED_COMPARISON_VERSION
             or raw.get("project_id") != origin_project
             or raw.get("origin_run_id") != origin_run
             or raw.get("runtime_fingerprint") != runtime
             or body.get("release_id") != structural_scopes[index]["release_id"]
             or body.get("outcome") != "produced"
             or body.get("configuration_hash")
-            != config_key(StructuralComparisonMethod.name, version, config)
+            != config_key(SEALED_COMPARISON_NAME, version, config)
             or body.get("configuration_hash") != raw.get("config_hash")
             or not raw.get("input_hash")
             or body.get("input_hash") != raw["input_hash"]
@@ -2706,7 +2708,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
                 sources[left.source_ref],
                 comparison.left_reading,
                 left_payload,
-                predicate_version=StructuralComparisonMethod.predicate_version,
+                predicate_version=SEALED_COMPARISON_PREDICATE_VERSION,
                 primary_layers=primary,
             ),
             right=read_retained_clause(
@@ -2714,7 +2716,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
                 sources[right.source_ref],
                 comparison.right_reading,
                 right_payload,
-                predicate_version=StructuralComparisonMethod.predicate_version,
+                predicate_version=SEALED_COMPARISON_PREDICATE_VERSION,
                 primary_layers=primary,
             ),
             left_reading=comparison.left_reading,
@@ -2740,7 +2742,8 @@ def _verify_condition_closure(
     from corpus_structure.core.evidence import config_key
     from corpus_structure.methods.structural_products import (
         ConditionQualificationConfig,
-        ConditionQualificationMethod,
+        SEALED_CONDITION_NAME,
+        SEALED_CONDITION_VERSION,
         condition_qualification,
     )
     from corpus_structure.semantic.structural_admission import (
@@ -2757,7 +2760,7 @@ def _verify_condition_closure(
         origin = raw["origin_task_id"]
         if (
             origin in origins
-            and (raw.get("body") or {}).get("method") == ConditionQualificationMethod.name
+            and (raw.get("body") or {}).get("method") == SEALED_CONDITION_NAME
         ):
             if origin in captured:
                 raise ValueError("condition producer raw result repeats")
@@ -2773,7 +2776,7 @@ def _verify_condition_closure(
         body = raw["body"]
         if (
             not isinstance(config, dict)
-            or body.get("operation_version") != ConditionQualificationMethod.version
+            or body.get("operation_version") != SEALED_CONDITION_VERSION
             or body.get("outcome") != "produced"
             or raw.get("project_id") != origin_project
             or raw.get("origin_run_id") != origin_run
@@ -2782,7 +2785,7 @@ def _verify_condition_closure(
             or body.get("configuration_hash") != raw.get("config_hash")
             or body.get("configuration_hash")
             != config_key(
-                ConditionQualificationMethod.name, ConditionQualificationMethod.version, config
+                SEALED_CONDITION_NAME, SEALED_CONDITION_VERSION, config
             )
             or not raw.get("input_hash")
             or body.get("input_hash") != raw["input_hash"]
@@ -2921,14 +2924,12 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
 def _verify_artifact_nomination_closure(
     root, manifest, artifacts, structural_scopes, contribution_scopes, inventory
 ):
-    from types import SimpleNamespace
-
     from corpus_structure.core.evidence import config_key
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
-        ArtifactIdentityMethod,
+        SEALED_ARTIFACT_NAME,
+        SEALED_ARTIFACT_VERSION,
+        project_retained_artifact_identity,
     )
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.structural_products import StructuralProductReport
@@ -2959,11 +2960,11 @@ def _verify_artifact_nomination_closure(
             or raw.get("origin_run_id") != origin_run
             or raw.get("runtime_fingerprint") != runtime
             or body.get("release_id") != structural_scopes[index]["release_id"]
-            or body.get("method") != ArtifactIdentityMethod.name
-            or body.get("operation_version") != ArtifactIdentityMethod.version
+            or body.get("method") != SEALED_ARTIFACT_NAME
+            or body.get("operation_version") != SEALED_ARTIFACT_VERSION
             or body.get("outcome") != "produced"
             or body.get("configuration_hash")
-            != config_key(ArtifactIdentityMethod.name, ArtifactIdentityMethod.version, config)
+            != config_key(SEALED_ARTIFACT_NAME, SEALED_ARTIFACT_VERSION, config)
             or body.get("configuration_hash") != raw.get("config_hash")
             or not raw.get("input_hash")
             or body.get("input_hash") != raw["input_hash"]
@@ -3032,21 +3033,19 @@ def _verify_artifact_nomination_closure(
                 raise ValueError("artifact replay requested another primary layer selection")
             return primary
 
-        context = SimpleNamespace(
-            check_active=lambda: None,
-            reader=SimpleNamespace(
-                structural_source_frame=source_frame,
-                retained_source_contribution=payloads.__getitem__,
-                characterization_layers=characterization_layers,
-            ),
-        )
-        method = ArtifactIdentityMethod()
-        (result,) = method.run(
-            (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=report.inputs.identity)),),
-            cfg,
-            context,
-        )
-        if StructuralProductReport.model_validate(result.structural_product) != report:
+        from corpus_structure.semantic.product_reference import ProductReference
+
+        primary = characterization_layers(tuple(ProductReference(**value) for value in cfg.characterization_layers)) if cfg.characterization_layers else {}
+        if cfg.inputs is None:
+            raise ValueError("artifact replay lacks exact configured inputs")
+        bound = {value.native_content_digest for value in cfg.work_bindings}
+        frames = {source.identity: source_frame(cfg.inputs, source.identity)
+            for source in cfg.inputs.sources if source.native_content_digest in bound}
+        nominations = tuple((reference, payloads[reference]) for reference in sorted(
+            cfg.external_nomination_refs, key=lambda value: value.contribution_id))
+        projected = project_retained_artifact_identity(cfg, frames=frames, primary_layers=primary,
+            nomination_inputs=nominations, check_active=lambda: None)
+        if projected != report:
             raise ValueError(
                 "artifact cohort, nominations or scores differ from detached source replay"
             )

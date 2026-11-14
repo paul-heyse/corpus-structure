@@ -1,5 +1,10 @@
 """Ordinary registrar and native completion for numeric configuration and exact witnesses."""
 
+from semantic.sealed_structural_fixture import (
+    artifact_descriptor,
+    artifact_result,
+)
+
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -13,7 +18,6 @@ from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.artifact_identity import (
     ArtifactIdentityConfig,
-    ArtifactIdentityMethod,
 )
 from corpus_structure.methods.scoped_relations import SourceWorkBinding
 from corpus_structure.orchestrate.commands import finalize_bound_run
@@ -100,7 +104,7 @@ def retained_source(case, completed, revision, view):
     ids=("canonical-config", "exact-revision"),
 )
 def test_registered_artifact_canonical_config_completes_and_policy_forgery_refuses(
-    private_source, record_source_admin, native_settings, tmp_path, monkeypatch
+    private_source, record_source_admin, native_settings, tmp_path
 ):
     case = private_source
     with case.writer.begin() as conn:
@@ -186,7 +190,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
             for source, _, work in selected
         ),
     )
-    method = ArtifactIdentityMethod()
+    method = artifact_descriptor()
     params = canonical_numbers(cfg.model_dump(mode="json"))
     assert params["title_threshold"] == "70.5"
     assert params["policy"] == {
@@ -196,6 +200,8 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
         "title_m": "0.8",
         "title_u": "0.05",
     }
+
+    active_projection = artifact_result
 
     def run():
         run_id, bound = _begin_witnessed_run(
@@ -208,7 +214,8 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
         )
         with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
             unit = UnitView(UnitRef(TaskUnitType.RUN, unit_key=inputs.identity), ctx.run)
-            (result,) = method.run((unit,), cfg, ctx)
+            _projection_context = ctx
+            (result,) = (active_projection(_projection_context.reader, cfg, ((unit,))[0].ref, check_active=_projection_context.check_active),)
         _retain_witnessed_result(
             case, run_id, method, cfg, result, stage="assemble", admin=record_source_admin
         )
@@ -287,34 +294,31 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
         assert product["pairs"] == []
         assert product["declared_relationships"] == []
 
-    original = ArtifactIdentityMethod.run
+    original = artifact_result
 
-    def forged(self, units, configuration, context):
-        produced = original(self, units, configuration, context)
-        altered = []
-        for result in produced:
-            payload = json.loads(json.dumps(result.structural_product))
-            identity = payload["artifact_identity"]
-            if typed:
-                declaration = next(
-                    d for d in identity["declared_relationships"] if d["kind"] == "supersedes"
+    def forged(reader, configuration, ref, *, check_active):
+        result = original(reader, configuration, ref, check_active=check_active)
+        payload = json.loads(json.dumps(result.structural_product))
+        identity = payload["artifact_identity"]
+        if typed:
+            declaration = next(
+                d for d in identity["declared_relationships"] if d["kind"] == "supersedes"
+            )
+            old_key = ArtifactDeclaredRelationship.model_validate(declaration).identity
+            declaration["kind"] = "same_lineage"
+            new_key = ArtifactDeclaredRelationship.model_validate(declaration).identity
+            for pair in identity["pairs"]:
+                pair["dependencies"] = sorted(
+                    "artifact-declaration:" + new_key
+                    if dep == "artifact-declaration:" + old_key
+                    else dep
+                    for dep in pair["dependencies"]
                 )
-                old_key = ArtifactDeclaredRelationship.model_validate(declaration).identity
-                declaration["kind"] = "same_lineage"
-                new_key = ArtifactDeclaredRelationship.model_validate(declaration).identity
-                for pair in identity["pairs"]:
-                    pair["dependencies"] = sorted(
-                        "artifact-declaration:" + new_key
-                        if dep == "artifact-declaration:" + old_key
-                        else dep
-                        for dep in pair["dependencies"]
-                    )
-            else:
-                identity["policy"]["prior"] = 0.2
-            altered.append(replace(result, structural_product=payload))
-        return tuple(altered)
+        else:
+            identity["policy"]["prior"] = 0.2
+        return replace(result, structural_product=payload)
 
-    monkeypatch.setattr(ArtifactIdentityMethod, "run", forged)
+    active_projection = forged
     match = "artifact typed relationships differ" if typed else "artifact model requires"
     with pytest.raises((DBAPIError, OperationConflict), match=match):
         run()

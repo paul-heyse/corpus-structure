@@ -1,5 +1,13 @@
 """Condition statements through native producer, exact independent support and delivery."""
 
+from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
+from semantic.sealed_scoped_fixture import scoped_relation_descriptor, scoped_relation_result
+
+from semantic.sealed_structural_fixture import (
+    condition_descriptor,
+    condition_result,
+)
+
 import os
 import subprocess
 import sys
@@ -29,9 +37,6 @@ from corpus_structure.evaluate.structural_assessment import (
     create_structural_reference_set,
     record_structural_reference_pass,
 )
-from corpus_structure.methods.m1_annotations import M1Annotations
-from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
-from corpus_structure.methods.structural_products import ConditionQualificationMethod
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -72,6 +77,16 @@ from semantic.witnessed_scenario_support import (
     _witnessed_reader,
     completed_metadata,
 )
+
+
+def annotation_projection(reader, configuration, ref, *, check_active):
+    check_active()
+    return m1_annotation_result(reader, reader.source_view(ref.unit_id), configuration, ref)
+
+
+def scoped_projection(reader, configuration, ref, *, check_active):
+    check_active()
+    return scoped_relation_result(reader, reader.source_view(ref.unit_id), configuration, ref)
 
 POLICY = "independent-condition-qualification-1"
 SCOPE = "condition-scope"
@@ -186,7 +201,7 @@ def test_condition_admits_only_the_exact_supported_roles(
             ),
         )
 
-    def run(method, stage, sources, cfg, label, admissions=(), *, finalize=True, sibling=False):
+    def run(method, stage, sources, cfg, label, admissions=(), *, build, source_units=False, finalize=True, sibling=False):
         config = method.Config.model_validate(cfg)
         sibling_method = _FailedSibling()
         configurations = ((method, config),)
@@ -211,8 +226,17 @@ def test_condition_admits_only_the_exact_supported_roles(
                     _retain_witnessed_result(
                         case, run_id, sibling_method, _FailureScopeConfig(), result, stage="extract"
                     )
-            units = tuple(UnitView(ref, ctx.run) for ref in method.select(ctx.run, config))
-            produced = method.run(units, config, ctx)
+            if source_units:
+                refs = tuple(ctx.reader.source_view_ref(source) for source in sorted({value.source_view_id for value in sources}))
+                produced = tuple(build(ctx.reader, config,
+                    UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key),
+                    check_active=ctx.check_active) for ref in refs if ref is not None)
+                assert len(produced) == len(refs)
+            else:
+                assert config.inputs is not None
+                produced = (build(ctx.reader, config,
+                    UnitRef(TaskUnitType.RUN, unit_key=config.inputs.identity),
+                    check_active=ctx.check_active),)
         for result in produced:
             _retain_witnessed_result(case, run_id, method, config, result, stage=str(stage))
         if finalize:
@@ -241,13 +265,7 @@ def test_condition_admits_only_the_exact_supported_roles(
         )
     finalize_bound_run(case.writer, primary_run, "condition-primary")
 
-    annotation = run(
-        M1Annotations(),
-        Stage.EXTRACT,
-        excerpts(case.run).sources,
-        {"characterization_layers": pins},
-        "condition-annotations",
-    )
+    annotation = run(m1_annotation_descriptor(), Stage.EXTRACT, excerpts(case.run).sources, {'characterization_layers': pins}, 'condition-annotations', build=annotation_projection, source_units=True)
     selected = excerpts(annotation)
     inputs = StructuralInput(
         question="Which exact condition qualifies this host?",
@@ -381,13 +399,7 @@ def test_condition_admits_only_the_exact_supported_roles(
         inputs=inputs.model_dump(mode="json", exclude_none=True),
         structural_input_digest=inputs.identity,
     )
-    scoped = run(
-        ScopedRelationsMethod(),
-        Stage.SCOPE,
-        inputs.sources,
-        dict(cfg, characterization_layers=pins),
-        "condition-scoped",
-    )
+    scoped = run(scoped_relation_descriptor(), Stage.SCOPE, inputs.sources, dict(cfg, characterization_layers=pins), 'condition-scoped', build=scoped_projection, source_units=True)
     completed, source_revision, runtime = completed_metadata(case, scoped)
     member, result = table("ops.cut_task"), table("ops.task_result")
     with case.writer.connect() as conn:
@@ -416,8 +428,8 @@ def test_condition_admits_only_the_exact_supported_roles(
         runtime_fingerprint=runtime,
     )
     cfg["attachment"] = exact.model_dump(mode="json")
-    method = ConditionQualificationMethod()
-    candidate = run(method, Stage.ASSEMBLE, inputs.sources, cfg, "condition-private")
+    method = condition_descriptor()
+    candidate = run(method, Stage.ASSEMBLE, inputs.sources, cfg, 'condition-private', build=condition_result)
     with read_snapshot(record_source_reader) as conn:
         page = serve_structural_products(
             conn,
@@ -429,9 +441,7 @@ def test_condition_admits_only_the_exact_supported_roles(
         assert not page.public_assertions
     assert structural_statement(product) == expected
     bound = dict(support, product_id=product.product_id)
-    published = run(
-        method, Stage.ASSEMBLE, inputs.sources, cfg, "condition-public", (bound,), sibling=True
-    )
+    published = run(method, Stage.ASSEMBLE, inputs.sources, cfg, 'condition-public', (bound,), sibling=True, build=condition_result)
     with read_snapshot(record_source_reader) as conn:
         page = serve_structural_products(
             conn,
@@ -502,9 +512,7 @@ def test_condition_admits_only_the_exact_supported_roles(
     for i, binding in enumerate(
         (dict(wrong_support, product_id=product.product_id), dict(bound, c_content_digest="f" * 64))
     ):
-        rejected = run(
-            method, Stage.ASSEMBLE, inputs.sources, cfg, f"wrong-{i}", (binding,), finalize=False
-        )
+        rejected = run(method, Stage.ASSEMBLE, inputs.sources, cfg, f'wrong-{i}', (binding,), finalize=False, build=condition_result)
         with pytest.raises(DBAPIError, match="structural public witness"):
             finalize_bound_run(case.writer, rejected, f"wrong-{i}")
 

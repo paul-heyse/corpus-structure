@@ -1,5 +1,10 @@
 """Detached review integrity and publication, independently specified records."""
 
+from semantic.sealed_structural_fixture import (
+    artifact_descriptor,
+    artifact_result,
+)
+
 import json
 from typing import Any
 
@@ -992,8 +997,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
-        ArtifactIdentityMethod,
-    )
+        )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding, discover_relations
     from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
     from corpus_structure.semantic.identity import canonical_bytes
@@ -1158,11 +1162,8 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
             characterization_layers=lambda _: primary,
         ),
     )
-    (result,) = ArtifactIdentityMethod().run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),),
-        configuration,
-        context,
-    )
+    _projection_context = context
+    (result,) = (artifact_result(_projection_context.reader, configuration, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref, check_active=_projection_context.check_active),)
     report = StructuralProductReport.model_validate(result.structural_product)
     structural = dict(
         selection_index=0,
@@ -1175,7 +1176,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         report=report.model_dump(mode="json"),
     )
     params = canonical_numbers(configuration.model_dump(mode="json"))
-    config_hash = config_key(ArtifactIdentityMethod.name, ArtifactIdentityMethod.version, params)
+    config_hash = config_key(artifact_descriptor().name, artifact_descriptor().version, params)
     raw = dict(
         origin_task_id=100,
         origin_run_id=2,
@@ -1187,7 +1188,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         body=dict(
             release_id="release:structural",
             method="structure.artifact_identity",
-            operation_version=ArtifactIdentityMethod.version,
+            operation_version=artifact_descriptor().version,
             outcome="produced",
             configuration_hash=config_hash,
             input_hash="artifact-input",
