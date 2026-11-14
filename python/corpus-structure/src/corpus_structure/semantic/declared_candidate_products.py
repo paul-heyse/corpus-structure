@@ -154,3 +154,28 @@ def candidate_member_values(report, *, candidate_type):
         for packet in report["members"]
         if packet["body"]["candidate_type"] == candidate_type
     )
+
+
+def validate_bound_candidate_report(prepared, model, binding, role_name, value):
+    """Validate the actual admitted candidate kind, preserving legitimate refinement fields."""
+    from .data_operation_kind_refinements import input_kind_contracts
+    from .data_operation_ports import PortRefusal
+
+    if binding is None or not binding.sufficient:
+        raise PortRefusal("candidate report requires its sufficient native binding")
+    declarations = [role for role in model.operation(binding.operation).roles if role.name == role_name and role.direction == "input"]
+    selected = [role for role in binding.roles if role.role == role_name]
+    if len(declarations) != 1 or len(selected) != 1:
+        raise PortRefusal("candidate report requires its one declared input role")
+    members = selected[0].members
+    if len(members) != 1 or members[0].multiplicity != 1:
+        raise PortRefusal("candidate report requires its exact scalar native member")
+    member = members[0]
+    accepted = input_kind_contracts(model, (declarations[0].kind,))[declarations[0].kind]
+    actual = [identity.owner for identity in model.identities if identity.domain == "kind" and identity.key == member.kind_contract]
+    if member.kind_contract not in accepted or len(actual) != 1:
+        raise PortRefusal("candidate report kind is outside its declared input family")
+    definitions = [definition for definition in prepared.definitions if definition.iri == actual[0]]
+    if len(definitions) != 1:
+        raise PortRefusal("candidate report lacks its actual concrete nominal definition")
+    return prepared.validate_json(definitions[0].name, json_bytes(value)).model_dump(mode="python", exclude_unset=True)

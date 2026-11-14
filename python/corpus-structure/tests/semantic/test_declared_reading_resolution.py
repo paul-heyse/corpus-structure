@@ -1,6 +1,7 @@
 """Independent reading-score expectations; controlled ingress is not native admission."""
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -45,10 +46,16 @@ def policy(instances=()):
     return {"version": "reading-feature-policy-1", "recipe": RECIPE, "subset": "controlled-subset", "feature_instances": source_value([value.model_dump(mode="json") for value in instances])}
 
 
-def test_reading_producer_has_closed_factory_and_source_witness():
+@lru_cache(maxsize=1)
+def compiled_readings():
     root = Path(__file__).parents[2] / "src/corpus_structure/model/semantic"
     bundle = reading_resolution_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))
     model = compile_data_operations(bundle, python_sources=reading_resolution_operation_sources())
+    return model
+
+
+def test_reading_producer_has_closed_factory_and_source_witness():
+    model = compiled_readings()
     operation = model.operation("resolve.m1_readings/declared")
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 1
@@ -89,3 +96,25 @@ def test_reading_resolution_keeps_unavailable_policy_honest_and_refuses_duplicat
     assert event["outcome"] == "not_run" and event["final_event_score"] is None
     with pytest.raises(ValueError, match="repeats a fitted instance"):
         resolve_reading_values(prepared_ingress(), candidate_report(), policy((feature(), feature())))
+
+
+def test_candidate_consumer_validates_actual_refined_kind_without_dropping_fields():
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
+    from corpus_structure.semantic.declared_candidate_products import validate_bound_candidate_report
+
+    model = compiled_readings()
+    kind = next(value for value in model.kinds if value.name == "DdoResolvedReadingReport")
+    contract = next(value.key for value in model.identities if value.owner == kind.semantic_id and value.domain == "kind")
+    member = BoundRoleMember("actual-product", contract, "subject", "original", b"{}", b"{}", (), b"{}")
+    binding = SimpleNamespace(sufficient=True, operation="resolve.m1_readings/declared", roles=(ResolvedRoleBinding("candidates", "present", (member,)),))
+    calls = []
+    value = {"reading_policy_digest": "actual-policy", "reading_events": source_value([])}
+
+    def validate(name, content):
+        calls.append(name)
+        return SimpleNamespace(model_dump=lambda **kwargs: json.loads(content))
+
+    prepared = SimpleNamespace(definitions=(SimpleNamespace(iri=kind.semantic_id, name=kind.name),), validate_json=validate)
+    actual = validate_bound_candidate_report(prepared, model, binding, "candidates", value)
+    assert calls == ["DdoResolvedReadingReport"]
+    assert actual == value

@@ -131,6 +131,7 @@ def execute_reading_kernel(candidates: dict, policy: dict, *, prepared, check_ac
 @dataclass
 class ReadingInvocationPlan:
     prepared: Any
+    model: Any
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
@@ -141,7 +142,9 @@ class ReadingInvocationPlan:
 
         if binding is None or binding.subject_context is None:
             raise ValueError("reading resolution requires its acquired source context")
-        candidates = self.prepared.validate_json("DdoCandidateInspectionReport", json_bytes(arguments.arguments["candidates"])).model_dump(mode="python", exclude_unset=True)
+        from .declared_candidate_products import validate_bound_candidate_report
+
+        candidates = validate_bound_candidate_report(self.prepared, self.model, binding, "candidates", arguments.arguments["candidates"])
         policy = self.prepared.validate_json("DdoReadingFeaturePolicy", json_bytes(arguments.arguments["policy"])).model_dump(mode="python", exclude_unset=True)
         pin, context = candidates["source_pin"], binding.subject_context
         if (pin["project_id"], pin["subject"], pin["original_source"], pin["analyzed_scope_meaning"]) != (context.project_id, context.subject, context.original_source, json_context_meaning(context.analyzed_scope).decode()):
@@ -164,7 +167,7 @@ def resolve_reading_port(prepared, model, operation, *, identity, authorize, cus
     if selected.semantic_id != ReadingResolutionOperation.__data_operation__["id"]:
         raise PortRefusal("reading factory belongs to another operation")
     receiver = ReadingResolutionOperation(None)
-    plan = ReadingInvocationPlan(prepared)
+    plan = ReadingInvocationPlan(prepared, model)
     port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.reading_resolution_products.ReadingInvocationPlan.plan", authorize, (reading_resolution_assets(),), reading_resolution_operation_sources(), functions=(("corpus_structure.semantic.reading_resolution_products.execute_reading_kernel", execute_reading_kernel),), requires_prepared_schema=True)
     plan.port = port
     return port
