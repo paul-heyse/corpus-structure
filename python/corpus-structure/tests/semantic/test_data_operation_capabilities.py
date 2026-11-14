@@ -274,3 +274,64 @@ def test_captured_factory_rejects_rebound_imported_resolver_with_copied_identity
     monkeypatch.setattr(importlib.import_module(helper_name), 'resolve_port', lambda identity: copied)
     with pytest.raises(PortRefusal, match='outside acquired source|qualified owner'):
         factory(identity='admitted-identity')
+
+
+def test_deferred_failure_fenced_owner_cannot_release_another_attempt():
+    from datetime import UTC, datetime
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor, NativeRequestClaim
+    from corpus_structure.semantic.claim_lifetime import ClaimFenceLost
+
+    class ForbiddenEngine:
+        def begin(self):
+            raise AssertionError('a lost fence cannot perform native release')
+
+    claim = NativeRequestClaim('request:one', 1, 1, 1, 'old-holder', 'release:one', datetime.now(UTC))
+
+    class LostOwner:
+        def check_claim(self, value):
+            raise ClaimFenceLost(value, 'replaced')
+
+        def settle(self, *args):
+            raise AssertionError('a lost fence cannot settle deferred work')
+
+    executor = object.__new__(NativeDemandExecutor)
+    executor.engine = ForbiddenEngine()
+    executor._known_failure(claim, LostOwner(), RuntimeError('original failure'), phase='computation')
+
+
+
+def test_hydrated_consumer_preserves_typed_decimal_body_independently_of_json_display():
+    from decimal import Decimal
+    from corpus_structure.semantic.data_operation_consumers import SelectedConsumerValue
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+
+    member = BoundRoleMember('product:one', 'kind:decimal', 'subject:one', 'original:one', b'{}', b'{}', (), b'{}')
+    value = SelectedConsumerValue(member, b'"0.1234567890123456789"', b'["decimal","0.1234567890123456789"]')
+    assert value.value() == Decimal('0.1234567890123456789')
+    assert type(value.value()) is Decimal
+
+
+def test_uncertain_thread_without_future_cannot_claim_physical_retirement():
+    from types import SimpleNamespace
+    from corpus_structure.orchestrate.data_operations import _RequestExecution
+    from corpus_structure.semantic.cpu_execution import OwnedByteBudget
+
+    class UnknownSubmit:
+        def submit(self, callback):
+            raise RuntimeError('no acknowledged future')
+
+    budget = OwnedByteBudget(32)
+    reservation = budget.admit(32)
+    invocation = SimpleNamespace(pool=UnknownSubmit(), uncertain_python=[], physical_retired=False,
+        cpu=SimpleNamespace(reservation_retired=lambda _: True), native_hosts=None,
+        executor=SimpleNamespace(engine=None))
+    physical = _RequestExecution(invocation, reservation)
+    with pytest.raises(RuntimeError, match='no acknowledged future'):
+        physical.submit_python(lambda: None)
+    assert physical.retired() is False
+    reservation.release()
+    assert budget.used_bytes == 32
+    invocation.physical_retired = True
+    assert physical.retired() is True
+    invocation.uncertain_python[0][1].release()
+    assert budget.used_bytes == 0

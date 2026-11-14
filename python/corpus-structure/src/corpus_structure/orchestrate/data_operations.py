@@ -135,12 +135,19 @@ class _OwnedPythonPool:
         self.threads = self.pool._threads
         self.drained = False
         self.closed = False
+        self.failed = False
 
     def __enter__(self):
         return self
 
     def submit(self, callback):
-        return self.pool.submit(callback)
+        if self.failed:
+            raise RuntimeError("provider transport executor retains an uncertain submission")
+        try:
+            return self.pool.submit(callback)
+        except BaseException:
+            self.failed = True
+            raise
 
     def close(self):
         if self.closed:
@@ -213,8 +220,13 @@ class _RequestExecution:
         self.engine = invocation.executor.engine
         self.claim: NativeRequestClaim | None = None
         self.handles = []
+        self.consumer_inputs = {}
+        self.consumer_results = {}
+        self.uncertain_submission = False
 
     def submit_python(self, callback):
+        if getattr(self.invocation.pool, "failed", False):
+            raise RuntimeError("provider transport executor is unavailable before submission")
         share = self.reservation.share()
         completed = Event()
 
@@ -229,6 +241,7 @@ class _RequestExecution:
         except BaseException:
             # Submit may have accepted work before losing its acknowledgement.
             # No future is not proof that this reservation is free.
+            self.uncertain_submission = True
             self.invocation.uncertain_python.append((completed, share))
             raise
         self.invocation.python_work.append(work)
@@ -266,6 +279,8 @@ class _RequestExecution:
             plan.close()
 
     def retired(self):
+        if self.uncertain_submission and not self.invocation.physical_retired:
+            return False
         return all([handle.retire() for handle in self.handles]) and self.cpu.reservation_retired(
             self.reservation
         )
@@ -275,6 +290,8 @@ class _InvocationExecution:
     def __init__(self, executor, pool):
         self.pool, self.python_work = pool, []
         self.uncertain_python = []
+        self.pending_failures = []
+        self.physical_retired = False
         self.cpu = CPUExecutionScope(
             executor.prepared, executor.policy, budget=executor.budget, retain_schema=False
         )
@@ -332,6 +349,17 @@ class _InvocationExecution:
                 # A worker unwinding after host teardown can finish after this
                 # scope exits; its still-owned share retires on actual completion.
                 work.future.add_done_callback(lambda _, work=work: work.retire())
+        self.physical_retired = native_drained and self.pool.drained and self.cpu._physical_retired
+        if self.physical_retired:
+            for physical, claim, owner, error, phase in self.pending_failures:
+                if physical.retired():
+                    try:
+                        self.executor._known_failure(claim, owner, error, phase=phase)
+                    except Exception as failure:
+                        failures.append(failure)
+                else:
+                    self.executor._quarantined = True
+                    failures.append(PhysicalRetirementUncertain("deferred native attempt still has unretired physical work"))
         if failures:
             raise BaseExceptionGroup("native demand physical cleanup failed", failures)
 
@@ -373,6 +401,7 @@ class NativeDemandExecutor:
         self._invocation = Lock()
         self._quarantined = False
         self.ports = {}
+        self.consumer_selectors = {}
         self.holder = "demand-owner:" + uuid4().hex
 
     def _port(self, operation):
@@ -414,6 +443,9 @@ class NativeDemandExecutor:
                 if port.operation != selected:
                     raise PortRefusal("prepared capability differs from effective operation")
                 self.ports[operation] = port
+                if selected.consumer_selection is not None:
+                    from corpus_structure.semantic.data_operation_consumers import resolve_consumer_selection
+                    self.consumer_selectors[operation] = resolve_consumer_selection(self.model, self.sources, operation, port.consumer_receiver, authorize=lambda admission=admission, port=port: admission.authorize(port.identity))
             else:
                 with self.engine.begin() as connection:
                     admission = acquire_python_execution(
@@ -433,6 +465,10 @@ class NativeDemandExecutor:
                     schema=self.schema,
                     prepared=self.prepared,
                 )
+                if selected.consumer_selection is not None:
+                    from corpus_structure.semantic.data_operation_consumers import resolve_consumer_selection
+                    port = self.ports[operation]
+                    self.consumer_selectors[operation] = resolve_consumer_selection(self.model, self.sources, operation, port.consumer_receiver, authorize=lambda admission=admission, port=port: admission.authorize(port.identity))
         return self.ports[operation]
 
     def _renew(self, connection: Connection, claim: OwnedClaim):
@@ -444,7 +480,35 @@ class NativeDemandExecutor:
         if result["state"] == "lost":
             raise ClaimFenceLost(claim, result["reason"])
 
-    def _hydrate(self, ready: ReadyDataRequest):
+    def _hydrate(self, ready: ReadyDataRequest, execution_owner=None):
+        if self.model.operation(ready.operation).consumer_selection is not None:
+            from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection, hydrate_consumer_selection
+            pins = wire_json_loads(ready.resolved.trust_evidence)
+            with self.engine.begin() as connection:
+                selected = hydrate_consumer_selection(connection, self.model,
+                    BoundConsumerSelection.from_binding(ready.binding_result, operation=ready.operation),
+                    demand_id=pins.get("demand_id", self.demand), read_id=pins["read_id"],
+                    trust_snapshot=pins["trust"], max_bytes=self.policy.max_packet_bytes)
+            result = self.consumer_selectors[ready.operation].select_hydrated(selected)
+            if execution_owner is not None:
+                execution_owner.consumer_inputs[ready.obligation] = selected
+                execution_owner.consumer_results[ready.obligation] = result
+            roles = {role.name: role for role in self.model.operation(ready.operation).roles}
+            identities = {(value.owner, value.domain): value.key for value in self.model.identities}
+            values = []
+            for role, members in selected.values:
+                retained = ready.binding_result.roles[next(index for index, entry in enumerate(ready.binding_result.roles) if entry.role == role)]
+                if retained.state == "known-absent":
+                    continue
+                decoded = tuple(member.value() for member in members)
+                if roles[role].collection == "scalar":
+                    if len(decoded) != 1:
+                        raise PortRefusal("scalar input requires one admitted member")
+                    value = decoded[0]
+                else:
+                    value = decoded
+                values.append(PythonRoleValue(role, identities[roles[role].kind, "kind"], value))
+            return tuple(values)
         pins = wire_json_loads(ready.resolved.trust_evidence)
         with self.engine.begin() as connection:
             projections = admitted_data_projection(
@@ -678,7 +742,7 @@ class NativeDemandExecutor:
             else:
                 phase = "computation"
                 port = self._port(ready.operation)
-                inputs = self._hydrate(ready)
+                inputs = self._hydrate(ready, physical)
                 answer = yield from physical.relay(
                     port.plan_python(
                         inputs,
@@ -697,6 +761,8 @@ class NativeDemandExecutor:
                     self._known_failure(claim, owner, error, phase=phase)
                 except Exception as release_error:
                     error = release_error
+            elif claim is not None:
+                self._physical.pending_failures.append((physical, claim, owner, error, phase))
             self._failed_requests.add(
                 (json.loads(ready.native)["request_id"], json.loads(ready.native).get("generation"))
             )
@@ -724,8 +790,11 @@ class NativeDemandExecutor:
                     else:
                         phase = "computation"
                         port = self._port(item.operation)
-                        inputs = self._hydrate(item)
+                        inputs = self._hydrate(item, physical)
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
+                        if item.obligation in physical.consumer_inputs:
+                            physical.consumer_inputs[member] = physical.consumer_inputs[item.obligation]
+                            physical.consumer_results[member] = physical.consumer_results[item.obligation]
                         pending.append((member, item, claim, inputs, port))
                 except Exception as error:
                     if claim is not None:
@@ -782,6 +851,8 @@ class NativeDemandExecutor:
                                 self._known_failure(claim, owner, error, phase="computation")
                             except Exception as release_error:
                                 failures.append(release_error)
+                        else:
+                            self._physical.pending_failures.append((physical, claim, owner, error, "computation"))
                         self._failed_requests.add((claim.request_id, claim.generation))
                     failures.append(error)
                 else:

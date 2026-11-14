@@ -130,3 +130,34 @@ def test_cancelled_demand_preserves_live_cross_demand_stream_and_original_episod
         assert [product['body'] for product in use['products']] == [['integer', '10'], ['integer', '11']]
         assert connection.scalar(text('SELECT count(*) FROM ops.data_derivation')) == 1
     assert executor.budget.used_bytes == 0
+
+
+
+def test_uncertain_stream_submission_settles_only_after_drain_and_can_resume(stream_execution, monkeypatch):
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+
+    kernel, executor = stream_execution
+    demand = register(kernel, 'urn:ddo-stream:answer')
+    original = CPUExecutionScope.submit_closed_python_stream
+    scopes = []
+
+    def acknowledgement_lost(cpu, *args, **kwargs):
+        scopes.append(cpu)
+        original(cpu, *args, **kwargs)
+        raise RuntimeError('stream transport acknowledgement lost')
+
+    with monkeypatch.context() as changed:
+        changed.setattr(CPUExecutionScope, 'submit_closed_python_stream', acknowledgement_lost)
+        with pytest.raises(NativeDemandExecutionError) as failure:
+            executor.run(demand)
+    assert any('acknowledgement lost' in str(error) for error in failure.value.failures)
+    assert scopes and all(scope._physical_retired for scope in scopes)
+    with kernel.engine.connect() as connection:
+        assert connection.scalar(text('SELECT count(*) FROM ops.data_attempt_failure')) == 1
+        assert connection.scalar(text('SELECT count(*) FROM ops.data_completion_intent')) == 0
+    assert executor.budget.used_bytes == 0
+    resumed = executor.run(demand)
+    assert resumed.receipt_count == 1
+    with kernel.engine.connect() as connection:
+        assert connection.scalar(text('SELECT count(*) FROM ops.data_derivation')) == 1
+    assert executor.budget.used_bytes == 0

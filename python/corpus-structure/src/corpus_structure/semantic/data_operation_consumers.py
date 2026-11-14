@@ -130,10 +130,14 @@ class SelectedConsumerValue:
 
     member: BoundRoleMember
     content: bytes
+    meaning: bytes | None = None
 
     def value(self):
         import json
 
+        if self.meaning is not None:
+            from .data_operation_identity import decode_semantic_value
+            return decode_semantic_value(json.loads(self.meaning))
         return json.loads(self.content)
 
 
@@ -241,7 +245,7 @@ def hydrate_consumer_selection(
             if used > max_bytes:
                 raise ValueError("complete consumer inputs exceed owned packet capacity")
             values.extend(
-                SelectedConsumerValue(member, content) for _ in range(member.multiplicity)
+                SelectedConsumerValue(member, content, canonical_bytes(rows[0])) for _ in range(member.multiplicity)
             )
         result.append((role.role, tuple(values)))
     return HydratedConsumerSelection(selection, tuple(result))

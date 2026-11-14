@@ -328,6 +328,10 @@ class ResolvedPythonPort:
     def native_selections(self) -> tuple:
         return ()
 
+    @property
+    def consumer_receiver(self):
+        return self.function.__self__ if inspect.ismethod(self.function) else None
+
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from dataclasses import replace
 
