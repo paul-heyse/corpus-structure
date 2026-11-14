@@ -726,3 +726,33 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     assert fields["term"]["original"] == "Mean"
     assert fields["defining_text"]["original"] == "average"
     assert len(worker.calls) == 3
+
+
+def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure():
+    """No inference runs: inspect the real plan boundary and error reduction."""
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.orchestrate.m1 import registry
+
+    source = view()
+    method = m1_source.M1Candidates()
+    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    prepared_source = prepare_source(source, persisted_annotations=(), policy=cfg.policy)
+    plan = method.plan_candidates(
+        prepared=release(), view=source, prepared_source=prepared_source,
+        annotation_result={"method": "controlled-boundary", "input_hash": "input", "configuration_hash": "configuration"},
+        cfg=cfg, check_active=lambda: None, primary_layers={},
+    )
+    request = next(plan)
+    assert isinstance(request, m1_source.M1GlinerRequest)
+    assert request.profile == cfg.profile()
+    assert request.threshold == cfg.threshold
+    assert len(request.inputs) == 1
+    assert request.inputs[0].text == "Mean is average."
+    assert request.pack.fingerprint in {
+        pack.fingerprint for variants in m1_source.configured_pack_variants(release(), cfg).values()
+        for _, _, pack in variants
+    }
+    with pytest.raises(StopIteration) as completed:
+        plan.throw(GlinerWorkerError("deliberate provider-boundary failure"))
+    assert completed.value.value.outcome == ObservationOutcome.FAILED
+    assert "deliberate provider-boundary failure" in completed.value.value.error

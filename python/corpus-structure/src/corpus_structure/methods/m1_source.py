@@ -308,6 +308,17 @@ def _select_eligible_projection(rows, digest=None):
 
 
 @dataclass(frozen=True)
+class M1GlinerRequest:
+    """The exact original inference question; the invocation owns physical work."""
+
+    profile: GlinerProfile
+    pack: GlinerPack
+    inputs: tuple[GlinerInput, ...]
+    threshold: float
+    native_profile: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
 class M1CandidateProduct:
     """Located candidate output independent of a physical task or source-method facade."""
 
@@ -641,6 +652,38 @@ class M1Candidates:
         check_active, primary_layers, provider_execution=None,
         generic_role_guidance=False, source_capture_rules=(),
     ) -> M1CandidateProduct:
+        """Drain the original synchronous caller through the authoritative kernel plan."""
+        plan = self.plan_candidates(
+            prepared=prepared, view=view, prepared_source=prepared_source,
+            annotation_result=annotation_result, cfg=cfg, check_active=check_active,
+            primary_layers=primary_layers, generic_role_guidance=generic_role_guidance,
+            source_capture_rules=source_capture_rules,
+        )
+        reply, failure = None, None
+        try:
+            while True:
+                try:
+                    request = plan.throw(failure) if failure is not None else plan.send(reply)
+                except StopIteration as completed:
+                    return completed.value
+                if not isinstance(request, M1GlinerRequest):
+                    raise TypeError("M1 kernel yielded an undeclared inference question")
+                try:
+                    reply = self._resident(
+                        request.profile, providers=provider_execution,
+                        native_profile=request.native_profile,
+                    ).extract(request.pack, request.inputs, threshold=request.threshold, check_active=check_active)
+                    failure = None
+                except BaseException as error:
+                    reply, failure = None, error
+        finally:
+            plan.close()
+
+    def plan_candidates(
+        self, *, prepared, view, prepared_source, annotation_result, cfg,
+        check_active, primary_layers,
+        generic_role_guidance=False, source_capture_rules=(),
+    ):
         """Execute only explicitly prepared language, annotation and selected primary facts.
 
         Preparation and native binding own discovery. This kernel never obtains a
@@ -1006,15 +1049,9 @@ class M1Candidates:
             if local_pack is not None:
                 check_active()
                 try:
-                    (local_report,) = self._resident(
-                        cfg.profile(),
-                        providers=provider_execution,
-                        native_profile=cfg.native_execution_profile,
-                    ).extract(
-                        local_pack,
-                        (GlinerInput.from_context(context),),
-                        threshold=cfg.threshold,
-                        check_active=check_active,
+                    (local_report,) = yield M1GlinerRequest(
+                        cfg.profile(), local_pack, (GlinerInput.from_context(context),),
+                        cfg.threshold, cfg.native_execution_profile,
                     )
                     contribution_batches.append(
                         adapt_report(
@@ -1096,15 +1133,9 @@ class M1Candidates:
                                 **metadata,
                             )
                         )
-                    (report,) = self._resident(
-                        cfg.profile(),
-                        providers=provider_execution,
-                        native_profile=cfg.native_execution_profile,
-                    ).extract(
-                        pack,
-                        (GlinerInput.from_context(context),),
-                        threshold=cfg.threshold,
-                        check_active=check_active,
+                    (report,) = yield M1GlinerRequest(
+                        cfg.profile(), pack, (GlinerInput.from_context(context),),
+                        cfg.threshold, cfg.native_execution_profile,
                     )
                     association_diagnostics: list[dict[str, Any]] = []
                     report_entry = dict(
