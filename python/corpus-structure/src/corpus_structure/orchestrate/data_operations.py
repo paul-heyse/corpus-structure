@@ -235,6 +235,7 @@ class _RequestExecution:
     def __init__(self, invocation, reservation):
         self.invocation, self.reservation = invocation, reservation
         self.cpu, self.native_hosts = invocation.cpu, invocation.native_hosts
+        self.providers = invocation.providers
         self.engine = invocation.executor.engine
         self.claim: NativeRequestClaim | None = None
         self.handles = []
@@ -315,6 +316,11 @@ class _InvocationExecution:
             executor.prepared, executor.policy, budget=executor.budget, retain_schema=False
         )
         self.native_hosts = NativeHostResidency(executor.policy, executor.nemotron_endpoint)
+        from corpus_structure.methods.characterization_resources import ProviderExecution
+
+        self.providers = ProviderExecution(
+            executor.budget, executor.policy, native_group=self.native_hosts
+        )
         self.executor = executor
         self._selected_operations = None
 
@@ -346,9 +352,20 @@ class _InvocationExecution:
     def __exit__(self, *error):
         failures = []
         native_drained = False
+        providers_drained = False
+        try:
+            self.providers.close()
+        except BaseException as failure:
+            failures.append(failure)
         try:
             self.native_hosts.close()
             native_drained = True
+        except BaseException as failure:
+            failures.append(failure)
+        try:
+            providers_drained = self.providers.retire()
+            if not providers_drained:
+                raise PhysicalRetirementUncertain("provider lanes retain unretired physical work")
         except BaseException as failure:
             failures.append(failure)
         try:
@@ -359,7 +376,12 @@ class _InvocationExecution:
             self.pool.close()
         except BaseException as failure:
             failures.append(failure)
-        if self.pool.drained and native_drained and self.cpu._physical_retired:
+        if (
+            self.pool.drained
+            and native_drained
+            and providers_drained
+            and self.cpu._physical_retired
+        ):
             for _, share in self.uncertain_python:
                 share.release()
         else:
@@ -371,7 +393,12 @@ class _InvocationExecution:
                 # A worker unwinding after host teardown can finish after this
                 # scope exits; its still-owned share retires on actual completion.
                 work.future.add_done_callback(lambda _, work=work: work.retire())
-        self.physical_retired = native_drained and self.pool.drained and self.cpu._physical_retired
+        self.physical_retired = (
+            native_drained
+            and providers_drained
+            and self.pool.drained
+            and self.cpu._physical_retired
+        )
         if self.physical_retired:
             for physical, claim, owner, error, phase in self.pending_failures:
                 if physical.retired():
