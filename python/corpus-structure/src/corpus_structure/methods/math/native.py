@@ -101,11 +101,22 @@ def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...], *, primary_sco
 
 def _declaration_scope(view: Any, rules: tuple[NativeDomainRule, ...], ordinal: int, blocks):
     """Actual section ancestry and attributed statements constrain forward declarations."""
-    source = f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order"
+    return declaration_scope(
+        source=f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order",
+        items=view.items,
+        topology=native_topology(view),
+        rules=rules,
+        ordinal=ordinal,
+        blocks=blocks,
+    )
+
+
+def declaration_scope(*, source, items, topology, rules, ordinal, blocks):
+    """Original forward scope calculation over explicit native columns and semantic source."""
+
     if not rules:
         return source, f"{source}:item:{ordinal}", ordinal + 1
-    topology = native_topology(view)
-    pointer = view.items[ordinal]["self_ref"]
+    pointer = items[ordinal]["self_ref"]
     section = topology.section(pointer)
     owner = f"{source}:section:{section}"
     end = topology.ends[section]
@@ -381,8 +392,6 @@ def readings(
         reader, view, section.native_domain_rules, seconds, macros=section.macro_table()
     )
     context_issues = tuple(dict.fromkeys((*recognition_context_issues(view), *context_issues)))
-    definitions: list[dict[str, Any]] = list(inherited)
-    out: list[NativeReading] = []
     blocks = domain_blocks(
         view,
         section.native_domain_rules,
@@ -390,44 +399,101 @@ def readings(
         if section.native_domain_rules
         else None,
     )
-    for ordinal, item in enumerate(view.items):
+    out = list(
+        prepare_native_readings(
+            items=view.items,
+            text=view.text,
+            pieces=pieces,
+            health=health,
+            section=section,
+            seconds=seconds,
+            prepared=getattr(reader, "prepared", None),
+            source=f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order",
+            topology=native_topology(view),
+            inherited=inherited,
+            context_issues=context_issues,
+            blocks=blocks,
+            occurrence=lambda item: FormulaOccurrence(
+                view.ref.native_product.content_digest,
+                item["self_ref"],
+                item["text"],
+                item.get("orig", ""),
+                "succeeded",
+            ),
+            retain_syntax=lambda operand, pointer: _retain_syntax(operand, view, pointer, layers),
+        )
+    )
+    batch.native[key] = tuple(out)
+    return (
+        tuple(out)
+        if demand == "occurrences"
+        else tuple(replace(row, result=row.prepared.symbolic_reading()) for row in out)
+    )
+
+
+def prepare_native_readings(
+    *,
+    items,
+    text,
+    pieces,
+    health,
+    section,
+    seconds,
+    prepared,
+    source,
+    topology,
+    inherited,
+    context_issues,
+    blocks,
+    occurrence,
+    retain_syntax,
+    selected=lambda item: True,
+    check_active=lambda: None,
+    prepare_context=prepare_interpretation_context,
+):
+    """Original occurrence algorithm on explicit source columns and retained primary syntax.
+
+    Callers select their admitted source population and provide actual declaration context;
+    this kernel has no reader, task lookup, recognition or ambient source discovery.
+    """
+    definitions = list(inherited)
+    out = []
+    for ordinal, item in enumerate(items):
         if item.get("label") != "formula":
             continue
         pointer = item["self_ref"]
+        check_active()
+        if not selected(item):
+            continue
         if health.get(pointer) != "succeeded":
             continue
-        text = item["text"]
+        latex = item["text"]
         piece = pieces.get(pointer)
         start = None
-        if piece is not None and view.text[piece["start"] : piece["end"]] == text:
+        if piece is not None and text[piece["start"] : piece["end"]] == latex:
             start = piece["start"]
-        source_id, scope, end = _declaration_scope(
-            view, section.native_domain_rules, ordinal, blocks
+        source_id, scope, end = declaration_scope(
+            source=source,
+            items=items,
+            topology=topology,
+            rules=section.native_domain_rules,
+            ordinal=ordinal,
+            blocks=blocks,
         )
-        context = prepare_interpretation_context(
-            getattr(reader, "prepared", None),
+        context = prepare_context(
+            prepared,
             macros=section.macro_table(),
             constants=section.constants,
             source_id=source_id,
             scope=scope,
             offset=ordinal,
-            scope_chain=native_topology(view).scope_chain(pointer, source_id),
+            scope_chain=topology.scope_chain(pointer, source_id),
             declarations=definitions,
             demand="occurrences",
         )
-        operand = (
-            FormulaOccurrence(
-                view.ref.native_product.content_digest,
-                pointer,
-                text,
-                item.get("orig", ""),
-                "succeeded",
-            )
-            .prepare(context)
-            .operand
-        )
+        operand = occurrence(item).prepare(context).operand
         operand = replace(operand, seconds=seconds)
-        _retain_syntax(operand, view, pointer, layers)
+        retain_syntax(operand, pointer)
         recognized = operand.syntax()
         # The admitted native rule supplies the mathematical head; visual adjacency never
         # turns an arbitrary identifier into a function declaration.
@@ -447,12 +513,7 @@ def readings(
                 )
         result = operand.interpretation()
         out.append(NativeReading(pointer, operand, result, start, context_issues))
-    batch.native[key] = tuple(out)
-    return (
-        tuple(out)
-        if demand == "occurrences"
-        else tuple(replace(row, result=row.prepared.symbolic_reading()) for row in out)
-    )
+    return tuple(out)
 
 
 def required_occurrence_record(reader: Any, view: Any):

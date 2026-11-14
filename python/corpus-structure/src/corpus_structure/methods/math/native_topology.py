@@ -28,12 +28,22 @@ class NativeTopology:
 
 
 def prepare_native_topology(view: Any) -> NativeTopology:
-    nodes = {item["self_ref"]: item for item in (*view.ancestors, *view.items)}
-    root = view.ref.section_pointer
+    return prepare_native_topology_columns(
+        root=view.ref.section_pointer,
+        text=view.text,
+        items=view.items,
+        ancestors=view.ancestors,
+        pieces=view.pieces,
+    )
+
+
+def prepare_native_topology_columns(*, root, text, items, ancestors, pieces) -> NativeTopology:
+    """Use actual native columns and their original root, without a source-view identity."""
+    nodes = {item["self_ref"]: item for item in (*ancestors, *items)}
     sections = {
         ref for ref, item in nodes.items() if item.get("label") in {"section", "chapter"}
     } | {root}
-    order = {item["self_ref"]: index for index, item in enumerate(view.items)}
+    order = {item["self_ref"]: index for index, item in enumerate(items)}
     chains = {}
     for pointer in order:
         cursor = pointer
@@ -70,9 +80,9 @@ def prepare_native_topology(view: Any) -> NativeTopology:
         )
         for section in selected_sections
     }
-    bounds = {root: (0, len(view.text))}
+    bounds = {root: (0, len(text))}
     projected = {}
-    for piece in view.pieces:
+    for piece in pieces:
         pointer = piece.get("item_ref")
         if pointer not in chains or piece["start"] >= piece["end"]:
             continue
