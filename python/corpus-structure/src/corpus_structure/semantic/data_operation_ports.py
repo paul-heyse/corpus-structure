@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_or
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
     from .data_operation_cpu import PythonCPUDescriptor
-    from .types import PreparedRelease, SourceBundle
+    from .types import PreparedRelease
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
@@ -37,7 +37,15 @@ from .data_operation_compilation import compile_data_operations as _STATIC_COMPI
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
-from .python_operation_sources import PythonSourceCollection
+from .python_operation_sources import PythonSource, PythonSourceCollection
+from .types import (
+    ClassDefinition,
+    PropertyDefinition,
+    SourceArtifact,
+    SourceBundle,
+    VocabularyMember,
+    VocabularySnapshot,
+)
 
 # Trusted references are captured once rather than reread from a mutable namespace
 # during invocation. Only consumed names participate in callable authentication.
@@ -787,6 +795,37 @@ def _untrusted_value(value: Any) -> Any:
     return copy.deepcopy(value)
 
 
+_STATIC_INPUT_TYPES = (
+    SourceBundle,
+    SourceArtifact,
+    PythonSourceCollection,
+    PythonSource,
+    ClassDefinition,
+    PropertyDefinition,
+    VocabularySnapshot,
+    VocabularyMember,
+)
+
+
+def _ordinary_static_input(value: object) -> bool:
+    """Cache eligibility only; nonordinary inputs retain the compiler's validation.
+
+    A subclass can replace equality/hash while exposing different source bytes.
+    Never let caller-controlled equality select previously compiled source facts.
+    """
+    kind = type(value)
+    if any(kind is ordinary for ordinary in (str, bytes, int, float, bool, type(None))):
+        return True
+    if kind is tuple:
+        return all(_ordinary_static_input(item) for item in typing.cast(tuple[object, ...], value))
+    if any(kind is ordinary for ordinary in _STATIC_INPUT_TYPES):
+        return all(
+            _ordinary_static_input(getattr(value, field.name))
+            for field in dataclasses.fields(typing.cast(Any, value))
+        )
+    return False
+
+
 @lru_cache(maxsize=16)
 def _prepared_python_sources(schema, declarations, sources, definitions, vocabularies, context):
     """Reuse immutable static facts, never analyzer managers or acquired authority.
@@ -830,12 +869,15 @@ def python_port_identity(
     declarations = effective_nominal_kind_declarations(model)
     definitions = prepared.definitions if prepared is not None else None
     vocabularies = prepared.vocabularies if prepared is not None else ()
-    if compile_data_operations is _STATIC_COMPILER:
+    if compile_data_operations is _STATIC_COMPILER and _ordinary_static_input(
+        (schema, declarations, sources, definitions, vocabularies)
+    ):
         observed = _prepared_python_sources(
             schema, declarations, sources, definitions, vocabularies, _STATIC_COMPILER_CONTEXT
         )
     else:
-        # An explicitly substituted compiler owns its own semantics and lifetime.
+        # Substituted compilers own their lifetime. Nonordinary values must be
+        # recompiled without letting their custom hash/equality select cached facts.
         observed = compile_data_operations(
             schema,
             declarations=declarations,

@@ -1368,3 +1368,36 @@ def test_static_correspondence_input_changes_cannot_hit_old_preparation(change):
         python_port_identity(model, changed, model.operations[0].semantic_id)
     assert _prepared_python_sources.cache_info().misses == 2
     assert _prepared_python_sources.cache_info().hits == 0
+
+
+def test_colliding_source_subclass_cannot_borrow_warm_static_correspondence():
+    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+
+    model, sources = actual()
+    operation = model.operations[0].semantic_id
+    _prepared_python_sources.cache_clear()
+    python_port_identity(model, sources, operation)
+
+    class CollidingSources(PythonSourceCollection):
+        def __hash__(self):
+            return hash(sources)
+
+        def __eq__(self, other):
+            return True
+
+    source = sources.sources[0]
+    changed = source.content.replace(b"claims/", b"forged/")
+    assert changed != source.content
+    forged = CollidingSources(
+        sources=(replace(source, content=changed),),
+        interpreter=sources.interpreter,
+        interpretation=sources.interpretation,
+        stub_policy=sources.stub_policy,
+        boundary_contracts=sources.boundary_contracts,
+        generated_interfaces=sources.generated_interfaces,
+    )
+    assert hash(forged) == hash(sources) and forged == sources
+    with pytest.raises(PortRefusal):
+        python_port_identity(model, forged, operation)
+    assert _prepared_python_sources.cache_info().hits == 0
+    assert _prepared_python_sources.cache_info().misses == 1
