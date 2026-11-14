@@ -203,6 +203,7 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "pdf_reference_bytes_equal",
         "read_pdf_companion_export_events",
         "read_pdf_native_events",
+        "read_pdf_materialization_bound",
         "record_integrated_source_context",
         "require_pdf_frozen",
         "begin_pdf_build",

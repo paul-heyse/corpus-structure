@@ -163,8 +163,8 @@ BEGIN
  PERFORM ops.ddo_authorize_request(producer);
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
  WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
- AND definition.support_contract->'capabilities'->>'preparation'='pdf-native') THEN
- RAISE EXCEPTION 'selected source derivation is not an admitted native PDF capture' USING ERRCODE='23514'; END IF;
+ AND coalesce(ops.ddo_pdf_command_eligible(definition),false)) THEN
+ RAISE EXCEPTION 'selected source derivation is not an exact approved native PDF command' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=derivation.intent_id;
  SELECT * INTO STRICT product FROM kb.data_product WHERE id=p_product
  AND project_id=consumer.project_id AND original_source=consumer.original_source;

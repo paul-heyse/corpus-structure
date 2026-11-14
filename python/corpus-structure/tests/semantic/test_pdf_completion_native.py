@@ -1,5 +1,6 @@
 """Completion proof declaration includes independent semantic outcome and producer custody."""
 
+import pytest
 from pglast import ast
 
 from corpus_structure.semantic.pdf_completion_native import pdf_completion_native_sql
@@ -23,8 +24,34 @@ def test_pdf_completion_proof_is_closed_private_and_preserves_semantic_non_succe
     assert "GRANT" not in sql
 
 
+@pytest.mark.parametrize(
+    "factory,effect,authorization",
+    [
+        (
+            "corpus_structure.ingest.pdf_capture.PdfCaptureOperation.acquire_port",
+            "publish_pdf_capture",
+            ["original-source", "owned-request-attempt"],
+        ),
+        (
+            "corpus_structure.ingest.pdf_enrichment_operation.PdfEnrichmentOperation.acquire_port",
+            "publish_pdf_enrichment",
+            ["original-source", "exact-selected-pdf", "owned-request-attempt"],
+        ),
+        (
+            "corpus_structure.ingest.pdf_integration_operation.PdfIntegrationOperation.acquire_port",
+            "publish_pdf_integration",
+            ["original-source", "exact-selected-pdf", "owned-request-attempt"],
+        ),
+        (
+            "corpus_structure.ingest.pdf_organization_operation.PdfOrganizationOperation.acquire_port",
+            "publish_pdf_organization",
+            ["original-source", "exact-selected-pdf", "owned-request-attempt"],
+        ),
+    ],
+    ids=["capture", "enrichment", "integration", "organization"],
+)
 def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_factory(
-    native_rollback,
+    native_rollback, factory, effect, authorization
 ):
     """Pure eligibility is necessary; actual sealed receipt inspection remains separate."""
     from copy import deepcopy
@@ -40,8 +67,8 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
         "support_contract": {
             "effects": [
                 {
-                    "name": "publish_pdf_capture",
-                    "authorization": ["original-source", "owned-request-attempt"],
+                    "name": effect,
+                    "authorization": authorization,
                     "idempotency": "request-generation/source-digest/recipe-digest",
                     "fulfillment": "sealed-native-pdf-receipt",
                 }
@@ -50,7 +77,7 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
                 "preparation": "pdf-native",
                 "forms": ["scalar"],
                 "prepared_factory": {
-                    "entrypoint": "corpus_structure.ingest.pdf_capture.PdfCaptureOperation.acquire_port",
+                    "entrypoint": factory,
                     "source_digest": "a" * 64,
                 },
             },
@@ -61,12 +88,31 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
     )
     connection = native_rollback.connection
     assert connection.scalar(query, {"value": json_bytes(definition).decode()}) is True
-    for change in ("factory", "fulfillment", "authorization", "implementation"):
+    for change in (
+        "factory", "paired_factory", "fulfillment", "authorization", "implementation",
+        "profile", "effects", "preparation", "forms", "source_digest",
+    ):
         invalid = deepcopy(definition)
         if change == "factory":
             invalid["support_contract"]["capabilities"]["prepared_factory"]["entrypoint"] = (
                 "other.acquire_port"
             )
+        elif change == "paired_factory":
+            invalid["support_contract"]["capabilities"]["prepared_factory"]["entrypoint"] = (
+                "corpus_structure.ingest.pdf_capture.PdfCaptureOperation.acquire_port"
+                if effect != "publish_pdf_capture"
+                else "corpus_structure.ingest.pdf_integration_operation.PdfIntegrationOperation.acquire_port"
+            )
+        elif change == "profile":
+            invalid["profile"] = "derivation"
+        elif change == "effects":
+            invalid["support_contract"]["effects"] = []
+        elif change in ("preparation", "forms"):
+            invalid["support_contract"]["capabilities"][change] = (
+                "none" if change == "preparation" else ["scalar", "batch"]
+            )
+        elif change == "source_digest":
+            invalid["support_contract"]["capabilities"]["prepared_factory"][change] = "uncaptured"
         elif change == "implementation":
             invalid["implementation_revision"] = "unauthenticated-behavior-string"
         else:

@@ -104,16 +104,29 @@ REVOKE ALL ON FUNCTION ops.index_pdf_visual_mapping(bigint,text,text) FROM PUBLI
 
 CREATE OR REPLACE FUNCTION ops.publish_pdf_observation(p_task bigint,p_attempt bigint,p_holder text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $observation$
-DECLARE job ops.task; run ops.run; product jsonb:='{}'; digest text:=encode(sha256(p_payload),'hex');
+DECLARE job ops.task; run ops.run; context record; definition sem.data_operation_definition; native_request ops.data_request; selected jsonb; publication jsonb; product jsonb:='{}'; digest text:=encode(sha256(p_payload),'hex');
  wire json; field_name text; field_value json; envelope_fields text[]:=ARRAY[]::text[];
  input_rows json; occurrence_rows json; relation_rows json; coverage_rows json; mapping_rows json;
  visual_scope jsonb; visual_params jsonb; visual_recipe jsonb;
  previous ops.pdf_product; input jsonb; occurrence jsonb; relation jsonb; endpoint jsonb; coverage jsonb; mapping_report jsonb; pin ops.pdf_product; idx bigint; eid bigint; original text;
  bind_original boolean;
 BEGIN
- SELECT r.* INTO STRICT run FROM ops.run r JOIN ops.task t ON t.run_id=r.id WHERE t.id=p_task FOR SHARE OF r;
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=run.id FOR UPDATE;
- IF job.attempt<>p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN RAISE EXCEPTION 'stale recognition observation attempt' USING ERRCODE='P0004'; END IF;
+ -- Read identity without locking the task before the native support/demand/request
+ -- locks. Exact immutable replay below needs only its original attempt fence.
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
+ IF context.request_id IS NULL THEN
+  SELECT * INTO STRICT run FROM ops.run WHERE id=context.run_id;
+ ELSE
+  SELECT d.* INTO STRICT definition FROM sem.data_operation_definition d
+  JOIN ops.data_request request ON request.release_id=d.release_id AND request.operation_id=d.operation_id
+  WHERE request.id=context.request_id;
+  IF NOT coalesce(ops.ddo_pdf_command_eligible(definition),false)
+   OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'publish_pdf_integration' THEN
+   RAISE EXCEPTION 'native observations require the exact approved PDF integration effect' USING ERRCODE='23514';
+  END IF;
+ END IF;
+ IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN RAISE EXCEPTION 'stale recognition observation attempt' USING ERRCODE='P0004'; END IF;
  wire:=convert_from(p_payload,'UTF8')::json;
  IF json_typeof(wire) IS DISTINCT FROM 'object' OR wire->>'kind' IS DISTINCT FROM 'recognition_observation' THEN RAISE EXCEPTION 'parsing record must be an object: PdfIntegratedProduct' USING ERRCODE='23514'; END IF;
  FOR field_name,field_value IN SELECT key,value FROM json_each(wire) LOOP
@@ -131,28 +144,71 @@ BEGIN
  -- {integrated_shape_guard}
  IF product->>'kind' IS DISTINCT FROM 'recognition_observation' OR product->>'product_key'=''  THEN
   RAISE EXCEPTION 'recognition observation kind/key/health differs' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/schema/pdf_products' AND encode(sha256(content),'hex')=p_contract) THEN RAISE EXCEPTION 'PDF contract is not archived by task release' USING ERRCODE='23514'; END IF;
- SELECT artifact_digest INTO original FROM ops.source_build WHERE task_id=p_task AND release_id=run.release_id;
+ IF encode(sha256(ops.pdf_contract_input(context.release_id,'schema/pdf_products')),'hex') IS DISTINCT FROM p_contract THEN RAISE EXCEPTION 'PDF contract is not archived by task release' USING ERRCODE='23514'; END IF;
+ IF context.request_id IS NOT NULL AND product->'observation'->>'pass_role' IN ('chandra_page','chandra_crop') THEN
+  RAISE EXCEPTION 'native integration cannot publish legacy Chandra observations' USING ERRCODE='23514'; END IF;
+ SELECT artifact_digest INTO original FROM ops.source_build WHERE task_id=p_task AND release_id=context.release_id;
  bind_original:=NOT FOUND;
  IF bind_original THEN
   original:=product->>'artifact_digest';
-  IF coalesce(product->'observation'->>'pass_role','') NOT IN ('chandra_page','chandra_crop')
+  IF context.request_id IS NOT NULL OR coalesce(product->'observation'->>'pass_role','') NOT IN ('chandra_page','chandra_crop')
      OR NOT EXISTS(SELECT FROM kb.document d JOIN kb.source_artifact a ON a.artifact_digest=d.content_hash
-       WHERE job.unit_type='document' AND d.id=job.unit_id AND d.project_id=run.project_id
+       WHERE job.unit_type='document' AND d.id=job.unit_id AND d.project_id=context.project_id
          AND d.content_hash=original) THEN
    RAISE EXCEPTION 'PDF original is outside retained visual task custody' USING ERRCODE='23514'; END IF;
  END IF;
  IF product->>'artifact_digest' IS DISTINCT FROM original THEN RAISE EXCEPTION 'PDF original custody differs' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM ops.pdf_product WHERE task_id=p_task AND product_key=product->>'product_key';
- IF FOUND THEN
+ IF NOT FOUND THEN
+  -- This acquires support -> demand -> request -> task for a native request,
+  -- or the original run -> task order for a retained legacy execution.
+  SELECT * INTO STRICT context FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+  IF context.request_id IS NULL THEN SELECT * INTO STRICT run FROM ops.run WHERE id=context.run_id; END IF;
+  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
+  -- A concurrent exact publisher may have committed while ownership was acquired.
+  SELECT * INTO previous FROM ops.pdf_product WHERE task_id=p_task AND product_key=product->>'product_key';
+ ELSE
+  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
+ END IF;
+ IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN
+  RAISE EXCEPTION 'stale recognition observation attempt' USING ERRCODE='P0004'; END IF;
+ IF previous.task_id IS NOT NULL THEN
   IF previous.content_digest<>digest OR previous.contract_digest<>p_contract OR previous.kind<>product->>'kind' OR NOT EXISTS(SELECT FROM ops.pdf_product_body WHERE task_id=p_task AND product_key=product->>'product_key' AND payload=p_payload) THEN RAISE EXCEPTION 'immutable PDF bundle replay differs' USING ERRCODE='23514'; END IF;
   IF EXISTS((SELECT encode(sha256(supplied.content),'hex') FROM unnest(p_artifacts) supplied(content) EXCEPT SELECT a.artifact_digest FROM ops.pdf_product_artifact a WHERE a.task_id=p_task AND a.product_key=product->>'product_key') UNION ALL (SELECT a.artifact_digest FROM ops.pdf_product_artifact a WHERE a.task_id=p_task AND a.product_key=product->>'product_key' EXCEPT SELECT encode(sha256(supplied.content),'hex') FROM unnest(p_artifacts) supplied(content))) OR EXISTS(SELECT FROM unnest(p_artifacts) supplied(content) WHERE NOT EXISTS(SELECT FROM kb.source_artifact a WHERE a.artifact_digest=encode(sha256(supplied.content),'hex') AND a.content=supplied.content)) THEN RAISE EXCEPTION 'PDF replay artifacts differ' USING ERRCODE='23514'; END IF;
   RETURN digest;
  END IF;
- PERFORM sem.require_execution_operation(run.release_id,'publish_pdf_observation');
- IF run.sealed OR run.status NOT IN ('created','running') OR job.status<>'running'
- OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp() THEN
-  RAISE EXCEPTION 'run/attempt no longer accepts recognition observations' USING ERRCODE='P0004';
+ PERFORM ops.require_pdf_operation(context.release_id,'publish_pdf_observation');
+ IF context.request_id IS NOT NULL THEN
+  IF original IS DISTINCT FROM context.source_digest THEN
+   RAISE EXCEPTION 'native recognition original differs from the owned request source' USING ERRCODE='23514'; END IF;
+  SELECT * INTO STRICT native_request FROM ops.data_request WHERE id=context.request_id;
+  SELECT value INTO STRICT selected FROM jsonb_array_elements(native_request.binding->'inputs')
+  WHERE value->>'role'='capture';
+  IF selected->>'member_id' IS NOT NULL OR selected->>'support_derivation_id' IS NULL THEN
+   RAISE EXCEPTION 'native recognition requires one whole selected PDF support' USING ERRCODE='23514'; END IF;
+  publication:=ops.ddo_pdf_capture_source(native_request.id,context.project_id,
+   selected->>'product_id',selected->>'support_derivation_id')->'publication';
+  IF (SELECT count(*) FROM json_array_elements(input_rows) i WHERE i->>'role'='structural')<>1
+   OR NOT EXISTS(SELECT FROM json_array_elements(input_rows) i WHERE i->>'role'='structural'
+    AND i->>'task_id'=publication->>'task_id' AND i->>'product_key'=publication->>'product_key'
+    AND i->>'content_digest'=publication->>'logical_digest') THEN
+   RAISE EXCEPTION 'native recognition structural input differs from exact selected PDF publication'
+   USING ERRCODE='23514'; END IF;
+  -- Cross-task recognition may only reuse immutable predecessor observations of
+  -- this exact selected publication. Same-task observations support successive passes.
+  IF EXISTS(
+   WITH RECURSIVE lineage(task_id,product_key,content_digest) AS (
+    SELECT (publication->>'task_id')::bigint,publication->>'product_key',publication->>'logical_digest'
+    UNION SELECT edge.input_task_id,edge.input_product_key,edge.input_content_digest
+    FROM ops.pdf_product_input edge JOIN lineage parent
+    ON edge.task_id=parent.task_id AND edge.product_key=parent.product_key
+   )
+   SELECT FROM json_array_elements(input_rows) i WHERE i->>'role'='recognition'
+   AND (i->>'task_id')::bigint<>p_task AND NOT EXISTS(SELECT FROM lineage predecessor
+    WHERE predecessor.task_id=(i->>'task_id')::bigint AND predecessor.product_key=i->>'product_key'
+    AND predecessor.content_digest=i->>'content_digest')
+  ) THEN RAISE EXCEPTION 'native recognition input is outside exact selected publication lineage'
+   USING ERRCODE='23514'; END IF;
  END IF;
  -- Resolve EVERY input before inserting the new identity. Immutable edges to extant bodies
  -- make forward references, self references and cycles impossible without a path table.
@@ -160,24 +216,21 @@ BEGIN
   -- {inputs_shape_guard}
   SELECT * INTO STRICT pin FROM ops.pdf_product WHERE task_id=(input->>'task_id')::bigint AND product_key=input->>'product_key' AND content_digest=input->>'content_digest';
   IF pin.task_id=p_task AND pin.product_key=product->>'product_key' THEN RAISE EXCEPTION 'self PDF input' USING ERRCODE='23514'; END IF;
-  IF pin.artifact_digest<>original OR NOT EXISTS(SELECT FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=pin.task_id AND r.project_id=run.project_id) THEN RAISE EXCEPTION 'PDF input outside original/project custody' USING ERRCODE='23514'; END IF;
+  IF pin.artifact_digest<>original OR NOT EXISTS(SELECT FROM ops.pdf_task_context(pin.task_id) input_context WHERE input_context.project_id=context.project_id AND input_context.source_digest=original) THEN RAISE EXCEPTION 'PDF input outside original/project custody' USING ERRCODE='23514'; END IF;
   IF (input->>'role'='recognition' AND pin.kind<>'recognition_observation') OR (input->>'role'='structural' AND pin.kind NOT IN ('native','integrated')) THEN RAISE EXCEPTION 'PDF input role/kind differs' USING ERRCODE='23514'; END IF;
   IF (pin.kind IN ('native','integrated') AND NOT EXISTS(
     SELECT FROM ops.pdf_published_revision b
     JOIN ops.pdf_build_validation v ON v.build_id=b.build_id AND v.frozen_digest=b.frozen_digest
       AND v.logical_digest=b.logical_digest AND v.native_callbacks
-    JOIN sem.input s ON s.release_id=b.release_id AND s.input_kind='dependency'
-      AND s.input_name='execution/implementation/pdf/docling-validation.schema.json'
-      AND s.content_digest=b.schema_digest
     WHERE b.task_id=pin.task_id AND b.product_key=pin.product_key
       AND b.release_id=pin.release_id AND b.kind=pin.kind AND b.source_digest=original
       AND b.logical_digest=pin.content_digest AND v.contract_digest=pin.contract_digest
+      AND encode(sha256(ops.pdf_contract_input(b.release_id,'implementation/pdf/docling-validation.schema.json')),'hex')=b.schema_digest
    )) OR (pin.kind='recognition_observation' AND NOT EXISTS(
-    SELECT FROM ops.pdf_product_body b JOIN sem.input s ON s.release_id=pin.release_id
-      AND s.input_kind='dependency' AND s.input_name='execution/schema/pdf_products'
-      AND encode(sha256(s.content),'hex')=pin.contract_digest
+    SELECT FROM ops.pdf_product_body b
     WHERE b.task_id=pin.task_id AND b.product_key=pin.product_key
       AND encode(sha256(b.payload),'hex')=pin.content_digest
+      AND encode(sha256(ops.pdf_contract_input(pin.release_id,'schema/pdf_products')),'hex')=pin.contract_digest
    )) THEN RAISE EXCEPTION 'PDF input has no admitted immutable body' USING ERRCODE='23514'; END IF;
  END LOOP;
  IF (SELECT count(*) FROM json_array_elements(input_rows))<>(SELECT count(DISTINCT (value->>'role',value->>'task_id',value->>'product_key')) FROM json_array_elements(input_rows)) THEN RAISE EXCEPTION 'duplicate PDF input role/pin' USING ERRCODE='23514'; END IF;
@@ -295,9 +348,9 @@ BEGIN
  INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(p_artifacts) content ON CONFLICT DO NOTHING;
  IF bind_original THEN
   INSERT INTO ops.source_build(task_id,release_id,artifact_digest,recipe_digest)
-  VALUES(p_task,run.release_id,original,product->>'recipe_digest');
+  VALUES(p_task,context.release_id,original,product->>'recipe_digest');
  END IF;
- INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest) VALUES(p_task,product->>'product_key',digest,product->>'kind',original,run.release_id,p_contract);
+ INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest) VALUES(p_task,product->>'product_key',digest,product->>'kind',original,context.release_id,p_contract);
  INSERT INTO ops.pdf_product_artifact(task_id,product_key,artifact_digest) SELECT p_task,product->>'product_key',encode(sha256(supplied.content),'hex') FROM unnest(p_artifacts) supplied(content) ON CONFLICT DO NOTHING;
  INSERT INTO ops.pdf_product_body(task_id,product_key,payload,recipe_digest,descriptor) VALUES(p_task,product->>'product_key',p_payload,product->>'recipe_digest',product);
  IF product->'observation' ? 'mapped_evidence_digest' THEN

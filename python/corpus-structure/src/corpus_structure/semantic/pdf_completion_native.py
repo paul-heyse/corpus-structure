@@ -5,16 +5,36 @@ def pdf_completion_native_sql() -> str:
     import json
     from dataclasses import asdict
 
-    from .pdf_effect_contract import PDF_CAPTURE_EFFECT, PDF_CAPTURE_FACTORY
+    from .pdf_effect_contract import (
+        PDF_CAPTURE_EFFECT,
+        PDF_CAPTURE_FACTORY,
+        PDF_ENRICHMENT_EFFECT,
+        PDF_ENRICHMENT_FACTORY,
+        PDF_INTEGRATION_EFFECT,
+        PDF_INTEGRATION_FACTORY,
+        PDF_ORGANIZATION_EFFECT,
+        PDF_ORGANIZATION_FACTORY,
+    )
+
+    approved = [
+        {"factory": factory, "effects": [asdict(effect)]}
+        for factory, effect in (
+            (PDF_CAPTURE_FACTORY, PDF_CAPTURE_EFFECT),
+            (PDF_ENRICHMENT_FACTORY, PDF_ENRICHMENT_EFFECT),
+            (PDF_INTEGRATION_FACTORY, PDF_INTEGRATION_EFFECT),
+            (PDF_ORGANIZATION_FACTORY, PDF_ORGANIZATION_EFFECT),
+        )
+    ]
 
     return """
 CREATE OR REPLACE FUNCTION ops.ddo_pdf_command_eligible(definition sem.data_operation_definition) RETURNS boolean
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $proof$
  SELECT definition.profile='command'
- AND definition.support_contract->'effects'='__PDF_CAPTURE_EFFECT__'::jsonb
  AND definition.support_contract->'capabilities'->>'preparation'='pdf-native'
  AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='__PDF_CAPTURE_FACTORY__'
+ AND EXISTS(SELECT FROM jsonb_array_elements('__PDF_APPROVED_PAIRS__'::jsonb) pair
+ WHERE definition.support_contract->'effects'=pair->'effects'
+ AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'=pair->>'factory')
  AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
  AND definition.implementation_revision LIKE 'implementation-slice:%'
 $proof$;
@@ -31,6 +51,9 @@ BEGIN
  IF receipts<>'[]'::jsonb THEN
  RAISE EXCEPTION 'non-PDF computation cannot acquire a PDF execution event' USING ERRCODE='23514';
  END IF; RETURN; END IF;
+ IF NOT coalesce(ops.ddo_pdf_command_eligible(definition),false) THEN
+ RAISE EXCEPTION 'PDF completion requires its exact approved command/effect/factory pair'
+ USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
  IF context.release_id IS DISTINCT FROM p_release OR NOT EXISTS(
  SELECT FROM ops.data_request request WHERE request.id=context.request_id
@@ -56,6 +79,4 @@ BEGIN
 END $proof$;
 REVOKE ALL ON FUNCTION ops.ddo_require_pdf_completion(jsonb,bigint,bigint,text,text,text)
 FROM PUBLIC;
-""".replace(
-        "__PDF_CAPTURE_EFFECT__", json.dumps([asdict(PDF_CAPTURE_EFFECT)], separators=(",", ":"))
-    ).replace("__PDF_CAPTURE_FACTORY__", PDF_CAPTURE_FACTORY)
+""".replace("__PDF_APPROVED_PAIRS__", json.dumps(approved, separators=(",", ":")))
