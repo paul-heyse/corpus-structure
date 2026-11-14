@@ -19,7 +19,8 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v3"
+MODEL_VERSION = "data-operation-model-v4"
+PREVIOUS_MODEL_VERSION = "data-operation-model-v3"
 ARCHIVED_MODEL_VERSION = "data-operation-model-v2"
 
 
@@ -214,12 +215,27 @@ class EffectContract:
 
 
 @dataclass(frozen=True)
+class StreamSettlement:
+    mode: Literal["terminal-atomic"]
+    output_role: str
+    terminal_outcome: str
+
+
+@dataclass(frozen=True)
+class ConsumerSelectionCapability:
+    entrypoint: str
+    source_digest: str
+
+
+@dataclass(frozen=True)
 class ImplementationCapabilities:
     forms: tuple[Literal["scalar", "batch", "stream"], ...]
     preparation: str
     cancellation: str
     ownership: str
     limits: tuple[str, ...] = ()
+    stream_settlement: StreamSettlement | None = None
+    prepared_factory: ConsumerSelectionCapability | None = None
 
 
 @dataclass(frozen=True)
@@ -297,12 +313,14 @@ class EffectiveOperation:
     support_policy: str = "all-declared-input-support"
     potential_dependencies: tuple[str, ...] = ()
     result_fields: tuple[tuple[str, str], ...] = ()
+    consumer_selection: ConsumerSelectionCapability | None = None
 
     @property
     def recipe(self) -> bytes:
         """Eligibility-only rules have a separate identity; support/scope remain determinants."""
         return canonical_bytes(
             {
+                **({"stream_settlement": asdict(self.capabilities.stream_settlement)} if self.capabilities.stream_settlement is not None else {}),
                 "id": self.semantic_id,
                 "profile": self.profile,
                 "subject": self.subject,
@@ -361,7 +379,8 @@ class EffectiveOperation:
                 ),
                 "state_dimensions": [asdict(s) for s in self.state_dimensions],
                 "transitions": [asdict(s) for s in self.transitions],
-                "capabilities": asdict(self.capabilities),
+                "capabilities": {key: value for key, value in asdict(self.capabilities).items() if value is not None},
+                **({"consumer_selection": asdict(self.consumer_selection)} if self.consumer_selection is not None else {}),
                 "binding": self.binding,
                 "callable_surfaces": [
                     {
@@ -521,6 +540,10 @@ class EffectiveDataOperationModel:
 
         record = asdict(self)
         for operation in record["operations"]:
+            if self.version != MODEL_VERSION:
+                operation.pop("consumer_selection")
+                operation["capabilities"].pop("stream_settlement")
+                operation["capabilities"].pop("prepared_factory")
             for role in operation["roles"]:
                 if role["subject_field"] is None:
                     role.pop("subject_field")
@@ -687,10 +710,12 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
     record = json.loads(content)
     if not isinstance(record, dict) or record.get("version") not in {
         MODEL_VERSION,
+        PREVIOUS_MODEL_VERSION,
         ARCHIVED_MODEL_VERSION,
     }:
         raise ValueError("unsupported archived data-operation model version")
     archived_v2 = record["version"] == ARCHIVED_MODEL_VERSION
+    historical_model = record["version"] != MODEL_VERSION
     converter = Converter(forbid_extra_keys=True, detailed_validation=False)
 
     def structure_bytes(value, _):
@@ -704,6 +729,11 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
         historical = (
             {"graph_projections": []} if cls is EffectiveDataOperationModel and archived_v2 else {}
         )
+        if historical_model and cls is ImplementationCapabilities:
+            historical["stream_settlement"] = None
+            historical["prepared_factory"] = None
+        if historical_model and cls is EffectiveOperation:
+            historical["consumer_selection"] = None
         archived_fields = expected - historical.keys()
 
         def structure(value, _):

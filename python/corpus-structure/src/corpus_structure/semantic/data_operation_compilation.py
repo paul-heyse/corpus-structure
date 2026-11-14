@@ -28,6 +28,8 @@ from .data_operation_model import (
     EffectiveOperation,
     FactOrigin,
     ImplementationCapabilities,
+    StreamSettlement,
+    ConsumerSelectionCapability,
     InputSupport,
     OpaqueBoundary,
     OperationRole,
@@ -115,6 +117,7 @@ _METADATA_FIELDS = {
     "replicate_policy",
     "support_policy",
     "result_fields",
+    "consumer_selection",
 }
 
 
@@ -1348,17 +1351,53 @@ def compile_data_operations(
         capabilities = _mapping(
             raw.get("capabilities"),
             semantic_id,
-            {"forms", "preparation", "cancellation", "ownership", "limits"},
+            {"forms", "preparation", "cancellation", "ownership", "limits", "stream_settlement", "prepared_factory"},
         )
         forms = _strings(capabilities.get("forms"), semantic_id, empty=False)
         if not set(forms) <= {"scalar", "batch", "stream"}:
             _fail(semantic_id, "unsupported invocation capability")
+        settlement = None
+        if capabilities.get("stream_settlement") is not None:
+            record = _mapping(capabilities["stream_settlement"], semantic_id, {"mode", "output_role", "terminal_outcome"})
+            if record.get("mode") != "terminal-atomic" or forms != ("stream",):
+                _fail(semantic_id, "terminal settlement requires exactly the stream form")
+            output = next((role for role in roles if role.direction == "output" and role.name == record.get("output_role")), None)
+            if output is None or len([role for role in roles if role.direction == "output"]) != 1 or record.get("terminal_outcome") not in outcomes:
+                _fail(semantic_id, "stream settlement requires one declared output and outcome")
+            settlement = StreamSettlement("terminal-atomic", output.name, record["terminal_outcome"])
+        def captured_method(name):
+            if frontend is None or not isinstance(name, str) or not name.isidentifier():
+                _fail(semantic_id, "captured capability requires its supplied Python owner")
+            origin = next((origin for origin in origins if origin.field == "callable"), None)
+            if origin is None:
+                _fail(semantic_id, "captured capability lacks a callable owner")
+            declaration = origin.exposed_as or origin.declaration
+            owner = declaration.rsplit(".", 1)[0]
+            entrypoint = owner + "." + name
+            member = frontend.resolve(entrypoint)
+            import griffe
+            from hashlib import sha256
+            if not isinstance(member, griffe.Function):
+                _fail(semantic_id, "captured capability is not an original method")
+            source = frontend.modules[frontend._module_for(entrypoint)].source
+            return ConsumerSelectionCapability(entrypoint, sha256(source.content).hexdigest())
+
+        factory = captured_method(capabilities["prepared_factory"]) if capabilities.get("prepared_factory") is not None else None
+        selection = None
+        if raw.get("consumer_selection") is not None:
+            if isinstance(raw["consumer_selection"], str):
+                selection = captured_method(raw["consumer_selection"])
+            else:
+                record = _mapping(raw["consumer_selection"], semantic_id, {"entrypoint", "source_digest"})
+                selection = ConsumerSelectionCapability(_text(record.get("entrypoint"), semantic_id), _text(record.get("source_digest"), semantic_id))
         capability = ImplementationCapabilities(
             cast(Any, forms),
             _text(capabilities.get("preparation"), semantic_id),
             _text(capabilities.get("cancellation"), semantic_id),
             _text(capabilities.get("ownership"), semantic_id),
             _strings(capabilities.get("limits", []), semantic_id),
+            settlement,
+            factory,
         )
         binding_id = semantic_id + "/binding"
         binding = RelationalBinding(
@@ -1423,6 +1462,7 @@ def compile_data_operations(
             _text(raw.get("support_policy", "all-declared-input-support"), semantic_id),
             _strings(raw.get("potential_dependencies", []), semantic_id),
             tuple(sorted(result_fields.items())),
+            selection,
         )
         operations.append(operation)
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)

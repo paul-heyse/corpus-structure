@@ -7,10 +7,13 @@ It grants no native publication, hydration or effect permission.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
 from dataclasses import dataclass
+from hashlib import sha256
 
 from .data_operation_bindings import BindingResult
-from .data_operation_model import BoundRoleMember, ResolvedRoleBinding
+from .data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
 from .python_operation_sources import PythonSource
 from .types import SourceArtifact
 
@@ -66,8 +69,9 @@ def consumer_selection_declarations(
     from .identity import canonical_bytes
 
     class Contracts(cst.CSTVisitor):
-        def __init__(self, module: cst.Module) -> None:
+        def __init__(self, module: cst.Module, source: PythonSource) -> None:
             self.module = module
+            self.source = source
             self.operations: list[dict] = []
 
         def visit_ClassDef(self, node: cst.ClassDef) -> None:
@@ -97,19 +101,23 @@ def consumer_selection_declarations(
                 operation = values[0]
                 if not isinstance(operation, dict) or operation.get("profile") != "selection":
                     raise ValueError("consumer selection contract requires selection profile")
+                methods = [member for member in body if isinstance(member, cst.FunctionDef) and member.name.value == "select_hydrated"]
+                if len(methods) != 1:
+                    raise ValueError("selection owner requires one explicit select_hydrated implementation")
+                operation["consumer_selection"] = {"entrypoint": self.source.module + "." + node.name.value + ".select_hydrated", "source_digest": sha256(self.source.content).hexdigest()}
                 self.operations.append(operation)
 
     declarations = []
     for source in sources:
         module = cst.parse_module(source.content)
-        contracts = Contracts(module)
+        contracts = Contracts(module, source)
         module.visit(contracts)
         if contracts.operations:
             declarations.append(
                 SourceArtifact(
                     "consumer-selection:" + source.module,
                     canonical_bytes(
-                        {"version": "data-operation-model-v3", "operations": contracts.operations}
+                        {"version": MODEL_VERSION, "operations": contracts.operations}
                     ),
                 )
             )
@@ -237,3 +245,114 @@ def hydrate_consumer_selection(
             )
         result.append((role.role, tuple(values)))
     return HydratedConsumerSelection(selection, tuple(result))
+
+
+@dataclass(frozen=True)
+class ResolvedConsumerSelection:
+    """Captured consumer method over admitted members; no ambient selection authority."""
+
+    operation: str
+    function: Callable[[HydratedConsumerSelection], Any]
+    verify: Callable[[], None]
+    authorize: Callable[[], None]
+
+    def select_hydrated(self, inputs: HydratedConsumerSelection):
+        if inputs.selection.operation != self.operation:
+            raise ValueError("consumer capability belongs to another admitted selection")
+        self.verify()
+        self.authorize()
+        result = self.function(inputs)
+        self.verify()
+        self.authorize()
+        return result
+
+
+def resolve_consumer_selection(model, sources, operation, receiver, *, authorize):
+    """Acquire only the compiled class method, after native execution authorization.
+
+    The caller owns the admitted receiver/prepared resources. This boundary captures
+    no registry and offers no method-name fallback or unbound context defaults.
+    """
+    import ast
+    import importlib
+    import inspect
+    from pathlib import Path
+
+    from .data_operation_ports import PortRefusal, _runtime_members
+
+    if model.version != MODEL_VERSION:
+        raise PortRefusal("historical model cannot acquire current consumer capabilities")
+    capability = model.operation(operation).consumer_selection
+    if capability is None:
+        raise PortRefusal("operation has no captured consumer-selection capability")
+    candidates = [source for source in sources.sources if capability.entrypoint.startswith(source.module + ".")]
+    if not candidates:
+        raise PortRefusal("consumer implementation is outside acquired sources")
+    source = max(candidates, key=lambda value: len(value.module))
+    path = Path(source.filename).resolve()
+    module = importlib.import_module(source.module)
+    code = compile(source.content, str(path), "exec", dont_inherit=True)
+    entries = tuple(_runtime_members(ast.parse(source.content).body, module, code, source.module))
+    entry = next((entry for entry in entries if entry[0] == capability.entrypoint), None)
+    if entry is None:
+        raise PortRefusal("consumer implementation is absent from acquired source")
+    owner_name, method_name = capability.entrypoint.removeprefix(source.module + ".").rsplit(".", 1)
+    owner = module
+    for name in owner_name.split("."):
+        owner = inspect.getattr_static(owner, name)
+    if type(receiver) is not owner:
+        raise PortRefusal("consumer receiver differs from its captured owner")
+    function = getattr(receiver, method_name)
+
+    def verify():
+        if path.read_bytes() != source.content or sha256(source.content).hexdigest() != capability.source_digest:
+            raise PortRefusal("consumer source differs from captured capability")
+        if Path(inspect.getfile(module)).resolve() != path or not inspect.ismethod(function):
+            raise PortRefusal("consumer runtime differs from captured source")
+        actual = inspect.getattr_static(owner, method_name)
+        if actual is not function.__func__ or actual is not entry[2] or actual.__code__ != entry[3] or actual.__globals__ is not module.__dict__:
+            raise PortRefusal("consumer implementation was rebound")
+
+    verify()
+    authorize()
+    return ResolvedConsumerSelection(operation, function, verify, authorize)
+
+
+def resolve_prepared_factory(model, sources, operation):
+    """Resolve the compiled original static acquisition method, never an ambient registry."""
+    import ast
+    import importlib
+    import inspect
+    from pathlib import Path
+
+    from .data_operation_ports import PortRefusal, _runtime_members
+
+    if model.version != MODEL_VERSION:
+        raise PortRefusal("historical model cannot acquire current prepared capabilities")
+    capability = model.operation(operation).capabilities.prepared_factory
+    if capability is None:
+        raise PortRefusal("operation has no captured prepared acquisition")
+    candidates = [source for source in sources.sources if capability.entrypoint.startswith(source.module + ".")]
+    if not candidates:
+        raise PortRefusal("prepared acquisition is outside acquired source")
+    source = max(candidates, key=lambda value: len(value.module))
+    module = importlib.import_module(source.module)
+    path = Path(source.filename).resolve()
+    expected = compile(source.content, str(path), "exec", dont_inherit=True)
+    entries = tuple(_runtime_members(ast.parse(source.content).body, module, expected, source.module))
+    entry = next((entry for entry in entries if entry[0] == capability.entrypoint), None)
+    if entry is None or not isinstance(entry[2], staticmethod):
+        raise PortRefusal("prepared acquisition requires its original static method")
+    function = entry[2].__func__
+
+    def acquire(*args, **kwargs):
+        if path.read_bytes() != source.content or sha256(source.content).hexdigest() != capability.source_digest:
+            raise PortRefusal("prepared acquisition source differs from admitted bytes")
+        actual = module
+        for name in capability.entrypoint.removeprefix(source.module + ".").split("."):
+            actual = inspect.getattr_static(actual, name)
+        if not isinstance(actual, staticmethod) or actual.__func__ is not function or function.__code__ != entry[3] or function.__globals__ is not module.__dict__ or Path(inspect.getfile(module)).resolve() != path:
+            raise PortRefusal("prepared acquisition runtime was rebound")
+        return function(*args, **kwargs)
+
+    return acquire

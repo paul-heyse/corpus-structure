@@ -14,7 +14,7 @@ BEGIN
  IF target THEN
   PERFORM sem.require_archive_bytes(r);
   IF NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
-      AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v3') THEN
+      AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v4') THEN
    RAISE EXCEPTION 'unsupported target operation archive' USING ERRCODE='23514'; END IF;
  END IF;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,o->>'id' operation_id,o->>'implementation' implementation_id,b->>'version' implementation_version FROM jsonb_array_elements(model->'operations') o JOIN jsonb_array_elements(model->'implementations') b ON b->>'id'=o->>'implementation') x;

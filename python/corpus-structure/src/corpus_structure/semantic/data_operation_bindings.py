@@ -278,7 +278,7 @@ def compile_binding(
         raise ValueError("compiled binding differs from acquired subject context")
     if not subject:
         raise ValueError("binding requires a frozen subject")
-    if model.version != "data-operation-model-v3":
+    if model.version != "data-operation-model-v4":
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
     available_source_sets = source_sets_record(source_sets)
