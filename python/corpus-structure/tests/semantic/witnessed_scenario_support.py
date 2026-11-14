@@ -688,14 +688,22 @@ def completed_relationship_case(
             admin=admin,
         )
         with _witnessed_reader(case, run, bound, tmp_path) as ctx:
-            source = ctx.reader.source_view(ref.unit_id)
+            from corpus_structure.semantic.operations import BoundReader
+
+            fixture_reader = ctx.reader
+            if not isinstance(fixture_reader, BoundReader):
+                raise TypeError("sealed contextual fixture requires its actual native bound reader")
+            source_view_id = ref.unit_id
+            if source_view_id is None:
+                raise ValueError("sealed contextual fixture requires its exact selected source unit")
+            source = fixture_reader.source_view(source_view_id)
             relationship_result = contextual_fixture_result(
-                contextual_fixture_inputs(ctx.reader, source, cfg),
+                contextual_fixture_inputs(fixture_reader, source, cfg),
                 cfg,
                 ref,
                 encode=controlled_encoder,
-                retrieve=ctx.reader.contextual_candidates,
-                neighborhood=ctx.reader.contextual_mutual_neighbors,
+                retrieve=fixture_reader.contextual_candidates,
+                neighborhood=fixture_reader.contextual_mutual_neighbors,
                 choose=controlled_interpretation
                 if overlapping_recipe is None
                 else select_relationships,

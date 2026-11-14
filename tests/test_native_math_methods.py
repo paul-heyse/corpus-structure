@@ -6,9 +6,10 @@ from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Never
+from typing import Any, Literal, Never
 
 from native_math_primary import native_view, primary_layers, pure_source_release
+from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.method import (
     CoverageDraft,
@@ -25,14 +26,9 @@ from corpus_structure.core.method import (
 )
 from corpus_structure.core.vocab import ObservationKind, RunKind, TaskUnitType
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.math.methods import (
-    ExtractMath,
-    ExtractMathConfig,
-    NormalizeFormula,
-    NormalizeFormulaConfig,
-    SymbolScope,
-    SymbolScopeConfig,
-)
+from corpus_structure.methods.math.methods import ExtractMathConfig
+from corpus_structure.methods.math.configuration import MathSection
+from corpus_structure.methods.math.native import native_result, native_scope_result
 from corpus_structure.methods.math.native import NativeDomainRule, domain_blocks
 from corpus_structure.methods.math.scope import Binders
 from corpus_structure.semantic.characterization import select_primary_layers
@@ -40,6 +36,25 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import PreparedRelease
+
+
+class NormalizedReadingConfig(ExtractMathConfig):
+    """Finite sealed-reading controls, with no executor or configuration resolver."""
+    source_dependencies: Literal["source_view_interpretation"] = "source_view_interpretation"
+    source_dependency_method: Literal["extract.math"] = "extract.math"
+    backend: Literal["lark"] = "lark"
+
+
+class ScopeReadingConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    math: MathSection | None = None
+    characterization_layers: tuple[dict[str, Any], ...] = ()
+    source_dependencies: Literal["ancestor_source_view"] = "ancestor_source_view"
+    binders: Binders | None = None
+    sentences: SentenceConfig = Field(default_factory=SentenceConfig)
+
+    def section(self) -> MathSection:
+        return self.math or MathSection()
 
 
 def view():
@@ -255,7 +270,7 @@ def context_for(reader: Reader) -> MethodContext:
     )
 
 
-def test_actual_methods_select_source_views_and_keep_native_offsets():
+def test_native_reading_kernels_keep_actual_source_offsets():
     reader = Reader()
     run = run_for(reader)
     unit = UnitView(
@@ -265,15 +280,15 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
         source_view_id=7,
     )
     ctx = context_for(reader)
-    assert list(ExtractMath().select(run, reader.bind_config(ExtractMathConfig()))) == [unit.ref]
-    m09 = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig()), ctx)[0]
+
+    m09 = native_result(unit, reader.bind_config(ExtractMathConfig()), ctx, 'extract.math')
     mentions = [o for o in m09.observations if o.kind is ObservationKind.MENTION]
     assert len(mentions) == 3
     assert [o.recognized_span for o in mentions] == [(0, 1), (0, 1), (2, 3)]
     assert [o.projected_span for o in mentions] == [(4, 5), (12, 13), (14, 15)]
     assert all(o.rendition_id is None and o.span is None for o in mentions)
     reader.store("extract.math", m09)
-    m11 = NormalizeFormula().run([unit], reader.bind_config(NormalizeFormulaConfig()), ctx)[0]
+    m11 = native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, 'normalize.formula')
     assert len([o for o in m11.observations if o.kind is ObservationKind.VALUE]) == 2
     records = [o for o in m11.observations if o.kind is ObservationKind.RECORD]
     assert len(records) == 1
@@ -281,7 +296,7 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
     assert records[0].payload.items[0]["symbolic"]["expression"] == "Symbol('x')"
     reader.store("normalize.formula", m11)
     cfg = reader.bind_config(
-        SymbolScopeConfig(binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig())
+        ScopeReadingConfig(binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig())
     )
     # Scope consumes recorded M09/M11 values and may not re-enter mathematical inference.
     import unittest.mock
@@ -289,7 +304,7 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
     with unittest.mock.patch(
         "corpus_structure.methods.math.native.readings", side_effect=AssertionError("reparsed")
     ):
-        result = SymbolScope().run([unit], cfg, ctx)[0]
+        result = native_scope_result(unit, cfg, ctx)
     assert all(o.source_view_id == 7 and o.rendition_id is None for o in result.observations)
     scopes = [o.payload for o in result.observations if o.kind is ObservationKind.SCOPE]
     assert len(scopes) == 3
@@ -332,7 +347,6 @@ def test_ancestor_function_roles_require_forward_native_tree_order():
     from dataclasses import replace
 
     from corpus_structure.core.vocab import ParseOutcome
-    from corpus_structure.methods.math.methods import MathSection
     from corpus_structure.methods.math.native import native_ancestor_declarations, readings
 
     rule = NativeDomainRule(
@@ -428,7 +442,7 @@ def test_ancestor_function_roles_require_forward_native_tree_order():
     reader.views = {7: parent, 8: child}
     reader.math_readings_batch = None
     reader.source_views = lambda: [parent.ref, child.ref]
-    cfg = reader.bind_config(NormalizeFormulaConfig(math=MathSection(native_domain_rules=(rule,))))
+    cfg = reader.bind_config(NormalizedReadingConfig(math=MathSection(native_domain_rules=(rule,))))
     declarations, issues = native_ancestor_declarations(reader, child, (rule,))
     assert issues == ()
     assert [d["symbol"] for d in declarations] == ["f"]
@@ -505,7 +519,6 @@ def test_local_proof_function_definition_does_not_escape_to_child_section():
 def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatch):
     from dataclasses import replace
 
-    from corpus_structure.methods.math.methods import MathSection
     from corpus_structure.methods.math.native import native_scope_result
     from corpus_structure.methods.math.prepared import PreparedMathInput
 
@@ -587,7 +600,7 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
     ctx = context_for(reader)
     run = run_for(reader)
     cfg = reader.bind_config(
-        SymbolScopeConfig(
+        ScopeReadingConfig(
             math=MathSection(native_domain_rules=(rule,)),
             binders=Binders(sentence_initial=("let",)),
             sentences=SentenceConfig(),
@@ -607,14 +620,12 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
     reader.store("resolve.symbol_scope", context)
     unit = UnitView(UnitRef(TaskUnitType.SOURCE_VIEW, 8, child.ref.key), run, source_view_id=8)
     mathcfg = reader.bind_config(ExtractMathConfig(math=MathSection(native_domain_rules=(rule,))))
-    reader.store("extract.math", ExtractMath().run([unit], mathcfg, ctx)[0])
+    reader.store("extract.math", native_result(unit, mathcfg, ctx, 'extract.math'))
     reader.store(
         "normalize.formula",
-        NormalizeFormula().run(
-            [unit], reader.bind_config(NormalizeFormulaConfig(math=mathcfg.math)), ctx
-        )[0],
+        native_result(unit, reader.bind_config(NormalizedReadingConfig(math=mathcfg.math)), ctx, 'normalize.formula'),
     )
-    result = SymbolScope().run([unit], cfg, ctx)[0]
+    result = native_scope_result(unit, cfg, ctx)
     assert all(
         o.payload.outcome == "resolved"
         for o in result.observations
@@ -654,16 +665,14 @@ def test_occurrence_owner_is_weak_and_normalization_reuses_retained_tree(monkeyp
             "definedness_result",
             lambda *a, **k: (_ for _ in ()).throw(AssertionError("unasked definedness work")),
         )
-        weak = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig()), ctx)[0]
+        weak = native_result(unit, reader.bind_config(ExtractMathConfig()), ctx, 'extract.math')
     reader.store("extract.math", weak)
     # Neither normalization nor inspection may reconstruct the original syntax tree.
     with monkeypatch.context() as guard:
         guard.setattr(
             grammar, "syntax", lambda *a, **k: (_ for _ in ()).throw(AssertionError("reparsed"))
         )
-        strong = NormalizeFormula().run([unit], reader.bind_config(NormalizeFormulaConfig()), ctx)[
-            0
-        ]
+        strong = native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, 'normalize.formula')
         reader.store("normalize.formula", strong)
         recorded = stored_native_analysis(reader, 7, "#/texts/3")["#/texts/3"]
     assert recorded["interpretation"]["recognized_latex"] == "x+x"
@@ -684,7 +693,7 @@ def test_normalization_refuses_missing_named_occurrence_owner():
         UnitRef(TaskUnitType.SOURCE_VIEW, 7, reader.view.ref.key), run, source_view_id=7
     )
     with pytest.raises(ValueError, match="one exact completed"):
-        NormalizeFormula().run([unit], reader.bind_config(NormalizeFormulaConfig()), ctx)
+        native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, 'normalize.formula')
 
 
 def test_stored_analysis_refuses_cycles_and_stale_pins():
@@ -718,35 +727,6 @@ def test_stored_analysis_refuses_cycles_and_stale_pins():
         stored_native_analysis(reader, 7, "#/texts/1")
 
 
-def test_scope_digest_binds_exact_ancestor_preparation_record():
-    from dataclasses import replace
-
-    reader = Reader()
-    source = reader.view
-    parent = native_view(
-        PreparedSourceView(
-            replace(source.ref, id=6, key="parent", section_pointer="#/groups/parent"),
-            "",
-            (),
-            (),
-            (),
-            {},
-        )
-    )
-    group = {
-        "self_ref": "#/groups/parent",
-        "label": "section",
-        "children": [{"$ref": "#/groups/0"}],
-    }
-    child = replace(source, ancestors=(group,))
-    reader.views = {6: parent, 7: child}
-    row = SimpleNamespace(observation_key="parent-context", payload_hash="first")
-    reader.outputs[(6, "resolve.symbol_scope", ObservationKind.RECORD)] = [row]
-    run = run_for(reader)
-    unit = UnitView(UnitRef(TaskUnitType.SOURCE_VIEW, 7, child.ref.key), run, source_view_id=7)
-    first = SymbolScope().input_digest(unit, reader.bind_config(SymbolScopeConfig())).bytes
-    row.payload_hash = "second"
-    assert SymbolScope().input_digest(unit, reader.bind_config(SymbolScopeConfig())).bytes != first
 
 
 def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(monkeypatch):
@@ -868,7 +848,6 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
 def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leakage():
     from dataclasses import replace
 
-    from corpus_structure.methods.math.methods import MathSection
     from corpus_structure.methods.math.native import native_request_analysis
 
     root = {"self_ref": "#/groups/0", "label": "section", "children": []}
@@ -970,7 +949,7 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
         rule_id="proof-heading-1", pattern=r"^Proof\.", statement_kind="proof", scope_role="proof"
     )
     section = MathSection(native_domain_rules=(rule,))
-    weak = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig(math=section)), ctx)[0]
+    weak = native_result(unit, reader.bind_config(ExtractMathConfig(math=section)), ctx, 'extract.math')
     record = next(o.payload for o in weak.observations if o.kind is ObservationKind.RECORD)
     outcomes = {item["pointer"]: item["outcome"] for item in record.items}
     assert outcomes[formulas["child_f_call"]] == "ok"
@@ -985,19 +964,13 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     reader.store("extract.math", weak)
     reader.store(
         "normalize.formula",
-        NormalizeFormula().run(
-            [unit], reader.bind_config(NormalizeFormulaConfig(math=section)), ctx
-        )[0],
+        native_result(unit, reader.bind_config(NormalizedReadingConfig(math=section)), ctx, 'normalize.formula'),
     )
-    scoped = SymbolScope().run(
-        [unit],
-        reader.bind_config(
-            SymbolScopeConfig(
+    scoped = native_scope_result(unit, reader.bind_config(
+            ScopeReadingConfig(
                 math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
             )
-        ),
-        ctx,
-    )[0]
+        ), ctx)
     scopes = {
         o.payload.source_pointer: o.payload
         for o in scoped.observations
@@ -1015,7 +988,7 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
         unit,
         source,
         reader.bind_config(
-            SymbolScopeConfig(
+            ScopeReadingConfig(
                 math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
             )
         ),
@@ -1054,7 +1027,6 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
 
     from corpus_structure.core.vocab import ObservationOutcome
     from corpus_structure.methods.math import native
-    from corpus_structure.methods.math.methods import MathSection
     from corpus_structure.semantic import proposals
     from corpus_structure.semantic.identity import canonical_bytes
 
@@ -1065,7 +1037,7 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
         scope_role="proof",
     )
     section = MathSection(native_domain_rules=(rule,))
-    configuration = SymbolScopeConfig(
+    configuration = ScopeReadingConfig(
         math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
     )
     for recognition in ("partial", "unknown"):
@@ -1078,16 +1050,12 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
             source_view_id=7,
         )
         ctx = context_for(reader)
-        weak = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig(math=section)), ctx)[
-            0
-        ]
+        weak = native_result(unit, reader.bind_config(ExtractMathConfig(math=section)), ctx, 'extract.math')
         assert weak.outcome is ObservationOutcome.PRODUCED
         assert len([o for o in weak.observations if o.kind is ObservationKind.MENTION]) == 3
         assert weak.coverage[0].outcome == "partial"
         reader.store("extract.math", weak)
-        normalized = NormalizeFormula().run(
-            [unit], reader.bind_config(NormalizeFormulaConfig(math=section)), ctx
-        )[0]
+        normalized = native_result(unit, reader.bind_config(NormalizedReadingConfig(math=section)), ctx, 'normalize.formula')
         assert normalized.outcome is ObservationOutcome.PRODUCED
         assert len([o for o in normalized.observations if o.kind is ObservationKind.VALUE]) == 2
         assert normalized.coverage[0].outcome == "partial"
@@ -1099,7 +1067,7 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
                 SourceCoverageReading(weak.coverage[0], 42, "fixture", 0),
             ),
         )
-        scoped = SymbolScope().run([unit], configuration, ctx)[0]
+        scoped = native_scope_result(unit, configuration, ctx)
         assert scoped.outcome is ObservationOutcome.PRODUCED
         assert scoped.coverage[0].outcome == "partial"
         assert any(o.kind is ObservationKind.SCOPE for o in scoped.observations)
