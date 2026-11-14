@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
+from pydantic import TypeAdapter
+
+from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderProfile
+
+from .contextual_links import RelationshipConstraint, RelationshipDecision, RelationshipEdge, RelationshipWitness
+from .contextual_retrieval import FrozenInventory, SemanticTargetGroup, TargetRepresentation
 
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
@@ -12,6 +20,15 @@ from .types import SourceArtifact, SourceBundle
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-contextual.yaml"
 _FILES = ("methods/contextual_declared.py", "semantic/contextual_operations.py", "semantic/contextual_retrieval.py", "semantic/contextual_links.py", "semantic/contextual_storage.py", "methods/contextual_embeddings.py")
+
+_INVENTORY = TypeAdapter(FrozenInventory)
+_PROFILE = TypeAdapter(EncoderProfile)
+_VECTORS = TypeAdapter(tuple[EncodedVector, ...])
+_CONSTRAINTS = TypeAdapter(tuple[RelationshipConstraint, ...])
+_WITNESSES = TypeAdapter(tuple[RelationshipWitness, ...])
+_EXCLUSIONS = TypeAdapter(frozenset[tuple[str, str]])
+_DECISION = TypeAdapter(RelationshipDecision)
+_TARGETS = TypeAdapter(tuple[TargetRepresentation, ...])
 
 
 def contextual_inputs(bundle):
@@ -43,12 +60,10 @@ def contextual_operation_sources():
 
 def admitted_contextual_inventory(value):
     """Rebuild eligibility and semantic grouping from its one captured inventory meaning."""
-    from pydantic import TypeAdapter
-
-    from .contextual_retrieval import FrozenInventory, freeze_inventory
+    from .contextual_retrieval import freeze_inventory
     from .observations import source_python
 
-    selected = TypeAdapter(FrozenInventory).validate_python(source_python(value["inventory"]))
+    selected = _INVENTORY.validate_python(source_python(value["inventory"]))
     meanings = {member: group.meaning for group in selected.semantic_groups for member in group.member_target_ids}
     rebuilt = freeze_inventory(selected.targets, source_selection=selected.source_selection, scope=selected.scope, effective_version=selected.effective_version, reliable_type=selected.reliable_type, parent=selected.parent, semantic_targets=meanings)
     if rebuilt != selected:
@@ -68,17 +83,14 @@ class ContextualRetrievalInputs:
 
 
 def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_active=lambda: None):
-    from pydantic import TypeAdapter
+    from corpus_structure.methods.contextual_embeddings import identity, validate_vector
 
-    from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderProfile, identity, validate_vector
-
-    from .contextual_links import RelationshipConstraint, RelationshipWitness
     from .contextual_storage import transient_vector_relation
     from .observations import source_python
 
     selected = admitted_contextual_inventory(inventory)
-    profile = TypeAdapter(EncoderProfile).validate_python(source_python(vectors["profile"]))
-    values = TypeAdapter(tuple[EncodedVector, ...]).validate_python(source_python(vectors["vectors"]))
+    profile = _PROFILE.validate_python(source_python(vectors["profile"]))
+    values = _VECTORS.validate_python(source_python(vectors["vectors"]))
     if len(values) > profile.max_items or len(selected.targets) + 1 > profile.max_items:
         raise ValueError("contextual selected vector population exceeds the captured encoder bound")
     by_id = {vector.object_id: vector for vector in values}
@@ -97,9 +109,9 @@ def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_act
             raise ValueError("contextual target vector belongs to another representation")
     check_active()
     relation = transient_vector_relation(selected, tuple(by_id[key] for key in selected.target_ids), profile_id=profile.profile_id, dimension=profile.dimension)
-    constraints = TypeAdapter(tuple[RelationshipConstraint, ...]).validate_python(source_python(policy["constraints"]))
-    witnesses = TypeAdapter(tuple[RelationshipWitness, ...]).validate_python(source_python(policy["witnesses"]))
-    exclusions = TypeAdapter(frozenset[tuple[str, str]]).validate_python(source_python(policy["exclusions"]))
+    constraints = _CONSTRAINTS.validate_python(source_python(policy["constraints"]))
+    witnesses = _WITNESSES.validate_python(source_python(policy["witnesses"]))
+    exclusions = _EXCLUSIONS.validate_python(source_python(policy["exclusions"]))
     return ContextualRetrievalInputs(selected, profile, encoded, relation, constraints, witnesses, exclusions)
 
 
@@ -198,12 +210,10 @@ def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, c
 
 
 def contextual_inventory_values(selection):
-    from pydantic import TypeAdapter
-
-    from .contextual_retrieval import TargetRepresentation, freeze_inventory
+    from .contextual_retrieval import freeze_inventory
     from .observations import source_python, source_value
 
-    targets = TypeAdapter(tuple[TargetRepresentation, ...]).validate_python(source_python(selection["targets"]))
+    targets = _TARGETS.validate_python(source_python(selection["targets"]))
     meanings = source_python(selection["semantic_targets"])
     inventory = freeze_inventory(targets, source_selection=selection["source_selection"], scope=selection["scope"], effective_version=selection.get("effective_version"), reliable_type=selection.get("reliable_type"), parent=selection.get("parent"), semantic_targets=meanings)
     return {"inventory": source_value(asdict(inventory))}
@@ -245,3 +255,47 @@ def resolve_inventory_port(prepared, model, operation, *, identity, authorize, c
     port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.contextual_operations.ContextualInventoryPlan.plan", authorize, (contextual_retrieval_assets(),), contextual_operation_sources(), functions=(("corpus_structure.semantic.contextual_operations.contextual_inventory_values", contextual_inventory_values),), requires_prepared_schema=True)
     plan.port = port
     return port
+
+
+@dataclass(frozen=True)
+class ContextualRelationshipBinding:
+    decision: RelationshipDecision
+    edge: RelationshipEdge
+    target: SemanticTargetGroup
+    representations: tuple[TargetRepresentation, ...]
+    source_pin: Mapping[str, Any]
+    anchors: tuple[Mapping[str, Any], ...]
+
+
+def contextual_relationship_binding(product, *, decision_id, edge_id):
+    """Project one selected edge from an already authenticated native scalar product.
+
+    This carries the decision and every actual target carrier; it grants no read,
+    publication, component-substitution or canonical-identity authority.
+    """
+    from corpus_structure.methods.contextual_embeddings import identity
+
+    from .contextual_storage import project_interpretation_candidates
+    from .observations import source_python
+
+    if product["version"] != "declared-contextual-retrieval-1":
+        raise ValueError("relationship consumer requires its native retrieval product")
+    inventory = admitted_contextual_inventory(product)
+    raw_candidates = source_python(product["candidate_list"])
+    projected = project_interpretation_candidates(raw_candidates, asdict(inventory), raw_candidates["list_id"], raw_candidates["occurrence_id"], tuple(product["anchors"]))
+    decision = _DECISION.validate_python(source_python(product["relationship_decision"]))
+    meaning = {name: value for name, value in asdict(decision).items() if name != "decision_id"}
+    if decision.decision_id != decision_id or decision_id != identity("scoped-relationship", meaning):
+        raise ValueError("relationship decision differs from its exact retained identity")
+    if (decision.candidate_list_id, decision.occurrence_id, decision.scope, decision.effective_version, decision.source_binding) != (projected.list_id, projected.occurrence_id, inventory.scope, inventory.effective_version, product["source_pin"]["source"]):
+        raise ValueError("relationship decision differs from its retained source or candidate population")
+    edges = tuple(edge for edge in decision.selected_edges if edge.edge_id == edge_id)
+    if len(edges) != 1:
+        raise ValueError("relationship binding requires exactly one actually selected edge")
+    edge = edges[0]
+    targets = tuple(target for target in inventory.semantic_groups if target.target_id == edge.target_id)
+    if len(targets) != 1 or not edge.member_target_ids or not set(edge.member_target_ids) <= set(targets[0].member_target_ids) or edge.member_target_ids != tuple(sorted({witness.target_id for witness in edge.witnesses})):
+        raise ValueError("relationship edge substitutes its actual semantic target carriers")
+    by_id = {target.target_id: target for target in inventory.targets}
+    representations = tuple(by_id[identifier] for identifier in edge.member_target_ids)
+    return ContextualRelationshipBinding(decision, edge, targets[0], representations, dict(product["source_pin"]), tuple(product["anchors"]))

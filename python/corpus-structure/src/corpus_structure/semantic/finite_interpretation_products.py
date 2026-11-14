@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,24 @@ def finite_interpretation_operation_sources():
     return PythonSourceCollection(tuple(PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve())) for name in _FILES[:2]), boundary_contracts=(finite_interpretation_assets(),))
 
 
+@cache
+def _record_request_adapter():
+    from pydantic import TypeAdapter
+
+    from .record_interpretation import InterpretationRequest
+
+    return TypeAdapter(InterpretationRequest)
+
+
+@cache
+def _local_request_adapter():
+    from pydantic import TypeAdapter
+
+    from .record_interpretation import LocalInterpretationRequest
+
+    return TypeAdapter(LocalInterpretationRequest)
+
+
 def _request_value(value):
     """Restore explicit hard-zero factors; never supply a missing factor or score."""
     if isinstance(value, dict):
@@ -63,15 +82,12 @@ def _request_value(value):
 
 def finite_interpretation_values(candidates, policy, *, check_active=lambda: None):
     """Use the existing record/local/table kernels, preserving honest unavailable outcomes."""
-    from pydantic import TypeAdapter
-
     from corpus_structure.methods.local_interpretation import local_question_operation
     from corpus_structure.methods.record_readings import interpret_candidate_readings, retained_reading_groups
     from corpus_structure.methods.table_interpretation import table_policy_operations
 
     from .declared_candidate_products import candidate_member_values
     from .observations import source_python, source_value
-    from .record_interpretation import InterpretationRequest, LocalInterpretationRequest
 
     if candidates["standing"] != "private_uncalibrated_candidates" or policy["version"] != "finite-interpretation-policy-1":
         raise ValueError("finite interpretation requires private candidates and its actual policy")
@@ -85,7 +101,7 @@ def finite_interpretation_values(candidates, policy, *, check_active=lambda: Non
         groups = retained_reading_groups(records)
         if not isinstance(selected, dict) or set(selected) - {group.record_id for group in groups}:
             raise ValueError("finite record policy references an unselected occurrence")
-        requests = {key: TypeAdapter(InterpretationRequest).validate_python(_request_value(value)) for key, value in selected.items() if value is not None}
+        requests = {key: _record_request_adapter().validate_python(_request_value(value)) for key, value in selected.items() if value is not None}
         if any(not set(dependencies) <= {item.key for item in request.dependencies} for request in requests.values()):
             raise ValueError("finite request omits its selected policy dependencies")
         reports = interpret_candidate_readings(records, request_factory=lambda group: requests.get(group.record_id))
@@ -101,7 +117,7 @@ def finite_interpretation_values(candidates, policy, *, check_active=lambda: Non
             if len(set(identifiers)) != len(identifiers) or set(identifiers) - by_id.keys():
                 raise ValueError("finite local question references an unselected contribution")
             raw_request = question.get("request")
-            request = None if raw_request is None else TypeAdapter(LocalInterpretationRequest).validate_python(_request_value(raw_request))
+            request = None if raw_request is None else _local_request_adapter().validate_python(_request_value(raw_request))
             reports.append(local_question_operation(question=question["question"], contributions=tuple(by_id[key] for key in identifiers), dependency_ids=tuple(sorted(set(dependencies) | set(question["dependencies"]))), request=request, check_active=check_active, unavailable_reason=question.get("unavailable_reason")))
     elif policy["mode"] == "table":
         if not isinstance(selected, dict) or set(selected) != {"mode", "weight_scale"}:
