@@ -5,7 +5,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -203,50 +203,19 @@ def test_independent_offline_authoring_consumer(statistics_pack_prepared, tmp_pa
     assert wrong.returncode != 0
 
 
-def test_authored_kernel_retains_explicit_decision_without_reextracting(
-    statistics_pack_prepared, tmp_path
-):
-    from types import SimpleNamespace
-
-    from corpus_structure.core.method import MethodContext, UnitRef, UnitView
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.interpretations import (
-        AuthoredInterpretationConfig,
-        TerminologyInterpretationMethod,
-    )
+def test_authored_wire_retains_explicit_decision_without_reextracting(statistics_pack_prepared):
+    from corpus_structure.semantic.interpretations import interpretation_contribution
     from corpus_structure.semantic.observations import source_python
 
     value = payload(statistics_pack_prepared)
-    source = dict(
-        project_id="research",
-        run_id=1,
-        cut_id=2,
-        release_id=statistics_pack_prepared.release_id,
-        result_revision=1,
-        source_view_id=1,
-        native_task_id=3,
-        native_product_key="native",
-        native_content_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        coordinate_version=3,
-    )
-    cfg = AuthoredInterpretationConfig.model_validate(dict(source=source, reviews=[value]))
-    reader = SimpleNamespace(prepared=statistics_pack_prepared)
-    method = TerminologyInterpretationMethod()
-    ref = UnitRef(TaskUnitType.SOURCE_VIEW, 1, "source")
-    context = SimpleNamespace(reader=reader, check_active=lambda: None)
-    # These deliberately partial ports isolate the authored retention kernel.
-    (result,) = method.run(
-        [cast(UnitView, SimpleNamespace(ref=ref))], cfg, cast(MethodContext, context)
-    )
-    assert result.contributions is not None
-    assert result.contribution_operations is not None
-    assert len(result.contributions) == 1
-    row = result.contributions[0]
+    pin = dict(source="source", native_product_task_id=3, product_key="native",
+        product_digest="a"*64, projection_digest="b"*64, recipe_digest="c"*64, source_view_id=1)
+    row = interpretation_contribution(statistics_pack_prepared,
+        semantic_type="terminology.interpretation", payload=value,
+        operation_key="authored-wire-fixture", item_key="0", pin=pin, anchors=())
     assert "occurrence_id" not in row and row["anchors"] == ()
     assert source_python(row["value"]) == value
-    assert result.contribution_operations[0]["question"] == "interpret.terminology"
+    assert row["semantic_type"] == "terminology.interpretation"
     assert value["source_record"]["run_id"] == 1
 
 
@@ -287,61 +256,25 @@ def test_offline_error_inventory_and_file_bounds(tmp_path):
 
 
 def test_authored_source_records_decode_json_lists_without_scalar_loss(statistics_pack_prepared):
-    from types import SimpleNamespace
-
-    from corpus_structure.core.method import MethodContext, UnitRef, UnitView
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.interpretations import AuthorSourceRecordsMethod
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.record_contracts import (
-        bind_record_candidates,
-        interpretation_identity,
-        record_identity,
+        bind_record_candidates, interpretation_identity, record_identity,
     )
     from semantic.record_contracts_support import measurement_record
 
     record, coordinates = measurement_record()
     record["record_id"] = record_identity(statistics_pack_prepared.release_id, record)
     record["interpretation_id"] = interpretation_identity(record)
-    pin = record["pin"]
-    source = dict(
-        project_id="research",
-        run_id=1,
-        cut_id=2,
-        release_id=statistics_pack_prepared.release_id,
-        result_revision=1,
-        source_view_id=pin["source_view_id"],
-        native_task_id=pin["native_product_task_id"],
-        native_product_key=pin["product_key"],
-        native_content_digest=pin["product_digest"],
-        projection_digest=pin["projection_digest"],
-        recipe_digest=pin["recipe_digest"],
-        coordinate_version=3,
-    )
-    method = AuthorSourceRecordsMethod()
-    authored = json.loads(json.dumps(dict(source=source, records=[record])))
-    assert isinstance(authored["records"][0]["fields"], list)
-    cfg = method.Config.model_validate(authored)
-    ref = UnitRef(TaskUnitType.SOURCE_VIEW, pin["source_view_id"], pin["source"])
-    ctx = SimpleNamespace(
-        reader=SimpleNamespace(prepared=statistics_pack_prepared), check_active=lambda: None
-    )
-    # These deliberately partial ports isolate the authored retention kernel.
-    (result,) = method.run(
-        [cast(UnitView, SimpleNamespace(ref=ref))], cfg, cast(MethodContext, ctx)
-    )
-    assert result.records is not None
-    assert isinstance(result.records[0]["fields"], tuple)
-    fields = {f["role"]: f for f in result.records[0]["fields"]}
+    authored = json.loads(json.dumps(record))
+    assert isinstance(authored["fields"], list)
+    decoded = statistics_pack_prepared.validate_json("SourceRecord", canonical_bytes(authored)).model_dump(mode="python", exclude_none=True)
+    assert isinstance(decoded["fields"], tuple)
+    fields = {field["role"]: field for field in decoded["fields"]}
     assert fields["original_value"]["value"] == {
-        "kind": "decimal",
-        "lexical": "1.234567890123456789e-400",
+        "kind": "decimal", "lexical": "1.234567890123456789e-400",
     }
-    (bound,) = bind_record_candidates(
-        statistics_pack_prepared,
-        source=pin["source"],
-        records=result.records,
-        coordinate_texts=coordinates,
-    )
+    (bound,) = bind_record_candidates(statistics_pack_prepared, source=record["pin"]["source"],
+        records=(decoded,), coordinate_texts=coordinates)
     assert bound.model_dump(mode="python")["record_id"] == record["record_id"]
 
 

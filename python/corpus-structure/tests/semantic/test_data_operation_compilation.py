@@ -397,7 +397,7 @@ def test_preparation_archives_effective_products_only_when_explicitly_supplied()
         prepare_release(bundle, bad)
 
 
-def test_real_score_and_inherited_interpretation_family_have_owned_facts():
+def test_real_score_operation_has_owned_facts():
     root = Path(__file__).parents[2] / "src/corpus_structure"
     score = root / "semantic/operation_policy.py"
     score_model = compile_data_operations(
@@ -426,30 +426,26 @@ def test_real_score_and_inherited_interpretation_family_have_owned_facts():
     assert not score_model.implementation_slices[
         0
     ].complete  # no invented provider contract revisions
-    source = root / "methods/interpretations.py"
-    family = compile_data_operations(
-        python_sources=PythonSourceCollection(
-            (
-                PythonSource(
-                    "corpus_structure.methods.interpretations", source.read_bytes(), str(source)
-                ),
-            )
-        )
+
+
+def test_inherited_family_preserves_supplying_metadata_and_exposed_callable():
+    metadata = contract(entrypoints=["run"], coverage="shared-family-coverage")
+    metadata.pop("id")
+    metadata["abstract"] = True
+    code = (
+        "class Family:\n    def run(self, x: int) -> int: return x + 1\n"
+        f"Family.__data_operation__ = {metadata!r}\n"
+        "class Concrete(Family): pass\n"
+        "Concrete.__data_operation__ = {'abstract':False, 'id':'urn:fixture:inherited-family'}\n"
     )
-    assert {op.semantic_id for op in family.operations} == {
-        "urn:corpus:operation:interpret-terminology",
-        "urn:corpus:operation:interpret-measurement",
-        "urn:corpus:operation:author-source-records",
-    }
-    assert all(not implementation.complete for implementation in family.implementation_slices)
-    assert not any(item.domain == "recipe" for item in family.identities)
-    measurement = family.operation("urn:corpus:operation:interpret-measurement")
-    run = next(s for s in measurement.callable_surfaces if s.exposed.endswith(".run"))
-    assert run.declaration.endswith("TerminologyInterpretationMethod.run")
-    assert run.exposed.endswith("MeasurementInterpretationMethod.run")
-    assert next(o for o in measurement.origins if o.field == "coverage").declaration.endswith(
-        "_AuthoredSourceMethod"
-    )
+    family = compile_data_operations(python_sources=python_inputs(code, "inherited_fixture"))
+    assert {operation.semantic_id for operation in family.operations} == {"urn:fixture:inherited-family"}
+    operation = family.operations[0]
+    assert operation.coverage == "shared-family-coverage"
+    surface = operation.callable_surfaces[0]
+    assert surface.declaration == "inherited_fixture.Family.run"
+    assert surface.exposed == "inherited_fixture.Concrete.run"
+    assert next(origin for origin in operation.origins if origin.field == "coverage").declaration.endswith("Family")
 
 
 def test_target_composed_preparation_never_enters_legacy_approval(monkeypatch):

@@ -229,10 +229,9 @@ def test_caller_forged_definition_cannot_reuse_complete_identities():
     "relative,module",
     [
         ("semantic/operation_policy.py", "corpus_structure.semantic.operation_policy"),
-        ("methods/interpretations.py", "corpus_structure.methods.interpretations"),
     ],
 )
-def test_actual_score_and_authored_family_unknown_recipes_do_not_gain_execution(relative, module):
+def test_actual_score_unknown_recipe_does_not_gain_execution(relative, module):
     source = Path(__file__).parents[2] / "src/corpus_structure" / relative
     sources = PythonSourceCollection((PythonSource(module, source.read_bytes(), str(source)),))
     model = compile_data_operations(python_sources=sources)
