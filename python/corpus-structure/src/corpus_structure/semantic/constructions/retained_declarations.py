@@ -16,6 +16,7 @@ from typing import Any
 from corpus_structure.methods.pm2_hanlp_products import _dependency_graph
 from corpus_structure.methods.pm2_source import MappedSource
 from corpus_structure.semantic.characterization import annotation_reference
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -625,68 +626,72 @@ def populate_declaration_readings(
             )
             continue
         layer.record(DECLARATION_FAMILY, selector, "complete")
-        facts = _facts(sentence)
-        root = identity("declaration-sentence", [view.ref.id, sentence.positions])
-        premises = [
-            dict(layer=ref.layer.values(), local_id=ref.local_id) for ref in sentence.evidence
-        ]
-
-        def emit(value, name, *, positions=(), root=root):
-            key = identity("declaration-fact", [root, name])
-            children = []
-            if isinstance(value, dict):
-                kind, label = "operator", "{}"
-                children = [
-                    dict(role=role, target=emit(item, name + "/" + role), structural=True)
-                    for role, item in value.items()
-                ]
-            elif isinstance(value, (tuple, list)):
-                kind, label = "operator", "[]"
-                children = [
-                    dict(
-                        role="item",
-                        order=i,
-                        target=emit(item, name + "/" + str(i)),
-                        structural=True,
-                    )
-                    for i, item in enumerate(value)
-                ]
-            else:
-                kind, label = "participant", json.dumps(value, ensure_ascii=False)
-            layer.terms[key] = dict(
-                local_id=key,
-                family=DECLARATION_FAMILY,
-                kind=kind,
-                vocabulary=PRIMARY_RULE_VOCABULARY,
-                value=label,
-                status="interpreted",
-                occurrences=[layer.occurrence(view, a, b) for a, b in positions],
-                children=children,
-            )
-            return key
-
-        data = dict(words=sentence.words, positions=sentence.positions, facts=facts)
-        key = emit(
-            data,
-            "declaration_sentence",
-            positions=((sentence.positions[0][0], sentence.positions[-1][1]),),
+        _emit_declaration_sentence(
+            layer, view, sentence, source_key=view.ref.id,
+            premises=[dict(layer=ref.layer.values(), local_id=ref.local_id) for ref in sentence.evidence],
         )
-        layer.terms[key]["value"] = "declaration_sentence"
-        layer.terms[key]["external_premises"] = premises
-        annotation = identity("declaration-syntax", [root])
-        layer.annotations[annotation] = dict(
-            local_id=annotation,
+
+
+def _emit_declaration_sentence(layer, view, sentence, *, source_key, premises):
+    facts = _facts(sentence)
+    root = identity("declaration-sentence", [source_key, sentence.positions])
+
+    def emit(value, name, *, positions=(), root=root):
+        key = identity("declaration-fact", [root, name])
+        children = []
+        if isinstance(value, dict):
+            kind, label = "operator", "{}"
+            children = [
+                dict(role=role, target=emit(item, name + "/" + role), structural=True)
+                for role, item in value.items()
+            ]
+        elif isinstance(value, (tuple, list)):
+            kind, label = "operator", "[]"
+            children = [
+                dict(
+                    role="item",
+                    order=i,
+                    target=emit(item, name + "/" + str(i)),
+                    structural=True,
+                )
+                for i, item in enumerate(value)
+            ]
+        else:
+            kind, label = "participant", json.dumps(value, ensure_ascii=False)
+        layer.terms[key] = dict(
+            local_id=key,
             family=DECLARATION_FAMILY,
-            kind="construction",
+            kind=kind,
             vocabulary=PRIMARY_RULE_VOCABULARY,
-            rule_id="tc.source.declaration_syntax.v1",
-            native_scheme="retained-hanlp-declaration-syntax-1",
-            native_label="declaration_sentence",
+            value=label,
             status="interpreted",
-            occurrences=layer.terms[key]["occurrences"],
-            external_premises=premises,
+            occurrences=[layer.occurrence(view, a, b) for a, b in positions],
+            children=children,
         )
-        layer.terms[key]["premises"] = [annotation]
+        return key
+
+    data = dict(words=sentence.words, positions=sentence.positions, facts=facts)
+    key = emit(
+        data,
+        "declaration_sentence",
+        positions=((sentence.positions[0][0], sentence.positions[-1][1]),),
+    )
+    layer.terms[key]["value"] = "declaration_sentence"
+    layer.terms[key]["external_premises"] = premises
+    annotation = identity("declaration-syntax", [root])
+    layer.annotations[annotation] = dict(
+        local_id=annotation,
+        family=DECLARATION_FAMILY,
+        kind="construction",
+        vocabulary=PRIMARY_RULE_VOCABULARY,
+        rule_id="tc.source.declaration_syntax.v1",
+        native_scheme="retained-hanlp-declaration-syntax-1",
+        native_label="declaration_sentence",
+        status="interpreted",
+        occurrences=layer.terms[key]["occurrences"],
+        external_premises=premises,
+    )
+    layer.terms[key]["premises"] = [annotation]
 
 
 def declaration_sentences(layers, view, passage):
@@ -784,5 +789,229 @@ def declaration_sentences(layers, view, passage):
             evidence.append(ref)
     found.sort(key=lambda s: s.positions[0][0])
     if len(found) != 3 or len({s.positions[0][0] for s in found}) != 3:
+        raise DeclarationNotQualified("declaration requires three unique characterized sentences")
+    return tuple(found), tuple(evidence)
+
+
+def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
+    """Index original canonical units and actual HanLP heads without re-recognition."""
+    from ..data_product_reference import DataProductReference, member_reference
+    from ..declared_record_sources import DeclaredNativeFrameSource
+    from ..source_contexts import source_slice
+
+    selected = source.value
+    canonical_body, body = json.loads(canonical.content), json.loads(hanlp.content)
+    for value in (canonical_body, body):
+        if value["source"] != selected["source"] or value["selectors"] != selected["selectors"]:
+            raise DeclarationNotQualified("declaration inputs differ from exact original source and analyzed scope")
+    if body["canonical"] != DataProductReference(canonical.semantic_id).values():
+        raise DeclarationNotQualified("declaration HanLP input names another canonical product")
+    canonical_rows = {packet["member_id"]: packet["body"] for packet in canonical_body["members"]}
+    packets = body["members"]
+    grouped = {}
+    for packet in packets:
+        unit = packet["body"]
+        if unit["record_type"] in {"token", "srl_group"}:
+            sentence = unit["sentence"]
+            if sentence["product_id"] != canonical.semantic_id:
+                raise DeclarationNotQualified("declaration HanLP sentence leaves its canonical product")
+            grouped.setdefault(sentence["member_id"], []).append(unit)
+    candidates = sorted(
+        ((identifier, row) for identifier, row in canonical_rows.items() if row["record_type"] == "sentence"),
+        key=lambda item: item[1]["start"],
+    )
+    if len({(row["start"], row["end"]) for _, row in candidates}) != len(candidates):
+        raise DeclarationNotQualified("declaration requires unique exact canonical sentences")
+    if not candidates:
+        return
+    if not native_products:
+        raise DeclarationNotQualified("declaration syntax requires original native annotation custody")
+    frame = DeclaredNativeFrameSource(source.content.decode(), canonical_bytes(native_products[0].source.values()).decode())
+    context = NativeSourceContext(
+        frame, (), (source_slice(frame, 0, len(frame.text)),),
+        "primary declaration roles", "primary-declaration-roles-1", "exact selected source",
+        max_chars=max(1, len(frame.text)), max_pieces=max(1, len(frame.pieces)),
+    )
+    for number, (identifier, original) in enumerate(candidates):
+        start, end = original["start"], original["end"]
+        if not admitted(start, end):
+            continue
+        selector = dict(projection=selected["source"]["projection"], start=start, end=end)
+        try:
+            tokens = sorted((row for row in grouped.get(identifier, ()) if row["record_type"] == "token"), key=lambda row: row["ordinal"])
+            refs = [dict(product_id=canonical.semantic_id, member_id=key) for key in original["token_ids"] if selected["text"][canonical_rows[key]["start"]:canonical_rows[key]["end"]].strip()]
+            _require(tokens and [row["ordinal"] for row in tokens] == list(range(len(tokens))))
+            _require([row["token"] for row in tokens] == refs)
+            canonical_tokens = [canonical_rows[value["member_id"]] for value in refs]
+            positions = tuple((row["start"], row["end"]) for row in canonical_tokens)
+            _require(start <= positions[0][0] < positions[-1][1] <= end)
+            for family in ("hanlp.tokens", "hanlp.lemma", "hanlp.pos", "hanlp.dependency", "hanlp.srl"):
+                coverage = [row for row in body["coverage"] if row["family"] == family]
+                _require(coverage and any(
+                    row["availability"] == "available" and row["outcome"] in {"complete", "empty", "partial"}
+                    and any(value["projection"] == selector["projection"] and value.get("start", 0) <= start and value.get("end", len(frame.text)) >= end for value in row.get("examined", ()))
+                    for row in coverage
+                ))
+                _require(not any(
+                    value["projection"] == selector["projection"] and value.get("start", 0) < end and value.get("end", len(frame.text)) > start
+                    for row in coverage for value in row.get("unexamined", ())
+                ))
+            _require(all(all(field in row for field in ("lemma", "pos", "dependency_head", "dependency_label")) for row in tokens))
+            heads, relations, children = _dependency_graph([[row["dependency_head"], row["dependency_label"]] for row in tokens], len(tokens))
+            locations = {}
+
+            def located(a, b):
+                _require(0 <= a < b <= len(tokens))
+                key = f"s{number}/span/{a}-{b}"
+                left, right = positions[a][0], positions[b - 1][1]
+                pieces = tuple(context.map_span(left, right, literal=frame.text[left:right], allow_multiple=True))
+                if not pieces or any(not isinstance(piece, NativeSpanEvidence) for piece in pieces):
+                    raise DeclarationNotQualified("declaration role lacks original native correspondence")
+                anchors = tuple(evidence_anchor(context, piece, native=True)[0] for piece in pieces)
+                locations[key] = MappedSource(context.dependency_digest, context.dependency_digest, context.dependency_digest, (), pieces, anchors, ())
+                return key
+
+            groups, keys, evidence = {}, {}, []
+            for group in (row for row in grouped.get(identifier, ()) if row["record_type"] == "srl_group"):
+                args, predicate = [], None
+                for role in group["roles"]:
+                    left, right = role["start"], role["end"]
+                    _require(0 <= left < right <= len(tokens) and role["tokens"] == refs[left:right])
+                    location = located(left, right)
+                    if role["label"] == "PRED":
+                        _require(predicate is None and right == left + 1)
+                        predicate = left
+                    else:
+                        args.append(_Argument(role["label"], location))
+                if predicate is None:
+                    raise DeclarationNotQualified("declaration native SRL has no unique predicate")
+                groups.setdefault(predicate, []).append(_SRL(tuple(args)))
+                reference = member_reference(DataProductReference(hanlp.semantic_id), group["local_id"])
+                keys[predicate] = reference.identity
+                evidence.append(reference)
+            frames = {}
+            for predicate, srl in groups.items():
+                head = heads[predicate] if relations[predicate] == "cop" else predicate
+                if head is None:
+                    raise DeclarationNotQualified("declaration copular predicate has no syntactic head")
+                frames[predicate] = _Frame(head, located(predicate, predicate + 1), "copular" if relations[predicate] == "cop" else "passive" if any(relations[index] == "aux:pass" for index in children[predicate]) else "active", tuple(srl))
+            evidence.extend(member_reference(DataProductReference(hanlp.semantic_id), token["local_id"]) for token in tokens)
+            sentence = _Sentence(
+                context, number, tuple(frame.text[a:b] for a, b in positions),
+                tuple(row["lemma"].casefold() for row in tokens), tuple(row["pos"] for row in tokens),
+                heads, relations, children, positions, frames, locations, keys, tuple(evidence),
+            )
+        except (DeclarationNotQualified, ValueError, KeyError, IndexError) as error:
+            yield selector, None, str(error)
+        else:
+            yield selector, sentence, None
+
+
+def populate_declaration_products(
+    layer, view, source, native, canonical, hanlp, *, annotation_products=None,
+    check_active=lambda: None, admitted=lambda start, end: True,
+):
+    """Publish shared declaration syntax from independently acquired native products."""
+    from ..sentence_products import retained_source_annotation_products
+
+    if DECLARATION_FAMILY not in layer.families:
+        layer.families = (*layer.families, DECLARATION_FAMILY)
+        layer.operation["produced_families"].append(DECLARATION_FAMILY)
+    if canonical is None or hanlp is None or native is None:
+        for selector in source.value["selectors"]:
+            layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax requires exact native, canonical and HanLP products")
+        return
+    products = retained_source_annotation_products(source, native) if annotation_products is None else tuple(annotation_products)
+    try:
+        produced = False
+        for selector, sentence, reason in _declared_sentences(source, products, canonical, hanlp, admitted=admitted):
+            check_active()
+            produced = True
+            if sentence is None:
+                layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + reason)
+                continue
+            layer.record(DECLARATION_FAMILY, selector, "complete")
+            _emit_declaration_sentence(layer, view, sentence, source_key=view.key, premises=[ref.values() for ref in sentence.evidence])
+        if not produced:
+            outcome = "empty" if json.loads(canonical.content)["outcome"] == "complete" else "unknown"
+            for selector in source.value["selectors"]:
+                layer.record(DECLARATION_FAMILY, selector, outcome, None if outcome == "empty" else "canonical declaration population is incomplete")
+    except (DeclarationNotQualified, ValueError, KeyError, IndexError) as error:
+        for selector in source.value["selectors"]:
+            layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + str(error))
+
+
+def declaration_sentences_products(products, source, passage, *, supporting):
+    """Read positioned declaration facts with their exact admitted native premises."""
+    from types import SimpleNamespace
+    from ..data_product_reference import DataProductReference, member_reference
+
+    selected = source.value
+    if not 0 <= passage.start < passage.end <= len(selected["text"]) or selected["text"][passage.start:passage.end] != passage.text:
+        raise DeclarationNotQualified("declaration passage differs from exact original source")
+    supports = {}
+    for product in supporting:
+        body = json.loads(product.content)
+        if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+            raise DeclarationNotQualified("declaration support differs from exact original source and analyzed scope")
+        if product.semantic_id in supports:
+            raise DeclarationNotQualified("declaration support repeats a selected product")
+        supports[product.semantic_id] = {packet["member_id"] for packet in body["members"]}
+    found, evidence = [], []
+    for product in products:
+        body = json.loads(product.content)
+        if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+            raise DeclarationNotQualified("declaration product differs from exact original source and analyzed scope")
+        facts = product.inventory()
+        terms = {row["local_id"]: row for row in facts["terms"]}
+        occurrences = {row["local_id"]: row for row in facts["occurrences"]}
+
+        def read(term):
+            children = term.get("children", ())
+            if not children:
+                return json.loads(term["value"])
+            if all(row["role"] == "item" for row in children):
+                return tuple(read(terms[row["target"]]) for row in sorted(children, key=lambda row: row["order"]))
+            return {row["role"]: read(terms[row["target"]]) for row in children}
+
+        for term in terms.values():
+            if term.get("vocabulary") != PRIMARY_RULE_VOCABULARY or term["value"] != "declaration_sentence":
+                continue
+            extents = [extent for key in term["occurrences"] for extent in occurrences[key]["extents"]]
+            if not extents or extents[-1]["end"] <= passage.start or extents[0]["start"] >= passage.end:
+                continue
+            if extents[0]["start"] < passage.start or extents[-1]["end"] > passage.end or any(
+                extent.get("synthetic") or extent["projection"] != selected["source"]["projection"]
+                or extent["text"] != selected["text"][extent["start"]:extent["end"]]
+                for extent in extents
+            ):
+                raise DeclarationNotQualified("declaration passage cuts primary sentence")
+            coverage = [row for row in body["coverage"] if row["family"] == DECLARATION_FAMILY]
+            if not any(row["availability"] == "available" and any(
+                selector["projection"] == selected["source"]["projection"]
+                and selector.get("start", 0) <= extents[0]["start"]
+                and selector.get("end", len(selected["text"])) >= extents[-1]["end"]
+                for selector in row.get("examined", ())
+            ) for row in coverage) or any(
+                selector["projection"] == selected["source"]["projection"]
+                and selector.get("start", 0) < extents[-1]["end"]
+                and selector.get("end", len(selected["text"])) > extents[0]["start"]
+                for row in coverage for selector in row.get("unexamined", ())
+            ):
+                raise DeclarationNotQualified("declaration primary coverage is incomplete")
+            premises = term.get("external_premises", ())
+            if not premises or any(ref.get("member_id") not in supports.get(ref.get("product_id"), ()) for ref in premises):
+                raise DeclarationNotQualified("declaration native support is unavailable")
+            data = read(term)
+            if not isinstance(data, dict) or len(data["words"]) != len(data["positions"]) or any(
+                not 0 <= a < b <= len(selected["text"]) or selected["text"][a:b] != word
+                for word, (a, b) in zip(data["words"], data["positions"], strict=True)
+            ) or any(left[1] > right[0] for left, right in pairwise(data["positions"])):
+                raise DeclarationNotQualified("primary declaration sentence differs from exact native text")
+            reference = member_reference(DataProductReference(product.semantic_id), term["local_id"])
+            found.append(SimpleNamespace(**data, reference=reference))
+            evidence.append(reference)
+    found.sort(key=lambda value: value.positions[0][0])
+    if len(found) != 3 or len({value.positions[0][0] for value in found}) != 3:
         raise DeclarationNotQualified("declaration requires three unique characterized sentences")
     return tuple(found), tuple(evidence)
