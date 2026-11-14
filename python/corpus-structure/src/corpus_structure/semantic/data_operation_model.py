@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
+from functools import cached_property, lru_cache
 from typing import Any, Literal
 
 from .data_operation_json import json_bytes, json_loads
@@ -563,7 +564,7 @@ class EffectiveDataOperationModel:
             operation for operation in self.operations if operation.semantic_id == semantic_id
         )
 
-    @property
+    @cached_property
     def content(self) -> bytes:
         """Explicit complete export, including origins omitted by library-native dumps."""
 
@@ -761,6 +762,18 @@ class ResolvedOperationBinding:
 
 
 def read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
+    """Reuse pure strict decoding of identical ordinary immutable captured bytes."""
+    if type(content) is bytes:
+        return _read_effective_data_operations_cached(content)
+    return _read_effective_data_operations(content)
+
+
+@lru_cache(maxsize=8)
+def _read_effective_data_operations_cached(content: bytes) -> EffectiveDataOperationModel:
+    return _read_effective_data_operations(content)
+
+
+def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
     """Read current meaning or exact retained v2 meaning; never promote old interpretation."""
     from dataclasses import fields, is_dataclass
 
