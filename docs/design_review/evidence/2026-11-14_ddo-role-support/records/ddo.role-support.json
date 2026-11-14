@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.role-support",
+  "title": "Role-qualified original support custody",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can exact original factual support retain its selected context through attachment, publication and reuse when the declared role associates that input through a document field?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-role-support/change.yaml --json",
+    "uv run ci model change candidate cd36deddcf9146b7ba3b4e9ec39fb97f --json",
+    "uv run ci model change inspect-candidate db91de1846774390aa9ddc03f31c499a --view operations --json",
+    "uv run ci model change inspect-candidate db91de1846774390aa9ddc03f31c499a --view sql --json",
+    "uv run ci model change register db91de1846774390aa9ddc03f31c499a --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable role-support successor",
+      "sha256": "cb8dcc479cffd1292f2a604643e0215497b8ebbd5e562e9b45e8dd8517660b50"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout hashes",
+      "sha256": "dcaba6d4b1f1f73df77dd78cb8fe41e02deca42fb0c3d351acaf375953747af4"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": "bound-support body and two source/catalog descriptors"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and immutable registration passed for semantic_ddo_rolesup_v1 after semantic_ddo_viewbind_v1. Original support authenticates the exact selected role, position, product, admission and source reference, project, current validity and same original source. It checks the declared subject association and retains scope equality for ordinary roles; an explicit subject-field role can retain a distinct selected input scope. All three transitions preserve owners and ACLs. Authoring is separate from functional/provider qualification. No persistent deployment, activation or cutover occurred; persistent revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

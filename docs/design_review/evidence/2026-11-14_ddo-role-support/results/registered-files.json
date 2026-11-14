@@ -1,0 +1,18 @@
+[
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_rolesup_v1.py",
+    "sha256": "fc7a7f49e06146732c0f97a1908855fef41fe959e240b739e13ef47f8104d350"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_rolesup_v1_admission.sql",
+    "sha256": "da0c6bf4c41cdcb2dd231e00a413405e58f935c3ea9d6fb3a391d2c057e3decc"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_rolesup_v1_native.json",
+    "sha256": "fc29cd9d9bef002bf79af2baf52189fdf87f6588d424aa653d79efddaeaf09eb"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_rolesup_v1_upgrade.txt",
+    "sha256": "21a21dcbc9e8738f1bdced85d8beb8856c05dc57e0cbdc254dcc8831691eca5d"
+  }
+]

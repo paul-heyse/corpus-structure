@@ -96,7 +96,11 @@ def structural_operation_sources():
                 (root / name).read_bytes(),
                 str(root / name),
             )
-            for name in ("methods/structural_declared.py", "semantic/declared_structural_calls.py")
+            for name in (
+                "methods/structural_declared.py",
+                "semantic/declared_structural_calls.py",
+                "semantic/data_operation_prepared_call.py",
+            )
         ),
         boundary_contracts=(structural_call_assets(),),
     )

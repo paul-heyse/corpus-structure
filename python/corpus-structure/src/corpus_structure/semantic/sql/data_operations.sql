@@ -260,9 +260,14 @@ BEGIN
  IF original.id IS NULL OR original.project_id IS DISTINCT FROM r.project_id OR original.source_reference IS DISTINCT FROM item->>'source_reference'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(binding->'inputs') selected_input
  JOIN kb.data_product product ON product.id=selected_input->>'product_id'
+ JOIN sem.data_operation_definition definition ON definition.release_id=r.release_id AND definition.operation_id=r.operation_id
+ CROSS JOIN LATERAL jsonb_array_elements(definition.input_roles) roledef
  WHERE selected_input->>'role'=item->>'role' AND selected_input->>'position' IS NOT DISTINCT FROM item->>'position'
+ AND roledef->>'name'=selected_input->>'role'
  AND product.id=original.product_id AND selected_input->>'member_id' IS NULL
- AND product.original_source=r.original_source AND original.analyzed_scope=r.analyzed_scope) THEN RAISE EXCEPTION 'original support differs from selected factual input custody'; END IF;
+ AND product.original_source=r.original_source
+ AND ops.ddo_binding_subject(roledef,jsonb_build_object('subject',product.subject,'meaning_body',product.canonical_body),r.subject,r.original_source)
+ AND (roledef->>'subject_field' IS NOT NULL OR original.analyzed_scope=r.analyzed_scope)) THEN RAISE EXCEPTION 'original support differs from selected factual input custody'; END IF;
  IF NOT ops.ddo_original_admission_valid(original) THEN RETURN false; END IF;
  CONTINUE;
  END IF;

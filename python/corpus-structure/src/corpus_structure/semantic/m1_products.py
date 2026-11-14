@@ -120,6 +120,7 @@ def m1_operation_sources(
         "methods/m1_declared.py",
         "semantic/m1_products.py",
         "semantic/declared_candidate_products.py",
+        "semantic/data_operation_prepared_call.py",
     )
     own = PythonSourceCollection(
         tuple(
