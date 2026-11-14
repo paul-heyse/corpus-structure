@@ -200,3 +200,25 @@ def test_rendered_candidate_failure_exposes_safe_site_without_sql_or_payload(sem
         assert failure.value.authoring_context == {"operation_kind": "execute", "sqlstate": "22P02", "source_line": 3}
         assert "private-payload-sentinel" not in str(failure.value)
         assert conn.scalar(text("SELECT 1")) == 1
+
+
+def test_privilege_failure_context_survives_aborted_owner_scope(semantic_bare_engine, monkeypatch):
+    schema = "acl_failure_" + uuid4().hex[:10]
+    policy = {"kind": "schema", "name": schema, "owner": None,
+              "acl": [("corpus_sem_publisher", "CREATE", False), ("corpus_sem_publisher", "USAGE", False)], "columns": []}
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+        conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+        execute = conn.exec_driver_sql
+        def fail_revoke(statement, *args, **kwargs):
+            return execute("SELECT 1/0" if statement.startswith("REVOKE") else statement, *args, **kwargs)
+        with pytest.raises(NativeAuthoringError) as failure, conn.begin_nested():
+            with monkeypatch.context() as patch:
+                patch.setattr(conn, "exec_driver_sql", fail_revoke)
+                Operations(MigrationContext.configure(conn)).invoke(PrivilegeTransitionOp(None, policy, normalization=True))
+        context = failure.value.authoring_context
+        assert context is not None and context["sqlstate"] == "22012"
+        assert context["object_name"] == schema
+        assert context["dependency_objects"]
+        assert conn.scalar(text("SELECT 1")) == 1
+        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')

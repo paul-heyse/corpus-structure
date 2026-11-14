@@ -112,7 +112,7 @@ def _expected(connection, policy):
     return result
 
 
-def _revoke_acl_edges(connection, policy, target, kind):
+def _revoke_acl_edges(connection, policy, target, kind, failure_context):
     """Remove observed delegation leaves first; never cascade into implicit dependents."""
     from networkx import DiGraph, NetworkXUnfeasible, lexicographical_topological_sort
     if kind == "SCHEMA":
@@ -133,14 +133,9 @@ def _revoke_acl_edges(connection, policy, target, kind):
                 continue
             role = "PUBLIC" if grantee == "PUBLIC" else quote(grantee)
             columns = " (" + quote(column) + ")" if column is not None else ""
-            try:
-                with native_owner(connection, grantor):
-                    connection.exec_driver_sql(f"REVOKE {privilege}{columns} ON {kind} {target} FROM {role}")
-            except DBAPIError as error:
-                state = getattr(error.orig, "sqlstate", None)
-                failure = NativeAuthoringError("declared privilege delegation refusal for " + policy["name"] + "; SQLSTATE " + str(state))
-                failure.authoring_context = {"operation_kind": "privilege", "object_kind": policy["kind"], "object_name": policy["name"], "sqlstate": state, "dependency_objects": [{"grantor": grantor, "grantee": grantee, "privilege": privilege, "column": column}]}
-                raise failure from error
+            failure_context["dependency_objects"] = [{"grantor": grantor, "grantee": grantee, "privilege": privilege, "column": column}]
+            with native_owner(connection, grantor):
+                connection.exec_driver_sql(f"REVOKE {privilege}{columns} ON {kind} {target} FROM {role}")
 
 
 @Operations.register_operation("privilege_transition")
@@ -180,18 +175,19 @@ class PrivilegeTransitionOp(MigrateOperation):
 
 @Operations.implementation_for(PrivilegeTransitionOp)
 def execute_privileges(operations, operation):
+    selected = operation.after or operation.before
+    diagnostic: dict[str, object] = {"operation_kind": "privilege", "object_kind": selected["kind"], "object_name": selected["name"]}
     try:
-        _execute_privileges(operations, operation)
+        _execute_privileges(operations, operation, diagnostic)
     except DBAPIError as error:
-        selected = operation.after or operation.before
         state = getattr(error.orig, "sqlstate", None)
-        diagnostic = {"operation_kind": "privilege", "object_kind": selected["kind"], "object_name": selected["name"], "sqlstate": state}
+        diagnostic["sqlstate"] = state
         failure = NativeAuthoringError("privilege operation refused for " + selected["name"] + "; SQLSTATE " + str(state))
         failure.authoring_context = diagnostic
         raise failure from error
 
 
-def _execute_privileges(operations, operation):
+def _execute_privileges(operations, operation, failure_context):
     connection = operations.get_bind()
     if operations.migration_context.as_sql:
         raise NativeAuthoringError("privilege operations require a live connection")
@@ -235,7 +231,7 @@ def _execute_privileges(operations, operation):
         current = observe_policy(connection, policy)
         if current is None:
             raise NativeAuthoringError("missing declared privilege object")
-        _revoke_acl_edges(connection, policy, target, kind)
+        _revoke_acl_edges(connection, policy, target, kind, failure_context)
         for grantee, privilege, grantable in _expected(connection, policy)["acl"]:
             connection.exec_driver_sql(f"GRANT {privilege} ON {kind} {target} TO {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}" + (" WITH GRANT OPTION" if grantable else ""))
         if kind == "SCHEMA":

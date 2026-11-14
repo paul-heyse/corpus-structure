@@ -2345,7 +2345,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
         import ast as python_ast
         import traceback
         state = getattr(error.orig, "sqlstate", None)
-        sites = [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == "native_candidate.py"]
+        sites = [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == "native_candidate.py" and frame.lineno is not None]
         context: dict[str, object] = {"operation_kind": "rendered_upgrade", "sqlstate": state}
         if sites:
             line = sites[-1]
