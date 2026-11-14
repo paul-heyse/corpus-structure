@@ -353,17 +353,6 @@ def require_data_operation_native(connection: Connection, prepared: PreparedRele
         or actual.get("source_digest") != native_source_digest()
     ):
         raise ValueError("native data-operation implementation differs from prepared code")
-    for schema, name in (
-        ("ops", "data_request"),
-        ("ops", "data_completion_intent"),
-        ("kb", "data_product"),
-        ("sem", "data_operation_definition"),
-    ):
-        if (
-            connection.scalar(text("SELECT to_regclass(:name)"), {"name": f"{schema}.{name}"})
-            is None
-        ):
-            raise ValueError(f"native data operation relation is absent: {schema}.{name}")
     return native_source_digest()
 
 
