@@ -313,13 +313,17 @@ def _acquire_primary_profile(
         arguments.update(m1_configuration=selected_m1, record_schemas=SourceBundle(profile.m1.schema_root, schemas))
     if profile.contextual_encoder is not None:
         from pydantic import TypeAdapter
+
         from corpus_structure.methods.contextual_embeddings import EncoderProfile
+
         from .contextual_encoder import ContextualEncoderSelection
         encoder_profile = TypeAdapter(EncoderProfile).validate_json(canonical_bytes(yaml.safe_load(read(profile.contextual_encoder.profile))), strict=True)
         arguments["contextual_encoder"] = ContextualEncoderSelection.acquire(encoder_profile, location(profile.contextual_encoder.model_path))
     if profile.external_protocol is not None:
         from dataclasses import fields
+
         from pydantic import TypeAdapter
+
         from .data_operation_model import ExternalExecutorContract
         selected = yaml.safe_load(read(profile.external_protocol))
         if not isinstance(selected, dict) or set(selected) != {field.name for field in fields(ExternalExecutorContract)}:

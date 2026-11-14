@@ -131,15 +131,18 @@ def primary_operation_inputs(
         dependencies = characterization_question_dependencies(dependencies)
         collections = (*collections, learned_primary_operation_sources(learned_selections))
     if math_options is not None:
+        from .declared_math_analysis import (
+            math_analysis_declarations,
+            math_analysis_operation_sources,
+        )
         from .declared_math_products import math_operation_declarations, math_operation_sources
-
-        from .declared_math_analysis import math_analysis_declarations, math_analysis_operation_sources
 
         collections = (*collections, math_operation_sources(math_options), math_analysis_operation_sources(math_options))
         declarations = (*declarations, math_operation_declarations(), math_analysis_declarations())
     if external_protocol is not None:
         from .external_extraction import (
-            external_extraction_inputs, external_extraction_operation_sources,
+            external_extraction_inputs,
+            external_extraction_operation_sources,
             rich_external_declarations,
         )
         bundle = external_extraction_inputs(bundle, dependencies)
@@ -151,11 +154,21 @@ def primary_operation_inputs(
     if downstream:
         from .artifact_products import artifact_inputs, artifact_operation_sources
         from .contextual_operations import contextual_inputs, contextual_operation_sources
-        from .declared_structural_calls import structural_inputs, structural_operation_declarations, structural_operation_sources
-        from .definition_component_products import definition_component_inputs, definition_component_operation_sources
+        from .declared_structural_calls import (
+            structural_inputs,
+            structural_operation_declarations,
+            structural_operation_sources,
+        )
+        from .definition_component_products import (
+            definition_component_inputs,
+            definition_component_operation_sources,
+        )
         from .definition_products import definition_inputs, definition_operation_sources
         from .dossier_products import dossier_inputs, dossier_operation_sources
-        from .finite_interpretation_products import finite_interpretation_inputs, finite_interpretation_operation_sources
+        from .finite_interpretation_products import (
+            finite_interpretation_inputs,
+            finite_interpretation_operation_sources,
+        )
         from .predicate_products import predicate_inputs, predicate_operation_sources
         from .scoped_products import scoped_inputs, scoped_operation_sources
 

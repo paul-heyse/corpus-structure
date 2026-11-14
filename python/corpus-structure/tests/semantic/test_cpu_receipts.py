@@ -33,7 +33,7 @@ def test_receipt_schema_and_wire_retain_actual_scalar_constraints_and_json_text(
             adapter.validate_json(canonical_bytes(record), strict=True)
 
 
-def test_cpu_reply_sidecar_copies_actual_diagnostics_without_reply_body_or_cost():
+def test_cpu_reply_sidecar_copies_actual_diagnostics_without_reply_body():
     from corpus_structure.semantic.cpu_execution import CPUReply
 
     pool = {"num_threads": 1, "version": "actual", "provider_metadata": {"unknown": True}}
@@ -42,7 +42,6 @@ def test_cpu_reply_sidecar_copies_actual_diagnostics_without_reply_body_or_cost(
         b"private body",
         456,
         True,
-        cost=b"private cost",
         native_thread_limit=1,
         native_pools=(pool,),
     )

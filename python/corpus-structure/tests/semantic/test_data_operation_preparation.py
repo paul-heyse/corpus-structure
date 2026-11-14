@@ -323,17 +323,21 @@ def test_primary_manifest_refuses_changed_or_unavailable_explicit_selection(tmp_
     else:
         value["assets"] = str(root / "absent")
     (root / "spacy.json").write_bytes(canonical_bytes(value))
-    with pytest.raises(ValueError, match="selection|configuration"):
+    with pytest.raises(ValueError, match=r"selection|configuration"):
         acquire_data_operation_inputs(root, "target.yaml")
 
 
 def test_public_downstream_profile_acquires_native_consumers_without_model_execution(tmp_path):
     from pathlib import Path
+
     import yaml
+
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 
     root = primary_profile_inputs(tmp_path)
+    from corpus_structure.methods.native_profiles import pm2_selection
+    (root / "hanlp.json").write_bytes(canonical_bytes(pm2_selection("hanlp", root / "assets", {"fixture": "no provider execution"}, {}).declaration()))
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     (root / "schema.yaml").write_bytes(core.read_bytes())
     manifest = yaml.safe_load((root / "target.yaml").read_bytes())

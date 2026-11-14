@@ -219,8 +219,6 @@ def request_source_view(
         scale=scale,
         renderer=renderer,
     )
-    if demand == "assessment" and not question:
-        raise ValueError("assessment requires a named question")
     from .pdf_contracts import pdf_context_for_release
 
     with engine.connect() as conn:

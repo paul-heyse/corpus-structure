@@ -774,7 +774,7 @@ def declaration_sentences(layers, view, passage):
                     row["local_id"] for row in support.payload["annotations"]
                 }:
                     raise DeclarationNotQualified("declaration native support is unavailable")
-            data = read(term, terms)
+            data = read(term)
             if not isinstance(data, dict):
                 raise DeclarationNotQualified(
                     "primary declaration sentence is not a structured mapping"
