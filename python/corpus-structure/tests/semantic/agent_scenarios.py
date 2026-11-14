@@ -306,6 +306,7 @@ def queue_resubmission_agent(source, engine, *, admin):
         run, config = bind_primary_agent_run(
             conn, run, prepared, (view.ref.id,), config, admin=admin
         )
+    with engine.begin() as conn:
         locator = view.ref.key
         (task,) = (
             create_historical_agent_task(

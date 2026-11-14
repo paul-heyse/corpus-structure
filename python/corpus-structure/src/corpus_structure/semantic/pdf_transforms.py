@@ -529,7 +529,11 @@ class PreparedPdfTransform:
                 )
             with execution_owner.engine.connect() as connection:
                 receipt = inspect_pdf_execution_receipt(
-                    connection, publication, attempt=claim.attempt, holder=claim.holder
+                    connection,
+                    publication,
+                    attempt=claim.attempt,
+                    holder=claim.holder,
+                    replay_key="product:" + publication.product_key,
                 )
                 reader = PublishedPdfReader(
                     connection,

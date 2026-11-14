@@ -250,7 +250,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  JOIN ops.data_derivation episode ON episode.id=pop.evidence->>'derivation_id'
  JOIN ops.data_request producer ON producer.id=episode.request_id
  JOIN ops.data_derivation_output output ON output.derivation_id=episode.id AND output.product_id=pop.evidence->>'product_id'
- WHERE relation->>'target'=target AND relation->>'target_role'=input_role
+ WHERE relation->>'target'=target AND (
+ relation->>'target_role'=input_role OR (
+ relation->>'target_role' IS NULL AND pop.complete AND producer.original_source=source
+ AND EXISTS(SELECT FROM sem.data_operation_definition consumer
+ CROSS JOIN LATERAL jsonb_array_elements(consumer.input_roles) declared_role
+ WHERE consumer.release_id=d.release_id AND consumer.operation_id=target
+ AND declared_role->>'name'=input_role AND declared_role->>'subject_target'='original-source'
+ AND nullif(declared_role->>'subject_field','') IS NOT NULL)))
  AND relation->>'population'=pop.name AND relation->>'producer'=producer.operation_id
  AND relation->>'output_role'=output.role AND output.role=pop.evidence->>'member_role'
  AND producer.project_id=d.project_id AND producer.release_id=d.release_id)

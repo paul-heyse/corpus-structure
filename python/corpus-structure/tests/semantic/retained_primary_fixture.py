@@ -252,9 +252,12 @@ class SealedFormalFixture(_SealedPrimary):
             ]
             combined = {**parts[0]}
             for key in ("eligible", "examined", "unexamined"):
-                combined[key] = list(
-                    {canonical_bytes(row): row for part in parts for row in part[key]}.values()
-                )
+                if any(key in part for part in parts):
+                    combined[key] = list(
+                        {
+                            canonical_bytes(row): row for part in parts for row in part.get(key, ())
+                        }.values()
+                    )
             combined["outcome"] = (
                 "partial"
                 if any(part["outcome"] not in {"complete", "empty"} for part in parts)
@@ -291,6 +294,7 @@ class SealedConstructionFixture(_SealedPrimary):
             PreparedConstructions,
             retained_documents,
         )
+        from corpus_structure.semantic.constructions.math_scope import populate_math_scope
         from corpus_structure.semantic.constructions.navigation import populate_navigation
         from corpus_structure.semantic.constructions.retained_rules import populate
 
@@ -299,7 +303,10 @@ class SealedConstructionFixture(_SealedPrimary):
         pins = tuple(ProductReference(**row) for row in cfg.characterization_layers)
         dependencies = reader.characterization_layers(pins)
         layer = ConstructionLayer(
-            base, scope, operation, families=(*FAMILIES, "construction.navigation")
+            base,
+            scope,
+            operation,
+            families=(*FAMILIES, "construction.navigation", "construction.math_scope"),
         )
         layer.operation["required_layers"] = [pin.values() for pin in pins]
         vocab = English().vocab
@@ -326,6 +333,7 @@ class SealedConstructionFixture(_SealedPrimary):
                 if any(row["provider"] == "spacy" for row in report.payload.get("native_runs", ())):
                     populate(layer, view, pin, report)
             populate_navigation(layer, view, dependencies)
+            populate_math_scope(layer, view, dependencies, vocab, binders=None)
         releases = {reader.prepared.release_id: reader.prepared}
         for report in dependencies.values():
             identity = report.payload["release_id"]

@@ -390,8 +390,8 @@ class DataOperationStorage:
     def invoke(self, name: str, payload: dict[str, Any]) -> dict[str, Any]:
         from .data_operation_wire import validate_native_wire
 
-        if name not in {item["name"] for item in _protocol()}:
-            raise ValueError("unknown trusted native data operation")
+        # Wire validation already checks the closed operation inventory. Full
+        # native/source capture belongs to admission, not every invocation.
         payload = validate_native_wire(name, "input", payload)
         encoded = self.connection.scalar(
             select(

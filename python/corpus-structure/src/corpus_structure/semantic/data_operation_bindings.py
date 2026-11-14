@@ -233,15 +233,15 @@ def effective_binding_parameters(
     if nominal and params.keys() - definitions.keys():
         raise ValueError("undeclared frozen nominal operation parameter")
     for name, definition in definitions.items():
+        if isinstance(definition, dict) and name not in params and "default" in definition:
+            import copy
+
+            params[name] = copy.deepcopy(definition["default"])
         if isinstance(definition, dict) and "kind" in definition:
             from .data_operation_parameters import validate_nominal_parameter
 
             if name not in params:
-                if "default" in definition:
-                    import copy
-
-                    params[name] = copy.deepcopy(definition["default"])
-                elif definition["required"]:
+                if definition["required"]:
                     raise ValueError("missing frozen demand parameter: " + name)
                 else:
                     continue
@@ -249,8 +249,6 @@ def effective_binding_parameters(
             continue
         if not isinstance(definition, dict) or "value_type" not in definition:
             continue
-        if name not in params and "default" in definition:
-            params[name] = definition["default"]
         if name in params:
             _typed(params[name], definition["value_type"], many=definition.get("many", False))
         elif definition.get("required", True):
