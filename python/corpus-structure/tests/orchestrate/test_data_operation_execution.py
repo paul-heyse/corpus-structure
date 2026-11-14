@@ -107,6 +107,62 @@ def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(e
         assert conn.scalar(text("SELECT count(*) FROM ops.run")) == 0
 
 
+@pytest.mark.parametrize("project", ["execution", "another-project"])
+def test_run_frontdoor_executes_only_the_retained_demand_project(
+    executable, cli, tmp_path, monkeypatch, project
+):
+    from contextlib import contextmanager
+
+    from corpus_structure.cli import demands
+    from corpus_structure.semantic.data_operation_json import json_loads
+
+    engine, prepared, runtime, _, locations, _ = executable
+    intent = freeze_demand(
+        bound_data_operation_model(prepared),
+        roots=(RootSubject("subject:frontdoor", "source:original", b"{}"),),
+        targets=("urn:ddo-execution:answer",),
+        inference="exact",
+        execution_profile="execution:test",
+    )
+    with engine.begin() as connection:
+        demand = DemandPlanner(
+            bound_data_operation_model(prepared), DataOperationStorage(connection)
+        ).register(
+            intent, project="execution", release=prepared.release_id, runtime=runtime.runtime_id
+        )["demand_id"]
+
+    @contextmanager
+    def acquired_engine(settings, *, purpose):
+        assert purpose == "write"
+        yield engine
+
+    monkeypatch.setattr(demands, "ENGINE", acquired_engine)
+    result = cli(
+        "run",
+        "--demand",
+        demand,
+        "--source-root",
+        str(next(iter(locations.values())).parent),
+        "--project",
+        project,
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "cli-results")},
+    )
+    if project == "execution":
+        assert result.exit_code == 0, result.output
+        report = json_loads(result.stdout)
+        assert report["native"]["demand_id"] == demand
+        assert report["native"]["receipt_count"] == 1
+    else:
+        assert result.exit_code != 0
+        assert "another project" in result.output
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == (
+            1 if project == "execution" else 0
+        )
+        assert connection.scalar(text("SELECT count(*) FROM ops.run")) == 0
+
+
 def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(executable):
     engine, prepared, runtime, sources, locations, bundle = executable
     model = bound_data_operation_model(prepared)

@@ -205,3 +205,64 @@ def test_execute_retains_pending_native_fates_and_exact_resume_target(
     assert native["snapshot"] == snapshot
     assert native["receipt_count"] == 0
     assert native["snapshot_standing"] == "fresh-read"
+
+
+def test_create_and_report_preserve_exact_native_scope_numbers(cli, tmp_path, monkeypatch, routing):
+    from decimal import Decimal
+
+    from corpus_structure.semantic.data_operation_json import json_loads
+
+    number = "0.12345678901234567890123456789"
+    source = tmp_path / "request.json"
+    source.write_text(
+        '{"project_id":"p","release_id":"r","runtime_id":"t",'
+        '"intent":{"analyzed_scope":{"fraction":' + number + "}}}"
+    )
+
+    def create(conn, request):
+        assert request.intent["analyzed_scope"]["fraction"] == Decimal(number)
+        return {"demand_id": "demand:exact", **request.intent}
+
+    monkeypatch.setattr(demands, "create_data_demand", create)
+    result = cli(
+        "demands",
+        "create",
+        "--request",
+        str(source),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
+    )
+    assert result.exit_code == 0, result.output
+    assert json_loads(result.stdout)["native"]["analyzed_scope"]["fraction"] == Decimal(number)
+    assert number in result.stdout and '"' + number + '"' not in result.stdout
+
+
+def test_execute_keeps_scope_numbers_in_retained_snapshot(cli, tmp_path, monkeypatch, routing):
+    from decimal import Decimal
+
+    from corpus_structure.orchestrate.data_operations import DemandAdvance
+    from corpus_structure.semantic import data_operation_service
+    from corpus_structure.semantic.data_operation_json import json_loads
+
+    number = "0.12345678901234567890123456789"
+    snapshot = (
+        '{"demand_id":"demand:exact","analyzed_scope":{"fraction":' + number + "}}"
+    ).encode()
+    monkeypatch.setattr(
+        data_operation_service,
+        "execute_data_demand",
+        lambda *args, **kwargs: DemandAdvance("demand:exact", snapshot, (), 0),
+    )
+    result = cli(
+        "demands",
+        "execute",
+        "demand:exact",
+        "--source-root",
+        str(tmp_path),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
+    )
+    assert result.exit_code == 0, result.output
+    assert json_loads(result.stdout)["native"]["snapshot"]["analyzed_scope"]["fraction"] == Decimal(
+        number
+    )

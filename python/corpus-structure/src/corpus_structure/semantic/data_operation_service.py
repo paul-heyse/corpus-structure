@@ -4,15 +4,22 @@ from __future__ import annotations
 
 from typing import Any, Literal
 from pathlib import Path
+from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Connection
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_demands import DemandIntent, DemandPlanner
 from .data_operation_storage import DataOperationStorage
-from .identity import canonical_bytes
+from .data_operation_json import json_bytes
 from .releases import load_release
+
+# Operator transport extends JSON's numeric representation with exact decimals;
+# native semantic validation and interpretation stay with their existing owners.
+type DdoJsonValue = (
+    None | bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue]
+)
 
 
 def execute_data_demand(
@@ -21,6 +28,8 @@ def execute_data_demand(
     *,
     source_root: Path,
     policy=None,
+    project_id: str | None = None,
+    nemotron_endpoint: str | None = None,
     limit: int = 100,
     max_rounds: int = 100,
 ):
@@ -38,6 +47,8 @@ def execute_data_demand(
 
     with engine.begin() as connection:
         snapshot = read_data_demand(connection, demand_id, limit=1)
+        if project_id is not None and snapshot["project_id"] != project_id:
+            raise ValueError("retained demand belongs to another project")
         bundle, dependencies, _, prepared = load_release_inputs(connection, snapshot["release_id"])
         runtime = runtime_binding_for_release(connection, prepared, snapshot["runtime_id"])
         captured = read_data_operation_inputs(dependencies)
@@ -59,6 +70,7 @@ def execute_data_demand(
         runtime_locations=locations,
         schema=bundle,
         policy=policy,
+        nemotron_endpoint=nemotron_endpoint,
     )
     return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
 
@@ -71,7 +83,7 @@ class CreateDataDemand(BaseModel):
     project_id: str
     release_id: str
     runtime_id: str
-    intent: dict[str, JsonValue]
+    intent: dict[str, DdoJsonValue]
     strength: str = "value"
 
 
@@ -79,7 +91,7 @@ def create_data_demand(connection: Connection, request: CreateDataDemand) -> dic
     prepared = load_release(connection, request.release_id)
     planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))
     demand = planner.register(
-        DemandIntent(canonical_bytes(request.intent)),
+        DemandIntent(json_bytes(request.intent)),
         project=request.project_id,
         release=request.release_id,
         runtime=request.runtime_id,

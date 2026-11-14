@@ -222,12 +222,67 @@ def run(
     integrated_product_digest: Annotated[
         str | None, typer.Option(help="Exact retained integrated SHA-256 digest.")
     ] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Execute or resume this exact frozen native demand.")
+    ] = None,
+    source_root: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True, file_okay=False, help="Explicit executable source root for --demand."
+        ),
+    ] = None,
     json: JsonOpt = False,
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
     """Start a run over the project's corpus and run it to its end."""
     if ctx.invoked_subcommand is not None:
         return
+    if demand is not None:
+        if source_root is None:
+            raise typer.BadParameter("--demand requires --source-root")
+        if (
+            any(
+                value is not None
+                for value in (
+                    slice,
+                    scope,
+                    corpus,
+                    agent_mode,
+                    agent_reuse,
+                    gpu_mode,
+                    semantic_release,
+                    realization,
+                    domain,
+                    record_policy,
+                    integrated_product_task,
+                    integrated_product_key,
+                    integrated_product_digest,
+                )
+            )
+            or whole_document
+            or source_membership is not None
+            or fresh
+            or characterization_view
+            or phase != 0
+            or extraction_policy != "phase0"
+            or m1_configuration != "default"
+        ):
+            raise typer.BadParameter(
+                "native demand execution consumes retained intent; source-selection and workflow overrides require a new demand"
+            )
+        from .demands import execute
+
+        execute(
+            ctx,
+            demand,
+            source_root=source_root,
+            project=project,
+            execution_policy=execution_policy,
+            json=json,
+        )
+        return
+    if source_root is not None:
+        raise typer.BadParameter("--source-root requires --demand")
     from corpus_structure.orchestrate.source_operation import (
         preflight_source_operation,
         run_source_operation,

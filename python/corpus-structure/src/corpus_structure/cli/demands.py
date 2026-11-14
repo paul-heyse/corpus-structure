@@ -2,25 +2,25 @@
 
 from __future__ import annotations
 
-import json as jsonlib
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
-from pydantic import BaseModel, JsonValue, RootModel
+from pydantic import BaseModel, RootModel
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.managed import managed_operation, result_store
-from corpus_structure.cli.output import JsonOpt, emit, read_request_bytes, state
+from corpus_structure.cli.output import JsonOpt, emit, read_request_bytes, state, write_report_text
+from corpus_structure.semantic.data_operation_json import json_bytes, json_loads, wire_json_loads
 from corpus_structure.semantic.data_operation_service import (
     CreateDataDemand,
+    DdoJsonValue,
     cancel_data_demand,
     create_data_demand,
     read_data_demand,
 )
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.storage_target import acquired_target
 
 app = typer.Typer(help="Create, inspect and cancel immutable native demands.", no_args_is_help=True)
@@ -39,11 +39,18 @@ ENGINE = _open_engine
 
 class DemandActionReport(BaseModel):
     id: str
-    native: dict[str, JsonValue]
+    native: dict[str, DdoJsonValue]
 
 
-class DemandSnapshot(RootModel[dict[str, JsonValue]]):
+class DemandSnapshot(RootModel[dict[str, DdoJsonValue]]):
     pass
+
+
+def _emit_demand(report, *, json):
+    if json:
+        write_report_text(json_bytes(report.model_dump(mode="python")).decode() + "\n")
+    else:
+        emit(report, json=False)
 
 
 def _mutation(
@@ -53,7 +60,7 @@ def _mutation(
         result_store(ctx), "demands." + action, json=json, expected=(ValueError, KeyError, OSError)
     ) as invocation:
         request_path = invocation.directory / "request.json"
-        request_path.write_bytes(canonical_bytes(request))
+        request_path.write_bytes(json_bytes(request))
         invocation.publish("request", request_path)
         with ENGINE(state(ctx).settings(), purpose="write") as engine, engine.begin() as connection:
             target = acquired_target(connection, purpose="write")
@@ -68,7 +75,7 @@ def _mutation(
                 )
         invocation.record_effect("native demand " + action + ":" + native["demand_id"])
         native_path = invocation.directory / "native.json"
-        native_path.write_bytes(canonical_bytes(native))
+        native_path.write_bytes(json_bytes(native))
         invocation.publish("native", native_path)
         invocation.settle("passed", demand_id=native["demand_id"])
         return DemandActionReport(id=invocation.id, native=native)
@@ -87,9 +94,9 @@ def create(
 ) -> None:
     """Create or resume the deterministic demand for an existing frozen intent."""
     with failure_boundary(json, expected=(ValueError, OSError)):
-        parsed = CreateDataDemand.model_validate_json(read_request_bytes(request))
-        report = _mutation(ctx, "create", parsed.model_dump(mode="json"), json=json)
-    emit(report, json=json)
+        parsed = CreateDataDemand.model_validate(json_loads(read_request_bytes(request)))
+        report = _mutation(ctx, "create", parsed.model_dump(mode="python"), json=json)
+    _emit_demand(report, json=json)
 
 
 @app.command("read")
@@ -108,7 +115,7 @@ def read(
 ) -> None:
     """Inspect the native frontier, preserving source, read and pagination pins."""
     with failure_boundary(json, expected=(ValueError, OSError)):
-        pins = None if continuation is None else jsonlib.loads(read_request_bytes(continuation))
+        pins = None if continuation is None else wire_json_loads(read_request_bytes(continuation))
         if pins is not None and not isinstance(pins, dict):
             raise ValueError("continuation must be a complete native JSON object")
         with ENGINE(state(ctx).settings(), purpose="read") as engine, engine.begin() as connection:
@@ -119,7 +126,7 @@ def read(
                 limit=limit,
                 view=view,
             )
-    emit(DemandSnapshot(snapshot), json=json)
+    _emit_demand(DemandSnapshot(snapshot), json=json)
 
 
 @app.command("cancel")
@@ -131,7 +138,7 @@ def cancel(
 ) -> None:
     """Detach this demand while retaining independent shared producer interest."""
     report = _mutation(ctx, "cancel", {"demand_id": demand, "reason": reason}, json=json)
-    emit(report, json=json)
+    _emit_demand(report, json=json)
 
 
 @app.command("execute")
@@ -148,21 +155,27 @@ def execute(
             help="Explicit root of the retained executable source locations.",
         ),
     ],
+    project: Annotated[
+        str | None, typer.Option(help="Require the retained demand to belong to this project.")
+    ] = None,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     max_rounds: Annotated[int, typer.Option(min=1)] = 100,
     json: JsonOpt = False,
 ) -> None:
     """Execute the frozen native frontier; repeat this action to resume the same intent."""
+    from corpus_structure.cli.characterization_options import method_settings
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
     from corpus_structure.semantic.data_operation_service import execute_data_demand
-    from corpus_structure.cli.characterization_options import method_settings
 
     settings = state(ctx).settings()
+    methods = method_settings(settings, execution_policy)
     with managed_operation(
         result_store(ctx),
         "demands.execute",
         json=json,
         expected=(ValueError, KeyError, OSError),
+        scope={"demand_id": demand},
     ) as invocation:
         with ENGINE(settings, purpose="write") as engine:
             with engine.begin() as connection:
@@ -170,17 +183,17 @@ def execute(
                 invocation.record_target(target, None, None, None)
 
             def retain(result):
-                native = jsonlib.loads(result.snapshot)
+                native = wire_json_loads(result.snapshot)
                 report = {
                     "demand_id": result.demand_id,
                     "snapshot": native,
                     "snapshot_standing": result.snapshot_standing,
                     "receipt_count": result.receipt_count,
                     "receipts_truncated": result.receipts_truncated,
-                    "receipts": [jsonlib.loads(value) for value in result.receipts],
+                    "receipts": [wire_json_loads(value) for value in result.receipts],
                 }
                 path = invocation.directory / "native.json"
-                path.write_bytes(canonical_bytes(report))
+                path.write_bytes(json_bytes(report))
                 invocation.publish("native", path)
                 return report
 
@@ -191,7 +204,9 @@ def execute(
                     source_root=source_root,
                     limit=limit,
                     max_rounds=max_rounds,
-                    policy=method_settings(settings).execution_policy,
+                    policy=methods.execution_policy,
+                    project_id=project,
+                    nemotron_endpoint=methods.nemotron_endpoint,
                 )
             except NativeDemandExecutionError as error:
                 retain(error.result)
@@ -199,7 +214,7 @@ def execute(
             native = retain(result)
         invocation.settle("passed", demand_id=demand, receipt_count=result.receipt_count)
         report = DemandActionReport(id=invocation.id, native=native)
-    emit(report, json=json)
+    _emit_demand(report, json=json)
 
 
 def register(root: typer.Typer) -> None:
