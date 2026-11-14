@@ -797,7 +797,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
     """Index original canonical units and actual HanLP heads without re-recognition."""
     from ..data_product_reference import DataProductReference, member_reference
     from ..declared_record_sources import DeclaredNativeFrameSource
-    from ..source_contexts import source_slice
+    from ..source_contexts import PreparedNativeSources, source_slice
 
     selected = source.value
     canonical_body, body = json.loads(canonical.content), json.loads(hanlp.content)
@@ -831,6 +831,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
         frame, (), (source_slice(frame, 0, len(frame.text)),),
         "primary declaration roles", "primary-declaration-roles-1", "exact selected source",
         max_chars=max(1, len(frame.text)), max_pieces=max(1, len(frame.pieces)),
+        max_sources=1, version=2, preparation=PreparedNativeSources((frame,), max_sources=1),
     )
     for number, (identifier, original) in enumerate(candidates):
         start, end = original["start"], original["end"]
@@ -865,10 +866,11 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
                 key = f"s{number}/span/{a}-{b}"
                 left, right = positions[a][0], positions[b - 1][1]
                 pieces = tuple(context.map_span(left, right, literal=frame.text[left:right], allow_multiple=True))
-                if not pieces or any(not isinstance(piece, NativeSpanEvidence) for piece in pieces):
+                native_pieces = tuple(piece for piece in pieces if isinstance(piece, NativeSpanEvidence))
+                if not native_pieces or len(native_pieces) != len(pieces):
                     raise DeclarationNotQualified("declaration role lacks original native correspondence")
-                anchors = tuple(evidence_anchor(context, piece, native=True)[0] for piece in pieces)
-                locations[key] = MappedSource(context.dependency_digest, context.dependency_digest, context.dependency_digest, (), pieces, anchors, ())
+                anchors = tuple(evidence_anchor(context, piece, native=True)[0] for piece in native_pieces)
+                locations[key] = MappedSource(context.dependency_digest, context.dependency_digest, context.dependency_digest, (), native_pieces, anchors, ())
                 return key
 
             groups, keys, evidence = {}, {}, []
@@ -928,7 +930,7 @@ def populate_declaration_products(
             check_active()
             produced = True
             if sentence is None:
-                layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + reason)
+                layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + str(reason))
                 continue
             layer.record(DECLARATION_FAMILY, selector, "complete")
             _emit_declaration_sentence(layer, view, sentence, source_key=view.key, premises=[ref.values() for ref in sentence.evidence])

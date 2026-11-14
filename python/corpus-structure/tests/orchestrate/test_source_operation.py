@@ -139,3 +139,19 @@ def test_explicit_operation_choices_and_source_context_are_frozen_independently(
     ]
     assert {entry["operation"] for entry in frozen.record["operations"]} == {"op:base", "op:result"}
     assert frozen.record["execution_profile"] == "selected-provider"
+
+
+def test_full_source_profile_recurses_declared_options_and_preserves_explicit_choices():
+    from corpus_structure.orchestrate.source_operation import _default_profile_selections
+    from semantic.data_operation_declaration_support import model, operation
+
+    compiled = model(
+        operation("op:result", potential_dependencies=["op:child"]),
+        operation("op:child", potential_dependencies=["op:leaf"]), operation("op:leaf"),
+    )
+    full = _default_profile_selections(compiled, ("op:result",), {})
+    assert full["op:result"].selected_dependencies == ("op:child",)
+    assert full["op:child"].selected_dependencies == ("op:leaf",)
+    explicit = DemandOperationSelection(operation="op:child", selected_dependencies=())
+    chosen = _default_profile_selections(compiled, ("op:result",), {"op:child": explicit})
+    assert chosen["op:child"] == explicit and "op:leaf" not in chosen

@@ -16,7 +16,7 @@ from corpus_structure.semantic.constructions.retained_declarations import (
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource, DeclaredSourcePin
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_products import source_subject
+from corpus_structure.semantic.source_products import native_projection_identity, source_subject
 from corpus_structure.semantic.structural_products import StructuralPassage
 from methods.test_definition_declaration_primary import _ROWS
 
@@ -28,6 +28,8 @@ def case():
     selected = {"source": coordinate, "selectors": selectors, "text": text,
                 "pieces": [{"kind": "native_text", "item_ref": "#/texts/0", "source_field": "text", "start": 0, "end": len(text)}],
                 "items": [{"self_ref": "#/texts/0", "text": text, "label": "text"}], "ancestors": []}
+    coordinate["projection"] = native_projection_identity(text, selected["pieces"], selected["items"])
+    selectors[0]["projection"] = coordinate["projection"]
     source = SimpleNamespace(value=selected, content=canonical_bytes(selected))
     context = SubjectContext("p", source_subject(coordinate), "book", canonical_bytes({"source": coordinate, "selectors": selectors}))
     pin = DeclaredRecordSource("book", coordinate["projection"], "#/groups/0", "direct", context, "product:source", None, "kind:source").pin()

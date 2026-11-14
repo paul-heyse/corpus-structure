@@ -27,6 +27,34 @@ from .source_request import (
 CommandError = SourceRequestError
 
 
+def _default_profile_selections(model, targets, supplied):
+    """Freeze the chosen full profile, preserving explicit and alternative choices."""
+    supplied = dict(supplied)
+    pending, visited = list(targets), set()
+    while pending:
+        target = pending.pop()
+        if target in visited:
+            continue
+        visited.add(target)
+        selected = model.operation(target)
+        if selected.potential_dependencies and target not in supplied:
+            dependencies = set(selected.potential_dependencies)
+            for role in selected.roles:
+                alternatives = dependencies.intersection(role.alternatives)
+                if len(alternatives) > 1:
+                    if role.selected is None:
+                        raise SourceRequestError("full profile requires an explicit alternative for " + target + "/" + role.name)
+                    dependencies.difference_update(alternatives)
+                    dependencies.add(role.selected)
+            supplied[target] = DemandOperationSelection(
+                operation=target, selected_dependencies=tuple(sorted(dependencies))
+            )
+        pending.extend(selected.dependencies)
+        if target in supplied:
+            pending.extend(supplied[target].selected_dependencies)
+    return supplied
+
+
 def prepare_source_demand(
     connection, request: SourceRunRequest, *, domains: Path | None = None, prepared=None
 ):
@@ -126,12 +154,7 @@ def prepare_source_demand(
         raise SourceRequestError("duplicate source operation selection")
     # Full means the optional families explicitly declared by this admitted
     # composition, not a manually maintained method dependency list.
-    for target in targets:
-        selected = model.operation(target)
-        if selected.potential_dependencies and target not in supplied:
-            supplied[target] = DemandOperationSelection(
-                operation=target, selected_dependencies=selected.potential_dependencies
-            )
+    supplied = _default_profile_selections(model, targets, supplied)
     producer = "source.pdf_views/discovery" if captured else "source.selected_views/discovery"
     selection = DemandOperationSelection(
         operation=producer,
