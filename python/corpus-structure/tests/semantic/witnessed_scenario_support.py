@@ -14,7 +14,7 @@ import pytest
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef
+from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitView
 from corpus_structure.core.vocab import MethodTier, Stage, TaskUnitType
 from corpus_structure.evaluate.record_references import assign_origin
 from corpus_structure.evaluate.structural_assessment import (
@@ -37,10 +37,7 @@ from corpus_structure.methods.model_observation import (
     installed_policy,
     observation_digest,
 )
-from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic._operation_ids import RunId, SourceViewId
 from corpus_structure.semantic.contextual_links import RelationshipConstraint, select_relationships
@@ -56,6 +53,86 @@ from corpus_structure.semantic.structural_products import (
     StructuralProductReport,
 )
 from semantic.native_record_fixtures import complete_contributions, contribution_drafts
+
+
+def _fixture_configuration(method, config):
+    from hashlib import sha256
+    params = config.model_dump(mode="json", exclude_none=True)
+    return params, sha256(canonical_bytes([method.name, method.version, params])).hexdigest()
+
+
+def _begin_witnessed_run(case, binding, configured, *, structural_admission=(), local_semantic_admission=()):
+    """Create genuine native custody for these finite sealed-consumer fixture families.
+
+    This records declared inputs only. It selects no methods, schedules no graph,
+    dispatches no worker and supplies no production execution fallback.
+    """
+    from corpus_structure.semantic.operations import create_run, start_run
+    operations = {}
+    for method, config in configured:
+        params, digest = _fixture_configuration(method, config)
+        operations[method.name] = dict(version=method.version, family=str(method.family),
+            tier=str(method.tier), confidence_source=method.confidence_source,
+            configuration_hash=digest, parameters=params)
+    dependencies = {"operations":operations,
+        "structural_admission":list(structural_admission),
+        "local_semantic_admission":list(local_semantic_admission)}
+    binding = replace(binding, dependencies=canonical_bytes(dependencies))
+    with case.writer.begin() as conn:
+        run = create_run(conn, project_id=case.project_id, binding=binding, kind="full",
+            options={}, code_commit="sealed-witnessed-fixture", prepared=case.prepared)
+        start_run(conn, run)
+        select_source_view(conn, run_id=run, source_run_id=RunId(case.run),
+            source_view_id=SourceViewId(case.view), projection_context=case.prepared)
+    return run, binding
+
+
+def _retain_witnessed_result(case, run, method, config, result, *, stage, admin=None):
+    """Publish an already computed fixture result through a real fenced native task."""
+    from corpus_structure.semantic.operations import (
+        record_method, create_task, claim_tasks, prepare_unit_completion, complete_task,
+    )
+    params, digest = _fixture_configuration(method, config)
+    authority = admin if admin is not None else (case.clone.admin if case.clone is not None else None)
+    if authority is None:
+        raise ValueError("sealed fixture publication requires its actual administrative seed connection")
+    with authority.begin() as conn:
+        configured = record_method(conn, method, "sealed-control", params, digest, prepared=case.prepared)
+        task = create_task(conn, run_id=run, config_id=configured, stage=stage,
+            unit_type=str(result.ref.unit_type), unit_id=result.ref.unit_id,
+            unit_key=result.ref.unit_key, input_hash=digest, fresh=True)
+    with case.writer.begin() as conn:
+        (held,) = claim_tasks(conn, run_id=run, config_id=configured, holder="witnessed-fixture")
+        assert held.task_id == task
+        completion = prepare_unit_completion(conn, task_id=task, attempt=held.attempt,
+            holder="witnessed-fixture", prepared=case.prepared, method=method,
+            configuration_hash=digest, source=result.ref.unit_key, result=result, records=result.records)
+        assert not completion.source_views
+        complete_task(conn, task_id=task, attempt=held.attempt, holder="witnessed-fixture",
+            prepared=case.prepared, observations=completion.rows, outcome=completion.outcome,
+            error=completion.error, envelope=completion.envelope)
+    return task
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def _witnessed_reader(case, run, binding, tmp_path, *, controlled_provider=False):
+    """Read actual selected historical source custody; no fabricated Reader transport."""
+    import logging
+    from corpus_structure.core.method import MethodContext
+    from corpus_structure.semantic.operations import BoundReader, BoundRunView
+    with case.writer.connect() as conn, conn.begin():
+        reader = BoundReader(conn, run, case.prepared)
+        reader.bind_source_tasks({case.document:case.source_task})
+        if controlled_provider:
+            # The family explicitly substitutes its provider kernel; this is not
+            # provider qualification or an authentic inference receipt claim.
+            reader.provider_execution = SimpleNamespace(native_group=object())
+        view = BoundRunView(run, "full", 0, None, binding, case.prepared, {}, reader)
+        yield MethodContext(view, reader, MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+            logging.getLogger("sealed-witnessed-fixture"), check_active=lambda:None)
 
 
 def completed_metadata(case, run):
@@ -86,7 +163,7 @@ def completed_metadata(case, run):
     return completed, batch["data_revision"], runtime
 
 
-def completed_component_case(case, tmp_path):
+def completed_component_case(case, tmp_path, *, admin=None):
     """Real completed native source/component custody for controlled policy tests."""
     with case.writer.begin() as conn:
         complete_contributions(case, conn, contribution_drafts(case))
@@ -211,30 +288,18 @@ def completed_component_case(case, tmp_path):
                 "corpus_structure.methods.definition_applicability.HostedGliner",
                 ControlledComponentWorker,
             )
-            component_run = semantic.run_source_methods(
-                case.writer,
-                project_id="private-records",
-                prepared=case.prepared,
-                binding=OperationBinding(
-                    case.prepared.release_id, "wce-source", source_revision, b"{}"
-                ),
-                registry=MethodRegistry(
-                    [DefinitionComponentsMethod()],
-                    MethodsFile(
-                        configs={
-                            "structure.definition_components": {
-                                "default": component_cfg.model_dump(mode="json")
-                            }
-                        }
-                    ),
-                ),
-                graph=Graph(
-                    ((Stage.ASSEMBLE, (Step("structure.definition_components/default"),)),),
-                    policy_propose=False,
-                ),
-                method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-                structural_admission=structural_admission,
-            )
+            method = DefinitionComponentsMethod()
+            run, bound = _begin_witnessed_run(case,
+                OperationBinding(case.prepared.release_id, "wce-source", source_revision, b"{}"),
+                ((method, component_cfg),), structural_admission=structural_admission)
+            ref = UnitRef(TaskUnitType.RUN, unit_key="definition-components:"+component_cfg.inputs.identity)
+            try:
+                with _witnessed_reader(case, run, bound, tmp_path, controlled_provider=True) as ctx:
+                    (result,) = method.run((UnitView(ref, ctx.run),), component_cfg, ctx)
+                _retain_witnessed_result(case, run, method, component_cfg, result, stage="assemble", admin=admin)
+            finally:
+                method.close()
+            component_run = SimpleNamespace(run_id=run)
         return component_run
 
     component_run = produce_component()
@@ -297,8 +362,8 @@ def completed_component_case(case, tmp_path):
     )
 
 
-def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_recipe=None):
-    completed = completed_component_case(case, tmp_path)
+def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_recipe=None, admin=None):
+    completed = completed_component_case(case, tmp_path, admin=admin)
     target, component_revision, v, task = (
         completed.target,
         completed.component_revision,
@@ -481,20 +546,6 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
                 )
             return tuple(results)
 
-    start = semantic.start_run
-
-    def select_original(conn, run):
-        start(conn, run)
-        select_source_view(
-            conn,
-            run_id=RunId(run),
-            source_run_id=RunId(case.run),
-            source_view_id=SourceViewId(case.view),
-            projection_context=case.prepared,
-        )
-
-    monkeypatch.setattr(semantic, "start_run", select_original)
-
     def controlled_encoder(items, profile, **kwargs):
         vectors = []
         for item in items:
@@ -556,21 +607,17 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
     # The current literal-only operation freezes its exact actual carriers. Settle
     # their native publication before constructing the retrieval configuration;
     # the later graph selects/reuses that same ordinary source producer.
-    population = semantic.run_source_methods(
-        case.writer,
-        project_id="private-records",
-        prepared=case.prepared,
-        binding=OperationBinding(
-            case.prepared.release_id, "wce-components", component_revision, b"{}"
-        ),
-        registry=MethodRegistry(
-            [ActualOccurrenceProducer()],
-            MethodsFile(configs={"private.records": {"default": {}}}),
-        ),
-        graph=Graph(((Stage.EXTRACT, (Step("private.records/default"),)),), policy_propose=False),
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-    )
-    assert population.status == "source_ready"
+    occurrence_method, occurrence_config = ActualOccurrenceProducer(), OccurrenceConfig()
+    population_id, population_binding = _begin_witnessed_run(case,
+        OperationBinding(case.prepared.release_id, "wce-components", component_revision, b"{}"),
+        ((occurrence_method, occurrence_config),))
+    with _witnessed_reader(case, population_id, population_binding, tmp_path) as ctx:
+        native = ctx.reader.source_view(case.view)
+        ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, native.ref.key)
+        (population_result,) = occurrence_method.run((UnitView(ref, ctx.run),), occurrence_config, ctx)
+    _retain_witnessed_result(case, population_id, occurrence_method, occurrence_config,
+        population_result, stage="extract", admin=admin)
+    population = SimpleNamespace(run_id=population_id)
     with case.writer.connect() as conn:
         tasks, results = table("ops.task"), table("ops.task_result")
         body = conn.execute(
@@ -589,35 +636,26 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
     )
 
     def produce_relationship(*, local_semantic_admission=()):
-        return semantic.run_source_methods(
-            case.writer,
-            project_id="private-records",
-            prepared=case.prepared,
-            binding=OperationBinding(
-                case.prepared.release_id, "wce-components", component_revision, b"{}"
-            ),
-            registry=MethodRegistry(
-                [ActualOccurrenceProducer(), ContextualCandidatesWithQueryContext()],
-                MethodsFile(
-                    configs={
-                        "private.records": {"default": {}},
-                        "retrieve.contextual": {"default": cfg.model_dump(mode="json")},
-                    }
-                ),
-            ),
-            graph=Graph(
-                (
-                    (Stage.EXTRACT, (Step("private.records/default"),)),
-                    (Stage.ASSEMBLE, (Step("retrieve.contextual/default"),)),
-                ),
-                policy_propose=False,
-            ),
-            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            local_semantic_admission=local_semantic_admission,
-        )
+        method = ContextualCandidatesWithQueryContext()
+        run, bound = _begin_witnessed_run(case,
+            OperationBinding(case.prepared.release_id, "wce-components", component_revision, b"{}"),
+            ((occurrence_method, occurrence_config),(method,cfg)),
+            local_semantic_admission=local_semantic_admission)
+        # Retain the independently computed literal population under this actual
+        # fixture run before computing the exact contextual relationship result.
+        _retain_witnessed_result(case, run, occurrence_method, occurrence_config,
+            population_result, stage="extract", admin=admin)
+        try:
+            with _witnessed_reader(case, run, bound, tmp_path) as ctx:
+                (relationship_result,) = method.run((UnitView(ref, ctx.run),), cfg, ctx)
+            _retain_witnessed_result(case, run, method, cfg, relationship_result, stage="assemble", admin=admin)
+        finally:
+            close = getattr(method, "close", None)
+            if close is not None:
+                close()
+        return SimpleNamespace(run_id=run)
 
     outcome = produce_relationship()
-    assert outcome.status == "source_ready"
     with case.writer.connect() as conn:
         tasks, results, configs, methods = (
             table(n) for n in ("ops.task", "ops.task_result", "ops.method_config", "ops.method")

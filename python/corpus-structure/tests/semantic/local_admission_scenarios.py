@@ -144,7 +144,7 @@ def build_local_witness_recipe(recipe, admin, writer, directory, *, purpose_engi
 
 def build_judged_source(original_case, selected, evaluator, monkeypatch, directory):
     partition = selected.get("partition", "development")
-    linked = completed_relationship_case(original_case, monkeypatch, directory)
+    linked = completed_relationship_case(original_case, monkeypatch, directory, admin=admin)
     from corpus_structure.orchestrate.commands import finalize_bound_run
 
     finalize_bound_run(original_case.writer, linked.outcome.run_id, "semantic-source-private")

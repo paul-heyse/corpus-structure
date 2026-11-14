@@ -62,6 +62,7 @@ from corpus_structure.semantic.operations import (
     claim_tasks,
     complete_task,
     complete_unit_result,
+    prepare_unit_completion,
     create_run,
     create_task,
     read_original,
@@ -1100,7 +1101,7 @@ def unit(case):
 
 
 def complete(case, conn, records):
-    return complete_unit_result(
+    completion = prepare_unit_completion(
         conn,
         task_id=case.task,
         attempt=case.held.attempt,
@@ -1112,6 +1113,11 @@ def complete(case, conn, records):
         result=unit(case),
         records=records,
     )
+
+    assert not completion.source_views
+    return complete_task(conn, task_id=completion.task_id, attempt=completion.attempt,
+        holder=completion.holder, prepared=completion.prepared, observations=completion.rows,
+        outcome=completion.outcome, error=completion.error, envelope=completion.envelope)
 
 
 def bypass(case, conn, records):
@@ -1250,7 +1256,7 @@ def contribution_drafts(case):
 
 
 def complete_contributions(case, conn, result):
-    return complete_unit_result(
+    completion = prepare_unit_completion(
         conn,
         task_id=case.task,
         attempt=case.held.attempt,
@@ -1261,6 +1267,11 @@ def complete_contributions(case, conn, result):
         source="private-unit",
         result=result,
     )
+
+    assert not completion.source_views
+    return complete_task(conn, task_id=completion.task_id, attempt=completion.attempt,
+        holder=completion.holder, prepared=completion.prepared, observations=completion.rows,
+        outcome=completion.outcome, error=completion.error, envelope=completion.envelope)
 
 
 def contribution_envelope(case, result):

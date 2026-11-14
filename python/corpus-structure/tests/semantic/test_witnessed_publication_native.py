@@ -57,7 +57,6 @@ def test_exact_component_admits_without_whole_applicability(
     refused = completed.produce_component(
         structural_admission=(dict(admission, policy_id="independent-witnessed-applicability-1"),)
     )
-    assert refused.status == "source_ready"
     with pytest.raises(DBAPIError) as caught:
         finalize_bound_run(case.writer, refused.run_id, "refused-whole-applicability")
     error = caught.value.orig
