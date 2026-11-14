@@ -29,6 +29,7 @@ def _recipe():
     consumer["binding"] = {"operator": "all", "children": [{"operator": operator, "operands": operands} for operator in ("membership", "covers")]}
     child = next(op for op in declarations["operations"] if op["id"] == "urn:child")
     child["roles"][0]["kind"] = "ChildReport"
+    declarations["operations"].append({**child, "id": "urn:child-other"})
     schema = POPULATION.schema_text + """  ChildReport:
     attributes:
       value: {range: integer, required: true}
@@ -101,3 +102,18 @@ def test_native_context_fanin_distinguishes_complete_empty_from_partial(ddo_kern
         assert aggregate.binding_result.roles[0].members == ()
     else:
         assert ready == ()
+
+
+def test_native_one_discovery_population_fans_out_without_duplicate_custody(ddo_kernel):
+    demand, _, parent = discover(ddo_kernel, values=(5, 15), additional_discovery_targets=("urn:child-other",))
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        snapshot = planner.resume(demand["demand_id"])
+        use = next(use for use in snapshot["uses"] if use["products"])
+        for _ in range(2):
+            closed = planner.expand_discovery(snapshot, population="all-items", product=use["products"][0]["product_id"], derivation=use["derivation_id"])
+            assert closed["population_id"] == parent["population_id"]
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_population WHERE demand_id=:demand"), {"demand": demand["demand_id"]}) == 1
+    ready = _frontier(ddo_kernel, demand)
+    assert len(ready) == 4
+    assert {(child.operation, child.subject) for child in ready} == {(op, subject) for op in ("urn:child", "urn:child-other") for subject in ("item:5", "item:15")}

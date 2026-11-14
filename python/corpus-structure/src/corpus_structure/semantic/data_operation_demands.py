@@ -111,7 +111,17 @@ def freeze_demand(
     )
     graph.require_acyclic({"operation_dependency", "selected_operation_dependency"})
     requested = set(targets)
+    population_sources = {}
+    seen_relations = set()
     for relation in discovery:
+        source = (relation.producer, relation.output_role)
+        if relation.population in population_sources and population_sources[relation.population] != source:
+            raise ValueError("one discovery population requires one source projection")
+        population_sources[relation.population] = source
+        relation_key = (*source, relation.population, relation.target)
+        if relation_key in seen_relations:
+            raise ValueError("duplicate frozen discovery target")
+        seen_relations.add(relation_key)
         producer = operations.get(relation.producer)
         if (
             producer is None
@@ -366,8 +376,8 @@ class DemandPlanner:
         """Expand only native-authenticated members of a declared discovery output."""
         frozen = snapshot["intent"]
         relations = [item for item in frozen["discovery"] if item["population"] == population]
-        if len(relations) != 1:
-            raise ValueError("discovery population is not uniquely selected by this demand")
+        if not relations or len({(item["producer"], item["output_role"]) for item in relations}) != 1:
+            raise ValueError("discovery population lacks one frozen source projection")
         relation = relations[0]
         closed = self.storage.invoke(
             "close_data_population",
@@ -380,7 +390,7 @@ class DemandPlanner:
             },
         )
         selected = {item["operation"]: item for item in frozen["operations"]}
-        closure, pending = set(), [relation["target"]]
+        closure, pending = set(), [item["target"] for item in relations]
         while pending:
             operation = pending.pop()
             if operation not in closure:

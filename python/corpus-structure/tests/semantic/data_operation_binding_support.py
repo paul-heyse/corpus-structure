@@ -468,6 +468,7 @@ def discover(
     inference="inference:test",
     member_contexts=None,
     member_body_contexts=None,
+    additional_discovery_targets=(),
 ):
     from corpus_structure.semantic.data_operation_demands import (
         DiscoverySelection,
@@ -489,6 +490,7 @@ def discover(
         inference=inference,
         execution_profile="execution:test",
         discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),)
+        + tuple(DiscoverySelection("urn:discover", "result", target, "all-items") for target in additional_discovery_targets)
         + (
             (DiscoverySelection("urn:discover", "result", "urn:child", "other-items"),)
             if ambiguous

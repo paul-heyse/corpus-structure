@@ -366,6 +366,8 @@ BEGIN
  CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency
  WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') target WHERE target->>'operation'=dependency))
  THEN RAISE EXCEPTION 'selected dependencies differ from the authenticated declared graph'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation GROUP BY relation->>'population' HAVING count(DISTINCT jsonb_build_array(relation->>'producer',relation->>'output_role'))<>1)
+ OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation GROUP BY relation HAVING count(*)<>1) THEN RAISE EXCEPTION 'discovery population requires one source projection and distinct targets'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation
  WHERE NOT EXISTS(SELECT FROM sem.artifact a
  CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') operation
@@ -530,7 +532,7 @@ BEGIN
  SELECT * INTO STRICT x FROM kb.data_product WHERE id=p->>'product_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,jsonb_build_array(jsonb_build_object('derivation_id',producer.id)));
  PERFORM ops.ddo_require_active_demand(d.id);
- SELECT value INTO STRICT rel FROM jsonb_array_elements(d.selection->'discovery') value WHERE value->>'population'=p->>'name' AND value->>'producer'=r.operation_id AND value->>'output_role'=p->>'member_role';
+ SELECT DISTINCT value-'target' INTO STRICT rel FROM jsonb_array_elements(d.selection->'discovery') value WHERE value->>'population'=p->>'name' AND value->>'producer'=r.operation_id AND value->>'output_role'=p->>'member_role';
  IF x.project_id<>d.project_id OR r.project_id<>d.project_id OR r.release_id<>d.release_id
  OR NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_use_valid(u)) OR NOT EXISTS(SELECT FROM sem.data_operation_definition op WHERE op.release_id=d.release_id AND op.operation_id=r.operation_id AND op.profile='discovery')
  OR NOT EXISTS(SELECT FROM ops.data_derivation_output outp WHERE outp.derivation_id=producer.id AND outp.product_id=x.id AND outp.role=p->>'member_role')
