@@ -29,6 +29,14 @@ and analyzed scope. Native authentication reconstructs that context from admitte
 subject headers remain for display and joins; historical frozen interpretations retain their
 original identity meaning. The coordinator owns implementation and qualification.
 
+**Implemented native foundation; scoped Tested · 2026-11-13.** Registered successor
+`semantic_ddo_projection_v1` closes population ambiguity by full authenticated member context,
+preserving JSONB numeric value meaning and null/string distinction under each declared body schema.
+Current target admission requires model v3; exact historical v2 reading grants no current admission.
+Independent native replay, principal, support/recovery and scoped discovery controls are reconciled
+in the coordinator. The successor has not been deployed to the working database; production
+adoption and broader physical/schema retirement remain DDO-11.
+
 > Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md)
 
 ## Coherent characterization bounds and native demand anchors

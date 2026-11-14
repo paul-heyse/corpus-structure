@@ -1,12 +1,12 @@
 # Source evolution and model-driven migrations
 
-**Accepted planning amendment; implementation Proposed · 2026-11-13.** Develops source-effect
+**DDO-03 preparation implemented; later caller/interface migrations Proposed · 2026-11-13.** Develops source-effect
 preparation in DDO-03, actual caller replacement in DDO-07/08, public model-update interfaces in
 DDO-10 and preservation/qualification in DDO-11/12. The
 [coordinator](../declared-data-operations_2026-11-12.md) alone owns progress and disposition.
 Consumes [ast-grep review I01–I06](../../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md)
 at `2e88d02db`. The operator selected full integration on 2026-11-13, preserving conditional
-capabilities as conditional. This amendment does not resume implementation or certify a repair.
+capabilities as conditional. The coordinator owns the resumed DDO-00–05 execution and its scoped acceptance.
 
 ## Purpose, foundations and authority
 
@@ -230,3 +230,24 @@ equivalence proof, extra alignment lint or generic refactoring platform is requi
 bidirectional synchronization, automatic rewriting and language-server repair products remain
 separate undertakings. No rule change is assumed; surface a real authority/publication change
 through the existing decision route before dependent work relies on it.
+
+## Implemented preparation boundary · 2026-11-13
+
+The typed request uses `SourceMigration` with `symbol_move` or `annotations`, semantic owner ID,
+exact authored before-digest/after-source and logical `SourceRoot` mappings. Preview verifies the
+owner in acquired and proposed effective models; symbol moves verify the actual old/new callable
+declarations. Authored source changes must belong to the acquired operation input closure. Symbol moves preserve callable parameter/default/annotation/return/overload contracts; signature migrations require a separately supported transformation. Source inputs remain UTF-8 (BOM and other encodings explicitly refuse).
+
+LibCST 1.9's rename command does not normalize relative-import matching itself. Preparation
+normalizes only target module prefixes through explicit package context, reparses for the native
+command and restores supported relative module forms. The native command consistently normalizes
+local import aliases to the destination name; existing destination identifiers in any lexical
+scope conservatively block that move. Unrelated files bypass rewriting. Required re-export chains,
+unresolved attributes and dynamic namespace lookups remain visible and prevent apply. This is a
+bounded supported transformation, not a claim of complete Python name resolution.
+
+The explicit annotation stage derives its transient stub from requested authored after-source
+and rejects a change the visitor cannot realize. Neither that stub nor proposed effective facts
+become another editable model. Readiness binds selected dependency versions and fresh compiler/
+implicit-source bytes and membership, separately from result-recipe identity. Current evidence
+and remaining later-stage migration obligations are in the coordinator.

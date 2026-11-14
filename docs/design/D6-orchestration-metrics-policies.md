@@ -12,6 +12,13 @@ scope and evidence; all older implemented sections retain their stated selected/
 
 > Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
 
+**Implemented foundation · 2026-11-13; scoped acceptance belongs to the coordinator.**
+Demand freezing consumes the compiled selected-dependency projection and explicit alternative
+choices; potential dependencies are not automatic prerequisites. Root-inclusive closure retains
+semantic role occurrences and refuses selected execution cycles. Native frontier, discovery and
+pinned continuation use the existing demand owner. Ordinary driver migration, physical stream
+execution and later production cutover remain separate accepted work.
+
 ## Final characterization policy and retained recovery
 
 **Implemented; focused controls Tested2026-11-12; combined qualification open.** Shared application

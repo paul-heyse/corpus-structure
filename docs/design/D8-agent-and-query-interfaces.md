@@ -12,6 +12,14 @@ scope and evidence; all older implemented sections retain their stated selected/
 
 > Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
 
+**Implemented preparation slice · 2026-11-13; broader DDO-10 migration remains open.**
+The existing typed model-change preview accepts explicit finite source migrations and returns
+candidate effects plus per-file changed/already-satisfied/excluded/ambiguous/unsupported/unresolved
+standing. Required unresolved consumers prevent apply. Proposed operation inputs compile before
+readiness; exact source sets, interpretation inputs and transformation/library identity participate
+in staleness. Existing per-file retryable publication remains the sole writer. Ongoing domain-specific
+caller migrations and pinned demand read/export adoption retain their existing package owners.
+
 ## Shared policy settings, status and characterization resume
 
 **Application implementation/scoped controls present · 2026-11-12; native/assembled qualification pending.** SourceRunRequest

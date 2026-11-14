@@ -41,8 +41,26 @@ identity; a successful partial inference cannot authorize it. The compiled bindi
 preserves selected support, analyzed scope, population witnesses, alternatives and explicit
 replicates. It constructs identities, not a native validity or execution permission decision.
 The PostgreSQL helper is rollback-only framing parity over already normalized tagged values;
-native product normalization/admission and generated ports remain later DDO packages. Current
+native product normalization/admission and generated ports have scoped implementations whose acceptance belongs to the coordinator. Current
 selected execution/ABI12 and archived releases retain their original interpretation.
+
+**Implemented foundation, scoped Tested · 2026-11-13.** Current authoring emits effective
+model v3 with compiled graph projection interpretation. Semantic-reference, potential-producer
+and selected-dependency graph construction consumes those definitions; typed occurrence witnesses
+remain distinct from connectivity. V1 authoring/decoding is retired. Exact historical v2 reading
+serves retained release/candidate interpretation only and cannot authorize current execution or
+synthesize missing projections. Primitive semantic body/parameter encodings are unchanged.
+
+Admitted Python slices retain standard builtin references per supplying function. Runtime ports
+check the callable's actual captured builtin bindings, including helpers/generated methods and
+stream pulls; unsupported customized source namespaces refuse reusable identity. Suitable direct,
+prepared, stream and receipt-bearing command ports already exist; ordinary caller/provider cutover
+and native stream settlement remain with the coordinator's later packages.
+
+Explicit source-migration preparation compiles proposed inputs through the same effective-model
+frontends before file publication. The [source-evolution contract](../plans/declared-data-operations/source-evolution-and-migrations.md)
+owns finite transformations, required-consumer outcomes and readiness custody. It does not give
+an effective projection permission to rewrite its own authored authority.
 
 ## Released characterization contracts
 
