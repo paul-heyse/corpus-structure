@@ -10,7 +10,7 @@ classes:
     attributes:
       entity_id: {required: true}
       label: {required: true}
-      aliases: {multivalued: true, required: true}
+      aliases: {multivalued: true, required: true, minimum_cardinality: 0}
   DdoExternalExtractionPolicy:
     is_a: SourceRecordProduct
     description: Explicit authored context; supplied empty references do not assert canonical KB completeness.
@@ -19,10 +19,10 @@ classes:
       guideline: {required: true}
       known_reference_standing: {required: true, equals_string: authored}
       known_classes: {range: SourceValue, inlined: true, required: true}
-      known_entities: {range: DdoExternalKnownEntity, inlined: true, multivalued: true, required: true}
-      bootstrap_terms: {multivalued: true, required: true}
+      known_entities: {range: DdoExternalKnownEntity, inlined: true, multivalued: true, required: true, minimum_cardinality: 0}
+      bootstrap_terms: {multivalued: true, required: true, minimum_cardinality: 0}
       macros: {range: SourceValue, inlined: true, required: true}
-      context_sources: {multivalued: true, required: true}
+      context_sources: {multivalued: true, required: true, minimum_cardinality: 0}
       scope_standing: {required: true, pattern: '^(supplied|explicitly-none)$'}
   DdoExternalExtractionPacket:
     is_a: SourceRecordProduct
@@ -34,8 +34,8 @@ classes:
       guideline: {required: true}
       known_reference_standing: {required: true, equals_string: authored}
       known_classes: {range: SourceValue, inlined: true, required: true}
-      known_entities: {range: DdoExternalKnownEntity, inlined: true, multivalued: true, required: true}
-      bootstrap_terms: {multivalued: true, required: true}
+      known_entities: {range: DdoExternalKnownEntity, inlined: true, multivalued: true, required: true, minimum_cardinality: 0}
+      bootstrap_terms: {multivalued: true, required: true, minimum_cardinality: 0}
       macros: {range: SourceValue, inlined: true, required: true}
       native_observations: {range: SourceValue, inlined: true, required: true}
       scope_standing: {required: true, pattern: '^(supplied|explicitly-none)$'}
