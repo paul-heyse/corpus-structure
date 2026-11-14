@@ -140,7 +140,10 @@ def test_failed_shutdown_retains_actual_child_handle_until_exit(tmp_path):
         bad.close()
     good.close()
     assert good.closed
-    assert bad._process is process and bad.pid == 43210
+    def current_pid(worker: PdfWorker) -> int | None:
+        return worker.pid
+
+    assert bad._process is process and current_pid(bad) == 43210
     with pytest.raises(PdfWorkerError, match="did not exit"):
         bad.close()
     assert bad._process is process
