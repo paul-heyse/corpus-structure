@@ -94,6 +94,34 @@ def test_context_reads_exact_retained_parent_function_and_variable_with_native_o
     assert all(json.loads(row["evidence"])["preparation_input"] == "actual-parent-scope" for row in declarations)
     assert all(json.loads(row["evidence"])["before_descendant"] is True for row in declarations)
     assert issues == ()
+    absent, missing = inherited_analysis_declarations(child_frame, (), (), (), (), prepared=math_profile.prepared, project="p")
+    assert absent == () and missing == ("unavailable ancestor mathematical context: #/groups/0",)
+    partial = {**product.model_dump(mode="json"), "outcome": "partial"}
+    _, incomplete = inherited_analysis_declarations(child_frame, (partial,), (scope_member,), (parent.value,), (parent_pin,), prepared=math_profile.prepared, project="p")
+    assert incomplete == ("partial ancestor mathematical context: #/groups/0",)
     wrong = {**product.model_dump(mode="json"), "source": {**source.model_dump(mode="json"), "source_product": "foreign"}}
     with pytest.raises(ValueError):
         inherited_analysis_declarations(child_frame, (wrong,), (scope_member,), (parent.value,), (parent_pin,), prepared=math_profile.prepared, project="p")
+
+
+def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependencies():
+    from pathlib import Path
+    from corpus_structure.semantic import SourceArtifact, SourceBundle
+    from corpus_structure.semantic.characterization_ports import characterization_operation_sources
+    from corpus_structure.semantic.construction_products import construction_product_inputs
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    from corpus_structure.semantic.declared_math_analysis import math_analysis_declarations, math_analysis_operation_sources
+    from corpus_structure.semantic.declared_math_products import math_operation_declarations, math_operation_sources
+    from corpus_structure.semantic.formal_products import formal_operation_sources
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    bundle = construction_product_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    sources = combine_primary_sources(formal_operation_sources(), characterization_operation_sources(), math_operation_sources(), math_analysis_operation_sources())
+    model = compile_data_operations(bundle, (math_operation_declarations(), math_analysis_declarations()), sources)
+    weak = model.operation("analyze.math/lexical")
+    strong = model.operation("analyze.math/contextual")
+    assert weak.dependencies == ("text.formal_evidence/source-native",)
+    assert {role.name for role in weak.roles if role.direction == "input"} == {"source", "formal"}
+    assert {role.name for role in strong.roles if role.direction == "input"} == {"source", "formal", "constructions", "inherited", "ancestor_sources"}
+    assert all(part.complete for part in model.implementation_slices)

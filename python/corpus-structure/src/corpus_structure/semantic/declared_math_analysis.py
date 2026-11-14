@@ -84,15 +84,28 @@ def inherited_analysis_declarations(frame, products, product_members, ancestors,
         if product.outcome != "complete":
             issues.append("partial ancestor mathematical context: " + parent.section_pointer)
         order = {item["self_ref"]: index for index, item in enumerate(parent.items)}
-        values = [(row["symbol"], "function", row["pointer"], row) for row in product.source_declarations if row.get("role") == "function" and row.get("scope") == parent.source_key + ":section:" + parent.section_pointer]
-        values.extend((row["symbol"], "variable", row["binding_pointer"], row) for row in product.items if row.get("outcome") == "resolved" and row.get("binding_pointer") in order and row.get("scope_pointer") == parent.section_pointer and row.get("binding_source") == product.source.model_dump(mode="json"))
+        values: list[tuple[str, str, str, dict]] = []
+        for rows, role, pointer_field in ((product.source_declarations, "function", "pointer"), (product.items, "variable", "binding_pointer")):
+            for row in rows:
+                if role == "function":
+                    if row.get("role") != "function" or row.get("scope") != parent.source_key + ":section:" + parent.section_pointer:
+                        continue
+                elif row.get("outcome") != "resolved" or row.get("scope_pointer") != parent.section_pointer or row.get("binding_source") != product.source.model_dump(mode="json"):
+                    continue
+                symbol, pointer = row.get("symbol"), row.get(pointer_field)
+                if not isinstance(symbol, str) or not symbol or not isinstance(pointer, str):
+                    raise ValueError("retained ancestor declaration lacks its actual symbol/native pointer")
+                values.append((symbol, role, pointer, row))
         for symbol, role, pointer, row in values:
             before = before_descendant_columns(parent_items=parent.items, parent_ancestors=parent.ancestors, child_items=frame.items, child_ancestors=frame.ancestors, ancestor=parent.section_pointer, child_pointer=frame.section_pointer, pointer=pointer)
             if before is None:
                 issues.append("ancestor declaration source order unavailable: " + pointer)
             if before is not True or pointer not in order:
                 continue
-            rank = (len(parent.ancestors), order[pointer], row.get("binding_start", row.get("recognized_start", 0)))
+            start = row.get("binding_start", row.get("recognized_start", 0))
+            if type(start) is not int or start < 0:
+                raise ValueError("retained ancestor declaration changes its original formula offset")
+            rank = (len(parent.ancestors), order[pointer], start)
             evidence = canonical_bytes({"preparation_input": member.product, "ancestor_source": product.source.model_dump(mode="json", exclude_none=True), "declaration": row, "before_descendant": True}).decode()
             declaration = dict(symbol=symbol, role=role, authority="source", source_id=frame.source_key, scope=frame.source_key + ":section:" + frame.section_pointer, start=0, end=len(frame.items), evidence=evidence)
             key = symbol, role
