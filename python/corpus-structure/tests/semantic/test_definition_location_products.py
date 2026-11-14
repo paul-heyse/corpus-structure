@@ -196,7 +196,7 @@ def test_independent_content_role_stays_proposal_and_changed_attachment_stays_di
         }
     )
     second, _, _ = definition_location_values(
-        frame, other, reference, {"component_ids": [changed.component_id], "roles": []}
+        frame, other, {**reference, "product_id": "native:changed-component-report"}, {"component_ids": [changed.component_id], "roles": []}
     )
     assert first[0]["occurrence_id"] == second[0]["occurrence_id"]
     assert first[0]["contribution_id"] != second[0]["contribution_id"]
