@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from functools import cached_property
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import yaml
@@ -240,7 +242,7 @@ class DeclaredNativeFrameSource:
                 {
                     "items": native_language_items(value["items"]),
                     "pieces": value["pieces"],
-                    "ancestors": value.get("ancestors", []),
+                    "ancestors": native_language_items(value.get("ancestors", [])),
                     "health": {"formula_outcomes": value.get("recognition", [])},
                 }
             ).decode(),
@@ -307,3 +309,23 @@ class DeclaredNativeFrameSource:
     @property
     def native_context(self):
         return self._context
+
+
+    @cached_property
+    def _native_columns(self):
+        import json
+
+        return json.loads(self._context)
+
+    @property
+    def pieces(self):
+        """Owned native column tuples; caller edits cannot change source custody."""
+        return tuple(deepcopy(self._native_columns["pieces"]))
+
+    @property
+    def items(self):
+        return tuple(deepcopy(self._native_columns["items"]))
+
+    @property
+    def ancestors(self):
+        return tuple(deepcopy(self._native_columns["ancestors"]))
