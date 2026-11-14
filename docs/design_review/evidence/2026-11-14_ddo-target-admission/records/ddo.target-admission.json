@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.target-admission",
+  "title": "Target archive admission through the common protected catalog guard",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an authenticated target archive use restricted native admission without fabricating a legacy execution model?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-target-admission/change.yaml --json",
+    "uv run ci model change candidate dd0f65aa17294e10ae4280feb34902cb --json",
+    "uv run ci model change inspect-candidate 3355d3b457784a8c821fd76bc75a6dec --view operations --json",
+    "uv run ci model change inspect-candidate 3355d3b457784a8c821fd76bc75a6dec --view sql --json",
+    "uv run ci model change register 3355d3b457784a8c821fd76bc75a6dec --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable guard successor",
+      "sha256": "37c89d7e10a52113687a0c3b2356ae3a912211b3001749ae0043531f1cc66f0f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout hashes",
+      "sha256": "8f10cc37a4f4c8d37e070e18b5504e6fe9b28f346465955e549b77a96f457b59"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": "common release guard and two descriptor bodies; unchanged owners and grants"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only authoring and immutable registration passed for semantic_ddo_admission_v1 after semantic_ddo_inputs_v1. sem.require_execution_projection authenticates current target archive bytes and absence of legacy execution rows; the common guard retains all physical/catalog checks. Target admission no longer requires a fabricated legacy model. No persistent deployment, activation or functional/provider qualification is established; persistent database remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
