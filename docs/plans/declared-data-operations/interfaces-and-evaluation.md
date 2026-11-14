@@ -30,6 +30,25 @@ they do not perform hidden NLP, recompute derivations or select newest products.
 authentication and current-trust checks retain their necessary boundary protection. Immutable product
 validity need not be reconstructed at every internal hop.
 
+## Core realization and authoring dependencies — SQLA/Alembic I02/I04/I05 · 2026-11-14
+
+The [accepted alignment amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14)
+requires current binding/read repairs and complete privilege/data-step authoring in reopened
+DDO-03/04/05 immediately. DDO-10 retains the new public DemandResult/CutSelection projections,
+reader/ci/MCP/query/export/replay migration and protected assessment behavior. Author eligible
+projections as direct Core selects through the
+[native read route](products-and-support.md#protected-core-reads-and-explicit-effects--i02),
+deriving row types from the same select and composing existing visibility/latest-use/member fragments.
+Use the same authenticated selection/trust pins across actual consumers; scope/cursor/limit belong
+inside protected function parameters. Preserve atomic closed JSON pages for consumers needing them.
+One new projection used by ci and actual MCP with independently expected rows and wrong-pin refusals
+is a focused integration case, not the entire DDO-10 completion boundary.
+
+Permission changes use the foundation's governed compared table/schema operations and independent
+catalog verification. Actual data moves use closed first-party named builders frozen as SQL, never
+runtime request-supplied SQL or function imports. These foundations do not authorize public-reader
+cutover, deployment or a test restart, and do not establish implemented DDO-10 projections.
+
 ## Explicit model-update preview/apply — Ast-grep I01/I02/I04–I06
 
 DDO-10 exposes supported ongoing source changes through existing `ci model change preview/apply`,

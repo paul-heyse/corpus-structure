@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-14. Current DDO increment concluded; completion audit reopens native DDO-03/04 scope and DDO-05 dependency readiness. DDO-06–12 remain open. Remaining tests cancelled by operator. No persistent deployment, activation or cutover._
+_Updated 2026-11-14. Current DDO increment concluded; native DDO-03/04 and DDO-05 dependency readiness remain open, now including accepted SQLAlchemy/Alembic alignment. DDO-06–12 remain open. Remaining tests cancelled by operator. No persistent deployment, activation or cutover._
 
 ## Completion audit · 2026-11-14
 
@@ -27,8 +27,9 @@ _Updated 2026-11-14. Current DDO increment concluded; completion audit reopens n
 
 ## Next DDO work and efficiency
 
-- First repair CA-08/09 at their shared native owners and retain the existing child-binding obligation; independently removable scaffolding need not wait for final adoption. The [owning remaining scope](docs/plans/declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up) includes the actual child-binding failure and incomplete M1 journeys alongside the unfinished family/caller/retirement work. Remaining structural changes may affect the failures; no resolution is claimed.
-- **Proposed efficiency follow-up:** reuse pure static extraction for identical captured inputs, while keeping native permission, source, and trust checks at their required boundaries. Address repeated `python_port_identity` → `compile_data_operations` work using exact immutable input/analysis context and source/body-change invalidation before wider qualification resumes. Benefits are unmeasured; this closeout adds no cache or benchmark obligation.
+- **passed · 2026-11-14:** `uv run ci docs check --json`, `744cdcdd32964c9bb16b768950be1b90`, 1266 canonical pages/zero link errors for the SQLAlchemy/Alembic plan amendment before final checkpoint wording. Production code unchanged; tests/providers/health campaigns **not_run**, per cancellation.
+- Follow the accepted [SQLAlchemy/Alembic foundation sequence](docs/plans/declared-data-operations_2026-11-12.md#coherent-execution-and-dependencies): captured protocol/fate generation; complete privilege/data-step authoring; CA-08/09 and current binding/read Core realization together, with independent comparison cases and the existing child-binding investigation. These are planned DDO-03/04/05 obligations, not implemented repairs. New public projections retain DDO-09/10 ownership; independently removable scaffolding need not wait for adoption. The [owning remaining scope](docs/plans/declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up) includes the actual child-binding failure and incomplete M1 journeys alongside the unfinished family/caller/retirement work. Remaining structural changes may affect the failures; no resolution is claimed.
+- **Scheduled efficiency work; mechanism/benefit Proposed:** reuse pure static extraction for identical captured inputs, while keeping native permission, source, and trust checks at their required boundaries. Address repeated `python_port_identity` → `compile_data_operations` work using exact immutable input/analysis context and source/body-change invalidation before wider qualification resumes. Benefits are unmeasured; this closeout adds no cache or benchmark obligation.
 
 ## Test system: execution closed; qualification deferred · 2026-11-13
 
@@ -45,4 +46,4 @@ _Updated 2026-11-14. Current DDO increment concluded; completion audit reopens n
 
 AGENTS.md now describes optional Context7 use for implementation approaches, examples and options,
 with query framing and version awareness. `uv run ci docs check` **passed**, `0c4f263917dc452389bbdb682632c7d3`.
-Product tests and whole-repository checks are **not_run** for this documentation-only change.
+Product tests and whole-repository checks remain **not_run** for documentation-only work; current cancellations remain in force.

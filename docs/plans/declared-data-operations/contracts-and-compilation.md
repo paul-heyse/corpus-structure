@@ -491,3 +491,56 @@ normalization bytes. Preserve existing ingress/native controls. Body/helper/defa
 changes must reach the correct recipe; unrelated or permitted cosmetic changes need not. Unknown
 required determinants refuse complete reusable admission. Actual native/provider integration and
 final qualification remain with their existing packages; no source-policy fallback or new checker.
+
+
+## SQLAlchemy protocol and binding alignment · 2026-11-14
+
+**Accepted planned scope; implementation/verification not established by this amendment.**
+The [coordinator amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14)
+owns source-qualified SQLA/Alembic I01–I05 disposition and execution order. DDO-03 supplies these
+contracts now for the reopened DDO-04/05 work, rather than waiting for DDO-09/10 readers.
+
+**Captured value-set authority — I01.** `model/semantic/data-operation-native.yaml` owns the
+recordable, historical/stored and read-visible fate sets. Generate their distinct Python `Literal`
+forms and the stored `demand_use.fate` CHECK from the corresponding captured lists. `waiting` is
+read-time synthesis, not a historical stored fate. Derive the revocation selector set too if its
+protocol definition owns that domain. Keep BindingStatus, input-role state and operation-specific
+outcome names separate; release-owned outcomes do not become a global column CHECK. Reuse the
+existing `CheckConstraint` naming convention and `Column.info["enum"]` route, without native ENUMs.
+
+The current closed LinkML import capture (`schema/physical.py`) and ambient shared metadata
+compilation (`semantic/metadata.py`) are separate routes; neither may silently consult an untracked
+protocol file. Supply the exact protocol bytes through a DDO-owned adapter or an explicit generic
+referenced-value-set input. Include that dependency in approved physical source capture/identity,
+preview/staleness hashes and frozen interpretation, and reconcile both compilation routes. A
+protocol-only edit must reach every affected physical/generated/native product. The generic
+relational compiler must not know a DDO table/field name or resolve an ambient protocol path.
+
+**Shared row contract and independent semantics — I02/I03.** The eligible binding select owns
+its row columns/types and emitted native return shape; replace the duplicated SQL return declaration,
+Python name/type list and dependent `_MEMBER_COLUMNS` spellings with derivations used by their actual
+consumers. Use suitable SQLAlchemy 2.1.6 `TypedColumns`/`Named` bindings for those real Core consumers;
+member identity remains product-qualified, and local subjects remain qualified by their context.
+Repair typed-column generation's unsupported-type handling: `TypeEngine.python_type` can return
+`object`, so catching only `NotImplementedError` does not establish a refusal. Preserve intentional
+supported JSON/array/nominal mappings rather than silently emit `Named[object]`.
+
+Keep Core candidate filtering and native selected-binding validation independently implemented.
+Native comparison helpers raise on unknown/mistyped inputs and lack runtime EXECUTE; calling them
+from filtering would turn a nonmatching candidate into a query failure and remove independent
+verification. Extend existing `BINDING_EVIDENCE_CASES` with independently stated Core status and
+native outcome for integers outside bigint, adjacent representable floats, typed null versus missing
+property, and date/timestamp boundaries. Resolve exposed divergences at the owning lowering; do not
+force Boolean parity between insufficiency and admission refusal. Introduce a shared tagged-value
+`TypeDecorator`/comparator only when a second real Core consumer needs the decode.
+
+**Future focused acceptance:** independently expected fate sets reject stored `waiting` and unknown
+values; a captured protocol-only change alters the correct CHECK identity and generated types without
+an ambient read; shared metadata/candidate compilation agrees. Binding cases distinguish absent,
+unknown and typed values on both paths. Wrong/forged provider identity and transitive trust changes
+retain the separate CA-08/09 native expectations. These cases are planned, not run; cancellations
+remain in force. The [native realization](products-and-support.md#sqlalchemyalembic-native-authoring-and-read-alignment--2026-11-14)
+owns effect boundaries and protected compilation. Library mechanisms and source contracts:
+[review I01](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I01),
+[I02](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I02),
+[I03](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I03).

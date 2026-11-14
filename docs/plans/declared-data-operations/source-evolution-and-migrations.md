@@ -251,3 +251,15 @@ and rejects a change the visitor cannot realize. Neither that stub nor proposed 
 become another editable model. Readiness binds selected dependency versions and fresh compiler/
 implicit-source bytes and membership, separately from result-recipe identity. Current evidence
 and remaining later-stage migration obligations are in the coordinator.
+
+
+## Shared model-change authoring alignment · 2026-11-14
+
+The reopened DDO-03/04 foundation also owns the
+[SQLA/Alembic data-step and privilege contracts](products-and-support.md#sqlalchemyalembic-native-authoring-and-read-alignment--2026-11-14).
+Integrate these into the existing closed ChangeRequest and preview/staleness products alongside
+source-migration intent, without a second request or effect authority. Named data steps resolve only
+repository-owned builders at authoring and capture their relevant implementation identity; frozen
+upgrades execute compiled SQL. The combined operation payload and explanation must represent new
+privilege operations as well as NativeTransitionOp, preserving supported frozen predecessor reading.
+This is planned integration, not implemented behavior or authorization to apply source/native effects.

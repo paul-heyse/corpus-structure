@@ -11,6 +11,17 @@ bounded independent contributions: two library-contract confirmations at the ins
 producer/consumer map, and one adversarial review of the draft, which withdrew one proposal and
 narrowed three. No plan amendment or production change is made by this review.
 
+**Integration context · 2026-11-14:** the baseline/completion and adoption-order descriptions
+above and below are the review's original `a15f2e197` assessment. The later
+[completion audit](../plans/declared-data-operations_2026-11-12.md#completion-audit--2026-11-14)
+reopens DDO-03/04 native scope (CA-08/09) and DDO-05 dependency readiness; DDO-06–08's increment is
+concluded with tests cancelled. The operator subsequently selected I01–I05 with the focused
+assessment's qualifications in the
+[owning plan amendment](../plans/declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14).
+It pulls current binding/read and complete authoring alignment forward, qualifies predecessor ACL
+coverage and builder trust, and keeps new DDO-09/10 projections with those packages. That plan,
+not this source review, owns current execution disposition; selection is not implementation.
+
 The root read all 2,950 lines of the [SQLAlchemy reference](../libraries/postgresql/sqlalchemy.md)
 (SHA256 7623d90ea8bef3f927eb862da00484ee1b578cc1c873465801b6627f55afb91b) and all 2,417 lines of the
 [Alembic reference](../libraries/postgresql/alembic.md)

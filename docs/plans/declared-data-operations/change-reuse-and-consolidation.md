@@ -4,6 +4,18 @@
 [coordinator](../declared-data-operations_2026-11-12.md). Consumes DDO-01–04 semantic identity,
 binding/support and native admission; integrates with DDO-05–08 demands and producers.
 
+## Relational projection dependency — SQLA/Alembic I02 · 2026-11-14
+
+The [accepted alignment amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14)
+pulls current binding/read and authoring repairs into reopened DDO-03/04/05. DDO-09 still owns its
+new bounded change/currentness/revocation explanations and their consumers. Build those projections
+as application-owned Core selects over shared metadata, composing the
+[native read route](products-and-support.md#protected-core-reads-and-explicit-effects--i02)
+for visibility/latest-use/product/member/support lineage rather than another handwritten JSON reader.
+Pass scope, continuation and limit into protected function parameters; preserve semantic authority,
+recursive trust pins and independently expected change/cutoff results. The foundation conversion
+neither implements DDO-09's semantic classifications nor closes copied-task reuse retirement.
+
 ## One mechanism for currentness and substitutability
 
 Compile typed producer/consumer dependencies from the common effective model of both authoring routes. Reuse existing normalized

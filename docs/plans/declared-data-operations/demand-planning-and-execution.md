@@ -472,3 +472,31 @@ Provider-sensitive roles currently cannot attach, and a root/direct-SourceSet-on
 cannot attest the full transitive support closure. Complete native readiness remains open until
 those shared contracts are implemented. The selected-view child-binding failure remains with its
 existing DDO-06/07 owner. This note neither reopens the distinct CA-05 context repair nor resumes tests.
+
+
+## Reopened foundation integration · 2026-11-14
+
+DDO-05 consumes the immediate SQLA/Alembic alignment selected in the
+[coordinator amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14),
+not only the earlier delivered resolver. The
+[contract owner](contracts-and-compilation.md#sqlalchemy-protocol-and-binding-alignment--2026-11-14)
+supplies captured fate sets, generated row types and independent comparison semantics; the
+[native owner](products-and-support.md#sqlalchemyalembic-native-authoring-and-read-alignment--2026-11-14)
+supplies actual Core/native binding projections, protected read acquisition and aligned successor
+authoring. New DDO-09/10 public readers are not prerequisites to this current foundation slice.
+
+Consume derived binding row names/types in the planner instead of a separate manual shape. Preserve
+explicit insufficiency/unknown outcomes when candidate properties are missing, and keep selected
+native verification independent. Acquire pins covering relevant transitive support, use the same
+pins for candidate resolution/continuation/attachment, and retain actual contract-selected provider
+identity in the semantic key/admission projections. Complete-context source/view identity and closed
+population witnesses remain required; do not weaken them to make the current children ready.
+
+Investigate the existing selected-view children remaining awaiting-inputs alongside these shared
+repairs, without assuming CA-08/09 or a representation change explains that failure. Keep actual
+child/fan-in and incomplete M1 obligations open until appropriate evidence exists. When verification
+is authorized, use focused binding evidence cases and affected failing/new journey identities;
+passing/full selections are not repeated after a fix. No tests resume through this amendment.
+Reuse identical captured static extraction before wider qualification resumes, under the existing
+[efficiency boundary](../declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up);
+mutable native permission/source/trust checks remain at acquisition and admission boundaries.

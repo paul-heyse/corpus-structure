@@ -1,7 +1,7 @@
 # Declared data operations — total governing model
 
 **Status: Reassessed 2026-11-14. DDO-00–02 retain bounded foundation completion.
-DDO-03/04 have reopened native implementation obligations (DDO-CA-08/09); DDO-05 dependency-complete readiness is not certified until those contracts work. Earlier scoped qualification remains dated evidence.
+DDO-03/04 have reopened native implementation obligations (DDO-CA-08/09) and accepted SQLAlchemy/Alembic alignment work; DDO-05 dependency-complete readiness is not certified until those contracts work. Earlier scoped qualification remains dated evidence.
 DDO-06–08 remain open; the current increment is concluded and its remaining tests were cancelled by the operator, 2026-11-14. DDO-09–12 retain their broader open scope. No deployment, activation or production cutover.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
@@ -205,9 +205,78 @@ confirmation/decision route. This is plan adoption, not implementation or renewe
 | [Interfaces and evaluation](declared-data-operations/interfaces-and-evaluation.md) | DDO-10, native/ci/MCP/export/replay and protected assessment |
 | [Preservation/adoption/qualification](declared-data-operations/preservation-adoption-and-qualification.md) | DDO-00 preparation, DDO-11/12 preservation/cutover and final required union |
 
+## SQLAlchemy/Alembic alignment amendment · accepted 2026-11-14
+
+The operator selected the recommendations below from the
+[SQLAlchemy/Alembic review](../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md)
+at `c940b529e`, with the subsequent focused assessment's qualifications. Source-qualified
+**SQLA/Alembic I01–I05** are distinct from the earlier reviews' I-numbers. The review examined
+`a15f2e197`; its DDO-00–05 completion and adoption-order statements predate the
+[current completion audit](#completion-audit--2026-11-14). CA-08/09 and the existing child-binding
+failure govern the current baseline. This amendment schedules implementation; it establishes no
+repair, qualification, deployment or measured efficiency benefit.
+
+| Source recommendation | Accepted scope and owning packages | Completion boundary |
+|---|---|---|
+| [SQLA/Alembic I01](../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I01) | **Immediate DDO-03/04, consumed by DDO-05/06.** Derive stored fate constraints and Python fate types from the captured authoritative protocol; include the observed stored-`waiting` defect. | Protocol-only edits reach physical source identity, preview/hash, both metadata compilation routes and generated/native consumers. Independently expected recordable/historical/visible sets remain distinct. |
+| [SQLA/Alembic I02](../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I02) | **Immediate DDO-03/04/05 current binding/read slice** alongside CA-08/09; **DDO-09/10** retain new public change/currentness/query/export/replay projections. | One Core definition owns current binding row shape and eligible native read body; acquisition effects remain native and separate. Current consumers retain required atomic page behavior. Representation changes do not discharge CA-08/09 semantics. |
+| [SQLA/Alembic I03](../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I03) | **Immediate DDO-03/05** focused independent comparison cases with current binding repair; DDO-06 consumes the resulting semantics. | Existing shared evidence cases retain separately specified planner status and native acceptance/refusal for wide integers, adjacent floats, typed null/missing and temporal edges. No shared raising comparator or new test campaign. |
+| [SQLA/Alembic I04](../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I04) | **Immediate DDO-04 authoring foundation**, consumed by DDO-03 model changes, DDO-05 native readiness and later DDO-10/11 permission changes. | Governed table/schema privilege policy, declared-predecessor custody, compared operations, payload/renderer/explanation/receipt integration and independent catalog verification work together. Existing descriptors are not complete ACL/schema-usage baselines. |
+| [SQLA/Alembic I05](../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I05) | **Immediate bounded DDO-03/04 authoring cleanup**, coupled with I04; subsequent DDO-06–11 data moves use the same route. | Revision-specific branches retire only with supported-predecessor behavior accounted for. Actual data steps use a closed first-party Core builder name, captured implementation identity and frozen compiled SQL; upgrades never resolve a Python function. |
+
+The [contracts companion](declared-data-operations/contracts-and-compilation.md#sqlalchemy-protocol-and-binding-alignment--2026-11-14)
+owns protocol capture, generated types and comparison semantics. The
+[native companion](declared-data-operations/products-and-support.md#sqlalchemyalembic-native-authoring-and-read-alignment--2026-11-14)
+owns the physical/read/privilege/data-step realization. The
+[demand companion](declared-data-operations/demand-planning-and-execution.md#reopened-foundation-integration--2026-11-14)
+owns planner integration. These are additions to reopened DDO-03/04/05, not a new stage or a
+reason to postpone foundation alignment to DDO-09/10.
+
+### Coherent execution and dependencies
+
+1. **Captured protocol and authoring contracts:** settle the DDO-owned referenced-value-set
+   input, shared row shape, governed privilege-policy scope and supported predecessor route.
+   These decisions supply exact immutable inputs for generation and successors. Do not add DDO
+   path/field knowledge to the generic relational compiler or adopt live grants into desired state.
+2. **DDO-04 authoring foundation with DDO-03 consumers:** integrate I04 and bounded I05 as one
+   responsibility, including frozen operation payloads and explanations. Keep required ownership /
+   cross-owner FK authorization and global retirement ordering until the replacement actually
+   supplies them. Route the ADR-0074 retained-walk rationale qualification through the existing
+   architectural/ADR process before dependent adoption; never edit an accepted ADR in place.
+3. **DDO-03/04/05 semantic and relational repair:** implement CA-08 provider identity, CA-09
+   transitive trust closure and current binding/read Core realization together, including the
+   selected-view child-binding investigation. Avoid a semantic patch followed by a separate rewrite
+   of the same paths. Land I01's generated stored-fate fix through this same authoring route; I03's
+   focused independent expectations accompany the affected binding semantics.
+4. **Immediate preparation efficiency:** implement the existing
+   [pure static extraction reuse follow-up](#remaining-scope-and-efficiency-follow-up) across
+   identical captured inputs before wider qualification resumes. Share immutable preparation,
+   preserving native permission/source/trust boundaries; a cache implementation remains discretionary.
+5. **Consumers and later scope:** DDO-05 uses the actual fixed binding/read premises; DDO-06–08
+   continue their family/caller migration and retirement. DDO-09/10 build their new public projections
+   on the same route when their own semantic prerequisites are available. Retire superseded current
+   row-shape lists, privilege strings/AST repairs and backfill branches with their migrated consumers;
+   preserve frozen revisions, real historical reading and supported authoring behavior.
+
+One chain owner serializes all physical/native successors after the current registered head
+`semantic_ddo_origeps_v1`; no competing successor or frozen-predecessor rewrite. Independent pure
+preparation need not wait for unrelated whole-package completion. The typed-column `python_type`
+`object` fallback defect is included with generation work, with a deliberate unsupported-type
+refusal. Nominal row identifiers apply to actual new Core row consumers and preserve qualified
+member/subject identity. A tagged-value `TypeDecorator`/comparator requires a real second consumer.
+`NativeTransitionOp.to_diff_tuple` and corresponding privilege-op support remain conditional on
+an actual nonempty diff-reporting consumer; no new check gate is added to justify them.
+
+**Verification boundary:** the companion acceptance cases describe future focused evidence, not
+commands authorized by this documentation change. Tests/providers/builds/health campaigns remain
+cancelled; do not restart them. When verification is authorized, select affected failing/new
+identities rather than repeat passing/full scope after a fix. Retain independent native admission
+and catalog observations; emitted SQL matching its own generator alone proves only derivation.
+Full union qualification and persistent deployment/activation/adoption remain separately open.
+
 ## Execution queue and readiness
 
-DDO-00 is **complete at its scoped preparation boundary**. DDO-01/02 retain **bounded foundation completion**. DDO-03/04 are **incomplete at the required native contract boundary** (CA-08/09); DDO-05 retains its delivered resolver but its dependency-complete native readiness claim is **open**. Earlier CA-01/05/06/07 scoped repairs remain implemented; they do not discharge the new obligations. The completion-audit findings table and the resumed execution receipt below own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. The current DDO-06–08 increment is concluded at the operator's integration/closeout boundary, 2026-11-14; remaining targeted qualification is cancelled, not passed. The current execution account below owns the residual work and efficiency follow-up. Neither cancelled campaign is restarted.
+DDO-00 is **complete at its scoped preparation boundary**. DDO-01/02 retain **bounded foundation completion**. DDO-03/04 are **incomplete at the required native contract boundary** (CA-08/09), with the immediate SQLA/Alembic alignment amendment also required; DDO-05 retains its delivered resolver but its dependency-complete native readiness and aligned consumer integration are **open**. Earlier CA-01/05/06/07 scoped repairs remain implemented; they do not discharge the new obligations. The completion-audit findings table and the resumed execution receipt below own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. The current DDO-06–08 increment is concluded at the operator's integration/closeout boundary, 2026-11-14; remaining targeted qualification is cancelled, not passed. The current execution account below owns the residual work and efficiency follow-up. Neither cancelled campaign is restarted.
 Rows describe dependencies, not mandatory stage-wide
 barriers or separate agent assignments. Interface agreement permits design, not a claim of usable
 native behavior. Product-family slices carry immediate consumers; no late consumer repair phase.
@@ -217,9 +286,9 @@ native behavior. Product-family slices carry immediate consumers; no late consum
 | DDO-00 | Accepted RC01–09 and current code/data | Durable decisions/owner updates, complete operation/consumer inventory and preservation root classification; no destructive action before concrete closure |
 | DDO-01 | DDO-00 accepted mixed ownership | Both closed source/declaration frontends and one normalized operation/kind model; source/aggregate/effectful profiles represented |
 | DDO-02 | DDO-01 effective IR | Versioned canonical kind/subject/product/recipe/binding and admitted implementation-slice identities, independent expected examples |
-| DDO-03 | DDO-01/02 | Direct suitable typed invocation plus generated native/wire correspondence, fixed relational bindings and equivalent native/explanation semantics; explicit source-migration effect preparation; no hidden selector authority |
-| DDO-04 | DDO-01–03 implemented contracts | Native products/support/request/attempt/intent/fulfillment operations and purpose permissions work under real transactional controls |
-| DDO-05 | DDO-03/04 | Native frozen demand, declared discovery/aggregate closure, explicit producer selection and dependency-derived frontier |
+| DDO-03 | DDO-01/02; captured protocol and authoring alignment above | Direct suitable typed invocation plus generated native/wire correspondence, fixed relational bindings and equivalent native/explanation semantics; explicit source-migration effect preparation; no hidden selector authority |
+| DDO-04 | DDO-01–03 implemented contracts; aligned successor authoring | Native products/support/request/attempt/intent/fulfillment operations and purpose permissions, captured fate constraints, Core read realization and governed table/schema privilege transitions work under real transactional controls |
+| DDO-05 | DDO-03/04 including CA-08/09 and immediate SQLA/Alembic alignment | Native frozen demand, declared discovery/aggregate closure, explicit producer selection and dependency-derived frontier over coherent pinned binding rows |
 | DDO-06 | DDO-04 and DDO-05 resolved requests | Cross-demand coalescing, owned execution, fenced publication, exact uncertain replay, bounded drain and resume |
 | DDO-07 | DDO-01–06 usable vertical primitives | Capture/recognition/source and primary providers publish new products with their immediate consumers migrated |
 | DDO-08 | Same primitives + required DDO-07 products | Every downstream/structural/authored/external operation and effectful action realizes its declared profile; bypasses removed |
@@ -955,7 +1024,8 @@ persisted rows and external retained bundles were not exhaustively enumerated; t
 edges are stated in the relevant row. No live database census or protected/source body reads were
 necessary for these conclusions. Absence claims are bounded repository searches, not universal proofs.
 
-**Execution order when implementation resumes:** repair CA-08/09 and the existing child-binding
+**Execution order when implementation resumes:** follow the accepted
+[SQLAlchemy/Alembic foundation sequence](#coherent-execution-and-dependencies), repairing CA-08/09 and the existing child-binding
 obligation; remove independent dead scaffolding/profile adapters without waiting for full adoption;
 migrate ordinary callers onto available target ports/CPU/reference types in coherent slices; deliver
 missing family and public read contracts before removing their predecessors; verify exact preserved
@@ -1107,7 +1177,7 @@ The acceptance details and commands are in the qualification companion. Record e
 D1–D8 and accepted decision records, preserving exact old review/evidence history. Never delete plan
 or evidence files. Authoring publication checks are separate from product qualification.
 
-**Current boundary, corrected 2026-11-14:** DDO-00–02 retain bounded foundation completion; DDO-03/04 native contracts require CA-08/09 and DDO-05 dependency-complete readiness remains open. DDO-06 owns native
+**Current boundary, corrected 2026-11-14:** DDO-00–02 retain bounded foundation completion; DDO-03/04 native contracts require CA-08/09 and the accepted SQLA/Alembic alignment amendment, and DDO-05 dependency-complete readiness/aligned integration remains open. DDO-06 owns native
 physical/stream execution and production driver integration; DDO-07/08 own actual family/caller
 migrations, DDO-09/10 reuse/serving and ongoing interface adoption, DDO-11 preservation/deployment/
 cutover and DDO-12 assembled qualification. The latest increment is concluded; this audit does not resume implementation. Their
@@ -1367,6 +1437,10 @@ Root-wide types/lint and the root receipts above remain inspectable. Do not reru
 to repair that historical evidence gap. Retain needed raw managed stores before future worktree removal.
 
 #### Remaining scope and efficiency follow-up
+
+The immediate reopened DDO-03/04/05 work includes the accepted
+[SQLAlchemy/Alembic alignment amendment](#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14),
+implemented with CA-08/09 and the current binding repair rather than deferred to new public readers.
 
 1. **DDO-06/07, current failure:** investigate why actual selected-view discovery children remain
    `awaiting-inputs`, including authentic original/computed candidate selection and complete-context

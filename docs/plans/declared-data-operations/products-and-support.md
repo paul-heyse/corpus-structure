@@ -205,3 +205,124 @@ trust scopes, consistently with recursive support validity and publication locki
 the complete-support containment guard to accommodate an incomplete read pin. Existing replay,
 purpose-principal and qualified-context closures retain their narrow scope. The coordinator alone
 owns repair state and later positive/forgery/revocation verification; no tests resume from this note.
+
+
+## SQLAlchemy/Alembic native authoring and read alignment · 2026-11-14
+
+**Accepted planned scope; implementation/verification remains open.** The
+[coordinator amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14)
+owns disposition and sequencing. DDO-04 delivers these foundation changes with the reopened
+DDO-03/05 work. They are not postponed until later table-role changes or public reader migration.
+Selected versions remain SQLAlchemy 2.1.6 and Alembic 1.20.1; no upgrade, ORM, native ENUM,
+Alembic Utils, revision branch or second migration engine is required.
+
+### Protected Core reads and explicit effects — I02
+
+Revise current `ops.data_binding_rows` and the read part of `ops.read_demand_result` with CA-08/09
+and the existing binding repair. Derive eligible body/row shape from Core selects over the shared
+`MetaData`, using the existing `projection_recipe`, `companion_projection_native` and
+`native_sql_body` route. Direct application-owned Core expressions may compose CTEs, lateral joins,
+table-valued functions and ordered aggregates; do not grow the closed ProjectionRecipe AST into a
+new query language merely to express these selects. Extend the emitter only for the actual
+multi-branch return requirements of binding rows. Reuse named selectables for visibility, latest
+use and admitted product/member facts where current consumers repeat the same responsibility.
+
+Acquiring sorted trust-epoch shares and inserting `data_demand_read` is an effect and stays inside
+an authenticated native operation. Projection under its returned pins is a separate responsibility;
+this need not add a caller round trip. Preserve a single atomic closed JSON page where planner/ci
+consumers need it, composing acquisition and projection inside the existing native call as needed.
+Do not label all JSON wire contracts obsolete. Keep guarded SECURITY DEFINER and fixed search_path,
+empty runtime table-read roles and modeled EXECUTE grants. Such functions are not inlined: scope,
+cursor and limit must enter as function parameters, not rely on outer predicates pushing down.
+
+Provider-sensitive computed candidates must carry identity derived from authenticated producing
+custody through row, request and native validation (CA-08). Read acquisition, continuation and
+binding must use the same relevant recursive computational/original support scope closure (CA-09).
+Keep publication locking and complete-support containment; Core conversion alone fixes neither
+semantic gap. Use keyed, demand-scoped joins and bounded pages, without all-history expansion.
+For new/revised effect INSERTs, compile explicit target columns from `Table` metadata and embed
+the resulting SQL; avoid positional column-order dependence. Attach/claim/publish/revoke locks,
+fences and effects otherwise remain specialized PL/pgSQL.
+
+Compiled SQL is frozen in successors under existing custody and the selected library determinant.
+The review's same-version deterministic compilation observations are not a cross-release byte
+stability guarantee. JSONB path meaning remains a semantic responsibility even in a typed Core tree.
+Future acceptance covers independently expected rows/pins, provider forgery and recursive revocation,
+including three-source/two-hop continuation and fresh acquisition after a nonzero upstream epoch.
+Wrong scope/contract/trust/cursor pins refuse. Text derivation checks supplement, not replace, those
+independent expectations. New DDO-09/10 public projections consume this route in their own packages.
+
+### Governed privilege operations and complete authoring integration — I04
+
+Represent desired table owner/ACL and schema-usage policy explicitly in the existing trusted physical /
+native authoring model. Before comparing operations, decide and record the governed privilege
+universe: table and column grants, grant options and grantees, schema usage, PUBLIC and purpose
+roles, and treatment of privileges outside that universe. Verification must enforce that declared
+boundary rather than assume the existing read-role check covers every ACL detail. Share default
+role policy with generated admission SQL instead of repeating role strings.
+
+`native_products.py` currently records table owner/read_roles, not schema usage or a complete ACL;
+`sql/admission.sql` checks selected roles and PUBLIC. Therefore I04's no-baseline argument holds
+only for existing normalized table-read policy. Define deterministic interpretation of older frozen
+declarations for the additional governed facts, or an explicit declared baseline through the normal
+successor route where those facts cannot be derived. Do not infer desired/before policy from stray
+live grants. Any unavailable predecessor fact must be resolved or refused explicitly, not called an
+empty ACL. Frozen predecessor bytes remain unchanged.
+
+Use the existing Alembic plugin's `Operations.register_operation`, `implementation_for`,
+`renderers.dispatch_for` and comparator APIs for compared before/after privilege operations with
+renderer/reverse behavior. Table comparison can own table deltas; schema usage needs its own shared
+schema-level owner rather than a per-table duplicate. Execution verifies stale-before catalog facts
+and applies the declared transition under correct owner authorization, followed by independent
+after-state admission. A changed read_roles declaration on an existing table must yield an operation
+rather than just a deployment refusal; an unchanged declared policy must yield none.
+
+Integrate the new operation kind through frozen payload versioning, `cli/schema.py` serialization
+(currently NativeTransitionOp-only), candidate loading/execution, `schema/model_explanation.py`
+explanation/counting, ordering and managed receipts. Preserve reading/execution of frozen old
+payload versions where actual registered revisions require it. Do not leave new operations outside
+inspection or reported counts. Add nonempty diff-reporting (`to_diff_tuple`) support only for an
+actual consumer; the current empty-diff test is not that consumer or a reason for a new gate.
+
+Move role/privilege strings and role-restoration AST repair out only after the replacement owns
+their effects. Ordinary table ALTER authorization and cross-owner FK creation still require valid
+role context: moving GRANTs into an operation does not remove these obligations. Express special FK
+authorization from declared constraint/ownership facts instead of matching one table/column name.
+Retain explicit global physical-retirement ordering where needed. Qualify ADR-0074's retained-walk
+rationale through the existing architectural owner/ADR route before dependent adoption; accepted
+ADR bodies remain immutable. No automatic public Rewriter conversion follows.
+
+Future focused acceptance covers existing-table role change, unchanged policy, schema usage,
+column/grant-option cases within the selected policy, stale-before refusal, after-state mismatch,
+operation serialization/explanation/receipt fidelity and required ordinary/FK ownership ordering.
+
+### Revision-owned data steps and supported predecessor preparation — I05
+
+Implement the bounded authoring cleanup with I04, not as a later generic migration framework.
+For actual revision data moves, extend the closed frozen ChangeRequest DTO with a finite
+repository-owned builder name. Resolve only a closed first-party mapping at authoring; never accept
+arbitrary dotted Python imports or SQL in a request. Capture relevant builder implementation identity
+in preview/staleness premises. A builder returns a Core statement, for example Insert.from_select;
+authoring freezes its compiled named-column SQL in the revision's ExecuteSQLOp. Applying a frozen
+revision never resolves or imports a current builder.
+
+Registered forward-base replay applies frozen older revisions before current authoring, supporting
+removal of old pdf_visual_index/characterization_source_scope backfill branches from the normal
+head-successor route. Standalone authoring can still use an older migrated predecessor: determine
+which predecessor routes are supported and preserve their behavior through explicit revision-owned
+steps, or deliberately bound that route with a truthful refusal before removing branches. Do not
+claim all historical branches are unreachable merely because the main chain is ahead.
+
+Replace hardcoded task/run temporary columns only with prerequisite preparation derived from actual
+target/catalog differences and authoring needs. Account for defaults, types, dependencies and
+rollback-only lifetime; blindly adding every missing target column is not sufficient. Remove
+revision-specific branches/scaffolding once their replacement and supported callers are accounted
+for. Future focused acceptance covers one frozen named step exactly once, an unrelated successor
+without table-specific work, captured-builder staleness, supported older predecessors and rollback.
+
+All successors serialize through the coordinator's single chain owner after
+`semantic_ddo_origeps_v1`. No persistent deployment or activation is authorized here. Tests remain
+cancelled. Pivotal APIs, source references and alternatives are in
+[review I02](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I02),
+[I04](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I04) and
+[I05](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I05).
