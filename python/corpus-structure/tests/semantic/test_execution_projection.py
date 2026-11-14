@@ -123,13 +123,62 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
             for diagnostic in diagnostics
             if (diagnostic.code, diagnostic.location) == expected
         )
+        if change in {"unknown", "effect_version"}:
+            full_expected = (
+                "delete_archive" if change == "unknown" else "persist_exact_archive",
+                "owned effect implementation",
+                "None" if change == "unknown" else "'1'",
+                "1" if change == "unknown" else "2",
+                "implement this effect version and derive a new reviewed release before admission",
+            )
+        else:
+            if change == "transition":
+                owned = {
+                    "effects": ("final_cut_seals_source_atomically", "immutable_cut"),
+                    "implementation": "cut",
+                    "transitions": {
+                        "run_final_cut": ("capture_final_cut", "seal_source_production")
+                    },
+                    "version": "1",
+                }
+                changed = {
+                    "implementation": "cut",
+                    "version": "1",
+                    "effects": ("final_cut_seals_source_atomically", "immutable_cut"),
+                    "transitions": {"run_final_cut": ("immutable_cut",)},
+                }
+                consumer = "semantic.operations:seal_cut"
+            else:
+                owned = {
+                    "effects": ("persist_exact_archive",),
+                    "implementation": "archive",
+                    "transitions": {},
+                    "version": "1",
+                }
+                changed = {
+                    "implementation": "archive",
+                    "version": "999" if change == "version" else "1",
+                    "effects": ("construct_new_run",)
+                    if change == "moved"
+                    else ("persist_exact_archive",),
+                    "transitions": {},
+                }
+                consumer = "semantic.releases:persist_release"
+            full_expected = (
+                expected[1],
+                consumer,
+                repr(owned),
+                repr(changed),
+                "implement the required bounded effect profile, then "
+                "ci schema derive --out <new-directory> and deploy a reviewed forward revision",
+            )
         assert (
-            diagnostic.contract_id
-            and diagnostic.consumer
-            and diagnostic.expected
-            and diagnostic.actual
-            and diagnostic.remedy
-        )
+            diagnostic.contract_id,
+            diagnostic.consumer,
+            diagnostic.expected,
+            diagnostic.actual,
+            diagnostic.remedy,
+        ) == full_expected
 
 
 def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
