@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-13. DDO completion reassessment found remaining implementation and qualification gaps. Implementation remains paused. No production cutover._
+_Updated 2026-11-13. DDO completion reassessment found remaining implementation and qualification gaps. DDO implementation remains paused. No production cutover._
 
 ## Authority and scope
 
@@ -33,11 +33,13 @@ _Updated 2026-11-13. DDO completion reassessment found remaining implementation 
 
 ## Test system: execution in progress · 2026-11-13
 
-- The [coordinator](docs/plans/test-system-target-design_2026-11-13.md#execution-checkpoint--2026-11-13) owns TS-00–25 and current dispositions. TS-00 ADR-0101/0102 targets, TS-04 worker sizing and TS-16 CPU controls are delivered; TS-01/03/06/09/15/19 are implemented in part or awaiting affected native checks. Other packages remain open. Duration benefits are Proposed, unmeasured.
-- **passed:** `uv run ci test --workers 2 --` the identity module, 48/48, `244f50becd69430793b5e485a9d5f179`; snapshot concurrency 5/5, `962c709485484712afd08df5c0faa649`; scoped types `a23e8d279d0f467fa778242b4f893e2d`. Worker sizing, CPU, naming, refusal and CLI results retain their exact scopes in the coordinator; none establishes complete qualification.
-- Operator-authorized [PDF prerequisite repairs](docs/design_review/evidence/2026-11-13_test-system-pdf-guard-repair/README.md) use new immutable forward successors. First guard and forward-deployment controls **passed**, `e0b76cad67e1435199d8009c1147d9a3`. Next native batch **failed**, `e67fcd551fcc4a138b2d3d0ec24b6cdd`, 3 passed/22 setup failures at the adjacent obsolete derivation-column reference; its repair/verification is underway. Persistent database revision remains unchanged.
-- User requires alignment with the in-progress DDO model, never restoration of the prior architecture. PDF repair uses immutable producer identity and preserves current support validity; adoption fences stay separate. DDO pause and TS-21/22 gates remain intact. No cutover, persistent deployment or provider qualification is claimed.
-- **Next:** finish narrow PDF forward verification, deliver TS-02 acquisition/reuse then TS-05/08 consumers; continue independent support/evidence work. [PostgreSQL tooling](docs/plans/test-system-target-design/postgresql-tooling.md) remains selected. Complete scope precedes TS-23 review and final applicable `uv run ci test`/`uv run ci check`, which are **not_run** at this partial checkpoint.
+- The [coordinator](docs/plans/test-system-target-design_2026-11-13.md#remaining-execution-baseline--2026-11-13) owns TS-00–25, current findings and receipt applicability. Keyed heads, isolation, generic seeds, SQL batching and provider selection are implemented; non-gated consumer migrations are implemented and final qualification remains open. Benefits are Proposed, unmeasured.
+- **passed:** targeted `uv run ci test` selections: record seed/refusal50 `5582aa6fa10a439db49782432a692b19`; PostgreSQL compiled-binding35 `ac8e56c2984943efbefb5add2c375690`; complete-result perturbations6 `3345772ed6174e2fa9edcd1b86e5c61e`; binding-source seed25 `cd5b7d3f4183405087bc35d92b368e20`; source/identity/JSON rollback24 `afb0de834cc64fafb590408c033bcf80`. These are bounded evidence, not final union credit.
+- **passed:** actual private PostgreSQL infrastructure9/two workers `38db958326b24a66a670e740eb8a0464`; private SQL family19 `8bbf9bb6a7fe4c3a97fd12d7f96a3650`. Private retry reports a new incarnation; deliberate interruption retains incomplete execution with settled custody and captured logs. [Tooling companion](docs/plans/test-system-target-design/postgresql-tooling.md) owns the contracts.
+- Both authorized [PDF repairs](docs/design_review/evidence/2026-11-13_test-system-pdf-guard-repair/README.md) use immutable successors; current-model replay controls passed. Persistent revision/OID/system remain unchanged. No DDO production package, deployment, adoption or cutover resumed; TS-21/22 retain their gates.
+- **passed:** final-source `uv run ci check --json`, `efadf0f11b3943b6a39e1069e11b5f7a` (all applicable checks), and `uv run ci doctor --json`, `7d94b9efb3784e699c56d250566743b8`. Failed/interrupted predecessors remain retained with owning repairs in the coordinator.
+- **passed:** `uv run ci docs check --json`, `5a25e5288ee84a73959180c1e91fba5f`,1252pages/zero link errors; later checkpoint edits await final documentation validation.
+- **Next:** run root maintenance and final applicable `uv run ci test`/`uv run ci check`. Non-gated functional scope is implemented; independent TS-23 assembled review is Accept scoped. Qualification has not yet passed. Global Ruff E501 remains excluded; frozen legacy migration header restored and protected from redundant-noqa rewriting.
 
 ## Agent reference guidance · 2026-11-13
 

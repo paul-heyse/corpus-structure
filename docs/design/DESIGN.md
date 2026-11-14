@@ -626,7 +626,7 @@ owns the detailed compatibility and authority boundaries.
 
 > Decision: ADR-0031, ADR-0033
 
-**Native test target accepted; implementation remains with TS-00–25 (2026-11-13).**
+**Native test infrastructure implemented; bounded Tested, integrated qualification open (2026-11-13).**
 Narrowed tests reuse a keyed sealed head, verified on each process's first useful consumer clone
 before effects; qualification builds a run-private head. Policy replay, real logins, independent
 cold deployment and nonce/OID/owner cleanup remain. Read and rollback classes expose no writable
@@ -635,7 +635,7 @@ writes use isolated clones. [D3](D3-database.md#native-test-deployment-equivalen
 
 > Decision: ADR-0101
 
-**Scenario seed target accepted; implementation and qualification remain scoped (2026-11-13).**
+**Scenario seed operation implemented; consumer migration and qualification remain scoped (2026-11-13).**
 Eligible committed recipes use worker-local sealed seeds through the same native lifecycle.
 Nothing built under an implementation override or holding a claimed/running task is seedable,
 even with an expired lease. Committing readers receive fresh clones; compatible rollback families

@@ -358,7 +358,7 @@ builders on 2026-11-13:
 | Occurrence context, `tests/semantic/test_occurrence_context.py:143–199` | 8 | rollback, on the same terms | `_source(outside=False)` over `build_domain_case(duplicate=True)` | The whole builder | `locate_proposal` is patched for the body today (`:46`); this package scopes it the same way. No positive control |
 | Imported membership lineage, `tests/semantic/test_imported_declaration_membership.py:228–333` | 6 | rollback for five; `valid` takes `commit_clone` | `imported_declaration_case` (`:43`) | The whole builder, including `consolidate_cut` | `entity`, `class` and `establishment` share one message; `revision` and `run` share another (TS-09) |
 | Declared membership lineage, `tests/semantic/test_domain_operations.py:864–992` | 6 | rollback for `class`, `declaration`, `resolution`, `cut`; `valid` takes `commit_clone` | Two: `graph=True, membership_subtype=True`, and the same with `unselected_report=True` for `source_cut` | The whole builder | `source_cut` reads one row across other runs' observations, so its seed has its own family clone and nothing else shares it. Three mutations use `match=None` (TS-09) |
-| Case-match function, `tests/semantic/test_local_semantic_admission.py:121–147` | 17 | read | None | — | `data.local_semantic_case_matches` is `IMMUTABLE` with no DML |
+| Case-match function, `tests/semantic/test_local_semantic_admission.py:121–147` | 17 | Commit seed clone and SQL rollback batch (TS-24) | SQL-family seed | Test-only function installation | `data.local_semantic_case_matches` is `IMMUTABLE` with no DML; the later selected pgTAP integration preserves logical identities and asserts pure semantics under maintenance, without a reader-privilege claim |
 | Named-cue dispatch, `tests/semantic/test_contextual_workflow_native.py:29–135` | 10 | read | None | — | `ops.contextual_primary_named_cue` is `STABLE` |
 | Permission refusals: `test_identity_exclusions_native.py:233–244` (3), `test_domain_operations.py:246`, `test_occurrence_context.py:315` | 5 | rollback on the session clone, writer principal connection | None | — | All assert message regexes today; TS-09 pins `42501` |
 | `test_domain_operations.py:254` | 1 | stays commit | None | — | An admin commits `GRANT TEMP ON DATABASE` (`:257–260`) |
@@ -448,10 +448,12 @@ consumers obtain clones, shown by `scenario_seed` in their receipts (F03).
 for the record source; `…/test_domain_operations.py` and `…/test_runtime_entrypoints.py` for the
 other two builders.
 
-**Open premises.** Whether `invocation_key` exists before a claim is unsettled, so the claimed
-stage reads `task_row` after its claim, as `:617–628` does today. Whether any `private_source`
-consumer asserts a time relation to seeded stamps is settled by reading consumers as each recipe
-is adopted; one that does stays on a per-test build.
+**Resolved during execution (2026-11-13).** Task creation stores the invocation key before
+claim, so the seed stage retains and validates it. Claim-time source/task rows are read in the
+consumer's actual clone. Temporal before-run MCP and historical producer-frame controls retain
+live construction/queuing at the point their claim requires; other eligible repeated recipes
+use the selected seed boundary. Direct original reading uses retained database custody where
+migrated; adapters reject missing retained artifacts even if a file fallback would succeed.
 
 ## Outside this companion
 

@@ -689,7 +689,7 @@ expectations remain. Cold bootstrap, CLI initialization and historical era-shape
 the real deployment independently. The existing leased lifecycle owns authenticated test
 databases, closes resources and waits boundedly for backend exit without FORCE or new terminate
 rights. The prior session-only head lifetime is superseded by the accepted target below; its replacement
-is not yet implemented.
+is described below.
 
 **Implemented; bounded Tested (2026-11-02; TA-01–04 acceptance owned by the
 [test architecture coordinator](../plans/test-architecture-and-evidence_2026-11-02.md#native-increment-execution--2026-11-02)).**
@@ -700,10 +700,10 @@ from overtaking surviving effects after owner death. Ambiguous identity or unset
 refuse recovery and remain outstanding; no termination privilege is introduced. Test application
 settings are fenced independently of original native acquisition credentials. Existing receipt
 events distinguish requested configuration from observed database, deployment and actual login
-context, with missing native provenance explicit. Private-cluster/plugin alternatives remain
-unselected; the bounded comparison does not change the production cluster arrangement.
+context, with missing native provenance explicit. Shared-host authentication controls retain
+their exclusive custody; throwaway functional cohorts do not replace that arrangement.
 
-**Accepted target, Proposed implementation (2026-11-13).** Narrowed runs reuse a keyed sealed
+**Implemented; bounded Tested (2026-11-13); integrated qualification remains open.** Narrowed runs reuse a keyed sealed
 head and verify frozen catalog expectations on the process's first useful clone before effects.
 Fresh-in-run qualification/replacement heads are exempt; qualification builds run-private heads.
 Construction identity, build-name leases, publication and count retention remain under PgAdmin.
@@ -717,6 +717,18 @@ expired leases do not waive task status. Fresh commit clones and compatible roll
 preserve their respective claims, independent expectations and separate seed/acquisition provenance.
 The [test-system series](../plans/test-system-target-design_2026-11-13.md) owns implementation,
 consumer migration, preserved cold/actual-purpose controls and final applicable qualification.
+
+Supported ordinary test execution also offers `ci test --native-host private`, with `shared`
+as default. One PostgreSQL18 `pg_virtualenv` cohort serves the selected Python/SQL work, with
+an extension-ready template and explicitly authenticated canonical purpose principals. Captured
+Settings name the acquired endpoint; inherited libpq routing cannot select the shared server.
+The existing process owner settles children and copies logs before host teardown. Cluster data
+and credentials stay outside published artifacts; uncertain custody remains protected. Fast
+throwaway settings exclude shared authentication/peer and durability claims. SQL families use
+pgTAP/pg_prove on test-only seeds, preserve pytest case identities and require actual psql
+context. Neither pgTAP installation nor private bootstrap changes production prerequisites.
+The [tooling companion](../plans/test-system-target-design/postgresql-tooling.md) owns the
+selected scope and final-source qualification limits.
 
 > Decision: ADR-0102
 

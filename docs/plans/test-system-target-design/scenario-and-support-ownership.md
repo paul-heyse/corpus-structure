@@ -297,7 +297,7 @@ an earlier stage. Line ranges are today's code for each stage.
 
 The case ends with every task complete, so the whole case is seedable; the release-and-views
 prefix is the alternative boundary, and [TS-11](isolation-and-seeds.md) chooses between them
-with one profile.
+by dependency and reuse inspection, as recorded in TS-11.
 
 `build_resubmission_case` (`tests/semantic/agent_scenarios.py:36–174`):
 
@@ -372,10 +372,12 @@ python/corpus-structure/tests/semantic/test_release_compatibility.py`, then one 
 consumer per builder (`test_record_publication_native.py`, `test_domain_operations.py`,
 `test_runtime_entrypoints.py`).
 
-**Open premises.** Whether `task_row["invocation_key"]` exists before a claim is undetermined, so
-`task_row` stays in the claimed stage. Whether `candidate(case)` in the record-policy tests needs
-more than the prepared release and view identifiers is read when that consumer moves; if it does,
-it takes the source-published stage.
+**Resolved during execution (2026-11-13).** Task creation stores `invocation_key` before
+claim; the frozen pre-claim descriptor retains it and validates the queued task posture.
+Claim-time rows still belong to the claimed stage. The record-policy consumers use only
+persisted release inputs and authored candidates; they no longer publish PDFs or claim tasks.
+The selected domain boundaries are the whole exact-default case and the formula-capability
+release/views prefix, without a mandatory timing profile.
 
 ## TS-15 — One owner of the primary-layer assembly
 

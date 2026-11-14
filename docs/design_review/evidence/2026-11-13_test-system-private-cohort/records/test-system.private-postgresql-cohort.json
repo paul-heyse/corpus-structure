@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "id": "test-system.private-postgresql-cohort",
+  "title": "Optional private PostgreSQL18 cohort preserves acquisition and process custody",
+  "group": "test-system-target-design",
+  "package": "TS-25",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does one explicitly acquired pg_virtualenv host serve the selected ordinary cohort with real purpose credentials, preserved selection/context, and supervised teardown?",
+  "answers": [
+    "TS-25"
+  ],
+  "method": "Inspect installed postgresql-common294, implement one wrapper under the existing receipt supervisor, normalize creation inputs, bootstrap extension-ready owner-matched infrastructure and canonical restricted purpose roles, then execute real multiworker driver, SQL-family, controlled startup failure, managed retry and interruption selections. Pure controls assess environment/path containment, incompatibility, mode and child-owner gates independently.",
+  "commands": [
+    "uv run ci test --workers 2 --json -- tests/scripts/test_private_cohort.py",
+    "PGPORT=5434 PGHOST=/var/run/postgresql PGHOSTADDR=192.0.2.1 PGSERVICE=unowned PGSERVICEFILE=/nonexistent PGPASSFILE=/nonexistent PGPASSWORD=inherited-not-selected CREATE_OPTS=\"--port 5432\" INITDB_OPTS=\"--auth=trust\" PG_VIRTUALENV_UNSHARE=--net uv run ci test --native-host private --workers 2 --json -- python/corpus-structure/tests/db/test_store.py python/corpus-structure/tests/db/test_native_host.py",
+    "uv run ci test --native-host private --workers 2 --json -- python/corpus-structure/tests/semantic/test_local_semantic_admission.py",
+    "PRIVATE_COHORT_PROBE_CONTROL=/home/paul/corpus-structure/build/tmp/ts25-private-control/retry.json uv run ci test --native-host private --workers 2 --json -- docs/design_review/evidence/2026-11-13_test-system-private-cohort/probes/test_cohort_control.py::test_retry_executes_on_a_new_private_incarnation",
+    "PRIVATE_COHORT_PROBE_CONTROL=/home/paul/corpus-structure/build/tmp/ts25-private-control/retry.json uv run ci test retry 5adaffdbb99c49c2a3697c0910a2fe74 --workers 2 --json",
+    "uv run ci test --workers 2 --json -- tests/scripts/test_private_cohort.py::test_failed_pytest_exit_is_not_an_independent_host_reporting_failure docs/design_review/evidence/2026-11-13_test-system-private-cohort/probes/test_cohort_control.py::test_prebootstrap_failure_preserves_native_stderr_and_cleans_owned_host",
+    "PRIVATE_COHORT_PROBE_CONTROL=/home/paul/corpus-structure/build/tmp/ts25-private-control/cancel.json NO_COLOR=1 uv run ci test --native-host private --json -- docs/design_review/evidence/2026-11-13_test-system-private-cohort/probes/test_cohort_control.py::test_interrupt_drains_an_active_database_child",
+    "uv run ci test --workers 2 --json -- python/corpus-structure/tests/db/test_store.py python/corpus-structure/tests/db/test_native_host.py",
+    "uv run ci test --workers 2 --json -- tests/scripts/test_private_cohort.py tests/scripts/test_test_receipts.py tests/scripts/test_parallel_harness.py tests/scripts/test_provider_evidence_receipts.py tests/scripts/test_provider_selection.py python/corpus-structure/tests/test_cli_provider_evidence.py",
+    "uv run ci test retry 2ddd943841974b29a1d61efa7fe1b7d9 --workers 2 --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/closed-endpoints.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "a739b6b2d936ad4dea447d71eec58ef993511a1da19f7b21394a1d0be897052c"
+    },
+    {
+      "path": "raw/interrupted-child.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "9b32d625192bd4940466e688693f3575b22d83b32e8e2141e0e0769db9a01d3f"
+    },
+    {
+      "path": "raw/interrupted-result.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "acbe127b724585df540ec3e1a517e581ea8d565a94ccb627157022461e32b37d"
+    },
+    {
+      "path": "raw/managed-retry.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "191cd6a564648d4aa4018def39c1a7173554b44f321d38404b730b6577e9d6e3"
+    },
+    {
+      "path": "raw/prebootstrap-control.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "0c7eb6ce2bd6c10a10ae9dfeefcc6cd2a0e433edd7aee5dbb4cc99ebe6f04784"
+    },
+    {
+      "path": "raw/preserved-bootstrap-failure.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "f64556584247ee58380a2e815a9698d35fddf275074baf5086ff8a854262e56c"
+    },
+    {
+      "path": "raw/private-final-purpose.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "74dcd47e052d7c7355e8f9a3e973dc62fc698ca2a55696cc5697b941619b30f6"
+    },
+    {
+      "path": "raw/private-infrastructure.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "102401e9db79a2a690169e9de22c19292d6fe250591197a240a2dba35b5a071a"
+    },
+    {
+      "path": "raw/private-sql-family.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "0ab00bdedf363419a7a9aa1c7c9c4f9407cea88ad39223aca7fb604fc2a6e105"
+    },
+    {
+      "path": "raw/private-two-workers.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "20155738853c9de72b287d3ec499d10b16ea2542a44c555a91d5f53534707b44"
+    },
+    {
+      "path": "raw/shared-default.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "6e602c46580d1664a7bb9e7bd009c2de05808373607471f107c363960de26c91"
+    },
+    {
+      "path": "raw/shared-regression.json",
+      "role": "Bounded owning-operation report or directly observed operational control result",
+      "sha256": "f7c2f42b574d3b01dcef50e71190c239eea13aab38949d179268d90c4c483635"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "private infrastructure and purpose cases passed",
+      "value": 9,
+      "of": 9,
+      "unit": "identities",
+      "note": "Both actual workers observed on one acquired host."
+    },
+    {
+      "name": "private SQL family logical cases passed",
+      "value": 19,
+      "of": 19,
+      "unit": "identities",
+      "note": "One pg_prove batch; independently expected39 assertions."
+    },
+    {
+      "name": "shared default infrastructure cases passed",
+      "value": 9,
+      "of": 9,
+      "unit": "identities",
+      "note": null
+    },
+    {
+      "name": "shared supervisor regression identities covered",
+      "value": 225,
+      "of": 225,
+      "unit": "identities",
+      "note": "222 initial passes plus3 exact repaired-signature retries; original failed attempt retained."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The optional private route acquired one PostgreSQL18.7 host per selected cohort, served both infrastructure workers with real restricted-purpose authenticated identities, and executed the complete nineteen-case SQL family. Parent PG routing/auth/configuration inputs did not redirect creation/acquisition. Actual controlled preload failure retained bounded native diagnostics and removed the owned host. Managed retry preserved private mode and executed on a new observed port/start/system identity; failed history remains visible. SIGINT during an active database query produced an interrupted/incomplete case with no functional pass while child groups settled, logs were copied, external temporary data was removed and the private endpoint closed. Unconfirmed custody deliberately retains the owned external host/data and remains unsettled; no crash-proof/SIGKILL or durability claim is made. The shared default driver route passes. Actual Rust-inside-private execution was not run; each existing Rust/Python process-owner drain gate and execution-PATH preservation received focused controls. Global final formatting, integrated source applicability and TS-23 qualification remain with the coordinator. No persistent database deployment, production DDO change, shared-port provisioning or earlier frozen artifact change occurred.",
+  "consumed_by": [
+    "TS-25",
+    "test-system-target-design"
+  ]
+}

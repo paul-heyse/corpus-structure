@@ -206,5 +206,6 @@ cheaper than an already running server. No tests or probes were run while author
 The new runner/host boundary received the scoped
 [design/target review](../../design_review/reviews/design_review_postgresql-tooling_2026-11-13.md)
 on 2026-11-13, consuming a bounded reconciliation of the applicable test diagnostic account.
-Its Revise judgment is confined to F01's ambient runner inputs, now incorporated into this
-target but awaiting implementation and verification. TS-23 still owns assembled review.
+Its Revise judgment was confined to F01's ambient runner inputs, implemented by normalized
+runner inputs and native-handler validation. SQL19 passed on shared/private hosts; the
+coordinator retains receipts and final-source applicability. TS-23 owns qualification.

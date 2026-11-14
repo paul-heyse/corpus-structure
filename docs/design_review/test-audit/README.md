@@ -71,6 +71,62 @@ The plan remains the scheduled-disposition owner. No new DTA ID is introduced;
 the [tooling review](../reviews/design_review_postgresql-tooling_2026-11-13.md) owns additional
 target finding F01.
 
+<a id="assembled-test-system-reconciliation"></a>
+
+## Scoped reconciliation for the assembled test-system review · 2026-11-13
+
+**Interface-checked by source inspection, 2026-11-13.** The independent TS-23 reviewer
+consumes publication `28b4a53db` and the PostgreSQL reconciliation above. The additional
+source baseline is `dee4342741c896a2b67bdad790dae99ed49c054c` plus the live dirty test-system
+implementation inspected that day. Source and publication revisions are distinct. This is
+a change-led reconciliation of testing responsibilities, not a new production/DDO audit.
+Criteria remain core 3.3, heuristics 1.0, test-assessment 1.2, code-intelligence 1.4 and the
+repository binding. Later edits outside the described inspection remain outside this capture.
+
+- DTA-024/030's deployment and lifecycle premises have changed: the inspected owner now
+  uses keyed heads, first-use verification on a useful clone, run-private qualification heads,
+  acknowledged publication, one naming/lease/sweep table and explicit connected-residue skips.
+  Cold construction, historical revisions, actual principals and policy replay remain distinct
+  assurance responsibilities. Historical timings establish no current speedup.
+- DTA-018/025/031's repeated preparation footprint has changed through worker-owned recipe
+  seeds, read/rollback/commit/infrastructure classes, pure preparation projections and staged
+  record/domain/resubmission consumers. Stages are separated from clone engines; pending work
+  is claimed after cloning. Completed source custody is retained in the database or owned
+  read-only seed files. Whole-case reuse is appropriate only when the consumer does not judge
+  those earlier stages; publication, temporal and cross-session tests retain their real effects.
+- DTA-009/029's relevant owners are now canonical support modules and the primary assembly
+  helper. A scoped search of package tests found no imports from another `test_*` module,
+  `private_source_options` or `callspec` reconstruction. This is not an assertion that every
+  helper or consumer has received equal-depth review.
+- DTA-032's current contract is a locked lazy process snapshot with explicit nested overrides;
+  affected record/domain/resubmission/kernel preparation memos bypass override reads and writes.
+  The snapshot contract expressly excludes overlapping independent process-wide override work.
+- DTA-001/006/016/027/028/033/034's inspected evidence paths now distinguish exact refusal
+  reasons, nonperfect authored expectations, exact stdio states, preservation premises,
+  controlled/provider identities, literal contextual identity vectors, checked routing doubles,
+  complete compiled binding results and bounded protected native admission. Shared production
+  validators establish wire conformance; authored expectations challenge semantic results.
+- DTA-035/036's DDO retirement/evidence obligations remain with their existing plan gates.
+  Test-system changes do not establish production cutover or final required-union coverage.
+  pgTAP cases and private-host receipts preserve their own identities and evidence scope;
+  neither stands in for an unavailable provider or a real-purpose admission claim.
+  TS-10's CaseMatch17 semantic read claim is now carried by TS-24's nineteen-case family,
+  one maintenance clone/batch with rollback and exact mapping; it makes no reader-privilege
+  claim. Independent actual-principal controls retain that different obligation.
+
+FP-01/02/03/06 were assessed through ownership, explicit consumer binding and mechanism
+substitution; FP-04/05 through recipe/isolation/result meanings, independent expectations and
+failure states; FP-07/A4 through necessary preparation, per-case effects, worker affinity,
+batched SQL and one host per cohort. H5/H8/H12–14/H18–24/H26–28 informed the qualitative
+execution assessment. No benchmark or new test campaign was performed by this reconciliation.
+The production snapshot and revision-expectation interfaces were read as test contracts; this
+does not refresh the broad diagnostic account or certify production DDO semantics. Detailed
+scope, contrary evidence, alternatives and evidence limits are in the
+[assembled review](../reviews/design_review_test-system-assembled_2026-11-13.md).
+No new DTA identity or second disposition ledger is introduced; the
+[test-system coordinator](../../plans/test-system-target-design_2026-11-13.md#finding-disposition)
+continues to own scheduled closure and qualification.
+
 ## Refresh of 2026-11-13: what changed and what was found
 
 **What changed since 2026-11-12.** 133 test files changed (about 22,000 lines added), 63 of them
