@@ -8,7 +8,7 @@ from mcp.types import TextContent
 from sqlalchemy import text
 
 from corpus_structure.ingest.pdf_section_views import published_section_drafts
-from corpus_structure.intervene.semantic_server import SemanticProjectSession, build_semantic_server
+from corpus_structure.intervene.semantic_server import build_retained_reader_server
 from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.releases import open_release
@@ -110,7 +110,7 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert publication_checks["invariant:published_document_address"]["status"] == "unresolved"
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "published"))
+        server = build_retained_reader_server(read_engine=commit_reader_engine, project="published")
         async with Client(server) as client:
             answer = await client.call_tool(
                 "explain_operation",

@@ -1,5 +1,7 @@
 """Packet-local statement handles resolve to immutable rendition coordinates."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import pytest
 from sqlalchemy import select
 
@@ -114,12 +116,12 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
     from fastmcp import Client
 
     from corpus_structure.intervene.semantic_server import (
-        SemanticAgentSession,
-        build_semantic_server,
+        RetainedReaderBinding,
+        build_retained_reader_server,
     )
     from corpus_structure.semantic import source_frames
     from corpus_structure.semantic.operations import seal_cut
-    from semantic.agent_scenarios import lease_and_read, queue_resubmission_agent
+    from semantic.agent_scenarios import queue_resubmission_agent
 
     # Model a task completed by the earlier server, before source-frame capture existed.
     # The real packet builder, native task/hash custody and submission transaction remain active.
@@ -128,45 +130,36 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
         _, run, task, locator = queue_resubmission_agent(
             resubmission_historical_source.stage, commit_writer_engine
         ).result
-        session = SemanticAgentSession(commit_writer_engine, run)
 
-        async def complete():
-            async with Client(build_semantic_server(session)) as client:
-                unit = await lease_and_read(client, run, task)
-                result = (
-                    await client.call_tool(
-                        "propose_claims",
-                        {
-                            "task_id": task,
-                            "batch": {
-                                "unit_ref": locator,
-                                "entities": [
-                                    {"id": "person", "class_iri": "https://example.org/Person"}
-                                ],
-                                "claims": [
-                                    {
-                                        "id": "name",
-                                        "subject": "person",
-                                        "predicate": "https://example.org/name",
-                                        "object": {"kind": "text", "text": "Alice"},
-                                        "qualification": {"modality": "asserted", "polarity": True},
-                                        "establishment": "stated",
-                                        "evidence": [
-                                            {
-                                                "sentence": unit["sentences"][0]["id"],
-                                                "quote": "Alice is here.",
-                                                "role": "primary",
-                                            }
-                                        ],
-                                    }
-                                ],
-                            },
-                        },
-                    )
-                ).structured_content
-                assert result is not None and result["status"] == "done"
+        def complete():
+            authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+            unit = authored_fixture.unit()
+            result = authored_fixture.publish({
+                            "unit_ref": locator,
+                            "entities": [
+                                {"id": "person", "class_iri": "https://example.org/Person"}
+                            ],
+                            "claims": [
+                                {
+                                    "id": "name",
+                                    "subject": "person",
+                                    "predicate": "https://example.org/name",
+                                    "object": {"kind": "text", "text": "Alice"},
+                                    "qualification": {"modality": "asserted", "polarity": True},
+                                    "establishment": "stated",
+                                    "evidence": [
+                                        {
+                                            "sentence": unit["sentences"][0]["id"],
+                                            "quote": "Alice is here.",
+                                            "role": "primary",
+                                        }
+                                    ],
+                                }
+                            ],
+                        })
+            assert result.disposition == "completed_accepted"
 
-        anyio.run(complete)
+        complete()
     with commit_writer_engine.begin() as conn:
         seal_cut(conn, run, "evaluation", final=True)
         before = conn.execute(
@@ -207,10 +200,10 @@ def test_bulk_frames_deduplicate_origins_and_preserve_exact_coordinates(
     from corpus_structure.semantic.source_frames import load_source_frames
 
     prepared, run, task, _ = resubmission_case.stage.result
-    from corpus_structure.orchestrate.semantic import agent_packet
+    from semantic.historical_agent_support import historical_agent_packet
 
     with commit_writer_engine.begin() as conn:
-        packet = agent_packet(conn, run, task, prepared)
+        packet = historical_agent_packet(conn, run, task, prepared)
         statements = []
 
         def record(conn, cursor, statement, parameters, context, executemany):

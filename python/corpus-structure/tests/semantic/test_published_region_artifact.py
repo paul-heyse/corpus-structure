@@ -267,13 +267,13 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     from sqlalchemy import event
 
     from corpus_structure.intervene.semantic_server import (
-        SemanticAgentSession,
+        RetainedReaderBinding,
         _rendered_artifact_result,
-        build_semantic_server,
+        build_retained_reader_server,
     )
     from corpus_structure.semantic.native_requests import NativeRequestResult
 
-    server = build_semantic_server(SemanticAgentSession(commit_writer_engine, task.run_id))
+    server = build_retained_reader_server(RetainedReaderBinding(commit_writer_engine, task.run_id), writer_engine=commit_writer_engine)
     deliveries = []
 
     async def image_delivery():

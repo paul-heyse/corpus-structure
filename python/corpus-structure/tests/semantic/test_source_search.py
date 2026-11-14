@@ -4,7 +4,7 @@ import anyio
 from fastmcp import Client
 from sqlalchemy import text
 
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
+from corpus_structure.intervene.semantic_server import RetainedReaderBinding, build_retained_reader_server
 from corpus_structure.serve.source_search import SourceSearchRequest, search_source
 from semantic.agent_scenarios import native_build_resubmission_case
 
@@ -33,7 +33,7 @@ def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_han
 
     async def journey():
         async with Client(
-            build_semantic_server(SemanticAgentSession(commit_writer_engine, run))
+            build_retained_reader_server(RetainedReaderBinding(commit_writer_engine, run))
         ) as client:
             found = await client.call_tool("find", {"request": {"run_id": run, "text": "Alice"}})
             assert not found.is_error

@@ -1,13 +1,13 @@
 """Native PDF frames enter the real proposal, consolidation and evaluator boundaries."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from dataclasses import asdict
 from types import SimpleNamespace
 from typing import Any
 
-import anyio
 import pytest
-from fastmcp import Client
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -17,13 +17,11 @@ from corpus_structure.evaluate.semantic import (
     reference_evaluate,
     split_documents,
 )
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_views import load_source_view
-from semantic.agent_scenarios import lease_and_read
 from semantic.agent_scenarios import (
     native_build_resubmission_case as native_build_resubmission_case,
 )
@@ -59,25 +57,18 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
     _prepared, run, task, view, key = native_build_resubmission_case(
         commit_db_engine, commit_writer_engine, tmp_path
     )
-    session = SemanticAgentSession(commit_writer_engine, run)
 
-    async def submit():
-        async with Client(build_semantic_server(session)) as client:
-            unit = await lease_and_read(client, run, task)
-            assert unit["native_source"]["source_view_id"] == view
-            response = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": authored(
-                        key, unit["native_source"]["native_evidence"][0]["handle"], "prediction"
-                    ),
-                },
-            )
-            assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted"
+    def submit():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        unit = authored_fixture.unit()
+        assert unit["native_source"]["source_view_id"] == view
+        response = authored_fixture.publish(authored(
+                    key, unit["native_source"]["native_evidence"][0]["handle"], "prediction"
+                ))
+        assert response is not None
+        assert response.disposition == 'completed_accepted'
 
-    anyio.run(submit)
+    submit()
     finalize_bound_run(commit_writer_engine, run, "native-result")
     with commit_writer_engine.connect() as conn:
         assert (
@@ -388,27 +379,19 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         value["claims"].insert(0, premise)
         return value
 
-    async def submit():
-        async with Client(
-            build_semantic_server(SemanticAgentSession(commit_writer_engine, run))
-        ) as client:
-            unit = await lease_and_read(client, run, task)
-            contexts = unit["native_source"]["context_sources"]
-            assert [source["source_view_id"] for source in contexts] == [parent]
-            handle = contexts[0]["native_evidence"][0]["handle"]
-            result = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": claims(
-                        "prediction", unit["native_source"]["native_evidence"][0]["handle"], handle
-                    ),
-                },
-            )
-            assert result.structured_content is not None
-            assert result.structured_content["submission_disposition"] == "completed_accepted"
+    def submit():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        unit = authored_fixture.unit()
+        contexts = unit["native_source"]["context_sources"]
+        assert [source["source_view_id"] for source in contexts] == [parent]
+        handle = contexts[0]["native_evidence"][0]["handle"]
+        result = authored_fixture.publish(claims(
+                    "prediction", unit["native_source"]["native_evidence"][0]["handle"], handle
+                ))
+        assert result is not None
+        assert result.disposition == 'completed_accepted'
 
-    anyio.run(submit)
+    submit()
     finalize_bound_run(commit_writer_engine, run, "native-parent-result")
     parent_frame = native_source_frame(
         parent_view, [("reference_parent", 0, len(parent_view.text))]

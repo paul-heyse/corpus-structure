@@ -2,21 +2,18 @@
 
 from contextlib import contextmanager
 
-import anyio
 import pytest
-from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from sqlalchemy import select, text
 from typer.testing import CliRunner
 
-from corpus_structure.intervene.semantic_server import SemanticProjectSession, build_semantic_server
 from corpus_structure.intervene.server import build_server
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.runtime import open_runtime_engine, resolve_source_binding
 from semantic.agent_scenarios import ResubmissionRecipe
 
-from .agent_scenarios import build_resubmission_case, lease_and_read
+from .agent_scenarios import build_resubmission_case
 
 
 def test_application_settings_resolve_original_credentials_before_clone_substitution(
@@ -50,183 +47,10 @@ def test_application_settings_resolve_original_credentials_before_clone_substitu
         )
 
 
-def test_environment_change_preserves_active_mcp_submission_binding(
-    resubmission_case, tmp_path, monkeypatch, resubmission_application_settings
-):
-    commit_db_engine = resubmission_case.admin
-    commit_application_settings = resubmission_application_settings
-    prepared, run, task, locator = resubmission_case.stage.result
-    database = commit_application_settings.database
-    monkeypatch.setenv("CORPUS_DATABASE__URL", database.url)
-    monkeypatch.setenv("CORPUS_DATABASE__MAINTENANCE_URL", database.maintenance_url)
-    monkeypatch.setenv("CORPUS_DATABASE__READER_URL", database.reader_url or "")
-    monkeypatch.setenv("CORPUS_DATABASE__EVALUATOR_URL", database.evaluator_url or "")
-    monkeypatch.setenv("CORPUS_DATABASE__ADMISSION_URL", database.admission_url or "")
-    monkeypatch.setenv("CORPUS_RUNTIME__DEFAULT_PROJECT", "resubmit")
-
-    async def journey():
-        # Do not inject Settings/session/engine: environment acquisition belongs to the lifespan.
-        async with Client(build_semantic_server()) as client:
-            unit = await lease_and_read(client, run, task)
-            monkeypatch.setenv("CORPUS_RUNTIME__DEFAULT_PROJECT", "changed-project")
-            batch = {
-                "unit_ref": locator,
-                "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
-                "claims": [
-                    {
-                        "id": "name",
-                        "subject": "person",
-                        "predicate": "https://example.org/name",
-                        "object": {"kind": "text", "text": "Alice"},
-                        "qualification": {"modality": "asserted", "polarity": True},
-                        "establishment": "stated",
-                        "evidence": [
-                            {
-                                "sentence": unit["sentences"][0]["id"],
-                                "quote": "Alice is here.",
-                                "role": "primary",
-                            }
-                        ],
-                    }
-                ],
-            }
-            result = (
-                await client.call_tool("propose_claims", {"task_id": task, "batch": batch})
-            ).structured_content
-            assert result is not None
-            assert result["status"] == "done" and not result["task_open"]
-            assert result["submission_disposition"] == "completed_accepted"
-            assert (await client.call_tool("queue_status", {"run": run})).structured_content
-        async with Client(build_semantic_server()) as client:
-            with pytest.raises(ToolError, match="does not belong to this semantic project"):
-                await client.call_tool("queue_status", {"run": run})
-
-    anyio.run(journey)
-    with commit_db_engine.connect() as conn:
-        observation = table("kb.observation")
-        tasks = table("ops.task")
-        assert conn.execute(
-            select(observation.c.task_id, tasks.c.run_id, observation.c.release_id)
-            .join(tasks, tasks.c.id == observation.c.task_id)
-            .where(observation.c.task_id == task)
-        ).all() == [(task, run, prepared.release_id)]
-        row = conn.execute(select(tasks.c.run_id, tasks.c.status).where(tasks.c.id == task)).one()
-        assert row == (run, "done")
 
 
-def test_default_project_mcp_observes_run_created_after_startup(
-    commit_db_engine, commit_writer_engine, tmp_path
-):
-    session = SemanticProjectSession(commit_writer_engine, "resubmit")
-    server = build_server(session)
-
-    async def journey():
-        async with Client(server) as client:
-            first = (await client.call_tool("queue_status", {})).structured_content
-            assert first is not None and first["queues"] == []
-            # The scenario must be published after server startup for this temporal control.
-            prepared, run, task, locator = build_resubmission_case(
-                commit_db_engine, commit_writer_engine, tmp_path / "source.html", composed=True
-            )
-            with commit_writer_engine.connect() as conn:
-                assert resolve_source_binding(conn, "resubmit") == (prepared.release_id, "input")
-            queued = (await client.call_tool("queue_next", {})).structured_content
-            assert queued is not None
-            assert [(row["run_id"], row["task_id"]) for row in queued["tasks"]] == [(run, task)]
-            assert session.active(task).packet.frame.unit_ref == locator
-            # Explicit selection cannot escape the process's configured project.
-            with pytest.raises(ProposalRefused, match="does not belong"):
-                session.for_run(run + 1000)
-            released = (
-                await client.call_tool("release", {"task_id": task, "reason": "retry"})
-            ).structured_content
-            assert released is not None and released["released"]
-            assert task not in session.sessions
-
-    anyio.run(journey)
 
 
-@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
-def test_project_queue_inventory_and_selection_agree_for_two_pending_runs(
-    resubmission_case, tmp_path
-):
-    commit_writer_engine = resubmission_case.writer
-    commit_reader_engine = resubmission_case.reader
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.orchestrate.semantic import queue_agent
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.operations import OperationBinding, create_run
-
-    prepared, first_run, first_task, locator = resubmission_case.stage.result
-    with commit_writer_engine.begin() as conn:
-        runs, tasks = table("ops.run"), table("ops.task")
-        options = conn.scalar(select(runs.c.options).where(runs.c.id == first_run))
-        view_id = conn.scalar(select(tasks.c.unit_id).where(tasks.c.id == first_task))
-        configuration = options["agent_configs"]["agent.opus/extract"]
-        second_run = create_run(
-            conn,
-            project_id="resubmit",
-            binding=OperationBinding(
-                prepared.release_id,
-                "input",
-                0,
-                canonical_bytes(
-                    {
-                        "operations": {},
-                        "agent_configurations": options["agent_configs"],
-                    }
-                ),
-            ),
-            kind="full",
-            options=options,
-            code_commit="two-pending-queue-control",
-        )
-        conn.execute(
-            text("SELECT ops.select_source_view(:r,:origin,:v)"),
-            dict(r=second_run, origin=first_run, v=view_id),
-        )
-        (second_task,) = queue_agent(
-            conn,
-            run_id=second_run,
-            prepared=prepared,
-            configuration=configuration,
-            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view_id, locator),),
-        )
-
-    session = SemanticProjectSession(commit_writer_engine, "resubmit")
-
-    async def journey():
-        async with Client(
-            build_semantic_server(session, read_engine=commit_reader_engine)
-        ) as client:
-            inventory = (await client.call_tool("queue_status", {})).structured_content
-            assert inventory is not None
-            assert [(q["run_id"], q["awaiting"]) for q in inventory["queues"]] == [
-                (second_run, 1),
-                (first_run, 1),
-            ]
-            explicit = (
-                await client.call_tool("queue_status", {"run": first_run})
-            ).structured_content
-            assert explicit is not None and [q["run_id"] for q in explicit["queues"]] == [first_run]
-
-            implicit = (await client.call_tool("queue_next", {})).structured_content
-            assert implicit is not None
-            assert [(q["run_id"], q["task_id"]) for q in implicit["tasks"]] == [
-                (second_run, second_task)
-            ]
-            released = (
-                await client.call_tool("release", {"task_id": second_task, "reason": "control"})
-            ).structured_content
-            assert released is not None and released["released"]
-            override = (await client.call_tool("queue_next", {"run": first_run})).structured_content
-            assert override is not None
-            assert [(q["run_id"], q["task_id"]) for q in override["tasks"]] == [
-                (first_run, first_task)
-            ]
-
-    anyio.run(journey)
 
 
 def test_db_migrate_uses_semantic_history_and_refuses_legacy(commit_db_engine):
@@ -308,7 +132,7 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
         status("terminal")
 
 
-def test_default_mcp_and_direct_share_protected_direction_log(
+def test_direct_retains_protected_direction_scope_guards(
     resubmission_case, tmp_path, monkeypatch, resubmission_application_settings
 ):
     commit_writer_engine = resubmission_case.writer
@@ -320,18 +144,6 @@ def test_default_mcp_and_direct_share_protected_direction_log(
     from corpus_structure.cli.output import CliState
 
     _, run, _, _ = resubmission_case.stage.result
-    session = SemanticProjectSession(commit_writer_engine, "resubmit")
-
-    async def record():
-        async with Client(build_server(session)) as client:
-            result = (
-                await client.call_tool("record_direction", {"text": "Preserve exact quotations."})
-            ).structured_content
-            assert result is not None and result["project"] == "resubmit"
-            assert result["file"] == "ops.intervention"
-
-    anyio.run(record)
-
     @contextmanager
     def engine(settings, **kwargs):
         yield commit_writer_engine
@@ -349,11 +161,8 @@ def test_default_mcp_and_direct_share_protected_direction_log(
         rows = conn.execute(
             select(log.c.body, log.c.actor).where(log.c.run_id == run).order_by(log.c.id)
         ).all()
-        assert [row.body["text"] for row in rows] == [
-            "Preserve exact quotations.",
-            "Retain unresolved conflicts.",
-        ]
-        assert [row.actor for row in rows] == ["agent:session", "human:operator"]
+        assert [row.body["text"] for row in rows] == ["Retain unresolved conflicts."]
+        assert [row.actor for row in rows] == ["human:operator"]
         assert all(row.body["scope"] == "all" for row in rows)
 
     from psycopg.errors import CheckViolation
@@ -381,7 +190,7 @@ def test_default_mcp_and_direct_share_protected_direction_log(
             assert isinstance(refused.value.orig, CheckViolation)
             assert refused.value.orig.sqlstate == "23514"
             assert "direction run binding differs" in str(refused.value.orig)
-            assert len(conn.execute(select(log.c.id).where(log.c.run_id == run)).all()) == 2
+            assert len(conn.execute(select(log.c.id).where(log.c.run_id == run)).all()) == 1
 
     with commit_writer_engine.begin() as conn:
         end_source_run(conn, run)
@@ -391,7 +200,7 @@ def test_default_mcp_and_direct_share_protected_direction_log(
         assert isinstance(inactive.value.orig, CheckViolation)
         assert inactive.value.orig.sqlstate == "23514"
         assert "run no longer active" in str(inactive.value.orig)
-        assert len(conn.execute(select(log.c.id).where(log.c.run_id == run)).all()) == 2
+        assert len(conn.execute(select(log.c.id).where(log.c.run_id == run)).all()) == 1
 
 
 def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(commit_db_engine):
@@ -450,173 +259,6 @@ def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(commit
         assert conn.execute(select(table("ops.intervention").c.id)).all() == []
 
 
-@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
-@pytest.mark.parametrize("mode", ["complete", "early_exit", "tool_failure", "cancelled"])
-def test_current_cli_stdio_journey_and_settlement(
-    resubmission_case, tmp_path, monkeypatch, mode, resubmission_application_settings
-):
-    commit_db_engine = resubmission_case.admin
-    commit_application_settings = resubmission_application_settings
-    import os
-    import sys
-    from pathlib import Path
-
-    from fastmcp.client.transports import StdioTransport
-
-    prepared, run, task, locator = resubmission_case.stage.result
-    tasks = table("ops.task")
-
-    def task_fence(connection):
-        return tuple(
-            connection.execute(
-                select(
-                    tasks.c.status, tasks.c.attempt, tasks.c.claimed_by, tasks.c.lease_until
-                ).where(tasks.c.id == task)
-            ).one()
-        )
-
-    with commit_db_engine.connect() as connection:
-        initial_fence = task_fence(connection)
-    assert initial_fence == ("awaiting_agent", 0, None, None)
-    failed_fence = []
-    command = str(Path(sys.executable).with_name("ci"))
-    processes = []
-    original_open = anyio.open_process
-
-    async def observed_open(argv, *args, **kwargs):
-        process = await original_open(argv, *args, **kwargs)
-        if argv[0] == command:
-            processes.append(process)
-        return process
-
-    monkeypatch.setattr(anyio, "open_process", observed_open)
-    database = commit_application_settings.database
-    env = {
-        "CORPUS_DATABASE__URL": database.url,
-        "CORPUS_DATABASE__MAINTENANCE_URL": database.maintenance_url,
-        "CORPUS_DATABASE__READER_URL": database.reader_url or "",
-        "CORPUS_DATABASE__EVALUATOR_URL": database.evaluator_url or "",
-        "CORPUS_DATABASE__ADMISSION_URL": database.admission_url or "",
-        "CORPUS_RUNTIME__DEFAULT_PROJECT": "resubmit",
-    }
-    transport = StdioTransport(
-        command=command,
-        args=["mcp", "serve", "--semantic-run", str(run)],
-        env=env,
-        cwd=str(Path(__file__).resolve().parents[4]),
-        keep_alive=False,
-        log_file=tmp_path / "stdio-stderr.log",
-    )
-
-    def writer_principals():
-        with commit_db_engine.connect() as conn:
-            return (
-                conn.exec_driver_sql(
-                    "SELECT usename FROM pg_stat_activity WHERE datname=current_database() "
-                    "AND application_name='ci-mcp-semantic'"
-                )
-                .scalars()
-                .all()
-            )
-
-    async def journey():
-        with anyio.CancelScope() as cancellation:
-            async with Client(transport) as client:
-                names = {tool.name for tool in await client.list_tools()}
-                assert {"queue_next", "read_unit", "read_instructions", "propose_claims"} <= names
-                assert writer_principals() == []
-                if mode == "early_exit":
-                    return
-                assert (await client.call_tool("queue_status", {"run": run})).structured_content
-                assert writer_principals() == []
-                if mode == "cancelled":
-                    cancellation.cancel()
-                    await anyio.sleep(0)
-                unit = await lease_and_read(client, run, task)
-                assert set(writer_principals()) == {"corpus_sem_writer"}
-                if mode == "tool_failure":
-                    with pytest.raises(
-                        ToolError,
-                        match="task is not leased by this session or has already finished",
-                    ):
-                        await client.call_tool("read_unit", {"task_id": task + 1000000, "part": 1})
-                    with commit_db_engine.connect() as connection:
-                        failed_fence.append(task_fence(connection))
-                    status, attempt, holder, lease = failed_fence[0]
-                    assert (status, attempt) == ("running", 1)
-                    assert holder.startswith("agent:mcp-semantic-") and lease is not None
-                    return
-                batch = {
-                    "unit_ref": locator,
-                    "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
-                    "claims": [
-                        {
-                            "id": "name",
-                            "subject": "person",
-                            "predicate": "https://example.org/name",
-                            "object": {"kind": "text", "text": "Alice"},
-                            "qualification": {"modality": "asserted", "polarity": True},
-                            "establishment": "stated",
-                            "evidence": [
-                                {
-                                    "sentence": unit["sentences"][0]["id"],
-                                    "quote": "Alice is here.",
-                                    "role": "primary",
-                                }
-                            ],
-                        }
-                    ],
-                }
-                result = (
-                    await client.call_tool("propose_claims", {"task_id": task, "batch": batch})
-                ).structured_content
-                assert (
-                    result is not None and result["submission_disposition"] == "completed_accepted"
-                )
-                assert result["rejected"] == []
-                assert result["accepted"]["claims"] == 1
-        assert processes and processes[0].pid != os.getpid()
-
-    anyio.run(journey)
-    assert len(processes) == 1 and processes[0].returncode is not None
-    with pytest.raises(ProcessLookupError):
-        os.killpg(processes[0].pid, 0)
-    with commit_db_engine.connect() as conn:
-        assert (
-            conn.exec_driver_sql(
-                "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() "
-                "AND application_name='ci-mcp-semantic'"
-            ).scalar_one()
-            == 0
-        )
-        task_row = task_fence(conn)
-        if mode == "complete":
-            assert task_row[0] == "done"
-            observations = (
-                conn.execute(
-                    select(table("kb.observation")).where(table("kb.observation").c.task_id == task)
-                )
-                .mappings()
-                .all()
-            )
-            assert len(observations) == 1
-            observation = observations[0]
-            assert observation["release_id"] == prepared.release_id
-            assert observation["payload_definition"] == "AgentStoredBatch"
-            claims = observation["payload"]["claims"]
-            assert len(claims) == 1
-            assert claims[0]["predicate"] == "https://example.org/name"
-            assert claims[0]["object"] == {"kind": "text", "text": "Alice"}
-            assert claims[0]["qualification"] == {"modality": "asserted", "polarity": True}
-        else:
-            # open_session's ExitStack closes the engine, without releasing the
-            # native claim. Tool failure retains its exact fence until expiry.
-            assert task_row == (failed_fence[0] if mode == "tool_failure" else initial_fence)
-            for relation in ("kb.observation", "ops.task_result"):
-                rows = table(relation)
-                assert (
-                    conn.execute(select(rows.c.task_id).where(rows.c.task_id == task)).all() == []
-                )
 
 
 def test_default_status_and_task_listing_do_not_select_another_project(

@@ -1,18 +1,16 @@
 """Actual source-task publication of grounded identity exclusions."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 
-import anyio
 import pytest
-from fastmcp import Client
 from sqlalchemy import select
 
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from semantic.agent_scenarios import ExclusionRecipe
 
-from .agent_scenarios import lease_and_read
 
 
 def test_exclusion_only_entities_publish_grounded_memberships(exclusion_case, tmp_path):
@@ -89,7 +87,7 @@ def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, t
     commit_writer_engine = exclusion_case.writer
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.orchestrate.semantic import queue_agent
+    from semantic.historical_agent_support import create_historical_agent_task
     from corpus_structure.semantic.operations import OperationBinding, create_run
 
     prepared, old_run, _, first = exclusion_case.stage.result
@@ -140,13 +138,7 @@ def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, t
     with commit_writer_engine.begin() as conn:
         run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
         locator = view.ref.key
-        (task,) = queue_agent(
-            conn,
-            run_id=run,
-            prepared=prepared,
-            configuration=config,
-            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
-        )
+        (task,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=config, source_view_id=view.ref.id, unit_key=locator),)
         inherited = (
             conn.execute(
                 select(table("data.identity_exclusion")).where(
@@ -158,44 +150,34 @@ def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, t
         )
         endpoints = (inherited["left_entity_id"], inherited["right_entity_id"])
 
-    async def submit_known():
-        async with Client(
-            build_semantic_server(SemanticAgentSession(commit_writer_engine, run))
-        ) as client:
-            unit = await lease_and_read(client, run, task)
-            response = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": {
-                        "unit_ref": locator,
-                        "claims": [
-                            {
-                                "id": "c" + str(i),
-                                "subject": entity,
-                                "predicate": "https://example.org/name",
-                                "object": {"kind": "text", "text": "Alice"},
-                                "qualification": {"modality": "asserted", "polarity": True},
-                                "establishment": "stated",
-                                "evidence": [
-                                    {
-                                        "sentence": unit["sentences"][0]["id"],
-                                        "quote": "Alice is here.",
-                                        "role": "primary",
-                                    }
-                                ],
-                            }
-                            for i, entity in enumerate(endpoints)
-                        ],
-                    },
-                },
-            )
-            assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted", (
-                json.dumps(response.structured_content, indent=2)
-            )
+    def submit_known():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        unit = authored_fixture.unit()
+        response = authored_fixture.publish({
+                    "unit_ref": locator,
+                    "claims": [
+                        {
+                            "id": "c" + str(i),
+                            "subject": entity,
+                            "predicate": "https://example.org/name",
+                            "object": {"kind": "text", "text": "Alice"},
+                            "qualification": {"modality": "asserted", "polarity": True},
+                            "establishment": "stated",
+                            "evidence": [
+                                {
+                                    "sentence": unit["sentences"][0]["id"],
+                                    "quote": "Alice is here.",
+                                    "role": "primary",
+                                }
+                            ],
+                        }
+                        for i, entity in enumerate(endpoints)
+                    ],
+                })
+        assert response is not None
+        assert response.disposition == 'completed_accepted', json.dumps(response, indent=2)
 
-    anyio.run(submit_known)
+    submit_known()
     second = finalize_bound_run(commit_writer_engine, run, "inherited-result")
     with commit_writer_engine.connect() as conn:
         row = (

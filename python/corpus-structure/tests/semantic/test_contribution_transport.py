@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli import contributions as cli_adapter
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
+from corpus_structure.intervene.semantic_server import RetainedReaderBinding, build_retained_reader_server
 from corpus_structure.serve import contributions as journey
 
 
@@ -61,7 +61,7 @@ def test_cli_and_registered_mcp_preserve_the_same_v3_request(monkeypatch):
     assert json.loads(result.stdout)["version"] == "contribution-inspection-3"
 
     async def check():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 7))) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 7))) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             schema = json.dumps(tools["contributions"].input_schema)
             for field in (

@@ -141,7 +141,7 @@ def test_cli_and_mcp_share_explicit_release_read_only_result(monkeypatch, cli):
     import anyio
     from fastmcp import Client
 
-    from corpus_structure.intervene.semantic_server import build_semantic_server
+    from corpus_structure.intervene.semantic_server import build_retained_reader_server
     from corpus_structure.semantic import query, releases, runtime
 
     prepared = release()
@@ -178,7 +178,7 @@ def test_cli_and_mcp_share_explicit_release_read_only_result(monkeypatch, cli):
     expected = json.loads(result.stdout)
 
     async def journey():
-        server = build_semantic_server(read_engine=cast(Any, object()))
+        server = build_retained_reader_server(read_engine=cast(Any, object()))
         async with Client(server) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             annotations = tools["inspect_contract"].annotations
@@ -292,7 +292,7 @@ def test_mcp_optional_presentation_failure_preserves_native_report(monkeypatch, 
     import anyio
     from fastmcp import Client
 
-    from corpus_structure.intervene.semantic_server import build_semantic_server
+    from corpus_structure.intervene.semantic_server import build_retained_reader_server
     from corpus_structure.semantic import query, releases, runtime
 
     prepared = release()
@@ -321,7 +321,7 @@ def test_mcp_optional_presentation_failure_preserves_native_report(monkeypatch, 
     monkeypatch.setattr(route, fail)
 
     async def journey():
-        async with Client(build_semantic_server(read_engine=cast(Any, object()))) as client:
+        async with Client(build_retained_reader_server(read_engine=cast(Any, object()))) as client:
             result = await client.call_tool(
                 "inspect_contract",
                 dict(

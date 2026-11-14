@@ -18,7 +18,8 @@ def test_scenario_consumer_refuses_exchanged_ids_and_wrong_resources(tmp_path: P
         "from sqlalchemy import Engine\n"
         "from corpus_structure.semantic._operation_ids import RunId, TaskId, CutId\n"
         "from corpus_structure.semantic.types import PreparedRelease\n"
-        "from semantic.agent_scenarios import build_resubmission_case, lease_and_read\n"
+        "from semantic.agent_scenarios import build_resubmission_case\n"
+        "from semantic.historical_agent_support import HistoricalAgentPublication\n"
         "from semantic.domain_scenarios import build_domain_case\n"
         "from semantic.operation_scenario_support import prepare_operation_scenario\n"
         "from semantic.reference_scenarios import publish_reference_case\n"
@@ -30,8 +31,8 @@ def test_scenario_consumer_refuses_exchanged_ids_and_wrong_resources(tmp_path: P
         "    p2, run2, cut = build_domain_case(engine, engine, path)\n"
         "    cut_id: CutId = cut\n"
         "    publish_reference_case(engine, engine, path, 'toy', [('source', {})])\n"
-        "async def good_lease(client: Client, run: RunId, task: TaskId) -> None:\n"
-        "    await lease_and_read(client, run, task)\n"
+        "def good_publication(engine: Engine, run: RunId, task: TaskId) -> None:\n"
+        "    HistoricalAgentPublication(engine, run, task)\n"
     )
     executable = shutil.which("pyrefly")
     assert executable is not None
@@ -46,8 +47,8 @@ def test_scenario_consumer_refuses_exchanged_ids_and_wrong_resources(tmp_path: P
             "    _, run, cut = build_domain_case(engine, engine, path)\n"
             "    task: TaskId = run\n"
             "    wrong_run: RunId = cut\n"
-            "async def bad_lease(client: Client, run: RunId, task: TaskId) -> None:\n"
-            "    await lease_and_read(client, task, run)\n"
+            "def bad_publication(engine: Engine, run: RunId, task: TaskId) -> None:\n"
+            "    HistoricalAgentPublication(engine, task, run)\n"
         )
     bad = subprocess.run(command, capture_output=True, text=True, check=False)
     output = bad.stdout + bad.stderr

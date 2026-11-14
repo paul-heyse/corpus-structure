@@ -1,20 +1,19 @@
 """A supported bound input referent survives the actual MCP packet and fresh evaluation."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
-import anyio
 import yaml
-from fastmcp import Client
 from sqlalchemy import insert, select
 from typer.testing import CliRunner
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
-from corpus_structure.orchestrate.semantic import agent_packet, queue_agent
+from semantic.historical_agent_support import create_historical_agent_task, historical_agent_packet
 from corpus_structure.semantic import (
     PreparationProfile,
     ResolvedDependencies,
@@ -158,68 +157,41 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             conn, run, prepared, (view.ref.id,), configuration
         )
         locator = view.ref.key
-        (agent,) = queue_agent(
-            conn,
-            run_id=run,
-            prepared=prepared,
-            configuration=configuration,
-            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
-        )
-        packet = agent_packet(conn, run, agent, prepared)
+        (agent,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=configuration, source_view_id=view.ref.id, unit_key=locator),)
+        packet = historical_agent_packet(conn, run, agent, prepared)
         assert dict(packet.known_classes)["known-alice"] == ("https://example.org/Person",)
         assert packet.known_entities[0].label == "Alice" and packet.known_entities[0].aliases == (
             "A. Example",
         )
         assert not packet.bootstrap_terms
-    server = build_semantic_server(SemanticAgentSession(e, run))
 
-    async def journey():
-        async with Client(server) as client:
-            queue = (await client.call_tool("queue_next", {"run": run})).structured_content
-            assert queue is not None
-            leased = queue["tasks"][0]
-            manifest = (
-                await client.call_tool("read_instructions", {"task_id": agent})
-            ).structured_content
-            assert manifest is not None
-            for part in manifest["parts"]:
-                for page in range(1, part["pages"] + 1):
-                    await client.call_tool(
-                        "read_instructions", {"task_id": agent, "part": part["name"], "page": page}
-                    )
-            bodies = []
-            for page in range(1, leased["parts"] + 1):
-                result = await client.call_tool("read_unit", {"task_id": agent, "part": page})
-                assert result.structured_content is not None
-                bodies.append(result.structured_content["text"])
-                assert "sentences" not in result.structured_content
-            authored = json.loads("".join(bodies))
-            assert authored["known_entities"][0]["entity_id"] == "known-alice"
-            sid = next(
-                sentence["id"] for sentence in authored["sentences"] if sentence["text"] == text
-            )
-            raw = {
-                "unit_ref": locator,
-                "entities": [],
-                "claims": [
-                    {
-                        "id": "name",
-                        "subject": "known-alice",
-                        "predicate": "https://example.org/name",
-                        "object": {"kind": "text", "text": "Alice"},
-                        "qualification": {"modality": "asserted", "polarity": True},
-                        "establishment": "stated",
-                        "evidence": [{"sentence": sid, "quote": text, "role": "primary"}],
-                    }
-                ],
-            }
-            result = (
-                await client.call_tool("propose_claims", {"task_id": agent, "batch": raw})
-            ).structured_content
-            assert result is not None
-            assert result["status"] == "done", result
+    def journey():
+        authored_fixture = HistoricalAgentPublication(e, run, agent)
+        authored = authored_fixture.unit()
+        assert authored["known_entities"][0]["entity_id"] == "known-alice"
+        sid = next(
+            sentence["id"] for sentence in authored["sentences"] if sentence["text"] == text
+        )
+        raw = {
+            "unit_ref": locator,
+            "entities": [],
+            "claims": [
+                {
+                    "id": "name",
+                    "subject": "known-alice",
+                    "predicate": "https://example.org/name",
+                    "object": {"kind": "text", "text": "Alice"},
+                    "qualification": {"modality": "asserted", "polarity": True},
+                    "establishment": "stated",
+                    "evidence": [{"sentence": sid, "quote": text, "role": "primary"}],
+                }
+            ],
+        }
+        result = authored_fixture.publish(raw)
+        assert result is not None
+        assert result.disposition == "completed_accepted", result
 
-    anyio.run(journey)
+    journey()
     from corpus_structure.cli import orchestrate as cli
     from corpus_structure.cli.app import app
 

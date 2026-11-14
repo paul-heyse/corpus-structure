@@ -1,5 +1,7 @@
 """Native source/task scenarios shared by semantic acceptance cases."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from dataclasses import dataclass
 from functools import cache
@@ -9,18 +11,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import anyio
 import yaml
-from fastmcp import Client
 from pydantic import create_model
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import Engine, insert, select, text
 
 from corpus_structure.core.method import SourceViewDraft, UnitRef
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.semantic import propose_agents, queue_agent
+from semantic.historical_agent_support import create_historical_agent_task
 from corpus_structure.semantic import (
     PreparationProfile,
     ResolvedDependencies,
@@ -304,13 +303,7 @@ def queue_resubmission_agent(source, engine):
     with engine.begin() as conn:
         run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
         locator = view.ref.key
-        (task,) = queue_agent(
-            conn,
-            run_id=run,
-            prepared=prepared,
-            configuration=config,
-            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
-        )
+        (task,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=config, source_view_id=view.ref.id, unit_key=locator),)
     return QueuedResubmissionStage(source, run, task, locator)
 
 
@@ -374,33 +367,6 @@ def build_resubmission_recipe(recipe, admin, writer, directory, *, purpose_engin
 register_scenario_builder(ResubmissionSourceRecipe, build_resubmission_source_recipe)
 
 register_scenario_builder(ResubmissionRecipe, build_resubmission_recipe)
-
-
-async def lease_and_read(
-    client: Client, run: RunId, task: TaskId, *, expect_previous: bool = False
-) -> dict[str, Any]:
-    queue = (await client.call_tool("queue_next", {"run": run})).structured_content
-    assert queue is not None
-    leased = queue["tasks"][0]
-    assert leased["task_id"] == task
-    assert bool(leased.get("previous_issues")) == expect_previous
-    if expect_previous:
-        assert all(set(issue) == {"path", "code", "detail"} for issue in leased["previous_issues"])
-    manifest = (await client.call_tool("read_instructions", {"task_id": task})).structured_content
-    assert manifest is not None
-    for part in manifest["parts"]:
-        for page in range(1, part["pages"] + 1):
-            await client.call_tool(
-                "read_instructions", {"task_id": task, "part": part["name"], "page": page}
-            )
-    pieces = []
-    for part in range(1, leased["parts"] + 1):
-        page = (
-            await client.call_tool("read_unit", {"task_id": task, "part": part})
-        ).structured_content
-        assert page is not None
-        pieces.append(page["text"])
-    return json.loads("".join(pieces))
 
 
 def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
@@ -702,40 +668,8 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             tuple(v.id for v in selected_source_views(conn, run)),
             configuration,
         )
-        from corpus_structure.ingest.methods import SegmentSentences
-        from corpus_structure.methods.llm.agent_opus import AgentOpus
-        from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-
-        registry = MethodRegistry(
-            (AgentOpus(), SegmentSentences()),
-            MethodsFile(configs={"agent.opus": {"extract": configuration}}),
-        )
-        queued = propose_agents(
-            conn,
-            run,
-            prepared,
-            registry,
-            "version: '0.2'\n"
-            "chains:\n"
-            "  propose:\n"
-            "    - key: native-source-policy\n"
-            "      unit_type: source_view\n"
-            "      when: \"unit.kind == 'source_view' and unit.statement_kind "
-            '== null and unit.claim_bearing == null"\n'
-            "      do: {method: agent.opus/extract, then: stop}\n",
-        )
-        assert queued == 1
-        task = conn.execute(
-            text(
-                "SELECT id FROM ops.task WHERE run_id=:run AND "
-                "unit_type='source_view' AND stage='propose'"
-            ),
-            {"run": run},
-        ).scalar_one()
-        trigger = conn.scalar(text("SELECT trigger FROM ops.task WHERE id=:task"), {"task": task})
-        assert trigger["values"]["unit.kind"] == "source_view"
-        assert trigger["values"]["unit.statement_kind"] is None
-        assert trigger["values"]["unit.claim_bearing"] is None
+        task = create_historical_agent_task(conn, run_id=run, prepared=prepared,
+            configuration=configuration, source_view_id=view, unit_key=draft.key)
     return prepared, run, task, view, draft.key
 
 
@@ -753,77 +687,68 @@ def submit_exclusion_case(
 ):
     """Submit this queued source's authored exclusion and optionally finalize its run."""
     prepared, run, task, locator = stage.result
-    session = SemanticAgentSession(writer, run)
 
-    async def submit():
-        async with Client(build_semantic_server(session)) as client:
-            unit = await lease_and_read(client, run, task)
-            response = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": {
-                        "unit_ref": locator,
-                        "entities": [
-                            {
-                                "id": ref,
-                                "class_iri": "https://example.org/Person",
-                                "label": "Alice",
-                                "attributes": [
-                                    {
-                                        "predicate": "https://example.org/name",
-                                        "value": {"kind": "text", "text": "Alice"},
-                                        "qualification": {"modality": "asserted", "polarity": True},
-                                        "establishment": "stated",
-                                        "evidence": [
-                                            {
-                                                "sentence": unit["sentences"][0]["id"],
-                                                "quote": "Alice is here.",
-                                                "role": "primary",
-                                            }
-                                        ],
-                                    }
-                                ]
-                                if keyed or attribute_assertions
-                                else [],
-                            }
-                            for ref in local_ids
-                        ],
-                        "identity_exclusions": [
-                            {
-                                "id": "different",
-                                "left": {"kind": "local", "target": local_ids[0]},
-                                "right": {"kind": "local", "target": local_ids[1]},
-                                "reason": reason,
-                                "evidence": [
-                                    {
-                                        "sentence": unit["sentences"][0]["id"],
-                                        "quote": "Alice is here.",
-                                        "role": "primary",
-                                    },
-                                    *(
-                                        [
-                                            {
-                                                "sentence": unit["sentences"][0]["id"],
-                                                "quote": "Alice",
-                                                "role": "supporting",
-                                            }
-                                        ]
-                                        if citations == 2
-                                        else []
-                                    ),
-                                ],
-                            }
-                        ],
-                    },
-                },
-            )
-            assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted", (
-                json.dumps(response.structured_content, indent=2)
-            )
+    def submit():
+        authored_fixture = HistoricalAgentPublication(writer, run, task)
+        unit = authored_fixture.unit()
+        response = authored_fixture.publish({
+                    "unit_ref": locator,
+                    "entities": [
+                        {
+                            "id": ref,
+                            "class_iri": "https://example.org/Person",
+                            "label": "Alice",
+                            "attributes": [
+                                {
+                                    "predicate": "https://example.org/name",
+                                    "value": {"kind": "text", "text": "Alice"},
+                                    "qualification": {"modality": "asserted", "polarity": True},
+                                    "establishment": "stated",
+                                    "evidence": [
+                                        {
+                                            "sentence": unit["sentences"][0]["id"],
+                                            "quote": "Alice is here.",
+                                            "role": "primary",
+                                        }
+                                    ],
+                                }
+                            ]
+                            if keyed or attribute_assertions
+                            else [],
+                        }
+                        for ref in local_ids
+                    ],
+                    "identity_exclusions": [
+                        {
+                            "id": "different",
+                            "left": {"kind": "local", "target": local_ids[0]},
+                            "right": {"kind": "local", "target": local_ids[1]},
+                            "reason": reason,
+                            "evidence": [
+                                {
+                                    "sentence": unit["sentences"][0]["id"],
+                                    "quote": "Alice is here.",
+                                    "role": "primary",
+                                },
+                                *(
+                                    [
+                                        {
+                                            "sentence": unit["sentences"][0]["id"],
+                                            "quote": "Alice",
+                                            "role": "supporting",
+                                        }
+                                    ]
+                                    if citations == 2
+                                    else []
+                                ),
+                            ],
+                        }
+                    ],
+                })
+        assert response is not None
+        assert response.disposition == 'completed_accepted', json.dumps(response, indent=2)
 
-    anyio.run(submit)
+    submit()
     if not finalize:
         from corpus_structure.semantic.operations import seal_cut
 

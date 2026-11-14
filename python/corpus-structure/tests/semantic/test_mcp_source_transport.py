@@ -11,9 +11,8 @@ from sqlalchemy import create_engine, select
 
 from corpus_structure.intervene import semantic_server, service
 from corpus_structure.intervene.semantic_server import (
-    SemanticAgentSession,
-    SemanticProjectSession,
-    build_semantic_server,
+    RetainedReaderBinding,
+    build_retained_reader_server,
 )
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalIssue
@@ -128,7 +127,7 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
         return _native_request(max_bytes=budget)
 
     async def journey():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 1))) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             schema = tools[name].output_schema
             assert schema is not None and schema["type"] == "object"
@@ -173,52 +172,6 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
         engine.dispose()
 
 
-def test_registered_queue_bounds_full_ack_metadata(monkeypatch):
-    engine = create_engine("sqlite://")
-    ack = service.QueueNext(
-        tasks=[
-            service.LeasedTask(
-                task_id=2,
-                run_id=1,
-                unit_key=PAYLOAD,
-                parts=1,
-                chars=1,
-                previous_issues=(ProposalIssue(path="claims[0]", code="fixture", detail=PAYLOAD),),
-            )
-        ]
-    )
-    monkeypatch.setattr(SemanticProjectSession, "next", lambda *args: ack)
-    monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", 2048)
-    assert len(ack.model_dump_json().encode()) < 2048
-
-    server = build_semantic_server(SemanticProjectSession(engine, "fixture"))
-
-    async def journey():
-        async with Client(server) as client:
-            tools = {tool.name: tool for tool in await client.list_tools()}
-            schema = tools["queue_next"].output_schema
-            assert schema is not None and schema["properties"]["tasks"]["type"] == "array"
-            refused = await client.call_tool("queue_next", {}, raise_on_error=False)
-            assert refused.is_error and "oversized_item" in str(refused.content)
-            monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", 8192)
-            delivered = await client.call_tool("queue_next", {})
-            assert delivered.structured_content == ack.model_dump(mode="json")
-            assert isinstance(delivered.content[0], TextContent)
-            assert json.loads(delivered.content[0].text) == ack.model_dump(mode="json")
-            encoded = _wire_size(delivered)
-            assert encoded <= 8192
-            monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", encoded)
-            exact = await client.call_tool("queue_next", {})
-            assert not exact.is_error
-            assert _wire_size(exact) == encoded
-            monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", encoded - 1)
-            tight = await client.call_tool("queue_next", {}, raise_on_error=False)
-            assert tight.is_error and "oversized_item" in str(tight.content)
-
-    try:
-        anyio.run(journey)
-    finally:
-        engine.dispose()
 
 
 def test_tiny_source_transport_budget_is_control_error(monkeypatch):
@@ -234,7 +187,7 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
     )
 
     async def journey():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 1))) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)) as client:
             result = await client.call_tool(
                 "inspect_source",
                 {"request": _native_request(max_bytes=1).model_dump(mode="json")},
@@ -250,89 +203,8 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
         engine.dispose()
 
 
-def test_native_queue_ack_refusal_rolls_back_claim_cache_and_events(
-    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
-):
-    from semantic.agent_scenarios import native_build_resubmission_case
-
-    _, run, task, _, _ = native_build_resubmission_case(
-        commit_db_engine, commit_writer_engine, tmp_path
-    )
-    session = SemanticAgentSession(commit_writer_engine, run)
-    events = []
-    monkeypatch.setattr(
-        semantic_server, "_invocation_event", lambda *args, **kwargs: events.append(args)
-    )
-    monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", 64)
-
-    def task_state():
-        with commit_writer_engine.connect() as conn:
-            return dict(
-                conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
-                .mappings()
-                .one()
-            )
-
-    before = task_state()
-    with pytest.raises(ReadLimit, match="complete MCP response"):
-        session.next("extract", 1)
-    assert task_state() == before
-    assert session.sessions == {} and events == []
-
-    async def journey():
-        async with Client(build_semantic_server(session)) as client:
-            refused = await client.call_tool("queue_next", {}, raise_on_error=False)
-            assert refused.is_error and "oversized_item" in str(refused.content)
-            assert task_state() == before
-            assert session.sessions == {} and events == []
-            monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", 8 * 1024 * 1024)
-            delivered = await client.call_tool("queue_next", {})
-            assert not delivered.is_error
-            assert delivered.structured_content is not None
-            assert [row["task_id"] for row in delivered.structured_content["tasks"]] == [task]
-            assert set(session.sessions) == {task} and len(events) == 1
-
-    anyio.run(journey)
-    assert task_state()["attempt"] == before["attempt"] + 1
 
 
-def test_registered_read_unit_checks_exact_wire_and_preserves_fragments(monkeypatch):
-    from types import SimpleNamespace
-
-    engine = create_engine("sqlite://")
-    packet = SimpleNamespace(
-        hash="c" * 64,
-        parts=lambda: (SimpleNamespace(name="unit"),),
-        part_pages=lambda part: (PAYLOAD,),
-    )
-    active = SimpleNamespace(prepared=None, packet=packet, read=lambda name, part: PAYLOAD)
-    monkeypatch.setattr(SemanticAgentSession, "active", lambda self, task_id: active)
-    monkeypatch.setattr(
-        semantic_server, "located_failure_context", lambda *args, **kw: nullcontext()
-    )
-    monkeypatch.setattr(semantic_server, "READ_UNIT_MAX_BYTES", 8192)
-
-    async def journey():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 1))) as client:
-            delivered = await client.call_tool("read_unit", {"task_id": 2})
-            assert delivered.structured_content == dict(
-                task_id=2, part=1, parts=1, hash="c" * 64, text=PAYLOAD
-            )
-            assert len(delivered.content) == 1 and isinstance(delivered.content[0], TextContent)
-            assert delivered.content[0].text == PAYLOAD
-            encoded = _wire_size(delivered)
-            monkeypatch.setattr(semantic_server, "READ_UNIT_MAX_BYTES", encoded)
-            exact = await client.call_tool("read_unit", {"task_id": 2})
-            assert not exact.is_error and _wire_size(exact) == encoded
-            monkeypatch.setattr(semantic_server, "READ_UNIT_MAX_BYTES", encoded - 1)
-            refused = await client.call_tool("read_unit", {"task_id": 2}, raise_on_error=False)
-            assert refused.is_error and "oversized_item" in str(refused.content)
-            assert PAYLOAD not in str(refused.content)
-
-    try:
-        anyio.run(journey)
-    finally:
-        engine.dispose()
 
 
 @pytest.mark.parametrize("large_optional_result", [False, True])
@@ -378,7 +250,7 @@ def test_registered_render_exact_wire_and_retained_reference_refusals(
         return dict(run_id=1, source_view_id=4, pointer="#/texts/0", max_bytes=budget)
 
     async def journey():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 1))) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)) as client:
             delivered = await client.call_tool("render_source_region", arguments(8192))
             assert not delivered.is_error and delivered.structured_content is not None
             assert delivered.structured_content["inline_image"]["disposition"] == "included"

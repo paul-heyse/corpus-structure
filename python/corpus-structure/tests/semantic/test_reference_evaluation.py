@@ -1,11 +1,11 @@
 """Independent reference grades and immutable pass C snapshots on a real native store."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import copy
 import json
 
-import anyio
 import pytest
-from fastmcp import Client
 from pydantic import JsonValue
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
@@ -18,12 +18,11 @@ from corpus_structure.evaluate.semantic import (
     reference_evaluate,
     split_documents,
 )
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_views import load_source_view
-from semantic.agent_scenarios import ResubmissionRecipe, build_resubmission_case, lease_and_read
+from semantic.agent_scenarios import ResubmissionRecipe, build_resubmission_case
 
 
 def independent_native_frame(conn, run, unit_key, sentence_id):
@@ -47,48 +46,41 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
     commit_writer_engine = resubmission_case.writer
     commit_evaluator_engine = resubmission_case.evaluator
     _prepared, run, task, locator = resubmission_case.stage.result
-    source_session = SemanticAgentSession(commit_writer_engine, run)
 
-    async def source():
-        async with Client(build_semantic_server(source_session)) as client:
-            unit = await lease_and_read(client, run, task)
-            response = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": {
-                        "unit_ref": locator,
-                        "entities": [
-                            {
-                                "id": "prediction_person",
-                                "class_iri": "https://example.org/Person",
-                                "label": "Alice",
-                            }
-                        ],
-                        "claims": [
-                            {
-                                "id": "prediction_name",
-                                "subject": "prediction_person",
-                                "predicate": "https://example.org/name",
-                                "object": {"kind": "text", "text": "Alice"},
-                                "qualification": {"modality": "asserted", "polarity": True},
-                                "establishment": "stated",
-                                "evidence": [
-                                    {
-                                        "sentence": unit["sentences"][0]["id"],
-                                        "quote": "Alice is here.",
-                                        "role": "primary",
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                },
-            )
-            assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted"
+    def source():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        unit = authored_fixture.unit()
+        response = authored_fixture.publish({
+                    "unit_ref": locator,
+                    "entities": [
+                        {
+                            "id": "prediction_person",
+                            "class_iri": "https://example.org/Person",
+                            "label": "Alice",
+                        }
+                    ],
+                    "claims": [
+                        {
+                            "id": "prediction_name",
+                            "subject": "prediction_person",
+                            "predicate": "https://example.org/name",
+                            "object": {"kind": "text", "text": "Alice"},
+                            "qualification": {"modality": "asserted", "polarity": True},
+                            "establishment": "stated",
+                            "evidence": [
+                                {
+                                    "sentence": unit["sentences"][0]["id"],
+                                    "quote": "Alice is here.",
+                                    "role": "primary",
+                                }
+                            ],
+                        }
+                    ],
+                })
+        assert response is not None
+        assert response.disposition == 'completed_accepted'
 
-    anyio.run(source)
+    source()
     finalize_bound_run(commit_writer_engine, run, "reference-result")
     # Independent expected authoring: different local names, explicit qualifier and source text.
     authored = {
@@ -551,58 +543,50 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(resubmiss
     commit_evaluator_engine = resubmission_case.evaluator
     _prepared, run, task, locator = resubmission_case.stage.result
 
-    async def source():
-        async with Client(
-            build_semantic_server(SemanticAgentSession(commit_writer_engine, run))
-        ) as client:
-            unit = await lease_and_read(client, run, task)
-            evidence = [
-                {
-                    "sentence": unit["sentences"][0]["id"],
-                    "quote": "Alice is here.",
-                    "role": "primary",
-                }
-            ]
+    def source():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        unit = authored_fixture.unit()
+        evidence = [
+            {
+                "sentence": unit["sentences"][0]["id"],
+                "quote": "Alice is here.",
+                "role": "primary",
+            }
+        ]
 
-            def claim(identity, condition=None):
-                qualification: dict[str, JsonValue] = {"modality": "asserted", "polarity": True}
-                if condition is not None:
-                    qualification["condition"] = {"kind": "claim", "ref": condition}
-                return {
-                    "id": identity,
-                    "subject": "source_person",
-                    "predicate": "https://example.org/name",
-                    "object": {"kind": "text", "text": "Alice"},
-                    "qualification": qualification,
-                    "establishment": "stated",
-                    "evidence": evidence,
-                }
+        def claim(identity, condition=None):
+            qualification: dict[str, JsonValue] = {"modality": "asserted", "polarity": True}
+            if condition is not None:
+                qualification["condition"] = {"kind": "claim", "ref": condition}
+            return {
+                "id": identity,
+                "subject": "source_person",
+                "predicate": "https://example.org/name",
+                "object": {"kind": "text", "text": "Alice"},
+                "qualification": qualification,
+                "establishment": "stated",
+                "evidence": evidence,
+            }
 
-            response = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": {
-                        "unit_ref": locator,
-                        "entities": [
-                            {
-                                "id": "source_person",
-                                "class_iri": "https://example.org/Person",
-                                "label": "Alice",
-                            }
-                        ],
-                        "claims": [
-                            claim("first_premise"),
-                            claim("duplicate_premise"),
-                            claim("conclusion", "duplicate_premise"),
-                        ],
-                    },
-                },
-            )
-            assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted"
+        response = authored_fixture.publish({
+                    "unit_ref": locator,
+                    "entities": [
+                        {
+                            "id": "source_person",
+                            "class_iri": "https://example.org/Person",
+                            "label": "Alice",
+                        }
+                    ],
+                    "claims": [
+                        claim("first_premise"),
+                        claim("duplicate_premise"),
+                        claim("conclusion", "duplicate_premise"),
+                    ],
+                })
+        assert response is not None
+        assert response.disposition == 'completed_accepted'
 
-    anyio.run(source)
+    source()
     finalize_bound_run(commit_writer_engine, run, "duplicate-premise-result")
     # The independent expected claims have one premise and refer to that retained fact.
     citation = [{"sentence": "independent_sentence", "quote": "Alice is here.", "role": "primary"}]
@@ -670,34 +654,30 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
     from corpus_structure.evaluate.semantic import _source_units
 
     _prepared, run, task, locator = resubmission_case.stage.result
-    session = SemanticAgentSession(commit_writer_engine, run)
 
-    async def empty_source():
-        async with Client(build_semantic_server(session)) as client:
-            await lease_and_read(client, run, task)
-            if empty_observations:
-                from corpus_structure.semantic.operations import complete_task
+    def empty_source():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        authored_fixture.unit()
+        if empty_observations:
+            from corpus_structure.semantic.operations import complete_task
 
-                active = session.active(task)
-                with commit_writer_engine.begin() as conn:
-                    complete_task(
-                        conn,
-                        task_id=task,
-                        attempt=active.attempt,
-                        holder=session.holder,
-                        prepared=_prepared,
-                        observations=[],
-                        outcome="empty",
-                    )
-            else:
-                response = await client.call_tool(
-                    "propose_claims",
-                    {"task_id": task, "batch": {"unit_ref": locator, "entities": [], "claims": []}},
+            active = authored_fixture.session
+            with commit_writer_engine.begin() as conn:
+                complete_task(
+                    conn,
+                    task_id=task,
+                    attempt=active.attempt,
+                    holder=authored_fixture.session.holder,
+                    prepared=_prepared,
+                    observations=[],
+                    outcome="empty",
                 )
-                assert response.structured_content is not None
-                assert response.structured_content["submission_disposition"] == "completed_accepted"
+        else:
+            response = authored_fixture.publish({"unit_ref": locator, "entities": [], "claims": []})
+            assert response is not None
+            assert response.disposition == 'completed_accepted'
 
-    anyio.run(empty_source)
+    empty_source()
     finalize_bound_run(commit_writer_engine, run, "empty-reference-result")
     with commit_evaluator_engine.begin() as conn:
         # The completed native cut and immutable source frame retain this unit even though

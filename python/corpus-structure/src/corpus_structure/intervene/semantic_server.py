@@ -1,115 +1,45 @@
-"""The existing extraction tool names over explicitly selected semantic runs."""
+"""Retained read APIs over archived releases and genuine published source/cut custody.
+
+The ordinary external executor is separate. This factory contains no work queue,
+claims, rich submission, task release or agent-direction write protocol.
+"""
 
 from __future__ import annotations
 
-import secrets
-import threading
 from collections.abc import AsyncIterator, Generator
-from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass, field
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
 from fastmcp import Context, FastMCP
 from fastmcp import __version__ as FASTMCP_VERSION
-from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
 from mcp.types import CallToolResult
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field
 from sqlalchemy import Connection, Engine, func, select
 
-from corpus_structure.intervene import service, submission
-from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
-from corpus_structure.semantic.operation_results import MethodConfigId, RunId
+from corpus_structure.intervene import service
 from corpus_structure.semantic.operations import OperationConflict
-from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
+from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
-from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
 from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 from corpus_structure.serve.source_search import SourceSearchRequest, SourceSearchResponse
 from corpus_structure.settings import Settings
 
-
-class SemanticUnitPart(BaseModel):
-    """One exact fragment; concatenate all numbered parts before decoding the unit JSON."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    task_id: int
-    part: int
-    parts: int
-    hash: str
-    text: str
-
-
-class ProposalTaskNotOpen(ProposalRefused):
-    """The submitted attempt cannot append source results."""
-
-
-def _require_queue_mode(mode: str) -> None:
-    """The current proposal queue executes extraction, not reference adjudication."""
-    if mode != "extract":
-        raise ProposalRefused(f"unsupported proposal queue mode: {mode!r}; expected 'extract'")
-
-
-MCP_SERVER_NAME = "corpus-structure"
-QUEUE_ACK_MAX_BYTES = 8 * 1024 * 1024
-READ_UNIT_MAX_BYTES = 8 * 1024 * 1024
-
-
+from .mcp_observations import ObservationMiddleware
 from .mcp_results import _stamp_mcp_result
 from .mcp_results import bounded_mcp_result as _bounded_mcp_result
 
-
-def _invocation_event(task_id, attempt, holder, binding, event, **details):
-    """Link the actual leased attempt and native receipt to the automation's retained invocation."""
-    import json
-    import os
-    from pathlib import Path
-    from uuid import uuid4
-
-    directory = os.environ.get("CORPUS_AGENT_RECEIPTS")
-    invocation = os.environ.get("CORPUS_AGENT_INVOCATION_ID")
-    if directory is None or invocation is None:
-        return
-    path = Path(directory) / f"task-{task_id}-attempt-{attempt}-{event}-{uuid4().hex}.json"
-    with path.open("x") as stream:
-        json.dump(
-            {
-                "invocation_id": invocation,
-                "task_id": task_id,
-                "attempt": attempt,
-                "holder": holder,
-                "producer_binding": binding,
-                "event": event,
-                "assurance": "provider_reported",
-                **details,
-            },
-            stream,
-            sort_keys=True,
-        )
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    from corpus_structure.cli.observation_logging import event as observe
-
-    observe(
-        "mcp_attempt_" + event,
-        "Native semantic attempt " + event,
-        task_id=task_id,
-        attempt=attempt,
-        provider_invocation=invocation,
-        method=binding.get("method") if isinstance(binding, dict) else None,
-        producer_binding=binding,
-        holder=holder,
-        provider_receipt=str(path),
-        assurance="provider_reported",
-        **details,
-    )
+MCP_SERVER_NAME = "corpus-structure"
 
 
-from .mcp_observations import ObservationMiddleware
+@dataclass(frozen=True)
+class RetainedReaderBinding:
+    engine: Engine
+    run_id: int
 
 
 def _rendered_artifact_result(engine, result, max_bytes):
@@ -212,374 +142,67 @@ def _rendered_artifact_result(engine, result, max_bytes):
     return ToolResult.from_mcp_result(response)
 
 
-@dataclass
-class SemanticAgentSession:
-    engine: Engine
-    run_id: int
-    instance: str = field(default_factory=lambda: "mcp-semantic-" + secrets.token_hex(6))
-    prepared: PreparedRelease | None = None
-    sessions: dict[int, ProposalSession] = field(default_factory=dict)
-    lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
-
-    @property
-    def holder(self) -> str:
-        return "agent:" + self.instance
-
-    def interpretation(self) -> PreparedRelease:
-        from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.releases import open_release
-
-        with self.lock:
-            if self.prepared is None:
-                with self.engine.connect() as conn:
-                    runs = table("ops.run")
-                    release_id = conn.execute(
-                        select(runs.c.release_id).where(runs.c.id == self.run_id)
-                    ).scalar_one()
-                    self.prepared = open_release(conn, release_id)
-            return self.prepared
-
-    def active(self, task_id: int) -> ProposalSession:
-
-        with self.lock:
-            session = self.sessions.get(task_id)
-            if session is None:
-                raise ProposalTaskNotOpen(
-                    "task is not leased by this session or has already finished"
-                )
-            with self.engine.begin() as conn:
-                from corpus_structure.semantic.operations import renew_claim
-
-                try:
-                    renew_claim(
-                        conn,
-                        task_id=session.task_id,
-                        attempt=session.attempt,
-                        holder=self.holder,
-                    )
-                except OperationConflict as error:
-                    raise ProposalTaskNotOpen(str(error)) from error
-                from corpus_structure.semantic.metadata import table
-                from corpus_structure.semantic.operations import lock_input_snapshot
-
-                lock_input_snapshot(conn, self.run_id)
-                tasks = table("ops.task")
-                packet_hash = conn.execute(
-                    select(tasks.c.packet_hash).where(
-                        tasks.c.id == task_id,
-                        tasks.c.run_id == self.run_id,
-                        tasks.c.release_id == session.prepared.release_id,
-                    )
-                ).scalar_one_or_none()
-                if packet_hash != session.packet.hash:
-                    raise ProposalRefused("recorded source packet changed after it was served")
-            return session
-
-    def next(self, mode: str, max_units: int | None) -> service.QueueNext:
-        _require_queue_mode(mode)
-        from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
-        from corpus_structure.orchestrate.semantic import agent_packet
-        from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.operations import claim_tasks
-
-        configs, methods = table("ops.method_config"), table("ops.method")
-        prepared = self.interpretation()
-        if max_units is not None and max_units < 1:
-            raise ProposalRefused("max_units must be positive")
-        from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-
-        read_budget = PublishedReadBudget(max_rows=10000, max_bytes=8 * 1024 * 1024)
-        out = []
-        admitted_events = []
-        pending_sessions: dict[int, ProposalSession] = {}
-        with self.lock, self.engine.begin() as conn:
-            rows = conn.execute(
-                select(
-                    configs.c.id,
-                    configs.c.params,
-                    methods.c.name.label("method"),
-                    methods.c.version.label("method_version"),
-                )
-                .join(methods, methods.c.id == configs.c.method_id)
-                .join(table("ops.task"), table("ops.task").c.method_config_id == configs.c.id)
-                .where(
-                    methods.c.name.in_(SUPPORTED_PRODUCERS),
-                    table("ops.task").c.run_id == self.run_id,
-                    table("ops.task").c.status == "awaiting_agent",
-                )
-                .distinct()
-                .order_by(configs.c.id)
-            ).mappings()
-            for row in rows:
-                preparation = {}
-                binding = producer_binding(
-                    row["method"], row["params"], method_version=row["method_version"]
-                )
-                if binding.mode != mode:
-                    continue
-                limit = min(max_units or 1, row["params"].get("max_units", 1))
-                leased = claim_tasks(
-                    conn,
-                    run_id=RunId(self.run_id),
-                    config_id=MethodConfigId(row["id"]),
-                    holder=self.holder,
-                    limit=limit,
-                    agent=True,
-                    prepared=prepared,
-                )
-                for task in leased:
-                    packet = agent_packet(
-                        conn,
-                        self.run_id,
-                        task.task_id,
-                        prepared,
-                        preparation=preparation,
-                        read_budget=read_budget,
-                    )
-                    if packet.hash != task.packet_hash:
-                        raise ProposalRefused(
-                            "queued task does not match its recorded source packet"
-                        )
-                    session = ProposalSession(
-                        prepared, packet, task.task_id, task.attempt, self.holder
-                    )
-                    pending_sessions[task.task_id] = session
-                    admitted_events.append((task, binding, packet.hash))
-                    pages = packet.part_pages(
-                        next(part for part in packet.parts() if part.name == "unit")
-                    )
-                    out.append(
-                        service.LeasedTask(
-                            task_id=task.task_id,
-                            run_id=self.run_id,
-                            unit_key=packet.frame.unit_ref,
-                            parts=len(pages),
-                            chars=sum(map(len, pages)),
-                            previous_issues=TypeAdapter(tuple[ProposalIssue, ...]).validate_python(
-                                task.held_progress.result.get("issues", ())
-                                if task.held_progress
-                                else ()
-                            ),
-                        )
-                    )
-                if out:
-                    break
-            response = service.QueueNext(tasks=out)
-            # A refused ACK must roll back the claim, not strand a committed lease
-            # that the client never received. Packet work has its separate budget.
-            _bounded_mcp_result(response, QUEUE_ACK_MAX_BYTES)
-        self.sessions.update(pending_sessions)
-        for task, binding, packet_hash in admitted_events:
-            _invocation_event(
-                task.task_id,
-                task.attempt,
-                self.holder,
-                binding.values(),
-                "leased",
-                packet_hash=packet_hash,
-                run_id=self.run_id,
-            )
-        return response
-
-
-@dataclass
-class SemanticProjectSession:
-    """Dynamic project queue; each leased task retains its immutable run interpretation."""
-
-    engine: Engine
-    project_id: str
-    instance: str = field(default_factory=lambda: "mcp-semantic-" + secrets.token_hex(6))
-    runs: dict[int, SemanticAgentSession] = field(default_factory=dict)
-    sessions: dict[int, ProposalSession] = field(default_factory=dict)
-    lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
-
-    def for_run(self, run_id: int) -> SemanticAgentSession:
-        from corpus_structure.semantic.metadata import table
-
-        with self.lock:
-            if run_id not in self.runs:
-                runs = table("ops.run")
-                with self.engine.connect() as conn:
-                    exists = conn.execute(
-                        select(runs.c.id).where(
-                            runs.c.id == run_id, runs.c.project_id == self.project_id
-                        )
-                    ).scalar_one_or_none()
-                if exists is None:
-                    raise ProposalRefused("run does not belong to this semantic project")
-                self.runs[run_id] = SemanticAgentSession(
-                    self.engine, run_id, instance=self.instance, sessions=self.sessions
-                )
-            return self.runs[run_id]
-
-    def pending_runs(self) -> tuple[int, ...]:
-        from corpus_structure.semantic.metadata import table
-
-        runs, tasks = table("ops.run"), table("ops.task")
-        with self.engine.connect() as conn:
-            return tuple(
-                conn.execute(
-                    select(runs.c.id)
-                    .join(tasks, tasks.c.run_id == runs.c.id)
-                    .where(
-                        runs.c.project_id == self.project_id,
-                        runs.c.status.in_(("created", "running")),
-                        tasks.c.status == "awaiting_agent",
-                    )
-                    .distinct()
-                    .order_by(runs.c.id.desc())
-                ).scalars()
-            )
-
-    def next(self, mode: str, max_units: int | None) -> service.QueueNext:
-        _require_queue_mode(mode)
-        if max_units is not None and max_units < 1:
-            raise ProposalRefused("max_units must be positive")
-        for run in self.pending_runs():
-            result = self.for_run(run).next(mode, max_units)
-            if result.tasks:
-                return result
-        return service.QueueNext(tasks=[])
-
-    def active(self, task_id: int) -> ProposalSession:
-        from corpus_structure.semantic.metadata import table
-
-        tasks = table("ops.task")
-        with self.engine.connect() as conn:
-            run = conn.execute(
-                select(tasks.c.run_id).where(tasks.c.id == task_id)
-            ).scalar_one_or_none()
-        if run is None:
-            raise ProposalTaskNotOpen("unknown semantic task")
-        return self.for_run(run).active(task_id)
-
-
-SemanticSession = SemanticAgentSession | SemanticProjectSession
-
-
-def build_semantic_server(
-    session: SemanticSession | None = None,
+def build_retained_reader_server(
+    binding: RetainedReaderBinding | None = None,
     *,
     run_id: int | None = None,
+    project: str | None = None,
     settings: Settings | None = None,
     read_engine: Engine | None = None,
+    writer_engine: Engine | None = None,
 ) -> FastMCP:
+    """Expose retained readers and the explicit native source render effect only."""
+    bound_id = binding.run_id if binding is not None else run_id
+
     @lifespan
-    async def open_session(
-        server: FastMCP,
-    ) -> AsyncIterator[dict[str, Any]]:
+    async def open_session(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
         from corpus_structure.cli.observation_logging import child_capture
 
-        with child_capture(run_id=run_id) as observation_writer:
-            if session is not None:
-                yield {"queue": lambda: session, "observation_writer": observation_writer}
-                return
-            from corpus_structure.semantic.runtime import open_runtime_engine
-            from corpus_structure.settings import Settings
+        with child_capture(run_id=bound_id) as observations:
+            yield {"settings": settings or Settings(), "observation_writer": observations}
 
-            selected = settings if settings is not None else Settings()
-            active: SemanticSession | None = None
-            lock = threading.Lock()
-            with ExitStack() as resources:
-
-                def queue() -> SemanticSession:
-                    nonlocal active
-                    with lock:
-                        if active is None:
-                            engine = resources.enter_context(
-                                open_runtime_engine(
-                                    selected, "ci-mcp-semantic", max_size=4, purpose="write"
-                                )
-                            )
-                            active = (
-                                SemanticAgentSession(engine, run_id)
-                                if run_id is not None
-                                else SemanticProjectSession(
-                                    engine, selected.runtime.default_project
-                                )
-                            )
-                        return active
-
-                yield {
-                    "queue": queue,
-                    "settings": selected,
-                    "observation_writer": observation_writer,
-                }
-
-    server = FastMCP(
-        MCP_SERVER_NAME,
-        version=FASTMCP_VERSION,
-        instructions=(
-            "Automated extraction for a release-bound run. Lease a unit using queue_next, "
-            "read every "
-            "instruction page (including schema) with read_instructions and every unit part with "
-            "read_unit. Concatenate numbered unit text fragments and parse their JSON after every "
-            "part is read, then submit the rich authored batch with propose_claims. "
-            "A first uncertain or content-refused submission is held for automated correction; "
-            "the second is retained as a terminal source report with its uncertainty or refusal. "
-            "Packet, schema-hash and unread-part errors do not consume that content retry. "
-            "On a reclaimed lease, previous_issues contains the stored feedback to correct. "
-            "Source issues require "
-            "automated correction; no human grading is required."
-        ),
-        lifespan=open_session,
-    )
-
-    server.add_middleware(ObservationMiddleware(run_id))
-
-    def current(ctx: Context) -> SemanticSession:
-        return ctx.lifespan_context["queue"]()
-
-    def bound_run(ctx: Context, run: int | None) -> SemanticSession:
-        found = current(ctx)
-        if isinstance(found, SemanticProjectSession):
-            return found.for_run(run) if run is not None else found
-        if run is not None and run != found.run_id:
-            raise ToolError("this server is bound to a different semantic run")
-        return found
+    server = FastMCP(MCP_SERVER_NAME, version=FASTMCP_VERSION, lifespan=open_session,
+        instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available. Source-region rendering is an explicit native writer effect.")
+    server.add_middleware(ObservationMiddleware(bound_id))
 
     @contextmanager
     def reader_snapshot(ctx: Context) -> Generator[Connection]:
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.semantic.runtime import open_runtime_engine
 
-        injected = read_engine if read_engine is not None else session.engine if session else None
+        injected = read_engine if read_engine is not None else binding.engine if binding is not None else None
         if injected is not None:
-            with read_snapshot(injected) as conn:
-                yield conn
-            return
-        with (
-            open_runtime_engine(
-                ctx.lifespan_context["settings"], "ci-mcp-source", max_size=1, purpose="read"
-            ) as reader,
-            read_snapshot(reader) as conn,
-        ):
-            yield conn
-
-    bound_id = session.run_id if isinstance(session, SemanticAgentSession) else run_id
+            with read_snapshot(injected) as connection:
+                yield connection
+        else:
+            with open_runtime_engine(ctx.lifespan_context["settings"], "ci-mcp-retained-read", max_size=1, purpose="read") as engine, read_snapshot(engine) as connection:
+                yield connection
 
     def reader_project(ctx: Context) -> str:
-        if isinstance(session, SemanticProjectSession):
-            return session.project_id
-        return ctx.lifespan_context["settings"].runtime.default_project
+        return project or ctx.lifespan_context["settings"].runtime.default_project
 
     @contextmanager
     def source_snapshot(ctx: Context, selected_run: int) -> Generator[Connection]:
-        """Open source reads under the reader purpose and retain the server scope."""
-        from corpus_structure.semantic.metadata import table
-
         if bound_id is not None and selected_run != bound_id:
-            raise ProposalRefused("this server is bound to a different semantic run")
-        with reader_snapshot(ctx) as conn:
+            raise ProposalRefused("this retained reader is bound to a different semantic run")
+        with reader_snapshot(ctx) as connection:
             if bound_id is None:
-                project = reader_project(ctx)
+                from corpus_structure.semantic.metadata import table
+
                 runs = table("ops.run")
-                belongs = conn.scalar(
-                    select(runs.c.id).where(runs.c.id == selected_run, runs.c.project_id == project)
-                )
-                if belongs is None:
-                    raise ProposalRefused("run does not belong to this semantic project")
-            yield conn
+                if connection.scalar(select(runs.c.id).where(runs.c.id == selected_run, runs.c.project_id == reader_project(ctx))) is None:
+                    raise ProposalRefused("run does not belong to this retained reader project")
+            yield connection
+
+    @contextmanager
+    def artifact_writer(ctx: Context):
+        if writer_engine is not None:
+            yield writer_engine
+        else:
+            from corpus_structure.semantic.runtime import open_runtime_engine
+
+            with open_runtime_engine(ctx.lifespan_context["settings"], "ci-mcp-retained-render", max_size=1, purpose="write") as engine:
+                yield engine
 
     from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
@@ -868,22 +491,24 @@ def build_semantic_server(
         """Retain a source-qualified region and deliver inline imagery within max_bytes."""
         from corpus_structure.semantic.native_requests import request_source_view
 
-        active = bound_run(ctx, run_id)
-        result = request_source_view(
-            active.engine,
-            source_run_id=run_id,
-            source_view_id=source_view_id,
-            demand="render",
-            pointer=pointer,
-            region_index=region_index,
-            scale=scale,
-            code_commit="native-source-mcp-v4",
-            writer_release=writer_release,
-            writer_realization=writer_realization,
-        )
-        if result.status == "failed":
-            raise ValueError(result.error or "native region render failed")
-        return _rendered_artifact_result(active.engine, result, max_bytes)
+        with source_snapshot(ctx, run_id):
+            pass
+        with artifact_writer(ctx) as writer:
+            result = request_source_view(
+                writer,
+                source_run_id=run_id,
+                source_view_id=source_view_id,
+                demand="render",
+                pointer=pointer,
+                region_index=region_index,
+                scale=scale,
+                code_commit="native-source-mcp-v4",
+                writer_release=writer_release,
+                writer_realization=writer_realization,
+            )
+            if result.status == "failed":
+                raise ValueError(result.error or "native region render failed")
+            return _rendered_artifact_result(writer, result, max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict)
@@ -924,211 +549,6 @@ def build_semantic_server(
                 )
                 for row in rows
             ]
-        )
-
-    @server.tool(
-        output_schema=compress_schema(
-            service.QueueNext.model_json_schema(mode="serialization"), prune_titles=True
-        )
-    )
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def queue_next(
-        ctx: Context,
-        mode: Literal["extract"] = "extract",
-        run: int | None = None,
-        max_units: int | None = None,
-    ) -> ToolResult:
-        active = bound_run(ctx, run)
-        if isinstance(active, SemanticAgentSession):
-            with located_failure_context(active.interpretation(), "claim"):
-                response = active.next(mode, max_units)
-        else:
-            response = active.next(mode, max_units)
-        return _bounded_mcp_result(response, QUEUE_ACK_MAX_BYTES)
-
-    @server.tool
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def read_unit(ctx: Context, task_id: int, part: int = 1) -> ToolResult:
-        active = current(ctx).active(task_id)
-        with located_failure_context(active.prepared, "make_packet", scope="mcp/read_unit"):
-            body = active.read("unit", part)
-            pages = active.packet.part_pages(
-                next(item for item in active.packet.parts() if item.name == "unit")
-            )
-            structured = SemanticUnitPart(
-                task_id=task_id,
-                part=part,
-                parts=len(pages),
-                hash=active.packet.hash,
-                text=body,
-            )
-            from mcp.types import TextContent
-
-            from corpus_structure.semantic.query import ReadLimit
-
-            wire = _stamp_mcp_result(
-                CallToolResult(
-                    content=[TextContent(type="text", text=body)],
-                    structured_content=structured.model_dump(mode="json"),
-                )
-            )
-            if (
-                len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
-                > READ_UNIT_MAX_BYTES
-            ):
-                raise ReadLimit(
-                    "complete read_unit envelope exceeds byte budget", reason="oversized_item"
-                )
-            return ToolResult.from_mcp_result(wire)
-
-    @server.tool
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def read_instructions(
-        ctx: Context, task_id: int, part: str | None = None, page: int = 1
-    ) -> service.Instructions:
-        active = current(ctx).active(task_id)
-        with located_failure_context(active.prepared, "make_packet", scope="mcp/read_instructions"):
-            instructions = [item for item in active.packet.parts() if item.name != "unit"]
-            infos = [
-                service.PartInfo(
-                    name=item.name,
-                    chars=len(item.text),
-                    pages=len(active.packet.part_pages(item)),
-                    hash=item.hash,
-                )
-                for item in instructions
-            ]
-            if part is None:
-                return service.Instructions(task_id=task_id, parts=infos)
-            item = next((item for item in instructions if item.name == part), None)
-            if item is None:
-                raise ProposalRefused("unknown instruction part")
-            return service.Instructions(
-                task_id=task_id,
-                parts=infos,
-                part=part,
-                page=page,
-                page_count=len(active.packet.part_pages(item)),
-                text=active.read(part, page),
-            )
-
-    @server.tool
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def propose_claims(
-        ctx: Context,
-        task_id: int,
-        batch: dict[str, JsonValue],
-        schema_hash: str | None = None,
-        rationale: str | None = None,
-    ) -> submission.SubmissionResult:
-        from corpus_structure.semantic.operations import OperationConflict
-
-        session = current(ctx)
-        try:
-            active = session.active(task_id)
-            checked = active.check(
-                batch,
-                packet_hash=active.packet.hash,
-                schema_hash=schema_hash or active.packet.schema_hash,
-            )
-            with session.engine.begin() as conn:
-                result = active.commit(conn, checked)
-            if result.disposition == "held":
-                return submission.SubmissionResult(
-                    task_id=task_id,
-                    status="held",
-                    submission_disposition="held",
-                    task_open=True,
-                    rejected=[
-                        submission.ItemIssue(
-                            path=issue.path, category="parse", code=issue.code, message=issue.detail
-                        )
-                        for issue in checked.issues
-                    ],
-                )
-            session.sessions.pop(task_id, None)
-            _invocation_event(
-                task_id,
-                active.attempt,
-                active.holder,
-                result.producer_binding,
-                "completed",
-                receipt=result.completion.receipt.model_dump(mode="json"),
-                **({"run_id": session.run_id} if isinstance(session, SemanticAgentSession) else {}),
-            )
-            data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()
-            return submission.SubmissionResult(
-                task_id=task_id,
-                status="done",
-                task_open=False,
-                submission_disposition=result.disposition,
-                observation_id=result.completion.receipt.observation_ids[0],
-                rejected=[
-                    submission.ItemIssue(
-                        path=issue.path, category="parse", code=issue.code, message=issue.detail
-                    )
-                    for issue in checked.issues
-                ],
-                accepted={
-                    name: len(data.get(name, ()))
-                    for name in ("entities", "statements", "claims", "alternatives", "unsupported")
-                },
-            )
-        except (OperationConflict, ProposalTaskNotOpen) as error:
-            return submission.SubmissionResult(
-                task_id=task_id,
-                status="not_open",
-                submission_disposition="refused_context",
-                task_open=False,
-                reason=str(error),
-            )
-        except (ProposalRefused, ValidationError) as error:
-            return submission.SubmissionResult(
-                task_id=task_id,
-                status="held",
-                submission_disposition="refused_context",
-                task_open=True,
-                rejected=[
-                    submission.ItemIssue(
-                        path="$", category="envelope", code="proposal_invalid", message=str(error)
-                    )
-                ],
-            )
-
-    @server.tool
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def release(ctx: Context, task_id: int, reason: str) -> service.Released:
-        active = current(ctx).active(task_id)
-        with located_failure_context(active.prepared, "release_claim"):
-            from corpus_structure.semantic.operations import release_claim
-
-            with current(ctx).engine.begin() as conn:
-                release_claim(
-                    conn,
-                    task_id=active.task_id,
-                    attempt=active.attempt,
-                    holder=active.holder,
-                    reason=reason,
-                )
-            current(ctx).sessions.pop(task_id, None)
-            return service.Released(task_id=task_id, released=True, reason=reason)
-
-    @server.tool
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def record_direction(
-        ctx: Context, text: str, scope: str | None = None
-    ) -> service.DirectionRecorded:
-        from corpus_structure.intervene.directions import record_direction as record
-
-        active = current(ctx)
-        return record(
-            active.engine,
-            text,
-            scope,
-            actor="agent:session",
-            session_ref=active.instance,
-            project=active.project_id if isinstance(active, SemanticProjectSession) else None,
-            run_id=active.run_id if isinstance(active, SemanticAgentSession) else None,
         )
 
     from corpus_structure.serve.research import register_research_tools

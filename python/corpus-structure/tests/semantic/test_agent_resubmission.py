@@ -1,34 +1,22 @@
-"""Native durable automated resubmission; uncertain source reports never become located facts."""
+"""Historical durable held reports retain exact first-result custody and source uncertainty."""
 
-import anyio
 import pytest
-from fastmcp import Client
 from sqlalchemy import select
 
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
+from corpus_structure.intervene.semantic import ProposalProtocolRefused
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import (
-    OperationConflict,
-    hold_agent_result,
-    release_claim,
-)
-from semantic.agent_scenarios import lease_and_read
+from corpus_structure.semantic.operations import OperationConflict, hold_agent_result, release_claim
+from semantic.historical_agent_support import HistoricalAgentPublication
 
 
 @pytest.mark.parametrize("refused", (False, True))
-def test_uncertain_first_hold_survives_session_restart_and_terminal_second_report(
-    resubmission_case, tmp_path, refused
-):
-    commit_writer_engine = resubmission_case.writer
-    _prepared, run, task, locator = resubmission_case.stage.result
-    engine = commit_writer_engine
-    first = SemanticAgentSession(engine, run)
+def test_uncertain_first_hold_survives_session_restart_and_terminal_second_report(resubmission_case, tmp_path, refused):
+    engine = resubmission_case.writer
+    prepared, run, task, locator = resubmission_case.stage.result
+    first = HistoricalAgentPublication(engine, run, task, prepared)
+    unit = first.unit()
     fabricated = "Zyxwvu qrst nop invented quotation."
-
-    async def journey():
-        async with Client(build_semantic_server(first)) as client:
-            unit = await lease_and_read(client, run, task)
-            raw = {
+    raw = {
                 "unit_ref": locator,
                 "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
                 "claims": [
@@ -49,84 +37,26 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
                     }
                 ],
             }
-            if refused:
-                raw["claims"][0]["predicate"] = "https://example.org/not-declared"
-                raw["claims"][0]["evidence"][0]["quote"] = "Alice is here."
-            protocol = (
-                await client.call_tool(
-                    "propose_claims", {"task_id": task, "batch": raw, "schema_hash": "wrong"}
-                )
-            ).structured_content
-            assert protocol is not None
-            assert protocol["status"] == "held"
-            assert protocol["submission_disposition"] == "refused_context"
-            with engine.connect() as conn:
-                assert (
-                    conn.execute(
-                        select(table("ops.task").c.error).where(table("ops.task").c.id == task)
-                    ).scalar_one()
-                    is None
-                )
-            held = (
-                await client.call_tool("propose_claims", {"task_id": task, "batch": raw})
-            ).structured_content
-            assert held is not None
-            assert held["status"] == "held" and held["rejected"] and held["task_open"]
-            assert held["submission_disposition"] == "held"
-            with engine.connect() as conn:
-                row = (
-                    conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
-                    .mappings()
-                    .one()
-                )
-                first_attempt = row["attempt"]
-                packet = row["packet_hash"]
-                assert row["error"]["semantic_proposal_first_result"]["result"]["issues"]
-                assert not conn.execute(
-                    select(table("kb.observation").c.id).where(
-                        table("kb.observation").c.task_id == task
-                    )
-                ).first()
-        # Release the old host's ownership through the protected transition. A replacement
-        # host reclaims a new attempt while the durable first submission stays available.
-        with engine.begin() as conn:
-            release_claim(
-                conn,
-                task_id=task,
-                attempt=first_attempt,
-                holder=first.holder,
-                reason="session restart",
-            )
-        second = SemanticAgentSession(engine, run)
-        async with Client(build_semantic_server(second)) as client:
-            await lease_and_read(client, run, task, expect_previous=True)
-            with pytest.raises(OperationConflict), engine.begin() as conn:
-                hold_agent_result(
-                    conn,
-                    task_id=task,
-                    attempt=first_attempt,
-                    holder=first.holder,
-                    packet_hash=packet,
-                    clean=False,
-                    result={},
-                )
-            terminal = (
-                await client.call_tool("propose_claims", {"task_id": task, "batch": raw})
-            ).structured_content
-            assert terminal is not None
-            assert (
-                terminal["status"] == "done" and not terminal["task_open"] and terminal["rejected"]
-            )
-            repeated = (
-                await client.call_tool("propose_claims", {"task_id": task, "batch": raw})
-            ).structured_content
-            assert repeated is not None
-            assert repeated["status"] == "not_open"
-            assert terminal["submission_disposition"] == (
-                "completed_refused" if refused else "completed_accepted"
-            )
-
-    anyio.run(journey)
+    if refused:
+        raw["claims"][0]["predicate"] = "https://example.org/not-declared"
+        raw["claims"][0]["evidence"][0]["quote"] = "Alice is here."
+    with pytest.raises(ProposalProtocolRefused):
+        first.session.check(raw, packet_hash=first.packet.hash, schema_hash="wrong")
+    with engine.connect() as conn:
+        assert conn.scalar(select(table("ops.task").c.error).where(table("ops.task").c.id == task)) is None
+    assert first.publish(raw).disposition == "held"
+    with engine.connect() as conn:
+        row = conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task)).mappings().one()
+        assert row["error"]["semantic_proposal_first_result"]["result"]["issues"]
+        assert not conn.execute(select(table("kb.observation").c.id).where(table("kb.observation").c.task_id == task)).first()
+    with engine.begin() as conn:
+        release_claim(conn, task_id=task, attempt=first.session.attempt, holder=first.session.holder, reason="historical owner restart")
+    second = HistoricalAgentPublication(engine, run, task, prepared)
+    assert second.session.attempt == first.session.attempt + 1
+    with pytest.raises(OperationConflict), engine.begin() as conn:
+        hold_agent_result(conn, task_id=task, attempt=first.session.attempt, holder=first.session.holder,
+                          packet_hash=first.packet.hash, clean=False, result={})
+    assert second.publish(raw).disposition == ("completed_refused" if refused else "completed_accepted")
     with engine.connect() as conn:
         rows = (
             conn.execute(

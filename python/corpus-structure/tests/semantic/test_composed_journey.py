@@ -1,19 +1,18 @@
 """An admitted composed binding across the native source/MCP/cut/result/read boundaries."""
 
+
+from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from collections import Counter
 from hashlib import sha256
 
-import anyio
 import pytest
-from fastmcp import Client
 from sqlalchemy import select
 
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import QuerySpec, read_session
-from semantic.agent_scenarios import ResubmissionRecipe, lease_and_read
+from semantic.agent_scenarios import ResubmissionRecipe
 from semantic.inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 
 
@@ -22,48 +21,39 @@ def test_composed_source_submission_final_cut_and_explanation(resubmission_case,
     commit_writer_engine = resubmission_case.writer
     commit_reader_engine = resubmission_case.reader
     prepared, run, task, locator = resubmission_case.stage.result
-    session = SemanticAgentSession(commit_writer_engine, run)
 
     packet = {}
 
-    async def submit():
-        async with Client(build_semantic_server(session)) as client:
-            unit = await lease_and_read(client, run, task)
-            packet.update(unit)
-            result = (
-                await client.call_tool(
-                    "propose_claims",
-                    {
-                        "task_id": task,
-                        "batch": {
-                            "unit_ref": locator,
-                            "entities": [
-                                {"id": "person", "class_iri": "https://example.org/Person"}
-                            ],
-                            "claims": [
-                                {
-                                    "id": "name",
-                                    "subject": "person",
-                                    "predicate": "https://example.org/name",
-                                    "object": {"kind": "text", "text": "Alice"},
-                                    "qualification": {"modality": "asserted", "polarity": True},
-                                    "establishment": "stated",
-                                    "evidence": [
-                                        {
-                                            "sentence": unit["sentences"][0]["id"],
-                                            "quote": "Alice is here.",
-                                            "role": "primary",
-                                        }
-                                    ],
-                                }
-                            ],
-                        },
-                    },
-                )
-            ).structured_content
-            assert result is not None and result["submission_disposition"] == "completed_accepted"
+    def submit():
+        authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
+        unit = authored_fixture.unit()
+        packet.update(unit)
+        result = authored_fixture.publish({
+                        "unit_ref": locator,
+                        "entities": [
+                            {"id": "person", "class_iri": "https://example.org/Person"}
+                        ],
+                        "claims": [
+                            {
+                                "id": "name",
+                                "subject": "person",
+                                "predicate": "https://example.org/name",
+                                "object": {"kind": "text", "text": "Alice"},
+                                "qualification": {"modality": "asserted", "polarity": True},
+                                "establishment": "stated",
+                                "evidence": [
+                                    {
+                                        "sentence": unit["sentences"][0]["id"],
+                                        "quote": "Alice is here.",
+                                        "role": "primary",
+                                    }
+                                ],
+                            }
+                        ],
+                    })
+        assert result is not None and result.disposition == 'completed_accepted'
 
-    anyio.run(submit)
+    submit()
     completed = finalize_bound_run(commit_writer_engine, run, "composed-result")
     assert completed.realization_id == "composed-result"
     with commit_reader_engine.connect() as conn:

@@ -233,8 +233,8 @@ def test_cli_and_mcp_serialize_the_same_record_contract(projection, monkeypatch)
     from corpus_structure.cli import records
     from corpus_structure.cli.output import CliState
     from corpus_structure.intervene.semantic_server import (
-        SemanticAgentSession,
-        build_semantic_server,
+        RetainedReaderBinding,
+        build_retained_reader_server,
     )
     from corpus_structure.semantic import query, runtime
     from corpus_structure.serve import record_results
@@ -259,7 +259,7 @@ def test_cli_and_mcp_serialize_the_same_record_contract(projection, monkeypatch)
     assert cli == expected
 
     async def journey():
-        server = build_semantic_server(session=SemanticAgentSession(engine, 41))
+        server = build_retained_reader_server(binding=RetainedReaderBinding(engine, 41))
         async with Client(server) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             annotations = tools["records"].annotations
@@ -328,8 +328,8 @@ def test_registered_record_tool_checks_exact_full_wire_budget(projection, monkey
     from sqlalchemy import create_engine
 
     from corpus_structure.intervene.semantic_server import (
-        SemanticAgentSession,
-        build_semantic_server,
+        RetainedReaderBinding,
+        build_retained_reader_server,
     )
     from corpus_structure.semantic import query
     from corpus_structure.serve import record_results
@@ -357,7 +357,7 @@ def test_registered_record_tool_checks_exact_full_wire_budget(projection, monkey
         )
 
     async def journey():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 41))) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 41))) as client:
             delivered = await client.call_tool(
                 "records", {"request": request.model_dump(mode="json")}
             )

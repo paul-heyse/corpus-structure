@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
+from semantic.historical_agent_support import HistoricalAgentPublication
+
 import hashlib
 import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-import anyio
 import pytest
-from fastmcp import Client
 from pydantic import BaseModel
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import insert, select
 from sqlalchemy.engine import Engine
 
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import RunId, TaskId
@@ -24,7 +23,7 @@ from corpus_structure.semantic.query_compatibility import acquire_query_inputs
 from corpus_structure.semantic.types import PreparedRelease
 from native_scenario_seeds import ScenarioSeed, SeedClone
 
-from .agent_scenarios import build_resubmission_case, lease_and_read
+from .agent_scenarios import build_resubmission_case
 
 
 def build_completed_serving_case(
@@ -46,47 +45,39 @@ def build_completed_serving_case(
         ),
     )
 
-    async def submit():
-        async with Client(build_semantic_server(SemanticAgentSession(writer, run))) as client:
-            unit = await lease_and_read(client, run, task)
-            claims = [
-                {
-                    "id": item,
-                    "subject": "person2" if name == "Bob" else "person",
-                    "predicate": "https://example.org/name",
-                    "object": {"kind": "text", "text": name},
-                    "qualification": {"modality": "asserted", "polarity": True},
-                    "establishment": "stated",
-                    "evidence": [
-                        {
-                            "sentence": unit["sentences"][0]["id"],
-                            "quote": "Alice is here.",
-                            "role": "primary",
-                        }
+    def submit():
+        authored_fixture = HistoricalAgentPublication(writer, run, task)
+        unit = authored_fixture.unit()
+        claims = [
+            {
+                "id": item,
+                "subject": "person2" if name == "Bob" else "person",
+                "predicate": "https://example.org/name",
+                "object": {"kind": "text", "text": name},
+                "qualification": {"modality": "asserted", "polarity": True},
+                "establishment": "stated",
+                "evidence": [
+                    {
+                        "sentence": unit["sentences"][0]["id"],
+                        "quote": "Alice is here.",
+                        "role": "primary",
+                    }
+                ],
+            }
+            for item, name in [("name1", "Alice"), ("name2", "Alice"), ("name3", "Bob")]
+        ]
+        result = authored_fixture.publish({
+                    "unit_ref": locator,
+                    "entities": [
+                        {"id": "person", "class_iri": "https://example.org/Person"},
+                        {"id": "person2", "class_iri": "https://example.org/Person"},
                     ],
-                }
-                for item, name in [("name1", "Alice"), ("name2", "Alice"), ("name3", "Bob")]
-            ]
-            result = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": {
-                        "unit_ref": locator,
-                        "entities": [
-                            {"id": "person", "class_iri": "https://example.org/Person"},
-                            {"id": "person2", "class_iri": "https://example.org/Person"},
-                        ],
-                        "claims": claims,
-                    },
-                },
-            )
-            assert result.structured_content is not None
-            assert result.structured_content["submission_disposition"] == "completed_accepted", (
-                json.dumps(result.structured_content, sort_keys=True)
-            )
+                    "claims": claims,
+                })
+        assert result is not None
+        assert result.disposition == 'completed_accepted', json.dumps(result.model_dump(mode="json"), sort_keys=True)
 
-    anyio.run(submit)
+    submit()
     if complete_coverage:
         from types import SimpleNamespace
 

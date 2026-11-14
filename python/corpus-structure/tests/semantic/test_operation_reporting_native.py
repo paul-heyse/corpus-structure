@@ -6,7 +6,7 @@ from dataclasses import replace
 import anyio
 from fastmcp import Client
 
-from corpus_structure.intervene.semantic_server import SemanticProjectSession, build_semantic_server
+from corpus_structure.intervene.semantic_server import build_retained_reader_server
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.types import SourceArtifact
@@ -90,7 +90,7 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
     )
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "reports"))
+        server = build_retained_reader_server(read_engine=commit_reader_engine, project="reports")
         async with Client(server) as client:
             answer = await client.call_tool(
                 "explain_operation",
@@ -275,7 +275,7 @@ def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unkn
     assert any("helper body not analyzed" in value for value in report["unknowns"])
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "impact"))
+        server = build_retained_reader_server(read_engine=commit_reader_engine, project="impact")
         async with Client(server) as client:
             answer = await client.call_tool(
                 "compare_semantic_releases",
@@ -351,7 +351,7 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
     assert alias["members"][0]["model_path"].endswith("/classes/rewrites")
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "alias-impact"))
+        server = build_retained_reader_server(read_engine=commit_reader_engine, project="alias-impact")
         async with Client(server) as client:
             answer = await client.call_tool(
                 "compare_semantic_releases",

@@ -292,8 +292,8 @@ def test_cli_mcp_and_export_use_the_same_pinned_support_contract(projection, mon
     from corpus_structure.cli import records
     from corpus_structure.cli.output import CliState
     from corpus_structure.intervene.semantic_server import (
-        SemanticAgentSession,
-        build_semantic_server,
+        RetainedReaderBinding,
+        build_retained_reader_server,
     )
     from corpus_structure.semantic import query, runtime
     from corpus_structure.serve import record_support
@@ -335,7 +335,7 @@ def test_cli_mcp_and_export_use_the_same_pinned_support_contract(projection, mon
     assert expected["page"]["cut_id"] == projection.cut_id
 
     async def journey():
-        server = build_semantic_server(session=SemanticAgentSession(engine, 41))
+        server = build_retained_reader_server(binding=RetainedReaderBinding(engine, 41))
         async with Client(server) as client:
             request = RecordRequest(run_id=41, family="table", limit=1)
             result = await client.call_tool(
