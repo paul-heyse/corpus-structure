@@ -194,7 +194,7 @@ class M1Config(BaseModel):
     max_annotation_chars: int = Field(default=32768, ge=1)
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     threshold: float = Field(default=0.5, ge=0, le=1)
-    timeout_seconds: float = Field(default=120, gt=0, allow_inf_nan=False)
+    timeout_seconds: float = Field(default=120.0, gt=0, allow_inf_nan=False)
     pack_descriptions: dict[str, dict[str, str]] = Field(default_factory=dict)
     source_inspection: bool = False
     occurrence_policy: Literal["statistics-reading-occurrence-2"] = (

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.view-bindings",
+  "title": "Role-qualified selected source-view binding",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an explicitly declared document subject-field association select frozen source views while preserving the actual distinct scope of every input?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-view-bindings/change.yaml --json",
+    "uv run ci model change candidate 617b19c5938b4bbcb3613c8f7f2d5303 --json",
+    "uv run ci model change inspect-candidate e1b5b9d133154b3cb402ca5945f9f9c8 --view operations --json",
+    "uv run ci model change inspect-candidate e1b5b9d133154b3cb402ca5945f9f9c8 --view sql --json",
+    "uv run ci model change register e1b5b9d133154b3cb402ca5945f9f9c8 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable view-binding successor",
+      "sha256": "a9c867956297fab71c1879a8a3a3df437a615775f81aee755e1ce39d3dd73dc6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout hashes",
+      "sha256": "9b9fcce764167c012a8820e2fc8fa1d5c6ba635f102a491039bbceec877d78d9"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": "binding-reader body and two source/catalog descriptors"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and immutable registration passed for semantic_ddo_viewbind_v1 after semantic_ddo_sources_v1. Original-source binding preserves the consumer scope equality for ordinary same-subject inputs; an explicit declared subject-field association can select authenticated frozen views of the same actual document without rewriting their distinct analyzed scopes. Exact field/subject association, original source, kind/origin, project, selected admission, read boundary and current trust checks remain. All three native transitions preserve ACLs and owners. Authoring is separate from functional/provider qualification. No persistent deployment, activation or cutover occurred; persistent revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

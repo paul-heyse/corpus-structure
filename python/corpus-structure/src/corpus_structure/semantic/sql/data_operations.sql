@@ -1642,7 +1642,11 @@ BEGIN
  AND coalesce(input_role.value->'support'->'origins','["computation"]'::jsonb) ? 'original-source'
  AND (p_subject IS NULL OR ops.ddo_binding_subject(input_role.value,
  jsonb_build_object('subject',admission.subject,'meaning_body',product.canonical_body),p_subject,p_source))
- AND admission.analyzed_scope IS NOT DISTINCT FROM p_scope
+ -- Explicit field association selects a related context (for example frozen
+ -- source views under their original document). Preserve each input's scope;
+ -- equality with the consumer scope applies to ordinary same-subject inputs.
+ AND (input_role.value->>'subject_field' IS NOT NULL
+      OR admission.analyzed_scope IS NOT DISTINCT FROM p_scope)
  AND (p_source IS NULL OR admission.original_source=p_source))
  )
  SELECT fact.product_id,fact.kind_contract,fact.subject,fact.original_source,fact.analyzed_scope,'[]'::jsonb,'[]'::jsonb,
