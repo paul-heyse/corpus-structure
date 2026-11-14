@@ -80,3 +80,38 @@ def nominal_schema_kinds(schema, *, namespace, root_name):
         {"id": namespace + name, "name": name, "nominal_namespace": namespace, "json_schema": value}
         for name, value in sorted(records.items())
     )
+
+
+def effective_nominal_kind_declarations(model):
+    """Project authenticated compiled shape owners for source correspondence checks.
+
+    These normalized artifacts are derived semantic projections, not the bytes of
+    the original authoring documents. The caller supplies its admitted model just
+    as it supplies prepared class definitions/vocabularies. Candidate Python never
+    imports DTOs or injects an alternative schema during this runtime check.
+    """
+    import json
+
+    from .data_operation_model import MODEL_VERSION
+    from .identity import canonical_bytes
+    from .types import SourceArtifact
+
+    owners = {}
+    for kind in model.kinds:
+        facts = json.loads(kind.facts)
+        if facts.get("nominal_namespace") is None:
+            continue
+        source_owners = {origin.source for origin in kind.origins}
+        if len(source_owners) != 1:
+            raise ValueError("compiled nominal kind requires one supplied source owner")
+        owner = next(iter(source_owners))
+        owners.setdefault(owner, []).append(facts)
+    return tuple(
+        SourceArtifact(
+            "effective-nominal-kinds/" + owner,
+            canonical_bytes(
+                {"version": MODEL_VERSION, "kinds": sorted(records, key=lambda value: value["id"])}
+            ),
+        )
+        for owner, records in sorted(owners.items())
+    )

@@ -110,3 +110,39 @@ def test_schema_normalization_preserves_const_payloads_and_refuses_dialect_mixin
             namespace="urn:mixed:",
             root_name="Root",
         )
+
+
+def test_runtime_source_correspondence_reuses_compiled_nominal_owner_and_recomputes_body():
+    from dataclasses import replace
+
+    from corpus_structure.semantic.data_operation_ports import PortRefusal, python_port_identity
+    from corpus_structure.semantic.python_operation_sources import (
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    value = contract()
+    value["roles"][0].update(kind="urn:declared:report:Report", parameter="value")
+    value["roles"][1]["kind"] = "urn:declared:report:Report"
+    code = (
+        "def derive(value: dict) -> dict:\n    return value\n"
+        + f"derive__data_operation__ = {value!r}\n"
+    )
+    sources = PythonSourceCollection(
+        (PythonSource("nominal_runtime", code.encode(), "nominal_runtime.py"),)
+    )
+    model = compile_data_operations(declarations=(kind_source(),), python_sources=sources)
+    identity = python_port_identity(model, sources, value["id"])
+    assert identity.recipe == next(
+        item.key
+        for item in model.identities
+        if item.owner == value["id"] and item.domain == "recipe"
+    )
+    changed = replace(
+        sources,
+        sources=(
+            replace(sources.sources[0], content=code.replace("return value", "return {}").encode()),
+        ),
+    )
+    with pytest.raises(PortRefusal, match="correspondence is unavailable or differs"):
+        python_port_identity(model, changed, value["id"])

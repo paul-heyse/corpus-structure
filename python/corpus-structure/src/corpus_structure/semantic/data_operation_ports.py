@@ -797,8 +797,11 @@ def python_port_identity(
         raise PortRefusal("operation has no single closed original callable surface")
     # Re-extract the exact supplied source instead of trusting a caller-created
     # EffectiveOperation or a matching signature alone.
+    from .nominal_schema_kinds import effective_nominal_kind_declarations
+
     observed = compile_data_operations(
         schema,
+        declarations=effective_nominal_kind_declarations(model),
         python_sources=sources,
         definitions=prepared.definitions if prepared is not None else None,
         vocabularies=prepared.vocabularies if prepared is not None else (),
