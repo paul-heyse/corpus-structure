@@ -1,5 +1,9 @@
 # Execution context, structured events and progress
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../../../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Discovery, 2026-11-10; benefits Proposed.** [Baseline and authority](../briefing.md).
 structlog26.1 is a researched candidate, not installed or selected for adoption.
 
@@ -24,7 +28,7 @@ The code already has substantial structured operational information:
   [method context](../../../../../python/corpus-structure/src/corpus_structure/core/method.py)
   carries a stdlib logger supplied by the orchestrator. PDF ingestion warns while separately
   recording failed unit outcomes. Logging and typed result truth already have distinct roles.
-- [automated.py](../../../../../python/corpus-structure/src/corpus_structure/intervene/automated.py)
+- `intervene/automated.py`
   explicitly passes invocation/receipt identifiers to a fresh MCP process, retains separate
   provider stdout/stderr and uses reader threads. The
   [semantic server](../../../../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py)

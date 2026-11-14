@@ -1,5 +1,10 @@
 # Owned observations, correlation and progress
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **Delivered contract, 2026-11-10.** [Coordinator final acceptance](../cli-and-logging_2026-11-10.md#final-acceptance)
 owns CLD-01/06/07/08 and relevant CLD-09 decisions. This plan develops O05/06 and supports O04/07/08.
 
@@ -125,7 +130,7 @@ sequence while preserving producer sequence/identity/assurance. The channel is t
 under the same managed lifetime, not another store. Bound it independently, avoid directory scans
 and one artifact per event, and never indefinitely block provider work behind diagnostics. Original
 provider receipts stay evidence; imported rows are selected observations of them.
-[Provider transfer](../../../python/corpus-structure/src/corpus_structure/intervene/automated.py),
+Provider transfer (`intervene/automated.py`),
 [MCP events](../../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py),
 [context contracts](https://www.structlog.org/en/26.1.0/contextvars.html).
 

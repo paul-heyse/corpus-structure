@@ -1,5 +1,9 @@
 # Design principle audit
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
+
 The living diagnostic account maintained by the
 [audit skill](../../../.claude/skills/design-principle-audit/SKILL.md). The
 [repository binding](../design_principles/binding/corpus-structure.md#design-principle-audit)
@@ -442,7 +446,7 @@ Test-assessment 1.2 informs the use of retained verification evidence.
   shared GPU handoff and bounds IPC and lifetime. Historical CPU and CUDA
   receipts establish the tested profiles and scope. These controls leave the
   named parser operations and package-level comparison work to the next
-  stage. [Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py#L26) ·
+  stage. Claim adapter (`orchestrate/pm2.py:26`) ·
   [Foundation receipts](../evidence/2026-11-08_pm2-foundation/README.md)
 - **Native products and located products.** The foundation retains the raw
   reply and maps HanLP roots, Maverick mentions and Dipo EDU extents to source

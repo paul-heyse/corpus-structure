@@ -1,5 +1,10 @@
 # Book-processing efficiency and parallelism
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 
 ## Combined qualification execution · 2026-11-12
 
@@ -98,13 +103,13 @@ historical `open_release` or silently exempt the route. Owner: BEP-01/08, O01.
 
 <a id="BEP-E07"></a>
 **E07 · Admit temporary source/layer/recovery reads before hydration.**
-[RegionalPreparation](../../python/corpus-structure/src/corpus_structure/semantic/execution_preparation.py):116–135,165–179
+RegionalPreparation (`semantic/execution_preparation.py`):116–135,165–179
 loads/canonicalizes source or layer content before reserving its retained bytes. Stage collection
 calls this layer path outside CPU-packet admission
-([characterization.py](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py):490–498);
+(`orchestrate/characterization.py`:490–498);
 initial selected-layer reads do so as well. Recovery also performs full reads before regional
 admission while cataloguing base/scope/operation metadata
-([characterization_recovery.py](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization_recovery.py):251,265).
+(`orchestrate/characterization_recovery.py`:251,265).
 A body can therefore materialize before the combined capacity refusal. Individual64MiB product
 limits remain effective; they do not satisfy combined admission-before-hydration. The primary-reader
 path already reserves response credit before reading and charges cached bodies cumulatively.
@@ -127,7 +132,7 @@ Owner: BEP-03/05/07, O04/O07.
 <a id="BEP-E09"></a>
 **E09 · Replenish ordinary-source claims on individual completion.**
 The captured-document region frontier progresses independently. The ordinary source loop in
-[semantic.py](../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py):1259–1321
+`orchestrate/semantic.py`:1259–1321
 claims at most one task per scheduled method, then yields a fixed `ReadyGroup`.
 [The driver](../../python/corpus-structure/src/corpus_structure/core/work.py):89–97 resumes that
 claim loop only when every child in that group settles. Multiple independent units of one method
@@ -139,7 +144,7 @@ DAG or second scheduler is required. Owner: BEP-05, O03/O04/O07.
 
 <a id="BEP-E10"></a>
 **E10 · Batch compatible GLiNER scopes already available in one demand.**
-[ModelCharacterizationMethod._gliner](../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py):579–658
+`ModelCharacterizationMethod._gliner` (`methods/model_characterization.py`):579–658
 awaits singleton cue and function work for each scope before exposing the next scope. With multiple
 compatible local scopes in a standalone or capacity-one demand, the coalescer never receives their
 known same-pack population together. Cross-region coalescing and the shared v2 projector/replay
@@ -177,7 +182,7 @@ command calls or a mock of the former public helper. Owner: BEP-08, O08.
 **E13 · Deliver the accepted operation aggregate in existing reports.**
 [bound_status](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):719–837
 reports one run's counts plus policy/anchor/region/stage. The
-[characterization receipt helper](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization_recovery.py):314–358
+characterization receipt helper (`orchestrate/characterization_recovery.py`):314–358
 records child IDs and latest-stage details, but does not acquire the bindings consumed by
 [native result inspection](../../python/corpus-structure/src/corpus_structure/cli/result_inspection.py):72–81.
 Standalone characterization results consequently lack that native join; other callers may retain

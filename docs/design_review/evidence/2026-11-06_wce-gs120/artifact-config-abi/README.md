@@ -1,12 +1,16 @@
 # Artifact configuration ABI correction preparation
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../../../README.md#historical-recovery); they are not current execution entrypoints.
+
 Prepared 2026-11-06 by independent assessor/integration worker B, under root's bounded preparation-only brief. **The production patch is not applied.** No production files, migrations, provider calls, database writes, global generation or commits belong to this preparation. Root owns application after active GLiNER161 completes, final source/runtime freezing and qualification.
 
 The defect is native decoding of registered configuration, not the registrar's canonical serialization. Actual ordinary artifact run181/task1067/config307 is failed, unsealed, task cancelled, with **zero accepted task results**. Its stored `title_threshold` is string `"70"`; all five stored policy probabilities are decimal strings. The existing typed configuration restores the expected floats, and `canonical_numbers(typed.model_dump(mode="json"))` exactly reproduces all stored params. The direct numeric helper controls exercised a different representation and therefore missed this boundary.
 
 ## Exact contracts and owner
 
-- [registry.py](../../../../../python/corpus-structure/src/corpus_structure/orchestrate/registry.py), `canonical_numbers` line88 and `MethodRegistry.resolve` lines217–224: finite floats become canonical decimal strings before configuration hashing/registration; integers/bools are preserved by that generic serializer. The typed artifact fields determine what is valid for this method.
+- `orchestrate/registry.py`, `canonical_numbers` line88 and `MethodRegistry.resolve` lines217–224: finite floats become canonical decimal strings before configuration hashing/registration; integers/bools are preserved by that generic serializer. The typed artifact fields determine what is valid for this method.
 - [canonical.py](../../../../../python/corpus-structure/src/corpus_structure/core/canonical.py), `CANONICAL_DECIMAL` line31 and `decimal_of_float` line118: finite shortest-roundtrip decimal strings, with no exponent or redundant zero spelling. Configuration custody bytes must not be rewritten to numbers.
 - [artifact_identity.py](../../../../../python/corpus-structure/src/corpus_structure/methods/artifact_identity.py), `ArtifactIdentityConfig` lines33–46: title threshold is a float in `[0,100]`; policy is the declared typed artifact model. The method emits the typed numeric policy in its product.
 - [semantic/artifact_identity.py](../../../../../python/corpus-structure/src/corpus_structure/semantic/artifact_identity.py), `ArtifactScoringPolicy` line173: exactly five strict probabilities in `(0,1)`. These are declared model assumptions, with no calibration or scientific-truth claim.

@@ -1,5 +1,9 @@
 # Book-execution foundation target review
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
+
 ## 1. Scope and decision
 
 **Design / target · 2026-11-11 · independent reviewer: BEP foundation reviewer.**
@@ -44,7 +48,7 @@ rather than being documentation-only labels.
 ## 3–4. Contracts, composition and actual seams
 
 The current demand boundary fully loads a release at
-[characterization.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py):583–605;
+`orchestrate/characterization.py`:583–605;
 the regional loop and final composition call it again. Stable preparation is already passed to
 registry/stage execution. Replace the repeated loader with a private context constructed only by
 successful full verification. Historical open_release and registry.prepared are not that authority.

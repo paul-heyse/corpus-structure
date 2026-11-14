@@ -1,5 +1,9 @@
 # Attributed operation inspection and meaningful progress
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Recommendations Proposed, 2026-11-10.** [Review and baseline](../cli-and-logging_2026-11-10.md).
 
 <a id="O05"></a>
@@ -77,7 +81,7 @@ do not presume the current final-artifact publisher already supplies an append-o
 
 Sources: [managed owner](../../../python/corpus-structure/src/corpus_structure/cli/managed.py),
 [provider links](../../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py),
-[process capture](../../../python/corpus-structure/src/corpus_structure/intervene/automated.py),
+process capture (`intervene/automated.py`),
 [stdlib integration26.1](https://www.structlog.org/en/26.1.0/standard-library.html),
 [ProcessorFormatter source26.1](https://github.com/hynek/structlog/blob/26.1.0/src/structlog/stdlib.py),
 [processors](https://www.structlog.org/en/26.1.0/processors.html),

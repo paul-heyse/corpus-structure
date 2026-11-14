@@ -1,5 +1,10 @@
 # M1 GLiNER operations and CPU runtime
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 > Historical predecessor design/checkpoint, retained 2026-11-04. Remaining scope is superseded by the [progressive enrichment series](../progressive-corpus-enrichment_2026-11-04.md#m1-transition-and-surviving-obligations). Targets and receipts below retain their original meanings; product execution remains stopped.
 
 **Target: Proposed; mixed implementation maturity · reconciled 2026-11-04.** This companion
@@ -61,8 +66,8 @@ release evidence. Runtime admission does not decide semantic acceptance.
 
 | Inspected baseline | Reuse and concrete gap |
 | --- | --- |
-| [orchestrate/semantic.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), `run_source_methods`, `_close_source_resources` | Bound release/source/configuration execution, retained task claims and all-owned-resource teardown. Executable policy applicability and owned reads now govern this route. JIT claims span custody/preparation through synchronized terminal settlement; integrate the CPU profile into this existing owner rather than add a lease loop. |
-| [orchestrate/runner.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/runner.py), method registry and source-step grouping | Reuse task/step/result ownership and compatible batching. Reuse the implemented bounded `GlinerWorker` supervisor and candidate producer. Finish aggregate CPU admission/ordinary workload evidence, with no fictional `agent.opus` tasks for CPU extraction. |
+| `orchestrate/semantic.py`, `run_source_methods`, `_close_source_resources` | Bound release/source/configuration execution, retained task claims and all-owned-resource teardown. Executable policy applicability and owned reads now govern this route. JIT claims span custody/preparation through synchronized terminal settlement; integrate the CPU profile into this existing owner rather than add a lease loop. |
+| `orchestrate/runner.py`, method registry and source-step grouping | Reuse task/step/result ownership and compatible batching. Reuse the implemented bounded `GlinerWorker` supervisor and candidate producer. Finish aggregate CPU admission/ordinary workload evidence, with no fictional `agent.opus` tasks for CPU extraction. |
 | [statistics policy](../../../domains/statistics/policies.yaml) and [methods](../../../domains/statistics/methods.yaml) | The ordinary phase-0 policy remains separate. `orchestrate/m1.py` and `domains/statistics/m1-methods.yaml` supply an explicit retained CPU candidate policy with `policy_propose=False`; finish evaluated acceptance/publication without adding an LLM fallback. |
 | [observations.py](../../../python/corpus-structure/src/corpus_structure/semantic/observations.py), `bind_result` | Source-bound immutable results and actual coverage remain the persistence seam; M1-02/03 add family evidence/diagnostic meaning. |
 | [analytics.py](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), `CapturedPacket`, `AnalysisScope` | Reuse typed columnar input and lazy-result lifetimes for candidate joins and coverage aggregation, with CPU settings coordinated by the run. |

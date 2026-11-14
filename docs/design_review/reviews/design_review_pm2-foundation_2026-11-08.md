@@ -1,5 +1,9 @@
 # Production milestone two foundation design review
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Decision · Accept scoped · Proposed · 2026-11-08.** Proceed with a frozen
 private baseline, authenticated source mapping and the shared task boundary.
 Use thin provider-specific bridges and explicit local profiles. Exact projection
@@ -195,7 +199,7 @@ completed siblings. `run_source_methods` currently raises on a failed result.
 Continuing the rest of the graph would require a separate result policy. [Device handoff](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_capacity.py) ·
 [Resident worker](../../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py) ·
 [Isolated interpreter precedent](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_recognition.py) ·
-[Released method graph](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py)
+Released method graph (`orchestrate/semantic.py`)
 
 One resident profile, bounded native batching, shared source preparation and
 coarse IPC make the proposed execution route credible. Multiple resident models

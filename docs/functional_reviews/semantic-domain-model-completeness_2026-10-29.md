@@ -1,5 +1,9 @@
 # Complete domain model for the transitioned semantic system
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Functional-extension review · Proposed · 2026-10-29.** This review recommends a stronger target;
 it does not amend accepted decisions, implementation plans or package completion. The
 [target-model companion](semantic-domain-model-completeness_2026-10-29_target-model.md) specifies
@@ -77,7 +81,7 @@ Paths below name the source locations inspected, not new authorities.
 | S10 | [Ontology projection](../../python/corpus-structure/src/corpus_structure/semantic/ontology.py), scoped generation at 122–234, qualified assertions at 357, validation at 398 |
 | S11 | [Inference](../../python/corpus-structure/src/corpus_structure/semantic/inference.py), snapshot/finite closure; [native grounding](../../python/corpus-structure/semantic_alembic/versions/semantic_0007_inference.sql) |
 | S12 | [Analytics](../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), packet/snapshot and AnalysisScope at 313–466; [Arrow publication](../../python/corpus-structure/src/corpus_structure/semantic/arrow_publication.py) |
-| S13 | [Source reports](../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), [query contracts](../../python/corpus-structure/src/corpus_structure/semantic/query.py), [source-run adapter](../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py) |
+| S13 | [Source reports](../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), [query contracts](../../python/corpus-structure/src/corpus_structure/semantic/query.py), source-run adapter (`orchestrate/semantic.py`) |
 | S14 | [Scientific rule input](../../python/corpus-structure/src/corpus_structure/semantic/domain_operations.py), ReleasedRulesPolicy; [authored SQL admission](../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py) |
 
 ## 3. What already works, and what completeness adds

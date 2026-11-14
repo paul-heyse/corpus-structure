@@ -1,5 +1,9 @@
 # CLI operations after the introspection and logging capability review
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Reviewed 2026-11-07. Proposed amendments.** The [CLI operations coordinator][plan] and all four
 companions at `40dc403a1` are the plan baseline. CLI-00–08 are proposed. The inspected product
 tree at that commit still uses Typer 0.27.3, Rich 15.0.0 and FastMCP 4.1.3. The target for this
@@ -354,7 +358,7 @@ diagnostic that the simpler route cannot preserve. Assert final stderr and optio
 fresh process. `structlog.testing.capture_logs()` alone does not establish configured processor
 behavior.
 [Local structlog reference](../libraries/logging/structlog.md) ·
-[Method logger](../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py) ·
+Method logger (`orchestrate/semantic.py`) ·
 [Database logger](../../python/corpus-structure/src/corpus_structure/core/db/store.py) ·
 [Receipt reader](../../scripts/test_receipts.py) ·
 [Structlog context](https://www.structlog.org/en/26.1.0/contextvars.html) ·

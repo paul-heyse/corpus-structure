@@ -1,5 +1,10 @@
 # M1 linguistic preparation and source contexts
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 > Historical predecessor design/checkpoint, retained 2026-11-04. Remaining scope is superseded by the [progressive enrichment series](../progressive-corpus-enrichment_2026-11-04.md#m1-transition-and-surviving-obligations). Targets and receipts below retain their original meanings; product execution remains stopped.
 
 **Target: Proposed; mixed implementation maturity · reconciled 2026-11-04.** This companion
@@ -45,7 +50,7 @@ views from the existing Docling/Nemotron path remain inputs. This work adds no a
 | [sentences.py](../../../python/corpus-structure/src/corpus_structure/ingest/sentences.py), `SentenceConfig`, `pipeline`, `TextLayout`, `prepare_layout`, `make_doc`, `split` | Reuse exact reconstruction, atom-preserving words/spaces, pinned model and process-resident loading. Sentence-only `split` keeps its narrow contract; `annotations.annotate` already streams richer `AnnotationProduct` columns and explicit availability through the resident pinned pipeline. Finish persisted/operation adoption and source-level qualification. |
 | [proposals.py](../../../python/corpus-structure/src/corpus_structure/semantic/proposals.py), `NativeFrameSource`, `NativeProposalFrame`, `native_frame_entries` | Retain source/product/projection/recipe pins and separate source spaces. The original frame preserves its ancestor restriction. `source_contexts.NativeSourceContext` and typed related-source retrieval already express neighbor/header/caption/note/declaration/reference relations. Reuse that extension with independently pinned same-product sources; do not relabel relations as ancestors. |
 | [analytics.py](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), `CapturedPacket`, `AnalysisScope` | Reuse scoped analytical input/Arrow ownership for bulk context relations and routing audits. Do not hydrate the whole corpus in Python to select small contexts. |
-| [semantic.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), `run_source_methods` | Preserve run/cut/source binding and terminal results. M1-06 supplies CPU admission; context construction does not create another task engine or its own pool. |
+| `orchestrate/semantic.py`, `run_source_methods` | Preserve run/cut/source binding and terminal results. M1-06 supplies CPU admission; context construction does not create another task engine or its own pool. |
 
 The focused foundation assessment favors extending the layout seam once: retokenizing per pack
 would multiply work and risk divergent formula/reference boundaries. It also favors source-piece

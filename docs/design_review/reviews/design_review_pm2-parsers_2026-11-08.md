@@ -1,5 +1,9 @@
 # Design review for the M2 private parser stage
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Accept scoped · Proposed · 2026-11-08.** Proceed with private, released
 HanLP frames and host candidates, Maverick mentions and memberships, and
 Dipo ordered trees and context references. Preserve provider coordinates and
@@ -46,7 +50,7 @@ existing validators for anchor and endpoint closure. Preserve per-scope
 success, empty, limited, unavailable and failed states separately from the
 examined source population. Reader selection uses the completed cut and
 explicit operation or task identity. Its one-result convenience method
-has different cardinality. [Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py#L26) ·
+has different cardinality. Claim adapter (`orchestrate/pm2.py:26`) ·
 [Contribution validation](../../../python/corpus-structure/src/corpus_structure/semantic/contributions.py#L69) ·
 [Source result cardinality](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302)
 
@@ -133,16 +137,16 @@ task owner limits reuse to completed or empty work with matching project,
 release, realization revision, runtime, method configuration, unit and
 input. The contribution Reader accepts explicit selected task identity.
 These are source findings. Fresh native inference, retained-result and reuse
-checks were `not_run` in this assessment. [Runner](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py) ·
+checks were `not_run` in this assessment. Runner (`orchestrate/pm2_stage.py`) ·
 [Task admission](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L267) ·
 [Contribution Reader](../../../python/corpus-structure/src/corpus_structure/serve/contributions.py#L122)
 
 | Review question | Observed implementation and remaining obligation |
 | --- | --- |
 | F01 · Authority and fidelity | HanLP validates UD trees, SRL role spans and ordered constituency yields before locating frames and cues. Maverick distinguishes detection and membership and preserves native coordinates in the report. Dipo validates an ordered binary tree and anchors each EDU independently. Products carry generic retained contribution values, with provider shape checks at the adapter. Released operation declarations cover family, tier and outcome. Release-owned payload shape and provider-specific consumer checks remain open. The existing strong definition witness stays under its original operation. [HanLP](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py) · [Maverick](../../../python/corpus-structure/src/corpus_structure/methods/pm2_maverick_products.py) · [Dipo](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dipo_products.py) · [Retained representation](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py#L283) |
-| F02 · Scope and reuse | A selected extent was checked at canonical token boundaries and then sentence-split independently. A token-aligned truncation can therefore appear as a complete canonical sentence or coherent pack. Authenticate against the complete view's prepared sentence boundaries. Verify separate task selections on one view, exact same-release reuse, changed inputs and forged source pins through the retained Reader. [Scope preparation](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py#L122) |
+| F02 · Scope and reuse | A selected extent was checked at canonical token boundaries and then sentence-split independently. A token-aligned truncation can therefore appear as a complete canonical sentence or coherent pack. Authenticate against the complete view's prepared sentence boundaries. Verify separate task selections on one view, exact same-release reuse, changed inputs and forged source pins through the retained Reader. Scope preparation (`orchestrate/pm2_stage.py:122`) |
 | F03 · Dipo paired custody | The paired path captures the actual reconstruction and bounds EDU mappings before building representations. It accepts reconstruction only when it is an exact selected substring and limits the diagnostic to that correspondence. Overlapping reconstructed token offsets are refused as location evidence while native tree structure remains inspectable. Verify reviewed and predicted arms independently, including a case with a projection change, and demonstrate the bounded sibling result from a committed tree. [Paired inference](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dispatched.py#L303) · [Range view](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dipo_products.py#L244) |
-| Recovery | Startup mismatch is scoped to the affected profile. A provider error frame terminates the resident worker, leaving later scopes of that profile unattempted. Malformed result shape can also escape conversion and interrupt later profiles. Keep provider result failures local to the affected task and preserve run recovery for infrastructure failure. Exercise a successful sibling after both startup and inference failure. [Worker error handling](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py#L198) · [Claim settlement](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py#L26) |
+| Recovery | Startup mismatch is scoped to the affected profile. A provider error frame terminates the resident worker, leaving later scopes of that profile unattempted. Malformed result shape can also escape conversion and interrupt later profiles. Keep provider result failures local to the affected task and preserve run recovery for infrastructure failure. Exercise a successful sibling after both startup and inference failure. [Worker error handling](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py#L198) · Claim settlement (`orchestrate/pm2.py:26`) |
 | Work and coverage | Guards bound the admitted text and native token or EDU work, and reuse of one resident worker amortizes setup. A HanLP batch that crosses a sentence or padded-token bound loses otherwise eligible sentences. Maverick and Dipo bounds refuse the full submitted scope. These refusals retain a reason. The planned fallback still needs complete supported subscopes and explicit unexamined cross-boundary coverage. [HanLP bounds](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp.py#L151) · [Maverick and Dipo bounds](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dispatched.py#L15) |
 
 The scoped design remains applicable. Keep recovery, canonical sentence
@@ -158,8 +162,8 @@ selected view, then refuses token-aligned truncation of a HanLP or Maverick
 sentence. It opens another worker for remaining claims when inference closes
 the current worker. Parser payload validation errors from a successful reply
 have a failed-result path with the rejected reply preserved. Native receipts
-still determine recovery and prepared-scope behavior. [Revised runner](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py) ·
-[Conversion settlement](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py)
+still determine recovery and prepared-scope behavior. Revised runner (`orchestrate/pm2_stage.py`) ·
+Conversion settlement (`orchestrate/pm2.py`)
 
 **Tested integration · 2026-11-08.** The installed book runner completed cut
 520. Two exact selections over one HanLP method and view returned different

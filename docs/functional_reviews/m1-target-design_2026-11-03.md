@@ -1,5 +1,9 @@
 # M1 target design and functional opportunities
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Proposed recommendations · 2026-11-03.** Functional, capability-led review under
 `functional-extension-review`; no diagnostic audit prerequisite or diagnostic acceptance claim.
 Original source baseline: `b8e1a020`, clean at initial inspection. Supplemental reassessment
@@ -30,7 +34,7 @@ The existing source is materially stronger than a greenfield extractor:
 | [observations.yaml](../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), [bind_result](../../python/corpus-structure/src/corpus_structure/semantic/observations.py) | Producer-bound immutable reports, linked inputs, coverage and measurements; current single-location fields do not establish M1 field-to-multiple-anchor semantics. |
 | [publication.py](../../python/corpus-structure/src/corpus_structure/semantic/publication.py), [consolidation.py](../../python/corpus-structure/src/corpus_structure/semantic/consolidation.py) | Multiple occurrence evidence/role rows and source-occurrence versus fact separation. Extend this spine rather than build family stores. |
 | [domain_operations.py](../../python/corpus-structure/src/corpus_structure/semantic/domain_operations.py), `consolidate_cut`; [inference.py](../../python/corpus-structure/src/corpus_structure/semantic/inference.py), `derive` | Policy-controlled publication and finite qualified rule closure. Candidate-level probabilistic interpretation is a separate new operation. |
-| [source runner](../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), [statistics policy](../../domains/statistics/policies.yaml) | Existing task/cut lifecycle and agent extraction route. A CPU-only policy and coordinated admission need implementation; resource declarations do not establish a parallel CPU scheduler. |
+| source runner (`orchestrate/semantic.py`), [statistics policy](../../domains/statistics/policies.yaml) | Existing task/cut lifecycle and agent extraction route. A CPU-only policy and coordinated admission need implementation; resource declarations do not establish a parallel CPU scheduler. |
 | [analytics.py](../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), `CapturedPacket`, `AnalysisScope` | Owned Arrow/DuckDB lifetime and execution scopes; useful foundations for candidate relations and component extraction. |
 | [query.py](../../python/corpus-structure/src/corpus_structure/semantic/query.py), [evaluation](../../python/corpus-structure/src/corpus_structure/evaluate/semantic.py) | Existing semantic queries and protected reference evaluation; current `agent_claims` report family does not establish five-family evaluation or record evidence export. |
 

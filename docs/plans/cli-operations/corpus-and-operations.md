@@ -1,5 +1,10 @@
 # Corpus journeys, production operations and adoption
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **Accepted target.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
 Owns CLI-06 through CLI-08. D6 owns run/task supervision, D3 owns target and purpose roles,
 D8 owns source/read/export interfaces and D9 owns developer and production tooling.
@@ -202,7 +207,7 @@ run supervisor. Route expected run refusals through the common typed output boun
 the existing-project writer route and incomplete/cancelled/ambiguous attempts.
 [Ingest adapter](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py#L414) ·
 [Regeneration](../../../python/corpus-structure/src/corpus_structure/cli/regenerate.py#L161) ·
-[Run supervisor](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py#L372)
+Run supervisor (`orchestrate/semantic.py:372`)
 
 **CLI-CA05 · Fitting prerequisites.** The installed fit route requires a protected evaluation
 before it can distinguish an unfit population. The retained WCE census establishes a particular

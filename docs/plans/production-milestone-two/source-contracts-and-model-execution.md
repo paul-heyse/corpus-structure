@@ -1,5 +1,10 @@
 # M2 source contracts and model execution
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **Private foundation tested; full qualification open · 2026-11-09.** Owns PM2-01 and PM2-02, realizing source review
 [O01](../../functional_reviews/production-milestone-two_2026-11-08.md#O01) and
 [O08](../../functional_reviews/production-milestone-two_2026-11-08.md#O08).
@@ -234,7 +239,7 @@ downstream policy. The changed allowed field produced a new task.
 [Native Reader and reuse receipt](../../design_review/evidence/2026-11-08_pm2-foundation/records/pm2.private-native-reader.json)
 [Source maps](../../../python/corpus-structure/src/corpus_structure/methods/pm2_source.py) ·
 [Result binding](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py) ·
-[Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py)
+Claim adapter (`orchestrate/pm2.py`)
 
 **Tested PM2-R01 remediation · 2026-11-09.** A native Reader control publishes an
 authored formula with a released exact original spelling that differs from the
@@ -253,7 +258,7 @@ scopes. Two successful child scopes preserve the failed-to-cover parent's bounds
 and identity. The detached bundle refuses coverage without worklist custody.
 
 **Open PM2-R01 refusal boundary · Source-inspected 2026-11-09.**
-The [PM2 scope preparer](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py)
+The PM2 scope preparer (`orchestrate/pm2_stage.py`)
 can raise a plain `ValueError` for an authenticated pin with an out-of-range
 extent before creating a run. The [parser CLI refusal boundary](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py)
 does not translate that exception to its typed JSON response. The live worklist

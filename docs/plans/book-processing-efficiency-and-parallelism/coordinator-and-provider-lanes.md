@@ -1,5 +1,10 @@
 # Coordinator and provider lanes
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **Captured-region and ordinary completion-driven frontiers are implemented at scoped evidence; shared GPU host cutover integrated; assembled qualification remains open (checkpoint2026-11-12).** Owns BEP-04/05. [Coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns scope and O03/O04/O07 disposition.
 
 ## Operator closeout checkpoint · 2026-11-12
@@ -48,7 +53,7 @@ Acceptance: compatible reuse, incompatible profile replacement, backpressure, re
 
 Input: working CPU kernels, provider lanes and early capacity contract. Output: bounded independent regional progress through the existing semantic dependencies, with exact task/run history and a single final composed view.
 
-Replace the sequential regional comprehension and synchronous claim/execute barriers in [characterization orchestration](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py) and [source execution](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py). Preserve ordinary standalone source execution through shared owned primitives rather than forking a book-only scheduler with duplicate semantics.
+Replace the sequential regional comprehension and synchronous claim/execute barriers in characterization orchestration (`orchestrate/characterization.py`) and source execution (`orchestrate/semantic.py`). Preserve ordinary standalone source execution through shared owned primitives rather than forking a book-only scheduler with duplicate semantics.
 
 Keep actual stage-run boundaries initially. A coordinator registers dependent tasks only after exact immutable predecessor pins exist and determine their configuration/input identity. Current same-run dependency admission does not implement a general cross-run DAG; no placeholder products or new durable queue are selected.
 

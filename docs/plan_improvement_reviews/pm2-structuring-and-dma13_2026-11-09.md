@@ -1,5 +1,9 @@
 # Improve Milestone Two structuring and qualification under DMA-13
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../README.md#historical-recovery); they are not current execution entrypoints.
+
 **2026-11-09 · Source-inspected; recommendations Proposed.** Reviewed the
 [PM2 coordinator](../plans/production-milestone-two_2026-11-08.md), its source/runtime,
 parser, interpretation, retrieval/delivery, learned extraction and assessment companions,
@@ -289,7 +293,7 @@ data. Neither is a PM2 staging dependency.
 Compare singleton with the [existing GLiNER microbatch worker](../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py)
 on compatible profile/schema/policy and mixed input lengths. Preserve per-window order,
 source maps, admission limits and outcomes. Compare healthy worker reuse across compatible
-fallback waves with current [wave custody](../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py).
+fallback waves with current wave custody (`orchestrate/pm2_stage.py`).
 Do not reuse after a failed worker or across an incompatible profile; preserve cancellation,
 claim settlement, exclusive GPU ownership and incumbent restoration. Measure throughput,
 peak memory and load counts with parity, refusal and recovery controls before claiming benefit.

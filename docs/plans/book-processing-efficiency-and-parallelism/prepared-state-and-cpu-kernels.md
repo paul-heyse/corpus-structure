@@ -1,5 +1,10 @@
 # Prepared state and CPU kernels
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **Shared preparation, pre-read admission and bounded CPU teardown are implemented at scoped evidence; native/assembled qualification remains pending (checkpoint2026-11-12).** Owns BEP-01–03 design; the [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns package state and O01/O02/O04 disposition.
 
 ## Operator closeout checkpoint · 2026-11-12
@@ -26,7 +31,7 @@ E05 does not authorize speculative memory diagnosis. This companion is not a sec
 
 ## Baseline and boundary
 
-The [demand owner](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py) calls full load_release for each natural region. The [release owner](../../../python/corpus-structure/src/corpus_structure/semantic/releases.py) distinguishes full current-compiler verification from historical open_release. [Layer validation](../../../python/corpus-structure/src/corpus_structure/semantic/characterization.py) recursively validates dependencies in a fresh context; report payload/reference access repeats decoding/hashing. Existing pure compilation/archive caches and selective source reads remain useful.
+The demand owner (`orchestrate/characterization.py`) calls full load_release for each natural region. The [release owner](../../../python/corpus-structure/src/corpus_structure/semantic/releases.py) distinguishes full current-compiler verification from historical open_release. [Layer validation](../../../python/corpus-structure/src/corpus_structure/semantic/characterization.py) recursively validates dependencies in a fresh context; report payload/reference access repeats decoding/hashing. Existing pure compilation/archive caches and selective source reads remain useful.
 
 BEP-01–03 change preparation lifetime and physical placement, preserving source and semantic authority. H12/H14/H18–20 favor carrying established immutable properties; H15–17 favor operation-shaped inputs with bounded lifetimes.
 

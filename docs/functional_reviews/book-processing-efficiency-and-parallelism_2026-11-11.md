@@ -1,5 +1,9 @@
 # Book-processing efficiency and parallelism
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Functional-extension review · 2026-11-11. Recommendations and benefits: Proposed.**
 
 ## Conclusion and scope
@@ -32,8 +36,8 @@ Paths below are relative to the source package linked in the table; line numbers
 
 | Responsibility | Current behavior and evidence |
 | --- | --- |
-| Regional orchestration | [orchestrate/characterization.py](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py), lines710–885: constructs natural-unit demands, executes them sequentially at810–824, then composes the document from retained layers. Each public demand calls full release loading at604. |
-| Source scheduler | [orchestrate/semantic.py](../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), lines761–784/1006–1040/1527–1551: singleton execution groups dominate; one claimed method executes synchronously. Native and formal evidence have no analytical predecessor edge, but run serially. |
+| Regional orchestration | `orchestrate/characterization.py`, lines710–885: constructs natural-unit demands, executes them sequentially at810–824, then composes the document from retained layers. Each public demand calls full release loading at604. |
+| Source scheduler | `orchestrate/semantic.py`, lines761–784/1006–1040/1527–1551: singleton execution groups dominate; one claimed method executes synchronously. Native and formal evidence have no analytical predecessor edge, but run serially. |
 | Release preparation | [semantic/releases.py](../../python/corpus-structure/src/corpus_structure/semantic/releases.py), lines491–584: open_release reads historical products without establishing admission; load_release rederives and compares inputs, archives, artifacts and projections. |
 | Resident resources | [methods/characterization_resources.py](../../python/corpus-structure/src/corpus_structure/methods/characterization_resources.py), lines66–94/181–259: one session slot per provider, ContextVar ownership and nonblocking refusal of concurrent borrowers. |
 | Parser deadlines | [methods/math/grammar.py](../../python/corpus-structure/src/corpus_structure/methods/math/grammar.py), lines467–519: process-main-thread SIGALRM deadlines. [Construction recognition](../../python/corpus-structure/src/corpus_structure/semantic/constructions/forest.py), lines652–678, reports unsupported off the main thread. Formal and scientific kernels share this constraint. |
@@ -108,7 +112,7 @@ Python's [process executor](https://docs.python.org/3.14/library/concurrent.futu
 | GLiNER | gliner_worker.py172–178 uses native batch_extract, but characterization submits singleton scopes for cues and functions. | Group compatible pack/profile/policy populations and update authentication/projection together. Exact batch envelope and member ordinal must survive. |
 | Maverick / DiPO | Separate native branches currently run serially. | Overlap separate lanes; batch only where each provider's actual interface preserves document/context semantics. |
 
-Sources: [native_evidence.py](../../python/corpus-structure/src/corpus_structure/methods/native_evidence.py), [pm2_hanlp.py](../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp.py), [model_characterization.py](../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py), [pm2_native.py](../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py), [gliner_worker.py](../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py), [contextual_characterization.py](../../python/corpus-structure/src/corpus_structure/methods/contextual_characterization.py).
+Sources: [native_evidence.py](../../python/corpus-structure/src/corpus_structure/methods/native_evidence.py), [pm2_hanlp.py](../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp.py), `methods/model_characterization.py`, [pm2_native.py](../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py), [gliner_worker.py](../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py), `methods/contextual_characterization.py`.
 
 GLiNER's whole-request digest includes its input population, while [classification projection](../../python/corpus-structure/src/corpus_structure/methods/pm2_gliner_classification.py), lines156–180, and semantic cue authentication currently expect singleton digests. Changing the tuple length alone breaks the contract. Retain batch-level provenance plus item association and settle whether membership/order changes prediction. Stable grouping or an explicit inference-identity change is required where batch membership affects results.
 

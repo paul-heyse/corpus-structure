@@ -1,5 +1,10 @@
 # Source evolution and model-driven migrations
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **DDO-03 preparation implemented; later caller/interface migrations Proposed · 2026-11-13.** Develops source-effect
 preparation in DDO-03, actual caller replacement in DDO-07/08, public model-update interfaces in
 DDO-10 and preservation/qualification in DDO-11/12. The
@@ -179,16 +184,21 @@ field nor an empty structural search proves that a runtime capability or caller 
 | DDO-11 | Preserve exact source/release/history custody and immutable native revisions; source updates do not bypass coordinated adoption. Retire current fallback machinery when actual consumers/references migrate, not by rewriting old evidence. |
 | DDO-12 | Include adopted transformations, actual migrated consumers, source/preview context and retirement in the applicable required union. Conditional catalogue entries are not automatically required cases. |
 
-The initial source inventory starts at
-[`orchestrate/semantic.py`](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py)
-(`method.select` in ordinary orchestration and agent proposal) and
-[`methods/m1_source.py`](../../../python/corpus-structure/src/corpus_structure/methods/m1_source.py)
-(`select_bound`, `select_bound_native`, `select_hydrated`). The native selection form consumes
-`connection, model, binding` plus keyword `demand_id`, `read_id`, `trust_snapshot`, `max_bytes`;
-the hydrated form consumes admitted inputs already acquired under that contract. Select the
-physical route from the caller's actual ownership and lifetime. Generic orchestrator syntax alone
-does not identify which method is bound; do not rewrite every `method.select` call to the M1 shape.
-The actual registry/declaration inventory supplies eligibility and the rest of the consumer set.
+The initial inventory recorded `orchestrate/semantic.py` (`method.select` in ordinary
+orchestration and agent proposal) and `methods/m1_source.py` (`select_bound`,
+`select_bound_native`, `select_hydrated`). These retired selectors describe the original
+migration baseline, recoverable through [Git history](../../README.md#historical-recovery).
+Current ordinary source choices enter through
+[`orchestrate/source_operation.py`](../../../python/corpus-structure/src/corpus_structure/orchestrate/source_operation.py),
+freeze the declared request through
+[`semantic/data_operation_service.py`](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py),
+and execute through
+[`orchestrate/data_operations.py`](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py).
+The [native consumer hydration owner](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_consumers.py)
+acquires the actual bound product/member inputs under their demand, read, trust and capacity
+context. Source migrations must preserve these declared role and ownership contracts;
+generic method-call syntax does not identify a producer or authorize an M1-specific rewrite.
+The admitted operation model supplies eligibility and the actual consumer set.
 
 DDO-03 establishes preparation before its public/operator consumers rely on it; the first finite
 DDO-07 migration supplies usable semantics before DDO-10 exposes the recurring capability.

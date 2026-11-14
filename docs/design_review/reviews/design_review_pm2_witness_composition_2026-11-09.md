@@ -1,5 +1,9 @@
 # PM2 witness and composition target review
 
+> Source references · 2026-11-14: retired paths below identify the implementation
+> examined here, with line numbers referring to that version. Recover those sources
+> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
+
 **Design/target · 2026-11-09 · source `efe5d2ca8`.** Independent design reviewer; operator-selected
 contracts and libraries focus. The diagnostic input is the PM2 parser audit refresh at
 `fb3709f4d43b697f6acc08d1fa6b783688343b83`. This static review covers declaration witnesses,
@@ -71,7 +75,7 @@ including a qualified part that survives sibling failure.
 **F04 · Ordinary release assembly (PM2-12).** The
 [retained reader](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py)
 authenticates archived producer meaning, while
-[interpretation preparation](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py)
+interpretation preparation (`orchestrate/pm2_stage.py`)
 also requires the selected project and release. Bind exact task, origin, cut, view, question
 and runtime in the existing dependency path; regenerate incompatible scopes. Prove bounded
 hydration and recovery through the ordinary release journey.

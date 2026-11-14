@@ -1,5 +1,10 @@
 # Consumer migration, native admission and ingest integration
 
+> Source references · 2026-11-14: retired paths below identify the recorded baseline,
+> with line numbers referring to that version. Recover them through [Git history](../../README.md#historical-recovery).
+> Current declared execution uses [the native executor](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+> and [the native demand service](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py).
+
 **Reopened by the 2026-11-12 completion audit: TC-09 is incomplete (TC-E08–E11).** The demand,
 ingest, view-binding, native-guard and detached-closure parts are implemented and were Tested on
 2026-11-11 source; the default `ci run` composition, three inventory rows and current-only
@@ -144,7 +149,7 @@ TC-10/11; a passing pure function test does not establish corpus quality.
 described here have since been replaced or extended under BEP (ADR-0083–0087); the coordinator's
 audit records that layering. `ci run characterize --request FILE`
 executes the typed `CharacterizationDemandRequest` from
-[the demand owner](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py).
+the demand owner (`orchestrate/characterization.py`).
 The request binds project, release, realization, domain, exact native base, original source scope
 and completed source references. Optional selected layers retain complete dependency closure;
 `active_layers` chooses the current analytical population. `run_missing: false` composes retained
