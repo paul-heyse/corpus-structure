@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.source-roots",
+  "title": "Authenticated selected source views under exact document roots",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can exact frozen source views be admitted under their authenticated whole-original-document root, and can existing purpose roles evaluate their compiled JSON field projections?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-source-roots/change.yaml --json",
+    "uv run ci model change candidate a091a7ab15b84de8aeef8242a7f49d74 --json",
+    "uv run ci model change inspect-candidate 9bcf858d930d4373a405eefef674578a --view operations --json",
+    "uv run ci model change inspect-candidate 9bcf858d930d4373a405eefef674578a --view sql --json",
+    "uv run ci model change register 9bcf858d930d4373a405eefef674578a --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable source-root successor",
+      "sha256": "cc03f0295d4116fafe23e995e869897e5152df08705a4ef12de0f0c4a0b384ee"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout hashes",
+      "sha256": "fc36ca2fc8a8422f353cfb7deabc2044a77a1f15cbc75cf98243558b7737117f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": "three body/descriptor changes plus one pure JSON helper ACL change"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and immutable registration passed for semantic_ddo_sources_v1 after semantic_ddo_acquire_v1. Admission authenticates the exact frozen selected view and an explicitly frozen whole-original-document root of the same actual original source; no root, selector or source identity is invented. Existing reader/writer/evaluator purposes receive EXECUTE on pure immutable JSON extraction helper data.ddo_field; protected tables and public grants remain unchanged. Authoring does not establish functional/provider qualification. No persistent deployment, activation or cutover occurred; persistent revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
