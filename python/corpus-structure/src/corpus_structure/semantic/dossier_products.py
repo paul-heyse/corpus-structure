@@ -476,11 +476,12 @@ class PreparedDossierInputs:
                 for member in self.members(role)
             )
 
+        (component_pin,) = pins("components")
         result = DeclaredDossierReport.model_validate(
             {
                 **value.model_dump(mode="python"),
                 "sources_input": pins("sources"),
-                "reports_input": pins("components"),
+                "components_input": component_pin,
                 "definitions_input": pins("definitions"),
                 "comparisons_input": pins("comparisons"),
                 "candidates_input": pins("candidates"),

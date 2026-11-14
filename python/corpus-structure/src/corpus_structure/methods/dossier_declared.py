@@ -255,7 +255,7 @@ class DossierOperation:
             },
             {
                 "output_role": "result",
-                "records": "/reports_input/0",
+                "records": "/components_input",
                 "input_role": "components",
                 "comparisons": [
                     {

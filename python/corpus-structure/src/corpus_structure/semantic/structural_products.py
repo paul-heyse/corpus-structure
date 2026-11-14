@@ -1377,7 +1377,7 @@ class DeclaredDossierReport(DeclaredStructuralProductReport):
     comparison: None = None
     condition_qualification: None = None
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+    components_input: DeclaredStructuralInputPin
     definitions_input: tuple[DeclaredStructuralInputPin, ...] = ()
     comparisons_input: tuple[DeclaredStructuralInputPin, ...] = ()
     candidates_input: tuple[DeclaredStructuralInputPin, ...] = ()
