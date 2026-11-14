@@ -46,6 +46,38 @@ class SeriesCandidate:
         return self.migration.upgrade_ops
 
 
+def intermediate_native_catalog(objects, predecessor, descriptor):
+    """Keep trigger staging ownership with the declared predecessor parent state."""
+    owners = {}
+    for item in predecessor:
+        if item.identity.kind == "trigger" and item.identity.relation is not None:
+            owners[item.identity.schema + "." + item.identity.relation] = (
+                item.catalog["owner"],
+                item.role_bindings,
+                item.binding_version,
+            )
+    for table in descriptor.get("tables", ()):
+        if table.get("owner") is not None:
+            owners[table["relation"]] = (table["owner"], (), 1)
+    for policy in descriptor.get("privileges", ()):
+        if policy["kind"] == "table" and policy.get("owner") is not None:
+            owners[policy["name"]] = (policy["owner"], (), 1)
+    result = []
+    for item in objects:
+        if item.identity.kind == "trigger" and item.identity.relation is not None:
+            parent = item.identity.schema + "." + item.identity.relation
+            if parent in owners:
+                owner, bindings, version = owners[parent]
+                item = replace(
+                    item,
+                    catalog_json=json.dumps({**item.catalog, "owner": owner}, sort_keys=True),
+                    role_bindings=bindings,
+                    binding_version=version,
+                )
+        result.append(item)
+    return tuple(result)
+
+
 def final_native_catalog(objects, policies):
     """Project derived trigger ownership after explicit table policy transitions.
 
@@ -61,11 +93,15 @@ def final_native_catalog(objects, policies):
             if parent in owners:
                 if owners[parent] is None:
                     raise NativeAuthoringError("declared parent table lacks its owner")
+                if item.role_bindings not in ((), (("$migration_owner", "sem_namespace_owner"),)):
+                    raise NativeAuthoringError("unresolved final trigger namespace binding")
                 item = replace(
                     item,
                     catalog_json=json.dumps(
                         {**item.catalog, "owner": owners[parent]}, sort_keys=True
                     ),
+                    role_bindings=(),
+                    binding_version=1,
                 )
         result.append(item)
     return tuple(result)
@@ -2110,7 +2146,14 @@ def _prepare_series_authoring(
         owned_authoring=owned_authoring,
         check_plpgsql=checked_functions,
     )
-    return authoring
+    from .source_view_native import _admission_descriptor
+
+    return replace(
+        authoring,
+        desired=intermediate_native_catalog(
+            authoring.desired, authoring.predecessor, _admission_descriptor(source.admission)
+        ),
+    )
 
 
 def _physical_check_contract(connection, target_metadata, authoring):

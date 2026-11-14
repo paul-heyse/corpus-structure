@@ -471,12 +471,45 @@ def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_ba
         # The native transition's intermediate owner is still the actual predecessor table owner.
         assert authoring.desired[0].expected_catalog(conn)["owner"] == original_owner
         admit_native(conn, authoring.desired)
-        final = final_native_catalog(authoring.desired, [policy])
+        from dataclasses import replace
+
+        original_trigger = authoring.desired[0]
+        # Real legacy task triggers use the v2 namespace-owner binding profile.
+        historical = replace(
+            original_trigger,
+            catalog_json=json.dumps({**original_trigger.catalog, "owner": "$migration_owner"}),
+            role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+            binding_version=2,
+        )
+        final = final_native_catalog((historical,), [policy])
         trigger_obj = next(obj for obj in final if obj.identity.kind == "trigger")
         assert trigger_obj.catalog["owner"] == "corpus_sem_publisher"
+        assert trigger_obj.role_bindings == () and trigger_obj.binding_version == 1
         Operations(MigrationContext.configure(conn)).invoke(
             PrivilegeTransitionOp(None, policy, normalization=True)
         )
         admit_native(conn, final)
         admit_privileges(conn, [policy])
+        # On the next head, frozen literal parent ownership governs intermediate
+        # expectations too; an old source namespace token cannot invent a change.
+        from types import SimpleNamespace
+
+        from corpus_structure.semantic.alembic_native import compare_native
+        from corpus_structure.semantic.native_candidate import intermediate_native_catalog
+        from corpus_structure.semantic.native_objects import NativeAuthoring
+
+        next_desired = intermediate_native_catalog((historical,), final, {"privileges": [policy]})
+        assert next_desired[0].catalog["owner"] == "corpus_sem_publisher"
+        next_ops = ops.UpgradeOps([])
+        compare_native(
+            SimpleNamespace(
+                connection=conn,
+                migration_context=SimpleNamespace(
+                    opts={"native_authoring": NativeAuthoring(next_desired, final)}
+                ),
+            ),
+            next_ops,
+            {schema},
+        )
+        assert next_ops.is_empty()
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
