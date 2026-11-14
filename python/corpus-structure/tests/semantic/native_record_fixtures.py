@@ -659,7 +659,7 @@ def _record_source_draft(
     )
 
 
-def publish_record_source(release, draft, writer, directory):
+def publish_record_source(release, draft, writer, directory, *, admin):
     """Publish the native source and views, completing the internal source claim."""
     project_id, realization, prepared = release.project_id, release.realization, release.prepared
     original, recipe, doc = draft.original, draft.recipe, draft.document
@@ -708,6 +708,31 @@ def publish_record_source(release, draft, writer, directory):
     )
     product = prepare_pdf_product(payload, original, native_schema, recipe)
     writer = commit_writer_engine
+    # Test-only legacy dimensions and task creation are seed prerequisites.
+    # Claims and source publication retain the restricted native writer boundary.
+    method = SimpleNamespace(
+        name="private.source",
+        version="1",
+        family="ingest",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type="document",
+        Config=create_model("PrivateSourceConfig"),
+    )
+    path = tmp_path / "source.pdf"
+    path.write_bytes(original)
+    with admin.begin() as connection:
+        config = record_method(
+            connection, method, "default", {}, "private-source-config", prepared=prepared
+        )
+        document = register_document(
+            connection,
+            project_id=project_id,
+            source_uri="source.pdf",
+            original_path=str(path),
+            original=original,
+            mime="application/pdf",
+        )
     with writer.begin() as conn:
         run = create_run(
             conn,
@@ -717,28 +742,7 @@ def publish_record_source(release, draft, writer, directory):
             options={},
             code_commit="private-records-test",
         )
-        method = SimpleNamespace(
-            name="private.source",
-            version="1",
-            family="ingest",
-            tier="deterministic",
-            confidence_source=None,
-            unit_type="document",
-            Config=create_model("PrivateSourceConfig"),
-        )
-        config = record_method(
-            conn, method, "default", {}, "private-source-config", prepared=prepared
-        )
-        path = tmp_path / "source.pdf"
-        path.write_bytes(original)
-        document = register_document(
-            conn,
-            project_id=project_id,
-            source_uri="source.pdf",
-            original_path=str(path),
-            original=original,
-            mime="application/pdf",
-        )
+    with admin.begin() as conn:
         source_task = create_task(
             conn,
             run_id=run,
@@ -749,6 +753,7 @@ def publish_record_source(release, draft, writer, directory):
             unit_key="source.pdf",
             input_hash=sha256(original).hexdigest(),
         )
+    with writer.begin() as conn:
         claim = claim_tasks(conn, run_id=run, config_id=config, holder="private-source")[0]
         store_pdf_original(
             conn,
@@ -859,23 +864,24 @@ def publish_record_source(release, draft, writer, directory):
 
 
 def create_record_source_task(
-    source, *, record_method_spec=None, record_configuration_hash="private-config"
+    source, *, admin, record_method_spec=None, record_configuration_hash="private-config"
 ):
     """Create one unclaimed record invocation: the reusable scenario seed boundary."""
-    writer, prepared, run, view = source.writer, source.prepared, source.run, source.view
-    with writer.begin() as conn:
-        record_method_ = record_method_spec or SimpleNamespace(
-            name="private.records",
-            version="1",
-            family="record",
-            tier="deterministic",
-            confidence_source=None,
-            unit_type=TaskUnitType.SOURCE_VIEW,
-            Config=create_model("PrivateRecordConfig"),
-        )
+    prepared, run, view = source.prepared, source.run, source.view
+    record_method_ = record_method_spec or SimpleNamespace(
+        name="private.records",
+        version="1",
+        family="record",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type=TaskUnitType.SOURCE_VIEW,
+        Config=create_model("PrivateRecordConfig"),
+    )
+    with admin.begin() as connection:
         record_config = record_method(
-            conn, record_method_, "default", {}, record_configuration_hash, prepared=prepared
+            connection, record_method_, "default", {}, record_configuration_hash, prepared=prepared
         )
+    with admin.begin() as conn:
         task = create_task(
             conn,
             run_id=run,
@@ -931,9 +937,10 @@ def build_record_source(
     release = persist_record_source(
         admin, draft.preparation, project_id=project_id, existing_project=existing_project
     )
-    published = publish_record_source(release, draft, writer, directory)
+    published = publish_record_source(release, draft, writer, directory, admin=admin)
     source = create_record_source_task(
         published,
+        admin=admin,
         record_method_spec=record_method_spec,
         record_configuration_hash=record_configuration_hash,
     )

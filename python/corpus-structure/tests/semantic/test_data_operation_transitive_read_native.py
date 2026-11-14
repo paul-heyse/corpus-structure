@@ -88,6 +88,19 @@ def _demand(kernel, entry, *, source, operation, inference, subject=None, scope=
     return demand, page, ready
 
 
+def _retain_ready(kernel, ready):
+    binding = json.loads(ready.binding)
+    fence = claim(kernel, json.loads(ready.native))
+    intent = retain(
+        kernel,
+        fence,
+        mutate=lambda completion: completion.update(
+            inputs=binding["inputs"], support=binding["support"]
+        ),
+    )
+    return fence, intent
+
+
 @pytest.mark.db
 @pytest.mark.parametrize("ddo_kernel", [CHAIN], indirect=True, ids=["three-scopes"])
 def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition(ddo_kernel):
@@ -109,6 +122,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
         operation=DOWNSTREAM,
         inference="consume:A",
     )
+    fence_a, intent_a = _retain_ready(ddo_kernel, ready_a)
     # Scope C is not a root or direct frozen SourceSet in A; it is required solely
     # by B's authentic support. Stable continuation must retain the same read.
     with ddo_kernel["engine"].begin() as connection:
@@ -128,6 +142,10 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
                 "reason": "transitive upstream withdrawal",
             },
         )
+    with pytest.raises(DBAPIError, match=r"support|revoked"):
+        publish(ddo_kernel, fence_a, intent_a)
+    with ddo_kernel["engine"].connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
     with ddo_kernel["engine"].begin() as connection:
         with (
             pytest.raises(DBAPIError, match="pins or current trust differ"),
@@ -146,8 +164,16 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
             )
             == ()
         )
-    with pytest.raises(DBAPIError, match=r"support|revoked"):
-        _complete_ready(ddo_kernel, ready_a)
+    with ddo_kernel["engine"].begin() as connection:
+        denied = DataOperationStorage(connection).invoke(
+            "claim_data_request",
+            {
+                "request_id": json.loads(ready_a.native)["request_id"],
+                "holder": "after-revocation",
+                "lease_seconds": 30,
+            },
+        )
+        assert denied == {"state": "no-work"}
     # A new C event after revocation has the same support scope at nonzero epoch;
     # fresh B/A requests must carry it rather than fail containment as incomplete.
     _, _, _, fresh_request = attach(
@@ -265,6 +291,7 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
         operation=REBOUND_DOWNSTREAM,
         inference="inspect-rebound:A",
     )
+    fence_d, intent_d = _retain_ready(ddo_kernel, ready_d)
     with ddo_kernel["engine"].begin() as connection:
         scope_c = connection.scalar(text("SELECT ops.ddo_scope('ddo-test','source:C')"))
         locked = connection.scalar(
@@ -282,6 +309,10 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
                 "reason": "withdraw selected replacement support",
             },
         )
+    with pytest.raises(DBAPIError, match=r"support|revoked"):
+        publish(ddo_kernel, fence_d, intent_d)
+    with ddo_kernel["engine"].connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 4
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         with (
@@ -292,5 +323,13 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
         current = planner.resume(demand_d["demand_id"])
         assert current["trust_snapshot"][scope_c] == 1
         assert planner.ready(current, authorization=b"{}") == ()
-    with pytest.raises(DBAPIError, match=r"support|revoked"):
-        _complete_ready(ddo_kernel, ready_d)
+    with ddo_kernel["engine"].begin() as connection:
+        denied = DataOperationStorage(connection).invoke(
+            "claim_data_request",
+            {
+                "request_id": json.loads(ready_d.native)["request_id"],
+                "holder": "after-rebound-revocation",
+                "lease_seconds": 30,
+            },
+        )
+        assert denied == {"state": "no-work"}

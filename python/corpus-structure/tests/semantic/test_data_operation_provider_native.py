@@ -64,7 +64,7 @@ def _profile_recipe():
         }
     ]
     consumer = next(op for op in document["operations"] if op["id"] == CONSUMER)
-    consumer["roles"][0]["support"]["identity_requirements"] = ["provider"]
+    consumer["roles"][0]["support"]["identity_requirements"] = ["episode", "provider"]
     manifest = yaml.safe_load(PINNED.manifest_text)
     manifest["python"] = {
         "sources": [],
@@ -173,7 +173,7 @@ def _unprofiled_recipe():
     consumer = next(
         operation for operation in document["operations"] if operation["id"] == CONSUMER
     )
-    consumer["roles"][0]["support"]["identity_requirements"] = ["provider"]
+    consumer["roles"][0]["support"]["identity_requirements"] = ["episode", "provider"]
     return replace(
         PINNED,
         name="missing-producing-provider-custody",
