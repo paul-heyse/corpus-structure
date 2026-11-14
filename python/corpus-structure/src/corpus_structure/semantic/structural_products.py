@@ -14,6 +14,14 @@ from pydantic import Field, model_validator
 from .artifact_identity import ArtifactIdentityProduct
 from .characterization import AnnotationReference
 from .contextual_links import RetainedRelationshipDecisionRef
+from .declared_structural_references import (
+    DeclaredComponentRef,
+    DeclaredContributionRef,
+    DeclaredProductRef,
+    DeclaredRelationshipRef,
+    DeclaredStructuralRef,
+    DeclaredStructuralSource,
+)
 from .identity import canonical_bytes
 from .retained_contributions import RetainedContributionRef
 from .structural_base import StructuralValue
@@ -89,7 +97,7 @@ class StructuralInput(StructuralValue):
     scope: Nonempty
     inventory_id: Nonempty
     policy_id: Nonempty
-    sources: tuple[ExternalSourceRef, ...] = Field(min_length=1)
+    sources: tuple[ExternalSourceRef | DeclaredStructuralSource, ...] = Field(min_length=1)
     passages: tuple[StructuralPassage, ...] = Field(min_length=1)
     dependencies: tuple[Nonempty, ...] = Field(min_length=1)
     exclusions: tuple[StructuralExclusion, ...] = ()
@@ -144,7 +152,7 @@ class RetainedStructuralRef(StructuralValue):
 
 
 class RetainedDefinitionRoleRef(StructuralValue):
-    report: RetainedStructuralRef
+    report: RetainedStructuralRef | DeclaredStructuralRef
     role: Literal["term", "content"]
     envelope: Digest
     index: Annotated[int, Field(strict=True, ge=0)]
@@ -194,7 +202,7 @@ class DeclarationChainWitness(StructuralValue):
     """One retained HanLP role population and its exact local declaration bindings."""
 
     version: Literal["definition-declaration-chain-1", "definition-declaration-chain-2"]
-    parser: RetainedContributionRef | None = Field(
+    parser: RetainedContributionRef | DeclaredContributionRef | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     primary_evidence: tuple[AnnotationReference, ...] = Field(
@@ -333,7 +341,7 @@ class DefinitionComponentsProduct(StructuralValue):
 
 class ClauseFocusSelection(StructuralValue):
     passage_id: Nonempty
-    frame: RetainedContributionRef
+    frame: RetainedContributionRef | DeclaredContributionRef
 
 
 class ClauseModelLabel(StructuralValue):
@@ -385,8 +393,8 @@ DefinitionOutcome = Literal[
 
 class StructuralDefinitionReading(StructuralValue):
     target_id: Nonempty
-    component_ref: RetainedComponentRef
-    link_ref: RetainedRelationshipDecisionRef
+    component_ref: RetainedComponentRef | DeclaredComponentRef
+    link_ref: RetainedRelationshipDecisionRef | DeclaredRelationshipRef
     component: LocatedDefinitionComponent
     outcome: DefinitionOutcome
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
@@ -679,8 +687,8 @@ class ComparisonProduct(StructuralValue):
     left_id: Nonempty
     right_id: Nonempty
     dimensions: tuple[DimensionComparison, ...]
-    left_reading: RetainedContributionRef | None = None
-    right_reading: RetainedContributionRef | None = None
+    left_reading: RetainedContributionRef | DeclaredContributionRef | None = None
+    right_reading: RetainedContributionRef | DeclaredContributionRef | None = None
     left_focus: LocatedDefinitionSpan | None = None
     right_focus: LocatedDefinitionSpan | None = None
     equivalence: Literal["not_asserted"] = "not_asserted"
@@ -751,8 +759,8 @@ class DossierDependency(StructuralValue):
 class DossierComparisonSelection(StructuralValue):
     comparison_product_id: Nonempty
     side: Literal["left", "right"]
-    relationship_ref: RetainedRelationshipDecisionRef
-    applicability_ref: RetainedStructuralRef | None = Field(
+    relationship_ref: RetainedRelationshipDecisionRef | DeclaredRelationshipRef
+    applicability_ref: RetainedStructuralRef | DeclaredStructuralRef | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     conflict_passage_id: Nonempty | None = Field(
@@ -761,18 +769,18 @@ class DossierComparisonSelection(StructuralValue):
 
 
 class DossierComparisonBinding(StructuralValue):
-    comparison_ref: RetainedStructuralRef
+    comparison_ref: RetainedStructuralRef | DeclaredStructuralRef
     side: Literal["left", "right"]
-    relationship_ref: RetainedRelationshipDecisionRef
+    relationship_ref: RetainedRelationshipDecisionRef | DeclaredRelationshipRef
     relationship: Literal["denotes", "defined-by", "specializes"]
-    root: RetainedComponentRef
-    source: ExternalSourceRef
+    root: RetainedComponentRef | DeclaredComponentRef
+    source: ExternalSourceRef | DeclaredStructuralSource
     citation: LocatedDefinitionSpan
     occurrence: tuple[LocatedDefinitionSpan, ...] = Field(min_length=1)
     comparison: ComparisonProduct
-    opposite_source: ExternalSourceRef
+    opposite_source: ExternalSourceRef | DeclaredStructuralSource
     opposite_citation: LocatedDefinitionSpan
-    applicability_ref: RetainedStructuralRef | None = Field(
+    applicability_ref: RetainedStructuralRef | DeclaredStructuralRef | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     conflict_evidence: LocatedDefinitionSpan | None = Field(
@@ -810,7 +818,7 @@ class DossierMember(StructuralValue):
     definition_interpretation: DefinitionInterpretation | None = None
     applicability_outcome: DefinitionOutcome | None = None
     comparison_binding: DossierComparisonBinding | None = None
-    contribution_ref: RetainedContributionRef | None = None
+    contribution_ref: RetainedContributionRef | DeclaredContributionRef | None = None
     contribution_citations: tuple[DossierContributionCitation, ...] | None = None
     semantic_dependency: DossierDependency | None = None
     computation_dependencies: tuple[Nonempty, ...] | None = None
@@ -891,10 +899,10 @@ class DossierRepresentation(StructuralValue):
 
 class DossierProduct(StructuralValue):
     root_id: Nonempty
-    root_component: RetainedComponentRef | None = None
+    root_component: RetainedComponentRef | DeclaredComponentRef | None = None
     members: tuple[DossierMember, ...]
-    predecessors: tuple[RetainedStructuralRef, ...] = ()
-    contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
+    predecessors: tuple[RetainedStructuralRef | DeclaredStructuralRef, ...] = ()
+    contribution_predecessors: tuple[RetainedContributionRef | DeclaredContributionRef, ...] = ()
     comparison_selections: tuple[DossierComparisonSelection, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
@@ -983,7 +991,7 @@ class ConditionRoleCitation(StructuralValue):
 
 class ConditionQualificationProduct(StructuralValue):
     relation: Literal["condition", "assumption"]
-    attachment: RetainedContributionRef
+    attachment: RetainedContributionRef | DeclaredContributionRef
     effective_version: Nonempty | None = Field(default=None, exclude_if=lambda value: value is None)
     qualifier: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
     host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
@@ -1285,3 +1293,99 @@ class StructuralProductReport(StructuralValue):
                 )
             ).hexdigest()
         )
+
+
+class DeclaredStructuralInput(StructuralInput):
+    sources: tuple[DeclaredStructuralSource, ...] = Field(min_length=1)
+
+
+class DeclaredComparisonProduct(ComparisonProduct):
+    left_reading: DeclaredContributionRef
+    right_reading: DeclaredContributionRef
+
+
+class DeclaredDossierComparisonSelection(DossierComparisonSelection):
+    relationship_ref: DeclaredRelationshipRef
+    applicability_ref: DeclaredStructuralRef | None = None
+
+
+class DeclaredDossierComparisonBinding(DossierComparisonBinding):
+    comparison_ref: DeclaredStructuralRef
+    relationship_ref: DeclaredRelationshipRef
+    root: DeclaredComponentRef
+    source: DeclaredStructuralSource
+    comparison: DeclaredComparisonProduct
+    opposite_source: DeclaredStructuralSource
+    applicability_ref: DeclaredStructuralRef | None = None
+
+
+class DeclaredDossierMember(DossierMember):
+    comparison_binding: DeclaredDossierComparisonBinding | None = None
+    contribution_ref: DeclaredContributionRef | None = None
+
+
+class DeclaredDossierProduct(DossierProduct):
+    root_component: DeclaredComponentRef
+    members: tuple[DeclaredDossierMember, ...]
+    predecessors: tuple[DeclaredStructuralRef, ...] = ()
+    contribution_predecessors: tuple[DeclaredContributionRef, ...] = ()
+    comparison_selections: tuple[DeclaredDossierComparisonSelection, ...] = ()
+
+
+class DeclaredConditionQualificationProduct(ConditionQualificationProduct):
+    attachment: DeclaredContributionRef
+
+
+class DeclaredStructuralProductReport(StructuralProductReport):
+    """Current product body; historical task-addressed DTOs remain separate readers."""
+
+    inputs: DeclaredStructuralInput
+    kind: Literal["qualified_comparison", "dossier", "condition_qualification"]
+    comparison: DeclaredComparisonProduct | None = None
+    dossier: DeclaredDossierProduct | None = None
+    condition_qualification: DeclaredConditionQualificationProduct | None = None
+    definition_components: None = None
+    definition: None = None
+    artifact_identity: None = None
+    clause_classification: None = None
+    retrieval_report: None = None
+
+
+class DeclaredStructuralInputPin(DeclaredProductRef):
+    original_source: Nonempty
+    reference: Nonempty
+
+    @classmethod
+    def from_bound(cls, member, *, project):
+        value = DeclaredProductRef.from_bound(member, project=project)
+        return cls(
+            **value.model_dump(),
+            reference=canonical_bytes([member.product, member.member]).decode(),
+        )
+
+
+class DeclaredComparisonReport(DeclaredStructuralProductReport):
+    kind: Literal["qualified_comparison"] = "qualified_comparison"
+    comparison: DeclaredComparisonProduct
+    dossier: None = None
+    condition_qualification: None = None
+    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+    reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+
+
+class DeclaredDossierReport(DeclaredStructuralProductReport):
+    kind: Literal["dossier"] = "dossier"
+    dossier: DeclaredDossierProduct
+    comparison: None = None
+    condition_qualification: None = None
+    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+    reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+
+
+class DeclaredConditionReport(DeclaredStructuralProductReport):
+    kind: Literal["condition_qualification"] = "condition_qualification"
+    condition_qualification: DeclaredConditionQualificationProduct
+    comparison: None = None
+    dossier: None = None
+    source_input: DeclaredStructuralInputPin
+    report_input: DeclaredStructuralInputPin

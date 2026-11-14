@@ -591,14 +591,23 @@ def read_retained_clause(
     frame = rows[component["frame"]]
     frame_component = frame.get("component", {})
     pin = reading["pin"]
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+
+    source_matches = (
+        source.matches_pin(pin)
+        if isinstance(source, DeclaredStructuralSource)
+        else (
+            pin.get("source_view_id") == source.source_view_id
+            and pin.get("product_digest") == source.native_content_digest
+            and pin.get("native_product_task_id") == source.native_task_id
+            and pin.get("projection_digest") == source.projection_digest
+            and pin.get("recipe_digest") == source.recipe_digest
+        )
+    )
     if (
         frame_component.get("kind") != "predicate_frame"
         or frame["pin"] != pin
-        or pin.get("source_view_id") != source.source_view_id
-        or pin.get("product_digest") != source.native_content_digest
-        or pin.get("native_product_task_id") != source.native_task_id
-        or pin.get("projection_digest") != source.projection_digest
-        or pin.get("recipe_digest") != source.recipe_digest
+        or not source_matches
         or any(
             part.get("scope") != passage.passage_id
             or part.get("effective_version") != passage.effective_version
@@ -856,7 +865,17 @@ def select_dossier(
 
 def dossier_root(reference, retained) -> LocatedDefinitionComponent:
     """Resolve a provisional sense against the exact selected producer result."""
-    selected_ref = RetainedStructuralRef.model_validate(
+    from corpus_structure.semantic.declared_structural_references import (
+        DeclaredComponentRef,
+        DeclaredStructuralRef,
+    )
+
+    selected_type = (
+        DeclaredStructuralRef
+        if isinstance(reference, DeclaredComponentRef)
+        else RetainedStructuralRef
+    )
+    selected_ref = selected_type.model_validate(
         reference.model_dump(
             exclude={"component_id", "operation_id", "operation_version", "dependencies"}
         )
@@ -866,7 +885,7 @@ def dossier_root(reference, retained) -> LocatedDefinitionComponent:
             continue
         report = StructuralProductReport.model_validate(payload["report"])
         if (
-            report.product_id == ref.product_id
+            report.product_id == getattr(ref, "structural_id", ref.product_id)
             and report.definition_components is not None
             and report.inputs.dependencies == reference.dependencies
         ):
@@ -1075,7 +1094,7 @@ def derive_dossier_members(
         ref: report for ref, _, report in parsed if report.kind == "definition_applicability"
     }
     for reference, payload, report in parsed:
-        if report.product_id != reference.product_id:
+        if report.product_id != getattr(reference, "structural_id", reference.product_id):
             raise ValueError("retained predecessor product substituted")
         if report.product_id not in inputs.dependencies:
             raise ValueError("dossier predecessor outside declared dependencies")
@@ -1277,6 +1296,105 @@ def derive_dossier_members(
     if selections:
         raise ValueError("comparison selection lacks its declared retained predecessor")
     return tuple(members), tuple(facets)
+
+
+def produce_structural_comparison(
+    inputs,
+    *,
+    left_id,
+    right_id,
+    left_reading,
+    right_reading,
+    left_retained,
+    right_retained,
+    primary_layers,
+    predicate_version="6",
+    check_active=lambda: None,
+) -> StructuralProductReport:
+    """Compose exact selected source/read inventories without acquiring a Reader."""
+    passages = {passage.passage_id: passage for passage in inputs.passages}
+    sources = {source.identity: source for source in inputs.sources}
+    sides = []
+    for passage_id, reference, retained in (
+        (left_id, left_reading, left_retained),
+        (right_id, right_reading, right_retained),
+    ):
+        check_active()
+        passage = passages[passage_id]
+        sides.append(
+            read_retained_clause(
+                passage,
+                sources[passage.source_ref],
+                reference,
+                retained,
+                predicate_version=predicate_version,
+                primary_layers=primary_layers,
+            )
+        )
+    return compare_clauses(
+        inputs,
+        left=sides[0],
+        right=sides[1],
+        left_reading=left_reading,
+        right_reading=right_reading,
+        typed_groups=True,
+        primary_layers=primary_layers,
+    )
+
+
+def produce_structural_dossier(
+    inputs,
+    *,
+    root_component,
+    root,
+    retained,
+    relationships,
+    contribution_retained=(),
+    comparison_selections=(),
+    member_budget=12,
+    policy="supported-facet-greedy-1",
+    check_active=lambda: None,
+) -> StructuralProductReport:
+    """Resolve the selected immutable predecessor closure before representation."""
+    check_active()
+    if dossier_root(root_component, retained) != root:
+        raise ValueError("dossier root differs from its selected component")
+    members, facets = derive_dossier_members(
+        inputs,
+        retained,
+        root=root,
+        root_ref=root_component,
+        comparison_selections=comparison_selections,
+        relationships=relationships,
+        require_comparison_focus=True,
+    )
+    from .dossier_contributions import derive_contribution_members
+
+    source_members = []
+    for reference, payload in contribution_retained:
+        check_active()
+        source_members.extend(derive_contribution_members(inputs, reference, payload, root=root))
+    return select_dossier(
+        inputs,
+        root_id=root.component_id,
+        root_component=root_component,
+        members=(*members, *source_members),
+        supported_facets=facets,
+        predecessors=tuple(reference for reference, _ in retained),
+        contribution_predecessors=tuple(reference for reference, _ in contribution_retained),
+        comparison_selections=comparison_selections,
+        member_budget=member_budget,
+        policy=policy,
+    )
+
+
+def produce_condition_qualification(inputs, *, attachment, retained) -> StructuralProductReport:
+    """Qualify only the exact retained source-supported directed attachment."""
+    return StructuralProductReport(
+        kind="condition_qualification",
+        inputs=inputs,
+        condition_qualification=condition_qualification(inputs, attachment, retained),
+    )
 
 
 class StructuralComparisonConfig(StructuralValue):
@@ -1642,29 +1760,17 @@ class StructuralComparisonMethod:
                     source.source_view_id, families=("formal.lexical", "formal.threshold")
                 )
             )
-        passages = {p.passage_id: p for p in cfg.inputs.passages}
-        sources = {source.identity: source for source in cfg.inputs.sources}
-
-        def side(passage_id, reference):
-            ctx.check_active()
-            passage = passages[passage_id]
-            return read_retained_clause(
-                passage,
-                sources[passage.source_ref],
-                reference,
-                ctx.reader.retained_source_contribution(reference),
-                predicate_version=self.predicate_version,
-                primary_layers=primary,
-            )
-
-        report = compare_clauses(
+        report = produce_structural_comparison(
             cfg.inputs,
-            left=side(cfg.left_id, cfg.left_reading),
-            right=side(cfg.right_id, cfg.right_reading),
+            left_id=cfg.left_id,
+            right_id=cfg.right_id,
             left_reading=cfg.left_reading,
             right_reading=cfg.right_reading,
-            typed_groups=True,
+            left_retained=ctx.reader.retained_source_contribution(cfg.left_reading),
+            right_retained=ctx.reader.retained_source_contribution(cfg.right_reading),
             primary_layers=primary,
+            predicate_version=self.predicate_version,
+            check_active=ctx.check_active,
         )
         return tuple(
             UnitResult(
@@ -1762,36 +1868,23 @@ class StructuralDossierMethod:
             if reference not in relationships:
                 ctx.check_active()
                 relationships[reference] = ctx.reader.retained_relationship_decision(reference)
-        members, facets = derive_dossier_members(
-            cfg.inputs,
-            retained,
-            root=root,
-            root_ref=cfg.root_component,
-            comparison_selections=cfg.comparison_selections,
-            relationships=relationships,
-            require_comparison_focus=True,
-        )
-        from .dossier_contributions import derive_contribution_members
-
-        source_members = []
+        contribution_retained = []
         for reference in cfg.contribution_predecessors:
             ctx.check_active()
-            payload = ctx.reader.retained_source_contribution(reference)
-            source_members.extend(
-                derive_contribution_members(cfg.inputs, reference, payload, root=root)
+            contribution_retained.append(
+                (reference, ctx.reader.retained_source_contribution(reference))
             )
-        members = (*members, *source_members)
-        report = select_dossier(
+        report = produce_structural_dossier(
             cfg.inputs,
-            root_id=root.component_id,
             root_component=cfg.root_component,
-            members=members,
-            supported_facets=facets,
-            predecessors=cfg.predecessors,
-            contribution_predecessors=cfg.contribution_predecessors,
+            root=root,
+            retained=tuple(retained),
+            relationships=relationships,
+            contribution_retained=tuple(contribution_retained),
             comparison_selections=cfg.comparison_selections,
             member_budget=cfg.member_budget,
             policy=cfg.policy,
+            check_active=ctx.check_active,
         )
         return tuple(
             UnitResult(
@@ -1898,17 +1991,23 @@ def condition_qualification(inputs, attachment, retained):
         raise ValueError("condition host requires its complete declared predicate member")
 
     pin = relation["pin"]
-    (source,) = (
-        source
-        for source in inputs.sources
-        if source.project_id == attachment.project_id
-        and source.source_view_id == pin["source_view_id"]
-        and source.native_task_id == pin["native_product_task_id"]
-        and source.native_product_key == pin["product_key"]
-        and source.native_content_digest == pin["product_digest"]
-        and source.projection_digest == pin["projection_digest"]
-        and source.recipe_digest == pin["recipe_digest"]
-    )
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+
+    def selected_source(source):
+        if source.project_id != attachment.project_id:
+            return False
+        if isinstance(source, DeclaredStructuralSource):
+            return source.matches_pin(pin)
+        return (
+            source.source_view_id == pin["source_view_id"]
+            and source.native_task_id == pin["native_product_task_id"]
+            and source.native_product_key == pin["product_key"]
+            and source.native_content_digest == pin["product_digest"]
+            and source.projection_digest == pin["projection_digest"]
+            and source.recipe_digest == pin["recipe_digest"]
+        )
+
+    (source,) = (source for source in inputs.sources if selected_source(source))
     (projection,) = (row["projection"] for row in retained["sources"] if row["pin"] == pin)
 
     def locations(row):
@@ -1993,10 +2092,8 @@ class ConditionQualificationMethod:
         if cfg.attachment.release_id != ctx.reader.prepared.release_id:
             raise ValueError("condition attachment belongs to another release")
         retained = ctx.reader.retained_source_contribution(cfg.attachment)
-        report = StructuralProductReport(
-            kind="condition_qualification",
-            inputs=cfg.inputs,
-            condition_qualification=condition_qualification(cfg.inputs, cfg.attachment, retained),
+        report = produce_condition_qualification(
+            cfg.inputs, attachment=cfg.attachment, retained=retained
         )
         return tuple(
             UnitResult(
