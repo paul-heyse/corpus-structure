@@ -944,7 +944,7 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
             name=name,
             source="native claim:forward",
         )
-        for name in ("claim_tasks", "renew_claim")
+        for name in ("begin_run", "claim_tasks", "renew_claim")
     )
     from .native_consumer_native import (
         native_task_completion_sql,
@@ -2191,6 +2191,7 @@ def _prepare_series_authoring(
         for item in data_operation_native_definitions(connection, target_metadata=target_metadata)
         if item.identity.kind == "function"
     ) | {
+        NativeIdentity("function", "ops", "begin_run", ("bigint",)),
         # This adjacent guard authenticates both legacy and runless PDF source
         # ownership before DDO factual support can be retained.
         NativeIdentity("function", "ops", "require_pdf_stage_owner", ("bigint", "bigint", "text")),
