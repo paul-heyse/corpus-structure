@@ -1505,6 +1505,9 @@ def compile_data_operations(
 
             if not isinstance(member, griffe.Function):
                 _fail(semantic_id, "captured capability is not an original method")
+            # Griffe resolves the exposed inherited name to its actual supplier.
+            # Runtime custody inspects that supplier's captured syntax and code.
+            entrypoint = member.path
             source = frontend.modules[frontend._module_for(entrypoint)].source
             return ConsumerSelectionCapability(entrypoint, sha256(source.content).hexdigest())
 
