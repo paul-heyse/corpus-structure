@@ -27,7 +27,7 @@ app = typer.Typer(help="Create, inspect and cancel immutable native demands.", n
 
 
 @contextmanager
-def _open_engine(settings, *, purpose: Literal["read", "write"]) -> Generator:
+def _open_engine(settings, *, purpose: Literal["read", "write", "admit"]) -> Generator:
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with open_runtime_engine(settings, "ci-demands", purpose=purpose) as engine:

@@ -1226,7 +1226,11 @@ def _widen_contexts(
                 )
                 if enclosure is not None:
                     pointer, span, outcome, reason = enclosure
-                    if span is not None and isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(*span):
+                    if (
+                        span is not None
+                        and isinstance(frame, DeclaredNativeFrameSource)
+                        and not frame.contains_span(*span)
+                    ):
                         span = None
                         outcome = RetrievalOutcome.MISSING_SCOPE
                         reason = "whole nearest native enclosure exceeds selected source scope"
@@ -1287,7 +1291,13 @@ def _widen_contexts(
                 # projection intervals. Context serialization consumes those too.
                 target_count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
                 if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(a, b):
-                    local_dispositions.append((target, "missing_scope", "whole local native context exceeds selected source scope"))
+                    local_dispositions.append(
+                        (
+                            target,
+                            "missing_scope",
+                            "whole local native context exceeds selected source scope",
+                        )
+                    )
                     continue
                 if already_consumed(a, b):
                     local_dispositions.append((target, "selected", "already in primary context"))
@@ -1376,8 +1386,14 @@ def _widen_contexts(
             outcome, terminal = result.outcome, result.terminal_reason
             for source in result.sources:
                 declared_frame = source if isinstance(source, DeclaredNativeFrameSource) else None
-                identity = declared_frame.source_key if declared_frame is not None else source.ref.id
-                source_pieces = declared_frame.inspectable_pieces if declared_frame is not None else source.pieces
+                identity = (
+                    declared_frame.source_key if declared_frame is not None else source.ref.id
+                )
+                source_pieces = (
+                    declared_frame.inspectable_pieces
+                    if declared_frame is not None
+                    else source.pieces
+                )
                 # Related sources retain their own exact selection. Never append
                 # their full raw projection merely because its carrier was bound.
                 ranges = []
@@ -1385,7 +1401,13 @@ def _widen_contexts(
                     if piece["kind"] != "native_text":
                         continue
                     start, end = piece["start"], piece["end"]
-                    if ranges and (ranges[-1][1] == start or (declared_frame is not None and declared_frame.contains_span(ranges[-1][0], end))):
+                    if ranges and (
+                        ranges[-1][1] == start
+                        or (
+                            declared_frame is not None
+                            and declared_frame.contains_span(ranges[-1][0], end)
+                        )
+                    ):
                         ranges[-1] = (ranges[-1][0], end)
                     else:
                         ranges.append((start, end))
@@ -1413,13 +1435,25 @@ def _widen_contexts(
                     continue
                 if identity not in related:
                     related[identity] = RelatedNativeSource(
-                        declared_frame if declared_frame is not None else native_source_frame(source, ()),
+                        declared_frame
+                        if declared_frame is not None
+                        else native_source_frame(source, ()),
                         request.relationship,
                         request.reason,
                     )
                 for start, end in ranges:
-                    pieces.extend((SyntheticText("\n", "context piece separator"),
-                        source_slice(declared_frame if declared_frame is not None else related[identity].source, start, end)))
+                    pieces.extend(
+                        (
+                            SyntheticText("\n", "context piece separator"),
+                            source_slice(
+                                declared_frame
+                                if declared_frame is not None
+                                else related[identity].source,
+                                start,
+                                end,
+                            ),
+                        )
+                    )
                 chars += len(ranges) + inspected_chars
                 count += len(ranges) + len(source_pieces)
                 selected.append(identity)

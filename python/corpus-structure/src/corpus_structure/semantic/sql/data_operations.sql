@@ -1,4 +1,23 @@
 -- Fixed trusted DDO kernel. JSON is a strict wire/archive envelope, not an EAV store.
+-- Admission reads one selected immutable contract/runtime, never protected tables
+-- through caller credentials and never an all-model re-admission per operation.
+CREATE OR REPLACE FUNCTION ops.inspect_data_execution(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE p jsonb:=p_payload; definition sem.data_operation_definition; runtime sem.runtime_binding; retained jsonb;
+BEGIN
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition
+ WHERE release_id=p->>'release_id' AND operation_id=p->>'operation_id';
+ IF p ? 'runtime_id' THEN
+  SELECT * INTO STRICT runtime FROM sem.runtime_binding
+  WHERE release_id=p->>'release_id' AND runtime_id=p->>'runtime_id';
+  retained:=jsonb_build_object('manifest_sha256',encode(sha256(runtime.manifest_bytes),'hex'),
+   'archive_sha256',encode(sha256(runtime.archive_bytes),'hex'));
+ ELSE retained:='null'::jsonb; END IF;
+ RETURN jsonb_build_object('payload',jsonb_build_object('recipe',definition.recipe,
+  'profile',definition.profile,'implementation_revision',definition.implementation_revision,
+  'input_roles',definition.input_roles,'output_roles',definition.output_roles,'runtime',retained));
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_fields(p jsonb, required text[], optional text[] DEFAULT ARRAY[]::text[])
 RETURNS void LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 BEGIN

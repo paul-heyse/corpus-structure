@@ -977,6 +977,7 @@ def data_operation_native_definitions(connection):
                     "read": "corpus_sem_reader",
                     "write": "corpus_sem_writer",
                     "evaluate": "corpus_sem_evaluator",
+                    "admit": "corpus_sem_admitter",
                 }[purpose]
                 for purpose in public[name]["purposes"]
             )

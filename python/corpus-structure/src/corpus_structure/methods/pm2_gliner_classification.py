@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import QuestionFamily
 from corpus_structure.semantic.source_contexts import (
@@ -19,8 +20,6 @@ from corpus_structure.semantic.source_contexts import (
     record_source_pin,
     source_slice,
 )
-
-from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused, GlinerReport, _json
 from .gliner_worker import GlinerWorker, GlinerWorkerError

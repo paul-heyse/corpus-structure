@@ -288,6 +288,7 @@ def prepare_preview(
     original = {path: _git(root, "show", f"{baseline}:{path}") for path in (core, system, log)}
     current = {path: _read(root, path) for path in original}
     acquired = None
+    captured_paths: set[str] = set()
     if request.data_operations is not None:
         if request.packs:
             raise model.ModelError(["target inputs and legacy domain packs are exclusive"])

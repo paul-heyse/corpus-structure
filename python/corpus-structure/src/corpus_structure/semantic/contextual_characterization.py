@@ -14,14 +14,19 @@ from typing import Any
 from corpus_structure.methods.native_evidence_layers import (
     NativeEvidenceBuilder,
     digest,
-    source_selector,
     source_identity,
     source_projection,
+    source_selector,
 )
 from corpus_structure.methods.pm2_dipo_products import _pair, _tree_children, _validate_boundaries
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.data_product_reference import (DataProductReference, DataProductMemberReference, member_reference, read_member_reference)
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+    member_reference,
+    read_member_reference,
+)
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+from corpus_structure.semantic.product_reference import ProductReference
 
 CONTEXT_FAMILIES = (
     "context.structure",
@@ -69,7 +74,10 @@ class ContextInput:
                 raise ValueError("context source part lies outside its projection")
             if index:
                 previous = parts[index - 1]
-                contiguous = source_identity(previous.view) == source_identity(part.view) and previous.end == part.start
+                contiguous = (
+                    source_identity(previous.view) == source_identity(part.view)
+                    and previous.end == part.start
+                )
                 if not contiguous:
                     chunks.append("\n")
                     position += 1
@@ -200,7 +208,11 @@ class ContextualLayer(NativeEvidenceBuilder):
             pin: layers[pin] for pin in (layers if semantic_pins is None else semantic_pins)
         }
         for pin, report in layers.items():
-            actual_base = report.payload["source"] if isinstance(pin, DataProductReference) else report.base_document.values()
+            actual_base = (
+                report.payload["source"]
+                if isinstance(pin, DataProductReference)
+                else report.base_document.values()
+            )
             if actual_base != self.base:
                 raise ValueError("context dependency belongs to another source document")
             for group in report.payload["choices"]:
@@ -236,7 +248,10 @@ class ContextualLayer(NativeEvidenceBuilder):
             if not all(
                 any(
                     e["projection"] == source_projection(part.view)
-                    and (isinstance(part.view, DeclaredNativeFrameSource) or e.get("source_view_id") == part.view.ref.id)
+                    and (
+                        isinstance(part.view, DeclaredNativeFrameSource)
+                        or e.get("source_view_id") == part.view.ref.id
+                    )
                     and part.start
                     <= e.get("start", part.start)
                     <= e.get("end", part.end)
@@ -301,7 +316,11 @@ class ContextualLayer(NativeEvidenceBuilder):
         seen = {}
         for choice in choices:
             reference = read_member_reference(choice)
-            pin, local_id = (reference.product, reference.member_id) if isinstance(reference, DataProductMemberReference) else (reference.layer, reference.local_id)
+            pin, local_id = (
+                (reference.product, reference.member_id)
+                if isinstance(reference, DataProductMemberReference)
+                else (reference.layer, reference.local_id)
+            )
             selected = self._choice_groups.get((pin, local_id))
             if selected is None:
                 raise ValueError("context hypothesis requires an unknown analytical choice")
@@ -503,7 +522,9 @@ class ContextualLayer(NativeEvidenceBuilder):
                 ancestors.add(pointer)
                 pointer = by_pointer.get(pointer, {}).get("parent", {}).get("$ref")
             for heading, (node, heading_view, _) in selected.items():
-                if source_identity(heading_view) != source_identity(view) or node.get("label") not in {
+                if source_identity(heading_view) != source_identity(view) or node.get(
+                    "label"
+                ) not in {
                     "section_header",
                     "title",
                     "heading",

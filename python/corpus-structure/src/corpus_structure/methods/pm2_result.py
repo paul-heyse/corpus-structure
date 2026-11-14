@@ -210,8 +210,17 @@ def pm2_input_digest(
 
 
 def pm2_contribution_values(
-    mapping, evidence, products, *, prepared, provider, input_digest,
-    operation_key, question, source_path=None, parser_operation=True,
+    mapping,
+    evidence,
+    products,
+    *,
+    prepared,
+    provider,
+    input_digest,
+    operation_key,
+    question,
+    source_path=None,
+    parser_operation=True,
 ):
     """Project exact source contributions independently of historical unit/task custody.
 
@@ -457,9 +466,16 @@ def pm2_unit_result(
                     raise ValueError("interpretation scope differs from the authenticated source")
                 products = interpretation_products(family, dict(request), reply, evidence)
     rows, coordinates, locations = pm2_contribution_values(
-        mapping, evidence, products, prepared=prepared, provider=provider,
-        input_digest=input_digest, operation_key=operation_key, question=question,
-        source_path=source_path, parser_operation=parser_operation,
+        mapping,
+        evidence,
+        products,
+        prepared=prepared,
+        provider=provider,
+        input_digest=input_digest,
+        operation_key=operation_key,
+        question=question,
+        source_path=source_path,
+        parser_operation=parser_operation,
     )
     report: dict[str, Any] = {
         "native": reply,

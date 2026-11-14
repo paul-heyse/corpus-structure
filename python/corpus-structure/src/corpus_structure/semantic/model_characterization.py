@@ -40,6 +40,13 @@ from corpus_structure.methods.pm2_source import (
     SourceMapSegment,
 )
 from corpus_structure.semantic.characterization import LayerReport
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+    member_reference,
+    read_member_reference,
+)
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import (
     ANSWER_READS,
@@ -52,13 +59,10 @@ from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
-    SourceSlice,
     record_source_pin,
     source_slice,
 )
 from corpus_structure.semantic.source_views import PreparedSourceView
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-from corpus_structure.semantic.data_product_reference import (DataProductReference, DataProductMemberReference, member_reference, read_member_reference)
 
 PROFILE = "baseline-model-characterization-v1"
 D1_SOURCE_FAMILIES = CHARACTERIZATION_FAMILIES[:4]
@@ -97,7 +101,11 @@ class ModelScope:
     def identity(self) -> str:
         return digest(
             dict(
-                source=(self.view.pin.values() if isinstance(self.view, DeclaredNativeFrameSource) else self.view.ref.native_product.values()),
+                source=(
+                    self.view.pin.values()
+                    if isinstance(self.view, DeclaredNativeFrameSource)
+                    else self.view.ref.native_product.values()
+                ),
                 projection=_projection(self.view),
                 focal=self.focal,
                 examined=self.examined,
@@ -130,7 +138,9 @@ def prepare_model_scope(
         version=2,
         preparation=preparation,
     )
-    formulas = {item["self_ref"] for item in _source_rows(view, "items") if item.get("label") == "formula"}
+    formulas = {
+        item["self_ref"] for item in _source_rows(view, "items") if item.get("label") == "formula"
+    }
     atoms = tuple(
         (piece["start"] - a, piece["end"] - a)
         for piece in _source_rows(view, "pieces")
@@ -145,16 +155,26 @@ def prepare_model_scope(
 
 
 def _projection(view):
-    return view.projection_digest if isinstance(view, DeclaredNativeFrameSource) else view.ref.projection_digest
+    return (
+        view.projection_digest
+        if isinstance(view, DeclaredNativeFrameSource)
+        else view.ref.projection_digest
+    )
 
 
 def _source_rows(view, name):
-    return view.value.get(name, ()) if isinstance(view, DeclaredNativeFrameSource) else getattr(view, name)
+    return (
+        view.value.get(name, ())
+        if isinstance(view, DeclaredNativeFrameSource)
+        else getattr(view, name)
+    )
 
 
 def _related_member(reference, local_id):
     selected = read_member_reference(reference)
-    product = selected.product if isinstance(selected, DataProductMemberReference) else selected.layer
+    product = (
+        selected.product if isinstance(selected, DataProductMemberReference) else selected.layer
+    )
     return member_reference(product, local_id).values()
 
 
@@ -169,14 +189,22 @@ def declared_model_dependencies(products, source):
     dependencies = {}
     for product in products:
         body = json.loads(product.content)
-        if body["source"] != source.value["source"] or body["selectors"] != source.value["selectors"]:
+        if (
+            body["source"] != source.value["source"]
+            or body["selectors"] != source.value["selectors"]
+        ):
             raise ValueError("model dependency belongs to another original source projection")
         reference = DataProductReference(product.semantic_id)
         if reference in dependencies:
             raise ValueError("model dependency repeats a selected semantic product")
-        dependencies[reference] = DeclaredModelDependency(reference, {
-            **product.inventory(), "source": body["source"], "coverage": body["coverage"],
-        })
+        dependencies[reference] = DeclaredModelDependency(
+            reference,
+            {
+                **product.inventory(),
+                "source": body["source"],
+                "coverage": body["coverage"],
+            },
+        )
     return dependencies
 
 
@@ -241,8 +269,7 @@ def freeze_candidates(
             node, occurrences = _resolve(reference, dependencies)
             choices.extend(node.get("required_external_choices", ()))
             choices.extend(
-                _related_member(reference, choice)
-                for choice in node.get("required_choices", ())
+                _related_member(reference, choice) for choice in node.get("required_choices", ())
             )
             if node["kind"] not in {"context.symbolic_site", "context.evidence_site"}:
                 break
@@ -254,7 +281,10 @@ def freeze_candidates(
             raise ValueError("candidate type or source support differs from the released question")
         extents = [extent for occurrence in occurrences for extent in occurrence["extents"]]
         if any(
-            (not isinstance(scope.view, DeclaredNativeFrameSource) and extent["source_view_id"] != scope.view.ref.id)
+            (
+                not isinstance(scope.view, DeclaredNativeFrameSource)
+                and extent["source_view_id"] != scope.view.ref.id
+            )
             or extent["projection"] != _projection(scope.view)
             or extent.get("synthetic")
             or not scope.examined[0]

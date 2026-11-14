@@ -196,9 +196,11 @@ class PreparedStructuralInputs:
                 "structural selection is outside the exact report contribution inventory"
             )
         for packet in checked["members"]:
-            if packet["body"]["candidate_type"] == "contribution":
-                if packet["member_id"] != "contribution:" + packet["body"]["contribution_id"]:
-                    raise ValueError("candidate member address differs from its domain content ID")
+            if (
+                packet["body"]["candidate_type"] == "contribution"
+                and packet["member_id"] != "contribution:" + packet["body"]["contribution_id"]
+            ):
+                raise ValueError("candidate member address differs from its domain content ID")
         return reference, {
             "contributions": rows,
             "sources": [{"pin": source, "projection": frame.value}],

@@ -67,7 +67,6 @@ class OwnedCPUStream:
     def __init__(self, cpu, admission, packet, check_active):
         self.cpu = cpu
         self.pulls = []
-        self.handle = None
         self.closed = False
         self.parent, self.child = cpu._context.Pipe(duplex=True)
         cpu._stream_transports.add(self)
@@ -132,6 +131,13 @@ class OwnedCPUStream:
         return all(not pull.thread.is_alive() for pull in self.pulls)
 
 
+def _admitted_stream(transport: object) -> OwnedCPUStream:
+    """A first pull reply requires the transport established by its start callback."""
+    if not isinstance(transport, OwnedCPUStream):
+        raise RuntimeError("CPU pull returned without an admitted transport")
+    return transport
+
+
 def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, check_active):
     """Bounded private staging; only terminal+CPU receipt can return a logical result."""
     from .data_operation_cpu import PythonCPUDescriptor
@@ -160,30 +166,31 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
     staged = bytearray(b"[")
     try:
         (frame,) = yield (PreparedWork(start),)
+        active = _admitted_stream(stream)
         while frame["state"] == "item":
             item = frame["value"].encode("utf-8")
             if len(staged) + len(item) + 2 > cpu.policy.max_reply_bytes:
                 raise ValueError("complete stream output exceeds admitted reply capacity")
-            if stream.ordinal:
+            if active.ordinal:
                 staged.extend(b",")
             staged.extend(item)
-            stream.ordinal += 1
+            active.ordinal += 1
             verify()
             check_active()
-            (frame,) = yield (PreparedWork(stream.pull),)
+            (frame,) = yield (PreparedWork(active.pull),)
         if frame != {
-            "request": stream.digest,
-            "fence": stream.fence,
-            "ordinal": stream.ordinal,
+            "request": active.digest,
+            "fence": active.fence,
+            "ordinal": active.ordinal,
             "state": "complete",
         }:
             raise ValueError("stream has no valid complete terminal")
         staged.extend(b"]")
         # The normal CPU receipt retains admission and verifies native process identity.
-        (reply,) = yield (PreparedWork(lambda: stream.handle),)
+        (reply,) = yield (PreparedWork(lambda: active.handle),)
         import json
 
-        if json.loads(reply.content) != {"items": stream.ordinal, "state": "complete"}:
+        if json.loads(reply.content) != {"items": active.ordinal, "state": "complete"}:
             raise ValueError("CPU stream receipt differs from observed terminal")
         verify()
         check_active()
@@ -196,10 +203,10 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
 class OwnedCPUCoroutine(OwnedCPUStream):
     """Typed duplex continuation on the same owned iterator process and pipe."""
 
-    reply_content = None
+    reply_content: bytes | None = None
 
     def credit(self):
-        credit = {"pull": self.ordinal}
+        credit: dict[str, int | str] = {"pull": self.ordinal}
         if self.ordinal:
             if self.reply_content is None:
                 raise ValueError("CPU coroutine lacks its typed pending reply")
@@ -258,6 +265,9 @@ def plan_cpu_coroutine(
 
     try:
         (frame,) = yield (PreparedWork(start),)
+        active = _admitted_stream(stream)
+        if not isinstance(active, OwnedCPUCoroutine):
+            raise RuntimeError("CPU coroutine acquired a different transport form")
         while frame["state"] == "question":
             verify()
             check_active()
@@ -265,16 +275,16 @@ def plan_cpu_coroutine(
             answer = yield from answer_plan(question)
             verify()
             check_active()
-            stream.reply_content = reply_adapter.dump_json(
+            active.reply_content = reply_adapter.dump_json(
                 reply_adapter.validate_python(answer, strict=True)
             )
-            stream.ordinal += 1
-            (frame,) = yield (PreparedWork(stream.pull),)
+            active.ordinal += 1
+            (frame,) = yield (PreparedWork(active.pull),)
         encoded = frame["value"].encode()
         result = result_adapter.validate_json(encoded, strict=True)
-        (reply,) = yield (PreparedWork(lambda: stream.handle),)
+        (reply,) = yield (PreparedWork(lambda: active.handle),)
         if json.loads(reply.content) != dict(
-            turns=stream.ordinal, state="complete", result_digest=sha256(encoded).hexdigest()
+            turns=active.ordinal, state="complete", result_digest=sha256(encoded).hexdigest()
         ):
             raise ValueError("CPU coroutine terminal differs from native process receipt")
         verify()

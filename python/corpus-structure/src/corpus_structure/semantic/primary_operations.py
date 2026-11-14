@@ -82,11 +82,16 @@ def primary_operation_inputs(
     )
     if capture_sources is not None:
         from .pdf_views import pdf_views_operation_sources
-        collections = (*collections, pdf_views_operation_sources(capture_sources),
-                       captured_document_view_operation_sources(include_dependencies=False))
+
+        collections = (
+            *collections,
+            pdf_views_operation_sources(capture_sources),
+            captured_document_view_operation_sources(include_dependencies=False),
+        )
     if learned_selections is not None:
-        from .learned_primary import learned_primary_inputs, learned_primary_operation_sources
         from .interpretation_questions import characterization_question_dependencies
+        from .learned_primary import learned_primary_inputs, learned_primary_operation_sources
+
         bundle = learned_primary_inputs(bundle)
         dependencies = characterization_question_dependencies(dependencies)
         collections = (*collections, learned_primary_operation_sources(learned_selections))

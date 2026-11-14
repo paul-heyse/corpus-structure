@@ -192,9 +192,11 @@ def test_source_native_math_readings_restore_retained_syntax_without_parser(
     assert all(
         set(row["primary_node"]) == {"product_id", "member_id"} for row in inventory["nodes"]
     )
-    assert readings.syntax("#/texts/999", latex).failure.category == "missing_primary_input"
+    missing = readings.syntax("#/texts/999", latex).failure
+    assert missing is not None and missing.category == "missing_primary_input"
     competing = SourceNativeMathReadings(source, (product, product))
-    assert competing.syntax("#/texts/0", latex).failure.category == "ambiguous_primary_input"
+    ambiguous = competing.syntax("#/texts/0", latex).failure
+    assert ambiguous is not None and ambiguous.category == "ambiguous_primary_input"
 
 
 def test_source_native_math_readings_refuse_different_original_coordinate(profile):

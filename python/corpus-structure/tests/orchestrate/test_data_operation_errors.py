@@ -21,6 +21,8 @@ def test_demand_error_preserves_original_failures_in_existing_exception_projecti
         assert "original arithmetic boundary failed" in value
         assert "independent typed failure" in value
         selected, rest = error.split(ValueError)
+        assert isinstance(selected, NativeDemandExecutionError)
+        assert isinstance(rest, NativeDemandExecutionError)
         assert selected.result is result and rest.result is result
         assert selected.failures == (original,)
         assert len(rest.failures) == 1 and isinstance(rest.failures[0], TypeError)

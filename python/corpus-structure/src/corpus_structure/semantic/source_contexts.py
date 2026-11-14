@@ -697,10 +697,14 @@ class NativeSourceContext:
         )
         if ancestors:
             if self.version == 1:
-                legacy_ancestors = tuple(source for source in ancestors if isinstance(source, NativeFrameSource))
+                legacy_ancestors = tuple(
+                    source for source in ancestors if isinstance(source, NativeFrameSource)
+                )
                 if len(legacy_ancestors) != len(ancestors):
                     raise ContextRefused("legacy context cannot carry declared source ancestors")
-                NativeProposalFrame(**_source_fields(self.primary), context_sources=legacy_ancestors)
+                NativeProposalFrame(
+                    **_source_fields(self.primary), context_sources=legacy_ancestors
+                )
             elif any(
                 source.section_pointer not in contexts[self.primary.source_key].ancestors
                 or source.membership != "direct"
@@ -796,8 +800,12 @@ class NativeSourceContext:
             if not isinstance(piece, (SourceSlice, DeclaredSourceSlice)):
                 raise ContextRefused("unsupported context piece")
             source = by_id.get(piece.source_key)
-            if isinstance(source, DeclaredNativeFrameSource) and not source.contains_span(piece.start, piece.end):
-                raise ContextRefused("context extent is outside its exact selected native source scope")
+            if isinstance(source, DeclaredNativeFrameSource) and not source.contains_span(
+                piece.start, piece.end
+            ):
+                raise ContextRefused(
+                    "context extent is outside its exact selected native source scope"
+                )
             if source is None or piece.end > len(source.text):
                 raise ContextRefused("source slice is absent or outside its pinned projection")
             for native in contexts[source.source_key].selected_pieces(piece.start, piece.end):

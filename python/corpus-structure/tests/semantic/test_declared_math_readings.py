@@ -33,26 +33,53 @@ def _source(profile, *, clipped=False):
         ],
         items=[dict(self_ref="#/texts/0", label="formula", text=latex, orig=latex)],
         recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
-        selectors=[dict(projection="b"*64, native_pointer="#/texts/0", start=2, end=4 if clipped else 5)],
+        selectors=[
+            dict(projection="b" * 64, native_pointer="#/texts/0", start=2, end=4 if clipped else 5)
+        ],
     )
     member = BoundRoleMember(
-        "product:selected-math", "kind:selected-source", source_subject(source.value["source"]),
-        source.value["source"]["document"], canonical_bytes({"selectors": source.value["selectors"]}),
-        b"{}", (), b"{}", member="source:formula",
+        "product:selected-math",
+        "kind:selected-source",
+        source_subject(source.value["source"]),
+        source.value["source"]["document"],
+        canonical_bytes({"selectors": source.value["selectors"]}),
+        b"{}",
+        (),
+        b"{}",
+        member="source:formula",
     )
-    return source, DeclaredNativeFrameSource.acquire(profile.prepared, source.value, member, project="nonstatistics")
+    return source, DeclaredNativeFrameSource.acquire(
+        profile.prepared, source.value, member, project="nonstatistics"
+    )
 
 
-def test_declared_math_uses_original_positions_semantic_source_and_retained_primary(profile, monkeypatch):
+def test_declared_math_uses_original_positions_semantic_source_and_retained_primary(
+    profile, monkeypatch
+):
     source, frame = _source(profile)
-    product = profile.run(source, FormalEvidenceOptions(), subject_context=SubjectContext("nonstatistics", frame.pin.values()["subject"], frame.original_key, canonical_bytes({"selectors": source.value["selectors"]})))
+    product = profile.run(
+        source,
+        FormalEvidenceOptions(),
+        subject_context=SubjectContext(
+            "nonstatistics",
+            frame.pin.values()["subject"],
+            frame.original_key,
+            canonical_bytes({"selectors": source.value["selectors"]}),
+        ),
+    )
 
     def refuse_parse(*args, **kwargs):
         pytest.fail("mathematical consumer repeated primary recognition")
 
     monkeypatch.setattr(grammar, "syntax", refuse_parse)
     monkeypatch.setattr(grammar, "syntax_forest", refuse_parse)
-    (reading,) = declared_math_readings(frame, (product,), ExtractMathConfig(), prepared=profile.prepared, prepare_context=_standalone_context)
+    (reading,) = declared_math_readings(
+        frame,
+        (product,),
+        ExtractMathConfig(),
+        prepared=profile.prepared,
+        prepare_context=_standalone_context,
+    )
     assert reading.pointer == "#/texts/0" and reading.projected_start == 2
     assert reading.result.status.value == "ok"
     assert str(reading.prepared.symbolic_value()) == "3"
@@ -66,4 +93,13 @@ def test_declared_math_clipped_formula_is_unexamined_not_inspected_empty(profile
     selected_inputs, unexamined = selected_formula_inputs(source)
     assert selected_inputs == frozenset()
     assert unexamined == frozenset({"#/texts/0"})
-    assert declared_math_readings(frame, (), ExtractMathConfig(), prepared=profile.prepared, prepare_context=_standalone_context) == ()
+    assert (
+        declared_math_readings(
+            frame,
+            (),
+            ExtractMathConfig(),
+            prepared=profile.prepared,
+            prepare_context=_standalone_context,
+        )
+        == ()
+    )

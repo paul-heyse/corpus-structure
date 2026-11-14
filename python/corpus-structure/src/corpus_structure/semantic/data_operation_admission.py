@@ -171,11 +171,8 @@ def acquire_python_execution(
     schema: SourceBundle | None = None,
 ) -> AcquiredPythonExecution:
     """Acquire permissions briefly; no DB connection is retained through computation."""
-    from sqlalchemy import select
-
     from .data_operation_ports import python_port_identity
-    from .data_operation_storage import require_data_operation_native
-    from .metadata import table
+    from .data_operation_storage import DataOperationStorage, require_data_operation_native
     from .runtime_bindings import validate_runtime_binding
 
     model = bound_data_operation_model(prepared)
@@ -188,37 +185,23 @@ def acquire_python_execution(
         ) != [tuple(item) for item in manifest["sources"]]:
             raise SemanticRefusal("callable schema differs from captured release inputs")
     identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
-    definition = table("sem.data_operation_definition")
-    row = (
-        connection.execute(
-            select(definition).where(
-                definition.c.release_id == prepared.release_id,
-                definition.c.operation_id == operation,
-            )
-        )
-        .mappings()
-        .one()
+    retained = DataOperationStorage(connection).invoke(
+        "inspect_data_execution",
+        {
+            "release_id": prepared.release_id,
+            "operation_id": operation,
+            "runtime_id": runtime.runtime_id,
+        },
     )
     if (
-        row["recipe"] != identity.recipe
-        or row["implementation_revision"] != identity.implementation
+        retained["recipe"] != identity.recipe
+        or retained["implementation_revision"] != identity.implementation
     ):
         raise SemanticRefusal("Python implementation differs from native admitted recipe")
-    stored = table("sem.runtime_binding")
-    custody = (
-        connection.execute(
-            select(stored).where(
-                stored.c.release_id == prepared.release_id,
-                stored.c.runtime_id == runtime.runtime_id,
-            )
-        )
-        .mappings()
-        .one()
-    )
-    if (
-        bytes(custody["manifest_bytes"]) != runtime.manifest
-        or bytes(custody["archive_bytes"]) != runtime.archive
-    ):
+    if retained["runtime"] != {
+        "manifest_sha256": sha256(runtime.manifest).hexdigest(),
+        "archive_sha256": sha256(runtime.archive).hexdigest(),
+    }:
         raise SemanticRefusal("Python runtime differs from native retained custody")
     # Every supplied module must be among the exact captured executable inputs.
     retained = {item["sha256"] for item in json.loads(runtime.manifest)["implementation_inputs"]}
@@ -243,11 +226,8 @@ def acquire_python_execution(
 
 def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
     """Acquire the fixed receipt-bearing native command, not Python effect callbacks."""
-    from sqlalchemy import select
-
     from .data_operation_ports import ResolvedPublicationPort
     from .data_operation_storage import DataOperationStorage, require_data_operation_native
-    from .metadata import table
 
     model = bound_data_operation_model(prepared)
     operation = model.operation("data.publish_data_derivation")
@@ -260,16 +240,12 @@ def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
         identity.owner: identity.key for identity in model.identities if identity.domain == "kind"
     }
     require_data_operation_native(connection, prepared)
-    definitions = table("sem.data_operation_definition")
-    admitted = (
-        connection.execute(
-            select(definitions).where(
-                definitions.c.release_id == prepared.release_id,
-                definitions.c.operation_id == operation.semantic_id,
-            )
-        )
-        .mappings()
-        .one()
+    admitted = DataOperationStorage(connection).invoke(
+        "inspect_data_execution",
+        {
+            "release_id": prepared.release_id,
+            "operation_id": operation.semantic_id,
+        },
     )
     identities = {(value.owner, value.domain): value.key for value in model.identities}
     if (

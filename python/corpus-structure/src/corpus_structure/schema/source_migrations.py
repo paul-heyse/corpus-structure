@@ -27,6 +27,7 @@ from libcst.metadata import (
     ParentNodeProvider,
     QualifiedNameProvider,
     QualifiedNameSource,
+    Scope,
     ScopeProvider,
 )
 from pydantic import BaseModel, ConfigDict
@@ -296,7 +297,7 @@ class _CallContextCommand(ContextAwareTransformer):
         if change.before in self.seen:
             raise ValueError("call-context correspondence matches more than one call")
         scope = self.get_metadata(ScopeProvider, original_node)
-        if any(not scope[item] for item in change.context_names):
+        if not isinstance(scope, Scope) or any(not scope[item] for item in change.context_names):
             raise ValueError("call-context lacks supplied context in the call lexical scope")
         self.seen.add(change.before)
         return cst.parse_expression(change.after)
@@ -377,6 +378,8 @@ def _selection_call_proofs(root, request, members, inputs):
                         for target in item.targets
                     )
                 ):
+                    if item.value is None:
+                        raise ValueError("selection declaration requires an explicit value")
                     declarations.append(ast.literal_eval(item.value))
             if len(declarations) != 1 or declarations[0].get("id") != request.owner:
                 continue
@@ -391,7 +394,7 @@ def _selection_call_proofs(root, request, members, inputs):
                     callable=request.old_name,
                     path=path,
                     source_digest=inputs[path],
-                    signature=str(supplied.signature()),
+                    signature=supplied.signature(),
                 )
             )
     if len(proofs) > 1:

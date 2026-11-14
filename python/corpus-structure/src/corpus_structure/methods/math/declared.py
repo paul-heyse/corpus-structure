@@ -82,7 +82,17 @@ def declared_math_readings(
     selected, clipped = selected_formula_inputs(frozen)
     value = frozen.value
     health = {row["pointer"]: row["outcome"] for row in value["recognition"]}
-    issues = tuple(dict.fromkeys((*context_issues, *("clipped or unavailable formula scope: " + pointer for pointer in sorted(clipped)))))
+    issues = tuple(
+        dict.fromkeys(
+            (
+                *context_issues,
+                *(
+                    "clipped or unavailable formula scope: " + pointer
+                    for pointer in sorted(clipped)
+                ),
+            )
+        )
+    )
     topology = prepare_native_topology_columns(
         root=source.section_pointer,
         text=source.text,

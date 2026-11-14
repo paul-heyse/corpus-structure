@@ -64,7 +64,11 @@ def source_layout(
         }:
             continue
         examined_heading = dict(
-            projection=(product.source.values()["projection_digest"] if isinstance(product.source, DeclaredSourcePin) else product.source.projection_digest),
+            projection=(
+                product.source.values()["projection_digest"]
+                if isinstance(product.source, DeclaredSourcePin)
+                else product.source.projection_digest
+            ),
             native_pointer=pointer,
             start=piece["start"],
             end=piece["end"],

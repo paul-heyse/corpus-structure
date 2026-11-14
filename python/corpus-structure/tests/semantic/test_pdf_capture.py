@@ -31,6 +31,7 @@ def test_pdf_capture_declares_exact_effect_and_captured_native_recipe(tmp_path):
     operation = model.operation("source.pdf/capture")
     assert operation.profile == "command"
     assert operation.capabilities.preparation == "pdf-native"
+    assert operation.capabilities.prepared_factory is not None
     assert (
         operation.capabilities.prepared_factory.entrypoint
         == "corpus_structure.ingest.pdf_capture.PdfCaptureOperation.acquire_port"

@@ -1992,7 +1992,44 @@ definitions:
     description: Server-selected cutoff timestamp pinned by the authenticated read receipt.
   member_context:
     $ref: '#/definitions/root_subject'
+  inspect_data_execution_request:
+    type: object
+    properties:
+      release_id: {$ref: '#/definitions/identifier'}
+      operation_id: {$ref: '#/definitions/identifier'}
+      runtime_id: {$ref: '#/definitions/identifier'}
+    required: [release_id, operation_id]
+    additionalProperties: false
+  inspect_data_execution_result:
+    type: object
+    properties:
+      recipe: {$ref: '#/definitions/identifier'}
+      profile: {$ref: '#/definitions/identifier'}
+      implementation_revision: {$ref: '#/definitions/identifier'}
+      input_roles:
+        type: array
+        items: {$ref: '#/definitions/json_value'}
+      output_roles:
+        type: array
+        items: {$ref: '#/definitions/json_value'}
+      runtime:
+        anyOf:
+        - type: 'null'
+        - type: object
+          properties:
+            manifest_sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+            archive_sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+          required: [manifest_sha256, archive_sha256]
+          additionalProperties: false
+    required: [recipe, profile, implementation_revision, input_roles, output_roles, runtime]
+    additionalProperties: false
+
 operations:
+- name: inspect_data_execution
+  profile: read
+  request: inspect_data_execution_request
+  result: inspect_data_execution_result
+  purposes: [admit]
 - name: admit_original_document_asset
   profile: read
   request: admit_original_document_asset_request

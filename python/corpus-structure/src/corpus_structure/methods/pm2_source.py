@@ -19,7 +19,6 @@ from corpus_structure.semantic.source_contexts import (
     NativeSourcePin,
     NativeSpanEvidence,
     NativeSpanReading,
-    SourceSlice,
     evidence_anchor,
     source_slice,
 )

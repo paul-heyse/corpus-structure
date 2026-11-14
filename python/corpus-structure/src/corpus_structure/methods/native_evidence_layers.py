@@ -53,12 +53,18 @@ def digest(value: Any) -> str:
 
 def source_identity(view):
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
     return view.source_key if isinstance(view, DeclaredNativeFrameSource) else view.ref.id
 
 
 def source_projection(view):
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-    return view.projection_digest if isinstance(view, DeclaredNativeFrameSource) else view.ref.projection_digest
+
+    return (
+        view.projection_digest
+        if isinstance(view, DeclaredNativeFrameSource)
+        else view.ref.projection_digest
+    )
 
 
 def source_selector(view: Any, start: int, end: int, pointer: str | None = None) -> dict[str, Any]:
@@ -179,6 +185,7 @@ class NativeEvidenceBuilder:
                 synthetic=synthetic,
             )
             from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
             if not isinstance(view, DeclaredNativeFrameSource):
                 extent["source_view_id"] = view.ref.id
             if not synthetic:

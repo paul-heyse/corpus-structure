@@ -259,25 +259,40 @@ def test_empty_annotation_producer_emits_closed_manifest_without_invoking_provid
     assert all(row["outcome"] == "empty" for row in value["coverage"])
 
 
-def test_annotation_consumer_refuses_equal_source_body_from_another_selected_carrier(acquired, detached):
-    from dataclasses import replace
+def test_annotation_consumer_refuses_equal_source_body_from_another_selected_carrier(
+    acquired, detached
+):
     from corpus_structure.semantic.learned_primary import maverick_input
     from corpus_structure.semantic.model_characterization import prepare_model_scope
 
     prepared, model, configuration, _ = acquired
     source, value = detached
-    product = validate_source_annotations(prepared, model, value, source, configuration=configuration)
+    product = validate_source_annotations(
+        prepared, model, value, source, configuration=configuration
+    )
     operation = model.operation("segment.sentences/source-native")
     source_role = next(role for role in operation.roles if role.direction == "input")
     assert source_role.support.origins == ("computation",)
     assert source_role.support.provenance == "exact"
     assert source_role.support.identity_requirements == ("episode",)
     original = value["blocks"][0]["annotation"]["source"]
-    foreign_member = BoundRoleMember("different-discovery-carrier", original["kind_contract"], original["subject"],
-        original["original_source"], canonical_bytes(dict(source=source.value["source"], selectors=source.value["selectors"])),
-        b"{}", (), b"{}", member=original["source_member"])
-    foreign = DeclaredNativeFrameSource.acquire(prepared, source.value, foreign_member, project=original["project_id"])
+    foreign_member = BoundRoleMember(
+        "different-discovery-carrier",
+        original["kind_contract"],
+        original["subject"],
+        original["original_source"],
+        canonical_bytes(dict(source=source.value["source"], selectors=source.value["selectors"])),
+        b"{}",
+        (),
+        b"{}",
+        member=original["source_member"],
+    )
+    foreign = DeclaredNativeFrameSource.acquire(
+        prepared, source.value, foreign_member, project=original["project_id"]
+    )
     (block,), _ = _blocks(source)
-    mapping = prepare_model_scope(foreign, (block.start, block.end), (block.start, block.end)).mapping
+    mapping = prepare_model_scope(
+        foreign, (block.start, block.end), (block.start, block.end)
+    ).mapping
     with pytest.raises(ValueError, match="different selected source carrier"):
         maverick_input(source, product, foreign, block, mapping)

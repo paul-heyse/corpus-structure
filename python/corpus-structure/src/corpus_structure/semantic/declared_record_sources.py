@@ -329,7 +329,6 @@ class DeclaredNativeFrameSource:
     def ancestors(self):
         return tuple(deepcopy(self._native_columns["ancestors"]))
 
-
     @cached_property
     def selected_ranges(self):
         """Exact inspectable original extents from this member's own frozen selectors."""
@@ -345,9 +344,16 @@ class DeclaredNativeFrameSource:
                 intervals.append((start, end))
                 continue
             for piece in value["pieces"]:
-                if piece["kind"] != "native_text" or ancestry.matches(selector, piece["item_ref"]) is not True:
+                if (
+                    piece["kind"] != "native_text"
+                    or ancestry.matches(selector, piece["item_ref"]) is not True
+                ):
                     continue
-                pages = {row["page_no"] for row in nodes[piece["item_ref"]].get("prov", ()) if "page_no" in row}
+                pages = {
+                    row["page_no"]
+                    for row in nodes[piece["item_ref"]].get("prov", ())
+                    if "page_no" in row
+                }
                 if "page" in selector and pages != {selector["page"]}:
                     continue
                 intervals.append((max(start, piece["start"]), min(end, piece["end"])))
@@ -365,4 +371,6 @@ class DeclaredNativeFrameSource:
     @property
     def inspectable_pieces(self):
         """Whole selected native pieces; clipped atoms remain unsupported, not empty."""
-        return tuple(piece for piece in self.pieces if self.contains_span(piece["start"], piece["end"]))
+        return tuple(
+            piece for piece in self.pieces if self.contains_span(piece["start"], piece["end"])
+        )

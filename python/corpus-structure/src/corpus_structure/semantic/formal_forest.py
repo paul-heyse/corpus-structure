@@ -555,7 +555,13 @@ def retained_math_syntax(
 
 
 def _restore_math_syntax(
-    candidates, latex, *, macros=None, kind="any_value", max_nodes=20000, semantic=False
+    candidates,
+    latex,
+    *,
+    macros=None,
+    kind: grammar.Kind = "any_value",
+    max_nodes=20000,
+    semantic=False,
 ):
     """Shared retained DAG/callback restoration after the owning source lookup."""
     from lark import Tree
@@ -780,7 +786,9 @@ class SourceNativeMathReadings:
                             (pin, body, root)
                         )
 
-    def syntax(self, pointer, latex, *, macros=None, kind="any_value", max_nodes=20000):
+    def syntax(
+        self, pointer, latex, *, macros=None, kind: grammar.Kind = "any_value", max_nodes=20000
+    ):
         return _restore_math_syntax(
             [(body, root) for _, body, root in self._inputs.get((pointer, latex), ())],
             latex,

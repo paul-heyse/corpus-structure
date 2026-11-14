@@ -147,7 +147,8 @@ def _checked_protocol(content: bytes) -> bytes:
             not isinstance(purposes, list)
             or not purposes
             or any(
-                not isinstance(p, str) or p not in {"read", "write", "evaluate"} for p in purposes
+                not isinstance(p, str) or p not in {"read", "write", "evaluate", "admit"}
+                for p in purposes
             )
             or len(purposes) != len(set(purposes))
         ):

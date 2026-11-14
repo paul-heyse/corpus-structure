@@ -235,6 +235,9 @@ def test_nominal_value_handoff_requires_exact_shared_revisioned_boundary(
         for reference, revision in (("example.Item", nominal), ("example.bridge", bridge))
         if revision is not None
     )
+    from griffe import Function
+
+    assert isinstance(function, Function)
     result = captured.implementation_slice(
         "example.run", (captured._surface("example.run", function),), boundaries, ("item",)
     )

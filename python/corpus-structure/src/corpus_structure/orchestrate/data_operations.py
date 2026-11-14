@@ -8,7 +8,7 @@ transactions; provider/prepared capabilities use their separately admitted owner
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Event, Lock, Thread
 from time import monotonic
-from typing import Any
+from typing import Any, overload
 from uuid import uuid4
 
 from sqlalchemy import Connection, Engine
@@ -124,8 +124,18 @@ class NativeDemandExecutionError(ExceptionGroup):
             f"native demand {result.demand_id} has {len(failures)} execution failures", failures
         )
 
-    def derive(self, exceptions):
-        return NativeDemandExecutionError(self.result, tuple(exceptions))
+    @overload
+    def derive[E: Exception](self, exceptions: Sequence[E], /) -> ExceptionGroup[E]: ...
+
+    @overload
+    def derive[E: BaseException](self, exceptions: Sequence[E], /) -> BaseExceptionGroup[E]: ...
+
+    def derive(self, exceptions: Sequence[BaseException], /) -> BaseExceptionGroup:
+        if all(isinstance(error, Exception) for error in exceptions):
+            return NativeDemandExecutionError(
+                self.result, tuple(error for error in exceptions if isinstance(error, Exception))
+            )
+        return BaseExceptionGroup(self.message, exceptions)
 
 
 @dataclass(frozen=True)
