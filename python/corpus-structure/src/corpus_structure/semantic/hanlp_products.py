@@ -30,7 +30,12 @@ def hanlp_product_inputs(bundle):
     import yaml
 
     name, root = "data_operation_hanlp", "data_operation_hanlp_root"
-    if {name, root} & {source.name for source in bundle.sources}:
+    existing = {source.name: source.content for source in bundle.sources}
+    if name in existing:
+        if existing[name] != _MODEL.read_bytes():
+            raise ValueError("HanLP source model differs from its acquired owner")
+        return bundle
+    if root in existing:
         raise ValueError("HanLP source model uses reserved schema names")
     return SourceBundle(
         root,

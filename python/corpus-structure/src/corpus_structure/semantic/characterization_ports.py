@@ -82,6 +82,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
             "CharacterizationSnapshot",
             "InterpretedProduct",
             "construction_product_values",
+            "interpreted_product_value",
             "_requested_regions",
             "interpreted_member_contracts",
             "ConstructionProduct",

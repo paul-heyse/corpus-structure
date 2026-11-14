@@ -501,7 +501,12 @@ def construction_product_values(
                     "partial",
                     "native-dependent construction coverage unavailable; source grammar retained",
                 )
-    facts: dict[str, Any] = builder.facts()
+    return interpreted_product_value(source, builder.facts(), member_contracts, (*formal, *((native,) if native is not None else ())))
+
+
+def interpreted_product_value(source, facts, member_contracts, dependencies):
+    """Package one actual graph inventory with original scope and genuine support."""
+    selected = source.value
     facts["choice_members"] = [
         dict(group_id=group["local_id"], **member)
         for group in facts["choices"]
@@ -518,7 +523,7 @@ def construction_product_values(
         selectors=selected["selectors"],
         dependencies=[
             DataProductReference(product.semantic_id).values()
-            for product in (*formal, *((native,) if native is not None else ()))
+            for product in dependencies
         ],
         outcome=facts["outcome"],
         coverage=facts["coverage"],
