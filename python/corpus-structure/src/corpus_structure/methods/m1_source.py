@@ -75,7 +75,7 @@ def _formula_matches_primary(context, group, pointer):
         return False
     return bool(evidence) and all(
         isinstance(piece, NativeSpanEvidence)
-        and piece.source.source_view_id == context.primary.source_view_id
+        and piece.source.source_key == context.primary.source_key
         and json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"] == pointer
         for piece in evidence
     )
@@ -95,12 +95,12 @@ def _prose_formula_scope(view, context, group):
     except KeyError, TypeError, ContextRefused:
         return None
     if not evidence or not all(
-        isinstance(p, NativeSpanEvidence) and p.source.source_view_id == view.ref.id
+        isinstance(p, NativeSpanEvidence) and p.source.source_key == context.primary.source_key
         for p in evidence
     ):
         return None
     return NativeRecordGroup(
-        (RoleInput("scope", native_pointer=view.ref.section_pointer),),
+        (RoleInput("scope", native_pointer=context.primary.section_pointer),),
         "owned native section scope only for a decoded prose formula",
     )
 
@@ -139,7 +139,7 @@ def _structural_groups(view, selection, context):
             node.get("orig", ""),
             status,
         )
-        return (native_formula_group(context, occurrence, scope_pointer=view.ref.section_pointer),)
+        return (native_formula_group(context, occurrence, scope_pointer=context.primary.section_pointer),)
     if selection.families != ("table",):
         return ()
     targets = getattr(selection, "table_targets", None)
@@ -823,7 +823,7 @@ class M1Candidates:
                 inputs=(),
                 computation_dependencies=(
                     "pack:" + pack.fingerprint,
-                    "source-projection:" + view.ref.projection_digest,
+                    "source-projection:" + prepared_source.source.projection_digest,
                     "selection:" + sha256(canonical_bytes(asdict(selected))).hexdigest(),
                 ),
             )
@@ -1179,7 +1179,7 @@ class M1Candidates:
                                 supplements[group_index] = supplement
                         elif family == "definition":
                             supplements[group_index] = NativeRecordGroup(
-                                (RoleInput("scope", native_pointer=view.ref.section_pointer),),
+                                (RoleInput("scope", native_pointer=context.primary.section_pointer),),
                                 "selected native section is the explicit definition scope",
                             )
                         elif family == "formula_context" and native_groups:

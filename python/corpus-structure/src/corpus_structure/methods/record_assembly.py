@@ -472,14 +472,14 @@ def _assemble(
                     except ContextRefused as error:
                         raise GlinerRefused(str(error)) from error
                     _anchors[row["anchor_id"]] = row
-                    coordinates[(piece.source.source_view_id, row["space"], row["pointer"])] = (
+                    coordinates[(piece.source.source_key, row["space"], row["pointer"])] = (
                         coordinate
                     )
                     mapped.append(row)
             # A role's ordered source pieces may not overlap or reverse a coordinate.
-            ends: dict[tuple[int, str], int] = {}
+            ends: dict[tuple[str, str], int] = {}
             for row in mapped:
-                key = (row["pin"]["source_view_id"], row["pointer"])
+                key = (row["pin"]["source"], row["pointer"])
                 if row["start"] < ends.get(key, 0):
                     raise GlinerRefused("literal pieces overlap or reverse their source order")
                 ends[key] = row["end"]
@@ -1028,12 +1028,12 @@ def _item_spans(
     pointer: str,
     *,
     cell_index: int | None = None,
-    source_view_id: int | None = None,
+    source_key: int | str | None = None,
     cell_projection: Any = None,
 ) -> tuple[LiteralSpan, ...]:
     """Lift retained native piece positions, never search equal source strings."""
     _require_canonical_context(context)
-    identity = context.primary.source_view_id if source_view_id is None else source_view_id
+    identity = context.primary.source_key if source_key is None else source_key
     expected = (
         tuple(
             (piece.item_ref, piece.source_field, cell_projection.text[piece.start : piece.end])
@@ -1048,7 +1048,7 @@ def _item_spans(
         row
         for row in context.intervals
         if isinstance(row, SourceInterval)
-        and row.source.source_view_id == identity
+        and row.source.source_key == identity
         and row.cell_index == cell_index
         and (
             (json.loads(row.item_locator.removeprefix("pdf:"))["pointer"], row.source_field)
@@ -1121,7 +1121,7 @@ def native_table_groups(
             *(entry.source for entry in context.related if entry.relationship.value == "caption"),
         ):
             caption_spans.extend(
-                _item_spans(context, pointer, source_view_id=source.source_view_id)
+                _item_spans(context, pointer, source_key=source.source_key)
             )
 
     def reading(role: str, path: tuple[int, ...]) -> RoleInput:

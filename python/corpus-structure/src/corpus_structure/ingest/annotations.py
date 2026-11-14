@@ -16,7 +16,7 @@ from pydantic import TypeAdapter
 
 from corpus_structure.core.text_structure import source_atoms
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_contexts import NativeSourcePin
+from corpus_structure.semantic.source_contexts import NativeSourcePin, SourcePin
 
 from .pdf_hierarchy import ProjectedPiece
 from .sentences import (
@@ -58,7 +58,7 @@ class AnnotationProfile:
 
 @dataclass(frozen=True, slots=True)
 class AnnotationInput:
-    source: NativeSourcePin
+    source: SourcePin
     block_id: str
     kind: Literal["paragraph", "list_item", "table_cell", "caption"]
     block: Block
@@ -168,7 +168,7 @@ class AnnotationProduct:
     effective pipeline configuration digest, rather than invented component versions.
     """
 
-    source: NativeSourcePin
+    source: SourcePin
     block_id: str
     kind: str
     block_start: int

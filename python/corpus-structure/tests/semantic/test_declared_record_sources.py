@@ -86,3 +86,59 @@ def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
     assert "source_view_id" not in anchor["pin"]
     prepared.validate_python("RecordAnchor", anchor)
     assert coordinate["text"] == "A valve opens."
+
+
+def test_declared_literal_record_assembly_preserves_semantic_member_pin():
+    from corpus_structure.methods.record_assembly import LiteralSpan, NativeRecordGroup, RoleInput, assemble_native_records
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+    from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+
+    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
+    repository = Path(__file__).resolve().parents[4]
+    bundle = SourceBundle("statistics_semantic", (
+        SourceArtifact("statistics_semantic", (repository / "domains/statistics/semantic.yaml").read_bytes()),
+        SourceArtifact("statistics_terminology", (repository / "domains/statistics/terminology.yaml").read_bytes()),
+        SourceArtifact("semantic_core", (root / "core.yaml").read_bytes()),
+    ))
+    prepared = prepare_release(declared_record_inputs(source_product_inputs(bundle)))
+    text = "A valve opens."
+    native = FrozenNativeSource.from_projection(
+        prepared, document="original:doc", section_pointer="#/groups/0", membership="descendants",
+        text=text, pieces=[{"kind": "native_text", "item_ref": "#/texts/0", "source_field": "text", "start": 0, "end": len(text)}],
+        items=[{"self_ref": "#/texts/0", "label": "text", "text": text, "orig": text, "prov": []}],
+    )
+    member = BoundRoleMember("product:population", "kind:source", "subject:section", "original:doc", b'{"page":1}', b'{}', (), b'{}', member="member:one")
+    frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
+    context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(text)),), "definition", "declared-test", "selected", version=2, preparation=PreparedNativeSources((frame,)))
+    result = assemble_native_records(prepared, context, contract="DefinitionRecordFields", occurrence_roles=("term",), policy_version="reading-1", groups=(NativeRecordGroup((RoleInput("term", spans=(LiteralSpan(2, 7, "valve"),)),), "explicit term"),))
+    assert len(result.records) == 1
+    record = result.records[0].model_dump(mode="python")
+    assert {anchor["pin"]["source_product"] for anchor in record["anchors"]} == {"product:population"}
+    assert {anchor["pin"]["source_member"] for anchor in record["anchors"]} == {"member:one"}
+    assert all("source_view_id" not in anchor["pin"] for anchor in record["anchors"])
+
+
+def test_candidate_preparation_accepts_explicit_declared_frame_without_view_reference():
+    from types import SimpleNamespace
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+
+    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
+    prepared = prepare_release(declared_record_inputs(source_product_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))))
+    text = "A valve opens."
+    native = FrozenNativeSource.from_projection(prepared, document="original:doc", section_pointer="#/groups/0", membership="descendants", text=text,
+        pieces=[{"kind": "native_text", "item_ref": "#/texts/0", "source_field": "text", "start": 0, "end": len(text)}],
+        items=[{"self_ref": "#/texts/0", "label": "text", "text": text, "orig": text, "prov": []}])
+    member = BoundRoleMember("product:population", "kind:source", "subject:section", "original:doc", b'{"page":1}', b'{}', (), b'{}', member="member:one")
+    frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
+    data = SimpleNamespace(text=text, pieces=native.value["pieces"], items=native.value["items"], health={})
+    result = prepare_source(data, source_frame=frame, persisted_annotations=())
+    assert result.source is frame
+    assert result.regions[0].pointer == "#/texts/0"
+    assert result.preparation.sources[0] is frame

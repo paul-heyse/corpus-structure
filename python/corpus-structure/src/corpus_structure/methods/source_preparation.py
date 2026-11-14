@@ -30,6 +30,7 @@ from corpus_structure.ingest.pdf_hierarchy import (
 )
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.proposals import NativeFrameSource, native_source_frame
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -42,6 +43,8 @@ from corpus_structure.semantic.source_contexts import (
     RetrievalOutcome,
     SourceContextRequest,
     SourceSlice,
+    SourceFrame,
+    source_slice,
     SyntheticText,
 )
 
@@ -212,9 +215,9 @@ class ContextSelection:
     families: tuple[str, ...]
     reason: str
     missing_roles: tuple[str, ...] = ()
-    pieces: tuple[SourceSlice | SyntheticText, ...] = ()
+    pieces: tuple[SourceSlice | DeclaredSourceSlice | SyntheticText, ...] = ()
     retrievals: tuple[ContextRetrieval, ...] = ()
-    relationships: tuple[tuple[int, ContextRelationship, str], ...] = ()
+    relationships: tuple[tuple[int | str, ContextRelationship, str], ...] = ()
     local_dispositions: tuple[tuple[str, str, str], ...] = ()
     # Actual native links; consumption/limits remain explicit in local_dispositions.
     local_relationships: tuple[tuple[str, ContextRelationship, str], ...] = ()
@@ -223,7 +226,7 @@ class ContextSelection:
 
     def context(
         self,
-        source: NativeFrameSource,
+        source: SourceFrame,
         *,
         max_chars: int,
         max_pieces: int,
@@ -231,14 +234,14 @@ class ContextSelection:
         preparation: PreparedNativeSources | None = None,
         policy: str | None = None,
     ) -> NativeSourceContext:
-        sources = {entry.source.source_view_id: entry.source for entry in related}
+        sources = {entry.source.source_key: entry.source for entry in related}
         return NativeSourceContext(
             source,
             tuple(
                 RelatedNativeSource(sources[identity], relationship, reason)
                 for identity, relationship, reason in self.relationships
             ),
-            self.pieces or (SourceSlice(source.source_view_id, self.start, self.end),),
+            self.pieces or (source_slice(source, self.start, self.end),),
             ",".join(self.families),
             self.policy if policy is None else policy,
             self.reason,
@@ -263,7 +266,7 @@ class RegionDisposition:
 
 @dataclass(frozen=True, slots=True)
 class PreparedCandidateSource:
-    source: NativeFrameSource
+    source: SourceFrame
     annotations: tuple[AnnotationProduct, ...]
     selections: tuple[ContextSelection, ...]
     regions: tuple[RegionDisposition, ...]
@@ -277,7 +280,7 @@ class PreparedCandidateSource:
     )
 
 
-def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pieces):
+def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, max_pieces):
     """Keep small tables whole; dense tables use complete native rows or cells.
 
     A target retains every located cell fragment and its complete declared paths.
@@ -318,7 +321,7 @@ def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pie
         for start, end, index in sorted(selected):
             if previous is not None and index != previous:
                 pieces.append(SyntheticText("\n", "native table context cell separator"))
-            pieces.append(SourceSlice(view.ref.id, start, end))
+            pieces.append(source_slice(frame, start, end))
             previous = index
         if not pieces:
             return None, "no nonempty target/path cell projection"
@@ -377,6 +380,7 @@ def annotation_inputs(
     max_annotation_chars: int = 32768,
     check_active: Callable[[], None] = lambda: None,
     region_pointers: tuple[str, ...] | None = None,
+    source_frame: SourceFrame | None = None,
 ) -> tuple[AnnotationInput, ...]:
     """Prepare the canonical native blocks, table cells and protected atoms once.
 
@@ -387,7 +391,7 @@ def annotation_inputs(
         raise ValueError("annotation bound must be positive")
     profile = profile or AnnotationProfile()
     nlp = pipeline(profile.configuration)
-    frame = native_source_frame(view, ())
+    frame = native_source_frame(view, ()) if source_frame is None else source_frame
     pin = NativeSourcePin.from_source(frame)
     by_pointer = {item["self_ref"]: item for item in view.items}
     blocks: dict[str, list[int]] = {}
@@ -487,6 +491,7 @@ def prepare_source(
     policy: str = POLICY,
     formula_prose: bool = False,
     region_pointers: tuple[str, ...] | None = None,
+    source_frame: SourceFrame | None = None,
 ) -> PreparedCandidateSource:
     """Prepare annotations once per projected native piece, then coherent windows.
 
@@ -510,7 +515,7 @@ def prepare_source(
     ):
         raise ValueError("unsupported source preparation/routing policy")
     profile = profile or AnnotationProfile()
-    frame = native_source_frame(view, ())
+    frame = native_source_frame(view, ()) if source_frame is None else source_frame
     _pin = NativeSourcePin.from_source(frame)
     by_pointer = {item["self_ref"]: item for item in view.items}
     projected: dict[str, list[int]] = {}
@@ -538,6 +543,7 @@ def prepare_source(
             max_annotation_chars=max_annotation_chars,
             check_active=check_active,
             region_pointers=region_pointers,
+            source_frame=frame,
         )
     )
     products = list(persisted_annotations or ())
@@ -619,7 +625,7 @@ def prepare_source(
             ranges = []
             if structural == "table" and "table_cells" in node.get("data", {}):
                 table_selections, table_limits = _table_selections(
-                    view, node, indices, prepared_cells, max_chars=max_chars, max_pieces=max_pieces
+                    view, node, indices, prepared_cells, frame=frame, max_chars=max_chars, max_pieces=max_pieces
                 )
                 for selection in table_selections:
                     chosen.append(len(selections))
@@ -695,6 +701,8 @@ def prepare_source(
             RegionDisposition(pointer, label, indices, families, outcome, reason, tuple(chosen))
         )
     related = ()
+    if source_frame is not None and reader is not None:
+        raise ValueError("explicit source-frame preparation requires declared related inputs")
     if reader is not None:
         selections, related = _widen_contexts(
             view,
@@ -768,7 +776,7 @@ def _render_formula_window(
     for block in sorted(chosen.values(), key=lambda block: (block.block_start, block.block_end)):
         if pieces:
             pieces.append(SyntheticText("\n", "whole native block separator"))
-        pieces.append(SourceSlice(frame.source_view_id, block.block_start, block.block_end))
+        pieces.append(source_slice(frame, block.block_start, block.block_end))
     for piece in external:
         pieces.extend((SyntheticText("\n", "selected related source separator"), piece))
     candidate = replace(selection, pieces=tuple(pieces))
@@ -838,9 +846,9 @@ def _formula_windows(
         external = []
         unclosed = False
         for piece in selection.pieces:
-            if not isinstance(piece, SourceSlice):
+            if not isinstance(piece, (SourceSlice, DeclaredSourceSlice)):
                 continue
-            if piece.source_view_id != frame.source_view_id:
+            if piece.source_key != frame.source_key:
                 external.append(piece)
                 continue
             owners = [b for b in blocks if b.block_start <= piece.start < piece.end <= b.block_end]
@@ -864,7 +872,7 @@ def _formula_windows(
             continue
 
         original_pieces = selection.pieces or (
-            SourceSlice(frame.source_view_id, selection.start, selection.end),
+            source_slice(frame, selection.start, selection.end),
         )
         seen = {canonical_bytes([asdict(p) for p in original_pieces])}
         retained = []
@@ -1150,7 +1158,7 @@ def _widen_contexts(
                 ),
             )
         pieces: list[SourceSlice | SyntheticText] = list(
-            selection.pieces or (SourceSlice(frame.source_view_id, selection.start, selection.end),)
+            selection.pieces or (source_slice(frame, selection.start, selection.end),)
         )
         chars = sum(
             len(p.text) if isinstance(p, SyntheticText) else p.end - p.start for p in pieces

@@ -238,6 +238,13 @@ class SourceSlice:
             raise ContextRefused("unsupported coordinate space or lossy source mapping")
 
 
+def source_slice(source: SourceFrame, start: int, end: int) -> SourceSlice | DeclaredSourceSlice:
+    """Keep a frame's actual address profile when selecting an original text extent."""
+    if isinstance(source, DeclaredNativeFrameSource):
+        return DeclaredSourceSlice(source.source_key, start, end)
+    return SourceSlice(source.source_key, start, end)
+
+
 @dataclass(frozen=True)
 class SyntheticText:
     text: str
