@@ -2,34 +2,15 @@
 
 The base graph ingests/profile documents, recognizes mathematical source reports and queues
 release-bound automated proposals. Semantic domain operations own final materialization;
-independent reference evaluation uses evaluate.semantic. Config descriptors for those later
-operations remain registered so existing methods.yaml declarations resolve consistently.
+independent reference evaluation uses evaluate.semantic.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
-
-from corpus_structure.core.method import (
-    Digest,
-    MethodContext,
-    Resources,
-    RunView,
-    UnitRef,
-    UnitResult,
-    UnitView,
-)
-from corpus_structure.core.vocab import (
-    ConfidenceSource,
-    MethodFamily,
-    MethodTier,
-    Stage,
-    TaskUnitType,
-)
+from corpus_structure.core.vocab import Stage
 from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
 from corpus_structure.methods.characterization import ComposeViewMethod
@@ -64,7 +45,6 @@ from corpus_structure.methods.structural_products import (
     StructuralComparisonMethod,
     StructuralDossierMethod,
 )
-from corpus_structure.orchestrate.domain_methods import ConsolidateMethod, RulesMethod
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.product_reference import ProductReference
@@ -88,34 +68,6 @@ PHASE0 = Graph(
     ),
     policy_propose=True,
 )
-
-
-class EvaluateConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class EvaluateStub:
-    """`evaluate.score` until P0-E-2b: a run-unit method the runner calls; no worker runs it."""
-
-    name = "evaluate.score"
-    version = "stub"
-    family = MethodFamily.EVAL
-    unit_type = TaskUnitType.RUN
-    tier = MethodTier.DETERMINISTIC
-    confidence_source: ConfidenceSource | None = None
-    Config = EvaluateConfig
-    resources = Resources()
-
-    def select(self, run: RunView, cfg: EvaluateConfig) -> Iterable[UnitRef]:
-        return [UnitRef(TaskUnitType.RUN)]
-
-    def input_digest(self, unit: UnitView, cfg: EvaluateConfig) -> Digest:
-        return Digest(f"{self.name}|{self.version}".encode())
-
-    def run(
-        self, units: Sequence[UnitView], cfg: EvaluateConfig, ctx: MethodContext
-    ) -> Sequence[UnitResult]:
-        raise RuntimeError("evaluate.score runs in the runner's evaluate stage; no worker runs it")
 
 
 # The phase 0 methods, registered as their packages land (P0-I-1b, P0-I-2b, …).
@@ -149,9 +101,6 @@ METHODS: tuple[Any, ...] = (
     MeasurementInterpretationMethod(),
     AuthorSourceRecordsMethod(),
     ContextualCandidatesWithNamedBindings(),
-    ConsolidateMethod(),
-    RulesMethod(),
-    EvaluateStub(),
     *CHARACTERIZATION_METHODS,
 )
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from math_support import math_spans, read_spans
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
@@ -19,8 +20,6 @@ from corpus_structure.core.vocab import BindKind, MathKind, ParseOutcome, Segmen
 from corpus_structure.methods.math.spans import (
     extract,
     formula_values,
-    math_spans,
-    read_spans,
 )
 
 pytestmark = pytest.mark.filterwarnings("error::sympy.utilities.exceptions.SymPyDeprecationWarning")

@@ -3,12 +3,6 @@ math: {macros: {}, constants: []}
 binders: {sentence_initial: [let], clause: [], reopen: [], section_wide: []}
 aliases: {articles: [], head_words: {}, rewrites: []}
 configs:
-  consolidate.claims:
-    default: {engine: duckdb, use_markup_hints: true}
-  validate.rules:
-    default: {}
-  evaluate.score:
-    default: {}
   ingest.pdf:
     default: {originals: [toy.pdf], membership: descendants}
   ingest.pdf_integrated:

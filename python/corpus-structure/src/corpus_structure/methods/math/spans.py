@@ -1,43 +1,23 @@
-"""M11's grammar part and M09 over a rendition's math spans (ingest and math §3.8; D4 M09, M11).
+"""Mathematical span values, occurrences and relations shared by native kernels.
 
-Both read every `math_inline` and `math_display` segment of a rendition, parsed once per span under
-`any_value` with the rendition's effective macro table (`read_spans`; the grammar's memo lets the
-two share a parse in one process).
-
-- **The span.** The parse input is the span less its delimiter pair (`attrs.open` and
-  `attrs.close`, as the token form strips one pair; an environment, which the grammar reads whole,
-  and an unclosed span keep theirs) and the whitespace inside them. It starts at the opener's
-  length plus the leading whitespace, and occurrence offsets are shifted by exactly that, never
-  found by searching the span for parsed text.
-- **M11** (`formula_values`): per span, the D1 value (`t: set` for a set reading, `t: formula`
-  otherwise) with `latex` (the parse input), `parse` (a `ParseOutcome`) and the free symbols, named
-  by F2b's symbol rule and each `unresolved` (binding is consolidation's, D5 §4); no `sympy` in
-  phase 0. Beside it, the detected kind and the failure category.
-- **M09** (`extract`): per span, one `symbol` mention per occurrence (canonical-text offsets, the
-  token form `name` with `base`, `sub`, `sup`, `constant` and `in_subscript_of`; the pack's
-  constants are marked, not dropped) and the value-level relations: `in_set` (head an element,
-  tail the set; every element of a list before `\\in`), `equals` (head the left side) and
-  `compares` (head the left side of every other binary relation). Relations nested inside an
-  operator's argument (`\\P(X = x)`) are conditions, not the value's own, and are not emitted.
-
-Order is deterministic: by span start, then occurrence (or relation head) start.
+Source-view owners supply qualified spans and prepared readings. Historical rendition
+adapters belong to test fixture interpretation, not current production acquisition.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from lark import Token, Tree
 
-from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
+from corpus_structure.core.evidence import Segment
 from corpus_structure.core.keys import symbol_form
 from corpus_structure.core.values import Formula, SetValue, SymbolBinding
 from corpus_structure.core.vocab import BindKind, MathKind, SegmentKind
 from corpus_structure.methods.math import _tree
 from corpus_structure.methods.math.grammar import (
-    PARSE_SECONDS,
     MathResult,
     Occurrence,
 )
@@ -50,7 +30,6 @@ _MATH_KIND = {
     "set_expr": MathKind.SET,
     "list": MathKind.LIST,
 }
-_ENVIRONMENT_OPENER = "\\begin"
 _EQUALS = frozenset({"EQUAL"})
 
 
@@ -76,87 +55,6 @@ class SpanReading:
         object.__setattr__(self, "span", state[0])
         object.__setattr__(self, "result", state[1])
         object.__setattr__(self, "prepared", None)
-
-
-def _inner(text: str, segment: Segment) -> tuple[int, int]:
-    opener, closer = segment.attrs.get("open"), segment.attrs.get("close")
-    a, b = 0, len(text)
-    if (
-        isinstance(opener, str)
-        and isinstance(closer, str)
-        and not opener.startswith(_ENVIRONMENT_OPENER)
-        and text.startswith(opener)
-        and text.endswith(closer)
-        and len(text) >= len(opener) + len(closer)
-    ):  # a pair, as the token form strips one; an unclosed span is read with its opener
-        a, b = len(opener), len(text) - len(closer)
-    while a < b and text[a].isspace():
-        a += 1
-    while b > a and text[b - 1].isspace():
-        b -= 1
-    return a, b
-
-
-def math_spans(content: RenditionContent) -> list[MathSpan]:
-    """Every math span of the rendition, in page order, with its parse input."""
-    out = []
-    for segment in content.document.walk():
-        if segment.kind in MATH_KINDS:
-            text = content.text(segment)
-            a, b = _inner(text, segment)
-            out.append(MathSpan(segment, text[a:b], segment.start + a))
-    return sorted(out, key=lambda s: (s.segment.start, s.segment.end))
-
-
-def read_spans(
-    content: RenditionContent,
-    macros: Mapping[str, MacroDef],
-    constants: Sequence[str] = (),
-    *,
-    seconds: float = PARSE_SECONDS,
-    prepared_context=None,
-    prepared_source=None,
-) -> list[SpanReading]:
-    """Parse every math span under `any_value`; `macros` is the effective table
-    (`core/tex.py` `effective_macros`), `constants` the pack's `math.constants`."""
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
-
-    if prepared_source is not None and not prepared_source.operands:
-        return []
-    prepared_context = prepared_context or (
-        prepared_source.operands[0].context
-        if prepared_source is not None
-        else prepare_interpretation_context(
-            macros=macros, constants=constants, demand="occurrences"
-        )
-    )
-    from .prepared import PreparedMathInput
-
-    macros = prepared_context.macros
-    readings = []
-    spans = math_spans(content) if prepared_source is None else prepared_source.spans
-    for index, span in enumerate(spans):
-        prepared = (
-            prepared_source.operands[index]
-            if prepared_source is not None
-            else PreparedMathInput(
-                prepared_context,
-                span.latex,
-                "any_value",
-                seconds,
-                source_text=content.text(span.segment),
-                source_start=span.segment.start,
-                parse_start=span.offset,
-            )
-        )
-        result = prepared.symbolic_reading()
-        prepared.context.validate_result(
-            produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
-            interpretation=result.status.value,
-            completeness="failed" if result.failure else "complete",
-        )
-        readings.append(SpanReading(span, result, prepared))
-    return readings
 
 
 def _free(result: MathResult) -> list[Occurrence]:

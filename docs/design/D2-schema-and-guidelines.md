@@ -1722,6 +1722,12 @@ What the inspection found, and why the hints look the way they do:
 
 ### 12.1 `methods.yaml`
 
+**Historical HTML profile detail; current boundary, 2026-11-14.** The DOM profiles and their
+loader contract below are retired. Current pack configurations select native PDF products; source
+measurements use qualified native source-view intervals. The former `sources/siegrist.yaml` and
+`sources/toy.yaml` are recoverable in Git, not current authoring inputs. This retained example
+does not authorize current HTML synthesis or require replay of original HTML results.
+
 A source profile describes a source's HTML, not a domain (D4 M01), so it lives outside the pack in
 `sources/<profile>.yaml` (§2): a second domain over the same source reuses it, and a second source
 for statistics adds a file without editing the pack. The pack's `methods.yaml` names the profile

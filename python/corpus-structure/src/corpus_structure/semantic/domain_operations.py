@@ -361,30 +361,25 @@ class NativeEvidenceLink:
 
 
 def _evidence_link(observation, descriptor, start, end, locator):
-    frame = descriptor.get("frame")
     from .proposals import NativeProposalFrame, native_address, native_statement_source
 
-    if isinstance(frame, NativeProposalFrame):
-        cited = native_statement_source(frame, locator)
-        return NativeEvidenceLink(
-            observation["id"],
-            cited.source_view_id,
-            start,
-            end,
-            native_address(cited, start=start, end=end),
-        )
-    return observation["id"], descriptor["rendition_id"], start, end
+    frame = descriptor.get("frame")
+    if not isinstance(frame, NativeProposalFrame):
+        raise DomainOperationRefused("evidence requires current SourceView custody")
+    cited = native_statement_source(frame, locator)
+    return NativeEvidenceLink(
+        observation["id"],
+        cited.source_view_id,
+        start,
+        end,
+        native_address(cited, start=start, end=end),
+    )
 
 
 def _evidence_source_text(descriptor, locator):
-    from .proposals import NativeProposalFrame, native_statement_source
+    from .proposals import native_statement_source
 
-    frame = descriptor.get("frame")
-    return (
-        native_statement_source(frame, locator).text
-        if isinstance(frame, NativeProposalFrame)
-        else descriptor["text"]
-    )
+    return native_statement_source(descriptor["frame"], locator).text
 
 
 @dataclass(frozen=True)
@@ -398,7 +393,7 @@ class CutInput:
     candidates: tuple[ClaimCandidate, ...]
     batch: PublicationBatch
     entity_metadata: Mapping[str, Mapping[str, Any]]
-    source_links: Mapping[str, tuple[int, int, int, int] | NativeEvidenceLink]
+    source_links: Mapping[str, NativeEvidenceLink]
     source_binding: SnapshotBinding
     record_reports: tuple[Mapping[str, Any], ...] = ()
     record_policy_bindings: tuple[Mapping[str, Any], ...] = ()
@@ -905,11 +900,10 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
         for source in source_rows:
             report = reports_by_id[source["id"]]
             frame = source_frames.get(report["task_id"])
-            view_id = (
-                frame.source_view_id
-                if isinstance(frame, NativeProposalFrame)
-                else source["source_view_id"]
-            )
+            if not isinstance(frame, NativeProposalFrame):
+                descriptors[source["id"]] = None
+                continue
+            view_id = frame.source_view_id
             if view_id is not None:
                 if view_id not in views:
                     views[view_id] = load_source_view(conn, view_id, analysis=False)
@@ -921,15 +915,12 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                     ).scalar_one()
                 source_uri = source_uris[document_id]
                 descriptors[source["id"]] = {
-                    "rendition_id": None,
                     "source_view_id": view.ref.id,
                     "source_uri": source_uri,
                     "text": view.text,
                     "provider": source["provider"],
                     "version": source["version"],
-                    "rendition_key": view.ref.key,
                     "content": {"macros": {}},
-                    "page": source_uri,
                     "math": source["params"].get("math"),
                     "frame": frame,
                 }
@@ -1389,16 +1380,23 @@ def _project_cut(
     coverage = []
     source_links = {}
     evidence_roles = {}
-    contents = {}
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.core.tex import effective_macros
     from corpus_structure.methods.math.methods import MathSection
 
+    from .proposals import NativeProposalFrame
+
     contexts = {}
+    admitted = []
     for observation in observations:
         descriptor = descriptors[observation["id"]]
-        if observation["payload_definition"] != "AgentStoredBatch" or descriptor is None:
+        if (
+            observation["payload_definition"] != "AgentStoredBatch"
+            or descriptor is None
+            or not isinstance(descriptor.get("frame"), NativeProposalFrame)
+        ):
             continue
+        admitted.append(observation)
         section = MathSection.model_validate(descriptor["math"] or {})
         source_macros = {
             name: MacroDef.model_validate(value)
@@ -1411,7 +1409,7 @@ def _project_cut(
     if len({constants for _, constants in contexts.values()}) > 1:
         raise DomainOperationRefused("cut has incompatible recorded mathematical constant profiles")
     entity_mappings, parsed, resolution_decisions = _entity_mappings(
-        prepared, observations, output, known, contexts
+        prepared, admitted, output, known, contexts
     )
 
     def coverage_row(
@@ -1455,80 +1453,6 @@ def _project_cut(
             )
     for observation in observations:
         reports.append(dict(observation))
-        if (
-            observation["payload_definition"] == "SourceObservation"
-            and observation["kind"] == "author_markup"
-        ):
-            from corpus_structure.core.evidence import RenditionContent
-            from corpus_structure.semantic.observations import source_python
-            from corpus_structure.semantic.source_projection import project_markup
-
-            descriptor = descriptors[observation["id"]]
-            if descriptor is None:
-                coverage_row(
-                    "author_markup",
-                    observation["observation_key"],
-                    "partial",
-                    "source rendition unavailable",
-                )
-                continue
-            payload = source_python(observation["payload"]["payload"])
-            # A source envelope retains the canonical markup segment key in its payload value.
-            if payload.get("synthesize") is None:
-                continue
-            segment_key = (payload.get("value") or {}).get("segment")
-            if segment_key is None:
-                coverage_row(
-                    "author_markup",
-                    observation["observation_key"],
-                    "partial",
-                    "markup has no segment locator",
-                )
-                continue
-            if descriptor["rendition_id"] not in contents:
-                contents[descriptor["rendition_id"]] = RenditionContent.model_validate(
-                    descriptor["content"]
-                )
-            projected = project_markup(
-                prepared,
-                output,
-                observation_key=observation["observation_key"],
-                payload=payload,
-                content=contents[descriptor["rendition_id"]],
-                page=descriptor["page"],
-                source_uri=descriptor["source_uri"],
-                rendition_key=descriptor["rendition_key"],
-                segment_key=segment_key,
-                provider=descriptor["provider"],
-                operation_version=descriptor["version"],
-            )
-            coordinates = {eid: (start, end) for eid, start, end in projected.evidence_ranges}
-            items.extend(
-                replace(
-                    item,
-                    evidence=tuple(
-                        replace(
-                            e,
-                            locator="rendition:"
-                            + descriptor["rendition_key"]
-                            + ":span:"
-                            + str(coordinates[e.evidence_id][0])
-                            + ":"
-                            + str(coordinates[e.evidence_id][1]),
-                        )
-                        for e in item.evidence
-                    ),
-                )
-                for item in projected.items
-            )
-            for ordinal, (eid, start, end) in enumerate(projected.evidence_ranges):
-                role = payload["synthesize"]["evidence"][ordinal].get("role")
-                if role is not None:
-                    evidence_roles[eid] = role
-                source_links[eid] = _evidence_link(observation, descriptor, start, end, "")
-            for locator in projected.unresolved:
-                coverage_row("author_markup", locator, "partial", "unresolved source reference")
-            continue
         if observation["payload_definition"] != "AgentStoredBatch":
             coverage_row(
                 observation["kind"],
@@ -1538,53 +1462,30 @@ def _project_cut(
             )
             continue
         descriptor = descriptors[observation["id"]]
-        payload = parsed[observation["id"]]
-        if descriptor is None:
+        if observation["id"] not in parsed:
             coverage_row(
-                "claim_proposal", payload["unit_ref"], "partial", "source rendition unavailable"
+                "claim_proposal", observation["observation_key"], "partial",
+                "current native source frame unavailable; historical proposal retained",
             )
             continue
+        payload = parsed[observation["id"]]
         source = observation["observation_key"]
         mapping = entity_mappings[observation["id"]]
         statements = {s["id"]: dict(s) for s in payload.get("statements", ())}
-        from corpus_structure.core.evidence import RenditionContent
-        from corpus_structure.core.locators import LocatorIndex
-
-        from .proposals import statement_anchor
+        from .proposals import native_statement_source, statement_anchor
         from .source_projection import statement_identity
 
-        if statements:
-            from .proposals import NativeProposalFrame
-
-            source_index = (
-                None
-                if isinstance(descriptor["frame"], NativeProposalFrame)
-                else LocatorIndex(
-                    RenditionContent.model_validate(descriptor["content"]), descriptor["page"]
+        for statement in statements.values():
+            if statement["kind"] != "outside":
+                statement["anchor"] = statement_anchor(statement["anchor"], descriptor["frame"])
+            else:
+                coverage_row(
+                    "statement", source + "/" + statement["id"], "partial",
+                    "explicit unresolved external statement reference",
                 )
-            )
-            for statement in statements.values():
-                if statement["kind"] != "outside":
-                    statement["anchor"] = statement_anchor(
-                        statement["anchor"], descriptor["frame"], index=source_index
-                    )
-                else:
-                    coverage_row(
-                        "statement",
-                        source + "/" + statement["id"],
-                        "partial",
-                        "explicit unresolved external statement reference",
-                    )
 
         def statement_source_key(anchor, *, descriptor=descriptor):
-            from .proposals import NativeProposalFrame, native_statement_source
-
-            frame = descriptor["frame"]
-            return (
-                native_statement_source(frame, anchor).unit_ref
-                if isinstance(frame, NativeProposalFrame)
-                else descriptor["rendition_key"]
-            )
+            return native_statement_source(descriptor["frame"], anchor).unit_ref
 
         statement_ids = {
             ref: statement_identity(
@@ -2251,7 +2152,7 @@ def _project_cut(
             {
                 MembershipRow(mapping[e["id"]], e["class_iri"], "agent_asserted")
                 for observation in observations
-                if observation["payload_definition"] == "AgentStoredBatch"
+                if observation["id"] in parsed
                 for mapping in (entity_mappings[observation["id"]],)
                 for e in parsed[observation["id"]].get("entities", ())
                 if (observation["id"], e["id"]) in decided
@@ -2265,7 +2166,7 @@ def _project_cut(
                 {
                     EntitySourceRow(mapping[e["id"]], observation["id"], e["id"])
                     for observation in observations
-                    if observation["payload_definition"] == "AgentStoredBatch"
+                    if observation["id"] in parsed
                     for mapping in (entity_mappings[observation["id"]],)
                     for e in parsed[observation["id"]].get("entities", ())
                     if (observation["id"], e["id"]) in decided

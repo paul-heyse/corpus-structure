@@ -13,11 +13,11 @@ proposals against targets they did not produce. Consumers: I1a (segments), F4's 
 | `corpus/siegrist_random/random/special/{LocationScale,Normal,LogNormal,Gamma}.html` | The original bytes of the four spike pages (98 KB), at their corpus paths |
 | `index/siegrist_sections.tsv` | Those pages' rows of the Siegrist corpus index, header included |
 | `corpus/NOTICE` | Siegrist's CC BY 2.0 attribution |
-| `build_segments.py`, `build_targets.py` | Provenance: the scripts that wrote the JSON once (`uv run python fixtures/trace/<script>`) |
+| Former `build_segments.py`, `build_targets.py` | Historical one-time conversion; scripts recoverable from Git before the DDO bounded cleanup |
 
-The committed JSON is the authority; the scripts are kept only as provenance. Neither imports
-spike code: they read the frozen S1 renditions in the design-spikes evidence as data and use the
-product locator generator (`corpus_structure.core.locators`).
+The committed JSON is the authority. The retired scripts read frozen S1 renditions in the
+design-spikes evidence as data and used the product locator generator. Their historical
+conversion is described below; fixture bytes and recorded provenance remain unchanged.
 
 The reader and the support models are `python/corpus-structure/tests/fixtures/support.py`.
 
@@ -36,7 +36,7 @@ these snapshots establish no PDF parsing or fidelity result.
 | `segments` | Every segment of the unit's subtree, parents before children (`Segment.walk` order): `kind`, generated `locator`, `start`, `end`, author `attrs`, `parse_status` (`parse_reason` when not `ok`) |
 | `counts` | Segments per kind |
 | `markup` | The S1 inline markup inside the unit (`dfn`, `em`, …), which trace.md names as the `dfn` term |
-| `trace_md` | What trace.md states about the unit (kind, id, counts of math spans and sentences, classes, `dfn` terms); `build_segments.py` asserts each against the S1 rendition |
+| `trace_md` | What trace.md states about the unit (kind, id, counts of math spans and sentences, classes, `dfn` terms); the former builder checked each against the S1 rendition |
 
 Kinds, counts and attributes are trace.md's; offsets, texts, attributes and parse statuses are the
 S1 rendition's (the diagnostic attributes `tag`, `sid`, `sourceline` and `roles` dropped; the
@@ -62,7 +62,7 @@ trace.md's statements all held, with these readings:
 | `phases` | Phase marks: everything phase 0 except T3's D1 (phase 2, D5 §9) |
 | `sources` | Where each claim's formula text and bindings come from: trace.md, or the v1 batch (`results/s0r2/reference_model_v1/<T>.json <local_ref>`) where trace.md abbreviates |
 
-Evidence quotes are the targets' own, copied from the cited sentences; `build_targets.py` and the
+Evidence quotes are the targets' own, copied from the cited sentences; the former target builder and the
 tests check each occurs in its frame text.
 
 ### Support models (`support.py`)
@@ -98,9 +98,9 @@ test), not this package's.
 The pages sit at their corpus paths under a corpus root, `corpus/`, as in
 `docs/statistics_corpus/corpus/`, so their source URIs, content hashes, document keys and locators
 are the corpus's, and the tests that use them run without the gitignored corpus and never skip.
-The index is at `index/siegrist_sections.tsv`, beside `corpus/` rather than inside it, so the
-Siegrist profile's `index.file: "../index/siegrist_sections.tsv"` (relative to the corpus root,
-D2 §12.1) resolves unchanged; its four rows and header are copied verbatim from
+The index is at `index/siegrist_sections.tsv`, beside `corpus/` rather than inside it, retaining
+the historical corpus layout. No current DOM profile loader is required. Its four rows and header
+were copied verbatim from
 `docs/statistics_corpus/index/siegrist_sections.tsv`. The bytes match
 `docs/statistics_corpus/MANIFEST.sha256` (2026-10-28), and a `corpus`-marked test repeats that
 check whenever the corpus is present.

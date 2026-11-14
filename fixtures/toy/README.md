@@ -1,7 +1,7 @@
 # Ownership fixtures
 
 The two HTML pages are authored for this test and carry no external corpus dependency.
-`index.tsv` names pages relative to the source profile's root. `ownership.json` and
+`index.tsv` retains page names relative to the historical toy corpus layout; no current source-profile loader is required. `ownership.json` and
 `registers.json` are independent authored batches and citation frames for their clause paragraphs.
 Frames use the locator generator and sentence texts of the HTML; expected ownership outcomes are
 stated here independently of consolidation and serving:

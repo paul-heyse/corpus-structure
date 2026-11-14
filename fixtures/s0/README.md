@@ -51,9 +51,9 @@ The reader and its models are `python/corpus-structure/tests/fixtures/support.py
 
 ## Conversion route
 
-`build.py` (`uv run python fixtures/s0/build.py`) wrote these files once; the committed JSON is the
-authority from then on and the script is kept only as provenance. It reads the spike results as
-data and imports no spike code:
+The former `build.py` wrote these files once from frozen spike inputs. The committed JSON
+is the authority; the retired builder is recoverable from Git before the DDO bounded cleanup.
+The following describes that historical conversion, not an executable regeneration workflow:
 
 1. Each page's frozen S1 rendition (`results/s1/canonical`, `segments`, the provisional
    `sentences` the references are stored on, all in the design-spikes evidence) is rebuilt as a

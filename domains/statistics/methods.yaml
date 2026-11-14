@@ -61,12 +61,6 @@ configs:                                               # named configurations, r
             - 0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1
           threads: 4
         threshold: 0.5
-  consolidate.claims:                                  # aliases and math come from the sections above
-    default: {engine: duckdb, use_markup_hints: true}
-  validate.rules:                                      # the rule set is the run's compiled artifact
-    default: {}
-  evaluate.score:                                      # a stand-in until P0-E-2b
-    default: {}
   enrich.pdf_math:
     default: {}
   ingest.pdf:

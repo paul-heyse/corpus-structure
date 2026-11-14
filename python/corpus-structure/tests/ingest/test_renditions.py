@@ -20,7 +20,6 @@ import pytest
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex, parse
 from corpus_structure.core.vocab import SegmentKind
-from corpus_structure.ingest.profile_segments import MEASURED, features, measurements
 
 
 class IngestResult(Protocol):
@@ -175,22 +174,3 @@ def test_the_trace_segment_fixtures_match(unit: str, ingest: Ingest) -> None:
             continue
         assert any((name, record["start"], record["end"]) in produced for name in names), record
         assert result.content.canonical_text[record["start"] : record["end"]] == record["text"]
-
-
-def test_m02_features_count_characters_and_math(ingest: Ingest) -> None:
-    result = ingest("special/Normal.html")
-    rows = features(result.content)
-    assert rows and {f.segment.kind for f in rows} <= MEASURED
-    t2 = LocatorIndex(result.content, result.page).resolve(_trace("T2")["unit_key"])
-    (f,) = [f for f in rows if f.segment is t2]
-    assert (f.chars, f.inline_math, f.display_math) == (t2.end - t2.start, 3, 0)
-    inside = sum(c.end - c.start for c in t2.children if c.kind is SegmentKind.MATH_INLINE)
-    assert f.math_share == round(inside / f.chars, 6)
-    drafts = measurements(result.content, lambda s: f"seg:{s.kind.value}:{s.start}")
-    assert len(drafts) == 4 * len(rows)
-    assert {d.metric for d in drafts} == {
-        "segment.chars",
-        "segment.math_share",
-        "segment.inline_math",
-        "segment.display_math",
-    }

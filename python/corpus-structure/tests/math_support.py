@@ -20,7 +20,7 @@ import json
 import multiprocessing
 import os
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
 from functools import lru_cache, partial
@@ -30,7 +30,7 @@ from typing import overload
 from math_worker_transport import configure_worker_transport
 
 from corpus_structure.core import tex
-from corpus_structure.core.evidence import MacroDef, RenditionContent
+from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
 from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
 from corpus_structure.methods.math.spans import (
     MathExtraction,
@@ -38,8 +38,82 @@ from corpus_structure.methods.math.spans import (
     SpanValue,
     extract,
     formula_values,
-    read_spans,
 )
+
+from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.methods.math.grammar import PARSE_SECONDS
+from corpus_structure.methods.math.spans import MATH_KINDS, MathSpan
+
+_ENVIRONMENT_OPENER = "\\begin"
+
+
+def _inner(text: str, segment: Segment) -> tuple[int, int]:
+    opener, closer = segment.attrs.get("open"), segment.attrs.get("close")
+    a, b = 0, len(text)
+    if (
+        isinstance(opener, str)
+        and isinstance(closer, str)
+        and not opener.startswith(_ENVIRONMENT_OPENER)
+        and text.startswith(opener)
+        and text.endswith(closer)
+        and len(text) >= len(opener) + len(closer)
+    ):  # a pair, as the token form strips one; an unclosed span is read with its opener
+        a, b = len(opener), len(text) - len(closer)
+    while a < b and text[a].isspace():
+        a += 1
+    while b > a and text[b - 1].isspace():
+        b -= 1
+    return a, b
+
+
+def math_spans(content: RenditionContent) -> list[MathSpan]:
+    """Every math span of the rendition, in page order, with its parse input."""
+    out = []
+    for segment in content.document.walk():
+        if segment.kind in MATH_KINDS:
+            text = content.text(segment)
+            a, b = _inner(text, segment)
+            out.append(MathSpan(segment, text[a:b], segment.start + a))
+    return sorted(out, key=lambda s: (s.segment.start, s.segment.end))
+
+
+def read_spans(
+    content: RenditionContent,
+    macros: Mapping[str, MacroDef],
+    constants: Sequence[str] = (),
+    *,
+    seconds: float = PARSE_SECONDS,
+    prepared_context=None,
+) -> list[SpanReading]:
+    """Parse every math span under `any_value`; `macros` is the effective table
+    (`core/tex.py` `effective_macros`), `constants` the pack's `math.constants`."""
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    prepared_context = prepared_context or prepare_interpretation_context(
+        macros=macros, constants=constants, demand="occurrences"
+    )
+    from corpus_structure.methods.math.prepared import PreparedMathInput
+
+    readings = []
+    for span in math_spans(content):
+        prepared = PreparedMathInput(
+            prepared_context,
+            span.latex,
+            "any_value",
+            seconds,
+            source_text=content.text(span.segment),
+            source_start=span.segment.start,
+            parse_start=span.offset,
+        )
+        result = prepared.symbolic_reading()
+        prepared.context.validate_result(
+            produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
+            interpretation=result.status.value,
+            completeness="failed" if result.failure else "complete",
+        )
+        readings.append(SpanReading(span, result, prepared))
+    return readings
+
 
 REPO = Path(__file__).resolve().parents[3]
 VENDORED = REPO / "fixtures/trace/corpus"

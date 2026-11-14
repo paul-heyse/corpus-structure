@@ -73,3 +73,28 @@ def frame():
     return ProposalFrame(
         "page#one", "😀 Alice is here.", (ProposalSentence("s1", "page#sentence1", 2, 16),)
     )
+
+
+def native_frame(original=None):
+    """An explicitly authored native frame with the original scientific sentence spans."""
+    from dataclasses import replace
+    from hashlib import sha256
+
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.proposals import NativeProposalFrame, native_address
+
+    original = frame() if original is None else original
+    context = dict(
+        pieces=[dict(kind="native_text", item_ref="#/texts/0", start=0, end=len(original.text))],
+        items=[dict(self_ref="#/texts/0")], ancestors=[], health={},
+    )
+    value = NativeProposalFrame(
+        original.unit_ref, original.text, (), 1, ProductReference(1, "native", "a" * 64),
+        "#/groups/0", "direct", sha256(canonical_bytes(context)).hexdigest(), "b" * 64,
+        canonical_bytes(context).decode(),
+    )
+    return replace(value, sentences=tuple(
+        replace(sentence, locator=native_address(value, start=sentence.start, end=sentence.end))
+        for sentence in original.sentences
+    ))

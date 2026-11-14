@@ -21,7 +21,7 @@ from corpus_structure.semantic.rule_views import project_rule_value
 from corpus_structure.semantic.unicode_identity import identity_casefold
 from semantic.identity_resolution_support import release as identity_release
 from semantic.identity_resolution_support import source
-from semantic.proposals_support import batch, frame, prepared
+from semantic.proposals_support import batch, native_frame as frame, prepared
 
 
 def test_source_subset_is_narrower_than_storage_and_generated_boundary():
@@ -154,9 +154,6 @@ def test_each_attribute_keeps_own_qualification_and_support_without_claim_borrow
         "provider": "agent.test",
         "version": "7",
         "frame": frame(),
-        "rendition_id": 1,
-        "rendition_key": "rendition:test",
-        "page": None,
     }
     job = {
         "id": 1,
@@ -666,9 +663,6 @@ def _declaration_projection(release, raw):
         "provider": "agent.test",
         "version": "7",
         "frame": frame(),
-        "rendition_id": 1,
-        "rendition_key": "rendition:test",
-        "page": None,
     }
     job = {
         "id": 1,
@@ -680,3 +674,20 @@ def _declaration_projection(release, raw):
     return _project_cut(
         release, job, {"id": 1}, [observation], {9: descriptor}, [], [], "out", {}, {}
     )
+
+
+def test_historical_proposal_without_native_frame_retains_report_and_partial_standing():
+    from semantic.proposals_support import frame as historical_frame
+
+    release = prepared()
+    observation = dict(id=9, observation_key="historical:proposal", payload_definition="AgentStoredBatch",
+                       payload={"historical_payload": "not reinterpreted by the current schema"})
+    descriptor = dict(frame=historical_frame(), math={"constants": "historical unparsed config"},
+                      content={"macros": {"old": "unparsed"}})
+    job = dict(id=1, project_id="project:test", release_id=release.release_id,
+               input_realization_id="in", input_revision=0)
+    cut = _project_cut(release, job, {"id": 1}, [observation], {9: descriptor}, [], [], "out", {}, {})
+    assert cut.reports == (observation,)
+    assert cut.candidates == () and not cut.source_links
+    assert not cut.batch.entity and not cut.batch.occurrence
+    assert any(row.family == "claim_proposal" and row.outcome == "partial" for row in cut.batch.coverage)

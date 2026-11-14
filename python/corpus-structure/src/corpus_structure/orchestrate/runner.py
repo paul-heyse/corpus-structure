@@ -2,44 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import Connection
 
 from corpus_structure.core.method import UnitRef, UnitView
-from corpus_structure.core.vocab import RunKind, Stage, TaskStatus, TaskUnitType
-
-
-class PassOutcome(Protocol):
-    """What the runner reads of a pass's report, structurally: consolidation returns its own
-    report type (it does not import `orchestrate`)."""
-
-    @property
-    def counts(self) -> Mapping[str, int]: ...
-
-    @property
-    def rule_counts(self) -> Mapping[str, int]: ...
-
-    @property
-    def consumed(self) -> tuple[int, ...]: ...
-
-
-@dataclass(frozen=True)
-class PassReport:
-    """A minimal `PassOutcome` (stubs and tests): counts by code, M19's per-rule evaluated counts
-    and the propose tasks it consumed (D5 §1, §11)."""
-
-    counts: Mapping[str, int] = field(default_factory=dict)
-    rule_counts: Mapping[str, int] = field(default_factory=dict)
-    consumed: tuple[int, ...] = ()
-
-
-PassRunner = Callable[[Connection, int, str, int | None], PassOutcome]
-
-
-Evaluate = Callable[[Connection, int, int], TaskStatus]
+from corpus_structure.core.vocab import RunKind, Stage, TaskUnitType
 
 
 UnitSource = Callable[[Connection, Any, Any], Iterable[UnitRef]]
@@ -54,12 +24,9 @@ class Step:
 
 @dataclass(frozen=True)
 class Graph:
-    """The base stages and the run-level configurations of the passes (phase 0, §3.8)."""
+    """The configured stages and explicit proposal policy for a source workflow."""
 
     stages: tuple[tuple[Stage, tuple[Step, ...]], ...]
-    pass_config: str = "consolidate.claims/default"
-    m19_config: str = "validate.rules/default"
-    evaluate_config: str = "evaluate.score/default"
     policy_propose: bool = False
 
     def for_kind(self, kind: RunKind) -> Graph:

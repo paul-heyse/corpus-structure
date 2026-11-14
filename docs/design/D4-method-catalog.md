@@ -821,7 +821,10 @@ On another source the fallback body would differ and keys would move.
 > Status: per-page macros **Tested** on 78 Siegrist pages (S1, 2026-10-28): 29 distinct definitions recorded per rendition; the common names (`\N`, `\R`, `\E`, `\var`, `\P`, `\sd`) agree across pages, several others do not ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the fallback to the pack map is **Proposed**
 > Status: tokenizer reader **Measured** on the 78 `div.latex` blocks (2026-10-28, [text-math note L-04](../design_review/evidence/2026-10-28_library-text-math/README.md)): 630 `\newcommand` and 22 `\renewcommand` definitions, no `\def`, `\DeclareMathOperator` or `%`; it gives the pylatexenc walk's table on the other 56 pages and adds `\P` on the 22. pylatexenc's non-tolerant span parse made 0 of 28,956 spans `partial`, and all 8 partials come from delimiting. `\DeclareMathOperator` is **Proposed** (no occurrence)
 
-**Configuration.** A *source profile* (one per source family; Siegrist's is drafted in
+**Historical configuration (retired 2026-11-14).** The former DOM profiles and current
+HTML synthesis adapters are removed; native source-view measurement and evidence custody own
+current behavior. The following is a historical contract example, not a profile-loading route.
+A *source profile* (one per source family; Siegrist's was drafted in
 [D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml) as `sources/siegrist.yaml`) is a set of
 CSS selectors, each with a role payload: exclusion rules (scripts, the macro block, navigation including Siegrist's
 `ul.map` chapter lists, controls, images), the title, section headings (`h3` and `h4` open
