@@ -14,7 +14,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock, Thread
+from time import monotonic
 from typing import Any
 from uuid import uuid4
 
@@ -125,6 +126,52 @@ class _ExecutionResult:
     failures: tuple[Exception, ...] = ()
 
 
+class _OwnedPythonPool:
+    """Bounded retirement of the existing invocation's provider-transport threads."""
+
+    def __init__(self, workers):
+        self.pool = ThreadPoolExecutor(max_workers=workers)
+        # CPython's worker registry is retained before submit can start a thread.
+        self.threads = self.pool._threads
+        self.drained = False
+        self.closed = False
+
+    def __enter__(self):
+        return self
+
+    def submit(self, callback):
+        return self.pool.submit(callback)
+
+    def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        from corpus_structure.semantic.cpu_execution import _COOPERATIVE_CLOSE_SECONDS, _WORKER_EXIT_SECONDS
+        deadline = monotonic() + _COOPERATIVE_CLOSE_SECONDS + _WORKER_EXIT_SECONDS
+        stopped = Event()
+        failures = []
+
+        def stop():
+            try:
+                self.pool.shutdown(wait=False, cancel_futures=True)
+            except BaseException as error:
+                failures.append(error)
+            finally:
+                stopped.set()
+
+        stopper = Thread(target=stop, name="demand-python-stop", daemon=True)
+        stopper.start()
+        stopped.wait(max(0, deadline - monotonic()))
+        for thread in tuple(self.threads):
+            thread.join(max(0, deadline - monotonic()))
+        self.drained = stopped.is_set() and not failures and all(not thread.is_alive() for thread in tuple(self.threads))
+        if not self.drained:
+            raise PhysicalRetirementUncertain("native demand transport threads did not drain; capacity remains owned")
+
+    def __exit__(self, *error):
+        self.close()
+
+
 class _PythonWork:
     def __init__(self, future: Future, release):
         self.future, self.release = future, release
@@ -169,10 +216,20 @@ class _RequestExecution:
 
     def submit_python(self, callback):
         share = self.reservation.share()
+        completed = Event()
+
+        def owned():
+            try:
+                return callback()
+            finally:
+                completed.set()
+
         try:
-            work = _PythonWork(self.invocation.pool.submit(callback), share.release)
+            work = _PythonWork(self.invocation.pool.submit(owned), share.release)
         except BaseException:
-            share.release()
+            # Submit may have accepted work before losing its acknowledgement.
+            # No future is not proof that this reservation is free.
+            self.invocation.uncertain_python.append((completed, share))
             raise
         self.invocation.python_work.append(work)
         return work
@@ -217,6 +274,7 @@ class _RequestExecution:
 class _InvocationExecution:
     def __init__(self, executor, pool):
         self.pool, self.python_work = pool, []
+        self.uncertain_python = []
         self.cpu = CPUExecutionScope(
             executor.prepared, executor.policy, budget=executor.budget, retain_schema=False
         )
@@ -240,7 +298,8 @@ class _InvocationExecution:
                 raise PortRefusal("native demand changed its frozen operation closure")
             return
         for operation in selected:
-            if operation in self.executor.capability_factories:
+            if (operation in self.executor.capability_factories
+                or self.executor.model.operation(operation).capabilities.prepared_factory is not None):
                 port = self.executor._port(operation)
                 self.native_hosts.declare(port.native_selections)
         self._selected_operations = selected
@@ -257,7 +316,16 @@ class _InvocationExecution:
             self.cpu.close()
         except BaseException as failure:
             failures.append(failure)
-        if native_drained:
+        try:
+            self.pool.close()
+        except BaseException as failure:
+            failures.append(failure)
+        if self.pool.drained and native_drained and self.cpu._physical_retired:
+            for _, share in self.uncertain_python:
+                share.release()
+        else:
+            self.executor._quarantined = True
+        if native_drained and self.pool.drained:
             for work in self.python_work:
                 work.drained = True
                 work.retire()
@@ -303,6 +371,7 @@ class NativeDemandExecutor:
             raise ValueError("native input, reply and publication draft exceed owned capacity")
         self.budget = OwnedByteBudget(self.policy.max_owned_bytes)
         self._invocation = Lock()
+        self._quarantined = False
         self.ports = {}
         self.holder = "demand-owner:" + uuid4().hex
 
@@ -312,7 +381,11 @@ class NativeDemandExecutor:
             if selected.effects:
                 raise PortRefusal("effectful operation requires its declared effect owner")
             if selected.capabilities.preparation != "none":
-                factory = self.capability_factories.get(operation)
+                from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
+
+                factory = (resolve_prepared_factory(self.model, self.sources, operation)
+                           if selected.capabilities.prepared_factory is not None
+                           else self.capability_factories.get(operation))
                 if factory is None:
                     raise PortRefusal("declared prepared capability is not acquired")
                 with self.engine.begin() as connection:
@@ -439,13 +512,16 @@ class NativeDemandExecutor:
         if answer.outcome not in self.model.operation(ready.operation).outcomes:
             raise PortRefusal("completion outcome is outside the declared operation")
         outputs = []
+        positions = {}
         for value in answer.outputs:
+            position = positions.get(value.role, 0)
+            positions[value.role] = position + 1
             if value.meaning is None:
                 raise PortRefusal("native output requires canonical typed meaning")
             outputs.append(
                 {
                     "role": value.role,
-                    "position": 0,
+                    "position": position,
                     "multiplicity": 1,
                     "product": {
                         "kind_contract": value.kind_contract,
@@ -798,6 +874,8 @@ class NativeDemandExecutor:
             raise ValueError("round bound must be a positive integer")
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("frontier page bound must be between one and 1000")
+        if self._quarantined:
+            raise PhysicalRetirementUncertain("native demand execution owner retains unproven physical work")
         if not self._invocation.acquire(blocking=False):
             raise RuntimeError("execution owner already has an active invocation")
         self.demand = demand
@@ -811,7 +889,7 @@ class NativeDemandExecutor:
             with (
                 self._report_execution_failure(demand),
                 maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
-                ThreadPoolExecutor(max_workers=self.policy.max_provider_jobs) as pool,
+                _OwnedPythonPool(self.policy.max_provider_jobs) as pool,
                 _InvocationExecution(self, pool) as physical,
             ):
                 self._physical = physical

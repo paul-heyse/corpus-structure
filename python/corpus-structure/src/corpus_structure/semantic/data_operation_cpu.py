@@ -35,6 +35,7 @@ class _Call(BaseModel):
     verification: Literal["closed-slice", "prepared-kernel"]
     arguments: dict[str, str]
     control_parameter: str | None
+    invocation_form: Literal["scalar", "batch", "stream"] = "scalar"
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,7 @@ class PythonCPUDescriptor:
     receiver: bool = False
     verification: Literal["closed-slice", "prepared-kernel"] = "closed-slice"
     control_parameter: str | None = None
+    invocation_form: Literal["scalar", "batch", "stream"] = "scalar"
 
     def __post_init__(self) -> None:
         if self.control_parameter is not None and (
@@ -66,6 +68,7 @@ class PythonCPUDescriptor:
                 "receiver": self.receiver,
                 "verification": self.verification,
                 "control_parameter": self.control_parameter,
+                "invocation_form": self.invocation_form,
                 "arguments": {
                     name: TypeAdapter(signature.parameters[name].annotation)
                     .dump_json(value)
@@ -174,7 +177,8 @@ def _load(call):
 
             if not call.expected_nodes:
                 raise PortRefusal("closed CPU call lacks its owning implementation slice")
-            _verify_closed_runtime_sources(sources, modules, paths, set(call.expected_nodes))
+            from .data_operation_ports import _stream_annotation_references
+            _verify_closed_runtime_sources(sources, modules, paths, set(call.expected_nodes), standard_references=_stream_annotation_references() if call.invocation_form == "stream" else None)
         else:
             import ast
 
@@ -241,3 +245,61 @@ def execute_python_call(content: bytes, check_active, prepare_runtime=lambda: No
     verify()
     adapter = TypeAdapter(signature.return_annotation)
     return adapter.dump_json(adapter.validate_python(result, strict=True))
+
+
+
+def execute_python_stream(content, connection, check_active, prepare_runtime, max_reply_bytes, fence):
+    """Child-owned iterator with one item per authenticated parent pull credit."""
+    import json
+    from collections.abc import Iterator, Generator
+    from hashlib import sha256
+    from typing import get_args, get_origin
+
+    call = _Call.model_validate_json(content, strict=True)
+    if call.invocation_form != "stream":
+        raise ValueError("CPU stream requires its admitted stream descriptor")
+    function, verify = _load(call)
+    signature = inspect.signature(function, eval_str=True)
+    annotation = signature.return_annotation
+    if get_origin(annotation) not in (Iterator, Generator):
+        raise ValueError('stream call requires its typed iterator annotation')
+    arguments = {name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True) for name, value in call.arguments.items()}
+    if set(arguments) != set(signature.parameters):
+        raise ValueError('stream arguments differ from original callable')
+    positional = tuple(arguments[p.name] for p in signature.parameters.values() if p.kind == inspect.Parameter.POSITIONAL_ONLY)
+    keywords = {name: value for name, value in arguments.items() if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY}
+    bound = signature.bind(*positional, **keywords)
+    iterator = function(*bound.args, **bound.kwargs)
+    if not isinstance(iterator, Iterator):
+        raise ValueError('stream callable did not return an iterator')
+    adapter, ordinal = TypeAdapter(get_args(annotation)[0]), 0
+    digest = sha256(content).hexdigest()
+    try:
+        while True:
+            check_active()
+            while not connection.poll(0.1):
+                check_active()
+            if json.loads(connection.recv_bytes(4096)) != {'pull': ordinal}:
+                raise ValueError('stream pull credit differs from next ordinal')
+            prepare_runtime()
+            check_active()
+            verify()
+            try:
+                value = next(iterator)
+            except StopIteration:
+                verify()
+                connection.send_bytes(canonical_bytes({'request': digest, 'fence': fence, 'ordinal': ordinal, 'state': 'complete'}))
+                return canonical_bytes({'items': ordinal, 'state': 'complete'})
+            check_active()
+            verify()
+            encoded = adapter.dump_json(adapter.validate_python(value, strict=True)).decode('utf-8')
+            frame = canonical_bytes({'request': digest, 'fence': fence, 'ordinal': ordinal, 'state': 'item', 'value': encoded})
+            if len(frame) > max_reply_bytes:
+                raise ValueError('stream item exceeds owned transport capacity')
+            connection.send_bytes(frame)
+            ordinal += 1
+    finally:
+        close = getattr(iterator, 'close', None)
+        if close is not None:
+            close()
+        connection.close()
