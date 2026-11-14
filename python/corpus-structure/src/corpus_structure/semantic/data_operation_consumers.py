@@ -512,21 +512,24 @@ def resolve_prepared_factory(model, sources, operation):
         verify_bindings()
         result = function(*args, **kwargs)
         verify_bindings()
-        from .data_operation_pdf_effect import PdfCaptureEffectPort
+        from .data_operation_effects import ReceiptBearingEffectPort
 
-        implementation = result.wrapped if isinstance(result, PdfCaptureEffectPort) else result
-        if hasattr(implementation, "plan_python"):
-            concrete = type(implementation)
-            original_type = importlib.import_module(concrete.__module__)
-            if concrete.__module__ not in captured:
-                raise PortRefusal("prepared port type is outside acquired source")
-            for name in concrete.__qualname__.split("."):
-                original_type = inspect.getattr_static(original_type, name)
-            if original_type is not concrete:
-                raise PortRefusal("prepared port type differs from its captured owner")
-            method = implementation.plan_python
-            original_method = method.__func__ if inspect.ismethod(method) else method
-            verify_callable(original_method.__module__ + "." + original_method.__qualname__, method)
+        implementations = (
+            (result, result.wrapped) if isinstance(result, ReceiptBearingEffectPort) else (result,)
+        )
+        for implementation in implementations:
+            if hasattr(implementation, "plan_python"):
+                concrete = type(implementation)
+                original_type = importlib.import_module(concrete.__module__)
+                if concrete.__module__ not in captured:
+                    raise PortRefusal("prepared port type is outside acquired source")
+                for name in concrete.__qualname__.split("."):
+                    original_type = inspect.getattr_static(original_type, name)
+                if original_type is not concrete:
+                    raise PortRefusal("prepared port type differs from its captured owner")
+                method = implementation.plan_python
+                original_method = method.__func__ if inspect.ismethod(method) else method
+                verify_callable(original_method.__module__ + "." + original_method.__qualname__, method)
         return result
 
     return acquire
