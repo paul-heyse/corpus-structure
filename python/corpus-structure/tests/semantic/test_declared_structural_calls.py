@@ -183,13 +183,13 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             ref.product_id,
             ref.kind_contract,
             ref.subject,
-            ref.original_source,
+            source.original_source,
             b"null",
             b"{}",
             (),
             b"{}",
         )
-        for ref in refs
+        for ref, source in zip(refs, sources, strict=True)
     )
     current = DeclaredComparisonReport.model_validate(
         {

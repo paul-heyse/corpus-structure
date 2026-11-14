@@ -1,6 +1,7 @@
 """Independent grouped-witness expectations, including cross-member forgery."""
 
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -93,7 +94,7 @@ def pin():
     }
 
 
-def selected():
+def selected() -> dict[str, list[dict[str, Any]]]:
     return {
         "source": [
             {

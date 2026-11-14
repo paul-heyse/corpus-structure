@@ -1123,7 +1123,7 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
     }
     standard_references: dict[str, object] = {}
     if operation.capabilities.forms == ("stream",):
-        standard_references = _stream_annotation_references()
+        standard_references.update(_stream_annotation_references())
     if "unpack-typeddict-runtime" in sources.generated_interfaces:
         standard_references.update(
             {

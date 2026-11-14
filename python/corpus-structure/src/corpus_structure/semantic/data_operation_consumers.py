@@ -348,6 +348,7 @@ def resolve_prepared_factory(model, sources, operation):
     """Resolve the compiled original static acquisition method, never an ambient registry."""
     import ast
     import importlib
+    import importlib.util
     import inspect
     from pathlib import Path
 

@@ -47,6 +47,7 @@ def witness_recipe():
             },
         }
     )
+    assert POPULATION.declaration_content is not None
     declarations = json.loads(POPULATION.declaration_content)
     declarations["version"] = MODEL_VERSION
     consumer = next(item for item in declarations["operations"] if item["id"] == "urn:consumer")

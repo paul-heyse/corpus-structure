@@ -5,6 +5,7 @@ import importlib
 import json
 from dataclasses import replace
 from hashlib import sha256
+from typing import Any
 
 import pytest
 
@@ -20,7 +21,7 @@ from corpus_structure.semantic.python_operation_sources import PythonSource, Pyt
 
 
 def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["entrypoints"] = ["run"]
     metadata["capabilities"]["prepared_factory"] = "acquire_port"
     name = "captured_factory_" + tmp_path.name.replace("-", "_")
@@ -38,6 +39,7 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
     model = compile_data_operations(python_sources=sources)
     operation = model.operations[0]
     assert model.version == MODEL_VERSION
+    assert operation.capabilities.prepared_factory is not None
     assert operation.capabilities.prepared_factory.entrypoint == name + ".Operation.acquire_port"
     assert (
         operation.capabilities.prepared_factory.source_digest == sha256(source.encode()).hexdigest()
@@ -73,7 +75,7 @@ def test_owned_stream_has_only_terminal_completion_and_spawned_receipt(
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
     from semantic.data_operation_port_support import fixture_source, kind, scope
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["stream"]
     metadata["opaque"] = [
         {
@@ -186,7 +188,7 @@ def test_invalid_stream_item_cannot_fulfill_its_valid_prefix(tmp_path, monkeypat
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
     from semantic.data_operation_port_support import fixture_source, kind, scope
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["stream"]
     metadata["opaque"] = [
         {
@@ -241,7 +243,7 @@ def test_cancelled_hung_pull_retires_the_owned_process_without_fulfilling_prefix
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
     from semantic.data_operation_port_support import fixture_source, kind, scope
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["stream"]
     metadata["opaque"] = [
         {
@@ -298,6 +300,7 @@ def test_cancelled_hung_pull_retires_the_owned_process_without_fulfilling_prefix
                 active,
             )
         assert deadline
+        assert cpu._pool_ownership is not None
         processes = cpu._pool_ownership.processes
         assert processes and any(process.is_alive() for process in processes)
     finally:
@@ -314,6 +317,7 @@ def test_uncertain_stream_submit_closes_pipes_but_keeps_cpu_admission(monkeypatc
     cpu.prepare()
     observed = []
     original_pipe = cpu._context.Pipe
+    assert cpu._pool is not None
     original_submit = cpu._pool.submit
 
     def pipe(*args, **kwargs):
@@ -350,7 +354,7 @@ def test_captured_factory_rejects_rebound_imported_resolver_with_copied_identity
     from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
     from corpus_structure.semantic.data_operation_ports import PortRefusal
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
     metadata["entrypoints"] = ["run"]
     metadata["capabilities"]["prepared_factory"] = "acquire_port"
     name = "factory_binding_" + tmp_path.name.replace("-", "_")
@@ -409,12 +413,12 @@ def test_deferred_failure_fenced_owner_cannot_release_another_attempt():
 
     class LostOwner:
         def check_claim(self, value):
-            raise ClaimFenceLost(value, "replaced")
+            raise ClaimFenceLost(value, "fence")
 
         def settle(self, *args):
             raise AssertionError("a lost fence cannot settle deferred work")
 
-    executor = object.__new__(NativeDemandExecutor)
+    executor: Any = object.__new__(NativeDemandExecutor)
     executor.engine = ForbiddenEngine()
     executor._known_failure(
         claim, LostOwner(), RuntimeError("original failure"), phase="computation"

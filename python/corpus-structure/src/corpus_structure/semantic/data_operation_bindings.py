@@ -199,7 +199,7 @@ class CompiledBinding:
     source_sets: bytes = b"{}"
     original_source: str | None = None
     subject_context: SubjectContext | None = None
-    population_projections: tuple[tuple[str, str], ...] = ()
+    population_projections: tuple[tuple[str, Literal["member", "qualified-context"]], ...] = ()
 
 
 def _decode_value(content: bytes) -> Any:
@@ -363,7 +363,7 @@ def compile_binding(
     visit_choices(expression)
     negative_roles = set()
     role_populations = {}
-    role_projections = {}
+    role_projections: dict[str, Literal["member", "qualified-context"]] = {}
 
     def inspect_scopes(node):
         if node.operator == "absent":
@@ -387,7 +387,7 @@ def compile_binding(
                     "absence children must be row predicates, not nested aggregate or branch scopes"
                 )
         names = node.roles or tuple(roles)
-        associations = []
+        associations: list[tuple[str, str | None, Literal["member", "qualified-context"]]] = []
         if node.operator in {"forall", "absent"}:
             associations.extend((name, node.population, "member") for name in names)
             if node.operator == "absent":

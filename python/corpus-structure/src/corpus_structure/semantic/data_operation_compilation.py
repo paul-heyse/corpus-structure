@@ -581,7 +581,11 @@ def _validate_binding_fields(
         expected = aliases.get(operand.value_type, operand.value_type)
         if expected == "subject-context":
             if not (
-                (operand.kind == "field" and operand.field.field == "@context")
+                (
+                    operand.kind == "field"
+                    and operand.field is not None
+                    and operand.field.field == "@context"
+                )
                 or (
                     operand.kind == "population"
                     and operand.population_projection == "qualified-context"
@@ -1824,8 +1828,20 @@ def project_population_witness(
 
         try:
             contexts = [
-                SubjectContext(**{**member, "analyzed_scope": json_bytes(member["analyzed_scope"])})
-                for member in members
+                SubjectContext(
+                    project_id=member["project_id"],
+                    subject=member["subject"],
+                    original_source=member["original_source"],
+                    analyzed_scope=json_bytes(member["analyzed_scope"]),
+                )
+                for member in (
+                    _mapping(
+                        value,
+                        "population-witness/context",
+                        {field.name for field in fields(SubjectContext)},
+                    )
+                    for value in members
+                )
             ]
         except (TypeError, KeyError, ValueError) as error:
             raise ValueError("invalid qualified-context population witness") from error

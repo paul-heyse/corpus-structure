@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from typing import Any
 
 import pglast
 import pytest
@@ -440,7 +441,7 @@ def test_native_qualified_context_population_uses_whole_header_context(binding_n
     connection = binding_native_connection
     facts = context(1, 2)
     facts["project_id"] = "project"
-    required = [
+    required: list[dict[str, Any]] = [
         {
             "project_id": "project",
             "subject": "same-local",

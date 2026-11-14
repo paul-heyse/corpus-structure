@@ -19,6 +19,7 @@ from semantic.test_data_operation_population_native import _complete_ready
 
 
 def _recipe():
+    assert POPULATION.declaration_content is not None
     declarations = json.loads(POPULATION.declaration_content)
     consumer = next(op for op in declarations["operations"] if op["id"] == "urn:consumer")
     consumer["roles"][0].update(kind="ChildReport", minimum=0, presence="optional")
@@ -103,6 +104,7 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
         member.product != parent["evidence"]["product_id"]
         for member in aggregate.binding_result.roles[0].members
     )
+    assert aggregate.binding_result.roles[0].population_witness is not None
     witness = json.loads(aggregate.binding_result.roles[0].population_witness)
     assert witness["projection"] == "qualified-context"
     assert {member["analyzed_scope"]["page"] for member in witness["members"]} == {1, 2}

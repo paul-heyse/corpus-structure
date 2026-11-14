@@ -1525,6 +1525,7 @@ def test_sql_qualified_context_fanin_requires_all_contexts_without_parent_produc
     ready = bind()
     assert ready.status == "ready"
     assert {member.product for member in ready.roles[0].members} == {"p1", "p2"}
+    assert ready.roles[0].population_witness is not None
     assert json.loads(ready.roles[0].population_witness)["projection"] == "qualified-context"
     # Same local subject does not collapse two scope occurrences. JSONB numeric
     # spelling shares meaning; Boolean, source, and project remain distinct.
@@ -1627,7 +1628,8 @@ def test_header_binding_field_is_compiled_as_reserved_typed_identity():
         "headers", canonical_bytes({"version": MODEL_VERSION, "operations": [operation]})
     )
     compiled = compile_data_operations(declarations=(artifact,))
-    assert compiled.bindings[-1].expression.operands[0].field.field == "@product"
+    field = compiled.bindings[-1].expression.operands[0].field
+    assert field is not None and field.field == "@product"
     operation["binding"]["operands"][0]["value_type"] = "integer"
     with pytest.raises(ValueError, match="header binding fields"):
         compile_data_operations(
@@ -1737,6 +1739,7 @@ def test_semantic_source_set_pins_cross_source_context_without_legacy_reference(
     sources = (FrozenSourceSet("selected", (entry,)),)
     assert read_source_sets(source_sets_record(sources)) == sources
     base = model(BindingExpression("scan", roles=("items",)))
+    assert base.operations[0].roles[0].support is not None
     role = replace(
         base.operations[0].roles[0],
         subject_target="source-set",
@@ -1798,6 +1801,7 @@ def test_semantic_source_set_association_compiles_without_fabricated_body_refere
     )
     actual = next(op for op in compiled.operations if op.semantic_id == "urn:op").roles[0]
     assert actual.subject_target == "source-set"
+    assert actual.support is not None
     assert actual.subject_field is None and actual.support.source_reference_field is None
     assert read_effective_data_operations(compiled.content).content == compiled.content
     role["subject_field"] = "fabricated"

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_support import (
@@ -784,7 +784,7 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
     def structure_record(cls):
         build = make_dict_structure_fn(cls, converter, _cattrs_forbid_extra_keys=True)
         expected = {field.name for field in fields(cls)}
-        historical = (
+        historical: dict[str, Any] = (
             {"graph_projections": []} if cls is EffectiveDataOperationModel and archived_v2 else {}
         )
         if historical_model and cls is ImplementationCapabilities:

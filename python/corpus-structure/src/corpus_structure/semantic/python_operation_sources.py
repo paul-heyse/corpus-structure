@@ -1803,7 +1803,9 @@ class ClosedPythonSources:
                             b is None or b.content_digest is None for b in bridges
                         ):
                             return False
-                        contracts = {(b.contract, b.content_digest) for b in bridges}
+                        contracts = {
+                            (b.contract, b.content_digest) for b in bridges if b is not None
+                        }
                         for target in targets:
                             boundary = boundary_for(target)
                             if (

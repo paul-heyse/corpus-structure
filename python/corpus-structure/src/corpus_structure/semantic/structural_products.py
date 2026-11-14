@@ -1356,8 +1356,8 @@ class DeclaredStructuralInputPin(DeclaredProductRef):
     reference: Nonempty
 
     @classmethod
-    def from_bound(cls, member, *, project):
-        value = DeclaredProductRef.from_bound(member, project=project)
+    def from_bound(cls, member, *, project, **values):
+        value = DeclaredProductRef.from_bound(member, project=project, **values)
         return cls(
             **value.model_dump(),
             reference=canonical_bytes([member.product, member.member]).decode(),
