@@ -178,7 +178,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         for value in snapshot["obligations"]
         if value["fate"] != "fulfilled"
     ]
-    assert not pending, {"demand": result.demand_id, "pending": pending}
+    assert not pending, json.dumps({"demand": result.demand_id, "pending": pending}, indent=2)
 
     document_obligations = [
         value

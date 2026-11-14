@@ -801,7 +801,7 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
         finalize_bound_run(commit_writer_engine, origin_run, "missing-source-frame-origin")
         run = origin_run
         if reuse_origin:
-            with commit_writer_engine.begin() as conn:
+            with resubmission_historical_source.admin.begin() as conn:
                 original = (
                     conn.execute(
                         select(table("ops.run")).where(table("ops.run").c.id == origin_run)

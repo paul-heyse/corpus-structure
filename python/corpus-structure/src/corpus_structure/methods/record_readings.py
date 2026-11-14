@@ -200,7 +200,7 @@ def native_model_observations(
                 if field == "confidence"
                 else "native_field_confidence",
                 score_standing="uncalibrated_decoder_output",
-                source_view_id=context.primary.source_view_id,
+                source_key=context.primary.source_key,
                 context_digest=context.dependency_digest,
                 pack=report.pack,
                 profile=report.profile,

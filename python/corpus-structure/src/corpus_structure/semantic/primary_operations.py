@@ -7,7 +7,8 @@ resolve domain bindings, or construct a parallel runtime registry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 
 from .composed import data_operation_dependencies
 from .python_operation_sources import PythonSourceCollection
@@ -86,6 +87,20 @@ def primary_operation_inputs(
     """
     if dependencies is None:
         dependencies = ResolvedDependencies()
+    if downstream or learned_selections is not None:
+        from corpus_structure.methods.model_observation import MODEL_OBSERVATION_INPUT
+
+        policy = SourceArtifact(
+            MODEL_OBSERVATION_INPUT,
+            (Path(__file__).parents[1] / "methods/model_observation.json").read_bytes(),
+        )
+        existing = tuple(
+            item for item in dependencies.artifacts if item.name == MODEL_OBSERVATION_INPUT
+        )
+        if existing and existing != (policy,):
+            raise ValueError("model observation policy differs from the acquired input")
+        if not existing:
+            dependencies = replace(dependencies, artifacts=(*dependencies.artifacts, policy))
     from .canonical_sentences import canonical_sentence_operation_sources
     from .characterization_ports import (
         captured_document_view_operation_sources,

@@ -75,11 +75,11 @@ class ContextualEvaluationOperation:
             },
             {
                 "name": "supporting",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizationEnvelope",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "optional",
                 "parameter": "supporting",
                 "support": {
@@ -127,7 +127,7 @@ class ContextualEvaluationOperation:
                 {"operator": "scan", "roles": ["source"]},
                 {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
                 {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["supporting"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["supporting"], "collection": "set"},
             ],
         },
         "opaque": [

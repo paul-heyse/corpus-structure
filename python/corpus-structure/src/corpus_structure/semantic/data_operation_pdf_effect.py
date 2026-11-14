@@ -75,7 +75,11 @@ class PdfCaptureEffectPort(ReceiptBearingEffectPort):
         check_active()
         with execution_owner.engine.connect() as connection:
             actual = inspect_pdf_execution_receipt(
-                connection, receipt.publication, attempt=claim.attempt, holder=claim.holder
+                connection,
+                receipt.publication,
+                attempt=claim.attempt,
+                holder=claim.holder,
+                replay_key="product:" + receipt.publication.product_key,
             )
         if actual != receipt:
             raise PortRefusal("PDF effect receipt differs from authenticated original publisher")

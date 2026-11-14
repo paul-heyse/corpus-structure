@@ -8,6 +8,7 @@ from sqlalchemy import Connection, Engine, select
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.semantic import source_frames
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
@@ -18,7 +19,6 @@ from corpus_structure.semantic.operations import (
     record_method,
 )
 from corpus_structure.semantic.retained_agent_packets import _packet_for_unit
-from corpus_structure.semantic.source_frames import capture_source_frame
 from corpus_structure.semantic.types import PreparedRelease
 
 
@@ -108,7 +108,7 @@ def create_historical_agent_task(
         select(table("ops.task").c.reused_task_id).where(table("ops.task").c.id == task)
     )
     if reused is None:
-        capture_source_frame(conn, task, packet)
+        source_frames.capture_source_frame(conn, task, packet)
     return task
 
 
