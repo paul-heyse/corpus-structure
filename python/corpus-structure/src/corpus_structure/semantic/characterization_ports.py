@@ -1092,14 +1092,24 @@ def enriched_captured_document_view_operation_sources(*, include_dependencies=Fa
     if include_dependencies:
         raise ValueError("enriched composition requires its separately captured actual PDF profile")
     from .primary_operations import combine_primary_sources
-    return combine_primary_sources(captured_document_view_operation_sources(include_dependencies=False), _operation_sources("captured_enriched_composition", "view"))
+
+    return combine_primary_sources(
+        captured_document_view_operation_sources(include_dependencies=False),
+        _operation_sources("captured_enriched_composition", "view"),
+    )
 
 
 def integrated_captured_document_view_operation_sources(*, include_dependencies=False):
     if include_dependencies:
-        raise ValueError("integrated composition requires its separately captured actual PDF profile")
+        raise ValueError(
+            "integrated composition requires its separately captured actual PDF profile"
+        )
     from .primary_operations import combine_primary_sources
-    return combine_primary_sources(captured_document_view_operation_sources(include_dependencies=False), _operation_sources("captured_integrated_composition", "view"))
+
+    return combine_primary_sources(
+        captured_document_view_operation_sources(include_dependencies=False),
+        _operation_sources("captured_integrated_composition", "view"),
+    )
 
 
 class PreparedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
@@ -1119,7 +1129,10 @@ class PreparedEnrichedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
 
     @property
     def endpoint(self):
-        from corpus_structure.methods.captured_enriched_composition import ComposeEnrichedCapturedDocumentOperation
+        from corpus_structure.methods.captured_enriched_composition import (
+            ComposeEnrichedCapturedDocumentOperation,
+        )
+
         return ComposeEnrichedCapturedDocumentOperation
 
 
@@ -1128,7 +1141,10 @@ class PreparedIntegratedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
 
     @property
     def endpoint(self):
-        from corpus_structure.methods.captured_integrated_composition import ComposeIntegratedCapturedDocumentOperation
+        from corpus_structure.methods.captured_integrated_composition import (
+            ComposeIntegratedCapturedDocumentOperation,
+        )
+
         return ComposeIntegratedCapturedDocumentOperation
 
 

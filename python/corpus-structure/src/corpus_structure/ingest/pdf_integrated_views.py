@@ -10,5 +10,11 @@ class IntegratedPdfSourceViewsOperation(PdfSourceViewsFamily):
         "abstract": False,
         "id": "source.pdf_integrated_views/discovery",
         "dependencies": ["source.pdf_integrated/reconcile"],
-        "role_overrides": [{"name": "capture", "alternatives": ["source.pdf_integrated/reconcile"], "selected": "source.pdf_integrated/reconcile"}],
+        "role_overrides": [
+            {
+                "name": "capture",
+                "alternatives": ["source.pdf_integrated/reconcile"],
+                "selected": "source.pdf_integrated/reconcile",
+            }
+        ],
     }

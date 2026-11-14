@@ -217,8 +217,16 @@ def run(
     scope: Annotated[str | None, typer.Option()] = None,
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
-    pdf_mode: Annotated[Literal["standard", "enriched", "integrated"], typer.Option(help="Explicit acquired PDF publication capability.")] = "standard",
-    recognition_page: Annotated[list[int] | None, typer.Option(help="Exact physical page for integrated recognition; repeat. Empty selects the whole original.")] = None,
+    pdf_mode: Annotated[
+        Literal["standard", "enriched", "integrated"],
+        typer.Option(help="Explicit acquired PDF publication capability."),
+    ] = "standard",
+    recognition_page: Annotated[
+        list[int] | None,
+        typer.Option(
+            help="Exact physical page for integrated recognition; repeat. Empty selects the whole original."
+        ),
+    ] = None,
     document: Annotated[
         list[str] | None, typer.Option(help="Exact registered document key; repeat.")
     ] = None,
@@ -413,8 +421,16 @@ def ingest(
     scope: Annotated[str | None, typer.Option()] = None,
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
-    pdf_mode: Annotated[Literal["standard", "enriched", "integrated"], typer.Option(help="Explicit acquired PDF publication capability.")] = "standard",
-    recognition_page: Annotated[list[int] | None, typer.Option(help="Exact physical page for integrated recognition; repeat. Empty selects the whole original.")] = None,
+    pdf_mode: Annotated[
+        Literal["standard", "enriched", "integrated"],
+        typer.Option(help="Explicit acquired PDF publication capability."),
+    ] = "standard",
+    recognition_page: Annotated[
+        list[int] | None,
+        typer.Option(
+            help="Exact physical page for integrated recognition; repeat. Empty selects the whole original."
+        ),
+    ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
     target: Annotated[list[str] | None, typer.Option()] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
@@ -459,8 +475,16 @@ def run_characterize_command(
     scope: Annotated[str | None, typer.Option()] = None,
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
-    pdf_mode: Annotated[Literal["standard", "enriched", "integrated"], typer.Option(help="Explicit acquired PDF publication capability.")] = "standard",
-    recognition_page: Annotated[list[int] | None, typer.Option(help="Exact physical page for integrated recognition; repeat. Empty selects the whole original.")] = None,
+    pdf_mode: Annotated[
+        Literal["standard", "enriched", "integrated"],
+        typer.Option(help="Explicit acquired PDF publication capability."),
+    ] = "standard",
+    recognition_page: Annotated[
+        list[int] | None,
+        typer.Option(
+            help="Exact physical page for integrated recognition; repeat. Empty selects the whole original."
+        ),
+    ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
     source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     target: Annotated[list[str] | None, typer.Option()] = None,
@@ -639,8 +663,16 @@ def run_parsers_command(
     scope: Annotated[str | None, typer.Option()] = None,
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
-    pdf_mode: Annotated[Literal["standard", "enriched", "integrated"], typer.Option(help="Explicit acquired PDF publication capability.")] = "standard",
-    recognition_page: Annotated[list[int] | None, typer.Option(help="Exact physical page for integrated recognition; repeat. Empty selects the whole original.")] = None,
+    pdf_mode: Annotated[
+        Literal["standard", "enriched", "integrated"],
+        typer.Option(help="Explicit acquired PDF publication capability."),
+    ] = "standard",
+    recognition_page: Annotated[
+        list[int] | None,
+        typer.Option(
+            help="Exact physical page for integrated recognition; repeat. Empty selects the whole original."
+        ),
+    ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
     source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
@@ -725,8 +757,16 @@ def run_interpretation_command(
     scope: Annotated[str | None, typer.Option()] = None,
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
-    pdf_mode: Annotated[Literal["standard", "enriched", "integrated"], typer.Option(help="Explicit acquired PDF publication capability.")] = "standard",
-    recognition_page: Annotated[list[int] | None, typer.Option(help="Exact physical page for integrated recognition; repeat. Empty selects the whole original.")] = None,
+    pdf_mode: Annotated[
+        Literal["standard", "enriched", "integrated"],
+        typer.Option(help="Explicit acquired PDF publication capability."),
+    ] = "standard",
+    recognition_page: Annotated[
+        list[int] | None,
+        typer.Option(
+            help="Exact physical page for integrated recognition; repeat. Empty selects the whole original."
+        ),
+    ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
     source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,

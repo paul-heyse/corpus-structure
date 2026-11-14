@@ -260,6 +260,13 @@ def test_optional_acquisition_refuses_incomplete_explicit_custody(tmp_path, chan
 
 
 def _use_core_schema(root):
+    (root / "hanlp.json").write_bytes(
+        canonical_bytes(
+            pm2_selection(
+                "hanlp", root / "assets", {"controlled": "acquisition-only"}, {}
+            ).declaration()
+        )
+    )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     (root / "schema.yaml").write_bytes(core.read_bytes())
     manifest = _manifest(root)
@@ -275,7 +282,9 @@ def _compiled_acquisition(root):
     model = bound_data_operation_model(prepared)
     captured = read_data_operation_inputs(dependencies)
     assert captured is not None and captured[1] is not None
-    incomplete = [(item.root, item.unknowns) for item in model.implementation_slices if not item.complete]
+    incomplete = [
+        (item.root, item.unknowns) for item in model.implementation_slices if not item.complete
+    ]
     assert not incomplete, incomplete
     return model, captured[1]
 
@@ -294,7 +303,9 @@ def test_public_downstream_acquires_private_reading_resolution_without_model_sel
     assert roles["policy"].support is not None
     assert roles["policy"].support.origins == ("authored",)
     assert roles["result"].kind.endswith("/DdoResolvedReadingReport")
-    assert "text.gliner_definitions/source-native" not in {item.semantic_id for item in model.operations}
+    assert "text.gliner_definitions/source-native" not in {
+        item.semantic_id for item in model.operations
+    }
 
 
 def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp_path, monkeypatch):
@@ -330,7 +341,9 @@ def test_public_downstream_acquires_definition_location_with_exact_report_witnes
     operation = model.operation("locate.definition_terms/declared")
     inputs = {role.name: role for role in operation.roles if role.direction == "input"}
     assert inputs["components"].kind == "urn:corpus:structural:DeclaredDefinitionComponentsReport"
-    assert inputs["selection"].support is not None and inputs["selection"].support.origins == ("authored",)
+    assert inputs["selection"].support is not None and inputs["selection"].support.origins == (
+        "authored",
+    )
     assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
     witnesses = {witness.input_role: witness for witness in operation.output_witnesses}
     assert set(witnesses) == {"source", "components", "selection"}

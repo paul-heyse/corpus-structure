@@ -54,9 +54,19 @@ definitions:
     minItems: 2
     maxItems: 2
     additionalItems: false
+  # Disjoint leading tags select one recursive branch; never traverse rejected payload branches.
   semantic_value:
-    oneOf:
-    - type: array
+    if:
+      type: array
+      minItems: 1
+      items:
+      - enum:
+        - 'null'
+        - known-absent
+        - unknown
+        - unavailable
+    then:
+      type: array
       items:
       - enum:
         - 'null'
@@ -66,62 +76,120 @@ definitions:
       minItems: 1
       maxItems: 1
       additionalItems: false
-    - type: array
-      items:
-      - const: boolean
-      - type: boolean
-      minItems: 2
-      maxItems: 2
-      additionalItems: false
-    - type: array
-      items:
-      - enum:
-        - string
-        - date
-        - datetime
-        - float
-      - type: string
-      minItems: 2
-      maxItems: 2
-      additionalItems: false
-    - type: array
-      items:
-      - const: integer
-      - type: string
-        pattern: ^[+-]?[0-9]+$
-      minItems: 2
-      maxItems: 2
-      additionalItems: false
-    - type: array
-      items:
-      - const: decimal
-      - type: string
-        pattern: ^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$
-      minItems: 2
-      maxItems: 2
-      additionalItems: false
-    - type: array
-      items:
-      - const: present
-      - $ref: '#/definitions/semantic_value'
-      minItems: 2
-      maxItems: 2
-      additionalItems: false
-    - type: array
-      items:
-      - enum:
-        - sequence
-        - ordered-bag
-        - bag
-        - set
-      - type: array
+    else:
+      if:
+        type: array
+        minItems: 1
         items:
-          $ref: '#/definitions/semantic_value'
-        minItems: 0
-      minItems: 2
-      maxItems: 2
-      additionalItems: false
-    - $ref: '#/definitions/tagged_mapping'
+        - const: boolean
+      then:
+        type: array
+        items:
+        - const: boolean
+        - type: boolean
+        minItems: 2
+        maxItems: 2
+        additionalItems: false
+      else:
+        if:
+          type: array
+          minItems: 1
+          items:
+          - enum:
+            - string
+            - date
+            - datetime
+            - float
+        then:
+          type: array
+          items:
+          - enum:
+            - string
+            - date
+            - datetime
+            - float
+          - type: string
+          minItems: 2
+          maxItems: 2
+          additionalItems: false
+        else:
+          if:
+            type: array
+            minItems: 1
+            items:
+            - const: integer
+          then:
+            type: array
+            items:
+            - const: integer
+            - type: string
+              pattern: ^[+-]?[0-9]+$
+            minItems: 2
+            maxItems: 2
+            additionalItems: false
+          else:
+            if:
+              type: array
+              minItems: 1
+              items:
+              - const: decimal
+            then:
+              type: array
+              items:
+              - const: decimal
+              - type: string
+                pattern: ^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$
+              minItems: 2
+              maxItems: 2
+              additionalItems: false
+            else:
+              if:
+                type: array
+                minItems: 1
+                items:
+                - const: present
+              then:
+                type: array
+                items:
+                - const: present
+                - $ref: '#/definitions/semantic_value'
+                minItems: 2
+                maxItems: 2
+                additionalItems: false
+              else:
+                if:
+                  type: array
+                  minItems: 1
+                  items:
+                  - enum:
+                    - sequence
+                    - ordered-bag
+                    - bag
+                    - set
+                then:
+                  type: array
+                  items:
+                  - enum:
+                    - sequence
+                    - ordered-bag
+                    - bag
+                    - set
+                  - type: array
+                    items:
+                      $ref: '#/definitions/semantic_value'
+                    minItems: 0
+                  minItems: 2
+                  maxItems: 2
+                  additionalItems: false
+                else:
+                  if:
+                    type: array
+                    minItems: 1
+                    items:
+                    - const: mapping
+                  then:
+                    $ref: '#/definitions/tagged_mapping'
+                  else: false
   request_meaning:
     oneOf:
     - $ref: '#/definitions/semantic_value'

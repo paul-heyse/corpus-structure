@@ -17,3 +17,23 @@ The first bounded native selection `c92e54c1090748a89a1a2dc9a5836e2e` failed17. 
 Provider selection `22237bc08f2d48b2b37c5a6461d7d7fe` was interrupted after its first shared-wire failure to avoid continuing unproductive work; child custody drained. Failed/interrupted receipts remain retained. These fixes belong to a new immutable `semantic_ddo_external_v2` successor through [its request](change-runtime.yaml); registered v1 and prior files remain unchanged. Functional acceptance remains open.
 
 The runtime successor preview `d8ccee373e30494da25b39f91068b62d`, complete rollback candidate `cfbd973594d84c928d88b1467dcd0a41` and registration `44d3738d677e4ac2ba65d655f0f1eaf8` **passed**, 2026-11-14. All14 native changes preserve owners and grants; the single ordinary operation inserts the physical contract. Registration is verified by exact file hashes in the retained runtime results. This authoring result is separate from pending functional/provider retries. Registered head is `semantic_ddo_external_v2`; persistent database remains unchanged.
+
+## Tagged wire traversal repair
+
+The v2 failing-only selection `724785c09e234333868a0b980a1f627c` was interrupted after14 passed,
+two failed and one mathematical call remained active. Owned child custody settled. A direct
+`py-spy dump --pid` of that active worker attributed the CPU path to recursive Draft7 oneOf
+validation inside retain_data_completion_intent; mathematical computation had already returned.
+The authoritative semantic-value schema now dispatches on its disjoint leading tag through
+[Draft7 conditionals](https://json-schema.org/understanding-json-schema/reference/conditionals),
+so rejected variants do not recursively inspect the same payload. Original branch shapes,
+arity/type/lexical constraints and unknown-tag refusals remain; Python and
+[pg_jsonschema](https://github.com/supabase/pg_jsonschema) still consume the same schema.
+No custom validator, relaxed ingress or cached permission/source/trust check is introduced.
+Benefits are Proposed, unmeasured; independent deep positive/negative checks assess correctness.
+This change requires another immutable native successor before the mathematical retry.
+
+The remaining two failures have separate owners: the external-reconciliation fixture used a
+one-second live lease before its explicitly controlled expiry; M1's scalar child source and
+complete contextual-source population lacked their distinct discovery associations. Passing14
+identities are retained and will not be replayed after these repairs.

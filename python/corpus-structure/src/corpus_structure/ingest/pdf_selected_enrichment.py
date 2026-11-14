@@ -14,13 +14,18 @@ from .pdf_methods import _conversion_from_product, _member_order
 from .pdf_record_product import native_publication_draft
 
 
-def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate_source, worker, *, check_active):
+def enrich_selected_pdf(
+    product, parent, specs, options, recipe_bytes, candidate_source, worker, *, check_active
+):
     conversion = _conversion_from_product(product, recipe_bytes, candidate_source)
     document = load_snapshot(conversion.native)
     nodes = native_nodes(document)
     # Selected analysis units and their explicit ancestor context share one original.
     specs = list(dict.fromkeys(specs))
-    if not specs or any(pointer not in nodes or membership not in {"direct", "descendants"} for pointer, membership in specs):
+    if not specs or any(
+        pointer not in nodes or membership not in {"direct", "descendants"}
+        for pointer, membership in specs
+    ):
         raise ValueError("PDF enrichment requires exact retained section selections")
     for section, _ in tuple(specs):
         current = nodes[section]
@@ -29,7 +34,9 @@ def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate
             current = nodes[pointer]
             if str(current.label) in {"section", "chapter"} and (pointer, "direct") not in specs:
                 specs.append((pointer, "direct"))
-    section_refs = frozenset(pointer for pointer, node in nodes.items() if str(node.label) in {"section", "chapter"})
+    section_refs = frozenset(
+        pointer for pointer, node in nodes.items() if str(node.label) in {"section", "chapter"}
+    )
     required_pages_by_scope = {
         (section, membership): {
             prov.page_no
@@ -42,10 +49,7 @@ def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate
         for section, membership in specs
     }
     selected = set().union(
-        *(
-            _member_order(nodes, section_refs, section, membership)
-            for section, membership in specs
-        )
+        *(_member_order(nodes, section_refs, section, membership) for section, membership in specs)
     )
     computed = worker.enrich(
         PdfEnrichmentRequest(
@@ -83,9 +87,7 @@ def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate
     )
     payload: dict[str, Any] = {"health": dict(draft.health)}
     payload["cell_reports"] = reports
-    payload["inline_alignment_reports"] = [
-        row.to_wire() for row in computed.alignment_reports
-    ]
+    payload["inline_alignment_reports"] = [row.to_wire() for row in computed.alignment_reports]
     # Whole-book native content is retained; only the declared rows close recognition.
     payload["health"].update(
         inline_coverage="unknown",
@@ -94,10 +96,8 @@ def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate
         cells_policy="all-nonempty-selected-cells-v1",
     )
     nodes = native_nodes(document)
-    outcomes = {
-        row["pointer"]: row["outcome"] for row in payload["health"]["formula_outcomes"]
-    }
-    
+    outcomes = {row["pointer"]: row["outcome"] for row in payload["health"]["formula_outcomes"]}
+
     candidate_pages = candidate_page_status(
         as_candidate_source(conversion.inline_candidates),
         set().union(*required_pages_by_scope.values()),
@@ -106,9 +106,7 @@ def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate
     for section, membership in specs:
         pointers = _member_order(nodes, section_refs, section, membership)
         scope_pointers = set(pointers)
-        formula_refs = [
-            pointer for pointer in pointers if str(nodes[pointer].label) == "formula"
-        ]
+        formula_refs = [pointer for pointer in pointers if str(nodes[pointer].label) == "formula"]
         inline_refs = [
             pointer
             for pointer in formula_refs
@@ -130,9 +128,7 @@ def enrich_selected_pdf(product, parent, specs, options, recipe_bytes, candidate
             for number in required_pages
         )
         states = {
-            "display": all(
-                outcomes.get(pointer) == "succeeded" for pointer in display_refs
-            ),
+            "display": all(outcomes.get(pointer) == "succeeded" for pointer in display_refs),
             "inline": discovery_complete
             and not any(
                 pointer in scope_pointers

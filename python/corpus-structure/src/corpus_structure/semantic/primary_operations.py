@@ -22,27 +22,33 @@ class PrimaryOperationInputs:
     sources: PythonSourceCollection
 
 
-def primary_operation_targets(workflow: str, *, captured: bool, pdf_mode: str = "standard") -> tuple[str, ...]:
+def primary_operation_targets(
+    workflow: str, *, captured: bool, pdf_mode: str = "standard"
+) -> tuple[str, ...]:
     """Choose an explicit product capability; the admitted model owns its closure."""
-    if pdf_mode not in {"standard", "enriched", "integrated"} or (not captured and pdf_mode != "standard"):
+    if pdf_mode not in {"standard", "enriched", "integrated"} or (
+        not captured and pdf_mode != "standard"
+    ):
         raise ValueError("PDF mode requires its actual captured source profile")
-    discovery = "source.pdf_views/discovery" if pdf_mode == "standard" else "source.pdf_" + pdf_mode + "_views/discovery"
-    composition = "text.compose_view/captured-full-native" if pdf_mode == "standard" else "text.compose_view/" + pdf_mode + "-captured-full-native"
+    discovery = (
+        "source.pdf_views/discovery"
+        if pdf_mode == "standard"
+        else "source.pdf_" + pdf_mode + "_views/discovery"
+    )
+    composition = (
+        "text.compose_view/captured-full-native"
+        if pdf_mode == "standard"
+        else "text.compose_view/" + pdf_mode + "-captured-full-native"
+    )
     if workflow == "capture":
         if not captured:
             raise ValueError("capture requires an actual declared PDF capture input")
         return (discovery,)
     if workflow == "characterize":
-        return (
-            composition
-            if captured
-            else "text.compose_view/full-native",
-        )
+        return (composition if captured else "text.compose_view/full-native",)
     if workflow == "phase0":
         return (
-            composition
-            if captured
-            else "text.compose_view/full-native",
+            composition if captured else "text.compose_view/full-native",
             "resolve.symbol_scope/declared",
         )
     raise ValueError("unknown declared primary workflow")
@@ -129,16 +135,32 @@ def primary_operation_inputs(
             pdf_views_operation_sources(capture_sources),
             captured_document_view_operation_sources(include_dependencies=False),
         )
-    if (pdf_enrichment_sources is not None or pdf_integration_sources is not None) and capture_sources is None:
+    if (
+        pdf_enrichment_sources is not None or pdf_integration_sources is not None
+    ) and capture_sources is None:
         raise ValueError("PDF transformation acquisition requires its Standard capture profile")
     if pdf_enrichment_sources is not None:
         from .characterization_ports import enriched_captured_document_view_operation_sources
         from .pdf_views import pdf_views_operation_sources
-        collections = (*collections, pdf_views_operation_sources(capture_sources, mode="enriched", transformation_sources=pdf_enrichment_sources), enriched_captured_document_view_operation_sources())
+
+        collections = (
+            *collections,
+            pdf_views_operation_sources(
+                capture_sources, mode="enriched", transformation_sources=pdf_enrichment_sources
+            ),
+            enriched_captured_document_view_operation_sources(),
+        )
     if pdf_integration_sources is not None:
         from .characterization_ports import integrated_captured_document_view_operation_sources
         from .pdf_views import pdf_views_operation_sources
-        collections = (*collections, pdf_views_operation_sources(capture_sources, mode="integrated", transformation_sources=pdf_integration_sources), integrated_captured_document_view_operation_sources())
+
+        collections = (
+            *collections,
+            pdf_views_operation_sources(
+                capture_sources, mode="integrated", transformation_sources=pdf_integration_sources
+            ),
+            integrated_captured_document_view_operation_sources(),
+        )
     if learned_selections is not None:
         from .interpretation_questions import characterization_question_dependencies
         from .learned_primary import learned_primary_inputs, learned_primary_operation_sources

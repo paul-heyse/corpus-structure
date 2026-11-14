@@ -727,19 +727,34 @@ def test_m1_coalesced_success_preserves_report_and_rejects_foreign_source_reply(
 
 
 def test_actual_m1_discovery_separates_scalar_child_from_complete_context_population():
-    from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
     from corpus_structure.semantic.data_operation_bindings import inspect_binding_scopes
+    from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
 
     bundle = m1_operation_inputs(record_schemas())
-    model = compile_data_operations(bundle,
-        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()))
+    model = compile_data_operations(
+        bundle,
+        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+    )
     operation = model.operation("extract.m1_candidates")
     assert operation.dependencies == ("segment.sentences/source-native",)
-    relations = source_discovery_relations(model, "source.selected_views/discovery", "result", operation.semantic_id)
+    relations = source_discovery_relations(
+        model, "source.selected_views/discovery", "result", operation.semantic_id
+    )
     assert {(item.target_role, item.population) for item in relations} == {
-        ("primary", "selected-source-views"), (None, "m1-context-sources")}
-    expression = next(binding.expression for binding in model.bindings if binding.semantic_id == operation.binding)
-    scopes = inspect_binding_scopes(expression, tuple(role.name for role in operation.roles if role.direction == "input"), {})
+        ("primary", "selected-source-views"),
+        (None, "m1-context-sources"),
+    }
+    expression = next(
+        binding.expression for binding in model.bindings if binding.semantic_id == operation.binding
+    )
+    scopes = inspect_binding_scopes(
+        expression, tuple(role.name for role in operation.roles if role.direction == "input"), {}
+    )
     assert scopes.populations == {"sources": "m1-context-sources"}
     assert all(item.target == "extract.m1_candidates" for item in relations)
-    assert source_discovery_relations(model, "source.selected_views/discovery", "result", "source.selected_views/discovery") == ()
+    assert (
+        source_discovery_relations(
+            model, "source.selected_views/discovery", "result", "source.selected_views/discovery"
+        )
+        == ()
+    )

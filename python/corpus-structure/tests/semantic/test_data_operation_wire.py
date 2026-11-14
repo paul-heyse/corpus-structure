@@ -902,3 +902,84 @@ def test_discovery_role_wire_is_optional_closed_identifier():
             validate_wire_schema(schema, {**relation, "target_role": value})
     with pytest.raises(ValueError, match="wire violates"):
         validate_wire_schema(schema, {**associated, "unknown": "source"})
+
+
+def _recursive_wire_examples():
+    valid = [
+        ["null"],
+        ["known-absent"],
+        ["unknown"],
+        ["unavailable"],
+        ["boolean", False],
+        ["string", "x"],
+        ["date", "2026-11-14"],
+        ["datetime", "2026-11-14T12:00:00Z"],
+        ["float", "0.5"],
+        ["integer", "9007199254740993"],
+        ["decimal", "1.25e-3"],
+        ["present", ["null"]],
+        ["sequence", []],
+        ["ordered-bag", [["string", "x"]]],
+        ["bag", [["boolean", True]]],
+        ["set", [["integer", "2"]]],
+        ["mapping", [["name", ["string", "x"]]]],
+    ]
+    nested = ["integer", "17"]
+    for _ in range(16):
+        nested = ["mapping", [["node", ["sequence", [nested]]]]]
+    valid.append(nested)
+    invalid = [
+        None,
+        [],
+        ["unrecognized"],
+        ["null", None],
+        ["boolean", 1],
+        ["integer", "1.2"],
+        ["decimal", "NaN"],
+        ["present"],
+        ["sequence", [["integer", "bad"]]],
+        ["mapping", [["x"]]],
+        ["mapping", [[1, ["null"]]]],
+        ["string", "x", "extra"],
+    ]
+    bad_leaf = ["integer", "not-an-integer"]
+    for _ in range(16):
+        bad_leaf = ["mapping", [["node", ["sequence", [bad_leaf]]]]]
+    return valid, [*invalid, bad_leaf]
+
+
+def _semantic_wire_schema():
+    from corpus_structure.semantic.data_operation_wire import schema_closure
+
+    definitions = wire_contracts()["retain_data_completion_intent"]["input"]["definitions"]
+    return schema_closure({"$ref": "#/definitions/semantic_value"}, definitions)
+
+
+def test_tagged_recursive_wire_preserves_all_variants_and_nested_refusals():
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+
+    schema = _semantic_wire_schema()
+    valid, invalid = _recursive_wire_examples()
+    for value in valid:
+        assert validate_wire_schema(schema, value) == value
+    for value in invalid:
+        with pytest.raises(ValueError):
+            validate_wire_schema(schema, value)
+
+
+@pytest.mark.db
+def test_native_tagged_recursive_wire_preserves_the_same_independent_cases(infrastructure_rollback):
+    from sqlalchemy import text
+
+    schema = canonical_bytes(_semantic_wire_schema()).decode()
+    infrastructure_rollback.execute(text("CREATE EXTENSION IF NOT EXISTS pg_jsonschema"))
+    valid, invalid = _recursive_wire_examples()
+    for expected, values in ((True, valid), (False, invalid)):
+        for value in values:
+            actual = infrastructure_rollback.scalar(
+                text(
+                    "SELECT public.json_matches_schema(CAST(:schema AS json), CAST(:value AS json))"
+                ),
+                {"schema": schema, "value": canonical_bytes(value).decode()},
+            )
+            assert actual is expected, value

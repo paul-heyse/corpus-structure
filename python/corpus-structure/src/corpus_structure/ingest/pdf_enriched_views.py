@@ -10,7 +10,11 @@ class EnrichedPdfSourceViewsOperation(PdfSourceViewsFamily):
         "abstract": False,
         "id": "source.pdf_enriched_views/discovery",
         "dependencies": ["source.pdf_math/enrich"],
-        "role_overrides": [{"name": "capture", "alternatives": ["source.pdf_math/enrich"], "selected": "source.pdf_math/enrich"}],
+        "role_overrides": [
+            {
+                "name": "capture",
+                "alternatives": ["source.pdf_math/enrich"],
+                "selected": "source.pdf_math/enrich",
+            }
+        ],
     }
-
-

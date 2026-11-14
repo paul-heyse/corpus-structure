@@ -10,5 +10,11 @@ class ComposeEnrichedCapturedDocumentOperation(ComposeCapturedDocumentFamily):
         "abstract": False,
         "id": "text.compose_view/enriched-captured-full-native",
         "dependencies": ["source.pdf_enriched_views/discovery"],
-        "role_overrides": [{"name": "sources", "alternatives": ["source.pdf_enriched_views/discovery"], "selected": "source.pdf_enriched_views/discovery"}],
+        "role_overrides": [
+            {
+                "name": "sources",
+                "alternatives": ["source.pdf_enriched_views/discovery"],
+                "selected": "source.pdf_enriched_views/discovery",
+            }
+        ],
     }

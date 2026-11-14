@@ -170,7 +170,7 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
 
     _, _, _, retained = packet(ddo_kernel)
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
-    first = session.claim(retained["packet_id"], lease_seconds=1)
+    first = session.claim(retained["packet_id"], lease_seconds=30)
     actual = session.read(retained["packet_id"], first)["packet"]
     completion = ExternalResultPort(json_bytes(actual), ddo_kernel["model"], 100000).completion(
         RESULT

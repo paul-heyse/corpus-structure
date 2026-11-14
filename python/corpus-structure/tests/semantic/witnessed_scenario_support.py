@@ -695,7 +695,9 @@ def completed_relationship_case(
                 raise TypeError("sealed contextual fixture requires its actual native bound reader")
             source_view_id = ref.unit_id
             if source_view_id is None:
-                raise ValueError("sealed contextual fixture requires its exact selected source unit")
+                raise ValueError(
+                    "sealed contextual fixture requires its exact selected source unit"
+                )
             source = fixture_reader.source_view(source_view_id)
             relationship_result = contextual_fixture_result(
                 contextual_fixture_inputs(fixture_reader, source, cfg),

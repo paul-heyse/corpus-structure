@@ -505,13 +505,18 @@ BEGIN
 END $$;
 
 -- Potential graph edges do not confer admission; only frozen selected
--- dependencies and discovery target relations extend the consumed producer set.
+-- dependencies and explicitly frozen discovery relations extend the consumed
+-- producer set. A discovered child consumes its named incoming producer without
+-- hard-coding that producer into the child's source-independent declaration.
 CREATE OR REPLACE FUNCTION ops.ddo_consumed_producers(selection jsonb,operation text) RETURNS text[]
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  WITH RECURSIVE allowed(id) AS (
  SELECT dependency FROM jsonb_array_elements(selection->'operations') selected
  CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency
  WHERE selected->>'operation'=operation
+ UNION
+ SELECT relation->>'producer' FROM jsonb_array_elements(selection->'discovery') relation
+ WHERE relation->>'target'=operation
  UNION
  SELECT edge.id FROM allowed parent CROSS JOIN LATERAL (
  SELECT dependency AS id FROM jsonb_array_elements(selection->'operations') selected

@@ -145,12 +145,22 @@ def _case(scenario_seeds, *, empty):
                 document_key=selected.root.original_source,
                 name="original-document",
             )
-            from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
+            from corpus_structure.semantic.data_operation_source_discovery import (
+                source_discovery_relations,
+            )
+
             operation = "extract.m1_candidates"
-            required = {operation, *kernel.model.projection_graph("selected-dependencies").closure((operation,))}
-            discovery = tuple(relation for target_operation in sorted(required)
-                for relation in source_discovery_relations(kernel.model,
-                    "source.selected_views/discovery", "result", target_operation))
+            required = {
+                operation,
+                *kernel.model.projection_graph("selected-dependencies").closure((operation,)),
+            }
+            discovery = tuple(
+                relation
+                for target_operation in sorted(required)
+                for relation in source_discovery_relations(
+                    kernel.model, "source.selected_views/discovery", "result", target_operation
+                )
+            )
             intent = freeze_demand(
                 kernel.model,
                 roots=(original.root,),
@@ -271,3 +281,31 @@ def test_actual_m1_bounded_gliner_questions_publish_candidate_inspection_with_co
         )
         assert executor.budget.used_bytes == 0
         assert executor.run(demand).receipt_count == 0
+
+
+def test_native_consumed_producers_follow_only_targeted_frozen_discovery(native_read):
+    selected = {
+        "operations": [
+            {"operation": "consumer", "dependencies": ["annotations"]},
+            {"operation": "annotations", "dependencies": []},
+            {"operation": "views", "dependencies": ["capture"]},
+            {"operation": "capture", "dependencies": []},
+            {"operation": "unrelated", "dependencies": []},
+            {"operation": "other-consumer", "dependencies": []},
+        ],
+        "discovery": [
+            {"producer": "views", "target": "consumer"},
+            {"producer": "unrelated", "target": "other-consumer"},
+        ],
+    }
+    actual = native_read.scalar(
+        text("SELECT ops.ddo_consumed_producers(CAST(:selection AS jsonb), :operation)"),
+        {"selection": json.dumps(selected), "operation": "consumer"},
+    )
+    assert actual == ["annotations", "capture", "consumer", "views"]
+    selected["discovery"] = selected["discovery"][1:]
+    without = native_read.scalar(
+        text("SELECT ops.ddo_consumed_producers(CAST(:selection AS jsonb), :operation)"),
+        {"selection": json.dumps(selected), "operation": "consumer"},
+    )
+    assert without == ["annotations"]

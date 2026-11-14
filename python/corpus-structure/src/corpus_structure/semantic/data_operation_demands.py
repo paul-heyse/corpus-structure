@@ -324,8 +324,14 @@ class ReadyDataRequest:
 
 
 def _population_context_matches(
-    row: dict, obligation: dict, *, source_set: str | None, source_sets: dict, project: str,
-    original_source_role: bool = False, discovery: tuple[dict, ...] = (),
+    row: dict,
+    obligation: dict,
+    *,
+    source_set: str | None,
+    source_sets: dict,
+    project: str,
+    original_source_role: bool = False,
+    discovery: tuple[dict, ...] = (),
 ) -> bool:
     """Use authenticated contexts, or an explicitly frozen exact member association."""
 
@@ -352,8 +358,10 @@ def _population_context_matches(
         original_source_role
         and row.get("complete") is True
         and producer.get("original_source") == obligation["original_source"]
-        and all(isinstance(evidence.get(key), str) and evidence[key]
-            for key in ("product_id", "derivation_id", "admission_use_id", "member_role"))
+        and all(
+            isinstance(evidence.get(key), str) and evidence[key]
+            for key in ("product_id", "derivation_id", "admission_use_id", "member_role")
+        )
         and any(
             relation["target"] == obligation["operation_id"]
             and relation["producer"] == producer["operation_id"]
@@ -603,8 +611,11 @@ class DemandPlanner:
                 **binding_arguments,
             )
             prerequisites, pending = set(), list(operation["dependencies"])
-            pending.extend(relation["producer"] for relation in frozen["discovery"]
-                if relation["target"] == operation["operation"])
+            pending.extend(
+                relation["producer"]
+                for relation in frozen["discovery"]
+                if relation["target"] == operation["operation"]
+            )
             while pending:
                 prerequisite = pending.pop()
                 if prerequisite not in prerequisites:
@@ -647,7 +658,10 @@ class DemandPlanner:
                             source_set=scope_name,
                             source_sets=source_sets,
                             project=snapshot["project_id"],
-                            original_source_role=(role.subject_target == "original-source" and role.subject_field is not None),
+                            original_source_role=(
+                                role.subject_target == "original-source"
+                                and role.subject_field is not None
+                            ),
                             discovery=tuple(frozen["discovery"]),
                         )
                     )

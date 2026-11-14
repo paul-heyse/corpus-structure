@@ -151,22 +151,49 @@ def prepare_source_demand(
     if any(value.reference.mime != "application/pdf" for value in originals):
         raise SourceRequestError("source acquisition requires immutable PDF originals")
     captured = not request.retained_sources
-    if (not captured and request.pdf_mode != "standard") or (request.recognition_pages and request.pdf_mode != "integrated"):
-        raise SourceRequestError("PDF transformation mode/pages require an explicit new captured source")
-    targets = request.targets or primary_operation_targets(request.workflow, captured=captured, pdf_mode=request.pdf_mode)
+    if (not captured and request.pdf_mode != "standard") or (
+        request.recognition_pages and request.pdf_mode != "integrated"
+    ):
+        raise SourceRequestError(
+            "PDF transformation mode/pages require an explicit new captured source"
+        )
+    targets = request.targets or primary_operation_targets(
+        request.workflow, captured=captured, pdf_mode=request.pdf_mode
+    )
     supplied = {value.operation: value for value in request.selections}
     if len(supplied) != len(request.selections):
         raise SourceRequestError("duplicate source operation selection")
     # Full means the optional families explicitly declared by this admitted
     # composition, not a manually maintained method dependency list.
     supplied = _default_profile_selections(model, targets, supplied)
-    producer = ("source.pdf_views/discovery" if request.pdf_mode == "standard" else "source.pdf_" + request.pdf_mode + "_views/discovery") if captured else "source.selected_views/discovery"
+    producer = (
+        (
+            "source.pdf_views/discovery"
+            if request.pdf_mode == "standard"
+            else "source.pdf_" + request.pdf_mode + "_views/discovery"
+        )
+        if captured
+        else "source.selected_views/discovery"
+    )
     if request.pdf_mode != "standard":
-        transform = "source.pdf_math/enrich" if request.pdf_mode == "enriched" else "source.pdf_integrated/reconcile"
-        model.operation(transform)  # Missing captured capability is a refusal, never Standard fallback.
-        transformed = DemandOperationSelection(operation=transform, parameters={"sections": sections, "membership": request.membership} if request.pdf_mode == "enriched" else {"pages": list(request.recognition_pages)})
+        transform = (
+            "source.pdf_math/enrich"
+            if request.pdf_mode == "enriched"
+            else "source.pdf_integrated/reconcile"
+        )
+        model.operation(
+            transform
+        )  # Missing captured capability is a refusal, never Standard fallback.
+        transformed = DemandOperationSelection(
+            operation=transform,
+            parameters={"sections": sections, "membership": request.membership}
+            if request.pdf_mode == "enriched"
+            else {"pages": list(request.recognition_pages)},
+        )
         if transform in supplied and supplied[transform] != transformed:
-            raise SourceRequestError("PDF transformation parameters differ from the explicit source choice")
+            raise SourceRequestError(
+                "PDF transformation parameters differ from the explicit source choice"
+            )
         supplied[transform] = transformed
     selection = DemandOperationSelection(
         operation=producer,
@@ -192,11 +219,23 @@ def prepare_source_demand(
 
     discoveries = []
     for operation_id in sorted(closure):
-        relations = source_discovery_relations(model, producer, "result", operation_id,
-            choices=supplied[operation_id].choices if operation_id in supplied else {})
-        discoveries.extend(DemandDiscoverySelection(producer=relation.producer,
-            output_role=relation.output_role, target=relation.target, population=relation.population,
-            target_role=relation.target_role) for relation in relations)
+        relations = source_discovery_relations(
+            model,
+            producer,
+            "result",
+            operation_id,
+            choices=supplied[operation_id].choices if operation_id in supplied else {},
+        )
+        discoveries.extend(
+            DemandDiscoverySelection(
+                producer=relation.producer,
+                output_role=relation.output_role,
+                target=relation.target,
+                population=relation.population,
+                target_role=relation.target_role,
+            )
+            for relation in relations
+        )
     discovered_targets = {relation.target for relation in discoveries}
     root_targets = tuple(target for target in targets if target not in discovered_targets)
     native = NativeDemandRequest(

@@ -269,7 +269,9 @@ class BindingScopes:
     selected_children: Callable[[BindingExpression], tuple[BindingExpression, ...]]
 
 
-def inspect_binding_scopes(expression: BindingExpression, role_names: tuple[str, ...], choice_values: Mapping[str, Any]) -> BindingScopes:
+def inspect_binding_scopes(
+    expression: BindingExpression, role_names: tuple[str, ...], choice_values: Mapping[str, Any]
+) -> BindingScopes:
     inactive = set()
 
     def referenced_roles(node: BindingExpression) -> set[str]:
@@ -372,7 +374,14 @@ def inspect_binding_scopes(expression: BindingExpression, role_names: tuple[str,
             inspect_scopes(child)
 
     inspect_scopes(expression)
-    return BindingScopes(inactive, negative_roles, role_populations, role_projections, referenced_roles, selected_children)
+    return BindingScopes(
+        inactive,
+        negative_roles,
+        role_populations,
+        role_projections,
+        referenced_roles,
+        selected_children,
+    )
 
 
 def compile_binding(

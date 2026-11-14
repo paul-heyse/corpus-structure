@@ -7,6 +7,8 @@ admitted by explicit forms; inference cardinality is never a completeness proof.
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 import ast
 from collections.abc import Mapping
 from contextlib import suppress
@@ -209,7 +211,9 @@ def _specialize_roles(metadata: dict, overrides: Any, owner: str) -> list[dict]:
     inherited = metadata.get("roles")
     if not isinstance(overrides, list) or not isinstance(inherited, list):
         _fail(owner, "role_overrides requires a literal list and inherited role declarations")
-    if any(not isinstance(role, dict) or not isinstance(role.get("name"), str) for role in inherited):
+    if any(
+        not isinstance(role, dict) or not isinstance(role.get("name"), str) for role in inherited
+    ):
         _fail(owner, "role_overrides requires named inherited roles")
     roles = [dict(role) for role in inherited]
     by_name = {role["name"]: role for role in roles}
@@ -217,7 +221,11 @@ def _specialize_roles(metadata: dict, overrides: Any, owner: str) -> list[dict]:
         _fail(owner, "role_overrides cannot specialize ambiguous inherited roles")
     seen = set()
     for patch in overrides:
-        if not isinstance(patch, dict) or "name" not in patch or set(patch) - {"name", "alternatives", "selected"}:
+        if (
+            not isinstance(patch, dict)
+            or "name" not in patch
+            or set(patch) - {"name", "alternatives", "selected"}
+        ):
             _fail(owner, "role_overrides permits only name, alternatives and selected")
         name = patch["name"]
         if not isinstance(name, str) or name not in by_name:
@@ -859,14 +867,15 @@ class ClosedPythonSources:
             field_owners: dict[str, str] = {}
             ancestors = ()
             if isinstance(obj, griffe.Class):
-                try:
+                # Unsupported bases remain visible to slice admission below.
+                with suppress(griffe.AliasResolutionError, ValueError):
                     ancestors = tuple(base.path for base in reversed(obj.mro()))
-                except griffe.AliasResolutionError, ValueError:
-                    pass  # Unsupported bases are visible to slice admission below.
             role_origins = []
             for owner in (*ancestors, exposed):
                 authored = self.metadata.get(owner, {})
-                fields = {field: value for field, value in authored.items() if field != "role_overrides"}
+                fields = {
+                    field: value for field, value in authored.items() if field != "role_overrides"
+                }
                 if "roles" in fields:
                     role_origins.clear()
                 metadata.update(fields)
@@ -874,7 +883,9 @@ class ClosedPythonSources:
                 if "role_overrides" in authored:
                     if not isinstance(obj, griffe.Class):
                         _fail(owner, "role_overrides belongs to an inherited class declaration")
-                    metadata["roles"] = _specialize_roles(metadata, authored["role_overrides"], owner)
+                    metadata["roles"] = _specialize_roles(
+                        metadata, authored["role_overrides"], owner
+                    )
                     role_origins.append(owner)
             if metadata.get("abstract", False):
                 continue
@@ -906,8 +917,14 @@ class ClosedPythonSources:
                 for field in metadata
             )
             origins += tuple(
-                FactOrigin("roles", "authored", self.modules[self._module_for(owner)].source.filename,
-                           owner, exposed, self.metadata_lines.get(owner))
+                FactOrigin(
+                    "roles",
+                    "authored",
+                    self.modules[self._module_for(owner)].source.filename,
+                    owner,
+                    exposed,
+                    self.metadata_lines.get(owner),
+                )
                 for owner in dict.fromkeys(role_origins)
             )
             origins += tuple(

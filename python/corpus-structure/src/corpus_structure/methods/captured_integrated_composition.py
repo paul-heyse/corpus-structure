@@ -10,5 +10,11 @@ class ComposeIntegratedCapturedDocumentOperation(ComposeCapturedDocumentFamily):
         "abstract": False,
         "id": "text.compose_view/integrated-captured-full-native",
         "dependencies": ["source.pdf_integrated_views/discovery"],
-        "role_overrides": [{"name": "sources", "alternatives": ["source.pdf_integrated_views/discovery"], "selected": "source.pdf_integrated_views/discovery"}],
+        "role_overrides": [
+            {
+                "name": "sources",
+                "alternatives": ["source.pdf_integrated_views/discovery"],
+                "selected": "source.pdf_integrated_views/discovery",
+            }
+        ],
     }

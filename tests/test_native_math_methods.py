@@ -26,10 +26,14 @@ from corpus_structure.core.method import (
 )
 from corpus_structure.core.vocab import ObservationKind, RunKind, TaskUnitType
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.math.methods import ExtractMathConfig
 from corpus_structure.methods.math.configuration import MathSection
-from corpus_structure.methods.math.native import native_result, native_scope_result
-from corpus_structure.methods.math.native import NativeDomainRule, domain_blocks
+from corpus_structure.methods.math.methods import ExtractMathConfig
+from corpus_structure.methods.math.native import (
+    NativeDomainRule,
+    domain_blocks,
+    native_result,
+    native_scope_result,
+)
 from corpus_structure.methods.math.scope import Binders
 from corpus_structure.semantic.characterization import select_primary_layers
 from corpus_structure.semantic.identity import canonical_bytes
@@ -40,6 +44,7 @@ from corpus_structure.semantic.types import PreparedRelease
 
 class NormalizedReadingConfig(ExtractMathConfig):
     """Finite sealed-reading controls, with no executor or configuration resolver."""
+
     source_dependencies: Literal["source_view_interpretation"] = "source_view_interpretation"
     source_dependency_method: Literal["extract.math"] = "extract.math"
     backend: Literal["lark"] = "lark"
@@ -281,14 +286,16 @@ def test_native_reading_kernels_keep_actual_source_offsets():
     )
     ctx = context_for(reader)
 
-    m09 = native_result(unit, reader.bind_config(ExtractMathConfig()), ctx, 'extract.math')
+    m09 = native_result(unit, reader.bind_config(ExtractMathConfig()), ctx, "extract.math")
     mentions = [o for o in m09.observations if o.kind is ObservationKind.MENTION]
     assert len(mentions) == 3
     assert [o.recognized_span for o in mentions] == [(0, 1), (0, 1), (2, 3)]
     assert [o.projected_span for o in mentions] == [(4, 5), (12, 13), (14, 15)]
     assert all(o.rendition_id is None and o.span is None for o in mentions)
     reader.store("extract.math", m09)
-    m11 = native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, 'normalize.formula')
+    m11 = native_result(
+        unit, reader.bind_config(NormalizedReadingConfig()), ctx, "normalize.formula"
+    )
     assert len([o for o in m11.observations if o.kind is ObservationKind.VALUE]) == 2
     records = [o for o in m11.observations if o.kind is ObservationKind.RECORD]
     assert len(records) == 1
@@ -620,10 +627,15 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
     reader.store("resolve.symbol_scope", context)
     unit = UnitView(UnitRef(TaskUnitType.SOURCE_VIEW, 8, child.ref.key), run, source_view_id=8)
     mathcfg = reader.bind_config(ExtractMathConfig(math=MathSection(native_domain_rules=(rule,))))
-    reader.store("extract.math", native_result(unit, mathcfg, ctx, 'extract.math'))
+    reader.store("extract.math", native_result(unit, mathcfg, ctx, "extract.math"))
     reader.store(
         "normalize.formula",
-        native_result(unit, reader.bind_config(NormalizedReadingConfig(math=mathcfg.math)), ctx, 'normalize.formula'),
+        native_result(
+            unit,
+            reader.bind_config(NormalizedReadingConfig(math=mathcfg.math)),
+            ctx,
+            "normalize.formula",
+        ),
     )
     result = native_scope_result(unit, cfg, ctx)
     assert all(
@@ -665,14 +677,16 @@ def test_occurrence_owner_is_weak_and_normalization_reuses_retained_tree(monkeyp
             "definedness_result",
             lambda *a, **k: (_ for _ in ()).throw(AssertionError("unasked definedness work")),
         )
-        weak = native_result(unit, reader.bind_config(ExtractMathConfig()), ctx, 'extract.math')
+        weak = native_result(unit, reader.bind_config(ExtractMathConfig()), ctx, "extract.math")
     reader.store("extract.math", weak)
     # Neither normalization nor inspection may reconstruct the original syntax tree.
     with monkeypatch.context() as guard:
         guard.setattr(
             grammar, "syntax", lambda *a, **k: (_ for _ in ()).throw(AssertionError("reparsed"))
         )
-        strong = native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, 'normalize.formula')
+        strong = native_result(
+            unit, reader.bind_config(NormalizedReadingConfig()), ctx, "normalize.formula"
+        )
         reader.store("normalize.formula", strong)
         recorded = stored_native_analysis(reader, 7, "#/texts/3")["#/texts/3"]
     assert recorded["interpretation"]["recognized_latex"] == "x+x"
@@ -693,7 +707,7 @@ def test_normalization_refuses_missing_named_occurrence_owner():
         UnitRef(TaskUnitType.SOURCE_VIEW, 7, reader.view.ref.key), run, source_view_id=7
     )
     with pytest.raises(ValueError, match="one exact completed"):
-        native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, 'normalize.formula')
+        native_result(unit, reader.bind_config(NormalizedReadingConfig()), ctx, "normalize.formula")
 
 
 def test_stored_analysis_refuses_cycles_and_stale_pins():
@@ -725,8 +739,6 @@ def test_stored_analysis_refuses_cycles_and_stale_pins():
     payload["native_product"] = {**payload["native_product"], "content_digest": "d" * 64}
     with pytest.raises(NativeAnalysisUnavailable, match="pinned source view"):
         stored_native_analysis(reader, 7, "#/texts/1")
-
-
 
 
 def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(monkeypatch):
@@ -949,7 +961,9 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
         rule_id="proof-heading-1", pattern=r"^Proof\.", statement_kind="proof", scope_role="proof"
     )
     section = MathSection(native_domain_rules=(rule,))
-    weak = native_result(unit, reader.bind_config(ExtractMathConfig(math=section)), ctx, 'extract.math')
+    weak = native_result(
+        unit, reader.bind_config(ExtractMathConfig(math=section)), ctx, "extract.math"
+    )
     record = next(o.payload for o in weak.observations if o.kind is ObservationKind.RECORD)
     outcomes = {item["pointer"]: item["outcome"] for item in record.items}
     assert outcomes[formulas["child_f_call"]] == "ok"
@@ -964,13 +978,22 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     reader.store("extract.math", weak)
     reader.store(
         "normalize.formula",
-        native_result(unit, reader.bind_config(NormalizedReadingConfig(math=section)), ctx, 'normalize.formula'),
+        native_result(
+            unit,
+            reader.bind_config(NormalizedReadingConfig(math=section)),
+            ctx,
+            "normalize.formula",
+        ),
     )
-    scoped = native_scope_result(unit, reader.bind_config(
+    scoped = native_scope_result(
+        unit,
+        reader.bind_config(
             ScopeReadingConfig(
                 math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
             )
-        ), ctx)
+        ),
+        ctx,
+    )
     scopes = {
         o.payload.source_pointer: o.payload
         for o in scoped.observations
@@ -1050,12 +1073,19 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
             source_view_id=7,
         )
         ctx = context_for(reader)
-        weak = native_result(unit, reader.bind_config(ExtractMathConfig(math=section)), ctx, 'extract.math')
+        weak = native_result(
+            unit, reader.bind_config(ExtractMathConfig(math=section)), ctx, "extract.math"
+        )
         assert weak.outcome is ObservationOutcome.PRODUCED
         assert len([o for o in weak.observations if o.kind is ObservationKind.MENTION]) == 3
         assert weak.coverage[0].outcome == "partial"
         reader.store("extract.math", weak)
-        normalized = native_result(unit, reader.bind_config(NormalizedReadingConfig(math=section)), ctx, 'normalize.formula')
+        normalized = native_result(
+            unit,
+            reader.bind_config(NormalizedReadingConfig(math=section)),
+            ctx,
+            "normalize.formula",
+        )
         assert normalized.outcome is ObservationOutcome.PRODUCED
         assert len([o for o in normalized.observations if o.kind is ObservationKind.VALUE]) == 2
         assert normalized.coverage[0].outcome == "partial"
