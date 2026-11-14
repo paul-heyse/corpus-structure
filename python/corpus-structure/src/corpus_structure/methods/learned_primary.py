@@ -1,6 +1,7 @@
 """Owned declared learned-provider producers on exact original source contexts."""
 
-from typing import ClassVar
+from collections.abc import Generator
+from typing import Any, ClassVar
 
 from corpus_structure.semantic.construction_products import CharacterizationSnapshot
 from corpus_structure.semantic.contextual_native_products import execute_contextual_native
@@ -3613,7 +3614,7 @@ class GlinerDefinitionPrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource, term_entity: str = "defined term or expression", content_entity: str = "defining text or formula", attachment_relation: str = "term is defined or explained by", description_arm: str = "bare", evaluation_overlap: str = "") -> LearnedPrimaryProducts:
+    def run(self, source: FrozenNativeSource, term_entity: str = "defined term or expression", content_entity: str = "defining text or formula", attachment_relation: str = "term is defined or explained by", description_arm: str = "bare", evaluation_overlap: str = "") -> Generator[tuple, Any, LearnedPrimaryProducts]:
         from corpus_structure.semantic.definition_model_products import DefinitionExtractionOptions, extract_definition_products
 
         return extract_definition_products(self.profile, source, binding=self.binding, execution_owner=self.execution_owner, check_active=self.check_active, options=DefinitionExtractionOptions(term_entity, content_entity, attachment_relation, description_arm, evaluation_overlap))

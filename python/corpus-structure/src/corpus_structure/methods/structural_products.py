@@ -37,6 +37,7 @@ from corpus_structure.semantic.structural_products import (
     ComparisonProduct,
     DeclaredStructuralProductReport,
     DimensionComparison,
+    Dimension,
     DossierComparisonBinding,
     DossierComparisonSelection,
     DossierMember,
@@ -732,7 +733,7 @@ def read_retained_clause(
     ):
         raise ValueError("retained frame differs from exact selected passage")
 
-    members: dict[str, list[ClauseField | DeclaredClauseField]] = {
+    members: dict[Dimension, list[ClauseField | DeclaredClauseField]] = {
         dimension: [] for dimension in DIMENSIONS
     }
     incomplete = set()
@@ -803,7 +804,8 @@ def read_retained_clause(
                 row["contribution_id"],
                 qualifier.get("condition"),
             )
-    for dimension, value in (("parent", passage.parent), ("version", passage.effective_version)):
+    context_fields: tuple[tuple[Dimension, str | None], ...] = (("parent", passage.parent), ("version", passage.effective_version))
+    for dimension, value in context_fields:
         if value is not None:
             members[dimension].append(
                 field_type(dimension=dimension, lexical_value=value, evidence=(passage.passage_id,))
