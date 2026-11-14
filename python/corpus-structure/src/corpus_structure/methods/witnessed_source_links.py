@@ -157,18 +157,22 @@ def procedure_artifact_bindings(contributions):
     }
 
 
-def procedure_artifact_endpoint(rows, link, annotation, artifact_id):
+def procedure_artifact_endpoint(rows, link, annotation, artifact_id, *, verb_extent=None):
     """Bind the recipe's exact action token to the original caption relationship."""
     from corpus_structure.semantic.observations import source_python
 
-    verb = annotation.tokens[link.witness.tokens["verb"]]
+    if verb_extent is None:
+        if annotation is None:
+            return None
+        verb = annotation.tokens[link.witness.tokens["verb"]]
+        verb_extent = verb.start, verb.end
     actions = [
         row
         for row in rows.values()
         if row.get("semantic_type") == "structural.located_participant"
         and (value := source_python(row["value"])).get("role") == "procedure_action"
         and (value["source_pointer"], value["start"], value["end"])
-        == (link.pointer, verb.start, verb.end)
+        == (link.pointer, *verb_extent)
         and link.witness.annotation in row["computation_dependencies"]
     ]
     if len(actions) != 1:
