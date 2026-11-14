@@ -109,7 +109,7 @@ def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(e
 
 @pytest.mark.parametrize("project", ["execution", "another-project"])
 def test_run_frontdoor_executes_only_the_retained_demand_project(
-    executable, cli, tmp_path, monkeypatch, project
+    executable, ddo_kernel, cli, tmp_path, monkeypatch, project
 ):
     from contextlib import contextmanager
 
@@ -133,8 +133,8 @@ def test_run_frontdoor_executes_only_the_retained_demand_project(
 
     @contextmanager
     def acquired_engine(settings, *, purpose):
-        assert purpose == "write"
-        yield engine
+        assert purpose in {"write", "admit"}
+        yield ddo_kernel.purpose(purpose)
 
     monkeypatch.setattr(demands, "ENGINE", acquired_engine)
     result = cli(
@@ -149,7 +149,10 @@ def test_run_frontdoor_executes_only_the_retained_demand_project(
         env={"CORPUS_CI_RESULTS": str(tmp_path / "cli-results")},
     )
     if project == "execution":
-        assert result.exit_code == 0, result.output
+        assert result.exit_code == 0, (
+            result.output,
+            tuple(repr(error) for error in getattr(result.exception, "failures", ())),
+        )
         report = json_loads(result.stdout)
         assert report["native"]["demand_id"] == demand
         assert report["native"]["receipt_count"] == 1

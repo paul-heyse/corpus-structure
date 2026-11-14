@@ -199,7 +199,7 @@ def test_execute_retains_pending_native_fates_and_exact_resume_target(
         env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
     )
     assert result.exit_code == 0, result.output
-    assert routing[0] == ["write"]
+    assert routing[0] == ["write", "admit"]
     assert seen == [("demand:one", tmp_path, 3, 2)]
     native = json.loads(result.stdout)["native"]
     assert native["snapshot"] == snapshot

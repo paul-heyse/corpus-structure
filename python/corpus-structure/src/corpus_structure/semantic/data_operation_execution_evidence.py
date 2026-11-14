@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from jsonschema import Draft7Validator
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from corpus_structure.methods.characterization_resources import ProviderExecutionReceipt
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
@@ -33,6 +34,7 @@ class NativeExecutionEvidence(BaseModel):
     host_receipts: tuple[NativeExecutionReceipt, ...]
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
+    provider_receipts: tuple[ProviderExecutionReceipt, ...] = ()
 
 
 @cache
@@ -67,6 +69,7 @@ def bind_execution_evidence(
     runtime_id: str,
     cpu_content: bytes | None = None,
     pdf_content: bytes | None = None,
+    provider_content: bytes | None = None,
 ) -> dict:
     """Bind the capability's original matched host receipts to its native attempt."""
     value = {
@@ -76,7 +79,18 @@ def bind_execution_evidence(
         "host_receipts": json.loads(content) if content is not None else [],
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
         "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
+        "provider_receipts": json.loads(provider_content) if provider_content is not None else [],
     }
     Draft7Validator(json.loads(execution_evidence_schema())).validate(value)
     checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
+    claim = tuple(fence[name] for name in ("request_id", "generation", "task_id", "attempt"))
+    for receipt in checked.provider_receipts:
+        # The existing provider handle validates work/cohort/scatter and actual
+        # physical exchanges before handing over this typed receipt. Bind its
+        # logical attribution to this exact native claim without replaying it.
+        if not receipt.logical_members or any(
+            (member.request_id, member.generation, member.task_id, member.attempt) != claim
+            for member in receipt.logical_members
+        ):
+            raise ValueError("provider logical receipt differs from native attempt")
     return checked.model_dump(mode="json")

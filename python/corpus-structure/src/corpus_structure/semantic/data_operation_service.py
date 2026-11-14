@@ -29,6 +29,7 @@ def execute_data_demand(
     source_root: Path,
     policy=None,
     project_id: str | None = None,
+    admission_engine=None,
     nemotron_endpoint: str | None = None,
     limit: int = 100,
     max_rounds: int = 100,
@@ -46,6 +47,15 @@ def execute_data_demand(
     from .runtime_binding_store import runtime_binding_for_release
 
     with engine.begin() as connection:
+        if admission_engine is not None:
+            from .storage_target import acquired_target
+
+            target = acquired_target(connection, purpose="write")
+            with admission_engine.begin() as admitted:
+                if acquired_target(admitted, purpose="admit") != target.model_copy(
+                    update={"purpose": "admit"}
+                ):
+                    raise ValueError("demand admission belongs to another PostgreSQL target")
         snapshot = read_data_demand(connection, demand_id, limit=1)
         if project_id is not None and snapshot["project_id"] != project_id:
             raise ValueError("retained demand belongs to another project")
@@ -71,6 +81,7 @@ def execute_data_demand(
         schema=bundle,
         policy=policy,
         nemotron_endpoint=nemotron_endpoint,
+        admission_engine=admission_engine,
     )
     return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
 

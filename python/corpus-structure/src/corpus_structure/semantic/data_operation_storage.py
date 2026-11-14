@@ -340,31 +340,12 @@ class DataOperationStorage:
 
 def require_data_operation_native(connection: Connection, prepared: PreparedRelease) -> str:
     """Verify the installed native descriptor and required relations before admission."""
-    from .execution_admission import _expectations, verify_deployment_catalog
-    from .migrations import ALEMBIC_DIR
+    from .execution_admission import require_native_execution
 
-    bodies = tuple(
-        connection.scalars(
-            text("""
-        SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
-        FROM unnest(ARRAY['data.execution_contract_descriptor()',
-                          'data.require_execution_release(text)'])
-             WITH ORDINALITY target(signature,position)
-        LEFT JOIN pg_proc p ON p.oid=to_regprocedure(target.signature)
-        ORDER BY target.position
-    """)
-        )
-    )
-    candidates = [
-        revision
-        for revision, expected in _expectations(ALEMBIC_DIR / "versions").items()
-        if expected.functions == bodies
-    ]
-    if not candidates:
-        raise ValueError("native data-operation deployment lacks frozen catalog expectations")
-    # This compares catalog bodies, owners, ACLs and physical constraints, including
-    # the newly frozen kernel. A self-reported version/digest cannot establish this.
-    verify_deployment_catalog(connection, revision=sorted(candidates)[-1])
+    # Authenticate the frozen catalog, then invoke its existing security-definer
+    # release guard under the admission purpose. The maintenance-only catalog DO
+    # requires access to protected schema names that this principal must not gain.
+    require_native_execution(connection, prepared)
     actual = connection.scalar(text("SELECT sem.data_operation_native_descriptor()"))
     if (
         not isinstance(actual, dict)

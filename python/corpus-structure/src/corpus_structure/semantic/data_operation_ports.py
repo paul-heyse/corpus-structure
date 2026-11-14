@@ -146,6 +146,7 @@ class PortCompletion:
     cpu_execution_evidence: bytes | None = None
     outcome: str = "success"
     pdf_execution_evidence: bytes | None = None
+    provider_execution_evidence: bytes | None = None
 
     def __post_init__(self) -> None:
         if type(self.outcome) is not str or not self.outcome:
@@ -162,6 +163,11 @@ class PortCompletion:
             and type(self.pdf_execution_evidence) is not bytes
         ):
             raise TypeError("PDF execution evidence requires owned immutable bytes")
+        if (
+            self.provider_execution_evidence is not None
+            and type(self.provider_execution_evidence) is not bytes
+        ):
+            raise TypeError("provider execution evidence requires owned immutable bytes")
 
 
 @dataclass(frozen=True)

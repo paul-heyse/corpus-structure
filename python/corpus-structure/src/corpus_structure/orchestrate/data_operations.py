@@ -108,12 +108,24 @@ def _check_batch_active(owner, claims):
     raise ExceptionGroup("no batch member has confirmed active ownership", failures)
 
 
-class NativeDemandExecutionError(RuntimeError):
+class NativeDemandExecutionError(ExceptionGroup):
     """Useful sibling receipts remain available when an execution sweep fails."""
+
+    def __new__(cls, result: DemandAdvance, failures: tuple[Exception, ...]):
+        return super().__new__(
+            cls,
+            f"native demand {result.demand_id} has {len(failures)} execution failures",
+            failures,
+        )
 
     def __init__(self, result: DemandAdvance, failures: tuple[Exception, ...]):
         self.result, self.failures = result, failures
-        super().__init__(f"native demand {result.demand_id} has {len(failures)} execution failures")
+        super().__init__(
+            f"native demand {result.demand_id} has {len(failures)} execution failures", failures
+        )
+
+    def derive(self, exceptions):
+        return NativeDemandExecutionError(self.result, tuple(exceptions))
 
 
 @dataclass(frozen=True)
@@ -391,12 +403,14 @@ class NativeDemandExecutor:
         policy: CharacterizationExecutionPolicy | None = None,
         runtime_locations: Mapping[str, Path] | None = None,
         capability_factories: Mapping[str, Callable[..., Any]] | None = None,
+        admission_engine: Engine | None = None,
         schema: SourceBundle | None = None,
         nemotron_endpoint: str | None = None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
         self.engine, self.prepared, self.runtime, self.sources = engine, prepared, runtime, sources
+        self.admission_engine = engine if admission_engine is None else admission_engine
         self.model = bound_data_operation_model(prepared)
         self.runtime_locations = runtime_locations
         self.schema = schema
@@ -435,7 +449,7 @@ class NativeDemandExecutor:
                 )
                 if factory is None:
                     raise PortRefusal("declared prepared capability is not acquired")
-                with self.engine.begin() as connection:
+                with self.admission_engine.begin() as connection:
                     admission = acquire_prepared_execution(
                         connection,
                         self.prepared,
@@ -481,7 +495,7 @@ class NativeDemandExecutor:
                         ),
                     )
             else:
-                with self.engine.begin() as connection:
+                with self.admission_engine.begin() as connection:
                     admission = acquire_python_execution(
                         connection,
                         self.prepared,
@@ -646,6 +660,7 @@ class NativeDemandExecutor:
                 answer.execution_evidence,
                 answer.cpu_execution_evidence,
                 answer.pdf_execution_evidence,
+                answer.provider_execution_evidence,
             )
         ):
             from corpus_structure.semantic.data_operation_execution_evidence import (
@@ -658,6 +673,7 @@ class NativeDemandExecutor:
                 runtime_id=self.runtime.runtime_id,
                 cpu_content=answer.cpu_execution_evidence,
                 pdf_content=answer.pdf_execution_evidence,
+                provider_content=answer.provider_execution_evidence,
             )
         if len(json_bytes(completion)) > self.policy.max_reply_bytes:
             raise ValueError("completion exceeds owned draft capacity")
@@ -1100,12 +1116,7 @@ class NativeDemandExecutor:
                 )
             result = self._result(demand, json_bytes(final))
             if self._member_failures:
-                raise NativeDemandExecutionError(
-                    result, tuple(self._member_failures)
-                ) from ExceptionGroup(
-                    "native demand execution failures",
-                    self._member_failures,
-                )
+                raise NativeDemandExecutionError(result, tuple(self._member_failures))
             return result
         finally:
             self._invocation.release()

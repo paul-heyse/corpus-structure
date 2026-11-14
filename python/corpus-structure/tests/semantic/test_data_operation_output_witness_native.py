@@ -171,7 +171,7 @@ def test_native_writer_refuses_schema_valid_pin_without_one_complete_member(ddo_
     forged[0][field] = value
     completion["outputs"][0]["product"]["body"] = semantic_value({"pins": forged})
     # Independent schema validity: the failure is selected-member agreement.
-    ddo_kernel["prepared"].validate_python("RecordEnvelope", {"pins": forged})
+    ddo_kernel["prepared"].validate_json("RecordEnvelope", canonical_bytes({"pins": forged}))
     fence = claim(ddo_kernel, json.loads(ready.native))
     with (
         ddo_kernel.purpose("write").begin() as writer,

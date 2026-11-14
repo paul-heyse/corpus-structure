@@ -177,7 +177,10 @@ def execute(
         expected=(ValueError, KeyError, OSError),
         scope={"demand_id": demand},
     ) as invocation:
-        with ENGINE(settings, purpose="write") as engine:
+        with (
+            ENGINE(settings, purpose="write") as engine,
+            ENGINE(settings, purpose="admit") as admitted,
+        ):
             with engine.begin() as connection:
                 target = acquired_target(connection, purpose="write")
                 invocation.record_target(target, None, None, None)
@@ -207,6 +210,7 @@ def execute(
                     policy=methods.execution_policy,
                     project_id=project,
                     nemotron_endpoint=methods.nemotron_endpoint,
+                    admission_engine=admitted,
                 )
             except NativeDemandExecutionError as error:
                 retain(error.result)
