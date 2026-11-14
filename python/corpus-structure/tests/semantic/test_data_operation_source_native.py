@@ -94,7 +94,7 @@ def test_native_source_helper_capture_and_compilation():
         "native/data-operation-source-native.py",
     }
     parsed = prepare_sql(source_native_sql(), source="source")
-    assert len(parsed.statements) == 3
+    assert len(parsed.statements) == 4
     for index, raw in enumerate(parsed.statements):
         assert isinstance(raw.stmt, ast.CreateFunctionStmt)
         if index == 0:

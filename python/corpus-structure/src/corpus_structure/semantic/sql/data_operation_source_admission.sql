@@ -136,3 +136,46 @@ BEGIN
  'evidence',jsonb_build_object('reference',p_reference,'document_id',document.id,
  'document_content_hash',document.content_hash,'source_uri',document.source_uri,'original_path',document.original_path));
 END $$;
+
+
+-- Resolve only an exact captured PDF input of the current declared request.
+-- The existing sealed-publication owner remains the PDF proof authority.
+CREATE OR REPLACE FUNCTION ops.ddo_pdf_capture_source(p_request text,p_project text,
+ p_product text,p_derivation text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE consumer ops.data_request; producer ops.data_request; derivation ops.data_derivation;
+ intent ops.data_completion_intent; product kb.data_product; receipts jsonb; receipt jsonb; expected jsonb;
+BEGIN
+ SELECT * INTO STRICT consumer FROM ops.data_request WHERE id=p_request AND project_id=p_project;
+ PERFORM ops.ddo_authorize_request(consumer);
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'inputs') selected
+ WHERE selected->>'product_id'=p_product AND selected->>'member_id' IS NULL
+ AND selected->>'support_derivation_id'=p_derivation)
+ OR NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'support') selected
+ WHERE selected->>'derivation_id'=p_derivation)
+ OR NOT ops.ddo_support_valid(p_derivation) THEN
+ RAISE EXCEPTION 'PDF source is outside exact selected computational support' USING ERRCODE='23514'; END IF;
+ SELECT der.* INTO STRICT derivation FROM ops.data_derivation der
+ JOIN ops.data_derivation_output output ON output.derivation_id=der.id
+ WHERE der.id=p_derivation AND output.product_id=p_product AND output.member_id IS NULL;
+ SELECT * INTO STRICT producer FROM ops.data_request WHERE id=derivation.request_id
+ AND project_id=consumer.project_id AND original_source=consumer.original_source;
+ PERFORM ops.ddo_authorize_request(producer);
+ IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
+ WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
+ AND definition.support_contract->'capabilities'->>'preparation'='pdf-native') THEN
+ RAISE EXCEPTION 'selected source derivation is not an admitted native PDF capture' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=derivation.intent_id;
+ SELECT * INTO STRICT product FROM kb.data_product WHERE id=p_product
+ AND project_id=consumer.project_id AND original_source=consumer.original_source;
+ receipts:=intent.payload->'execution_evidence'->'pdf_receipts';
+ IF jsonb_typeof(receipts) IS DISTINCT FROM 'array' OR jsonb_array_length(receipts)<>1 THEN
+ RAISE EXCEPTION 'selected PDF capture lacks one retained sealed publication' USING ERRCODE='23514'; END IF;
+ receipt:=receipts->0;
+ expected:=ops.pdf_publication_projection(receipt,intent.producer_task_id,
+ intent.producer_attempt,intent.producer_holder);
+ IF data.ddo_json(product.canonical_body) IS DISTINCT FROM expected
+ OR expected->>'document' IS DISTINCT FROM consumer.original_source THEN
+ RAISE EXCEPTION 'selected PDF capture body differs from actual sealed publication' USING ERRCODE='23514'; END IF;
+ RETURN receipt;
+END $$;

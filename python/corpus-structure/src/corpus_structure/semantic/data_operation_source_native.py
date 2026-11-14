@@ -31,7 +31,9 @@ def source_native_definitions(connection) -> tuple[NativeDefinition, ...]:
             prepared.excerpt(index),
             source=source,
             owner="corpus_sem_publisher",
-            grants=(),
+            grants=(("corpus_sem_writer", "EXECUTE", False),)
+            if prepared.statements[index].stmt.funcname[-1].sval == "ddo_pdf_capture_source"
+            else (),
         )
         for index, _ in enumerate(prepared.statements)
     )
