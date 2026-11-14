@@ -554,7 +554,9 @@ def retained_math_syntax(
     return _restore_math_syntax(candidates, latex, macros=macros, kind=kind, max_nodes=max_nodes)
 
 
-def _restore_math_syntax(candidates, latex, *, macros=None, kind="any_value", max_nodes=20000):
+def _restore_math_syntax(
+    candidates, latex, *, macros=None, kind="any_value", max_nodes=20000, semantic=False
+):
     """Shared retained DAG/callback restoration after the owning source lookup."""
     from lark import Tree
     from lark.parse_tree_builder import ParseTreeBuilder
@@ -569,9 +571,8 @@ def _restore_math_syntax(candidates, latex, *, macros=None, kind="any_value", ma
         return replace(base, failure=grammar.Failure(category, "PrimarySyntaxUnavailable"))
     body, root = candidates[0]
     inp = root["formal_input"]
-    if inp["macro_identity"] != macro_identity(table) or inp["grammar"] != math_grammar_identity(
-        table
-    ):
+    expected_grammar = "formal-math" if semantic else math_grammar_identity(table)
+    if inp["macro_identity"] != macro_identity(table) or inp["grammar"] != expected_grammar:
         return replace(
             base, failure=grammar.Failure("primary_grammar_drift", "PrimarySyntaxUnavailable")
         )
@@ -786,10 +787,13 @@ class SourceNativeMathReadings:
             macros=macros,
             kind=kind,
             max_nodes=max_nodes,
+            semantic=True,
         )
 
     def inventory(self, pointer, latex, *, macros=None):
-        return _math_inventory(self._inputs.get((pointer, latex), ()), macros=macros)
+        return _math_inventory(
+            self._inputs.get((pointer, latex), ()), latex, macros=macros, semantic=True
+        )
 
 
 def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
@@ -823,10 +827,10 @@ def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
                     "primary mathematical inventory differs from frozen source or macros"
                 )
             candidates.append((pin, body, row))
-    return _math_inventory(candidates, macros=macros)
+    return _math_inventory(candidates, latex, macros=macros)
 
 
-def _math_inventory(candidates, *, macros=None):
+def _math_inventory(candidates, latex, *, macros=None, semantic=False):
     from .data_product_reference import member_reference
     from .formal_evidence import macro_identity, math_grammar_identity
 
@@ -841,9 +845,8 @@ def _math_inventory(candidates, *, macros=None):
         )
     pin, body, root = candidates[0]
     inp = root["formal_input"]
-    if inp["macro_identity"] != macro_identity(macros) or inp["grammar"] != math_grammar_identity(
-        macros
-    ):
+    expected_grammar = "formal-math" if semantic else math_grammar_identity(macros)
+    if inp["macro_identity"] != macro_identity(macros) or inp["grammar"] != expected_grammar:
         raise ValueError("primary mathematical inventory differs from frozen macros")
     rows = [
         row
