@@ -343,9 +343,22 @@ def retained_artifact_nomination(
     inputs, records, reference, payload, *, primary_layers=None
 ) -> ArtifactNomination:
     """Bind one genuine retained reference relationship to its exact cohort endpoints."""
+    from .witnessed_source_links import navigation_index
+
+    return artifact_nomination(
+        inputs, records, reference, payload["contributions"],
+        sources={view["source_view_id"]: view for view in payload["sources"]},
+        source_key=lambda pin: pin["source_view_id"],
+        navigation_for=lambda pin: navigation_index(primary_layers, pin["projection_digest"], source_view_id=pin["source_view_id"]),
+        origin_fields=lambda pin: {"origin_source_view_id": pin["source_view_id"]},
+    )
+
+
+def artifact_nomination(inputs, records, reference, contributions, *, sources, source_key, navigation_for, origin_fields, endpoint_type=ArtifactNominationEndpoint, nomination_type=ArtifactNomination, primary_reference=lambda reference: reference):
+    """Join original source origins through their actual nominal address owner."""
     if reference.contribution_id not in inputs.dependencies:
         raise ValueError("artifact nomination outside declared dependencies")
-    rows = {row["contribution_id"]: row for row in payload["contributions"]}
+    rows = {row["contribution_id"]: row for row in contributions}
     relation = rows.get(reference.contribution_id)
     if (
         relation is None
@@ -356,10 +369,9 @@ def retained_artifact_nomination(
     endpoints = relation.get("endpoints", ())
     if len(endpoints) != 2 or {e["role"] for e in endpoints} != {"attachment", "target"}:
         raise ValueError("artifact nomination requires two role-bound endpoints")
-    matched: dict[str, ArtifactNominationEndpoint] = {}
+    matched = {}
     cue = None
     cue_node = None
-    source_views = {view["source_view_id"]: view for view in payload["sources"]}
     for endpoint in endpoints:
         row = rows.get(endpoint["contribution_id"])
         if row is None or len(row["anchors"]) != 1:
@@ -373,7 +385,7 @@ def retained_artifact_nomination(
         ):
             raise ValueError("artifact nomination endpoint has an incompatible source role")
         pin = row["pin"]
-        source = source_views.get(pin["source_view_id"])
+        source = sources.get(source_key(pin))
         anchor = row["anchors"][0]
         if (
             source is None
@@ -413,19 +425,15 @@ def retained_artifact_nomination(
             raise ValueError("artifact nomination endpoint lacks exactly one selected artifact")
         if expected_role == "reference":
             start = origins[0]["start"]
-            from .witnessed_source_links import navigation_index
-
             candidates = [
                 record
-                for record in navigation_index(
-                    primary_layers, pin["projection_digest"], source_view_id=pin["source_view_id"]
-                ).select("artifact_reference", anchor["pointer"])
+                for record in navigation_for(pin).select("artifact_reference", anchor["pointer"])
                 if record.span("subject") == (start + anchor["start"], start + anchor["end"])
             ]
             if len(candidates) != 1 or candidates[0].span("cue") is None:
                 raise ValueError("artifact reference lacks exact retained primary cue support")
             (candidate,) = candidates
-            cue_node = candidate.reference
+            cue_node = primary_reference(candidate.reference)
             lo, hi = candidate.span("cue")
             cue = ArtifactAliasSpan(
                 source_pointer=anchor["pointer"],
@@ -433,17 +441,17 @@ def retained_artifact_nomination(
                 end=hi - start,
                 text=projection["text"][lo:hi],
             )
-        matched[endpoint["role"]] = ArtifactNominationEndpoint(
+        matched[endpoint["role"]] = endpoint_type(
             role=endpoint["role"],
             record_id=matches[0].contribution_id,
             contribution_id=row["contribution_id"],
-            origin_source_view_id=pin["source_view_id"],
+            **origin_fields(pin),
             origin_anchor_id=anchor["anchor_id"],
         )
     directed = (matched["attachment"], matched["target"])
     left, right = sorted(e.record_id for e in directed)
     assert cue is not None
-    return ArtifactNomination(
+    return nomination_type(
         left=left,
         right=right,
         relationship=reference,

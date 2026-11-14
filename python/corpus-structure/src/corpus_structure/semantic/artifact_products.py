@@ -38,6 +38,12 @@ class ArtifactSourceSelection(BaseModel):
         return self
 
 
+class ArtifactNominationSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    report_reference: str = Field(min_length=1)
+    contribution_id: str = Field(pattern=r"^source-contribution:[0-9a-f]{64}$")
+
+
 def artifact_inputs(bundle):
     from .construction_products import construction_product_inputs
     from .declared_structural_calls import structural_inputs
@@ -97,15 +103,19 @@ class PreparedArtifactInputs:
     check_active: Callable[[], None]
 
 
-def execute_artifact_identity(receiver, sources, constructions, *, selections, policy, title_threshold, exclusions, known_anchor_ids):
-    from corpus_structure.methods.artifact_identity import artifact_cohort, declared_artifact_relationships
+def execute_artifact_identity(receiver, sources, constructions, nominations, *, selections, nomination_selections, policy, title_threshold, exclusions, known_anchor_ids):
+    from corpus_structure.methods.artifact_identity import artifact_cohort, artifact_nomination, declared_artifact_relationships
     from .artifact_identity import ArtifactPairKey, ArtifactScoringPolicy, artifact_reference_resolutions, artifact_route_counts, native_alias_candidates, pair_candidates, score_pairs
     from .constructions.navigation import NativeNavigationIndex
     from .construction_products import CharacterizationSnapshot
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_calls import PreparedStructuralInputs, _passage
     from .source_products import FrozenNativeSource
-    from .structural_products import DeclaredArtifactDeclaredEndpoint, DeclaredArtifactDeclaredRelationship, DeclaredArtifactIdentityProduct, DeclaredArtifactReport, DeclaredPrimaryReference, DeclaredStructuralInput
+    from .structural_products import DeclaredArtifactDeclaredEndpoint, DeclaredArtifactDeclaredRelationship, DeclaredArtifactIdentityProduct, DeclaredArtifactReport, DeclaredArtifactNomination, DeclaredArtifactNominationEndpoint, DeclaredPrimaryReference, DeclaredStructuralInput
+    from .declared_structural_references import DeclaredContributionRef
+    from .declared_candidate_products import candidate_member_values
+    from .data_operation_json import json_bytes
+    from .contributions import contribution_identity
 
     profile = receiver.inputs
     profile.check_active()
@@ -144,19 +154,39 @@ def execute_artifact_identity(receiver, sources, constructions, *, selections, p
             provenance.append(selection.mapping_provenance)
     if used != {member.product for member in construction_role.members}:
         raise ValueError("artifact navigation contains an unrelated or unbound selected product")
-    inputs = DeclaredStructuralInput(question="Compare the explicitly selected source-work artifact cohort.", scope="explicit-native-artifact-cohort", inventory_id="admitted-artifact-sources", policy_id="artifact-identity-5", sources=tuple(original), passages=tuple(passages), dependencies=tuple(dict.fromkeys(member.product for member in (*source_role.members, *construction_role.members))))
+    chosen_nominations = tuple(ArtifactNominationSelection.model_validate(value) for value in nomination_selections)
+    nomination_members = next(role.members for role in profile.roles if role.role == "nominations")
+    if len(nominations) != len(nomination_members) or any(member.member is not None or member.multiplicity != 1 for member in nomination_members):
+        raise ValueError("artifact nominations require their exact whole native scoped reports")
+    expected_nominations = {canonical_bytes([member.product, member.member]).decode() for member in nomination_members}
+    if {selection.report_reference for selection in chosen_nominations} != expected_nominations or len({(selection.report_reference, selection.contribution_id) for selection in chosen_nominations}) != len(chosen_nominations):
+        raise ValueError("artifact nomination selections differ from the actual bound native report population")
+    inputs = DeclaredStructuralInput(question="Compare the explicitly selected source-work artifact cohort.", scope="explicit-native-artifact-cohort", inventory_id="admitted-artifact-sources", policy_id="artifact-identity-5", sources=tuple(original), passages=tuple(passages), dependencies=tuple(dict.fromkeys([member.product for member in (*source_role.members, *construction_role.members, *nomination_members)] + [selection.contribution_id for selection in chosen_nominations])))
     records = []
     for selection, reference in zip(chosen, original, strict=True):
         if selection.source_work is not None:
             records.extend(native_artifact_records(frames[reference.identity], selected_sources[reference.identity], inputs, reference.identity, selection.source_work, indexes[reference.identity]))
     selected = artifact_cohort(records)
+    retained_nominations = []
+    by_source = {frame.pin.values()["source"]: {"pin": frame.pin.values(), "projection": frame.value} for frame in frames.values()}
+    source_indexes = {frame.pin.values()["source"]: indexes[reference] for reference, frame in frames.items()}
+    for selection in chosen_nominations:
+        member, raw = exact.selected("nominations", nominations, selection.report_reference)
+        report = profile.prepared.validate_json("DdoScopedRelationsReport", json_bytes(raw)).model_dump(mode="json", exclude_unset=True)
+        if report["source_pin"]["source"] not in by_source or by_source[report["source_pin"]["source"]]["pin"] != report["source_pin"]:
+            raise ValueError("artifact nomination report is outside the exact selected native source cohort")
+        rows = candidate_member_values(report, candidate_type="contribution")
+        if any(contribution_identity(row) != row["contribution_id"] or row["pin"] != report["source_pin"] for row in rows):
+            raise ValueError("artifact nomination changes its authentic source-bound contributions")
+        reference = DeclaredContributionRef.from_bound(member, project=profile.context.project_id, contribution_id=selection.contribution_id)
+        retained_nominations.append(artifact_nomination(inputs, selected, reference, rows, sources=by_source, source_key=lambda pin: pin["source"], navigation_for=lambda pin: source_indexes[pin["source"]], origin_fields=lambda pin: {"origin_source": pin["source"]}, endpoint_type=DeclaredArtifactNominationEndpoint, nomination_type=DeclaredArtifactNomination, primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(reference.values())))
     aliases, _ = native_alias_candidates(selected)
     references = artifact_reference_resolutions(selected)
     declarations = declared_artifact_relationships(selected, inputs, indexes, endpoint_type=DeclaredArtifactDeclaredEndpoint, relationship_type=DeclaredArtifactDeclaredRelationship, primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(reference.values()))
-    candidates = pair_candidates(selected, declared_relationships=declarations, explicit_references=references, native_alias_pairs=aliases, title_threshold=title_threshold, exclusions=tuple(tuple(value) for value in exclusions), known_anchor_ids=tuple(known_anchor_ids))
+    candidates = pair_candidates(selected, external_nominations=tuple(retained_nominations), declared_relationships=declarations, explicit_references=references, native_alias_pairs=aliases, title_threshold=title_threshold, exclusions=tuple(tuple(value) for value in exclusions), known_anchor_ids=tuple(known_anchor_ids))
     scoring = ArtifactScoringPolicy.model_validate(policy)
     scored = score_pairs(selected, candidates, scoring)
-    result = DeclaredArtifactReport(inputs=inputs, artifact_identity=DeclaredArtifactIdentityProduct(records=selected, pairs=scored, native_alias_pairs=tuple(ArtifactPairKey(left=left, right=right) for left, right in aliases), explicit_references=references, declared_relationships=declarations, route_counts=artifact_route_counts(scored), policy=scoring, source_mapping_provenance=tuple(sorted(set(provenance))), unbound_sources=tuple(unbound), known_anchor_ids=tuple(sorted(known_anchor_ids))), sources_input=exact.references("sources"), reports_input=exact.references("constructions"))
+    result = DeclaredArtifactReport(inputs=inputs, artifact_identity=DeclaredArtifactIdentityProduct(records=selected, pairs=scored, native_alias_pairs=tuple(ArtifactPairKey(left=left, right=right) for left, right in aliases), external_nominations=tuple(retained_nominations), explicit_references=references, declared_relationships=declarations, route_counts=artifact_route_counts(scored), policy=scoring, source_mapping_provenance=tuple(sorted(set(provenance))), unbound_sources=tuple(unbound), known_anchor_ids=tuple(sorted(known_anchor_ids))), sources_input=exact.references("sources"), reports_input=exact.references("constructions"))
     profile.check_active()
     return result.model_dump(mode="json", exclude_none=True)
 

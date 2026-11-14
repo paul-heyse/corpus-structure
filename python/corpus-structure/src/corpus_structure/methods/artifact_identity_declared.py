@@ -45,6 +45,20 @@ class ArtifactIdentityOperation:
                         'identity_requirements': ['episode'],
                         'source_set': 'artifact-constructions'},
             'subject_target': 'source-set'},
+           {'name': 'nominations',
+            'parameter': 'nominations',
+            'kind': 'https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoScopedRelationsReport',
+            'direction': 'input',
+            'minimum': 0,
+            'maximum': None,
+            'collection': 'set',
+            'presence': 'optional',
+            'support': {'provenance': 'exact',
+                        'source': 'frozen-source-set',
+                        'coverage': 'exact-selected-source',
+                        'identity_requirements': ['episode'],
+                        'source_set': 'artifact-nominations'},
+            'subject_target': 'source-set'},
            {'name': 'result',
             'kind': 'urn:corpus:structural:DeclaredArtifactReport',
             'direction': 'output',
@@ -73,11 +87,15 @@ class ArtifactIdentityOperation:
                 'policy': {},
                 'title_threshold': {'default': 70.0},
                 'exclusions': {'default': []},
-                'known_anchor_ids': {'default': []}},
+                'known_anchor_ids': {'default': []},
+                'nomination_selections': {'default': []}},
  'binding': {'operator': 'all',
              'children': [{'operator': 'collection', 'roles': ['sources'], 'collection': 'set'},
                           {'operator': 'collection',
                            'roles': ['constructions'],
+                           'collection': 'set'},
+                          {'operator': 'collection',
+                           'roles': ['nominations'],
                            'collection': 'set'}]},
  'output_witnesses': [{'output_role': 'result',
                        'records': '/sources_input/*',
@@ -160,7 +178,8 @@ class ArtifactIdentityOperation:
              'role': 'same-retained-native-artifact-cohort-and-scoring-kernels'}],
  'assets': [{'reference': 'declared-artifact-identity',
              'contract': 'artifacts/profile-assets',
-             'role': 'actual-native-artifact-profile'}]}
+             'role': 'actual-native-artifact-profile'}],
+ 'potential_dependencies': ['structure.scoped_relations/declared']}
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
@@ -170,5 +189,5 @@ class ArtifactIdentityOperation:
     def __init__(self, inputs):
         self.inputs = inputs
 
-    def run(self, sources: tuple[dict, ...], constructions: tuple[dict, ...], selections: list[dict], policy: dict, title_threshold: float, exclusions: list[list[str]], known_anchor_ids: list[str]) -> dict:
-        return execute_artifact_identity(self, sources, constructions, selections=selections, policy=policy, title_threshold=title_threshold, exclusions=exclusions, known_anchor_ids=known_anchor_ids)
+    def run(self, sources: tuple[dict, ...], constructions: tuple[dict, ...], nominations: tuple[dict, ...], selections: list[dict], nomination_selections: list[dict], policy: dict, title_threshold: float, exclusions: list[list[str]], known_anchor_ids: list[str]) -> dict:
+        return execute_artifact_identity(self, sources, constructions, nominations, selections=selections, nomination_selections=nomination_selections, policy=policy, title_threshold=title_threshold, exclusions=exclusions, known_anchor_ids=known_anchor_ids)
