@@ -1,0 +1,28 @@
+id: https://corpus-structure.dev/semantic/data-operation-interpretation
+name: data_operation_interpretation
+prefixes:
+  finite: https://corpus-structure.dev/semantic/data-operation-interpretation/
+default_prefix: finite
+default_range: string
+imports: [data_operation_candidate_inspection]
+classes:
+  DdoFiniteInterpretationPolicy:
+    is_a: SourceRecordProduct
+    description: Explicit finite factor/template inputs; provider confidence is never a substitute.
+    attributes:
+      version: {required: true, equals_string: finite-interpretation-policy-1}
+      mode: {range: DdoFiniteInterpretationMode, required: true}
+      requests: {range: SourceValue, inlined: true, required: true}
+      dependencies: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoFiniteInterpretationProduct:
+    is_a: SourceRecordProduct
+    description: Private candidate-relative results with retained baseline and unavailable/limited outcomes.
+    attributes:
+      version: {required: true, equals_string: finite-interpretation-1}
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
+      mode: {range: DdoFiniteInterpretationMode, required: true}
+      standing: {required: true, equals_string: private_candidate_relative}
+      reports: {range: SourceValue, inlined: true, required: true}
+enums:
+  DdoFiniteInterpretationMode:
+    permissible_values: {records: {}, local: {}, table: {}}
