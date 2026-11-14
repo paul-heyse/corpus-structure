@@ -1,11 +1,9 @@
 # Authored facts and native demand integration
 
-**Authoring in progress, 2026-11-14.** The DDO coordinator owns current execution and qualification.
-This immutable successor will capture bounded hydrated reads, distinct authored input support,
-and document-root versus discovered-member closure. Authored facts retain their exact operator
-selection and native admitting principal, never an invented inference episode. The existing
-fact-admission physical relation stores both original and authored inputs under distinct declared
-support origins. Frozen predecessors stay unchanged.
+**Scoped Tested, 2026-11-14.** The [DDO coordinator](../../../plans/declared-data-operations_2026-11-12.md) owns package qualification. Immutable registered successors `semantic_ddo_facts_v1` and `semantic_ddo_facts_v2` follow `semantic_ddo_drole_v2`. Authored facts retain their exact selected meaning and the authenticated native admitting principal. The existing fact-admission relation stores original and authored inputs under distinct declared origins; no computational episode, private graph, run or cut is invented.
 
-Preview/candidate/registration and focused functional receipts will be recorded after execution.
-No persistent deployment, activation, adoption or cutover is authorized here.
+Both fixed-source previews, complete rendered-upgrade rollback candidates and registrations passed. v1 receipts: preview `b6a60b75b7d9449dac2aaca180efe34e`, candidate `b40161530191431fab2b4ee968470fdc`, registration `d31e915d5e924b75bd3409c19a420bf8`. Its 21 native transitions, zero privilege changes and one physical-contract INSERT were inspected. v2 receipts: preview `0c2a784d8a4f495ba763fc78e551965c`, candidate `7e598a876ffa4a1bacbbb9c2dd75e487`, registration `417e7b02daed48b1aac7aff136dacf21`. Its three native transitions guard scalar member projection; zero privilege/ordinary changes. Native writer-only admission and publisher-owned implementations retain their intended ACLs. Frozen predecessor bytes remain unchanged.
+
+Focused native selection `9b5175234c124c8dabec18fce8e2b714` passed four hydration identities and failed the authored scalar case. After the immutable v2 correction, `uv run ci test retry 9b5175234c124c8dabec18fce8e2b714 --json` passed that one failing identity in `f16c466b521a4958ba958af0dfe00fd6`, covering public authoring, exact replay, distinct authored support and relabelling refusal. Passing identities were not replayed. The original failure and both native contexts remain retained; this is bounded evidence, not DDO-08 qualification.
+
+The persistent working database remains `semantic_bep_located_v2`, PostgreSQL18.7 on port5434. No deployment, activation, adoption or cutover was performed. The checkout's registered head is `semantic_ddo_facts_v2`.

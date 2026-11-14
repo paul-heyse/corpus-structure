@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "ddo.authored-demand-governance",
+  "title": "Distinct authored native facts and bounded scalar projection",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can explicit authored meaning enter native demands under its genuine origin without fake execution and preserve exact scalar/member projection?",
+  "answers": [],
+  "method": "Fixed-source preview, complete rendered rollback candidates, typed native effect/ACL inspection, immutable registration, focused native public authoring and relabelling refusal.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-authored-demand/change.yaml --json",
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-authored-demand/change-scalar.yaml --json",
+    "uv run ci model change candidate b6a60b75b7d9449dac2aaca180efe34e --json",
+    "uv run ci model change candidate 0c2a784d8a4f495ba763fc78e551965c --json",
+    "uv run ci model change register b40161530191431fab2b4ee968470fdc --json",
+    "uv run ci model change register 7e598a876ffa4a1bacbbb9c2dd75e487 --json",
+    "uv run ci test retry 9b5175234c124c8dabec18fce8e2b714 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "fixed-source successor request",
+      "sha256": "ddee5cd5ab1dd6bdf7daf3b404764439eb8d0af8e324f05266e0869a7e3adfc0"
+    },
+    {
+      "path": "change-scalar.yaml",
+      "role": "fixed-source successor request",
+      "sha256": "bf3c750cc36c37b946371a4809d1ce3394432585109c65a38a84542c00a26f28"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "retained native authoring inspection",
+      "sha256": "3e6688746d64e7e780d4b1d822e81178792f6935718360149b91fa63d89178d4"
+    },
+    {
+      "path": "results/v1-candidate.json",
+      "role": "retained native authoring inspection",
+      "sha256": "ac844d9cc031158320bb9496cc53f14de934d0964ce570fbf65248a828dc0844"
+    },
+    {
+      "path": "results/v2-candidate.json",
+      "role": "retained native authoring inspection",
+      "sha256": "e4a1a712528fd8e7f7a0a59c8c6f3cc79d59ba71fd748b4aafcfd76cdc1d45f3"
+    }
+  ],
+  "depends_on": [
+    "ddo.discovery-wire-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Both immutable successor authoring sequences passed; v2 corrects scalar member projection found by the real authored native case. The four hydration identities passed in the original native selection; the authored public-service identity passed its sole targeted retry. Exact replay and distinct support origin are preserved, with no invented compute/run/cut. This establishes scoped native behavior only. No persistent deployment, activation or cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
