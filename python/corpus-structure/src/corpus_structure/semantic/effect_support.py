@@ -500,8 +500,8 @@ SUPPORTED_EFFECTS = {
     "start_run": {
         "effects": ("construct_new_run",),
         "implementation": "start_run",
-        "transitions": {},
-        "version": "1",
+        "transitions": {"run_begin": ()},
+        "version": "2",
     },
     "validate_continuation": {
         "effects": (),
