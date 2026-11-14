@@ -134,7 +134,10 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
             return [governed_references(item) for item in value]
         return value
 
-    module = governed_references(module)
+    projected = governed_references(module)
+    if not isinstance(projected, dict) or not isinstance(projected.get("classes"), dict):
+        raise ValueError("declared record projection requires a schema object with class mappings")
+    module = projected
     operations = module["classes"]["SourceContributionOperation"]["attributes"]
     primary = operations.pop("primary_layers", operations.get("primary_products", None))
     if primary is None:
