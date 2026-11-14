@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from typing import Literal, TypedDict
 
 from alembic.autogenerate import renderers
 from alembic.operations import MigrateOperation, Operations
@@ -14,13 +15,45 @@ PUBLISHER = "corpus_sem_publisher"
 DEFAULT_READ_ROLES = ("corpus_sem_writer", "corpus_sem_reader", "corpus_sem_admitter", "corpus_sem_evaluator")
 
 
-def table_policy(relation):
+PURPOSE_ROLES = (*DEFAULT_READ_ROLES, "corpus_sem_fitter")
+
+
+class PrivilegePolicy(TypedDict):
+    kind: Literal["table", "schema"]
+    name: str
+    owner: str | None
+    acl: list[tuple[str, str, bool]]
+    columns: list[tuple[str, str, str, bool]]
+
+
+class LegacyPrivilegePolicy(TypedDict):
+    kind: Literal["table"]
+    name: str
+    owner: str
+    read_roles: list[str]
+    unrecorded: list[Literal["acl", "columns"]]
+
+
+def policy_fact(value) -> PrivilegePolicy:
+    """Decode the JSON array representation to its positional typed policy facts."""
+    return {"kind": value["kind"], "name": value["name"], "owner": value["owner"],
+            "acl": [(role, privilege, bool(grantable)) for role, privilege, grantable in value["acl"]],
+            "columns": [(column, role, privilege, bool(grantable)) for column, role, privilege, grantable in value["columns"]]}
+
+
+def _deny_purpose_create(connection, schema):
+    for role in PURPOSE_ROLES:
+        if connection.scalar(text("SELECT has_schema_privilege(:role,:schema,'CREATE')"), {"role": role, "schema": schema}):
+            raise NativeAuthoringError("purpose principal has effective schema CREATE: " + role)
+
+
+def table_policy(relation) -> PrivilegePolicy:
     roles = relation.info.get("read_roles", DEFAULT_READ_ROLES)
     return {"kind": "table", "name": relation.fullname, "owner": PUBLISHER,
-            "acl": [[role, "SELECT", False] for role in sorted(set(roles))], "columns": []}
+            "acl": [(role, "SELECT", False) for role in sorted(set(roles))], "columns": []}
 
 
-def desired_policies(metadata, native):
+def desired_policies(metadata, native) -> tuple[PrivilegePolicy, ...]:
     tables = [table_policy(table) for table in metadata.sorted_tables]
     usages = {str(table.schema): {PUBLISHER} for table in metadata.sorted_tables}
     for table in tables:
@@ -29,13 +62,13 @@ def desired_policies(metadata, native):
         usages.setdefault(obj.identity.schema, {PUBLISHER}).update(
             row[0] for row in obj.catalog.get("acl", ()) if row[0].startswith("corpus_")
         )
-    schemas = [{"kind": "schema", "name": schema, "owner": None,
-                "acl": sorted([[role, "USAGE", False] for role in roles] + [[PUBLISHER, "CREATE", False]]),
+    schemas: list[PrivilegePolicy] = [{"kind": "schema", "name": schema, "owner": None,
+                "acl": sorted([(role, "USAGE", False) for role in roles] + [(PUBLISHER, "CREATE", False)]),
                 "columns": []} for schema, roles in sorted(usages.items())]
     return tuple([*tables, *schemas])
 
 
-def observe_policy(connection, policy):
+def observe_policy(connection, policy) -> PrivilegePolicy | None:
     schema = policy["kind"] == "schema"
     relation = connection.execute(text(
         "SELECT n.oid, pg_get_userbyid(n.nspowner) owner FROM pg_namespace n WHERE n.nspname=:name"
@@ -56,10 +89,10 @@ def observe_policy(connection, policy):
         "WHERE c.oid=:oid AND a.grantee<>c.relowner"
     ), {"oid": relation["oid"]}).all()
     # Schema owners have implicit rights and are deliberately outside the usage policy.
-    acl = [list(row) for row in acl]
+    acl = [(role, privilege, bool(grantable)) for role, privilege, grantable in acl]
     if schema:
         acl = [row for row in acl if row[0] != relation["owner"]]
-    columns = [] if schema else [list(row) for row in connection.execute(text(
+    columns = [] if schema else [(column, role, privilege, bool(grantable)) for column, role, privilege, grantable in connection.execute(text(
         "SELECT at.attname,CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,"
         "a.privilege_type,a.is_grantable FROM pg_attribute at CROSS JOIN LATERAL aclexplode(at.attacl) a "
         "WHERE at.attrelid=:oid AND at.attnum>0 AND NOT at.attisdropped"
@@ -69,19 +102,25 @@ def observe_policy(connection, policy):
 
 
 def _expected(connection, policy):
-    result = dict(policy)
+    result = policy_fact(policy)
     if policy["kind"] == "schema":
         owner = connection.scalar(text("SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname=:name"), {"name": policy["name"]})
+        if owner in PURPOSE_ROLES:
+            raise NativeAuthoringError("purpose principal owns governed schema")
         result["acl"] = [row for row in result["acl"] if row[0] != owner]
     return result
 
 
 @Operations.register_operation("privilege_transition")
 class PrivilegeTransitionOp(MigrateOperation):
+    before: PrivilegePolicy | LegacyPrivilegePolicy | None
+    after: PrivilegePolicy | None
     def __init__(self, before, after, *, normalization=False):
         if after is None and before is None:
             raise NativeAuthoringError("privilege transition has no declared policy")
-        self.before, self.after, self.normalization = before, after, normalization
+        self.before = policy_fact(before) if before is not None and "acl" in before else before
+        self.after = policy_fact(after) if after is not None else None
+        self.normalization = normalization
         selected = after or before
         if selected["kind"] not in {"table", "schema"}:
             raise NativeAuthoringError("unsupported privilege object")
@@ -120,7 +159,11 @@ def execute_privileges(operations, operation):
         if operation.before and observed is None:
             raise NativeAuthoringError("missing privilege predecessor")
         if operation.before and policy["kind"] == "table":
+            if observed is None:
+                raise NativeAuthoringError("missing privilege predecessor")
             before = operation.before
+            if "read_roles" not in before:
+                raise NativeAuthoringError("initial normalization requires recorded legacy read policy")
             if observed["owner"] != before["owner"]:
                 raise NativeAuthoringError("stale recorded table owner")
             for role in sorted(set(DEFAULT_READ_ROLES) | set(before["read_roles"])):
@@ -142,14 +185,20 @@ def execute_privileges(operations, operation):
     if kind == "TABLE" and observed and observed["owner"] != policy["owner"]:
         connection.exec_driver_sql(f"ALTER TABLE {target} OWNER TO {quote(policy['owner'])}")
     owner = policy["owner"] if kind == "TABLE" else connection.scalar(text("SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname=:name"), {"name": policy["name"]})
+    if kind == "SCHEMA" and owner in PURPOSE_ROLES:
+        raise NativeAuthoringError("purpose principal owns governed schema")
     with native_owner(connection, owner):
         current = observe_policy(connection, policy)
+        if current is None:
+            raise NativeAuthoringError("missing declared privilege object")
         for grantee in sorted({row[0] for row in current["acl"]} | {"PUBLIC"}):
             connection.exec_driver_sql(f"REVOKE ALL ON {kind} {target} FROM {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}")
         for column, grantee, privilege, _grantable in current["columns"]:
             connection.exec_driver_sql(f"REVOKE {privilege} ({quote(column)}) ON TABLE {target} FROM {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}")
         for grantee, privilege, grantable in _expected(connection, policy)["acl"]:
             connection.exec_driver_sql(f"GRANT {privilege} ON {kind} {target} TO {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}" + (" WITH GRANT OPTION" if grantable else ""))
+        if kind == "SCHEMA":
+            _deny_purpose_create(connection, policy["name"])
         if observe_policy(connection, policy) != _expected(connection, policy):
             raise NativeAuthoringError("privilege after-state differs")
 
@@ -168,10 +217,10 @@ def owned_operation(connection, owner):
 
 
 def privilege_operations(before, desired, legacy_tables):
-    old = {(item["kind"], item["name"]): item for item in before}
+    old = {(item["kind"], item["name"]): policy_fact(item) for item in before}
     legacy = {item["relation"]: item for item in legacy_tables}
     result = []
-    for after in desired:
+    for after in map(policy_fact, desired):
         key = (after["kind"], after["name"])
         if key in old:
             if old[key] != after:
@@ -247,6 +296,8 @@ def native_operation_payloads(state):
 
 def admit_privileges(connection, policies):
     for policy in policies:
+        if policy["kind"] == "schema":
+            _deny_purpose_create(connection, policy["name"])
         if observe_policy(connection, policy) != _expected(connection, policy):
             raise NativeAuthoringError("frozen privilege admission differs: " + policy["name"])
 
@@ -279,7 +330,13 @@ def render_owned_operations(context, operation):
 
 
 def admission_comparison_sql():
+    roles_sql = ",".join("('" + role + "')" for role in PURPOSE_ROLES)
     return """
+ IF EXISTS(
+ SELECT FROM jsonb_array_elements(expected->'privileges') policy
+ CROSS JOIN (VALUES __PURPOSE_ROLES__) principal(name)
+ WHERE policy->>'kind'='schema' AND has_schema_privilege(principal.name,policy->>'name','CREATE')
+ ) THEN RAISE EXCEPTION 'purpose principal has effective schema CREATE' USING ERRCODE='42501'; END IF;
  IF EXISTS(
  SELECT FROM jsonb_array_elements(expected->'privileges') policy
  WHERE (CASE WHEN policy->>'kind'='table' THEN
@@ -292,7 +349,7 @@ def admission_comparison_sql():
     FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.nspname=policy->>'name' AND a.grantee<>n.nspowner)
    IS DISTINCT FROM (SELECT coalesce(jsonb_agg(entry ORDER BY (entry->>0) COLLATE "C",(entry->>1) COLLATE "C",(entry->>2)::boolean),'[]'::jsonb) FROM jsonb_array_elements(policy->'acl') entry WHERE entry->>0 IS DISTINCT FROM (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname=policy->>'name')) END)
  ) THEN RAISE EXCEPTION 'declared table/schema privilege policy differs' USING ERRCODE='42501'; END IF;
-"""
+""".replace("__PURPOSE_ROLES__", roles_sql)
 
 
 def compare_table_policy(context, changes, schema, name, reflected, declared):

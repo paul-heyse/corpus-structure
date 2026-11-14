@@ -280,7 +280,7 @@ def native_admission_sql(
         for reader in descriptor.get("readers", ()):
             if reader["relation"].split(".", 1)[0] == policy["name"]:
                 roles.update(reader["roles"])
-        policy["acl"] = sorted([[role, "USAGE", False] for role in roles] + [["corpus_sem_publisher", "CREATE", False]])
+        policy["acl"] = sorted([(role, "USAGE", False) for role in roles] + [("corpus_sem_publisher", "CREATE", False)])
     required = admission_kernel()
     policy_marker = " IF EXISTS(SELECT FROM pg_roles WHERE rolname='corpus_sem_evaluator'"
     if policy_marker not in required:

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 from alembic.autogenerate import produce_migrations
+from alembic.operations.ops import MigrationScript, MigrateOperation, UpgradeOps
 from alembic.migration import MigrationContext
 from pglast import ast
 from sqlalchemy import text
@@ -17,6 +18,8 @@ from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
+from .alembic_privileges import PrivilegePolicy, policy_fact
+
 from .companion_projection_native import companion_projection_definitions
 from .metadata import SCHEMAS, metadata
 from .native_objects import (
@@ -31,6 +34,17 @@ from .native_objects import (
     semantic_namespace_owner,
 )
 from .prepared_sql import prepare_sql
+
+
+@dataclass(frozen=True)
+class SeriesCandidate:
+    migration: MigrationScript
+    privilege_policies: tuple[PrivilegePolicy, ...]
+
+    @property
+    def upgrade_ops(self) -> UpgradeOps | None:
+        return self.migration.upgrade_ops
+
 
 
 def _shape_definition(connection, sql, *, source):
@@ -2245,9 +2259,8 @@ def prepare_series_candidate(
         from sqlalchemy.schema import AddConstraint
         from .alembic_privileges import OwnedSQLOp, OwnedOperationsOp
         from .source_view_native import _admission_descriptor
-        candidate.privilege_policies = target_policies
         declared_owners = {row["relation"]: row.get("owner", "corpus_sem_publisher") for row in old_descriptor["tables"]}
-        ordered = []
+        ordered: list[MigrateOperation] = []
         for item in candidate.upgrade_ops.ops:
             if isinstance(item, ModifyTableOps):
                 owner = declared_owners.get(f"{item.schema}.{item.table_name}", "corpus_sem_publisher")
@@ -2266,7 +2279,7 @@ def prepare_series_candidate(
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
             candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))
-    return candidate, authoring
+    return SeriesCandidate(candidate, tuple(map(policy_fact, target_policies))), authoring
 
 
 def definition_sql(definitions) -> str:

@@ -19,10 +19,12 @@ from corpus_structure.schema.model_explanation import explain_native_operations,
 def test_unchanged_policy_and_legacy_normalization_remain_distinct():
     md = MetaData()
     relation = Table("sample", md, Column("id", Integer), schema="ops", info={"read_roles": ["corpus_sem_reader"]})
-    expected = {"kind": "table", "name": "ops.sample", "owner": "corpus_sem_publisher", "acl": [["corpus_sem_reader", "SELECT", False]], "columns": []}
+    expected = {"kind": "table", "name": "ops.sample", "owner": "corpus_sem_publisher", "acl": [("corpus_sem_reader", "SELECT", False)], "columns": []}
     assert table_policy(relation) == expected
     assert privilege_operations([expected], [expected], []) == []
     transition, = privilege_operations([], [expected], [{"relation": "ops.sample", "owner": "corpus_sem_publisher", "read_roles": ["corpus_sem_reader"]}])
+    assert transition.before is not None
+    assert "unrecorded" in transition.before
     assert transition.before["unrecorded"] == ["acl", "columns"]
     with pytest.raises(NativeAuthoringError, match="cannot be reversed"):
         transition.reverse()
@@ -62,8 +64,10 @@ def test_named_data_steps_compile_explicit_columns_and_refuse_unknown():
     sql = str(build_data_step("characterization-source-scope", metadata).compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
     assert "INSERT INTO kb.characterization_source_scope (task_id, product_key, content_digest, source_view_id, body)" in sql
     assert "ON CONFLICT DO NOTHING" in sql
-    with pytest.raises(ValueError, match="unsupported"):
-        build_data_step("arbitrary.module.function", metadata)
+    from pydantic import ValidationError
+    from corpus_structure.schema.model_change import ChangeRequest
+    with pytest.raises(ValidationError):
+        ChangeRequest.model_validate({"data_steps": ["arbitrary.module.function"]})
 
 
 def test_live_normalization_exact_transition_stale_before_and_role_restore(semantic_bare_engine):
@@ -75,7 +79,7 @@ def test_live_normalization_exact_transition_stale_before_and_role_restore(seman
         conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample (id integer)')
         conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
         conn.exec_driver_sql(f'GRANT SELECT (id) ON "{schema}".sample TO PUBLIC')
-        policy = {"kind": "table", "name": schema + ".sample", "owner": "corpus_sem_publisher", "acl": [["corpus_sem_reader", "SELECT", False]], "columns": []}
+        policy = {"kind": "table", "name": schema + ".sample", "owner": "corpus_sem_publisher", "acl": [("corpus_sem_reader", "SELECT", False)], "columns": []}
         operations = Operations(MigrationContext.configure(conn))
         operations.invoke(PrivilegeTransitionOp(None, policy, normalization=True))
         admit_privileges(conn, [policy])
@@ -113,4 +117,32 @@ def test_live_schema_normalization_and_frozen_guard_reject_grant_options(semanti
             conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_reader WITH GRANT OPTION')
             with pytest.raises(DBAPIError, match="privilege policy differs"), conn.begin_nested():
                 conn.exec_driver_sql(guard)
+        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+
+
+@pytest.mark.parametrize("drift", ["reader-owner", "fitter-create"])
+def test_schema_policy_refuses_effective_create_despite_owner_acl_filter(semantic_bare_engine, drift):
+    from sqlalchemy.exc import DBAPIError
+    from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
+    from corpus_structure.semantic.identity import canonical_bytes
+    schema = "schema_owner_" + uuid4().hex[:10]
+    policy = {"kind": "schema", "name": schema, "owner": None,
+              "acl": [["corpus_sem_publisher", "CREATE", False], ["corpus_sem_publisher", "USAGE", False], ["corpus_sem_reader", "USAGE", False]], "columns": []}
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+        Operations(MigrationContext.configure(conn)).invoke(PrivilegeTransitionOp(None, policy, normalization=True))
+        expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
+        guard = "DO $test$ DECLARE expected jsonb := '" + expected + "'::jsonb; BEGIN " + admission_comparison_sql() + " END $test$;"
+        conn.exec_driver_sql(guard)
+        with conn.begin_nested() as drift_scope:
+            if drift == "reader-owner":
+                conn.exec_driver_sql(f'ALTER SCHEMA "{schema}" OWNER TO corpus_sem_reader')
+            else:
+                conn.exec_driver_sql(f'GRANT CREATE ON SCHEMA "{schema}" TO corpus_sem_fitter')
+            with pytest.raises(NativeAuthoringError, match="effective schema CREATE"):
+                admit_privileges(conn, [policy])
+            with pytest.raises(DBAPIError, match="effective schema CREATE"), conn.begin_nested():
+                conn.exec_driver_sql(guard)
+            drift_scope.rollback()
+        admit_privileges(conn, [policy])
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')

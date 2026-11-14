@@ -436,7 +436,7 @@ def author_native_candidate(
     target_metadata: MetaData | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
-    data_steps: tuple[str, ...] = (),
+    data_steps: tuple[Literal["pdf-visual-mapping", "characterization-source-scope"], ...] = (),
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
