@@ -6,6 +6,7 @@ import pytest
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
     FrozenFormalSource,
@@ -285,7 +286,6 @@ def admitted_port(profile):
         resolve_formal_evidence_port,
     )
     from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.original_documents import original_document_subject
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = formal_product_inputs(
@@ -717,7 +717,6 @@ def test_target_formal_source_kind_rejects_generic_private_or_contextual_authori
         data_operation_definition_projection,
     )
     from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.original_documents import original_document_subject
 
     product = profile.run(
         selected(profile, "Quantity: 2 kg"),
@@ -870,7 +869,6 @@ def test_each_retained_formal_choice_has_an_addressable_exact_member_packet(prof
 def _publication_context(source, *, document=False):
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.original_documents import original_document_subject
     from corpus_structure.semantic.source_products import source_subject
 
     value = source.value
