@@ -168,7 +168,7 @@ def test_actual_colocated_consumer_contracts_are_captured_without_imports(tmp_pa
 
     root = inputs(tmp_path)
     methods = Path(__file__).resolve().parents[2] / "src/corpus_structure/methods"
-    names = ("native_evidence", "m1_source", "structural_products", "contextual_candidates")
+    names = ("m1_source", "structural_products", "contextual_candidates")
     for name in names:
         (root / (name + ".py")).write_bytes((methods / (name + ".py")).read_bytes())
     with (root / "target.yaml").open("a") as stream:
@@ -189,14 +189,13 @@ def test_actual_colocated_consumer_contracts_are_captured_without_imports(tmp_pa
     )
     operations = {operation["semantic_id"]: operation for operation in model["operations"]}
     assert {
-        "text.native_evidence/selection",
         "extract.m1_candidates/selection",
         "structure.compare/selection",
         "retrieve.contextual/selection",
     } <= operations.keys()
-    assert operations["text.native_evidence/selection"]["profile"] == "selection"
+    assert operations["extract.m1_candidates/selection"]["profile"] == "selection"
     assert (
-        operations["text.native_evidence/selection"]["roles"][0]["subject_field"]
+        operations["extract.m1_candidates/selection"]["roles"][0]["subject_field"]
         == "document_subject"
     )
 

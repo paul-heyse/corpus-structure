@@ -1,23 +1,15 @@
 """Independent native members and complete evidence, never provider-accuracy claims."""
 
 from types import SimpleNamespace
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 import spacy
 from annotation_support import item
 
-from corpus_structure.core.method import MethodSettings, UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import annotate
 from corpus_structure.ingest.sentences import Block
-from corpus_structure.methods import native_evidence as producer
-from corpus_structure.methods.native_evidence import (
-    NativeEvidenceConfig,
-    NativeEvidenceMethod,
-    _batch_sentences,
-)
 from corpus_structure.methods.native_evidence_layers import (
     HANLP_FAMILIES,
     SPACY_FAMILIES,
@@ -207,114 +199,10 @@ def test_optional_spacy_columns_retain_independent_available_families(native_sou
     )
 
 
-def test_method_uses_authoritative_operation_and_retains_cost_without_private_frames(
-    native_source, prepared, monkeypatch, tmp_path
-):
-    controlled, request, _, view, base, scope, operation = native_source
-    monkeypatch.setattr(producer, "pipeline", lambda _: controlled)
-    monkeypatch.setattr(producer, "annotation_inputs", lambda *args, **kwargs: (request,))
-    reader = SimpleNamespace(
-        prepared=prepared,
-        source_views=lambda: [view.ref],
-        source_view=lambda _: view,
-        source_view_ref={view.ref.id: view.ref}.__getitem__,
-    )
-    run = SimpleNamespace(reader=reader)
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 17), run=run)
-    ctx = SimpleNamespace(
-        check_active=lambda: None,
-        characterization_operation=lambda ref: operation,
-        settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-    )
-    cfg = NativeEvidenceConfig(
-        characterization_base_document=base,
-        characterization_source_scope=scope,
-        characterization_profile="spacy_only",
-    )
-    (result,) = NativeEvidenceMethod().run([unit], cfg, ctx)
-    assert result.cost is not None
-    assert result.characterization_layer is not None
-    assert result.cost.wall_ms >= 0
-    assert result.characterization_layer.payload["operation"]["input"] == "input:fixture"
-    assert {a["kind"] for a in result.characterization_layer.payload["annotations"]} == {
-        "native.block",
-        "native.sentence",
-        "native.token",
-    }
-    assert result.parse_detail is None and result.contributions is None
 
 
-def test_language_refusal_and_boundary_profile_are_explicit_weaker_results(
-    native_source, prepared, tmp_path
-):
-    _, _, _, view, base, scope, operation = native_source
-    reader = SimpleNamespace(
-        prepared=prepared,
-        source_views=lambda: [view.ref],
-        source_view=lambda _: view,
-        source_view_ref={view.ref.id: view.ref}.__getitem__,
-    )
-    unit = SimpleNamespace(
-        ref=UnitRef(TaskUnitType.DOCUMENT, 17), run=SimpleNamespace(reader=reader)
-    )
-    ctx = SimpleNamespace(
-        check_active=lambda: None,
-        characterization_operation=lambda ref: operation,
-        settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-    )
-    cfg = NativeEvidenceConfig(
-        characterization_base_document=base,
-        characterization_source_scope=scope,
-        language="fr",
-        characterization_profile="boundary_only",
-    )
-    (result,) = NativeEvidenceMethod().run([unit], cfg, ctx)
-    assert result.characterization_layer is not None
-    assert {c["family"] for c in result.characterization_layer.payload["coverage"]} == {
-        "spacy.tokens",
-        "spacy.sentences",
-    }
-    assert all(
-        c["outcome"] == "unsupported" for c in result.characterization_layer.payload["coverage"]
-    )
 
 
-def test_actual_subword_preparation_resizes_only_outer_batch(native_source):
-    builder, words = builder_for(native_source)
-
-    class Worker:
-        startup: ClassVar = dict(max_sentences=8, max_batch_chars=32768, max_padded_subwords=750)
-
-        def __init__(self):
-            self.requests = []
-
-        def infer(self, request, **kwargs):
-            self.requests.append(request)
-            if False:
-                yield ()
-            if request.get("prepare_bulk"):
-                return dict(
-                    outcome="prepared_batch",
-                    members=[
-                        dict(ordinal=i, outcome="prepared", row_tokens=400)
-                        for i in range(len(request["sentences"]))
-                    ],
-                )
-            # All-head failure is recorded as one attempt, not invented head success.
-            return dict(outcome="limited", reason="fixture-native-failure")
-
-    worker = Worker()
-    entries = [(native_source[3], native_source[2], words, i) for i in range(3)]
-    from corpus_structure.core.method import drive_prepared_work
-
-    drive_prepared_work(_batch_sentences(worker, entries, builder, lambda: None), lambda: None)
-    assert len([r for r in worker.requests if r.get("prepare_bulk")]) == 1
-    inference = [r for r in worker.requests if not r.get("prepare_bulk")]
-    assert [len(r["sentences"]) for r in inference] == [1, 1, 1]
-    assert all(r["sentences"] == [[t["text"] for t in words]] for r in inference)
-    assert all(
-        status == "failed" for family in HANLP_FAMILIES for _, status, _ in builder.covered[family]
-    )
 
 
 def test_cross_page_exact_members_keep_page_and_synthetic_gap(native_source, prepared):
@@ -349,64 +237,8 @@ def test_cross_page_exact_members_keep_page_and_synthetic_gap(native_source, pre
     ] == [(0, 1, False), (1, 2, True), (2, 14, False)]
 
 
-def test_overlong_sentence_is_not_cut_and_cancellation_propagates(native_source):
-    builder, words = builder_for(native_source)
-    entry = (native_source[3], native_source[2], words, 0)
-
-    class LimitedWorker:
-        startup: ClassVar = {}
-
-        def infer(self, request, **kwargs):
-            assert request["sentences"] == [[t["text"] for t in words]]
-            if False:
-                yield ()
-            return dict(
-                outcome="prepared_batch",
-                members=[dict(ordinal=0, outcome="limited", reason="sentence_subwords", limit=512)],
-            )
-
-    from corpus_structure.core.method import drive_prepared_work
-
-    drive_prepared_work(
-        _batch_sentences(LimitedWorker(), [entry], builder, lambda: None), lambda: None
-    )
-    assert all(builder.covered[family][0][1] == "unsupported" for family in HANLP_FAMILIES)
-
-    class Cancelled(Exception):
-        pass
-
-    def cancel():
-        raise Cancelled("fixture task lease lost")
-
-    with pytest.raises(Cancelled, match="lease lost"):
-        drive_prepared_work(_batch_sentences(LimitedWorker(), [entry], builder, cancel), cancel)
 
 
-def test_explicit_primary_scope_keeps_context_only_source_and_exact_base(native_source):
-    _, _, _, view, base, scope, _ = native_source
-    from pydantic import BaseModel
-
-    from corpus_structure.core.method import Method
-
-    def verify[C: BaseModel](selected: Method[C]):
-        cfg = selected.Config(
-            characterization_base_document=base,
-            characterization_source_scope=scope,
-        )
-        # Domain-analysis enumeration omits this retained context view; the
-        # exact-reference port authenticates its original selected identity.
-        reader = SimpleNamespace(
-            source_views=lambda: (), source_view_ref={view.ref.id: view.ref}.__getitem__
-        )
-        run = SimpleNamespace(reader=reader)
-        assert tuple(selected.select(run, cfg)) == (UnitRef(TaskUnitType.DOCUMENT, 17),)
-        wrong_base = cfg.model_copy(
-            update={"characterization_base_document": dict(base, content_digest="f" * 64)}
-        )
-        with pytest.raises(ValueError, match=r"(base|selected document)"):
-            tuple(selected.select(run, wrong_base))
-
-    verify(NativeEvidenceMethod())
 
 
 @pytest.mark.parametrize("corruption", (None, "missing", "ordinal", "member", "digest"))

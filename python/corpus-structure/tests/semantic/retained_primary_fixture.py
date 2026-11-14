@@ -84,6 +84,86 @@ class _SealedPrimary:
         )
 
 
+
+class _NativeSelection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    characterization_base_document: dict
+    characterization_source_scope: dict
+    characterization_layers: tuple[dict, ...] = ()
+    model: str = "spacy-en_core_web_sm-3.8.0"
+    grammar: Literal["none"] = "none"
+    context: str = "source-blocks-and-canonical-sentences-1"
+    characterization_profile: Literal["spacy_only"] = "spacy_only"
+
+
+class SealedNativeFixture(_SealedPrimary):
+    """Only the actual spaCy layer required by historical sealed-reader scenarios."""
+
+    name = "text.native_evidence"
+    version = "2"
+    Config = _NativeSelection
+
+    @staticmethod
+    def layer(reader, cfg, operation):
+        from corpus_structure.ingest.annotations import AnnotationProfile, annotate
+        from corpus_structure.ingest.sentences import SentenceConfig, pipeline
+        from corpus_structure.methods.native_evidence import _availability, native_run
+        from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES, NativeEvidenceBuilder
+        from corpus_structure.methods.source_preparation import annotation_inputs
+
+        if cfg.characterization_layers:
+            raise ValueError("historical native fixture is the independent first layer")
+        scope = cfg.characterization_source_scope
+        profile = AnnotationProfile(SentenceConfig(exclude=("ner",)))
+        builder = NativeEvidenceBuilder(
+            cfg.characterization_base_document, scope, operation,
+            profile="spacy_only", families=SPACY_FAMILIES,
+        )
+        builder.operation["required_layers"] = []
+        layouts, texts, requests, owners = [], [], [], []
+        for identity in scope["source_view_ids"]:
+            view = reader.source_view(identity)
+            selectors = [row for row in scope["selectors"] if row["projection"] == view.ref.projection_digest]
+            pointers = tuple(dict.fromkeys(row["native_pointer"] for row in selectors if row.get("native_pointer")))
+            inputs = tuple(row for row in annotation_inputs(
+                view, profile=profile, max_annotation_chars=32768,
+                region_pointers=pointers or None,
+            ) if any(row.layout.block_start >= selected.get("start", 0)
+                     and row.layout.block_end <= selected.get("end", len(view.text))
+                     for selected in selectors))
+            for piece in view.pieces:
+                if piece["kind"] == "native_text" and any(
+                    selected.get("start", 0) < piece["end"]
+                    and selected.get("end", len(view.text)) > piece["start"]
+                    and (not selected.get("native_pointer") or selected["native_pointer"] == piece["item_ref"])
+                    for selected in selectors
+                ) and not any(row.layout.block_start <= piece["start"]
+                              and row.layout.block_end >= piece["end"] for row in inputs):
+                    raise ValueError("historical native fixture requires complete selected native blocks")
+            if not inputs:
+                for family in SPACY_FAMILIES:
+                    builder.record(family, selectors, "empty")
+            requests.extend(inputs)
+            owners.extend(view for _ in inputs)
+        # One actual resident pipeline population for all explicitly selected views.
+        products = annotate(requests, profile, require_complete=False) if requests else ()
+        for view, product in zip(owners, products, strict=True):
+            builder.spacy(view, product, "spacy")
+            layouts.append(dict(view=view.ref.id, layout=product.layout_digest))
+            texts.append(dict(view=view.ref.id, text=product.text_digest))
+        nlp = pipeline(profile.configuration)
+        run = native_run(
+            "spacy", "spacy_only", nlp.config.to_str(),
+            model=profile.configuration.model, version=profile.configuration.model_version,
+            runtime_version=profile.configuration.spacy_version, layout=layouts, text=texts,
+            components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names],
+            packages=[dict(name="spacy", version=profile.configuration.spacy_version),
+                      dict(name=profile.configuration.model, version=profile.configuration.model_version)],
+        )
+        run["availability"] = _availability(builder, "spacy")
+        builder.native_runs.append(run)
+        return builder.finish(reader.prepared)
+
 class SealedFormalFixture(_SealedPrimary):
     name = "text.formal_evidence"
     Config = _FormalSelection

@@ -12,9 +12,11 @@ from corpus_structure.semantic.canonical_sentences import CanonicalProduct
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.hanlp_products import (
     PreparedHanlpProfile,
+    admitted_hanlp_rows,
     detach_hanlp_sentence,
     hanlp_operation_sources,
     hanlp_product_inputs,
+    hanlp_sentence_batches,
     prepare_hanlp_selection,
     resolve_hanlp_port,
 )
@@ -194,6 +196,75 @@ def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(p
     assert (
         "input_ids" not in detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation)[1]
     )
+
+
+def test_actual_subword_lengths_bound_outer_batches_without_cutting_sentences():
+    rows = [(dict(local_id=name), [(name + ":token", "unchanged")]) for name in ("one", "two", "three")]
+    ready, refused = admitted_hanlp_rows(rows, dict(outcome="prepared_batch", members=[
+        dict(ordinal=ordinal, outcome="prepared", row_tokens=400) for ordinal in range(3)
+    ]))
+    assert not refused
+    batches = hanlp_sentence_batches(ready, dict(max_sentences=8, max_padded_subwords=750, max_batch_chars=32768))
+    assert [[row[0]["local_id"] for row in batch] for batch in batches] == [["one"], ["two"], ["three"]]
+    assert all(batch[0] is rows[index] for index, batch in enumerate(batches))
+    ready, refused = admitted_hanlp_rows(rows[:1], dict(outcome="prepared_batch", members=[
+        dict(ordinal=0, outcome="limited", reason="sentence_subwords", limit=512)
+    ]))
+    assert not ready and refused[0][0] is rows[0]
+    assert refused[0][1]["reason"] == "sentence_subwords"
+
+
+@pytest.mark.parametrize("members", [[], [dict(ordinal=1, outcome="prepared", row_tokens=400)],
+                                    [dict(ordinal=0, outcome="prepared", row_tokens=0)],
+                                    [dict(ordinal=0, outcome="prepared", row_tokens=True)]])
+def test_native_sentence_admission_refuses_changed_population_order_or_lengths(members):
+    with pytest.raises(ValueError, match=r"population|order|subword length"):
+        admitted_hanlp_rows([(dict(local_id="one"), [("token", "unchanged")])],
+                            dict(outcome="prepared_batch", members=members))
+
+
+def test_current_hanlp_preserves_borrowed_host_cancellation_and_provider_failure(profile):
+    source, canonical, _, _ = inputs(profile)
+
+    class Cancelled(Exception):
+        pass
+
+    class Host:
+        def __init__(self):
+            self.declared = []
+            self.requests = []
+
+        def declare(self, selections):
+            self.declared.extend(selections)
+
+        def startup(self, selection, check_active):
+            assert selection is profile.selection
+            check_active()
+            return dict(max_sentences=8)
+
+        def infer_result(self, selection, payload, check_active):
+            from corpus_structure.methods.pm2_worker import Pm2WorkerError
+
+            assert selection is profile.selection
+            self.requests.append(payload)
+            raise Pm2WorkerError("controlled actual-provider failure boundary")
+
+        def close(self):
+            pytest.fail("producer closed invocation-owned host")
+
+    host = Host()
+
+    def cancel():
+        raise Cancelled("native task lease lost")
+
+    with pytest.raises(Cancelled, match="lease lost"):
+        profile.run(source, canonical, host=host, check_active=cancel)
+    assert host.declared == [profile.selection] and not host.requests
+    from corpus_structure.methods.pm2_worker import Pm2WorkerError
+
+    with pytest.raises(Pm2WorkerError, match="controlled actual-provider failure"):
+        profile.run(source, canonical, host=host)
+    assert host.requests == [dict(sentences=[["The", "mean", "is", "2", "."]], prepare_bulk=True)]
 
 
 @pytest.mark.gpu

@@ -68,7 +68,7 @@ def consumer_model():
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure"
     sources = tuple(
         PythonSource(name, (root / "methods" / (name + ".py")).read_bytes(), name + ".py")
-        for name in ("native_evidence", "m1_source", "structural_products", "contextual_candidates")
+        for name in ("m1_source", "structural_products", "contextual_candidates")
     )
     return compile_data_operations(
         SourceBundle(
@@ -192,43 +192,6 @@ def hydrated_component_selection(method, binding, records):
     )
 
 
-def test_native_consumer_resolves_shared_base_document_views(consumer_model, native_rollback):
-    rows = [
-        dict(
-            id="view:one",
-            subject="view:one",
-            document_subject="document",
-            base_product="base",
-            projection_digest="projection",
-        ),
-        dict(
-            id="view:other", subject="view:other", document_subject="document", base_product="other"
-        ),
-    ]
-    with admitted(native_rollback.connection, consumer_model, {"DdoSourceViewBinding": rows}) as (
-        connection,
-        projections,
-    ):
-        result = execute_binding(
-            connection,
-            compile_binding(
-                consumer_model,
-                "text.native_evidence/selection",
-                projections,
-                subject="document",
-                parameters={"base_product": "base"},
-                populations=(population("selected-source-views", "view:one"),),
-            ),
-        )
-        assert result.status == "ready"
-        assert [member.subject for member in result.roles[0].members] == ["view:one"]
-        from corpus_structure.methods.native_evidence import NativeEvidenceMethod
-
-        method = NativeEvidenceMethod()
-        inputs = hydrated_component_selection(method, result, {row["id"]: row for row in rows})
-        document, views = method.select_hydrated(inputs)
-        assert document == "document"
-        assert [view.member.member for view in views] == ["view:one"]
 
 
 def test_m1_consumer_optional_projection_is_exact_one_eligible_view(

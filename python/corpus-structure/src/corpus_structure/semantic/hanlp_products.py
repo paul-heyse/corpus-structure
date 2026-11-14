@@ -254,6 +254,46 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
     return units, alignment, coverage
 
 
+
+def admitted_hanlp_rows(population, reply):
+    """Authenticate native admission ordinals/lengths; never cut a canonical sentence."""
+    members = reply.get("members")
+    if (reply.get("outcome") != "prepared_batch" or not isinstance(members, list)
+        or len(members) != len(population)):
+        raise ValueError("HanLP admission changed canonical sentence population")
+    ready, refused = [], []
+    for ordinal, (row, member) in enumerate(zip(population, members, strict=True)):
+        if not isinstance(member, dict) or type(member.get("ordinal")) is not int or member["ordinal"] != ordinal:
+            raise ValueError("HanLP admission changed canonical sentence order")
+        if member.get("outcome") == "prepared":
+            length = member.get("row_tokens")
+            if type(length) is not int or length < 1:
+                raise ValueError("HanLP admission omitted actual positive native subword length")
+            ready.append((row, length))
+        else:
+            refused.append((row, member))
+    return ready, refused
+
+
+def hanlp_sentence_batches(ready, startup):
+    """Bound padded native subwords and characters without changing sentence membership."""
+    batches, batch, lengths, chars = [], [], [], 0
+    for row, length in ready:
+        size = sum(len(word) for _, word in row[1])
+        if batch and (
+            len(batch) == int(startup.get("max_sentences", 8))
+            or (len(batch) + 1) * max(*lengths, length) > int(startup.get("max_padded_subwords", 2048))
+            or chars + size > int(startup.get("max_batch_chars", 32768))
+        ):
+            batches.append(batch)
+            batch, lengths, chars = [], [], 0
+        batch.append(row)
+        lengths.append(length)
+        chars += size
+    if batch:
+        batches.append(batch)
+    return batches
+
 @dataclass(frozen=True)
 class HanlpProduct:
     content: bytes
@@ -317,55 +357,23 @@ class PreparedHanlpProfile:
                             prepare_bulk=True,
                         )
                     )
-                    members = reply.get("members")
-                    if (
-                        reply.get("outcome") != "prepared_batch"
-                        or not isinstance(members, list)
-                        or len(members) != len(population)
-                    ):
-                        raise ValueError("HanLP admission changed canonical sentence population")
-                    for ordinal, (row, member) in enumerate(zip(population, members, strict=True)):
-                        if member.get("ordinal") != ordinal:
-                            raise ValueError("HanLP admission changed canonical sentence order")
-                        if member.get("outcome") == "prepared":
-                            ready.append((row, member["row_tokens"]))
-                        else:
-                            ref = dict(
-                                projection=source.value["source"]["projection"],
-                                start=row[0]["start"],
-                                end=row[0]["end"],
-                            )
-                            coverage.extend(
-                                dict(
-                                    family=family,
-                                    eligible=[ref],
-                                    examined=[],
-                                    unexamined=[ref],
-                                    availability="unsupported",
-                                    outcome="unsupported",
-                                    reason="native admission: " + str(member.get("reason")),
-                                )
-                                for family in HANLP_FAMILIES
-                            )
-                batches = []
-                batch = []
-                lengths = []
-                chars = 0
-                for row, length in ready:
-                    size = sum(len(word) for _, word in row[1])
-                    if batch and (
-                        len(batch) == limit
-                        or (len(batch) + 1) * max(*lengths, length)
-                        > int(startup.get("max_padded_subwords", 2048))
-                        or chars + size > int(startup.get("max_batch_chars", 32768))
-                    ):
-                        batches.append(batch)
-                        batch, lengths, chars = [], [], 0
-                    batch.append(row)
-                    lengths.append(length)
-                    chars += size
-                if batch:
-                    batches.append(batch)
+                    accepted, refused = admitted_hanlp_rows(population, reply)
+                    ready.extend(accepted)
+                    for row, member in refused:
+                        ref = dict(
+                            projection=source.value["source"]["projection"],
+                            start=row[0]["start"],
+                            end=row[0]["end"],
+                        )
+                        coverage.extend(
+                            dict(
+                                family=family,
+                                eligible=[ref], examined=[], unexamined=[ref],
+                                availability="unsupported", outcome="unsupported",
+                                reason="native admission: " + str(member.get("reason")),
+                            ) for family in HANLP_FAMILIES
+                        )
+                batches = hanlp_sentence_batches(ready, startup)
                 for batch in batches:
                     words = [[word for _, word in tokens] for _, tokens in batch]
                     reply = infer(dict(sentences=words))
@@ -659,6 +667,14 @@ class PreparedHanlpPort:
                 (
                     "corpus_structure.semantic.hanlp_products.canonical_hanlp_rows",
                     canonical_hanlp_rows,
+                ),
+                (
+                    "corpus_structure.semantic.hanlp_products.admitted_hanlp_rows",
+                    admitted_hanlp_rows,
+                ),
+                (
+                    "corpus_structure.semantic.hanlp_products.hanlp_sentence_batches",
+                    hanlp_sentence_batches,
                 ),
                 ("corpus_structure.methods.native_evidence._native_heads", _native_heads),
                 (

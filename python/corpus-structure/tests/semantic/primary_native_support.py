@@ -5,10 +5,9 @@ from typing import Any
 from sqlalchemy import select
 
 from corpus_structure.core.vocab import Stage
-from corpus_structure.methods.native_evidence import NativeEvidenceMethod
 from corpus_structure.semantic.characterization_store import read_inventory
 from corpus_structure.semantic.metadata import table
-from semantic.retained_primary_fixture import SealedConstructionFixture, SealedFormalFixture
+from semantic.retained_primary_fixture import SealedConstructionFixture, SealedFormalFixture, SealedNativeFixture
 
 
 def stage_primary_layers(case, run, sources):
@@ -49,7 +48,7 @@ def stage_primary_layers(case, run, sources):
     )
     pins = []
     for method, cfg in (
-        (NativeEvidenceMethod(), dict(selection, characterization_profile="spacy_only")),
+        (SealedNativeFixture(), dict(selection, characterization_profile="spacy_only")),
         (SealedFormalFixture(), selection),
         (SealedConstructionFixture(), selection),
     ):
@@ -83,7 +82,7 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     from corpus_structure.semantic.product_reference import ProductReference
     from sqlalchemy import text
 
-    if not isinstance(method, (NativeEvidenceMethod, SealedFormalFixture, SealedConstructionFixture)):
+    if not isinstance(method, (SealedNativeFixture, SealedFormalFixture, SealedConstructionFixture)):
         raise TypeError("historical primary fixture requires an explicit retained primary family")
     reader = BoundReader(conn, run, prepared)
     identities = params["characterization_source_scope"]["source_view_ids"]
@@ -94,10 +93,7 @@ def publish_primary_fixture(conn, run, prepared, method, params):
         conn, method, "primary-control", canonical, configuration_hash, prepared=prepared
     )
     run_view = SimpleNamespace(reader=reader)
-    if isinstance(method, NativeEvidenceMethod):
-        (ref,) = method.select(run_view, method.Config.model_validate(canonical))
-    else:
-        (ref,) = method.select(run_view, config)
+    (ref,) = method.select(run_view, config)
     input_hash = "primary-control:" + method.name
     task_id = create_task(
         conn,
@@ -130,10 +126,7 @@ def publish_primary_fixture(conn, run, prepared, method, params):
         characterization_operation=lambda _ref: frozen_operation,
     )
     units = (UnitView(ref, run_view, document_id=ref.unit_id),)
-    if isinstance(method, NativeEvidenceMethod):
-        (result,) = method.run(units, method.Config.model_validate(canonical), context)
-    else:
-        (result,) = method.run(units, config, context)
+    (result,) = method.run(units, config, context)
     assert result.characterization_layer is not None
     complete_unit_result(
         conn,
@@ -190,7 +183,7 @@ def publish_primary_layers(conn, run, prepared, identities, *, formal=False):
         )
         pins.append(publish_primary_fixture(conn, run, prepared, method, params))
 
-    publish(NativeEvidenceMethod(), dict(characterization_profile="spacy_only"))
+    publish(SealedNativeFixture(), dict(characterization_profile="spacy_only"))
     if formal:
         publish(SealedFormalFixture(), {})
     publish(SealedConstructionFixture(), {})

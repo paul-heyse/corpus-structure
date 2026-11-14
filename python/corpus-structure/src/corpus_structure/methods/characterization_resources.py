@@ -1453,42 +1453,10 @@ def selections_for_characterization(options, settings):
     """The complete selected resident population; no GPU custody or model loading."""
     from pydantic import TypeAdapter
 
-    from corpus_structure.ingest.sentences import SentenceConfig
-
     from .native_profiles import gliner_selection
 
     policy = settings.execution_policy
     selected = []
-    native = options.get("text.native_evidence")
-    if native is not None:
-        config = SentenceConfig.model_validate(native.get("sentences", {}))
-        if native.get("characterization_profile") == "boundary_only":
-            config = config.model_copy(
-                update={"exclude": ("ner", "tagger", "attribute_ruler", "lemmatizer")}
-            )
-        frozen = native.get("spacy_native_profile")
-        if frozen is not None:
-            import spacy
-
-            from .native_profiles import NativeProfile
-
-            selected.append(
-                NativeSelection(NativeProfile(**frozen), spacy.util.get_package_path(config.model))
-            )
-        if (
-            native.get("characterization_profile", "full_native") == "full_native"
-            and native.get("hanlp_runtime") is not None
-        ):
-            selected.append(
-                pm2_selection(
-                    "hanlp",
-                    settings.model_cache / "pm2",
-                    native["hanlp_runtime"],
-                    native["hanlp_artifacts"],
-                    threads=policy.provider_threads,
-                    interop_threads=policy.provider_interop_threads,
-                )
-            )
     contextual = options.get("text.contextual_characterization")
     if contextual is not None and contextual.get("native_mode", "infer") == "infer":
         for provider in ("maverick", "dipo"):
@@ -1522,54 +1490,6 @@ def selections_for_characterization(options, settings):
             if runtime is not None:
                 selected.append(gliner_selection(profile, runtime))
     return tuple({value.identity: value for value in selected}.values())
-
-
-def freeze_characterization_profiles(
-    name, parameters, settings, *, cache: dict[tuple[Any, ...], Any] | None = None
-):
-    """Freeze runtime/device meaning into task configuration before reuse checks."""
-    from corpus_structure.ingest.sentences import SentenceConfig
-
-    from .native_profiles import preflight_native_runtime, spacy_selection
-
-    cache = {} if cache is None else cache
-    if name == "text.native_evidence" and parameters.get("spacy_native_profile") is None:
-        config = SentenceConfig.model_validate(parameters.get("sentences", {}))
-        if parameters.get("characterization_profile") == "boundary_only":
-            config = config.model_copy(
-                update={"exclude": ("ner", "tagger", "attribute_ruler", "lemmatizer")}
-            )
-        key = (
-            "spacy-selection",
-            config.model_dump_json(),
-            settings.execution_policy.provider_threads,
-            settings.execution_policy.provider_interop_threads,
-        )
-        if key not in cache:
-            cache[key] = spacy_selection(
-                config,
-                threads=settings.execution_policy.provider_threads,
-                interop_threads=settings.execution_policy.provider_interop_threads,
-            )
-        parameters["spacy_native_profile"] = cache[key].native.wire
-    if (
-        name == "text.model_characterization"
-        and parameters.get("gliner_profile") is not None
-        and parameters.get("gliner_runtime") is None
-    ):
-        from pydantic import TypeAdapter
-
-        profile = TypeAdapter(GlinerProfile).validate_python(
-            parameters["gliner_profile"]["profile"]
-        )
-        if profile.device != "cuda":
-            raise GlinerRefused(
-                "current model characterization requires an explicit CUDA GLiNER profile"
-            )
-        key = ("gliner-runtime", str(profile.snapshot.absolute()))
-        if key not in cache:
-            cache[key] = preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"]
-        parameters["gliner_runtime"] = cache[key]
 
 
 def freeze_analytical_profile(

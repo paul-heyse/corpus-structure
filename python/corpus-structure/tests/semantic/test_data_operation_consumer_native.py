@@ -102,7 +102,7 @@ def _records(case: str) -> dict[str, list[tuple[str, str, dict[str, Any]]]]:
                 ),
             ],
         }
-    if case in {"document", "projection"}:
+    if case == "projection":
         return {
             "views": [
                 ("view:one", "view:one", view),
@@ -309,7 +309,6 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel, case)
                 )
         source_sets = (FrozenSourceSet("structural-input-sources", tuple(entries)),)
     parameters: dict[str, Any] = {
-        "document": {"base_product": "base"},
         "projection": {"projection_digest": "selected"},
         "occurrences": {
             "source_product": "base",
@@ -438,11 +437,9 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel, case)
         assert binding.sufficient, binding.reasons
         from corpus_structure.methods.contextual_candidates import ContextualCandidates
         from corpus_structure.methods.m1_source import M1Candidates
-        from corpus_structure.methods.native_evidence import NativeEvidenceMethod
         from corpus_structure.methods.structural_products import StructuralComparisonMethod
 
         method = {
-            "document": NativeEvidenceMethod,
             "projection": M1Candidates,
             "structural": StructuralComparisonMethod,
             "occurrences": ContextualCandidates,
@@ -469,10 +466,7 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel, case)
         assert len(body_queries) == 1
         assert body_queries[0].count("ops.data_binding_rows(") == 1
         assert "LATERAL" not in body_queries[0]
-        if case == "document":
-            assert result[0] == "document"
-            assert [value.member.member for value in result[1]] == ["view:one", "view:two"]
-        elif case == "projection":
+        if case == "projection":
             from corpus_structure.semantic.data_operation_consumers import SelectedConsumerValue
 
             selected_ids = []

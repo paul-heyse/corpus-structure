@@ -28,7 +28,6 @@ from semantic.data_operation_kernel_support import (
     [
         (STORAGE, "urn:ddo-test:source"),
         (POPULATION, "urn:discover"),
-        (CONSUMERS["document"], "text.native_evidence/selection"),
         (CONSUMERS["projection"], "extract.m1_candidates/selection"),
         (CONSUMERS["structural"], "structure.compare/selection"),
         (CONSUMERS["occurrences"], "retrieve.contextual/selection"),

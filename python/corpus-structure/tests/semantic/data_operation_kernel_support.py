@@ -451,7 +451,6 @@ KINDS = {
     "occurrences": "DdoOccurrenceBinding",
 }
 CASES = {
-    "document": ("text.native_evidence/selection", "document", ("views",)),
     "projection": ("extract.m1_candidates/selection", "document", ("views",)),
     "structural": ("structure.compare/selection", "input", ("passages", "readings")),
     "occurrences": ("retrieve.contextual/selection", "view", ("views", "occurrences")),
@@ -503,7 +502,7 @@ def consumer_recipe(case):
         declarations.append(operation)
     sources = tuple(
         PythonSource(name, (root / "methods" / (name + ".py")).read_bytes(), name + ".py")
-        for name in ("native_evidence", "m1_source", "structural_products", "contextual_candidates")
+        for name in ("m1_source", "structural_products", "contextual_candidates")
     )
     actual = next(
         operation

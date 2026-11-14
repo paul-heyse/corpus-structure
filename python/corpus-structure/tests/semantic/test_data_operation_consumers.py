@@ -43,11 +43,9 @@ def retained(operation):
 def test_real_consumer_selection_handoff_preserves_exact_original_roles():
     from corpus_structure.methods.contextual_candidates import ContextualCandidates
     from corpus_structure.methods.m1_source import M1Candidates
-    from corpus_structure.methods.native_evidence import NativeEvidenceMethod
     from corpus_structure.methods.structural_products import StructuralComparisonMethod
 
     for consumer in (
-        NativeEvidenceMethod(),
         M1Candidates(),
         StructuralComparisonMethod(),
         ContextualCandidates(),
