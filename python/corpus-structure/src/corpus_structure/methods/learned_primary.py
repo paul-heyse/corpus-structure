@@ -1015,14 +1015,14 @@ class D1SourcePrimaryOperation:
             {
                 "name": "candidates",
                 "direction": "output",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoD1SourceCandidatesReport",
                 "minimum": 1,
                 "maximum": 1,
                 "collection": "scalar",
                 "presence": "required",
             },
         ],
-        "parameters": {},
+        "parameters": {"focuses": {"default": []}},
         "dependencies": [],
         "effects": [],
         "applicability": ["actual-original-source-blocks", "frozen-qualified-native-provider"],
@@ -1442,8 +1442,8 @@ class D1SourcePrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource) -> LearnedPrimaryProducts:
-        return execute_learned_primary(self, source)
+    def run(self, source: FrozenNativeSource, focuses: list[dict]) -> LearnedPrimaryProducts:
+        return execute_learned_primary(self, source, focuses=focuses)
 
 
 class D1CandidatesPrimaryOperation:
@@ -2503,14 +2503,14 @@ class GlinerFunctionPrimaryOperation:
             {
                 "name": "candidates",
                 "direction": "output",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoGlinerFunctionCandidatesReport",
                 "minimum": 1,
                 "maximum": 1,
                 "collection": "scalar",
                 "presence": "required",
             },
         ],
-        "parameters": {},
+        "parameters": {"focuses": {"default": []}},
         "dependencies": [],
         "effects": [],
         "applicability": ["actual-original-source-blocks", "frozen-qualified-native-provider"],
@@ -2930,8 +2930,8 @@ class GlinerFunctionPrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource) -> LearnedPrimaryProducts:
-        return execute_learned_primary(self, source)
+    def run(self, source: FrozenNativeSource, focuses: list[dict]) -> LearnedPrimaryProducts:
+        return execute_learned_primary(self, source, focuses=focuses)
 
 
 class ContextualNativePrimaryOperation:

@@ -188,6 +188,7 @@ class PreparedLearnedPrimary:
         formal=None,
         constructions=None,
         contextual=None,
+        focuses=(),
     ):
         from corpus_structure.methods.characterization_resources import (
             GLiNERWork,
@@ -234,12 +235,20 @@ class PreparedLearnedPrimary:
         frame = DeclaredNativeFrameSource.acquire(
             self.prepared, source.value, selected[0], project=binding.subject_context.project_id
         )
+        blocks, block_standing = _blocks(source)
+        focused = bool(focuses)
+        if focused:
+            if self.family not in {"d1_source", "gliner_function"}:
+                raise ValueError("explicit focal scopes are not declared for this learned producer")
+            blocks = learned_focal_scopes(frame, focuses, max_context_chars=self.max_context_chars, exact=self.family == "gliner_function")
+            block_standing = ()
         providers = execution_owner.providers
         providers.declare_native((self.selection,))
         claim = execution_owner.claim
         records, coordinates, operations, observations, receipts = [], [], [], [], []
         coverage, examined, unexamined = [], [], []
-        blocks, block_standing = _blocks(source)
+        if focused:
+            unexamined.extend(uncovered_focal_scopes(frame, blocks))
         for row in block_standing:
             if row["outcome"] not in {"empty"}:
                 unexamined.append(
@@ -427,7 +436,7 @@ class PreparedLearnedPrimary:
                 continue
             scope = prepare_model_scope(
                 frame,
-                (block.start, block.end),
+                block.focal if isinstance(block, LearnedFocalScope) else (block.start, block.end),
                 (block.start, block.end),
                 max_chars=self.max_context_chars,
             )
@@ -746,10 +755,54 @@ class PreparedLearnedPrimary:
             coordinate_texts=coordinates,
             coverage=coverage,
             diagnostics={"native_observation_output": "result", "coverage_outcome": status},
+            report_class={"gliner_function": "DdoGlinerFunctionCandidatesReport", "d1_source": "DdoD1SourceCandidatesReport"}.get(self.family, "DdoCandidateInspectionReport"),
         )
         return LearnedPrimaryProducts(
             canonical_bytes(observation), canonical_bytes(report), tuple(receipts)
         )
+
+
+@dataclass(frozen=True)
+class LearnedFocalScope:
+    block_id: str
+    start: int
+    end: int
+    focal: tuple[int, int]
+
+
+def learned_focal_scopes(frame, selections, *, max_context_chars, exact):
+    """Validate explicit ModelScope extents against their admitted original source."""
+    result, seen = [], set()
+    for value in selections:
+        if not isinstance(value, dict) or set(value) != {"focal_extent", "projection_extent"}:
+            raise ValueError("learned focal selection requires exact focal and projection extents")
+        focal, examined = value["focal_extent"], value["projection_extent"]
+        if not all(isinstance(extent, (list, tuple)) and len(extent) == 2 and all(type(item) is int for item in extent) for extent in (focal, examined)):
+            raise ValueError("learned focal extents require original-relative integer pairs")
+        a, b = examined
+        left, right = focal
+        if not 0 <= a <= left < right <= b <= len(frame.text) or b - a > max_context_chars or not any(start <= a < b <= end for start, end in frame.selected_ranges) or (exact and (left, right) != (a, b)):
+            raise ValueError("learned focal context exceeds its exact admitted source or provider question scope")
+        key = left, right, a, b
+        if key in seen:
+            raise ValueError("learned focal selection repeats identical captured work")
+        seen.add(key)
+        result.append(LearnedFocalScope("source-focus:" + sha256(canonical_bytes([frame.source_key, key])).hexdigest(), a, b, (left, right)))
+    return tuple(result)
+
+
+def uncovered_focal_scopes(frame, scopes):
+    """Retain unknown source regions outside explicit focal questions."""
+    for start, end in frame.selected_ranges:
+        cursor = start
+        for left, right in sorted(scope.focal for scope in scopes):
+            if right <= cursor or left >= end:
+                continue
+            if cursor < left:
+                yield dict(projection=frame.projection_digest, start=cursor, end=min(left, end))
+            cursor = max(cursor, min(right, end))
+        if cursor < end:
+            yield dict(projection=frame.projection_digest, start=cursor, end=end)
 
 
 def maverick_input(source, annotations, frame, block, mapping):
@@ -785,7 +838,7 @@ def maverick_input(source, annotations, frame, block, mapping):
 
 
 def execute_learned_primary(
-    receiver, source, annotations=None, formal=None, constructions=None, contextual=None
+    receiver, source, annotations=None, formal=None, constructions=None, contextual=None, focuses=()
 ):
     return receiver.profile.run(
         source,
@@ -796,6 +849,7 @@ def execute_learned_primary(
         formal=formal,
         constructions=constructions,
         contextual=contextual,
+        focuses=focuses,
     )
 
 
@@ -918,6 +972,15 @@ class PreparedLearnedPrimaryPort:
                 inputs[name] = CharacterizationSnapshot(
                     selected.product, canonical_bytes(inputs[name])
                 )
+        from .data_operation_identity import decode_semantic_value
+
+        parameters = decode_semantic_value(json.loads(binding.parameters))
+        if self.profile.family in {"d1_source", "gliner_function"}:
+            if set(parameters) != {"focuses"}:
+                raise PortRefusal("focal learned producer requires its exact frozen parameter selection")
+            inputs["focuses"] = parameters["focuses"]
+        elif parameters:
+            raise PortRefusal("learned producer does not declare authored parameters")
         check_active()
         products = yield from self.endpoint(
             self.profile, binding, execution_owner, check_active

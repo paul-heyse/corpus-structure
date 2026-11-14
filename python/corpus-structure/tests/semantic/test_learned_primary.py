@@ -113,3 +113,33 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
     assert frozen["selections"]["d1"]["profile"]["dtype"] == "bfloat16"
     assert frozen["selections"]["maverick"]["profile"]["dtype"] == "float32"
     assert frozen["selections"]["gliner"]["profile"]["device"] == "cuda"
+
+
+def test_explicit_learned_focus_keeps_context_and_unknown_remainder_separate():
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.learned_primary import learned_focal_scopes, uncovered_focal_scopes
+
+    frame = SimpleNamespace(text="First. Focus. Last.", source_key="native-original:book", projection_digest="projection", selected_ranges=((0, 19),))
+    (scope,) = learned_focal_scopes(frame, [{"focal_extent": [7, 13], "projection_extent": [0, 19]}], max_context_chars=64, exact=False)
+    assert scope.focal == (7, 13) and (scope.start, scope.end) == (0, 19)
+    assert tuple(uncovered_focal_scopes(frame, (scope,))) == ({"projection": "projection", "start": 0, "end": 7}, {"projection": "projection", "start": 13, "end": 19})
+    (exact,) = learned_focal_scopes(frame, [{"focal_extent": [7, 13], "projection_extent": [7, 13]}], max_context_chars=64, exact=True)
+    assert exact.focal == (exact.start, exact.end)
+
+
+def test_explicit_learned_focus_refuses_widening_duplicate_and_inexact_gliner_scope():
+    from types import SimpleNamespace
+
+    import pytest
+
+    from corpus_structure.semantic.learned_primary import learned_focal_scopes
+
+    frame = SimpleNamespace(text="First. Focus. Last.", source_key="native-original:book", projection_digest="projection", selected_ranges=((7, 13),))
+    with pytest.raises(ValueError, match="exact admitted source"):
+        learned_focal_scopes(frame, [{"focal_extent": [7, 13], "projection_extent": [0, 19]}], max_context_chars=64, exact=False)
+    with pytest.raises(ValueError, match="provider question scope"):
+        learned_focal_scopes(frame, [{"focal_extent": [8, 12], "projection_extent": [7, 13]}], max_context_chars=64, exact=True)
+    selected = {"focal_extent": [7, 13], "projection_extent": [7, 13]}
+    with pytest.raises(ValueError, match="repeats identical captured work"):
+        learned_focal_scopes(frame, [selected, selected], max_context_chars=64, exact=True)

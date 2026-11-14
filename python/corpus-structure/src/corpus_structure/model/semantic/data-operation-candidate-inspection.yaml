@@ -54,6 +54,12 @@ classes:
   DdoPredicateInspectionReport:
     is_a: DdoCandidateInspectionReport
     description: Exact retained primary predicate frame, reading and qualifier inspection.
+  DdoGlinerFunctionCandidatesReport:
+    is_a: DdoCandidateInspectionReport
+    description: Actual source-function candidates paired with retained GLiNER observations.
+  DdoD1SourceCandidatesReport:
+    is_a: DdoCandidateInspectionReport
+    description: Actual released source-question candidates paired with retained D1 observations.
   DdoScopedRelationsReport:
     is_a: DdoCandidateInspectionReport
     description: Exact source-local structural, procedure, formula and named relationship inspection.
