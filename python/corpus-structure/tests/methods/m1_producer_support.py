@@ -135,7 +135,8 @@ def owned_reader(source):
 
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
     from corpus_structure.ingest.sentences import pipeline
-    from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
+    from corpus_structure.methods.m1_annotations import M1AnnotationConfig
+    from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
     from corpus_structure.methods.source_preparation import annotation_inputs
     from corpus_structure.semantic.constructions.layers import ConstructionLayer
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
@@ -203,12 +204,10 @@ def owned_reader(source):
         retained_construction.reference(102): retained_construction,
     }
     reader.primary_characterization = lambda *_args, **_kwargs: primary
-    producer = M1Annotations()
+    producer = m1_annotation_descriptor()
     cfg = annotation_configuration(ROOT / "domains/statistics", "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
-    (product,) = producer.run(
-        (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
-    )
+    product = m1_annotation_result(reader, source, cfg, unit.ref)
     reader.source_result = lambda *_: dict(
         method=producer.name,
         input_hash="controlled-upstream-input",

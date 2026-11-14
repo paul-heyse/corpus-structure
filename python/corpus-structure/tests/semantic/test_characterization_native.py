@@ -455,7 +455,7 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
         )
         from corpus_structure.core.method import UnitRef, UnitResult
         from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-        from corpus_structure.methods.characterization import ComposeViewMethod
+        from semantic.sealed_primary_fixture import compose_view_descriptor, compose_view_result
         from corpus_structure.semantic.operations import complete_unit_result
 
         receipt = complete_unit_result(
@@ -469,7 +469,7 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
                 outcome=ObservationOutcome.PRODUCED,
                 characterization_view=view,
             ),
-            method=ComposeViewMethod(),
+            method=compose_view_descriptor(),
             configuration_hash=view_config_hash,
             source="native-fixture",
         )
@@ -1532,7 +1532,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.core.method import UnitRef, UnitView
     from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.characterization import ComposeViewMethod
+    from semantic.sealed_primary_fixture import compose_view_descriptor, compose_view_result
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.semantic.characterization_store import read_inventory
     from corpus_structure.semantic.operations import OperationBinding, complete_task
@@ -1664,14 +1664,14 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
             with commit_writer_engine.begin() as conn:
                 publish_primary_fixture(conn, run_id, prepared, method, cfg)
         else:
-            assert isinstance(method, ComposeViewMethod)
+            assert method.name == "text.compose_view"
             with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
                 unit = UnitView(
                     UnitRef(TaskUnitType.DOCUMENT, task["unit_id"]),
                     ctx.run,
                     document_id=task["unit_id"],
                 )
-                (result,) = method.run((unit,), config, ctx)
+                result = compose_view_result(ctx.reader, config, unit.ref)
             _retain_witnessed_result(
                 case, run_id, method, config, result, stage="extract", admin=commit_db_engine
             )
@@ -1704,7 +1704,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     math_coverage = next(row for row in layer["coverage"] if row["family"] == "formal.math")
     assert math_coverage["outcome"] == "partial"
     composed, view_pin = run(
-        ComposeViewMethod(),
+        compose_view_descriptor(),
         dict(
             config,
             characterization_layers=[layer_pin.values()],

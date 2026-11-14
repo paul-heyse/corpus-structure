@@ -11,9 +11,9 @@ from corpus_structure.semantic.operations import claim_tasks, create_task, recor
 def make_task(conn, source, *, compose=False, layers=()):
     name = "text.compose_view" if compose else "native-binding"
     if compose:
-        from corpus_structure.methods.characterization import ComposeViewMethod
+        from semantic.sealed_primary_fixture import compose_view_descriptor
 
-        method = ComposeViewMethod()
+        method = compose_view_descriptor()
     else:
         method = SimpleNamespace(
             name=name,

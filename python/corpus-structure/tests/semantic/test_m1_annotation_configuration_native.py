@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
+from corpus_structure.methods.m1_annotations import METHOD, M1AnnotationConfig
+from semantic.sealed_primary_fixture import m1_annotation_descriptor
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationConflict, record_method
@@ -24,8 +25,10 @@ class LegacyAnnotationConfig(BaseModel):
     max_annotation_chars: int = Field(default=32768, ge=1)
 
 
-class UnversionedSelector(M1Annotations):
-    version = "1"
+def unversioned_selector():
+    method = m1_annotation_descriptor()
+    method.version = "1"
+    return method
 
 
 def test_projection_selector_versions_contract_without_mutating_persisted_v1(
@@ -36,7 +39,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
     prepared = prepare_operation_scenario(commit_db_engine)
     legacy_params = LegacyAnnotationConfig().model_dump(mode="json")
     legacy_method = SimpleNamespace(
-        name=M1Annotations.name,
+        name=METHOD,
         version="1",
         family="extract",
         tier="deterministic",
@@ -58,7 +61,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
         before = dict(
             conn.execute(
                 select(methods).where(
-                    methods.c.name == M1Annotations.name, methods.c.version == "1"
+                    methods.c.name == METHOD, methods.c.version == "1"
                 )
             )
             .mappings()
@@ -71,7 +74,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
     ):
         record_method(
             conn,
-            UnversionedSelector(),
+            unversioned_selector(),
             "default",
             params,
             sha256(canonical_bytes(params)).hexdigest(),
@@ -80,7 +83,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
     with commit_writer_engine.begin() as conn:
         new_config = record_method(
             conn,
-            M1Annotations(),
+            m1_annotation_descriptor(),
             "default",
             params,
             sha256(canonical_bytes(params)).hexdigest(),
@@ -90,7 +93,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
         rows = [
             dict(row)
             for row in conn.execute(
-                select(methods).where(methods.c.name == M1Annotations.name)
+                select(methods).where(methods.c.name == METHOD)
             ).mappings()
         ]
         assert {row["version"] for row in rows} == {"1", "3"}

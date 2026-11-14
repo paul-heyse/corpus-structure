@@ -673,7 +673,6 @@ def _assert_m1_owned_context_and_annotation_dependency(
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.m1_annotations import (
         M1AnnotationConfig,
-        M1Annotations,
         consume_annotations,
     )
     from corpus_structure.semantic.identity import canonical_bytes
@@ -684,6 +683,8 @@ def _assert_m1_owned_context_and_annotation_dependency(
         RetrievalOutcome,
         SourceContextRequest,
     )
+
+    from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
 
     reader = BoundReader(conn, run, prepared)
     source = reader.source_view(identity)
@@ -721,7 +722,7 @@ def _assert_m1_owned_context_and_annotation_dependency(
     primary_pins = publish_primary_layers(conn, run, prepared, (identity,))
     reader.characterization_selection = primary_pins
     producer, cfg = (
-        M1Annotations(),
+        m1_annotation_descriptor(),
         M1AnnotationConfig(characterization_layers=tuple(pin.values() for pin in primary_pins)),
     )
     parent_config = record_method(
@@ -780,9 +781,7 @@ def _assert_m1_owned_context_and_annotation_dependency(
         conn, run_id=run, config_id=parent_config, holder="annotation-control"
     )[0]
     ref = UnitRef(TaskUnitType.SOURCE_VIEW, identity, source.ref.key)
-    (result,) = producer.run(
-        (SimpleNamespace(ref=ref),), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
-    )
+    result = m1_annotation_result(reader, source, cfg, ref)
     assert result.observations and result.outcome == ObservationOutcome.PRODUCED
     complete_unit_result(
         conn,

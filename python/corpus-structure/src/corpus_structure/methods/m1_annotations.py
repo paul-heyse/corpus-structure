@@ -5,16 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.core.method import (
-    Digest,
-    ObservationDraft,
-    Reader,
-    Resources,
-    UnitRef,
-    UnitResult,
-)
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.ingest.annotations import AnnotationProfile
+from corpus_structure.core.method import Reader
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_evidence_layers import (
     SPACY_FAMILIES,
@@ -73,91 +64,3 @@ def consume_annotations(
     )
     return products, (), result
 
-
-class M1Annotations:
-    name = METHOD
-    version = "3"
-    family = MethodFamily.EXTRACT
-    unit_type = TaskUnitType.SOURCE_VIEW
-    tier = MethodTier.DETERMINISTIC
-    confidence_source = None
-    Config = M1AnnotationConfig
-    resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
-
-    def select(self, run, cfg):
-        views = tuple(view for view in run.reader.source_views() if view.analysis_eligible)
-        if cfg.source_projection_digest is not None:
-            views = tuple(
-                view for view in views if view.projection_digest == cfg.source_projection_digest
-            )
-            if len(views) != 1:
-                raise ValueError(
-                    "annotation source projection selection must match "
-                    "exactly one eligible source view"
-                )
-        return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key) for ref in views)
-
-    def input_digest(self, unit, cfg):
-        view = unit.run.reader.source_view(unit.ref.unit_id)
-        return Digest(
-            canonical_bytes(
-                dict(
-                    recipe=cfg.recipe,
-                    source=asdict(view.ref),
-                    profile=AnnotationProfile(cfg.sentences).identity(),
-                    max_annotation_chars=cfg.max_annotation_chars,
-                    characterization_layers=cfg.characterization_layers,
-                )
-            )
-        )
-
-    def run(self, units, cfg, ctx):
-        results = []
-        for unit in units:
-            ctx.check_active()
-            view = ctx.reader.source_view(unit.ref.unit_id)
-            annotations, errors, retained = consume_annotations(
-                ctx.reader, view, AnnotationProfile(cfg.sentences)
-            )
-            results.append(
-                UnitResult(
-                    ref=unit.ref,
-                    observations=tuple(
-                        ObservationDraft(
-                            kind="linguistic_annotation",
-                            payload=LinguisticAnnotationSummary(
-                                block_id=row.block_id,
-                                profile_digest=row.profile_digest,
-                                dependency_digest=row.dependency_digest,
-                                availability=tuple(
-                                    (column.attribute, column.status) for column in row.availability
-                                ),
-                            ),
-                            payload_class=LinguisticAnnotationSummary,
-                            payload_version="1",
-                            source_view_id=view.ref.id,
-                        )
-                        for row in annotations
-                    )
-                    if not errors
-                    else (),
-                    outcome=ObservationOutcome.FAILED
-                    if errors
-                    else ObservationOutcome.PRODUCED
-                    if annotations
-                    else ObservationOutcome.EMPTY,
-                    error="; ".join(errors) if errors else None,
-                    parse_detail=dict(
-                        recipe=cfg.recipe,
-                        source_pin=NativeSourcePin.from_source(
-                            native_source_frame(view, ())
-                        ).values(),
-                        characterization_layers=[
-                            dict(value) for value in retained["primary_layers"]
-                        ],
-                        annotation_errors=list(errors),
-                        exclusions=[],
-                    ),
-                )
-            )
-        return tuple(results)
