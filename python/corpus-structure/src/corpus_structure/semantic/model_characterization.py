@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from math import isfinite
-from typing import Any
+from typing import Any, cast
 
 from corpus_structure.methods.gliner import (
     GlinerInput,
@@ -184,6 +184,9 @@ class DeclaredModelDependency:
     payload: dict
 
 
+type ModelDependencies = Mapping[ProductReference, LayerReport] | Mapping[DataProductReference, DeclaredModelDependency]
+
+
 def declared_model_dependencies(products, source):
     """Project selected current semantic inventories without manufacturing legacy refs."""
     dependencies = {}
@@ -209,17 +212,17 @@ def declared_model_dependencies(products, source):
 
 
 def _resolve(
-    reference: Mapping[str, Any], dependencies: Mapping[ProductReference, LayerReport]
+    reference: Mapping[str, Any], dependencies: ModelDependencies
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     selected = read_member_reference(reference)
     if isinstance(selected, DataProductMemberReference):
         pin, local_id = selected.product, selected.member_id
-        layer = dependencies.get(pin)
+        layer = cast(Mapping[DataProductReference, DeclaredModelDependency], dependencies).get(pin)
         if layer is None or layer.reference != pin:
             raise ValueError("model candidate is outside its exact selected semantic closure")
     else:
         pin, local_id = selected.layer, selected.local_id
-        layer = dependencies.get(pin)
+        layer = cast(Mapping[ProductReference, LayerReport], dependencies).get(pin)
         if layer is None or layer.reference(pin.task_id) != pin:
             raise ValueError("model candidate is outside the exact retained dependency closure")
     body = layer.payload
@@ -251,7 +254,7 @@ class FrozenCandidates:
 def freeze_candidates(
     family: QuestionFamily,
     scope: ModelScope,
-    dependencies: Mapping[ProductReference, LayerReport],
+    dependencies: ModelDependencies,
     *,
     focus: Mapping[str, Any],
     alternatives: Sequence[Mapping[str, Any]],
@@ -346,7 +349,7 @@ def freeze_candidates(
 
 
 def contextual_candidate_populations(
-    family: QuestionFamily, scope: ModelScope, dependencies: Mapping[ProductReference, LayerReport]
+    family: QuestionFamily, scope: ModelScope, dependencies: ModelDependencies
 ) -> tuple[tuple[FrozenCandidates, ...], bool]:
     """Expand one retained candidate group on demand; never construct mention pairs globally."""
     upstream = (

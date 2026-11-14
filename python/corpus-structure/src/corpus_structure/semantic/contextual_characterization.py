@@ -160,10 +160,10 @@ class ContextualLayer(NativeEvidenceBuilder):
             "examined",
             context=context.declaration(),
         )
-        self._proxies: dict[tuple[ProductReference, str], str] = {}
-        self._dependencies: dict[ProductReference, Any] = {}
-        self._semantic_dependencies: dict[ProductReference, Any] = {}
-        self._choice_groups: dict[tuple[ProductReference, str], tuple[str, str]] = {}
+        self._proxies: dict[tuple[ProductReference | DataProductReference, str], str] = {}
+        self._dependencies: dict[ProductReference | DataProductReference, Any] = {}
+        self._semantic_dependencies: dict[ProductReference | DataProductReference, Any] = {}
+        self._choice_groups: dict[tuple[ProductReference | DataProductReference, str], tuple[str, str]] = {}
         self._native_clusters: list[tuple[str, list[str]]] = []
         self._mention_metadata: dict[str, dict[str, Any]] = {}
         self._rst_hosts: list[tuple[list[str], list[str], str]] = []
@@ -202,10 +202,10 @@ class ContextualLayer(NativeEvidenceBuilder):
         )
         return body
 
-    def depend(self, layers: Mapping[ProductReference, Any], *, semantic_pins=None):
-        self._dependencies = dict(layers)
+    def depend(self, layers: Mapping[ProductReference, Any] | Mapping[DataProductReference, Any], *, semantic_pins=None):
+        self._dependencies = {pin: report for pin, report in layers.items()}
         self._semantic_dependencies = {
-            pin: layers[pin] for pin in (layers if semantic_pins is None else semantic_pins)
+            pin: self._dependencies[pin] for pin in (self._dependencies if semantic_pins is None else semantic_pins)
         }
         for pin, report in layers.items():
             actual_base = (
@@ -222,7 +222,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                         group["compatibility"],
                     )
 
-    def proxy(self, pin: ProductReference, local_id: str, *, family: str) -> str:
+    def proxy(self, pin: ProductReference | DataProductReference, local_id: str, *, family: str) -> str:
         identity = (pin, local_id)
         if identity in self._proxies:
             return self._proxies[identity]
@@ -292,7 +292,7 @@ class ContextualLayer(NativeEvidenceBuilder):
         return key
 
     def required_choices(
-        self, pin: ProductReference, node: Mapping[str, Any]
+        self, pin: ProductReference | DataProductReference, node: Mapping[str, Any]
     ) -> list[dict[str, Any]]:
         return [
             member_reference(pin, choice).values() for choice in node.get("required_choices", ())

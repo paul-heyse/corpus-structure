@@ -73,11 +73,8 @@ def contextual_native_values(
             if provider in group:
                 raise ValueError("native contextual dependency repeats an original scope")
             group[provider] = (snapshot.semantic_id, ordinal, value)
-    inventories = {
-        name: {}
-        for name in ("occurrences", "annotations", "memberships", "roles", "terms", "choices")
-    }
-    coverage = {family: [] for family in CONTEXT_FAMILIES}
+    inventories = {name: {} for name in ("occurrences", "annotations", "memberships", "roles", "terms", "choices")}
+    coverage: dict[str, list[dict[str, Any]]] = {family: [] for family in CONTEXT_FAMILIES}
     for (start, end), native in sorted(population.items()):
         check_active()
         context = ContextInput.build(

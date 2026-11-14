@@ -153,7 +153,8 @@ def source_annotation_rows(value):
     return tuple(rows)
 
 
-def source_annotation_member_values(value):
+
+def source_annotation_member_values(value: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     """Read original units from detached annotations; no second stored token inventory."""
     result = []
     for block in value["blocks"]:
@@ -524,9 +525,7 @@ def spacy_family_coverage(selected, block_coverage, annotation_columns):
     return result
 
 
-def _detach_annotation_block(
-    selected, block, layout, doc, source_pin, configuration, execution_profile
-):
+def _detach_annotation_block(selected, block, layout, doc, source_pin, configuration, execution_profile) -> dict[str, Any]:
     from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
     from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 
@@ -543,21 +542,15 @@ def _detach_annotation_block(
     )
     pieces = tuple(ProjectedPiece(**selected["pieces"][index]) for index in block.pieces)
     supplied = AnnotationInput(source_pin, block.block_id, kind, block.block, layout, pieces)
-    (annotation,) = annotate(
-        (supplied,),
-        AnnotationProfile(configuration, execution_profile=execution_profile),
-        processed_docs=(doc,),
-        require_complete=False,
-    )
-
-    def present(value):
+    (annotation,) = annotate((supplied,), AnnotationProfile(configuration, execution_profile=execution_profile),
+                            processed_docs=(doc,), require_complete=False)
+    def present(value: Any) -> Any:
         if isinstance(value, dict):
             return {key: present(item) for key, item in value.items() if item is not None}
         if isinstance(value, (tuple, list)):
             return [present(item) for item in value]
         return value
-
-    value = present(asdict(annotation))
+    value: dict[str, Any] = present(asdict(annotation))
     value["source"] = source_pin.values()
     value["display_spans"] = [{"start": a, "end": b} for a, b in annotation.display_spans]
     lexemes = [

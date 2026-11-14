@@ -400,6 +400,7 @@ class PreparedCharacterizationPort(ABC):
     bridge: ClassVar[Callable]
     kernel: ClassVar[Callable]
     operation_sources: ClassVar[Callable]
+    profiles: ClassVar[tuple[str, ...]] = ()
 
     @property
     @abstractmethod
@@ -749,34 +750,20 @@ class PreparedCharacterizationPort(ABC):
         inputs = self._inputs(values, binding)
         if isinstance(inputs, _DocumentInputs) and not inputs.sources:
             return self._completion(None, binding)
-        products = ()
+        arguments: dict[str, Any]
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
-
+            arguments = dict(sources=inputs.sources,
+                products=tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in inputs.products),
+                active=tuple(DataProductReference(product.semantic_id) for product in inputs.active), profile=inputs.profile,
+                required_families=tuple(characterization_profiles(self.prepared).get("full_characterization", ())),
+                assets=_semantic_assets(self.family).digest, check_active=check_active)
+        elif isinstance(inputs, _ConstructionInputs):
             arguments = dict(
-                sources=inputs.sources,
-                products=tuple(
-                    CharacterizationSnapshot(product.semantic_id, product.content)
-                    for product in inputs.products
-                ),
-                active=tuple(
-                    DataProductReference(product.semantic_id) for product in inputs.active
-                ),
-                profile=inputs.profile,
-                required_families=tuple(
-                    characterization_profiles(self.prepared).get("full_characterization", ())
-                ),
-                assets=_semantic_assets(self.family).digest,
-                check_active=check_active,
-            )
-        else:
-            source, formal = inputs.source, inputs.formal
-        if isinstance(inputs, _ConstructionInputs):
-            arguments = dict(
-                source=source,
+                source=inputs.source,
                 formal=tuple(
                     CharacterizationSnapshot(product.semantic_id, product.content)
-                    for product in formal
+                    for product in inputs.formal
                 ),
                 options=ConstructionOptions(),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
@@ -788,9 +775,9 @@ class PreparedCharacterizationPort(ABC):
             )
         elif isinstance(inputs, _ContextualInputs):
             constructions = inputs.constructions
-            products = (*formal, *inputs.supporting, *constructions)
+            products = (*inputs.formal, *inputs.supporting, *constructions)
             arguments = dict(
-                source=source,
+                source=inputs.source,
                 products=tuple(
                     CharacterizationSnapshot(product.semantic_id, product.content)
                     for product in products
@@ -800,6 +787,8 @@ class PreparedCharacterizationPort(ABC):
                 assets=_semantic_assets(self.family).digest,
                 check_active=check_active,
             )
+        else:
+            raise TypeError("unknown prepared characterization input profile")
         signature = inspect.signature(self.kernel, eval_str=True)
         owned = json.loads(_execution_custody().content)["files"]
         root = Path(__file__).parent
@@ -838,16 +827,16 @@ class PreparedCharacterizationPort(ABC):
                 self.prepared,
                 self.model,
                 json.loads(reply.content),
-                source,
-                (*formal, *((inputs.native,) if inputs.native is not None else ())),
+                inputs.source,
+                (*inputs.formal, *((inputs.native,) if inputs.native is not None else ())),
             )
         else:
             product = validate_interpreted_product(
                 self.prepared,
                 self.model,
                 json.loads(reply.content),
-                source,
-                products,
+                inputs.source,
+                (*inputs.formal, *inputs.supporting, *inputs.constructions),
                 product_type=ContextualMeaningProduct,
             )
         self._verify()
@@ -883,12 +872,15 @@ class PreparedContextualPort(PreparedCharacterizationPort):
         return ContextualEvaluationOperation
 
 
-class PreparedDocumentViewPort(PreparedCharacterizationPort):
+class _PreparedCompositionPort(PreparedCharacterizationPort):
     family = "view"
     kernel = staticmethod(execute_view_kernel)
-    profiles = ("source_only", "selected_layers")
-    operation_sources = staticmethod(document_view_operation_sources)
     bridge = staticmethod(execute_view_profile)
+
+
+class PreparedDocumentViewPort(_PreparedCompositionPort):
+    profiles: ClassVar[tuple[str, ...]] = ("source_only", "selected_layers")
+    operation_sources = staticmethod(document_view_operation_sources)
 
     @property
     def endpoint(self):
@@ -963,10 +955,10 @@ def full_document_view_operation_sources(
     )
 
 
-class PreparedFullDocumentViewPort(PreparedDocumentViewPort):
+class PreparedFullDocumentViewPort(_PreparedCompositionPort):
     allow_empty = True
     activate_all = True
-    profiles = ("full_characterization",)
+    profiles: ClassVar[tuple[str, ...]] = ("full_characterization",)
     operation_sources = staticmethod(full_document_view_operation_sources)
 
     @property

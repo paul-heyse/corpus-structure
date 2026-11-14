@@ -166,7 +166,7 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
     )
     assert len(restored) == 1 and len(restored[0].tokens) == 4
     assert restored[0].block_start == 0 and restored[0].block_end == len(source.value["text"])
-    assert product.value.outcome == "partial"
+    assert product.value.model_dump(mode="json")["outcome"] == "partial"
     assert len(value["members"]) == 1
     assert set(value["members"][0]["body"]) == {
         "record_type",

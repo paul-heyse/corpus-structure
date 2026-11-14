@@ -98,8 +98,8 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
             document_key=first.source.value["source"]["document"],
         )
         acquisitions = []
+        length = len(first.source.value["text"])
         if views:
-            length = len(first.source.value["text"])
             assert length >= 2
             projection = reference.projection_digest
             acquisitions = [
