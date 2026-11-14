@@ -25,7 +25,6 @@ from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
 )
-from corpus_structure.semantic.data_operation_consumers import consumer_selection_declarations
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
     EffectiveDataOperationModel,
@@ -34,7 +33,6 @@ from corpus_structure.semantic.data_operation_preparation import prepare_data_op
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.python_operation_sources import PythonSource
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 from corpus_structure.semantic.runtime_bindings import RuntimeBinding
@@ -442,89 +440,6 @@ classes:
 
 
 POPULATION = _population_recipe()
-
-PREFIX = "https://corpus-structure.dev/semantic/data-operation-consumers/"
-KINDS = {
-    "views": "DdoSourceViewBinding",
-    "passages": "DdoPassageBinding",
-    "readings": "DdoReadingBinding",
-    "occurrences": "DdoOccurrenceBinding",
-}
-CASES = {
-    "projection": ("extract.m1_candidates/selection", "document", ("views",)),
-    "structural": ("structure.compare/selection", "input", ("passages", "readings")),
-    "occurrences": ("retrieve.contextual/selection", "view", ("views", "occurrences")),
-}
-
-
-def consumer_recipe(case):
-    root = Path(__file__).resolve().parents[2] / "src/corpus_structure"
-    schema = yaml.safe_load((root / "model/semantic/data-operation-consumers.yaml").read_text())
-    schema["classes"]["ConsumerScope"] = {
-        "attributes": {
-            "page": {"range": "DdoBindingInteger"},
-        }
-    }
-    schema["classes"]["ConsumerContext"] = {
-        "attributes": {
-            "subject": {"required": True},
-            "original_source": {"required": True},
-            "analyzed_scope": {"range": "ConsumerScope", "required": True, "inlined": True},
-        }
-    }
-    operation_id, _, groups = CASES[case]
-    declarations: list[dict[str, Any]] = []
-    for group in groups:
-        kind = KINDS[group]
-        packet, population = "ConsumerPacket_" + group, "ConsumerPopulation_" + group
-        schema["classes"][packet] = {
-            "attributes": {
-                "member_id": {"required": True},
-                "kind_contract": {"required": True},
-                "context": {"range": "ConsumerContext", "required": True, "inlined": True},
-                "body": {"range": kind, "required": True, "inlined": True},
-            }
-        }
-        schema["classes"][population] = {
-            "attributes": {
-                "complete": {"range": "DdoBindingBoolean", "required": True},
-                "members": {
-                    "range": packet,
-                    "required": True,
-                    "multivalued": True,
-                    "inlined_as_list": True,
-                },
-            }
-        }
-        operation = source_declaration()
-        operation.update(id="urn:consumer-native:" + group, profile="discovery")
-        operation["roles"][0].update(kind=population, collection="scalar", maximum=1)
-        declarations.append(operation)
-    sources = tuple(
-        PythonSource(name, (root / "methods" / (name + ".py")).read_bytes(), name + ".py")
-        for name in ("m1_source", "structural_products", "contextual_candidates")
-    )
-    actual = next(
-        operation
-        for artifact in consumer_selection_declarations(sources)
-        for operation in json.loads(artifact.content)["operations"]
-        if operation["id"] == operation_id
-    )
-    actual = copy.deepcopy(actual)
-    # Explicit control producers close the actual consumer's input population.
-    # Its roles, predicates, source policy and selections remain the colocated contract.
-    actual["dependencies"] = [operation["id"] for operation in declarations]
-    declarations.append(actual)
-    return KernelRecipe(
-        "consumer-" + case,
-        yaml.safe_dump(schema, sort_keys=False),
-        canonical_bytes({"version": MODEL_VERSION, "operations": declarations}),
-        MANIFEST.replace("test-operations", "actual-consumer-and-controls"),
-    )
-
-
-CONSUMERS = {case: consumer_recipe(case) for case in CASES}
-
 
 def _execution_recipe():
     name = "ddo_execution_fixture"

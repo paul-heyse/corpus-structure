@@ -12,7 +12,6 @@ from corpus_structure.semantic.contracts import (
 from semantic.data_operation_binding_support import WireCheckedStorage
 from semantic.data_operation_kernel_support import (
     CLAIM_SOURCE,
-    CONSUMERS,
     EXECUTION,
     ORIGINAL_FACT,
     ORIGINAL_PDF,
@@ -28,9 +27,6 @@ from semantic.data_operation_kernel_support import (
     [
         (STORAGE, "urn:ddo-test:source"),
         (POPULATION, "urn:discover"),
-        (CONSUMERS["projection"], "extract.m1_candidates/selection"),
-        (CONSUMERS["structural"], "structure.compare/selection"),
-        (CONSUMERS["occurrences"], "retrieve.contextual/selection"),
         (EXECUTION, "urn:ddo-execution:answer"),
         (CLAIM_SOURCE, "urn:corpus:operation:claim-source-item"),
         (ORIGINAL_FACT, "urn:original-fact-test:consume"),

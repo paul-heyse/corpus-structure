@@ -13,6 +13,8 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from semantic.sealed_contextual_fixture import contextual_descriptor, contextual_fixture_inputs, contextual_fixture_result
+
 from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitView
 from corpus_structure.core.vocab import MethodTier, TaskUnitType
 from corpus_structure.evaluate.record_references import assign_origin
@@ -26,7 +28,6 @@ from corpus_structure.evaluate.structural_assessment import (
     record_structural_reference_pass,
 )
 from corpus_structure.methods.contextual_candidates import (
-    ContextualCandidatesWithQueryContext,
     ContextualQueryConfig,
     ProducerRelationshipRecipe,
 )
@@ -622,18 +623,6 @@ def completed_relationship_case(
         )
         return select_relationships(**kwargs)
 
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
-    )
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.encode_contexts", controlled_encoder
-    )
-    if overlapping_recipe is None:
-        monkeypatch.setattr(
-            "corpus_structure.methods.contextual_candidates.select_relationships",
-            controlled_interpretation,
-        )
-
     # The current literal-only operation freezes its exact actual carriers. Settle
     # their native publication before constructing the retrieval configuration;
     # the later graph selects/reuses that same ordinary source producer.
@@ -677,7 +666,7 @@ def completed_relationship_case(
     )
 
     def produce_relationship(*, local_semantic_admission=()):
-        method = ContextualCandidatesWithQueryContext()
+        method = contextual_descriptor()
         run, bound = _begin_witnessed_run(
             case,
             OperationBinding(case.prepared.release_id, "wce-components", component_revision, b"{}"),
@@ -695,16 +684,15 @@ def completed_relationship_case(
             stage="extract",
             admin=admin,
         )
-        try:
-            with _witnessed_reader(case, run, bound, tmp_path) as ctx:
-                (relationship_result,) = method.run((UnitView(ref, ctx.run),), cfg, ctx)
-            _retain_witnessed_result(
-                case, run, method, cfg, relationship_result, stage="assemble", admin=admin
+        with _witnessed_reader(case, run, bound, tmp_path) as ctx:
+            source = ctx.reader.source_view(ref.unit_id)
+            relationship_result = contextual_fixture_result(
+                contextual_fixture_inputs(ctx.reader, source, cfg), cfg, ref,
+                encode=controlled_encoder, retrieve=ctx.reader.contextual_candidates,
+                neighborhood=ctx.reader.contextual_mutual_neighbors,
+                choose=controlled_interpretation if overlapping_recipe is None else select_relationships,
             )
-        finally:
-            close = getattr(method, "close", None)
-            if close is not None:
-                close()
+        _retain_witnessed_result(case, run, method, cfg, relationship_result, stage="assemble", admin=admin)
         return SimpleNamespace(run_id=run)
 
     outcome = produce_relationship()

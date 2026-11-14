@@ -7,11 +7,11 @@ from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitRef, UnitResult
+from corpus_structure.core.method import CoverageDraft, Resources, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig
@@ -33,8 +33,6 @@ from corpus_structure.methods.source_preparation import (
     native_table_geometry,
     prepare_source,
 )
-from corpus_structure.semantic.data_operation_bindings import BindingResult
-from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -355,128 +353,6 @@ class M1Candidates:
     Config = M1Config
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__: ClassVar[dict[str, Any]] = {
-        "id": "extract.m1_candidates/selection",
-        "profile": "selection",
-        "subject": "original-document",
-        "context": ["project", "original-source", "frozen-selection"],
-        "roles": [
-            {
-                "name": "views",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
-                "direction": "input",
-                "minimum": 0,
-                "maximum": None,
-                "collection": "set",
-                "presence": "optional",
-                "support": {
-                    "provenance": "exact",
-                    "source": "same-original",
-                    "coverage": "qualified-selected-population",
-                    "identity_requirements": ["episode"],
-                },
-                "subject_field": "document_subject",
-            },
-            {
-                "name": "projection",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
-                "direction": "input",
-                "minimum": 0,
-                "maximum": None,
-                "collection": "set",
-                "presence": "optional",
-                "support": {
-                    "provenance": "exact",
-                    "source": "same-original",
-                    "coverage": "qualified-selected-population",
-                    "identity_requirements": ["episode"],
-                },
-                "subject_field": "document_subject",
-            },
-        ],
-        "applicability": ["admitted-selected-populations"],
-        "invariants": ["original-subject-and-source-preserved"],
-        "coverage": "qualified-selected-population",
-        "outcomes": ["selected", "unavailable", "invalid"],
-        "precision": "exact",
-        "dependencies": [],
-        "effects": [],
-        "capabilities": {
-            "forms": ["scalar"],
-            "preparation": "none",
-            "cancellation": "call-boundary",
-            "ownership": "immutable-selection",
-        },
-        "behavior": "retained-binding-selection-v1",
-        "parameters": {"projection_digest": {"value_type": "string", "required": False}},
-        "binding": {
-            "operator": "choice",
-            "choice_parameter": "source_selection",
-            "children": [
-                {
-                    "operator": "forall",
-                    "roles": ["views"],
-                    "population": "eligible-source-views",
-                    "children": [
-                        {
-                            "operator": "literal",
-                            "fields": [
-                                {
-                                    "role": "views",
-                                    "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
-                                    "field": "analysis_eligible",
-                                }
-                            ],
-                            "value": True,
-                        }
-                    ],
-                },
-                {
-                    "operator": "forall",
-                    "roles": ["projection"],
-                    "population": "selected-projection-views",
-                    "children": [
-                        {
-                            "operator": "literal",
-                            "fields": [
-                                {
-                                    "role": "projection",
-                                    "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
-                                    "field": "analysis_eligible",
-                                }
-                            ],
-                            "value": True,
-                        },
-                        {
-                            "operator": "equal",
-                            "operands": [
-                                {
-                                    "kind": "field",
-                                    "value_type": "DdoBindingText",
-                                    "field": {
-                                        "role": "projection",
-                                        "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
-                                        "field": "projection_digest",
-                                    },
-                                },
-                                {
-                                    "kind": "parameter",
-                                    "name": "projection_digest",
-                                    "value_type": "DdoBindingText",
-                                },
-                            ],
-                        },
-                        {
-                            "operator": "cardinality",
-                            "roles": ["projection"],
-                            "minimum": 1,
-                            "maximum": 1,
-                        },
-                    ],
-                },
-            ],
-        },
-    }
 
     def __init__(self) -> None:
         self._worker: HostedGliner | None = None
@@ -486,81 +362,10 @@ class M1Candidates:
             self._worker.close()
         self._worker = None
 
-    def select_bound(self, binding: BindingResult) -> BoundConsumerSelection:
-        """Consume the target operation's retained relational selection unchanged."""
-        return BoundConsumerSelection.from_binding(
-            binding, operation=self.__selection_operation__["id"]
-        )
 
-    def select_bound_native(
-        self, connection, model, binding, *, demand_id, read_id, trust_snapshot, max_bytes
-    ):
-        from corpus_structure.semantic.data_operation_consumers import hydrate_consumer_selection
 
-        selected = self.select_bound(binding)
-        hydrated = hydrate_consumer_selection(
-            connection,
-            model,
-            selected,
-            demand_id=demand_id,
-            read_id=read_id,
-            trust_snapshot=trust_snapshot,
-            max_bytes=max_bytes,
-        )
-        return self.select_hydrated(hydrated)
 
-    def select_hydrated(self, inputs):
-        import json
 
-        from corpus_structure.semantic.data_operation_identity import decode_semantic_value
-
-        self.select_bound(inputs.selection.binding)
-        name = json.loads(inputs.selection.binding.choices).get("source_selection")
-        if name not in {"views", "projection"}:
-            raise ValueError("M1 consumer lacks its frozen source selection branch")
-        values = inputs.role(name)
-        parameters = decode_semantic_value(json.loads(inputs.selection.binding.parameters))
-        digest = parameters.get("projection_digest") if name == "projection" else None
-        selected = _select_eligible_projection(tuple(value.value() for value in values), digest)
-        if len(selected) != len(values):
-            raise ValueError("retained projection binding includes an ineligible view")
-        return values
-
-    def select(self, run, cfg):
-        rows = tuple(
-            dict(
-                view=view,
-                analysis_eligible=view.analysis_eligible,
-                projection_digest=view.projection_digest,
-            )
-            for view in run.reader.source_views()
-        )
-        selected = _select_eligible_projection(rows, cfg.source_projection_digest)
-        return tuple(
-            UnitRef(TaskUnitType.SOURCE_VIEW, row["view"].id, row["view"].key) for row in selected
-        )
-
-    def input_digest(self, unit, cfg):
-        if unit.ref.unit_id is None:
-            raise ValueError("M1 requires a selected source view")
-        view = unit.run.reader.source_view(unit.ref.unit_id)
-        from corpus_structure.methods.m1_annotations import consume_annotations
-
-        _, _, annotation_result = consume_annotations(
-            unit.run.reader, view, AnnotationProfile(cfg.sentences)
-        )
-        return Digest(
-            canonical_bytes(
-                dict(
-                    policy=cfg.policy,
-                    native=view.ref.native_product.values(),
-                    projection=view.ref.projection_digest,
-                    recipe=view.ref.recipe_digest,
-                    annotation_product=sha256(canonical_bytes(annotation_result)).hexdigest(),
-                    context_membership=unit.run.reader.source_context_membership(view.ref.id),
-                )
-            )
-        )
 
     def _resident(self, profile, *, providers=None, native_profile=None):
         if self._worker is None:

@@ -40,25 +40,16 @@ def retained(operation):
     )
 
 
-def test_real_consumer_selection_handoff_preserves_exact_original_roles():
-    from corpus_structure.methods.contextual_candidates import ContextualCandidates
-    from corpus_structure.methods.m1_source import M1Candidates
-    from corpus_structure.methods.structural_products import StructuralComparisonMethod
-
-    for consumer in (
-        M1Candidates(),
-        StructuralComparisonMethod(),
-        ContextualCandidates(),
-    ):
-        binding = retained(consumer.__selection_operation__["id"])
-        selected = consumer.select_bound(binding)
-        assert selected.binding is binding
-        assert selected.role("views").members[0].subject == "view:original"
-        assert selected.subject == "document:consumer"
-        with pytest.raises(ValueError, match="another operation"):
-            consumer.select_bound(replace(binding, operation="unrelated"))
-        with pytest.raises(ValueError, match="sufficient"):
-            consumer.select_bound(replace(binding, status="awaiting-population"))
+def test_retained_handoff_preserves_exact_roles_and_refuses_another_operation():
+    binding = retained("admitted-selection")
+    selected = BoundConsumerSelection.from_binding(binding, operation="admitted-selection")
+    assert selected.binding is binding
+    assert selected.role("views").members[0].subject == "view:original"
+    assert selected.subject == "document:consumer"
+    with pytest.raises(ValueError, match="another operation"):
+        BoundConsumerSelection.from_binding(binding, operation="unrelated")
+    with pytest.raises(ValueError, match="sufficient"):
+        BoundConsumerSelection(replace(binding, status="awaiting-population"))
 
 
 def test_consumer_handoff_refuses_ambiguous_or_undeclared_role():

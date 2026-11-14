@@ -10,11 +10,12 @@ from types import SimpleNamespace
 import pytest
 from methods.m1_producer_support import view
 
+from semantic.sealed_contextual_fixture import contextual_descriptor, contextual_fixture_inputs, contextual_fixture_result
+
 from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
-    ContextualCandidatesWithQueryContext,
     ContextualQueryConfig,
 )
 from corpus_structure.methods.contextual_embeddings import identity
@@ -229,9 +230,6 @@ def test_detached_section_replay_requires_complete_witnesses(
     def unavailable(_profile):
         raise OSError("controlled encoder failure")
 
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", unavailable
-    )
     config = ContextualQueryConfig(
         characterization_layers=tuple(pin.values() for pin in primary_layers),
         source_dependency_method="structure.scoped_relations",
@@ -263,13 +261,9 @@ def test_detached_section_replay_requires_complete_witnesses(
         source_result=lambda *_: scoped["body"],
         contextual_section_headings=heading_targets,
     )
-    producer = ContextualCandidatesWithQueryContext()
-    producer.version = version  # Historical literal-only v11 remains independently replayable.
-    (result,) = producer.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, source.ref.key)),),
-        config,
-        SimpleNamespace(reader=reader, check_active=lambda: None),
-    )
+    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, config), config,
+        UnitRef(TaskUnitType.SOURCE_VIEW, 7, source.ref.key), version=version,
+        neighborhood=reader.contextual_mutual_neighbors)
     configuration = config.model_dump(mode="json")
     retained = json.loads(
         canonical_bytes(

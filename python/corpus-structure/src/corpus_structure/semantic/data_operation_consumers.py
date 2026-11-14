@@ -14,8 +14,6 @@ from typing import Any
 
 from .data_operation_bindings import BindingResult
 from .data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
-from .python_operation_sources import PythonSource
-from .types import SourceArtifact
 
 
 @dataclass(frozen=True)
@@ -52,84 +50,6 @@ class BoundConsumerSelection:
         if len(matches) != 1:
             raise ValueError("consumer selection does not declare role: " + name)
         return matches[0]
-
-
-def consumer_selection_declarations(
-    sources: tuple[PythonSource, ...],
-) -> tuple[SourceArtifact, ...]:
-    """Extract only colocated literal selection contracts from captured source bytes.
-
-    This explicit declaration route never imports target implementations. The
-    ordinary closed compiler owns their validation and resulting semantic meaning.
-    """
-    import ast
-
-    import libcst as cst
-
-    from .identity import canonical_bytes
-
-    class Contracts(cst.CSTVisitor):
-        def __init__(self, module: cst.Module, source: PythonSource) -> None:
-            self.module = module
-            self.source = source
-            self.operations: list[dict] = []
-
-        def visit_ClassDef(self, node: cst.ClassDef) -> None:
-            body = node.body.body if isinstance(node.body, cst.IndentedBlock) else ()
-            values = []
-            for statement in body:
-                if not isinstance(statement, cst.SimpleStatementLine):
-                    continue
-                for small in statement.body:
-                    if isinstance(small, cst.Assign) and any(
-                        isinstance(target.target, cst.Name)
-                        and target.target.value == "__selection_operation__"
-                        for target in small.targets
-                    ):
-                        values.append(ast.literal_eval(self.module.code_for_node(small.value)))
-                    elif (
-                        isinstance(small, cst.AnnAssign)
-                        and isinstance(small.target, cst.Name)
-                        and small.target.value == "__selection_operation__"
-                    ):
-                        if small.value is None:
-                            raise ValueError("consumer selection contract lacks a literal value")
-                        values.append(ast.literal_eval(self.module.code_for_node(small.value)))
-            if len(values) > 1:
-                raise ValueError("one class cannot declare conflicting selection contracts")
-            if values:
-                operation = values[0]
-                if not isinstance(operation, dict) or operation.get("profile") != "selection":
-                    raise ValueError("consumer selection contract requires selection profile")
-                methods = [
-                    member
-                    for member in body
-                    if isinstance(member, cst.FunctionDef)
-                    and member.name.value == "select_hydrated"
-                ]
-                if len(methods) != 1:
-                    raise ValueError(
-                        "selection owner requires one explicit select_hydrated implementation"
-                    )
-                operation["consumer_selection"] = {
-                    "entrypoint": self.source.module + "." + node.name.value + ".select_hydrated",
-                    "source_digest": sha256(self.source.content).hexdigest(),
-                }
-                self.operations.append(operation)
-
-    declarations = []
-    for source in sources:
-        module = cst.parse_module(source.content)
-        contracts = Contracts(module, source)
-        module.visit(contracts)
-        if contracts.operations:
-            declarations.append(
-                SourceArtifact(
-                    "consumer-selection:" + source.module,
-                    canonical_bytes({"version": MODEL_VERSION, "operations": contracts.operations}),
-                )
-            )
-    return tuple(declarations)
 
 
 @dataclass(frozen=True)

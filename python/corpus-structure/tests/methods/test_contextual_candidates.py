@@ -7,13 +7,14 @@ from typing import Any
 
 import pytest
 
+from semantic.sealed_contextual_fixture import contextual_descriptor, contextual_fixture_inputs, contextual_fixture_result
+
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
-    ContextualCandidates,
-    ContextualCandidatesWithQueryContext,
+    ContextualQueryConfig,
     explicit_definition_section,
     relationship_contributions,
     retained_occurrences,
@@ -267,7 +268,7 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
         source_view_id=source.ref.id,
     )
     (named,) = [row for row in inspection.matches if row.kind == "section_citation"]
-    cfg = ContextualCandidatesWithQueryContext.Config(
+    cfg = ContextualQueryConfig(
         characterization_layers=tuple(pin.values() for pin in primary_layers),
         source_dependency_method="structure.scoped_relations",
         section_sources=(cue_ref, destination),
@@ -312,10 +313,6 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     def unavailable(_profile):
         raise OSError("encoder unavailable")
 
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation",
-        (lambda _profile: ()) if provider_available else unavailable,
-    )
 
     def encoded(items, profile, **_kwargs):
         digest = "a" * 64
@@ -342,7 +339,6 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
         )
         return EncoderResult(profile.profile_id, (), vectors, ())
 
-    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
 
     def retrieve(**request):
         (wrong,) = [target for target in targets if target.designator != "6.2"]
@@ -421,7 +417,8 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
 
-    (result,) = ContextualCandidatesWithQueryContext().run((unit,), cfg, ctx)
+    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref,
+        encode=encoded if provider_available else None, retrieve=retrieve, neighborhood=reader.contextual_mutual_neighbors)
     assert result.contribution_operations is not None
     for operation in result.contribution_operations:
         contextual_report_release.validate_python("SourceContributionOperation", operation)
@@ -652,15 +649,11 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
     )
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
-    )
-    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
     if isinstance(failure, DatabaseOperationCancelled):
         with pytest.raises(DatabaseOperationCancelled):
-            ContextualCandidates().run((unit,), cfg, ctx)
+            contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref, encode=encoded, retrieve=retrieve, version="7")
         return
-    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
+    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref, encode=encoded, retrieve=retrieve, version="7")
     assert result.contribution_operations is not None
     first, *phases = result.contribution_operations
     report = first["contextual_enrichment"]
@@ -872,7 +865,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
 
-    method = ContextualCandidatesWithQueryContext
+    method = contextual_descriptor()
     quoted = subject != "section"
     spelling = {"term": "Expected definition", "identifier": "PX:18.1", "section": "Section 6.2"}[
         subject
@@ -1043,7 +1036,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         )
         frame_pin = frame_report.reference(99)
         primary_layers = {**primary_layers, frame_pin: frame_report}
-        cfg = method.Config.model_validate(
+        cfg = ContextualQueryConfig.model_validate(
             {
                 **cfg.model_dump(),
                 "characterization_layers": tuple(pin.values() for pin in primary_layers),
@@ -1060,7 +1053,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         )
 
     else:
-        cfg = method.Config.model_validate(
+        cfg = ContextualQueryConfig.model_validate(
             {**cfg.model_dump(), "required_occurrence_ids": (original["occurrence_id"],)}
         )
 
@@ -1140,14 +1133,11 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         contextual_mutual_neighbors=lambda _: {"directed_ranks": [], "edges": []},
         prepared=SimpleNamespace(release_id="release"),
     )
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
-    )
-    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
 
-    (result,) = method().run((unit,), cfg, ctx)
+    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref,
+        encode=encoded, retrieve=retrieve, neighborhood=reader.contextual_mutual_neighbors)
     assert set(looked_up) == {wrong.reference.component_id, right.reference.component_id}
     assert result.contribution_operations is not None
     primary, retrieval, selection = result.contribution_operations
@@ -1188,7 +1178,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             {
                 "origin_task_id": 8,
                 "origin_unit_id": source.ref.id,
-                "method": ContextualCandidates.name,
+                "method": "retrieve.contextual",
                 "configuration": cfg.model_dump(mode="json"),
                 "body": {
                     "source": source.ref.key,
