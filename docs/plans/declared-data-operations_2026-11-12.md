@@ -1290,3 +1290,30 @@ service owner; no native guard was weakened. Later native-source changes need th
 
 All commands remain targeted. Passing identities are not repeated after repairs; no cancelled campaign,
 repository health sweep, persistent deployment, activation or adoption is resumed.
+
+**Native integration, 2026-11-14:** [context/witness authoring](../design_review/evidence/2026-11-14_ddo-context-witnesses/README.md)
+registered `semantic_ddo_context_v1` after `semantic_ddo_stream_v1`. Final preview
+`12feeb152c4b4d63b73f4891c4b0d7d1`, rollback-only candidate `d994557667c0418db1fb56d8e7daf5b6`,
+registration `7d913f6dd00e4cae979a04bde8e9cc07` and evidence finalize
+`e82001f6a5314adc9cace7671a037dbd` **passed**. Inspection accounts for29 native transitions,
+zero ordinary schema operations and one explicitly retired unused subject-binding overload.
+The persistent revision/OID/system remain unchanged. The evidence owner retains both earlier
+failed authoring attempts and the reason each was replaced.
+
+New native scope14 `b6ca89acc86b4b8a88799bb0373dd5ad` **failed**,4passed/10failed.
+Six negative grouped-pin cases stopped at strict Python tuple-versus-JSON test input validation;
+two CLI cases borrowed the maintenance engine instead of the actual writer purpose. Their focused
+test repairs preserve the production boundaries, and replacement8 is running. The positive grouped
+publication and qualified-context fan-in cases exposed genuine shared defects: unordered source
+members retain equal source positions, while native support correlation and physical derivation
+input slots incorrectly assume unique role/position. Their repair must retain actual wire/source
+positions and semantic identity while correlating exact member support and assigning unique physical
+ledger slots. The shared executor/binding owner is implementing that repair for the next immutable
+successor; the four passing native identities will not be repeated.
+
+The installed retry command also exposed a missing diagnostic view when recollection itself fails.
+`49fbd57e28974e1ebbd942d5a04d8464` **failed** after a malformed fixture import was integrated.
+The import placement is repaired. Recollection now retains its collection receipt under the existing
+lane artifact, makes `ci test failures` useful, states functional execution `not_run`, and points back
+to the original exact retry rather than a broad lane. Installed focused control1 **passed**,
+`f9926f049e88454fbc33c739c8bb7610`. Original failed receipts remain unchanged.
