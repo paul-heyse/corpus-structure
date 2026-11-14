@@ -112,3 +112,73 @@ def test_target_definition_component_retains_semantic_witness_and_independent_do
         for reference in witness["primary_evidence"]
     )
     assert "parser" not in witness and "task_id" not in canonical_bytes(witness).decode()
+
+
+def applicability_case():
+    from corpus_structure.semantic.contextual_links import RelationshipDecision, RelationshipEdge
+    from corpus_structure.semantic.contextual_operations import ContextualRelationshipBinding
+    from corpus_structure.semantic.contextual_retrieval import SemanticTargetGroup, target_representation
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.declared_structural_references import DeclaredComponentRef, DeclaredRelationshipRef, DeclaredStructuralSource
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, evidence_anchor, source_slice
+    from corpus_structure.semantic.structural_admission import structural_statement
+    from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsProduct, DeclaredDefinitionComponentsReport, DeclaredStructuralInput, DeclaredStructuralInputPin
+
+    source, native, canonical, hanlp = case()
+    product = produce(source, native, canonical, hanlp)
+    frame = DeclaredNativeFrameSource(source.content.decode(), canonical_bytes(native[0].source.values()).decode())
+    source_ref = DeclaredStructuralSource.model_validate(frame.pin.values())
+    target_passage = passage(source).model_copy(update={"source_ref": source_ref.identity})
+    component = primary_declaration_component_products((product,), source, target_passage, supporting=(hanlp,), source_pin=frame.pin.values())
+    source_pin = DeclaredStructuralInputPin(product_id=source_ref.source_product, member_id=source_ref.source_member, reference=source_ref.source, kind_contract=source_ref.kind_contract, project_id=source_ref.project_id, subject=source_ref.subject, original_source=source_ref.original_source, analyzed_scope_meaning=source_ref.analyzed_scope_meaning)
+    inputs = DeclaredStructuralInput(question="Read local definition", scope="local", inventory_id="selected", policy_id="retained-declaration-chain-v2", sources=(source_ref,), passages=(target_passage,), dependencies=(product.semantic_id, hanlp.semantic_id))
+    report = DeclaredDefinitionComponentsReport(inputs=inputs, definition_components=DeclaredDefinitionComponentsProduct(components=(component,), stages=()), sources_input=(source_pin,))
+    context = {key: getattr(source_pin, key) for key in ("kind_contract", "project_id", "subject", "original_source", "analyzed_scope_meaning")}
+    component_ref = DeclaredComponentRef(product_id="product:component-report", structural_id=report.product_id, component_id=component.component_id, **context)
+    relationship_ref = DeclaredRelationshipRef(product_id="product:relationship", edge_id="edge:selected", **context)
+    usage = target_passage.model_copy(update={"passage_id": "usage", "start": component.term.start, "end": component.term.end, "text": component.term.text})
+    inputs = inputs.model_copy(update={"passages": (*inputs.passages, usage)})
+    native_context = NativeSourceContext(frame, (), (source_slice(frame, usage.start, usage.end),), "usage", "fixture", "exact", max_chars=len(usage.text), max_pieces=256, max_sources=1, version=2, preparation=PreparedNativeSources((frame,), max_sources=1))
+    anchors = tuple(evidence_anchor(native_context, piece, native=True)[0] for piece in native_context.map_span(0, len(usage.text), literal=usage.text, allow_multiple=True))
+    target = target_representation(component.component_id, canonical_bytes(component_ref.model_dump(mode="json", exclude_none=True)).decode(), component.term.text, component.content.text, type_name="definition", scope=component.scope)
+    meaning = structural_statement(report, component.component_id)["definition_component"]
+    group = SemanticTargetGroup("semantic-target:selected", (component.component_id,), meaning)
+    edge = RelationshipEdge("edge:selected", "definition", "occurrence:usage", group.target_id, (component.component_id,), "defined-by", (), "forced")
+    decision = RelationshipDecision("decision:selected", "candidates:usage", "occurrence:usage", "local", None, "introduction", "exclusions:none", "selected", (), (), (edge,), (), (), None, None, frame.pin.values()["source"], ())
+    binding = ContextualRelationshipBinding(decision, edge, group, (target,), frame.pin.values(), anchors)
+    return inputs, report, component_ref, relationship_ref, binding, frame
+
+
+def test_declared_applicability_preserves_unknown_transfer_and_explicit_introduction():
+    from corpus_structure.semantic.definition_applicability_products import selected_definition_applicability
+
+    inputs, report, component, relationship, binding, frame = applicability_case()
+    contextual = selected_definition_applicability(inputs, "usage", report, component, relationship, binding, usage_frame=frame)
+    assert contextual.outcome == "unresolved"
+    assert {row.dimension for row in contextual.premises if row.state == "unknown"} == {"parent", "parameterization", "convention"}
+    introduced = selected_definition_applicability(inputs, "usage", report, component, relationship, binding, usage_frame=frame, defining_occurrence=True)
+    assert introduced.outcome == "applicable_definition"
+    assert introduced.component_ref == component and introduced.link_ref == relationship
+    assert all(row.state in {"compatible", "inapplicable"} for row in introduced.premises)
+
+
+@pytest.mark.parametrize("change", ["carrier", "meaning", "usage", "edge"])
+def test_declared_applicability_refuses_carrier_meaning_usage_or_edge_substitution(change):
+    from dataclasses import replace
+
+    from corpus_structure.semantic.definition_applicability_products import selected_definition_applicability
+
+    inputs, report, component, relationship, binding, frame = applicability_case()
+    if change == "carrier":
+        from corpus_structure.semantic.contextual_retrieval import target_representation
+        actual = binding.representations[0]
+        foreign = target_representation(actual.target_id, "another actual carrier", actual.label, actual.description, type_name="definition", scope=actual.scope)
+        binding = replace(binding, representations=(foreign,))
+    elif change == "meaning":
+        binding = replace(binding, target=replace(binding.target, meaning={**binding.target.meaning, "interpretation": "explanation"}))
+    elif change == "usage":
+        binding = replace(binding, anchors=())
+    else:
+        relationship = relationship.model_copy(update={"edge_id": "edge:other"})
+    with pytest.raises(ValueError, match="component reference|meaning|physical occurrence|relationship edge"):
+        selected_definition_applicability(inputs, "usage", report, component, relationship, binding, usage_frame=frame)

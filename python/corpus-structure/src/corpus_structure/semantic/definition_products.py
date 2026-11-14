@@ -16,6 +16,9 @@ from .types import PreparedRelease, SourceArtifact
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
     "methods/definition_declared.py", "semantic/definition_products.py",
+    "methods/definition_applicability_declared.py", "semantic/definition_applicability_products.py",
+    "methods/definition_applicability.py", "semantic/structural_admission.py",
+    "semantic/contextual_operations.py", "semantic/contextual_retrieval.py", "semantic/contextual_links.py",
     "methods/definition_declaration.py", "semantic/constructions/retained_declarations.py",
     "semantic/structural_products.py", "semantic/declared_structural_references.py",
     "semantic/declared_record_sources.py", "semantic/construction_products.py",
@@ -25,15 +28,16 @@ _PATHS = (
 
 
 def definition_inputs(bundle):
-    from .construction_products import construction_product_inputs
+    from .declaration_products import declaration_inputs
     from .declared_structural_calls import structural_inputs
     from .hanlp_products import hanlp_product_inputs
+    from .contextual_operations import contextual_inputs
 
     if "data_operation_constructions" not in {source.name for source in bundle.sources}:
-        bundle = construction_product_inputs(bundle)
+        bundle = declaration_inputs(bundle)
     if "data_operation_hanlp" not in {source.name for source in bundle.sources}:
         bundle = hanlp_product_inputs(bundle)
-    return structural_inputs(bundle)
+    return structural_inputs(contextual_inputs(bundle))
 
 
 def definition_profile_assets():
@@ -48,7 +52,10 @@ def definition_operation_sources():
 
     return PythonSourceCollection(tuple(
         PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve()))
-        for name in ("methods/definition_declared.py", "semantic/definition_products.py", "semantic/data_operation_prepared_call.py")
+        for name in ("methods/definition_declared.py", "semantic/definition_products.py",
+    "methods/definition_applicability_declared.py", "semantic/definition_applicability_products.py",
+    "methods/definition_applicability.py", "semantic/structural_admission.py",
+    "semantic/contextual_operations.py", "semantic/contextual_retrieval.py", "semantic/contextual_links.py", "semantic/data_operation_prepared_call.py")
     ), boundary_contracts=(definition_profile_assets(),))
 
 
@@ -131,9 +138,16 @@ def definition_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], c
     return DefinitionDeclarationOperation(PreparedDefinitionInputs(prepared, roles, context, check_active)).run(**arguments)
 
 
+def applicability_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
+    from corpus_structure.methods.definition_applicability_declared import DefinitionApplicabilityOperation
+
+    return DefinitionApplicabilityOperation(PreparedDefinitionInputs(prepared, roles, context, check_active)).run(**arguments)
+
+
 @dataclass
 class DefinitionCallPlan:
     prepared: PreparedRelease
+    kernel: Callable = definition_kernel
     port: Any = None
 
     def verify(self):
@@ -147,23 +161,29 @@ class DefinitionCallPlan:
 
         if binding is None or binding.subject_context is None:
             raise ValueError("definition call requires its exact qualified binding")
-        signature = inspect.signature(definition_kernel, eval_str=True)
+        signature = inspect.signature(self.kernel, eval_str=True)
         bound = signature.bind(arguments=arguments.arguments, roles=binding.roles, context=binding.subject_context, prepared=self.prepared, check_active=check_active)
         captured = definition_operation_sources()
-        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in captured.sources), "corpus_structure.semantic.definition_products.definition_kernel", (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
+        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in captured.sources), "corpus_structure.semantic.definition_products." + self.kernel.__name__, (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
         reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.verify, execution_owner=execution_owner, check_active=check_active)
         return PreparedCallResult(json.loads(reply.content), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
 
 
 def resolve_definition_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.definition_declared import DefinitionDeclarationOperation
+    from corpus_structure.methods.definition_applicability_declared import DefinitionApplicabilityOperation
+    from .definition_applicability_products import execute_definition_applicability
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
     selected = model.operation(operation)
-    if selected.semantic_id != DefinitionDeclarationOperation.__data_operation__["id"]:
+    if selected.semantic_id == DefinitionDeclarationOperation.__data_operation__["id"]:
+        receiver, kernel = DefinitionDeclarationOperation(None), definition_kernel
+    elif selected.semantic_id == DefinitionApplicabilityOperation.__data_operation__["id"]:
+        receiver, kernel = DefinitionApplicabilityOperation(None), applicability_kernel
+    else:
         raise PortRefusal("definition factory differs from its governing operation")
-    receiver, plan = DefinitionDeclarationOperation(None), DefinitionCallPlan(prepared)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.definition_products.DefinitionCallPlan.plan", authorize, (definition_profile_assets(),), definition_operation_sources(), functions=(("corpus_structure.semantic.definition_products.definition_kernel", definition_kernel), ("corpus_structure.semantic.definition_products.execute_definition_declaration", execute_definition_declaration), ("corpus_structure.semantic.definition_products.PreparedDefinitionInputs.declaration", PreparedDefinitionInputs.declaration)), requires_prepared_schema=True)
+    plan = DefinitionCallPlan(prepared, kernel)
+    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.definition_products.DefinitionCallPlan.plan", authorize, (definition_profile_assets(),), definition_operation_sources(), functions=(("corpus_structure.semantic.definition_products." + kernel.__name__, kernel), ("corpus_structure.semantic.definition_products.execute_definition_declaration", execute_definition_declaration), ("corpus_structure.semantic.definition_applicability_products.execute_definition_applicability", execute_definition_applicability), ("corpus_structure.semantic.definition_products.PreparedDefinitionInputs.declaration", PreparedDefinitionInputs.declaration)), requires_prepared_schema=True)
     plan.port = port
     return port

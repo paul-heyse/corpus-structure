@@ -1282,6 +1282,13 @@ def assess_applicability(
     *,
     defining_occurrence: bool = False,
 ) -> StructuralDefinitionReading:
+    return StructuralDefinitionReading(**applicability_reading_values(
+        inputs, usage_id, candidate, defining_occurrence=defining_occurrence
+    ))
+
+
+def applicability_reading_values(inputs, usage_id, candidate, *, defining_occurrence=False):
+    """Reference-neutral compatibility policy shared by current and sealed readers."""
     usage = next(p for p in inputs.passages if p.passage_id == usage_id)
     component = candidate.component
     dimensions = {p.dimension for p in candidate.premises}
@@ -1340,7 +1347,7 @@ def assess_applicability(
             if component.interpretation == "definition"
             else "applicable_explanation"
         )
-    return StructuralDefinitionReading(
+    return dict(
         target_id=candidate.target_id,
         component_ref=candidate.reference,
         link_ref=candidate.link_ref,
