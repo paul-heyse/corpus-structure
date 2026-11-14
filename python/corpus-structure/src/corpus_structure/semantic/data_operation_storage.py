@@ -711,7 +711,15 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
-                    **({"output_witnesses": [asdict(group) for group in operation.output_witnesses]} if operation.output_witnesses else {}),
+                    **(
+                        {
+                            "output_witnesses": [
+                                asdict(group) for group in operation.output_witnesses
+                            ]
+                        }
+                        if operation.output_witnesses
+                        else {}
+                    ),
                     "policy": operation.support_policy,
                     "outcomes": operation.outcomes,
                     "replicate_policy": operation.replicate_policy,

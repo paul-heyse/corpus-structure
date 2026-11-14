@@ -1276,6 +1276,8 @@ and M1 paths. Full-document composition consumes compact member projections.
 its primary-profile compile failed and remains failed pending an exact replacement. Subsequent failed
 compile-only retries `f029334d2d134b2d9cb07423eca7a2b6` and `9ddc535328a04ec088287580134f7253`
 retain declaration predicate/literal errors; repairs do not rerun the six passing controls.
+The final exact compile-only replacement **passed**, `9751471c74fb4e20917cee812f6da793`,
+after expressing profile eligibility with supported membership over raw typed declaration literals.
 **passed:** `uv run ci test --json --` the five previously environment-failed M1 producer identities,
 `085bf5449db24044b0c8252f322f9788`; new CLI pre-acquisition refusal controls3,
 `5ef12800b44c48dea9ef44311fa43dfe`. No complete-provider or whole-plan qualification follows.
