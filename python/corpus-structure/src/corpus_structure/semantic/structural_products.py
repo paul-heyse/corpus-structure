@@ -1167,6 +1167,19 @@ class DeclaredClauseModelReading(StructuralValue):
 class DeclaredClauseClassificationProduct(StructuralValue):
     context_policy: Literal["exact_focus", "adjacent_sentences"]
     readings: tuple[DeclaredClauseModelReading, ...]
+    inspection_outcome: Literal["complete", "partial"] = "complete"
+    inspected_frames: tuple[DeclaredContributionRef, ...] = ()
+    unprojectable_frames: tuple[DeclaredContributionRef, ...] = ()
+
+    @model_validator(mode="after")
+    def inspected_closure(self) -> Self:
+        inspected, unavailable = set(self.inspected_frames), set(self.unprojectable_frames)
+        projected = {reading.selection.frame for reading in self.readings}
+        if len(inspected) != len(self.inspected_frames) or len(unavailable) != len(self.unprojectable_frames) or not unavailable <= inspected or projected & unavailable or projected | unavailable != inspected:
+            raise ValueError("clause inspection must retain its exact distinct inspected frame closure")
+        if unavailable and self.inspection_outcome != "partial":
+            raise ValueError("unprojectable clause frames require partial inspection")
+        return self
 
 
 class DeclaredSourceArtifactOccurrence(StructuralValue):
@@ -1505,7 +1518,9 @@ def _structural_report_invariants(value: Any) -> Any:
     if value.clause_classification is not None:
         by_id = {p.passage_id: p for p in value.inputs.passages}
         readings = value.clause_classification.readings
-        if not readings or len({r.selection for r in readings}) != len(readings):
+        if isinstance(value.clause_classification, DeclaredClauseClassificationProduct) and any(reference.product_id not in value.inputs.dependencies or reference.contribution_id not in value.inputs.dependencies for reference in value.clause_classification.inspected_frames):
+            raise ValueError("clause inspection lacks its actual retained native frame dependencies")
+        if (not readings and not isinstance(value.clause_classification, DeclaredClauseClassificationProduct)) or len({r.selection for r in readings}) != len(readings):
             raise ValueError("clause classification requires distinct selected focuses")
         for row in readings:
             passage = by_id.get(row.selection.passage_id)

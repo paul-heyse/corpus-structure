@@ -973,8 +973,9 @@ class PreparedLearnedPrimaryPort:
                     selected.product, canonical_bytes(inputs[name])
                 )
         from .data_operation_identity import decode_semantic_value
+        from .data_operation_bindings import effective_binding_parameters
 
-        parameters = decode_semantic_value(json.loads(binding.parameters))
+        parameters = effective_binding_parameters(self.operation, decode_semantic_value(json.loads(binding.parameters)))
         if self.profile.family in {"d1_source", "gliner_function"}:
             if set(parameters) != {"focuses"}:
                 raise PortRefusal("focal learned producer requires its exact frozen parameter selection")
