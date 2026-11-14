@@ -10,10 +10,24 @@ import json
 from collections.abc import Mapping
 
 from .data_operation_json import json_bytes, json_loads
-from .data_operation_model import BindingField, OutputWitnessComparison, OutputWitnessGroup, json_context_meaning
+from .data_operation_model import (
+    BindingField,
+    OutputWitnessComparison,
+    OutputWitnessGroup,
+    json_context_meaning,
+)
 from .data_operation_subjects import subject_field_kind, subject_field_path
 
-_HEADERS = {"product", "member", "reference", "kind_contract", "project_id", "subject", "original_source", "analyzed_scope"}
+_HEADERS = {
+    "product",
+    "member",
+    "reference",
+    "kind_contract",
+    "project_id",
+    "subject",
+    "original_source",
+    "analyzed_scope",
+}
 
 
 def _record_kind(kinds, owner, pointer):
@@ -44,10 +58,22 @@ def compile_output_witnesses(raw, roles, kinds, aliases):
     role_map = {role.name: role for role in roles}
     groups = []
     for group in raw:
-        if not isinstance(group, dict) or set(group) != {"output_role", "records", "input_role", "comparisons"}:
-            raise ValueError("output witness group requires output_role, records, input_role and comparisons")
+        if not isinstance(group, dict) or set(group) != {
+            "output_role",
+            "records",
+            "input_role",
+            "comparisons",
+        }:
+            raise ValueError(
+                "output witness group requires output_role, records, input_role and comparisons"
+            )
         output, source = role_map.get(group["output_role"]), role_map.get(group["input_role"])
-        if output is None or output.direction != "output" or source is None or source.direction != "input":
+        if (
+            output is None
+            or output.direction != "output"
+            or source is None
+            or source.direction != "input"
+        ):
             raise ValueError("output witness roles must name declared output and input roles")
         if not isinstance(group["records"], str):
             raise ValueError("output witness records require a property pointer")
@@ -56,10 +82,20 @@ def compile_output_witnesses(raw, roles, kinds, aliases):
         if not isinstance(group["comparisons"], list) or not group["comparisons"]:
             raise ValueError("output witness group requires nonempty comparisons")
         for comparison in group["comparisons"]:
-            if not isinstance(comparison, dict) or set(comparison) != {"output_field", "input", "encoding"}:
-                raise ValueError("output witness comparison requires output_field, input and encoding")
+            if not isinstance(comparison, dict) or set(comparison) != {
+                "output_field",
+                "input",
+                "encoding",
+            }:
+                raise ValueError(
+                    "output witness comparison requires output_field, input and encoding"
+                )
             field = comparison["input"]
-            if not isinstance(field, dict) or set(field) != {"role", "projection", "field"} or not all(isinstance(value, str) and value for value in field.values()):
+            if (
+                not isinstance(field, dict)
+                or set(field) != {"role", "projection", "field"}
+                or not all(isinstance(value, str) and value for value in field.values())
+            ):
                 raise ValueError("output witness input requires a qualified BindingField")
             if field["role"] != source.name:
                 raise ValueError("output witness comparisons share exactly one input role")
@@ -75,20 +111,34 @@ def compile_output_witnesses(raw, roles, kinds, aliases):
             else:
                 raise ValueError("output witness projection differs from its qualified input kind")
             encoding = comparison["encoding"]
-            expected_encoding = {"reference": "json", "analyzed_scope": "context-meaning-json"}.get(field["field"], "value") if projection == "selected-input" else "value"
+            expected_encoding = (
+                {"reference": "json", "analyzed_scope": "context-meaning-json"}.get(
+                    field["field"], "value"
+                )
+                if projection == "selected-input"
+                else "value"
+            )
             if encoding != expected_encoding:
                 raise ValueError("output witness encoding differs from its typed source field")
-            comparisons.append(OutputWitnessComparison(comparison["output_field"], BindingField(source.name, projection, field["field"]), encoding))
+            comparisons.append(
+                OutputWitnessComparison(
+                    comparison["output_field"],
+                    BindingField(source.name, projection, field["field"]),
+                    encoding,
+                )
+            )
         if len({comparison.output_field for comparison in comparisons}) != len(comparisons):
             raise ValueError("output witness output fields must be distinct within a group")
-        groups.append(OutputWitnessGroup(output.name, group["records"], source.name, tuple(comparisons)))
+        groups.append(
+            OutputWitnessGroup(output.name, group["records"], source.name, tuple(comparisons))
+        )
     return tuple(groups)
 
 
 def witness_records(value, pointer):
     """Select finite typed members; absent optional paths contribute no records."""
     values = [value]
-    for part in (() if pointer == "" else subject_field_path(pointer)):
+    for part in () if pointer == "" else subject_field_path(pointer):
         following = []
         for current in values:
             if part == "*":
@@ -123,16 +173,25 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
     for group in operation.output_witnesses:
         for body in outputs.get(group.output_role, ()):
             for record in witness_records(body, group.records):
-                def matches(row):
+
+                def matches(row, group=group, record=record):
                     for comparison in group.comparisons:
                         actual = _field(record, comparison.output_field)
                         source = comparison.input
                         if source.projection == "selected-input":
-                            expected = [row["product"], row.get("member")] if source.field == "reference" else row.get(source.field)
+                            expected = (
+                                [row["product"], row.get("member")]
+                                if source.field == "reference"
+                                else row.get(source.field)
+                            )
                         else:
                             expected = _field(row["body"], source.field)
-                        if expected is None and comparison.encoding == "value" and not (
-                            source.projection == "selected-input" and source.field == "member"
+                        if (
+                            expected is None
+                            and comparison.encoding == "value"
+                            and not (
+                                source.projection == "selected-input" and source.field == "member"
+                            )
                         ):
                             return False
                         if comparison.encoding != "value":
@@ -144,8 +203,15 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
                                 return False
                         if comparison.encoding == "context-meaning-json":
                             expected = json.loads(json_context_meaning(json_bytes(expected)))
-                        if json_context_meaning(json_bytes(actual)) != json_context_meaning(json_bytes(expected)):
+                        if json_context_meaning(json_bytes(actual)) != json_context_meaning(
+                            json_bytes(expected)
+                        ):
                             return False
                     return True
+
                 if not any(matches(row) for row in selected_inputs.get(group.input_role, ())):
-                    raise ValueError("output witness has no complete selected input member: " + group.output_role + group.records)
+                    raise ValueError(
+                        "output witness has no complete selected input member: "
+                        + group.output_role
+                        + group.records
+                    )

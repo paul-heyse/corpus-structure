@@ -271,13 +271,19 @@ def test_execute_keeps_scope_numbers_in_retained_snapshot(cli, tmp_path, monkeyp
 @pytest.mark.parametrize("invalid", ["missing-root", "missing-demand", "workflow-override"])
 def test_run_demand_refuses_incomplete_or_changed_intent_before_acquisition(cli, tmp_path, invalid):
     def refuse_settings():
-        raise AssertionError("invalid retained intent must refuse before settings or database access")
+        raise AssertionError(
+            "invalid retained intent must refuse before settings or database access"
+        )
 
     arguments = {
         "missing-root": ("--demand", "demand:exact"),
         "missing-demand": ("--source-root", str(tmp_path)),
         "workflow-override": (
-            "--demand", "demand:exact", "--source-root", str(tmp_path), "--whole-document"
+            "--demand",
+            "demand:exact",
+            "--source-root",
+            str(tmp_path),
+            "--whole-document",
         ),
     }
     result = cli("run", *arguments[invalid], settings=refuse_settings)

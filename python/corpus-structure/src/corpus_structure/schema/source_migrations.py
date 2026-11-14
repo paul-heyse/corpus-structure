@@ -13,11 +13,22 @@ from tokenize import detect_encoding
 from typing import Literal
 
 import libcst as cst
-from libcst.codemod import CodemodContext, ContextAwareTransformer, TransformSuccess, transform_module
+from libcst.codemod import (
+    CodemodContext,
+    ContextAwareTransformer,
+    TransformSuccess,
+    transform_module,
+)
 from libcst.codemod.commands.rename import RenameCommand
 from libcst.codemod.visitors import ApplyTypeAnnotationsVisitor, RemoveImportsVisitor
 from libcst.helpers import get_full_name_for_node
-from libcst.metadata import MetadataWrapper, QualifiedNameProvider, QualifiedNameSource, ScopeProvider, ParentNodeProvider
+from libcst.metadata import (
+    MetadataWrapper,
+    ParentNodeProvider,
+    QualifiedNameProvider,
+    QualifiedNameSource,
+    ScopeProvider,
+)
 from pydantic import BaseModel, ConfigDict
 
 
@@ -245,7 +256,10 @@ class _CallContextCommand(ContextAwareTransformer):
     def _check_reference(self, node):
         names = self.get_metadata(QualifiedNameProvider, node, set())
         package = self.context.full_package_name or ""
-        qualified = {resolve_name(item.name, package) if item.name.startswith(".") else item.name for item in names}
+        qualified = {
+            resolve_name(item.name, package) if item.name.startswith(".") else item.name
+            for item in names
+        }
         if self.old not in qualified:
             return
         parent = self.get_metadata(ParentNodeProvider, node, None)
@@ -295,7 +309,9 @@ def _prepare_call_context(parsed, source, name, context, request):
         before, after = ast.parse(change.before, mode="eval"), ast.parse(change.after, mode="eval")
         if not isinstance(before.body, ast.Call) or not isinstance(after.body, ast.Call):
             raise ValueError("call-context correspondence must contain call expressions")
-        if not change.context_names or any(not item.isidentifier() for item in change.context_names):
+        if not change.context_names or any(
+            not item.isidentifier() for item in change.context_names
+        ):
             raise ValueError("call-context requires explicit context identifiers")
         loaded = {node.id for node in ast.walk(after) if isinstance(node, ast.Name)}
         if not set(change.context_names) <= loaded:
@@ -307,7 +323,8 @@ def _prepare_call_context(parsed, source, name, context, request):
     if eligibility.ambiguous or eligibility.unresolved:
         raise ValueError("call-context receiver is ambiguous or unresolved")
     if any(
-        isinstance(node, ast.Name) and node.id in {"getattr", "eval", "exec", "globals", "locals", "__import__"}
+        isinstance(node, ast.Name)
+        and node.id in {"getattr", "eval", "exec", "globals", "locals", "__import__"}
         for node in ast.walk(tree)
     ):
         raise ValueError("dynamic source consumers require explicit resolution")
@@ -349,9 +366,14 @@ def _selection_call_proofs(root, request, members, inputs):
                 continue
             declarations = []
             for item in node.body:
-                if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name) and item.target.id == "__selection_operation__":
-                    declarations.append(ast.literal_eval(item.value))
-                elif isinstance(item, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "__selection_operation__" for target in item.targets):
+                if (
+                    isinstance(item, ast.AnnAssign)
+                    and isinstance(item.target, ast.Name)
+                    and item.target.id == "__selection_operation__"
+                ) or (isinstance(item, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id == "__selection_operation__"
+                    for target in item.targets
+                )):
                     declarations.append(ast.literal_eval(item.value))
             if len(declarations) != 1 or declarations[0].get("id") != request.owner:
                 continue
@@ -360,7 +382,15 @@ def _selection_call_proofs(root, request, members, inputs):
             supplied = owner.members.get(method)
             if not isinstance(supplied, griffe.Function):
                 raise ValueError("former selection callable is not directly captured")
-            proofs.append(SourceCallProof(owner=request.owner, callable=request.old_name, path=path, source_digest=inputs[path], signature=str(supplied.signature())))
+            proofs.append(
+                SourceCallProof(
+                    owner=request.owner,
+                    callable=request.old_name,
+                    path=path,
+                    source_digest=inputs[path],
+                    signature=str(supplied.signature()),
+                )
+            )
     if len(proofs) > 1:
         raise ValueError("former selection callable has ambiguous captured owners")
     return tuple(proofs)
@@ -369,10 +399,14 @@ def _selection_call_proofs(root, request, members, inputs):
 def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigrationPreview:
     if not request.owner or not request.sources or not request.roots:
         raise ValueError("source migration requires an owner, authored changes and explicit roots")
-    if request.kind in {"symbol_move", "call_context"} and (not request.old_name or not request.new_name):
+    if request.kind in {"symbol_move", "call_context"} and (
+        not request.old_name or not request.new_name
+    ):
         raise ValueError("source move requires an explicit old/new correspondence")
     if request.new_owner is not None and request.kind != "call_context":
-        raise ValueError("semantic owner correspondence is supported only for call-context migrations")
+        raise ValueError(
+            "semantic owner correspondence is supported only for call-context migrations"
+        )
     if request.kind == "call_context" and not request.calls:
         raise ValueError("call-context migration requires explicit call correspondences")
     members = source_members(root, request.roots)
@@ -383,7 +417,11 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
     if len({(item.path, item.before) for item in request.calls}) != len(request.calls):
         raise ValueError("duplicate call-context correspondence")
     inputs = {name: sha256(_path(root, name).read_bytes()).hexdigest() for name in members}
-    call_proofs = _selection_call_proofs(root, request, members, inputs) if request.kind == "call_context" else ()
+    call_proofs = (
+        _selection_call_proofs(root, request, members, inputs)
+        if request.kind == "call_context"
+        else ()
+    )
     after: dict[str, str] = {}
     outcomes: list[ConsumerOutcome] = []
     for owner in request.sources:
@@ -417,14 +455,18 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
                 try:
                     result = _prepare_call_context(parsed, source, name, context, request)
                 except ValueError as error:
-                    outcomes.append(ConsumerOutcome(path=name, state="unresolved", warnings=(str(error),)))
+                    outcomes.append(
+                        ConsumerOutcome(path=name, state="unresolved", warnings=(str(error),))
+                    )
                     continue
                 code = result.code
                 compile(code, name, "exec", dont_inherit=True)
                 changed = code != utf8_source(_path(root, name).read_bytes())
                 if changed:
                     after[name] = code
-                outcomes.append(ConsumerOutcome(path=name, state="changed" if changed else "already_satisfied"))
+                outcomes.append(
+                    ConsumerOutcome(path=name, state="changed" if changed else "already_satisfied")
+                )
                 continue
             if request.kind == "symbol_move":
                 old = request.old_name

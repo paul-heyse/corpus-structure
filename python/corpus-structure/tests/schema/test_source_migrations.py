@@ -270,44 +270,71 @@ def test_authored_source_outside_compiled_input_closure_refuses(model_checkout):
         )
 
 
-def context_migration(root, *, consumer="from api import old, new\ndef invoke(context):\n    return old(1)\n"):
+def context_migration(
+    root, *, consumer="from api import old, new\ndef invoke(context):\n    return old(1)\n"
+):
     from corpus_structure.schema.source_migrations import CallContextChange
 
     request = migration(root, consumer=consumer)
     # This proposed owner supplies a genuine separately named/context-bearing callable.
     source = request.sources[0]
     after = source.after + "def bound(x: int, context: int) -> int:\n    return x + context\n"
-    return request.model_copy(update={
-        "kind": "call_context",
-        "sources": (source.model_copy(update={"after": after}),),
-        "calls": (CallContextChange(path="src/consumer.py", before="old(1)", after="new(context)", context_names=("context",)),),
-    })
+    return request.model_copy(
+        update={
+            "kind": "call_context",
+            "sources": (source.model_copy(update={"after": after}),),
+            "calls": (
+                CallContextChange(
+                    path="src/consumer.py",
+                    before="old(1)",
+                    after="new(context)",
+                    context_names=("context",),
+                ),
+            ),
+        }
+    )
 
 
 def test_call_context_uses_explicit_qualified_owner_and_supplied_context(tmp_path):
     preview = prepare_source_migration(tmp_path, context_migration(tmp_path))
     assert preview.ready
-    assert preview.after["src/consumer.py"] == "from api import new\ndef invoke(context):\n    return new(context)\n"
+    assert (
+        preview.after["src/consumer.py"]
+        == "from api import new\ndef invoke(context):\n    return new(context)\n"
+    )
     namespace = {}
-    exec(preview.after["src/consumer.py"].replace("from api import new", "def new(value): return value + 3"), namespace)
+    exec(
+        preview.after["src/consumer.py"].replace(
+            "from api import new", "def new(value): return value + 3"
+        ),
+        namespace,
+    )
     assert namespace["invoke"](7) == 10
 
 
 def test_call_context_does_not_guess_dynamic_receiver(tmp_path):
-    request = context_migration(tmp_path, consumer="def invoke(receiver, context):\n    return receiver.old(1)\n")
+    request = context_migration(
+        tmp_path, consumer="def invoke(receiver, context):\n    return receiver.old(1)\n"
+    )
     preview = prepare_source_migration(tmp_path, request)
     assert not preview.ready
     assert any(item.state == "unresolved" for item in preview.outcomes)
 
 
 def test_call_context_refuses_context_bound_only_in_another_scope(tmp_path):
-    request = context_migration(tmp_path, consumer="from api import old, new\ndef other(context): return context\ndef invoke():\n    return old(1)\n")
+    request = context_migration(
+        tmp_path,
+        consumer="from api import old, new\ndef other(context): return context\ndef invoke():\n    return old(1)\n",
+    )
     preview = prepare_source_migration(tmp_path, request)
     assert not preview.ready
 
 
 def test_call_context_refuses_unmapped_additional_owned_call(tmp_path):
-    request = context_migration(tmp_path, consumer="from api import old, new\ndef invoke(context):\n    return old(1) + old(2)\n")
+    request = context_migration(
+        tmp_path,
+        consumer="from api import old, new\ndef invoke(context):\n    return old(1) + old(2)\n",
+    )
     preview = prepare_source_migration(tmp_path, request)
     assert not preview.ready
 
@@ -320,7 +347,9 @@ def test_call_context_refuses_shadowed_same_spelled_callable(tmp_path):
 def test_owned_call_context_preview_and_existing_apply(model_checkout):
     root, _ = model_checkout
     request = context_migration(root)
-    preview = prepare_preview(root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,)))
+    preview = prepare_preview(
+        root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,))
+    )
     assert preview.source_migrations[0].ready
     apply_preview(root, preview)
     assert "return new(context)" in (root / "src/consumer.py").read_text()
@@ -331,7 +360,9 @@ def test_call_context_correspondence_must_belong_to_effective_owner(model_checko
     root, _ = model_checkout
     request = context_migration(root).model_copy(update={"old_name": "api.unowned"})
     with pytest.raises(model.ModelError, match="owned callable"):
-        prepare_preview(root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,)))
+        prepare_preview(
+            root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,))
+        )
 
 
 def test_call_context_retains_exact_declaration_owned_selector_proof(tmp_path):
@@ -341,12 +372,32 @@ def test_call_context_retains_exact_declaration_owned_selector_proof(tmp_path):
     src.mkdir()
     before = b"class Owner:\n    __selection_operation__ = {'id': 'urn:old-selection'}\n    def select(self, view, config):\n        return view\n"
     (src / "api.py").write_bytes(before)
-    (src / "consumer.py").write_text("from api import Owner\ndef invoke(receiver, view, config, inputs):\n    return Owner.select(receiver, view, config)\n")
+    (src / "consumer.py").write_text(
+        "from api import Owner\ndef invoke(receiver, view, config, inputs):\n    return Owner.select(receiver, view, config)\n"
+    )
     request = SourceMigration(
-        kind="call_context", owner="urn:old-selection", new_owner="urn:producer",
-        sources=(AuthoredSourceChange(path="src/api.py", module="api", before=sha256(before).hexdigest(), after="class Owner:\n    def select_hydrated(self, inputs):\n        return inputs\n"),),
-        roots=(SourceRoot(path="src", module=""),), old_name="api.Owner.select", new_name="api.Owner.select_hydrated",
-        calls=(CallContextChange(path="src/consumer.py", before="Owner.select(receiver, view, config)", after="Owner.select_hydrated(receiver, inputs)", context_names=("inputs",)),),
+        kind="call_context",
+        owner="urn:old-selection",
+        new_owner="urn:producer",
+        sources=(
+            AuthoredSourceChange(
+                path="src/api.py",
+                module="api",
+                before=sha256(before).hexdigest(),
+                after="class Owner:\n    def select_hydrated(self, inputs):\n        return inputs\n",
+            ),
+        ),
+        roots=(SourceRoot(path="src", module=""),),
+        old_name="api.Owner.select",
+        new_name="api.Owner.select_hydrated",
+        calls=(
+            CallContextChange(
+                path="src/consumer.py",
+                before="Owner.select(receiver, view, config)",
+                after="Owner.select_hydrated(receiver, inputs)",
+                context_names=("inputs",),
+            ),
+        ),
     )
     preview = prepare_source_migration(tmp_path, request)
     assert preview.ready
@@ -358,8 +409,8 @@ def test_call_context_retains_exact_declaration_owned_selector_proof(tmp_path):
 
 
 def test_call_context_coordinates_removed_owner_import_and_actual_caller(tmp_path, monkeypatch):
-    from types import ModuleType
     import sys
+    from types import ModuleType
 
     request = context_migration(tmp_path)
     preview = prepare_source_migration(tmp_path, request)
@@ -373,6 +424,9 @@ def test_call_context_coordinates_removed_owner_import_and_actual_caller(tmp_pat
 
 
 def test_call_context_refuses_owned_callable_value_escape(tmp_path):
-    request = context_migration(tmp_path, consumer="from api import old, new\ndef invoke(context):\n    callback = old\n    return old(1)\n")
+    request = context_migration(
+        tmp_path,
+        consumer="from api import old, new\ndef invoke(context):\n    callback = old\n    return old(1)\n",
+    )
     preview = prepare_source_migration(tmp_path, request)
     assert not preview.ready

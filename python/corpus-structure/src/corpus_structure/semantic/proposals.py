@@ -358,13 +358,21 @@ def native_address(
     end: int | None = None,
 ) -> str:
     """Typed native address encoded canonically, never parsed as an HTML locator."""
-    from .identity import canonical_bytes
-
     from .declared_record_sources import DeclaredNativeFrameSource
+    from .identity import canonical_bytes
 
     if isinstance(frame, DeclaredNativeFrameSource):
         pin = frame.pin.values()
-        value = {name: pin[name] for name in ("source_product", "document", "projection_digest", "section_pointer", "membership")}
+        value = {
+            name: pin[name]
+            for name in (
+                "source_product",
+                "document",
+                "projection_digest",
+                "section_pointer",
+                "membership",
+            )
+        }
         if "source_member" in pin:
             value["source_member"] = pin["source_member"]
     else:

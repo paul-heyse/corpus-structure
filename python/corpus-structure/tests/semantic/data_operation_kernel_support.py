@@ -26,7 +26,10 @@ from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_consumers import consumer_selection_declarations
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, EffectiveDataOperationModel
+from corpus_structure.semantic.data_operation_model import (
+    MODEL_VERSION,
+    EffectiveDataOperationModel,
+)
 from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.identity import canonical_bytes
@@ -391,9 +394,7 @@ classes:
       complete: {range: boolean, required: true}
       members: {range: Packet, minimum_cardinality: 0, multivalued: true, inlined_as_list: true}
 """,
-        canonical_bytes(
-            {"version": MODEL_VERSION, "operations": [producer, consumer, child]}
-        ),
+        canonical_bytes({"version": MODEL_VERSION, "operations": [producer, consumer, child]}),
         MANIFEST,
     )
 

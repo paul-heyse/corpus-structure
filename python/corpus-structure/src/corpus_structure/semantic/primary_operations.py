@@ -27,7 +27,7 @@ def primary_operation_inputs(
     *,
     sentence_configuration,
     hanlp_selection,
-    dependencies: ResolvedDependencies = ResolvedDependencies(),
+    dependencies: ResolvedDependencies | None = None,
     capture_sources: PythonSourceCollection | None = None,
 ) -> PrimaryOperationInputs:
     """Acquire the selected full primary profile without starting a provider.
@@ -36,8 +36,13 @@ def primary_operation_inputs(
     by the caller. Compiled demand closure still decides which operations execute;
     captured availability does not select an operation or imply provider success.
     """
+    if dependencies is None:
+        dependencies = ResolvedDependencies()
     from .canonical_sentences import canonical_sentence_operation_sources
-    from .characterization_ports import characterization_operation_sources, full_document_view_operation_sources
+    from .characterization_ports import (
+        characterization_operation_sources,
+        full_document_view_operation_sources,
+    )
     from .construction_products import construction_product_inputs
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
@@ -45,16 +50,18 @@ def primary_operation_inputs(
     from .hanlp_products import hanlp_operation_sources, hanlp_product_inputs
     from .pdf_capture import pdf_capture_inputs
     from .pdf_domain import pdf_domain_dependencies
-    from .source_profiles import source_profile_inputs, source_profile_operation_sources
-    from .source_discovery import source_discovery_inputs, source_discovery_operation_sources
     from .sentence_products import sentence_operation_sources
+    from .source_discovery import source_discovery_inputs, source_discovery_operation_sources
+    from .source_profiles import source_profile_inputs, source_profile_operation_sources
 
     if sentence_configuration is None or hanlp_selection is None:
         raise ValueError("primary preparation requires explicitly acquired provider profiles")
     if capture_sources is not None:
         bundle = pdf_capture_inputs(bundle)
         dependencies = pdf_domain_dependencies(dependencies)
-    bundle = hanlp_product_inputs(construction_product_inputs(source_profile_inputs(source_discovery_inputs(bundle))))
+    bundle = hanlp_product_inputs(
+        construction_product_inputs(source_profile_inputs(source_discovery_inputs(bundle)))
+    )
     collections = (
         source_discovery_operation_sources(),
         source_profile_operation_sources(),
@@ -63,7 +70,9 @@ def primary_operation_inputs(
         hanlp_operation_sources(hanlp_selection, sentence_configuration=sentence_configuration),
         formal_operation_sources(),
         characterization_operation_sources(),
-        full_document_view_operation_sources(sentence_configuration=sentence_configuration, hanlp_selection=hanlp_selection),
+        full_document_view_operation_sources(
+            sentence_configuration=sentence_configuration, hanlp_selection=hanlp_selection
+        ),
     )
     if capture_sources is not None:
         collections = (*collections, capture_sources)

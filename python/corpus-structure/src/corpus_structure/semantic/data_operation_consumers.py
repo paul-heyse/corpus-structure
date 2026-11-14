@@ -8,9 +8,9 @@ It grants no native publication, hydration or effect permission.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import Any
 
 from .data_operation_bindings import BindingResult
 from .data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
@@ -101,10 +101,20 @@ def consumer_selection_declarations(
                 operation = values[0]
                 if not isinstance(operation, dict) or operation.get("profile") != "selection":
                     raise ValueError("consumer selection contract requires selection profile")
-                methods = [member for member in body if isinstance(member, cst.FunctionDef) and member.name.value == "select_hydrated"]
+                methods = [
+                    member
+                    for member in body
+                    if isinstance(member, cst.FunctionDef)
+                    and member.name.value == "select_hydrated"
+                ]
                 if len(methods) != 1:
-                    raise ValueError("selection owner requires one explicit select_hydrated implementation")
-                operation["consumer_selection"] = {"entrypoint": self.source.module + "." + node.name.value + ".select_hydrated", "source_digest": sha256(self.source.content).hexdigest()}
+                    raise ValueError(
+                        "selection owner requires one explicit select_hydrated implementation"
+                    )
+                operation["consumer_selection"] = {
+                    "entrypoint": self.source.module + "." + node.name.value + ".select_hydrated",
+                    "source_digest": sha256(self.source.content).hexdigest(),
+                }
                 self.operations.append(operation)
 
     declarations = []
@@ -116,9 +126,7 @@ def consumer_selection_declarations(
             declarations.append(
                 SourceArtifact(
                     "consumer-selection:" + source.module,
-                    canonical_bytes(
-                        {"version": MODEL_VERSION, "operations": contracts.operations}
-                    ),
+                    canonical_bytes({"version": MODEL_VERSION, "operations": contracts.operations}),
                 )
             )
     return tuple(declarations)
@@ -137,6 +145,7 @@ class SelectedConsumerValue:
 
         if self.meaning is not None:
             from .data_operation_identity import decode_semantic_value
+
             return decode_semantic_value(json.loads(self.meaning))
         return json.loads(self.content)
 
@@ -245,7 +254,8 @@ def hydrate_consumer_selection(
             if used > max_bytes:
                 raise ValueError("complete consumer inputs exceed owned packet capacity")
             values.extend(
-                SelectedConsumerValue(member, content, canonical_bytes(rows[0])) for _ in range(member.multiplicity)
+                SelectedConsumerValue(member, content, canonical_bytes(rows[0]))
+                for _ in range(member.multiplicity)
             )
         result.append((role.role, tuple(values)))
     return HydratedConsumerSelection(selection, tuple(result))
@@ -289,7 +299,11 @@ def resolve_consumer_selection(model, sources, operation, receiver, *, authorize
     capability = model.operation(operation).consumer_selection
     if capability is None:
         raise PortRefusal("operation has no captured consumer-selection capability")
-    candidates = [source for source in sources.sources if capability.entrypoint.startswith(source.module + ".")]
+    candidates = [
+        source
+        for source in sources.sources
+        if capability.entrypoint.startswith(source.module + ".")
+    ]
     if not candidates:
         raise PortRefusal("consumer implementation is outside acquired sources")
     source = max(candidates, key=lambda value: len(value.module))
@@ -309,12 +323,20 @@ def resolve_consumer_selection(model, sources, operation, receiver, *, authorize
     function = getattr(receiver, method_name)
 
     def verify():
-        if path.read_bytes() != source.content or sha256(source.content).hexdigest() != capability.source_digest:
+        if (
+            path.read_bytes() != source.content
+            or sha256(source.content).hexdigest() != capability.source_digest
+        ):
             raise PortRefusal("consumer source differs from captured capability")
         if Path(inspect.getfile(module)).resolve() != path or not inspect.ismethod(function):
             raise PortRefusal("consumer runtime differs from captured source")
         actual = inspect.getattr_static(owner, method_name)
-        if actual is not function.__func__ or actual is not entry[2] or actual.__code__ != entry[3] or actual.__globals__ is not module.__dict__:
+        if (
+            actual is not function.__func__
+            or actual is not entry[2]
+            or actual.__code__ != entry[3]
+            or actual.__globals__ is not module.__dict__
+        ):
             raise PortRefusal("consumer implementation was rebound")
 
     verify()
@@ -336,14 +358,20 @@ def resolve_prepared_factory(model, sources, operation):
     capability = model.operation(operation).capabilities.prepared_factory
     if capability is None:
         raise PortRefusal("operation has no captured prepared acquisition")
-    candidates = [source for source in sources.sources if capability.entrypoint.startswith(source.module + ".")]
+    candidates = [
+        source
+        for source in sources.sources
+        if capability.entrypoint.startswith(source.module + ".")
+    ]
     if not candidates:
         raise PortRefusal("prepared acquisition is outside acquired source")
     source = max(candidates, key=lambda value: len(value.module))
     module = importlib.import_module(source.module)
     path = Path(source.filename).resolve()
     expected = compile(source.content, str(path), "exec", dont_inherit=True)
-    entries = tuple(_runtime_members(ast.parse(source.content).body, module, expected, source.module))
+    entries = tuple(
+        _runtime_members(ast.parse(source.content).body, module, expected, source.module)
+    )
     entry = next((entry for entry in entries if entry[0] == capability.entrypoint), None)
     if entry is None or not isinstance(entry[2], staticmethod):
         raise PortRefusal("prepared acquisition requires its original static method")
@@ -353,13 +381,16 @@ def resolve_prepared_factory(model, sources, operation):
     # Existing prepared-callable validation supplies code/global-owner checks;
     # source custody below binds those checks to this acquired snapshot.
     from .data_operation_prepared_products import _verify_prepared_callable
+
     module_tree = ast.parse(source.content)
     imports = {}
     package = source.module if path.name == "__init__.py" else source.module.rpartition(".")[0]
     for node in (*module_tree.body, *ast.walk(entry[1])):
         if isinstance(node, ast.ImportFrom):
             reference = "." * node.level + (node.module or "")
-            module_name = importlib.util.resolve_name(reference, package) if node.level else reference
+            module_name = (
+                importlib.util.resolve_name(reference, package) if node.level else reference
+            )
             for alias in node.names:
                 if alias.name != "*":
                     imports[alias.asname or alias.name] = (module_name, alias.name)
@@ -375,8 +406,10 @@ def resolve_prepared_factory(model, sources, operation):
         if original is None:
             raise PortRefusal("prepared callable is outside acquired source: " + expected_owner)
         owner_module = importlib.import_module(module_name)
-        if (Path(inspect.getfile(owner_module)).resolve() != Path(original.filename).resolve()
-                or Path(original.filename).read_bytes() != original.content):
+        if (
+            Path(inspect.getfile(owner_module)).resolve() != Path(original.filename).resolve()
+            or Path(original.filename).read_bytes() != original.content
+        ):
             raise PortRefusal("prepared callable source differs from acquired bytes")
         _verify_prepared_callable(expected_owner, actual)
 
@@ -384,24 +417,36 @@ def resolve_prepared_factory(model, sources, operation):
         for name in called:
             if name in imports:
                 supplying_module, member_name = imports[name]
-                actual = inspect.getattr_static(importlib.import_module(supplying_module), member_name)
+                actual = inspect.getattr_static(
+                    importlib.import_module(supplying_module), member_name
+                )
                 if inspect.isfunction(actual):
                     verify_callable(supplying_module + "." + member_name, actual)
             elif name in module.__dict__ and inspect.isfunction(module.__dict__[name]):
                 verify_callable(source.module + "." + name, module.__dict__[name])
 
     def acquire(*args, **kwargs):
-        if path.read_bytes() != source.content or sha256(source.content).hexdigest() != capability.source_digest:
+        if (
+            path.read_bytes() != source.content
+            or sha256(source.content).hexdigest() != capability.source_digest
+        ):
             raise PortRefusal("prepared acquisition source differs from admitted bytes")
         actual = module
         for name in capability.entrypoint.removeprefix(source.module + ".").split("."):
             actual = inspect.getattr_static(actual, name)
-        if not isinstance(actual, staticmethod) or actual.__func__ is not function or function.__code__ != entry[3] or function.__globals__ is not module.__dict__ or Path(inspect.getfile(module)).resolve() != path:
+        if (
+            not isinstance(actual, staticmethod)
+            or actual.__func__ is not function
+            or function.__code__ != entry[3]
+            or function.__globals__ is not module.__dict__
+            or Path(inspect.getfile(module)).resolve() != path
+        ):
             raise PortRefusal("prepared acquisition runtime was rebound")
         verify_bindings()
         result = function(*args, **kwargs)
         verify_bindings()
         from .data_operation_pdf_effect import PdfCaptureEffectPort
+
         implementation = result.wrapped if isinstance(result, PdfCaptureEffectPort) else result
         if hasattr(implementation, "plan_python"):
             concrete = type(implementation)

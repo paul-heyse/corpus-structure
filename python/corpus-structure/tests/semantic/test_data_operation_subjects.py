@@ -5,10 +5,10 @@ import copy
 import pytest
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
 from semantic.data_operation_declaration_support import source_declaration
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 
 
 @pytest.mark.parametrize(

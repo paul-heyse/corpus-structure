@@ -9,13 +9,13 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.semantic.archive_reader import open_release_parts
+from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 from corpus_structure.semantic.data_operation_preparation import (
     acquire_data_operation_inputs,
     prepare_data_operation_inputs,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.releases import _archive_bytes, _validate_manifest
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 
 
 def inputs(tmp_path):

@@ -4,7 +4,10 @@ from dataclasses import replace
 
 import pytest
 
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, read_effective_data_operations
+from corpus_structure.semantic.data_operation_model import (
+    MODEL_VERSION,
+    read_effective_data_operations,
+)
 from semantic.data_operation_declaration_support import model, operation
 
 

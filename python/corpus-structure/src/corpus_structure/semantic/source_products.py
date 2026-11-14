@@ -224,8 +224,9 @@ class FrozenNativeSource:
     @classmethod
     def acquire(cls, prepared: PreparedRelease, value: Mapping[str, Any]) -> FrozenNativeSource:
         checked = _values(prepared.validate_json("DdoSelectedNativeSource", canonical_bytes(value)))
-        if ("document_subject" in checked["source"]
-                and checked["source"]["document_subject"] != original_document_subject(checked["source"]["document"])):
+        if "document_subject" in checked["source"] and checked["source"][
+            "document_subject"
+        ] != original_document_subject(checked["source"]["document"]):
             raise ValueError("selected source document address differs from its original key")
         text, pieces, items = checked["text"], checked.get("pieces", []), checked.get("items", [])
         ancestors = checked.get("ancestors", [])

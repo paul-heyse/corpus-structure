@@ -20,14 +20,28 @@ def group():
         "scope": ("selected-input", "analyzed_scope", "context-meaning-json"),
         "document": ("Source", "document", "value"),
     }
-    return {"output_role": "result", "records": "/records/*/pin", "input_role": "source", "comparisons": [
-        {"output_field": name, "input": {"role": "source", "projection": projection, "field": field}, "encoding": encoding}
-        for name, (projection, field, encoding) in fields.items()
-    ]}
+    return {
+        "output_role": "result",
+        "records": "/records/*/pin",
+        "input_role": "source",
+        "comparisons": [
+            {
+                "output_field": name,
+                "input": {"role": "source", "projection": projection, "field": field},
+                "encoding": encoding,
+            }
+            for name, (projection, field, encoding) in fields.items()
+        ],
+    }
 
 
 def compiled(witness=None):
-    bundle = SourceBundle("model", (SourceArtifact("model", b'''id: urn:witness:model
+    bundle = SourceBundle(
+        "model",
+        (
+            SourceArtifact(
+                "model",
+                b"""id: urn:witness:model
 name: model
 prefixes:
   w: 'urn:witness:'
@@ -56,7 +70,10 @@ classes:
   Envelope:
     attributes:
       records: {range: Record, inlined: true, multivalued: true}
-'''),))
+""",
+            ),
+        ),
+    )
     value = contract()
     value["roles"][0]["kind"] = "Source"
     value["roles"][1]["kind"] = "Envelope"
@@ -66,21 +83,45 @@ classes:
 
 
 def pin():
-    return {"source_product": "p:a", "source_member": "m:a", "source": '["p:a","m:a"]', "subject": "s:a", "scope": '["mapping",[["page",["decimal","1"]]]]', "document": "doc:a"}
+    return {
+        "source_product": "p:a",
+        "source_member": "m:a",
+        "source": '["p:a","m:a"]',
+        "subject": "s:a",
+        "scope": '["mapping",[["page",["decimal","1"]]]]',
+        "document": "doc:a",
+    }
 
 
 def selected():
-    return {"source": [
-        {"product": "p:a", "member": "m:a", "subject": "s:a", "analyzed_scope": {"page": 1}, "body": {"document": "doc:a"}},
-        {"product": "p:b", "member": "m:b", "subject": "s:b", "analyzed_scope": {"page": 2}, "body": {"document": "doc:b"}},
-    ]}
+    return {
+        "source": [
+            {
+                "product": "p:a",
+                "member": "m:a",
+                "subject": "s:a",
+                "analyzed_scope": {"page": 1},
+                "body": {"document": "doc:a"},
+            },
+            {
+                "product": "p:b",
+                "member": "m:b",
+                "subject": "s:b",
+                "analyzed_scope": {"page": 2},
+                "body": {"document": "doc:b"},
+            },
+        ]
+    }
 
 
 def test_group_compiles_into_recipe_and_roundtrips_without_changing_unrelated_model():
     ordinary = compiled()
     model = compiled(group())
     assert ordinary.operations[0].recipe != model.operations[0].recipe
-    assert model.operations[0].output_witnesses[0].comparisons[-1].input.projection == "urn:witness:Source"
+    assert (
+        model.operations[0].output_witnesses[0].comparisons[-1].input.projection
+        == "urn:witness:Source"
+    )
     assert read_effective_data_operations(model.content).content == model.content
     assert read_effective_data_operations(ordinary.content).content == ordinary.content
     assert b'"output_witnesses"' not in ordinary.content
@@ -94,19 +135,30 @@ def test_complete_member_satisfies_all_comparisons_with_jsonb_scope_semantics():
     validate_output_witnesses(operation, {"result": [{"records": []}]}, rows)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("source_product", "p:b"), ("source_member", "m:b"), ("subject", "s:b"),
-    ("scope", '["mapping",[["page",["decimal","2"]]]]'), ("document", "doc:b"),
-    ("source", '["p:b","m:b"]'),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("source_product", "p:b"),
+        ("source_member", "m:b"),
+        ("subject", "s:b"),
+        ("scope", '["mapping",[["page",["decimal","2"]]]]'),
+        ("document", "doc:b"),
+        ("source", '["p:b","m:b"]'),
+    ],
+)
 def test_individually_valid_foreign_fields_cannot_form_a_hybrid_witness(field, value):
     operation = compiled(group()).operations[0]
     forged = {**pin(), field: value}
     with pytest.raises(ValueError, match="no complete selected input member"):
-        validate_output_witnesses(operation, {"result": [{"records": [{"pin": forged}]}]}, selected())
+        validate_output_witnesses(
+            operation, {"result": [{"records": [{"pin": forged}]}]}, selected()
+        )
 
 
-@pytest.mark.parametrize("mutation", ["untyped-path", "missing-member-step", "wrong-role", "wrong-kind", "wrong-encoding"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["untyped-path", "missing-member-step", "wrong-role", "wrong-kind", "wrong-encoding"],
+)
 def test_compiler_refuses_untyped_or_ambiguous_witness_mapping(mutation):
     witness = group()
     if mutation == "untyped-path":
@@ -129,7 +181,7 @@ def test_historical_archive_cannot_acquire_new_witness_meaning():
     old = replace(compiled(), version=PREVIOUS_MODEL_VERSION)
     assert read_effective_data_operations(old.content).content == old.content
     with pytest.raises(ValueError, match="historical models cannot"):
-        replace(compiled(group()), version=PREVIOUS_MODEL_VERSION).content
+        _ = replace(compiled(group()), version=PREVIOUS_MODEL_VERSION).content
 
 
 def test_missing_body_field_is_not_an_implicit_null_witness():

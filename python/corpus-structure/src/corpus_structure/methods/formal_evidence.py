@@ -333,8 +333,13 @@ class FormalEvidenceOperation:
         from corpus_structure.semantic.formal_products import resolve_formal_evidence_port
 
         return resolve_formal_evidence_port(
-            prepared, model, operation, identity=identity, authorize=authorize,
-            custody=custody, sources=sources,
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
         )
 
     def __init__(self, profile, options, check_active):

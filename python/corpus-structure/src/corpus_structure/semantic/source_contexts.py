@@ -21,7 +21,11 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import JsonValue
 
-from .declared_record_sources import DeclaredNativeFrameSource, DeclaredSourcePin, DeclaredSourceSlice
+from .declared_record_sources import (
+    DeclaredNativeFrameSource,
+    DeclaredSourcePin,
+    DeclaredSourceSlice,
+)
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 from .proposals import NativeFrameSource, NativeProposalFrame, native_address
@@ -309,7 +313,9 @@ class PreparedCapturedCoordinate:
 
     def __post_init__(self, release):
         if isinstance(self.selected, DeclaredNativeFrameSource):
-            raise ContextRefused("captured coordinates require their declared original-relative binding")
+            raise ContextRefused(
+                "captured coordinates require their declared original-relative binding"
+            )
         from .record_contracts import validate_anchor_binding
 
         row = release.validate_json("RecordCoordinateText", self.coordinate_json).model_dump(
@@ -501,7 +507,15 @@ class PreparedNativeSource:
             tuple(item.get("self_ref", item.get("pointer")) for item in context["ancestors"]),
         )
         object.__setattr__(
-            self, "dependency_digest", sha256(canonical_bytes(self.source.record if isinstance(self.source, DeclaredNativeFrameSource) else asdict(self.source))).hexdigest()
+            self,
+            "dependency_digest",
+            sha256(
+                canonical_bytes(
+                    self.source.record
+                    if isinstance(self.source, DeclaredNativeFrameSource)
+                    else asdict(self.source)
+                )
+            ).hexdigest(),
         )
 
     def selected_pieces(self, start, end):
@@ -622,8 +636,12 @@ class NativeSourceContext:
     _interval_ends: tuple[int, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.primary, DeclaredNativeFrameSource) and (self.version != 2 or self.preparation is None):
-            raise ContextRefused("declared source context requires its explicit invocation-owned preparation")
+        if isinstance(self.primary, DeclaredNativeFrameSource) and (
+            self.version != 2 or self.preparation is None
+        ):
+            raise ContextRefused(
+                "declared source context requires its explicit invocation-owned preparation"
+            )
         if self.version not in {1, 2} or (self.version == 2 and self.preparation is None):
             raise ContextRefused("unsupported native source context version or missing preparation")
         if not all(value.strip() for value in (self.purpose, self.policy, self.terminal_reason)):
@@ -710,10 +728,7 @@ class NativeSourceContext:
             raise ContextRefused("unsupported or unbounded captured context dependencies")
         for captured_id in capture_ids:
             coordinate = preparation.captured_by_id.get(captured_id)
-            if (
-                coordinate is None
-                or coordinate.selected.original_key != self.primary.original_key
-            ):
+            if coordinate is None or coordinate.selected.original_key != self.primary.original_key:
                 raise ContextRefused(
                     "captured dependency is absent or outside the selected native product"
                 )
@@ -747,9 +762,7 @@ class NativeSourceContext:
             if isinstance(piece, CapturedRecognitionSlice):
                 coordinate = preparation.captured_by_id[piece.coordinate_id]
                 source = coordinate.selected
-                if by_id.get(source.source_key) is not source or piece.end > len(
-                    coordinate.text
-                ):
+                if by_id.get(source.source_key) is not source or piece.end > len(coordinate.text):
                     raise ContextRefused(
                         "captured slice is absent or outside its selected captured text"
                     )
@@ -974,7 +987,13 @@ def _source_context(source: SourceFrame) -> dict:
         from .source_products import native_projection_identity
 
         value = source.value
-        projection = native_projection_identity(source.text, value["pieces"], value["items"], value.get("recognition", ()), value.get("ancestors", ()))
+        projection = native_projection_identity(
+            source.text,
+            value["pieces"],
+            value["items"],
+            value.get("recognition", ()),
+            value.get("ancestors", ()),
+        )
         if projection != source.projection_digest:
             raise ContextRefused("declared native projection differs from its selected source")
     else:

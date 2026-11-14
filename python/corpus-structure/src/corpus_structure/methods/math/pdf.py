@@ -10,7 +10,10 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredSourcePin
+from corpus_structure.semantic.declared_record_sources import (
+    DeclaredNativeFrameSource,
+    DeclaredSourcePin,
+)
 
 from . import grammar
 from .prepared import PreparedMathInput
@@ -90,11 +93,17 @@ def _prepare_formula(source, context):
         raise FormulaRecognitionUnavailable(source.recognition_health)
     if context.macros:
         raise ValueError("PDF native formula input cannot acquire an HTML macro environment")
-    return PreparedFormulaOccurrence(source, PreparedMathInput(
-        context, source.recognized_latex, kind=source.kind,
-        source_text=source.recognized_latex, source_start=0, parse_start=0,
-    ))
-
+    return PreparedFormulaOccurrence(
+        source,
+        PreparedMathInput(
+            context,
+            source.recognized_latex,
+            kind=source.kind,
+            source_text=source.recognized_latex,
+            source_start=0,
+            parse_start=0,
+        ),
+    )
 
 
 def formula_occurrence(source, item, health):
@@ -108,7 +117,10 @@ def formula_occurrence(source, item, health):
 def formula_matches_source(occurrence, source):
     if isinstance(occurrence, DeclaredFormulaOccurrence):
         return isinstance(source, DeclaredNativeFrameSource) and occurrence.source == source.pin
-    return not isinstance(source, DeclaredNativeFrameSource) and occurrence.conversion_digest == source.native_product.content_digest
+    return (
+        not isinstance(source, DeclaredNativeFrameSource)
+        and occurrence.conversion_digest == source.native_product.content_digest
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,5 +159,13 @@ class PreparedFormulaOccurrence:
     def occurrences(self) -> tuple[FormulaSymbolOccurrence | DeclaredFormulaSymbolOccurrence, ...]:
         """Contextual occurrence inventory, independent of native simplification."""
         if isinstance(self.source, DeclaredFormulaOccurrence):
-            return tuple(DeclaredFormulaSymbolOccurrence(self.source.source, self.source.item_pointer, ordinal, symbol) for ordinal, symbol in enumerate(self.operand.interpretation().occurrences))
-        return tuple(FormulaSymbolOccurrence(*self.source.identity, ordinal, symbol) for ordinal, symbol in enumerate(self.operand.interpretation().occurrences))
+            return tuple(
+                DeclaredFormulaSymbolOccurrence(
+                    self.source.source, self.source.item_pointer, ordinal, symbol
+                )
+                for ordinal, symbol in enumerate(self.operand.interpretation().occurrences)
+            )
+        return tuple(
+            FormulaSymbolOccurrence(*self.source.identity, ordinal, symbol)
+            for ordinal, symbol in enumerate(self.operand.interpretation().occurrences)
+        )

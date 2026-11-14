@@ -708,7 +708,9 @@ def sentence_execution_custody(configuration: SentenceConfig | None = None) -> S
         canonical_bytes(
             {
                 "version": "spacy-execution-custody-v1",
-                "configuration": (configuration or SentenceConfig(exclude=("ner",))).model_dump(mode="json"),
+                "configuration": (configuration or SentenceConfig(exclude=("ner",))).model_dump(
+                    mode="json"
+                ),
                 "files": [
                     (str(path.relative_to(root.parent)), path.read_bytes().hex()) for path in paths
                 ],
@@ -782,8 +784,20 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None):
 
     path = Path(__file__).parents[1] / "methods/sentence_evidence.py"
     return PythonSourceCollection(
-        (PythonSource("corpus_structure.semantic.sentence_products", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)),),
-        boundary_contracts=(sentence_profile_assets(configuration), sentence_execution_custody(configuration)),
+        (
+            PythonSource(
+                "corpus_structure.semantic.sentence_products",
+                Path(__file__).read_bytes(),
+                str(Path(__file__)),
+            ),
+            PythonSource(
+                "corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)
+            ),
+        ),
+        boundary_contracts=(
+            sentence_profile_assets(configuration),
+            sentence_execution_custody(configuration),
+        ),
     )
 
 
@@ -907,7 +921,10 @@ class PreparedSentencePort:
         retained = {artifact.name: artifact for artifact in self.custody}
         if len(retained) != len(self.custody) or any(
             retained.get(actual.name) != actual
-            for actual in (sentence_profile_assets(self.profile.configuration), sentence_execution_custody(self.profile.configuration))
+            for actual in (
+                sentence_profile_assets(self.profile.configuration),
+                sentence_execution_custody(self.profile.configuration),
+            )
         ):
             raise PortRefusal("sentence runtime/parser assets differ from acquired custody")
         expected["source_digest"] = sha256(

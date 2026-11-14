@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Connection
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_demands import DemandIntent, DemandPlanner
-from .data_operation_storage import DataOperationStorage
 from .data_operation_json import json_bytes
+from .data_operation_storage import DataOperationStorage
 from .releases import load_release
 
 # Operator transport extends JSON's numeric representation with exact decimals;
 # native semantic validation and interpretation stay with their existing owners.
 type DdoJsonValue = (
-    None | bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue]
+    bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
 )
 
 

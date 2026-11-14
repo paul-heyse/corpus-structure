@@ -398,7 +398,9 @@ def _dispatch(
     max_reply_bytes: int,
     slot: int = -1,
     generation: int = 0,
-    profile: Literal["legacy", "formal-source-native", "closed-python", "closed-python-stream"] = "legacy",
+    profile: Literal[
+        "legacy", "formal-source-native", "closed-python", "closed-python-stream"
+    ] = "legacy",
     stream_connection=None,
 ) -> CPUReply:
     import os
@@ -415,9 +417,23 @@ def _dispatch(
             _apply_native_thread_limits()
             if profile == "closed-python-stream":
                 from .data_operation_cpu import execute_python_stream
-                result = execute_python_stream(content, stream_connection, _worker_active, _apply_native_thread_limits, max_reply_bytes, {"slot": slot, "generation": generation}, prepared_releases=_WORKER_RELEASES)
+
+                result = execute_python_stream(
+                    content,
+                    stream_connection,
+                    _worker_active,
+                    _apply_native_thread_limits,
+                    max_reply_bytes,
+                    {"slot": slot, "generation": generation},
+                    prepared_releases=_WORKER_RELEASES,
+                )
             else:
-                result = execute_python_call(content, _worker_active, _apply_native_thread_limits, prepared_releases=_WORKER_RELEASES)
+                result = execute_python_call(
+                    content,
+                    _worker_active,
+                    _apply_native_thread_limits,
+                    prepared_releases=_WORKER_RELEASES,
+                )
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
             return CPUReply(
@@ -858,9 +874,13 @@ class CPUExecutionScope:
         return self._submit(admission, content, {}, check_active, "closed-python")
 
     def submit_closed_python_stream(self, admission, content, connection, check_active):
-        return self._submit(admission, content, {}, check_active, "closed-python-stream", connection)
+        return self._submit(
+            admission, content, {}, check_active, "closed-python-stream", connection
+        )
 
-    def _submit(self, admission, content, releases, check_active, profile, stream_connection=None) -> CPUHandle:
+    def _submit(
+        self, admission, content, releases, check_active, profile, stream_connection=None
+    ) -> CPUHandle:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
             raise ValueError("CPU input admission is not active for this invocation")
@@ -894,7 +914,13 @@ class CPUExecutionScope:
                 self.policy.max_reply_bytes,
                 admission.slot,
                 admission.generation,
-                *((profile, stream_connection) if stream_connection is not None else (profile,) if profile != "legacy" else ()),
+                *(
+                    (profile, stream_connection)
+                    if stream_connection is not None
+                    else (profile,)
+                    if profile != "legacy"
+                    else ()
+                ),
             )
             with self._lock:
                 handle = CPUHandle(

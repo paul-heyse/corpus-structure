@@ -23,7 +23,11 @@ from corpus_structure.semantic.data_operation_bindings import (
     BindingResult,
     BindingStatus,
 )
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
+from corpus_structure.semantic.data_operation_model import (
+    MODEL_VERSION,
+    BoundRoleMember,
+    ResolvedRoleBinding,
+)
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
@@ -490,7 +494,10 @@ def discover(
         inference=inference,
         execution_profile="execution:test",
         discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),)
-        + tuple(DiscoverySelection("urn:discover", "result", target, "all-items") for target in additional_discovery_targets)
+        + tuple(
+            DiscoverySelection("urn:discover", "result", target, "all-items")
+            for target in additional_discovery_targets
+        )
         + (
             (DiscoverySelection("urn:discover", "result", "urn:child", "other-items"),)
             if ambiguous

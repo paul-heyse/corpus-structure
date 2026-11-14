@@ -519,7 +519,12 @@ def hanlp_execution_custody(selection=None):
     )
     return SourceArtifact(
         "hanlp/execution-custody",
-        canonical_bytes(dict(files=[(path.name, path.read_bytes().hex()) for path in paths], selection=selection.declaration() if selection is not None else None)),
+        canonical_bytes(
+            dict(
+                files=[(path.name, path.read_bytes().hex()) for path in paths],
+                selection=selection.declaration() if selection is not None else None,
+            )
+        ),
     )
 
 
@@ -528,14 +533,24 @@ def hanlp_operation_sources(selection, *, sentence_configuration=None, include_d
 
     path = Path(__file__).parents[1] / "methods/hanlp_evidence.py"
     own = PythonSourceCollection(
-        (PythonSource("corpus_structure.semantic.hanlp_products", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),),
+        (
+            PythonSource(
+                "corpus_structure.semantic.hanlp_products",
+                Path(__file__).read_bytes(),
+                str(Path(__file__)),
+            ),
+            PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),
+        ),
         boundary_contracts=(hanlp_profile_assets(selection), hanlp_execution_custody(selection)),
     )
     if not include_dependencies:
         return own
     from .canonical_sentences import canonical_sentence_operation_sources
     from .primary_operations import combine_primary_sources
-    return combine_primary_sources(canonical_sentence_operation_sources(sentence_configuration=sentence_configuration), own)
+
+    return combine_primary_sources(
+        canonical_sentence_operation_sources(sentence_configuration=sentence_configuration), own
+    )
 
 
 def execute_hanlp_profile(receiver, source, canonical):
@@ -571,7 +586,10 @@ class PreparedHanlpPort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(hanlp_profile_assets(self.profile.selection), hanlp_execution_custody(self.profile.selection)),
+            assets=(
+                hanlp_profile_assets(self.profile.selection),
+                hanlp_execution_custody(self.profile.selection),
+            ),
             functions=(
                 (self.operation.callable_surfaces[0].declaration, HanlpEvidenceOperation.run),
                 (
@@ -598,7 +616,9 @@ class PreparedHanlpPort:
                 ("corpus_structure.methods.pm2_hanlp_products._constituency", _constituency),
             ),
             authorize=self.authorize,
-            required_sources=hanlp_operation_sources(self.profile.selection, include_dependencies=False),
+            required_sources=hanlp_operation_sources(
+                self.profile.selection, include_dependencies=False
+            ),
         )
 
     def _inputs(self, values, binding):
@@ -758,6 +778,7 @@ def resolve_hanlp_port(
         raise PortRefusal("operation lacks the exact prepared HanLP native profile")
     if selection is None:
         from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+
         captured = [artifact for artifact in custody if artifact.name == "hanlp/execution-custody"]
         if len(captured) != 1:
             raise PortRefusal("HanLP acquisition requires its frozen native selection")

@@ -515,20 +515,59 @@ def test_root_duplicate_check_uses_json_numeric_meaning_and_keeps_boolean_distin
 def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
 
-    compiled = model(operation("op:discover", profile="discovery"), operation("op:result"), operation("op:base"), operation("op:a", dependencies=["op:base"]), operation("op:b"))
-    relations = tuple(DiscoverySelection("op:discover", "result", target, "children") for target in ("op:a", "op:b"))
+    compiled = model(
+        operation("op:discover", profile="discovery"),
+        operation("op:result"),
+        operation("op:base"),
+        operation("op:a", dependencies=["op:base"]),
+        operation("op:b"),
+    )
+    relations = tuple(
+        DiscoverySelection("op:discover", "result", target, "children")
+        for target in ("op:a", "op:b")
+    )
     intent = freeze(compiled, discovery=relations).record
     assert set(intent["root_operations"]) == {"op:discover", "op:result"}
+
     class Storage:
-        calls = []
+        def __init__(self):
+            self.calls = []
+
         def invoke(self, name, value):
             self.calls.append((name, value))
             if name == "close_data_population":
-                return {"population_id": "one-authentic-population", "members": [{"subject": "child", "original_source": "source:one", "analyzed_scope": {"part": 1}}]}
+                return {
+                    "population_id": "one-authentic-population",
+                    "members": [
+                        {
+                            "subject": "child",
+                            "original_source": "source:one",
+                            "analyzed_scope": {"part": 1},
+                        }
+                    ],
+                }
+
     storage = Storage()
-    DemandPlanner(compiled, storage).expand_discovery({"demand_id": "demand", "intent": intent}, population="children", product="source-population-product", derivation="source-episode")
+    DemandPlanner(compiled, storage).expand_discovery(
+        {"demand_id": "demand", "intent": intent},
+        population="children",
+        product="source-population-product",
+        derivation="source-episode",
+    )
     assert sum(name == "close_data_population" for name, _ in storage.calls) == 1
-    assert {value["operation_id"] for name, value in storage.calls if name == "expand_data_obligation"} == {"op:a", "op:b", "op:base"}
-    assert all(value["subject"] == "child" for name, value in storage.calls if name == "expand_data_obligation")
+    assert {
+        value["operation_id"] for name, value in storage.calls if name == "expand_data_obligation"
+    } == {"op:a", "op:b", "op:base"}
+    assert all(
+        value["subject"] == "child"
+        for name, value in storage.calls
+        if name == "expand_data_obligation"
+    )
     with pytest.raises(ValueError, match="source projection"):
-        freeze(compiled, discovery=(*relations, DiscoverySelection("op:discover", "different-output", "op:b", "children")))
+        freeze(
+            compiled,
+            discovery=(
+                *relations,
+                DiscoverySelection("op:discover", "different-output", "op:b", "children"),
+            ),
+        )

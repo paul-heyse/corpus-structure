@@ -704,11 +704,35 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
         ]
     if recipe.cycle_tail:
         base = raw["claims"][0]
-        raw["claims"].extend([
-            {**base, "id": "c", "qualification": {**base["qualification"], "condition": {"kind": "claim", "ref": "b"}}},
-            {**base, "id": "self", "qualification": {**base["qualification"], "condition": {"kind": "claim", "ref": "self"}}},
-            {**base, "id": "d", "qualification": {key: value for key, value in base["qualification"].items() if key != "condition"}},
-        ])
+        raw["claims"].extend(
+            [
+                {
+                    **base,
+                    "id": "c",
+                    "qualification": {
+                        **base["qualification"],
+                        "condition": {"kind": "claim", "ref": "b"},
+                    },
+                },
+                {
+                    **base,
+                    "id": "self",
+                    "qualification": {
+                        **base["qualification"],
+                        "condition": {"kind": "claim", "ref": "self"},
+                    },
+                },
+                {
+                    **base,
+                    "id": "d",
+                    "qualification": {
+                        key: value
+                        for key, value in base["qualification"].items()
+                        if key != "condition"
+                    },
+                },
+            ]
+        )
     if integer_alias:
         raw["claims"][0]["object"] = {"kind": "number", "number": 4}
     if report_count == 2 and formulas:

@@ -74,10 +74,16 @@ def _claim_reference_order(dependencies: Mapping[str, set[str]]):
     cyclic = {name for component in graph.cyclic_components() for name in component}
     excluded = set(graph.closure(cyclic, direction="dependents")) if cyclic else set()
     available = nodes.keys() - excluded
-    ordered = SemanticGraph({
-        "nodes": tuple(nodes[name] for name in sorted(available)),
-        "edges": [edge for edge in edges if edge["source"] in available and edge["target"] in available],
-    }).dependency_order()
+    ordered = SemanticGraph(
+        {
+            "nodes": tuple(nodes[name] for name in sorted(available)),
+            "edges": [
+                edge
+                for edge in edges
+                if edge["source"] in available and edge["target"] in available
+            ],
+        }
+    ).dependency_order()
     return ordered, tuple(sorted(cyclic)), tuple(sorted(excluded - cyclic))
 
 

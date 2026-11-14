@@ -115,7 +115,10 @@ def freeze_demand(
     seen_relations = set()
     for relation in discovery:
         source = (relation.producer, relation.output_role)
-        if relation.population in population_sources and population_sources[relation.population] != source:
+        if (
+            relation.population in population_sources
+            and population_sources[relation.population] != source
+        ):
             raise ValueError("one discovery population requires one source projection")
         population_sources[relation.population] = source
         relation_key = (*source, relation.population, relation.target)
@@ -376,7 +379,10 @@ class DemandPlanner:
         """Expand only native-authenticated members of a declared discovery output."""
         frozen = snapshot["intent"]
         relations = [item for item in frozen["discovery"] if item["population"] == population]
-        if not relations or len({(item["producer"], item["output_role"]) for item in relations}) != 1:
+        if (
+            not relations
+            or len({(item["producer"], item["output_role"]) for item in relations}) != 1
+        ):
             raise ValueError("discovery population lacks one frozen source projection")
         relation = relations[0]
         closed = self.storage.invoke(
@@ -522,7 +528,11 @@ class DemandPlanner:
                 if prerequisite not in prerequisites:
                     prerequisites.add(prerequisite)
                     pending.extend(selected[prerequisite]["dependencies"])
-                    pending.extend(relation["target"] for relation in frozen["discovery"] if relation["producer"] == prerequisite)
+                    pending.extend(
+                        relation["target"]
+                        for relation in frozen["discovery"]
+                        if relation["producer"] == prerequisite
+                    )
             operation_roles = {
                 role.name: role
                 for role in self.model.operation(operation["operation"]).roles
@@ -569,9 +579,12 @@ class DemandPlanner:
                         if output.direction == "output"
                         and output.name == row["evidence"]["member_role"]
                     ]
-                    if len(outputs) == 1 and (population_modes.get(role_name) == "qualified-context" or set(
-                        input_kind_refinements(self.model, (role.kind,))[role.kind]
-                    ).intersection(derive_member_kinds(self.model, outputs[0].kind))):
+                    if len(outputs) == 1 and (
+                        population_modes.get(role_name) == "qualified-context"
+                        or set(
+                            input_kind_refinements(self.model, (role.kind,))[role.kind]
+                        ).intersection(derive_member_kinds(self.model, outputs[0].kind))
+                    ):
                         parents.append(row)
                 existing = [
                     row
@@ -657,8 +670,20 @@ class DemandPlanner:
                             "name": row["name"],
                         }
                     ),
-                    projection=next(population_modes[role] for role, name in compiled.population_roles if name == row["name"]),
-                    contexts=tuple(SubjectContext(snapshot["project_id"], member["subject"], member["original_source"], json_bytes(member["analyzed_scope"])) for member in row["members"]),
+                    projection=next(
+                        population_modes[role]
+                        for role, name in compiled.population_roles
+                        if name == row["name"]
+                    ),
+                    contexts=tuple(
+                        SubjectContext(
+                            snapshot["project_id"],
+                            member["subject"],
+                            member["original_source"],
+                            json_bytes(member["analyzed_scope"]),
+                        )
+                        for member in row["members"]
+                    ),
                 )
                 for row in population_rows.values()
             )

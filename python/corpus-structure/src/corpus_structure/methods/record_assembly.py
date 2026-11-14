@@ -1120,9 +1120,7 @@ def native_table_groups(
             context.primary,
             *(entry.source for entry in context.related if entry.relationship.value == "caption"),
         ):
-            caption_spans.extend(
-                _item_spans(context, pointer, source_key=source.source_key)
-            )
+            caption_spans.extend(_item_spans(context, pointer, source_key=source.source_key))
 
     def reading(role: str, path: tuple[int, ...]) -> RoleInput:
         if not path or len(set(path)) != len(path):

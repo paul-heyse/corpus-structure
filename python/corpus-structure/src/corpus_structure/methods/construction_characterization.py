@@ -545,7 +545,7 @@ class ConstructionOperation:
         "coverage": "exact-selected-source-scope",
         "outcomes": ["success", "failed"],
         "precision": "retained-positioned-characterization",
-        "dependencies": ['text.formal_evidence/source-native'],
+        "dependencies": ["text.formal_evidence/source-native"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -609,8 +609,13 @@ class ConstructionOperation:
         from corpus_structure.semantic.characterization_ports import resolve_construction_port
 
         return resolve_construction_port(
-            prepared, model, operation, identity=identity, authorize=authorize,
-            custody=custody, sources=sources,
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
         )
 
     def __init__(self, profile, check_active):

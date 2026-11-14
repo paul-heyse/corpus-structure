@@ -69,7 +69,7 @@ class HanlpEvidenceOperation:
         "coverage": "exact-selected-canonical-sentences",
         "outcomes": ["success", "failed"],
         "precision": "native-one-based-heads-and-half-open-word-spans",
-        "dependencies": ['segment.sentences/canonical-projection'],
+        "dependencies": ["segment.sentences/canonical-projection"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -118,8 +118,13 @@ class HanlpEvidenceOperation:
         from corpus_structure.semantic.hanlp_products import resolve_hanlp_port
 
         return resolve_hanlp_port(
-            prepared, model, operation, identity=identity, authorize=authorize,
-            custody=custody, sources=sources,
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
         )
 
     def __init__(self, profile, check_active, host=None):

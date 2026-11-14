@@ -14,7 +14,7 @@ class _Pull:
     def __init__(self, stream):
         self.stream = stream
         self.future = Future()
-        self.thread = Thread(target=self._read, name='data-stream-pull', daemon=True)
+        self.thread = Thread(target=self._read, name="data-stream-pull", daemon=True)
         self.stream.pulls.append(self)
         self.thread.start()
 
@@ -27,18 +27,20 @@ class _Pull:
                 stream.check_active()
                 if stream.handle.future.done():
                     stream.handle.collect()  # exposes a failed native job, never invents terminal
-                    raise RuntimeError('CPU stream ended without its terminal frame')
+                    raise RuntimeError("CPU stream ended without its terminal frame")
             import json
+
             try:
                 content = stream.parent.recv_bytes(stream.max_bytes)
             except EOFError:
                 from concurrent.futures import TimeoutError
+
                 while not stream.handle.future.done():
                     stream.check_active()
                     with suppress(TimeoutError):
-                        stream.handle.future.result(timeout=.1)
+                        stream.handle.future.result(timeout=0.1)
                 stream.handle.collect()
-                raise RuntimeError('CPU stream closed without terminal evidence') from None
+                raise RuntimeError("CPU stream closed without terminal evidence") from None
             frame = json.loads(content)
             stream.validate_frame(frame)
             stream.child.close()  # child received its duplicate before its first response
@@ -74,7 +76,9 @@ class OwnedCPUStream:
         self.max_bytes = cpu.policy.max_reply_bytes
         self.fence = {"slot": admission.slot, "generation": admission.generation}
         try:
-            self.handle = cpu.submit_closed_python_stream(admission, packet, self.child, check_active)
+            self.handle = cpu.submit_closed_python_stream(
+                admission, packet, self.child, check_active
+            )
         except BaseException:
             self.parent.close()
             self.child.close()
@@ -85,10 +89,21 @@ class OwnedCPUStream:
         return canonical_bytes({"pull": self.ordinal})
 
     def validate_frame(self, frame):
-        if (set(frame) != {"request", "fence", "ordinal", "state", *(["value"] if frame.get("state") == "item" else [])}
-            or frame["request"] != self.digest or frame["fence"] != self.fence
-            or type(frame["ordinal"]) is not int or frame["ordinal"] != self.ordinal
-            or frame["state"] not in {"item", "complete"}):
+        if (
+            set(frame)
+            != {
+                "request",
+                "fence",
+                "ordinal",
+                "state",
+                *(["value"] if frame.get("state") == "item" else []),
+            }
+            or frame["request"] != self.digest
+            or frame["fence"] != self.fence
+            or type(frame["ordinal"]) is not int
+            or frame["ordinal"] != self.ordinal
+            or frame["state"] not in {"item", "complete"}
+        ):
             raise ValueError("stream frame differs from admitted request or ordinal")
 
     def pull(self):
@@ -109,6 +124,7 @@ class OwnedCPUStream:
 
     def drain_transport(self, deadline):
         from time import monotonic
+
         self.parent.close()
         self.child.close()
         for pull in tuple(self.pulls):
@@ -121,7 +137,7 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
     from .data_operation_cpu import PythonCPUDescriptor
 
     if not isinstance(descriptor, PythonCPUDescriptor):
-        raise ValueError('CPU stream requires its acquired source descriptor')
+        raise ValueError("CPU stream requires its acquired source descriptor")
     packet = descriptor.packet(bound.arguments, signature)
     cpu = execution_owner.cpu
     stream = None
@@ -141,28 +157,34 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
                 cpu.release_admission(admission)
             raise
 
-    staged = bytearray(b'[')
+    staged = bytearray(b"[")
     try:
         (frame,) = yield (PreparedWork(start),)
-        while frame['state'] == 'item':
-            item = frame['value'].encode('utf-8')
+        while frame["state"] == "item":
+            item = frame["value"].encode("utf-8")
             if len(staged) + len(item) + 2 > cpu.policy.max_reply_bytes:
-                raise ValueError('complete stream output exceeds admitted reply capacity')
+                raise ValueError("complete stream output exceeds admitted reply capacity")
             if stream.ordinal:
-                staged.extend(b',')
+                staged.extend(b",")
             staged.extend(item)
             stream.ordinal += 1
             verify()
             check_active()
             (frame,) = yield (PreparedWork(stream.pull),)
-        if frame != {'request': stream.digest, 'fence': stream.fence, 'ordinal': stream.ordinal, 'state': 'complete'}:
-            raise ValueError('stream has no valid complete terminal')
-        staged.extend(b']')
+        if frame != {
+            "request": stream.digest,
+            "fence": stream.fence,
+            "ordinal": stream.ordinal,
+            "state": "complete",
+        }:
+            raise ValueError("stream has no valid complete terminal")
+        staged.extend(b"]")
         # The normal CPU receipt retains admission and verifies native process identity.
         (reply,) = yield (PreparedWork(lambda: stream.handle),)
         import json
-        if json.loads(reply.content) != {'items': stream.ordinal, 'state': 'complete'}:
-            raise ValueError('CPU stream receipt differs from observed terminal')
+
+        if json.loads(reply.content) != {"items": stream.ordinal, "state": "complete"}:
+            raise ValueError("CPU stream receipt differs from observed terminal")
         verify()
         check_active()
         return bytes(staged), reply
@@ -188,14 +210,21 @@ class OwnedCPUCoroutine(OwnedCPUStream):
         return content
 
     def validate_frame(self, frame):
-        if (set(frame) != {"request", "fence", "ordinal", "state", "value"}
-            or frame["request"] != self.digest or frame["fence"] != self.fence
-            or type(frame["ordinal"]) is not int or frame["ordinal"] != self.ordinal
-            or frame["state"] not in {"question", "complete"} or not isinstance(frame["value"], str)):
+        if (
+            set(frame) != {"request", "fence", "ordinal", "state", "value"}
+            or frame["request"] != self.digest
+            or frame["fence"] != self.fence
+            or type(frame["ordinal"]) is not int
+            or frame["ordinal"] != self.ordinal
+            or frame["state"] not in {"question", "complete"}
+            or not isinstance(frame["value"], str)
+        ):
             raise ValueError("CPU coroutine frame differs from pending question/fence")
 
 
-def plan_cpu_coroutine(descriptor, bound, signature, *, verify, execution_owner, check_active, answer_plan):
+def plan_cpu_coroutine(
+    descriptor, bound, signature, *, verify, execution_owner, check_active, answer_plan
+):
     """Keep one original CPU generator alive across typed provider exchanges.
 
     A waiting provider retains that process/state and admission. Its native host
@@ -236,13 +265,17 @@ def plan_cpu_coroutine(descriptor, bound, signature, *, verify, execution_owner,
             answer = yield from answer_plan(question)
             verify()
             check_active()
-            stream.reply_content = reply_adapter.dump_json(reply_adapter.validate_python(answer, strict=True))
+            stream.reply_content = reply_adapter.dump_json(
+                reply_adapter.validate_python(answer, strict=True)
+            )
             stream.ordinal += 1
             (frame,) = yield (PreparedWork(stream.pull),)
         encoded = frame["value"].encode()
         result = result_adapter.validate_json(encoded, strict=True)
         (reply,) = yield (PreparedWork(lambda: stream.handle),)
-        if json.loads(reply.content) != dict(turns=stream.ordinal, state="complete", result_digest=sha256(encoded).hexdigest()):
+        if json.loads(reply.content) != dict(
+            turns=stream.ordinal, state="complete", result_digest=sha256(encoded).hexdigest()
+        ):
             raise ValueError("CPU coroutine terminal differs from native process receipt")
         verify()
         check_active()

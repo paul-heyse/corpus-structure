@@ -19,16 +19,39 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 @pytest.fixture(scope="module")
 def profile():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = source_discovery_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    bundle = source_discovery_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
     prepared = prepare_release(bundle)
-    model = compile_data_operations(schema=bundle, python_sources=source_discovery_operation_sources(), definitions=prepared.definitions, vocabularies=prepared.vocabularies)
+    model = compile_data_operations(
+        schema=bundle,
+        python_sources=source_discovery_operation_sources(),
+        definitions=prepared.definitions,
+        vocabularies=prepared.vocabularies,
+    )
     return PreparedSourceDiscovery(prepared, model)
 
 
 def source(profile, *, document="document:one", start=0, end=4):
     items = [{"self_ref": "#/texts/0", "label": "text", "text": "mean", "orig": "mean"}]
-    pieces = [{"kind": "native_text", "start": 0, "end": 4, "item_ref": "#/texts/0", "source_field": "text"}]
-    value = FrozenNativeSource.from_projection(profile.prepared, document=document, section_pointer="#/texts/0", membership="direct", text="mean", pieces=pieces, items=items).value
+    pieces = [
+        {
+            "kind": "native_text",
+            "start": 0,
+            "end": 4,
+            "item_ref": "#/texts/0",
+            "source_field": "text",
+        }
+    ]
+    value = FrozenNativeSource.from_projection(
+        profile.prepared,
+        document=document,
+        section_pointer="#/texts/0",
+        membership="direct",
+        text="mean",
+        pieces=pieces,
+        items=items,
+    ).value
     value["selectors"] = [{"projection": value["source"]["projection"], "start": start, "end": end}]
     return FrozenNativeSource.acquire(profile.prepared, value).value
 
@@ -43,10 +66,15 @@ def test_closed_empty_source_selection_is_explicit_and_has_nominal_members(profi
     population = json.loads(profile.project(original(), (), True).content)
     assert population == {"document": "document:one", "complete": True, "members": []}
     kind = profile.prepared.index.definitions["DdoSourceViewPopulation"].iri
-    assert derive_member_kinds(profile.model, kind) == (profile.prepared.index.definitions["DdoSelectedNativeSource"].iri,)
+    assert derive_member_kinds(profile.model, kind) == (
+        profile.prepared.index.definitions["DdoSelectedNativeSource"].iri,
+    )
     operation = profile.model.operation("source.selected_views/discovery")
     assert operation.profile == "discovery"
-    assert operation.capabilities.prepared_factory.entrypoint == "corpus_structure.methods.source_discovery.SelectedSourceViewsOperation.acquire_port"
+    assert (
+        operation.capabilities.prepared_factory.entrypoint
+        == "corpus_structure.methods.source_discovery.SelectedSourceViewsOperation.acquire_port"
+    )
 
 
 def test_source_discovery_preserves_scoped_members_and_partial_standing(profile):
@@ -58,9 +86,20 @@ def test_source_discovery_preserves_scoped_members_and_partial_standing(profile)
     assert {member["body"]["text"] for member in population["members"]} == {"mean"}
     assert len({member["member_id"] for member in population["members"]}) == 2
     assert len({member["context"]["subject"] for member in population["members"]}) == 1
-    assert {tuple((selector["start"], selector["end"]) for selector in member["context"]["analyzed_scope"]["selectors"]) for member in population["members"]} == {((0, 2),), ((2, 4),)}
-    assert all(member["context"]["original_source"] == "document:one" for member in population["members"])
-    assert profile.project(original(), (first, second), False).content == profile.project(original(), (second, first), False).content
+    assert {
+        tuple(
+            (selector["start"], selector["end"])
+            for selector in member["context"]["analyzed_scope"]["selectors"]
+        )
+        for member in population["members"]
+    } == {((0, 2),), ((2, 4),)}
+    assert all(
+        member["context"]["original_source"] == "document:one" for member in population["members"]
+    )
+    assert (
+        profile.project(original(), (first, second), False).content
+        == profile.project(original(), (second, first), False).content
+    )
 
 
 def test_source_discovery_refuses_foreign_original_and_repeated_complete_context(profile):
@@ -75,6 +114,7 @@ def test_source_discovery_refuses_foreign_original_and_repeated_complete_context
 
 def test_native_source_keeps_original_key_and_canonical_document_address(profile):
     from corpus_structure.semantic.original_documents import original_document_subject
+
     value = source(profile)
     assert value["source"]["document"] == "document:one"
     assert value["source"]["document_subject"] == original_document_subject("document:one")
@@ -86,9 +126,13 @@ def test_native_source_keeps_original_key_and_canonical_document_address(profile
 
 def test_acquire_preserves_body_under_its_older_pinned_source_contract(profile):
     import yaml
+
     from corpus_structure.semantic.source_products import source_product_inputs
+
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = source_product_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    bundle = source_product_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
     old_sources = []
     for artifact in bundle.sources:
         if artifact.name == "data_operation_source":

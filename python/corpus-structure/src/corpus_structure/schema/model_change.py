@@ -438,15 +438,30 @@ def prepare_preview(
                 }
                 after_names = {
                     surface.declaration
-                    for surface in effective.operation(intent.new_owner or intent.owner).callable_surfaces
+                    for surface in effective.operation(
+                        intent.new_owner or intent.owner
+                    ).callable_surfaces
                 }
                 after_operation = effective.operation(intent.new_owner or intent.owner)
                 selection = getattr(after_operation, "consumer_selection", None)
                 if selection is not None:
                     after_names.add(selection.entrypoint)
-                proof = next((item for item in migration.call_proofs if item.owner == intent.owner and item.callable == intent.old_name and item.path in captured_paths), None)
-                if intent.old_name not in before_names and not (intent.kind == "call_context" and proof is not None):
-                    raise model.ModelError(["source migration correspondence differs from its owned callable"])
+                proof = next(
+                    (
+                        item
+                        for item in migration.call_proofs
+                        if item.owner == intent.owner
+                        and item.callable == intent.old_name
+                        and item.path in captured_paths
+                    ),
+                    None,
+                )
+                if intent.old_name not in before_names and not (
+                    intent.kind == "call_context" and proof is not None
+                ):
+                    raise model.ModelError(
+                        ["source migration correspondence differs from its owned callable"]
+                    )
                 if intent.new_name not in after_names:
                     raise model.ModelError(
                         ["source migration correspondence differs from its owned callable"]
@@ -460,7 +475,9 @@ def prepare_preview(
                 )
                 after_surface = next(
                     surface
-                    for surface in effective.operation(intent.new_owner or intent.owner).callable_surfaces
+                    for surface in effective.operation(
+                        intent.new_owner or intent.owner
+                    ).callable_surfaces
                     if surface.declaration == intent.new_name
                 )
                 if intent.kind == "symbol_move" and (

@@ -207,13 +207,23 @@ def canonical_sentence_operation_sources(*, sentence_configuration=None, include
 
     path = Path(__file__).parents[1] / "methods/canonical_sentences.py"
     own = PythonSourceCollection(
-        (PythonSource("corpus_structure.semantic.canonical_sentences", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)),),
+        (
+            PythonSource(
+                "corpus_structure.semantic.canonical_sentences",
+                Path(__file__).read_bytes(),
+                str(Path(__file__)),
+            ),
+            PythonSource(
+                "corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)
+            ),
+        ),
         boundary_contracts=(canonical_profile_assets(), canonical_execution_custody()),
     )
     if not include_dependencies:
         return own
     from .primary_operations import combine_primary_sources
     from .sentence_products import sentence_operation_sources
+
     return combine_primary_sources(sentence_operation_sources(sentence_configuration), own)
 
 

@@ -80,7 +80,7 @@ def test_actual_callable_publishes_and_settled_resume_does_not_recompute(executa
 def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(executable):
     from corpus_structure.semantic.data_operation_service import execute_data_demand
 
-    engine, prepared, runtime, sources, locations, _ = executable
+    engine, prepared, runtime, _sources, locations, _ = executable
     model = bound_data_operation_model(prepared)
     intent = freeze_demand(
         model,

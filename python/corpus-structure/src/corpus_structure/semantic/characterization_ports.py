@@ -11,7 +11,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 
 from .construction_products import (
     CharacterizationSnapshot,
@@ -195,7 +195,14 @@ def _execution_custody() -> SourceArtifact:
 def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
     path = Path(__file__).parents[1] / "methods" / (module + ".py")
     return PythonSourceCollection(
-        (PythonSource("corpus_structure.semantic.characterization_ports", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods." + module, path.read_bytes(), str(path)),),
+        (
+            PythonSource(
+                "corpus_structure.semantic.characterization_ports",
+                Path(__file__).read_bytes(),
+                str(Path(__file__)),
+            ),
+            PythonSource("corpus_structure.methods." + module, path.read_bytes(), str(path)),
+        ),
         boundary_contracts=(_semantic_assets(profile), _execution_custody()),
     )
 
@@ -206,6 +213,7 @@ def construction_operation_sources(*, include_dependencies=True) -> PythonSource
         return own
     from .formal_products import formal_operation_sources
     from .primary_operations import combine_primary_sources
+
     return combine_primary_sources(formal_operation_sources(), own)
 
 
@@ -214,6 +222,7 @@ def contextual_operation_sources(*, include_dependencies=True) -> PythonSourceCo
     if not include_dependencies:
         return own
     from .primary_operations import combine_primary_sources
+
     return combine_primary_sources(construction_operation_sources(), own)
 
 
@@ -228,6 +237,7 @@ def characterization_operation_sources() -> PythonSourceCollection:
         document_view_operation_sources(),
     )
     from .primary_operations import combine_primary_sources
+
     return combine_primary_sources(*collections)
 
 
@@ -414,7 +424,8 @@ class PreparedCharacterizationPort(ABC):
         if binding is not None and (
             not binding.sufficient
             or binding.operation != self.operation.semantic_id
-            or set(decode_semantic_value(json.loads(binding.parameters))) != set(json.loads(self.operation.parameters))
+            or set(decode_semantic_value(json.loads(binding.parameters)))
+            != set(json.loads(self.operation.parameters))
         ):
             raise PortRefusal("characterization ingress differs from acquired binding")
         return result
@@ -811,17 +822,23 @@ def resolve_document_view_port(prepared, model, operation, **admission):
     return _resolve(PreparedDocumentViewPort, prepared, model, operation, **admission)
 
 
-def full_document_view_operation_sources(*, sentence_configuration=None, hanlp_selection=None, include_dependencies=True):
+def full_document_view_operation_sources(
+    *, sentence_configuration=None, hanlp_selection=None, include_dependencies=True
+):
     own = _operation_sources("full_document_composition", "view")
     from .primary_operations import combine_primary_sources
+
     base = document_view_operation_sources(include_dependencies=False)
     if not include_dependencies:
         return combine_primary_sources(base, own)
     if sentence_configuration is None or hanlp_selection is None:
-        raise ValueError("full composition requires explicitly acquired sentence and HanLP profiles")
+        raise ValueError(
+            "full composition requires explicitly acquired sentence and HanLP profiles"
+        )
     from .canonical_sentences import canonical_sentence_operation_sources
     from .hanlp_products import hanlp_operation_sources
     from .source_discovery import source_discovery_operation_sources
+
     return combine_primary_sources(
         characterization_operation_sources(),
         source_discovery_operation_sources(),
@@ -838,6 +855,7 @@ class PreparedFullDocumentViewPort(PreparedDocumentViewPort):
     @property
     def endpoint(self):
         from corpus_structure.methods.full_document_composition import ComposeFullDocumentOperation
+
         return ComposeFullDocumentOperation
 
 

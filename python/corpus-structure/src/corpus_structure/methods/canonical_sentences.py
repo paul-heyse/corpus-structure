@@ -49,7 +49,7 @@ class CanonicalSentenceProjection:
         "coverage": "exact-selected-original-blocks",
         "outcomes": ["success", "failed"],
         "precision": "exact-original-projection-offsets",
-        "dependencies": ['segment.sentences/source-native'],
+        "dependencies": ["segment.sentences/source-native"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -90,8 +90,13 @@ class CanonicalSentenceProjection:
         from corpus_structure.semantic.canonical_sentences import resolve_canonical_sentence_port
 
         return resolve_canonical_sentence_port(
-            prepared, model, operation, identity=identity, authorize=authorize,
-            custody=custody, sources=sources,
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
         )
 
     def __init__(self, profile):

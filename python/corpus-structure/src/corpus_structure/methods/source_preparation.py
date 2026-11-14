@@ -8,7 +8,6 @@ Related native sources retain independent pins; recognition alternatives remain 
 from __future__ import annotations
 
 import json
-
 from bisect import bisect_left, bisect_right
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
@@ -31,9 +30,12 @@ from corpus_structure.ingest.pdf_hierarchy import (
     retained_formula_originals,
 )
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
+from corpus_structure.semantic.declared_record_sources import (
+    DeclaredNativeFrameSource,
+    DeclaredSourceSlice,
+)
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice, DeclaredNativeFrameSource
-from corpus_structure.semantic.proposals import NativeFrameSource, native_source_frame
+from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     ContextRelationship,
@@ -44,10 +46,10 @@ from corpus_structure.semantic.source_contexts import (
     RelatedNativeSource,
     RetrievalOutcome,
     SourceContextRequest,
-    SourceSlice,
     SourceFrame,
-    source_slice,
+    SourceSlice,
     SyntheticText,
+    source_slice,
 )
 
 PROSE_FAMILIES = ("definition", "assertion", "measurement")
@@ -628,7 +630,13 @@ def prepare_source(
             ranges = []
             if structural == "table" and "table_cells" in node.get("data", {}):
                 table_selections, table_limits = _table_selections(
-                    view, node, indices, prepared_cells, frame=frame, max_chars=max_chars, max_pieces=max_pieces
+                    view,
+                    node,
+                    indices,
+                    prepared_cells,
+                    frame=frame,
+                    max_chars=max_chars,
+                    max_pieces=max_pieces,
                 )
                 for selection in table_selections:
                     chosen.append(len(selections))
@@ -877,9 +885,7 @@ def _formula_windows(
             )
             continue
 
-        original_pieces = selection.pieces or (
-            source_slice(frame, selection.start, selection.end),
-        )
+        original_pieces = selection.pieces or (source_slice(frame, selection.start, selection.end),)
         seen = {canonical_bytes([asdict(p) for p in original_pieces])}
         retained = []
         original_dispositions = list(output[original_index].local_dispositions)
@@ -1084,7 +1090,16 @@ def _prose_formula_neighborhoods(selections, regions, *, first_window):
 
 
 def _widen_contexts(
-    view, frame, selections, *, reader, read_budget, max_chars, max_pieces, check_active, context_population=None
+    view,
+    frame,
+    selections,
+    *,
+    reader,
+    read_budget,
+    max_chars,
+    max_pieces,
+    check_active,
+    context_population=None,
 ):
     """Use explicit structural scope, retaining failed/limited retrieval dependencies.
 
@@ -1182,7 +1197,8 @@ def _widen_contexts(
                 (
                     p
                     for p in selected_pieces
-                    if isinstance(p, (SourceSlice, DeclaredSourceSlice)) and p.source_key == frame.source_key
+                    if isinstance(p, (SourceSlice, DeclaredSourceSlice))
+                    and p.source_key == frame.source_key
                 ),
                 key=lambda p: p.start,
             ):
@@ -1280,7 +1296,11 @@ def _widen_contexts(
                     local_dispositions.append(
                         (target, "resource_limit", "local context character/piece bound exceeded")
                     )
-            original = frame.original_key if isinstance(frame, DeclaredNativeFrameSource) else frame.native_product.content_digest
+            original = (
+                frame.original_key
+                if isinstance(frame, DeclaredNativeFrameSource)
+                else frame.native_product.content_digest
+            )
             scope = f"selected-product:{original}:{request.pointer}"
             remaining = (
                 15 - len(selected_relations) - sum(len(row.candidates) for row in retrievals)
@@ -1310,11 +1330,20 @@ def _widen_contexts(
             try:
                 if key not in reads:
                     if context_population is not None:
-                        from corpus_structure.semantic.declared_contexts import select_related_context
+                        from corpus_structure.semantic.declared_contexts import (
+                            select_related_context,
+                        )
 
-                        reads[key] = select_related_context(context_population, frame, request, limit=min(4, remaining // 2))
+                        reads[key] = select_related_context(
+                            context_population, frame, request, limit=min(4, remaining // 2)
+                        )
                     else:
-                        reads[key] = reader.context_sources(frame.source_key, request, limit=min(4, remaining // 2), read_budget=budget)
+                        reads[key] = reader.context_sources(
+                            frame.source_key,
+                            request,
+                            limit=min(4, remaining // 2),
+                            read_budget=budget,
+                        )
                 result = reads[key]
             except ReadLimit as error:
                 retrievals.append(
@@ -1336,7 +1365,9 @@ def _widen_contexts(
             for source in result.sources:
                 declared = isinstance(source, DeclaredNativeFrameSource)
                 identity = source.source_key if declared else source.ref.id
-                source_pieces = json.loads(source.native_context)["pieces"] if declared else source.pieces
+                source_pieces = (
+                    json.loads(source.native_context)["pieces"] if declared else source.pieces
+                )
                 # Overlapping primary contents need no second source custody. Prefer
                 # explicit smaller views; broad projections remain an exclusion.
                 target_pieces = tuple(p for p in source_pieces if p["kind"] == "native_text")
@@ -1359,12 +1390,16 @@ def _widen_contexts(
                     continue
                 if identity not in related:
                     related[identity] = RelatedNativeSource(
-                        source if declared else native_source_frame(source, ()), request.relationship, request.reason
+                        source if declared else native_source_frame(source, ()),
+                        request.relationship,
+                        request.reason,
                     )
                 pieces.extend(
                     (
                         SyntheticText("\n", "context piece separator"),
-                        source_slice(source if declared else related[identity].source, 0, len(source.text)),
+                        source_slice(
+                            source if declared else related[identity].source, 0, len(source.text)
+                        ),
                     )
                 )
                 chars += 1 + len(source.text)

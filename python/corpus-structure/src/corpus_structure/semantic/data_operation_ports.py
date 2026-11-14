@@ -338,7 +338,14 @@ class ResolvedPythonPort:
         from .data_operation_cpu import plan_cpu_call
 
         if self.operation.capabilities.forms == ("stream",):
-            return (yield from self.plan_stream_python(values, binding=binding, check_active=check_active, execution_owner=execution_owner))
+            return (
+                yield from self.plan_stream_python(
+                    values,
+                    binding=binding,
+                    check_active=check_active,
+                    execution_owner=execution_owner,
+                )
+            )
         if self.operation.capabilities.forms != ("scalar",):
             raise PortRefusal("batch capability requires explicit member invocation")
         bound = self._arguments(values, route="python", binding=binding, signature=self.signature)
@@ -358,32 +365,64 @@ class ResolvedPythonPort:
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 
-    def plan_stream_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
-        from .data_operation_stream import plan_cpu_stream
+    def plan_stream_python(
+        self, values, *, binding=None, check_active=lambda: None, execution_owner
+    ):
         from .data_operation_identity import semantic_value
+        from .data_operation_stream import plan_cpu_stream
+
         settlement = self.operation.capabilities.stream_settlement
         if settlement is None:
             raise PortRefusal("native stream lacks its declared terminal settlement")
-        output = next(role for role in self.operation.roles if role.direction == "output" and role.name == settlement.output_role)
+        output = next(
+            role
+            for role in self.operation.roles
+            if role.direction == "output" and role.name == settlement.output_role
+        )
         if output.collection == "scalar":
             raise PortRefusal("native item stream requires a declared collection output")
         annotation = self.signature.return_annotation
         if get_origin(annotation) not in (Iterator, Generator):
             raise PortRefusal("stream result requires its original iterator annotation")
         arguments = get_args(annotation)
-        if len(arguments) not in (1, 3) or (len(arguments) == 3 and arguments[1:] != (type(None), type(None))):
+        if len(arguments) not in (1, 3) or (
+            len(arguments) == 3 and arguments[1:] != (type(None), type(None))
+        ):
             raise PortRefusal("stream cannot hide send or terminal return values")
         bound = self._arguments(values, route="python", binding=binding, signature=self.signature)
-        encoded, reply = yield from plan_cpu_stream(self.cpu_descriptor, bound, self.signature, verify=self.verify_runtime, execution_owner=execution_owner, check_active=check_active)
+        encoded, reply = yield from plan_cpu_stream(
+            self.cpu_descriptor,
+            bound,
+            self.signature,
+            verify=self.verify_runtime,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
         adapter = TypeAdapter(tuple[arguments[0], ...])
         items = adapter.validate_json(encoded, strict=True)
         del encoded
-        if len(items) < output.minimum or (output.maximum is not None and len(items) > output.maximum):
+        if len(items) < output.minimum or (
+            output.maximum is not None and len(items) > output.maximum
+        ):
             raise PortRefusal("stream terminal item count differs from declared cardinality")
         item_adapter = TypeAdapter(arguments[0])
         contracts = dict(self.kind_contracts)
-        outputs = tuple(RoleValue(output.name, contracts[output.kind], item_adapter.dump_json(item), canonical_bytes(semantic_value(item)), project_product_members(self.model, output.kind, item)) for item in items)
-        return PortCompletion(self.operation.semantic_id, outputs, outcome=settlement.terminal_outcome, cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        outputs = tuple(
+            RoleValue(
+                output.name,
+                contracts[output.kind],
+                item_adapter.dump_json(item),
+                canonical_bytes(semantic_value(item)),
+                project_product_members(self.model, output.kind, item),
+            )
+            for item in items
+        )
+        return PortCompletion(
+            self.operation.semantic_id,
+            outputs,
+            outcome=settlement.terminal_outcome,
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
     def plan_batch_python(self, members, *, check_active=lambda: None, execution_owner):
         from dataclasses import replace
@@ -1056,8 +1095,12 @@ def _runtime_members(statements, owner, code, prefix):
 
 
 def _stream_annotation_references():
-    return {"collections.abc.Iterator": Iterator, "collections.abc.Generator": Generator,
-            "typing.Iterator": typing.Iterator, "typing.Generator": typing.Generator}
+    return {
+        "collections.abc.Iterator": Iterator,
+        "collections.abc.Generator": Generator,
+        "typing.Iterator": typing.Iterator,
+        "typing.Generator": typing.Generator,
+    }
 
 
 def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> None:

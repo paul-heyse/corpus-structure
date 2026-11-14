@@ -61,7 +61,13 @@ class PythonCPUDescriptor:
             raise ValueError("only prepared kernels can bind an owned CPU control parameter")
 
         if (self.prepared_parameter is None) != (self.prepared_release_id is None) or (
-            self.prepared_parameter is not None and (self.verification != "prepared-kernel" or not self.prepared_parameter or not self.prepared_release_id or self.prepared_parameter == self.control_parameter)
+            self.prepared_parameter is not None
+            and (
+                self.verification != "prepared-kernel"
+                or not self.prepared_parameter
+                or not self.prepared_release_id
+                or self.prepared_parameter == self.control_parameter
+            )
         ):
             raise ValueError("only prepared kernels can bind the exact admitted release capsule")
 
@@ -189,7 +195,16 @@ def _load(call):
             if not call.expected_nodes:
                 raise PortRefusal("closed CPU call lacks its owning implementation slice")
             from .data_operation_ports import _stream_annotation_references
-            _verify_closed_runtime_sources(sources, modules, paths, set(call.expected_nodes), standard_references=_stream_annotation_references() if call.invocation_form in {"stream", "coroutine"} else None)
+
+            _verify_closed_runtime_sources(
+                sources,
+                modules,
+                paths,
+                set(call.expected_nodes),
+                standard_references=_stream_annotation_references()
+                if call.invocation_form in {"stream", "coroutine"}
+                else None,
+            )
         else:
             import ast
 
@@ -220,12 +235,19 @@ def _load(call):
 
 
 def _bound_arguments(call, signature, check_active, prepared_releases):
-    controls = {name for name in (call.control_parameter, call.prepared_parameter) if name is not None}
-    if controls and (call.verification != "prepared-kernel" or not controls <= set(signature.parameters)):
+    controls = {
+        name for name in (call.control_parameter, call.prepared_parameter) if name is not None
+    }
+    if controls and (
+        call.verification != "prepared-kernel" or not controls <= set(signature.parameters)
+    ):
         raise ValueError("CPU controls differ from admitted prepared-kernel parameters")
     if set(call.arguments) != set(signature.parameters) - controls:
         raise ValueError("CPU call arguments differ from acquired original signature")
-    arguments = {name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True) for name, value in call.arguments.items()}
+    arguments = {
+        name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True)
+        for name, value in call.arguments.items()
+    }
     if call.control_parameter is not None:
         arguments[call.control_parameter] = check_active
     if call.prepared_parameter is not None:
@@ -237,12 +259,22 @@ def _bound_arguments(call, signature, check_active, prepared_releases):
         arguments[call.prepared_parameter] = prepared
     elif call.prepared_release_id is not None:
         raise ValueError("CPU release capsule lacks its admitted parameter")
-    positional = tuple(arguments[p.name] for p in signature.parameters.values() if p.kind == inspect.Parameter.POSITIONAL_ONLY)
-    keywords = {name: value for name, value in arguments.items() if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY}
+    positional = tuple(
+        arguments[p.name]
+        for p in signature.parameters.values()
+        if p.kind == inspect.Parameter.POSITIONAL_ONLY
+    )
+    keywords = {
+        name: value
+        for name, value in arguments.items()
+        if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
+    }
     return signature.bind(*positional, **keywords)
 
 
-def execute_python_call(content: bytes, check_active, prepare_runtime=lambda: None, prepared_releases=None) -> bytes:
+def execute_python_call(
+    content: bytes, check_active, prepare_runtime=lambda: None, prepared_releases=None
+) -> bytes:
     """Child-only: typed original ingress and egress; no native/database access."""
     call = _Call.model_validate_json(content, strict=True)
     function, verify = _load(call)
@@ -258,33 +290,60 @@ def execute_python_call(content: bytes, check_active, prepare_runtime=lambda: No
     return adapter.dump_json(adapter.validate_python(result, strict=True))
 
 
-
-def execute_python_stream(content, connection, check_active, prepare_runtime, max_reply_bytes, fence, prepared_releases=None):
+def execute_python_stream(
+    content,
+    connection,
+    check_active,
+    prepare_runtime,
+    max_reply_bytes,
+    fence,
+    prepared_releases=None,
+):
     """Child-owned iterator with one item per authenticated parent pull credit."""
     import json
-    from collections.abc import Iterator, Generator
+    from collections.abc import Generator, Iterator
     from hashlib import sha256
     from typing import get_args, get_origin
 
     call = _Call.model_validate_json(content, strict=True)
     if call.invocation_form == "coroutine":
-        return execute_python_coroutine(call, content, connection, check_active, prepare_runtime, max_reply_bytes, fence, prepared_releases)
+        return execute_python_coroutine(
+            call,
+            content,
+            connection,
+            check_active,
+            prepare_runtime,
+            max_reply_bytes,
+            fence,
+            prepared_releases,
+        )
     if call.invocation_form != "stream":
         raise ValueError("CPU stream requires its admitted stream descriptor")
     function, verify = _load(call)
     signature = inspect.signature(function, eval_str=True)
     annotation = signature.return_annotation
     if get_origin(annotation) not in (Iterator, Generator):
-        raise ValueError('stream call requires its typed iterator annotation')
-    arguments = {name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True) for name, value in call.arguments.items()}
+        raise ValueError("stream call requires its typed iterator annotation")
+    arguments = {
+        name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True)
+        for name, value in call.arguments.items()
+    }
     if set(arguments) != set(signature.parameters):
-        raise ValueError('stream arguments differ from original callable')
-    positional = tuple(arguments[p.name] for p in signature.parameters.values() if p.kind == inspect.Parameter.POSITIONAL_ONLY)
-    keywords = {name: value for name, value in arguments.items() if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY}
+        raise ValueError("stream arguments differ from original callable")
+    positional = tuple(
+        arguments[p.name]
+        for p in signature.parameters.values()
+        if p.kind == inspect.Parameter.POSITIONAL_ONLY
+    )
+    keywords = {
+        name: value
+        for name, value in arguments.items()
+        if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
+    }
     bound = signature.bind(*positional, **keywords)
     iterator = function(*bound.args, **bound.kwargs)
     if not isinstance(iterator, Iterator):
-        raise ValueError('stream callable did not return an iterator')
+        raise ValueError("stream callable did not return an iterator")
     adapter, ordinal = TypeAdapter(get_args(annotation)[0]), 0
     digest = sha256(content).hexdigest()
     try:
@@ -292,8 +351,8 @@ def execute_python_stream(content, connection, check_active, prepare_runtime, ma
             check_active()
             while not connection.poll(0.1):
                 check_active()
-            if json.loads(connection.recv_bytes(4096)) != {'pull': ordinal}:
-                raise ValueError('stream pull credit differs from next ordinal')
+            if json.loads(connection.recv_bytes(4096)) != {"pull": ordinal}:
+                raise ValueError("stream pull credit differs from next ordinal")
             prepare_runtime()
             check_active()
             verify()
@@ -301,18 +360,30 @@ def execute_python_stream(content, connection, check_active, prepare_runtime, ma
                 value = next(iterator)
             except StopIteration:
                 verify()
-                connection.send_bytes(canonical_bytes({'request': digest, 'fence': fence, 'ordinal': ordinal, 'state': 'complete'}))
-                return canonical_bytes({'items': ordinal, 'state': 'complete'})
+                connection.send_bytes(
+                    canonical_bytes(
+                        {"request": digest, "fence": fence, "ordinal": ordinal, "state": "complete"}
+                    )
+                )
+                return canonical_bytes({"items": ordinal, "state": "complete"})
             check_active()
             verify()
-            encoded = adapter.dump_json(adapter.validate_python(value, strict=True)).decode('utf-8')
-            frame = canonical_bytes({'request': digest, 'fence': fence, 'ordinal': ordinal, 'state': 'item', 'value': encoded})
+            encoded = adapter.dump_json(adapter.validate_python(value, strict=True)).decode("utf-8")
+            frame = canonical_bytes(
+                {
+                    "request": digest,
+                    "fence": fence,
+                    "ordinal": ordinal,
+                    "state": "item",
+                    "value": encoded,
+                }
+            )
             if len(frame) > max_reply_bytes:
-                raise ValueError('stream item exceeds owned transport capacity')
+                raise ValueError("stream item exceeds owned transport capacity")
             connection.send_bytes(frame)
             ordinal += 1
     finally:
-        close = getattr(iterator, 'close', None)
+        close = getattr(iterator, "close", None)
         if close is not None:
             close()
         connection.close()
@@ -325,12 +396,25 @@ def coroutine_adapters(signature):
 
     annotation = signature.return_annotation
     types = get_args(annotation)
-    if get_origin(annotation) is not Generator or len(types) != 3 or any(value is Any for value in types):
+    if (
+        get_origin(annotation) is not Generator
+        or len(types) != 3
+        or any(value is Any for value in types)
+    ):
         raise ValueError("CPU coroutine requires Generator[Question, Reply, Result] annotation")
     return tuple(TypeAdapter(value) for value in types)
 
 
-def execute_python_coroutine(call, content, connection, check_active, prepare_runtime, max_reply_bytes, fence, prepared_releases=None):
+def execute_python_coroutine(
+    call,
+    content,
+    connection,
+    check_active,
+    prepare_runtime,
+    max_reply_bytes,
+    fence,
+    prepared_releases=None,
+):
     """Child-only original generator; one typed reply advances one pending question.
 
     Domain failure disposition is part of the declared reply type. Unexpected
@@ -350,7 +434,9 @@ def execute_python_coroutine(call, content, connection, check_active, prepare_ru
     digest, ordinal = sha256(content).hexdigest(), 0
 
     def send(state, value):
-        frame = canonical_bytes(dict(request=digest, fence=fence, ordinal=ordinal, state=state, value=value.decode()))
+        frame = canonical_bytes(
+            dict(request=digest, fence=fence, ordinal=ordinal, state=state, value=value.decode())
+        )
         if len(frame) > max_reply_bytes:
             raise ValueError("CPU coroutine message exceeds owned transport capacity")
         connection.send_bytes(frame)
@@ -358,27 +444,39 @@ def execute_python_coroutine(call, content, connection, check_active, prepare_ru
     try:
         while True:
             check_active()
-            while not connection.poll(.1):
+            while not connection.poll(0.1):
                 check_active()
             credit = json.loads(connection.recv_bytes(max_reply_bytes))
             fields = {"pull"} if ordinal == 0 else {"pull", "reply"}
-            if set(credit) != fields or type(credit["pull"]) is not int or credit["pull"] != ordinal:
+            if (
+                set(credit) != fields
+                or type(credit["pull"]) is not int
+                or credit["pull"] != ordinal
+            ):
                 raise ValueError("CPU coroutine reply differs from pending question ordinal")
-            reply = None if ordinal == 0 else reply_adapter.validate_json(credit["reply"], strict=True)
+            reply = (
+                None if ordinal == 0 else reply_adapter.validate_json(credit["reply"], strict=True)
+            )
             prepare_runtime()
             check_active()
             verify()
             try:
                 question = next(generator) if ordinal == 0 else generator.send(reply)
             except StopIteration as completed:
-                result = result_adapter.dump_json(result_adapter.validate_python(completed.value, strict=True))
+                result = result_adapter.dump_json(
+                    result_adapter.validate_python(completed.value, strict=True)
+                )
                 check_active()
                 verify()
                 send("complete", result)
-                return canonical_bytes(dict(turns=ordinal, state="complete", result_digest=sha256(result).hexdigest()))
+                return canonical_bytes(
+                    dict(turns=ordinal, state="complete", result_digest=sha256(result).hexdigest())
+                )
             check_active()
             verify()
-            question = question_adapter.dump_json(question_adapter.validate_python(question, strict=True))
+            question = question_adapter.dump_json(
+                question_adapter.validate_python(question, strict=True)
+            )
             send("question", question)
             ordinal += 1
     finally:

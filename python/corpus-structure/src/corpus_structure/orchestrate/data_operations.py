@@ -149,7 +149,11 @@ class _OwnedPythonPool:
         if self.closed:
             return
         self.closed = True
-        from corpus_structure.semantic.cpu_execution import _COOPERATIVE_CLOSE_SECONDS, _WORKER_EXIT_SECONDS
+        from corpus_structure.semantic.cpu_execution import (
+            _COOPERATIVE_CLOSE_SECONDS,
+            _WORKER_EXIT_SECONDS,
+        )
+
         deadline = monotonic() + _COOPERATIVE_CLOSE_SECONDS + _WORKER_EXIT_SECONDS
         stopped = Event()
         failures = []
@@ -167,9 +171,15 @@ class _OwnedPythonPool:
         stopped.wait(max(0, deadline - monotonic()))
         for thread in tuple(self.threads):
             thread.join(max(0, deadline - monotonic()))
-        self.drained = stopped.is_set() and not failures and all(not thread.is_alive() for thread in tuple(self.threads))
+        self.drained = (
+            stopped.is_set()
+            and not failures
+            and all(not thread.is_alive() for thread in tuple(self.threads))
+        )
         if not self.drained:
-            raise PhysicalRetirementUncertain("native demand transport threads did not drain; capacity remains owned")
+            raise PhysicalRetirementUncertain(
+                "native demand transport threads did not drain; capacity remains owned"
+            )
 
     def __exit__(self, *error):
         self.close()
@@ -307,8 +317,11 @@ class _InvocationExecution:
                 raise PortRefusal("native demand changed its frozen operation closure")
             return
         for operation in selected:
-            if (operation in self.executor.capability_factories
-                or self.executor.model.operation(operation).capabilities.prepared_factory is not None):
+            if (
+                operation in self.executor.capability_factories
+                or self.executor.model.operation(operation).capabilities.prepared_factory
+                is not None
+            ):
                 port = self.executor._port(operation)
                 self.native_hosts.declare(port.native_selections)
                 if getattr(port, "requires_prepared_schema", False):
@@ -356,7 +369,11 @@ class _InvocationExecution:
                         failures.append(failure)
                 else:
                     self.executor._quarantined = True
-                    failures.append(PhysicalRetirementUncertain("deferred native attempt still has unretired physical work"))
+                    failures.append(
+                        PhysicalRetirementUncertain(
+                            "deferred native attempt still has unretired physical work"
+                        )
+                    )
         if failures:
             raise BaseExceptionGroup("native demand physical cleanup failed", failures)
 
@@ -407,11 +424,15 @@ class NativeDemandExecutor:
             if selected.effects and selected.capabilities.prepared_factory is None:
                 raise PortRefusal("effectful operation requires its captured native effect owner")
             if selected.capabilities.preparation != "none":
-                from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
+                from corpus_structure.semantic.data_operation_consumers import (
+                    resolve_prepared_factory,
+                )
 
-                factory = (resolve_prepared_factory(self.model, self.sources, operation)
-                           if selected.capabilities.prepared_factory is not None
-                           else self.capability_factories.get(operation))
+                factory = (
+                    resolve_prepared_factory(self.model, self.sources, operation)
+                    if selected.capabilities.prepared_factory is not None
+                    else self.capability_factories.get(operation)
+                )
                 if factory is None:
                     raise PortRefusal("declared prepared capability is not acquired")
                 with self.engine.begin() as connection:
@@ -433,16 +454,32 @@ class NativeDemandExecutor:
                     sources=self.sources,
                 )
                 if selected.effects:
-                    from corpus_structure.semantic.data_operation_pdf_effect import PdfCaptureEffectPort
+                    from corpus_structure.semantic.data_operation_pdf_effect import (
+                        PdfCaptureEffectPort,
+                    )
+
                     if not isinstance(port, PdfCaptureEffectPort):
-                        raise PortRefusal("declared effect has no admitted receipt-bearing effect owner")
+                        raise PortRefusal(
+                            "declared effect has no admitted receipt-bearing effect owner"
+                        )
                 admission.authorize(port.identity)
                 if port.operation != selected:
                     raise PortRefusal("prepared capability differs from effective operation")
                 self.ports[operation] = port
                 if selected.consumer_selection is not None:
-                    from corpus_structure.semantic.data_operation_consumers import resolve_consumer_selection
-                    self.consumer_selectors[operation] = resolve_consumer_selection(self.model, self.sources, operation, port.consumer_receiver, authorize=lambda admission=admission, port=port: admission.authorize(port.identity))
+                    from corpus_structure.semantic.data_operation_consumers import (
+                        resolve_consumer_selection,
+                    )
+
+                    self.consumer_selectors[operation] = resolve_consumer_selection(
+                        self.model,
+                        self.sources,
+                        operation,
+                        port.consumer_receiver,
+                        authorize=lambda admission=admission, port=port: admission.authorize(
+                            port.identity
+                        ),
+                    )
             else:
                 with self.engine.begin() as connection:
                     admission = acquire_python_execution(
@@ -463,9 +500,20 @@ class NativeDemandExecutor:
                     prepared=self.prepared,
                 )
                 if selected.consumer_selection is not None:
-                    from corpus_structure.semantic.data_operation_consumers import resolve_consumer_selection
+                    from corpus_structure.semantic.data_operation_consumers import (
+                        resolve_consumer_selection,
+                    )
+
                     port = self.ports[operation]
-                    self.consumer_selectors[operation] = resolve_consumer_selection(self.model, self.sources, operation, port.consumer_receiver, authorize=lambda admission=admission, port=port: admission.authorize(port.identity))
+                    self.consumer_selectors[operation] = resolve_consumer_selection(
+                        self.model,
+                        self.sources,
+                        operation,
+                        port.consumer_receiver,
+                        authorize=lambda admission=admission, port=port: admission.authorize(
+                            port.identity
+                        ),
+                    )
         return self.ports[operation]
 
     def _renew(self, connection: Connection, claim: OwnedClaim):
@@ -478,13 +526,24 @@ class NativeDemandExecutor:
             raise ClaimFenceLost(claim, result["reason"])
 
     def _hydrate(self, ready: ReadyDataRequest, execution_owner=None):
-        from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection, hydrate_consumer_selection
+        from corpus_structure.semantic.data_operation_consumers import (
+            BoundConsumerSelection,
+            hydrate_consumer_selection,
+        )
+
         pins = wire_json_loads(ready.resolved.trust_evidence)
         with self.engine.begin() as connection:
-            selected = hydrate_consumer_selection(connection, self.model,
-                BoundConsumerSelection.from_binding(ready.binding_result, operation=ready.operation),
-                demand_id=pins.get("demand_id", self.demand), read_id=pins["read_id"],
-                trust_snapshot=pins["trust"], max_bytes=self.policy.max_packet_bytes)
+            selected = hydrate_consumer_selection(
+                connection,
+                self.model,
+                BoundConsumerSelection.from_binding(
+                    ready.binding_result, operation=ready.operation
+                ),
+                demand_id=pins.get("demand_id", self.demand),
+                read_id=pins["read_id"],
+                trust_snapshot=pins["trust"],
+                max_bytes=self.policy.max_packet_bytes,
+            )
         if self.model.operation(ready.operation).consumer_selection is not None:
             result = self.consumer_selectors[ready.operation].select_hydrated(selected)
             if execution_owner is not None:
@@ -492,16 +551,19 @@ class NativeDemandExecutor:
         if execution_owner is not None:
             execution_owner.consumer_inputs[ready.obligation] = selected
             execution_owner.binding_rows[ready.obligation] = {
-                role: tuple({
-                    "product": value.member.product,
-                    "member": value.member.member,
-                    "kind_contract": value.member.kind_contract,
-                    "project_id": ready.resolved.subject_context.project_id,
-                    "subject": value.member.subject,
-                    "original_source": value.member.original_source,
-                    "analyzed_scope": wire_json_loads(value.member.analyzed_scope),
-                    "body": value.value(),
-                } for value in values)
+                role: tuple(
+                    {
+                        "product": value.member.product,
+                        "member": value.member.member,
+                        "kind_contract": value.member.kind_contract,
+                        "project_id": ready.resolved.subject_context.project_id,
+                        "subject": value.member.subject,
+                        "original_source": value.member.original_source,
+                        "analyzed_scope": wire_json_loads(value.member.analyzed_scope),
+                        "body": value.value(),
+                    }
+                    for value in values
+                )
                 for role, values in selected.values
             }
         roles = {role.name: role for role in self.model.operation(ready.operation).roles}
@@ -526,14 +588,21 @@ class NativeDemandExecutor:
             raise PortRefusal("completion belongs to another operation")
         operation = self.model.operation(ready.operation)
         if operation.output_witnesses:
-            from corpus_structure.semantic.data_operation_output_witnesses import validate_output_witnesses
+            from corpus_structure.semantic.data_operation_output_witnesses import (
+                validate_output_witnesses,
+            )
+
             if physical is None or ready.obligation not in physical.binding_rows:
-                raise PortRefusal("output witnesses require their authenticated selected input rows")
+                raise PortRefusal(
+                    "output witnesses require their authenticated selected input rows"
+                )
             bodies = {}
             for value in answer.outputs:
                 if value.meaning is None:
                     raise PortRefusal("output witnesses require canonical typed output meaning")
-                bodies.setdefault(value.role, []).append(decode_semantic_value(wire_json_loads(value.meaning)))
+                bodies.setdefault(value.role, []).append(
+                    decode_semantic_value(wire_json_loads(value.meaning))
+                )
             validate_output_witnesses(operation, bodies, physical.binding_rows[ready.obligation])
         if (
             sum(
@@ -759,9 +828,13 @@ class NativeDemandExecutor:
                         inputs = self._hydrate(item, physical)
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
                         if item.obligation in physical.consumer_inputs:
-                            physical.consumer_inputs[member] = physical.consumer_inputs[item.obligation]
+                            physical.consumer_inputs[member] = physical.consumer_inputs[
+                                item.obligation
+                            ]
                             if item.obligation in physical.consumer_results:
-                                physical.consumer_results[member] = physical.consumer_results[item.obligation]
+                                physical.consumer_results[member] = physical.consumer_results[
+                                    item.obligation
+                                ]
                         pending.append((member, item, claim, inputs, port))
                 except Exception as error:
                     if claim is not None:
@@ -819,7 +892,9 @@ class NativeDemandExecutor:
                             except Exception as release_error:
                                 failures.append(release_error)
                         else:
-                            self._physical.pending_failures.append((physical, claim, owner, error, "computation"))
+                            self._physical.pending_failures.append(
+                                (physical, claim, owner, error, "computation")
+                            )
                         self._failed_requests.add((claim.request_id, claim.generation))
                     failures.append(error)
                 else:
@@ -829,7 +904,9 @@ class NativeDemandExecutor:
                         strict=True,
                     ):
                         try:
-                            retained = self._retain_answer(item, claim, result, port, owner, physical=physical)
+                            retained = self._retain_answer(
+                                item, claim, result, port, owner, physical=physical
+                            )
                             receipts.append(self._publish(claim, retained, owner))
                         except Exception as error:
                             try:
@@ -917,7 +994,9 @@ class NativeDemandExecutor:
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("frontier page bound must be between one and 1000")
         if self._quarantined:
-            raise PhysicalRetirementUncertain("native demand execution owner retains unproven physical work")
+            raise PhysicalRetirementUncertain(
+                "native demand execution owner retains unproven physical work"
+            )
         if not self._invocation.acquire(blocking=False):
             raise RuntimeError("execution owner already has an active invocation")
         self.demand = demand

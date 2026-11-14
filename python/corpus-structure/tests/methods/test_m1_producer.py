@@ -700,13 +700,21 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     reader = owned_reader(source)
     method = m1_source.M1Candidates()
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
-    annotations, errors, annotation_result = consume_annotations(reader, source, AnnotationProfile(cfg.sentences))
+    annotations, errors, annotation_result = consume_annotations(
+        reader, source, AnnotationProfile(cfg.sentences)
+    )
     frozen_inputs = m1_source.prepare_source(
-        source, profile=AnnotationProfile(cfg.sentences),
-        max_chars=cfg.max_context_chars, max_pieces=cfg.max_context_pieces,
-        max_annotation_chars=cfg.max_annotation_chars, reader=reader,
-        persisted_annotations=annotations, annotation_errors=errors,
-        policy=cfg.policy, formula_prose=cfg.formula_prose, region_pointers=cfg.region_pointers,
+        source,
+        profile=AnnotationProfile(cfg.sentences),
+        max_chars=cfg.max_context_chars,
+        max_pieces=cfg.max_context_pieces,
+        max_annotation_chars=cfg.max_annotation_chars,
+        reader=reader,
+        persisted_annotations=annotations,
+        annotation_errors=errors,
+        policy=cfg.policy,
+        formula_prose=cfg.formula_prose,
+        region_pointers=cfg.region_pointers,
     )
     prepared = reader.prepared
     # Everything consumed from the reader has been frozen before kernel execution.
@@ -714,8 +722,12 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     worker = ControlledDecoder("definition")
     monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
     product = method.produce_candidates(
-        prepared=prepared, view=source, prepared_source=frozen_inputs,
-        annotation_result=annotation_result, cfg=cfg, check_active=lambda: None,
+        prepared=prepared,
+        view=source,
+        prepared_source=frozen_inputs,
+        annotation_result=annotation_result,
+        cfg=cfg,
+        check_active=lambda: None,
         primary_layers={},
     )
     assert isinstance(product, m1_source.M1CandidateProduct)
@@ -738,9 +750,17 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
     prepared_source = prepare_source(source, persisted_annotations=(), policy=cfg.policy)
     plan = method.plan_candidates(
-        prepared=release(), view=source, prepared_source=prepared_source,
-        annotation_result={"method": "controlled-boundary", "input_hash": "input", "configuration_hash": "configuration"},
-        cfg=cfg, check_active=lambda: None, primary_layers={},
+        prepared=release(),
+        view=source,
+        prepared_source=prepared_source,
+        annotation_result={
+            "method": "controlled-boundary",
+            "input_hash": "input",
+            "configuration_hash": "configuration",
+        },
+        cfg=cfg,
+        check_active=lambda: None,
+        primary_layers={},
     )
     request = next(plan)
     assert isinstance(request, m1_source.M1GlinerRequest)
@@ -749,7 +769,8 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
     assert len(request.inputs) == 1
     assert request.inputs[0].text == "Mean is average."
     assert request.pack.fingerprint in {
-        pack.fingerprint for variants in m1_source.configured_pack_variants(release(), cfg).values()
+        pack.fingerprint
+        for variants in m1_source.configured_pack_variants(release(), cfg).values()
         for _, _, pack in variants
     }
     with pytest.raises(StopIteration) as completed:
@@ -758,7 +779,10 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
     assert "deliberate provider-boundary failure" in completed.value.value.error
 
 
-@pytest.mark.parametrize("failure,expected", [("worker", ObservationOutcome.FAILED), ("refused", ObservationOutcome.EMPTY)])
+@pytest.mark.parametrize(
+    "failure,expected",
+    [("worker", ObservationOutcome.FAILED), ("refused", ObservationOutcome.EMPTY)],
+)
 def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure, expected):
     from corpus_structure.methods.source_preparation import prepare_source
     from corpus_structure.orchestrate.m1 import registry
@@ -767,9 +791,17 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
     method = m1_source.M1Candidates()
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
     plan = method.plan_candidate_replies(
-        prepared=release(), view=source, prepared_source=prepare_source(source, persisted_annotations=(), policy=cfg.policy),
-        annotation_result={"method": "controlled-boundary", "input_hash": "input", "configuration_hash": "configuration"},
-        cfg=cfg, check_active=lambda: None, primary_layers={},
+        prepared=release(),
+        view=source,
+        prepared_source=prepare_source(source, persisted_annotations=(), policy=cfg.policy),
+        annotation_result={
+            "method": "controlled-boundary",
+            "input_hash": "input",
+            "configuration_hash": "configuration",
+        },
+        cfg=cfg,
+        check_active=lambda: None,
+        primary_layers={},
     )
     request = next(plan)
     questions = 0
@@ -778,7 +810,9 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
         questions += 1
         assert questions <= 3
         try:
-            request = plan.send(m1_source.M1GlinerReply(failure=failure, message="deliberate typed failure"))
+            request = plan.send(
+                m1_source.M1GlinerReply(failure=failure, message="deliberate typed failure")
+            )
         except StopIteration as completed:
             assert completed.value.outcome == expected
             break

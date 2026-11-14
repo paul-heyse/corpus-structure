@@ -1273,7 +1273,7 @@ annotations will be retained once from the existing spaCy inference, then consum
 and M1 paths. Full-document composition consumes compact member projections.
 
 **passed:** new exact nominal-boundary controls6 in `2fe947c7bfe24f1ab26c3564ef7f3486`;
-its primary-profile compile failed and remains failed pending an exact replacement. Subsequent failed
+its primary-profile compile initially failed. Subsequent failed
 compile-only retries `f029334d2d134b2d9cb07423eca7a2b6` and `9ddc535328a04ec088287580134f7253`
 retain declaration predicate/literal errors; repairs do not rerun the six passing controls.
 The final exact compile-only replacement **passed**, `9751471c74fb4e20917cee812f6da793`,

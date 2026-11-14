@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Generator
+from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -22,8 +22,8 @@ from corpus_structure.methods.gliner import (
     GlinerInput,
     GlinerPack,
     GlinerProfile,
-    GlinerReport,
     GlinerRefused,
+    GlinerReport,
 )
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
 from corpus_structure.methods.native_host_clients import HostedGliner
@@ -134,7 +134,11 @@ def _structural_groups(view, selection, context):
         if status not in {"succeeded", "failed", "unknown", "not_requested"}:
             status = "unknown"
         occurrence = formula_occurrence(context.primary, node, status)
-        return (native_formula_group(context, occurrence, scope_pointer=context.primary.section_pointer),)
+        return (
+            native_formula_group(
+                context, occurrence, scope_pointer=context.primary.section_pointer
+            ),
+        )
     if selection.families != ("table",):
         return ()
     targets = getattr(selection, "table_targets", None)
@@ -646,32 +650,57 @@ class M1Candidates:
             )
         primary_layers = (
             ctx.reader.primary_characterization(view.ref.id, families=("construction.named_rules",))
-            if cfg.annotation_rules else {}
+            if cfg.annotation_rules
+            else {}
         )
         product = self.produce_candidates(
-            prepared=ctx.reader.prepared, view=view, prepared_source=prepared_source,
-            annotation_result=annotation_result, cfg=cfg, check_active=ctx.check_active,
-            primary_layers=primary_layers, provider_execution=getattr(ctx.reader, "provider_execution", None),
-            generic_role_guidance=generic_role_guidance, source_capture_rules=source_capture_rules,
+            prepared=ctx.reader.prepared,
+            view=view,
+            prepared_source=prepared_source,
+            annotation_result=annotation_result,
+            cfg=cfg,
+            check_active=ctx.check_active,
+            primary_layers=primary_layers,
+            provider_execution=getattr(ctx.reader, "provider_execution", None),
+            generic_role_guidance=generic_role_guidance,
+            source_capture_rules=source_capture_rules,
         )
         return UnitResult(
-            ref=unit.ref, outcome=product.outcome, error=product.error,
-            parse_detail=product.parse_detail, coverage=product.coverage, records=product.records,
+            ref=unit.ref,
+            outcome=product.outcome,
+            error=product.error,
+            parse_detail=product.parse_detail,
+            coverage=product.coverage,
+            records=product.records,
             contribution_operations=product.contribution_operations,
             contributions=product.contributions,
             contribution_coordinate_texts=product.contribution_coordinate_texts,
         )
 
     def produce_candidates(
-        self, *, prepared, view, prepared_source, annotation_result, cfg,
-        check_active, primary_layers, provider_execution=None,
-        generic_role_guidance=False, source_capture_rules=(),
+        self,
+        *,
+        prepared,
+        view,
+        prepared_source,
+        annotation_result,
+        cfg,
+        check_active,
+        primary_layers,
+        provider_execution=None,
+        generic_role_guidance=False,
+        source_capture_rules=(),
     ) -> M1CandidateProduct:
         """Drain the original synchronous caller through the authoritative kernel plan."""
         plan = self.plan_candidates(
-            prepared=prepared, view=view, prepared_source=prepared_source,
-            annotation_result=annotation_result, cfg=cfg, check_active=check_active,
-            primary_layers=primary_layers, generic_role_guidance=generic_role_guidance,
+            prepared=prepared,
+            view=view,
+            prepared_source=prepared_source,
+            annotation_result=annotation_result,
+            cfg=cfg,
+            check_active=check_active,
+            primary_layers=primary_layers,
+            generic_role_guidance=generic_role_guidance,
             source_capture_rules=source_capture_rules,
         )
         reply, failure = None, None
@@ -685,9 +714,15 @@ class M1Candidates:
                     raise TypeError("M1 kernel yielded an undeclared inference question")
                 try:
                     reply = self._resident(
-                        request.profile, providers=provider_execution,
+                        request.profile,
+                        providers=provider_execution,
                         native_profile=request.native_profile,
-                    ).extract(request.pack, request.inputs, threshold=request.threshold, check_active=check_active)
+                    ).extract(
+                        request.pack,
+                        request.inputs,
+                        threshold=request.threshold,
+                        check_active=check_active,
+                    )
                     failure = None
                 except BaseException as error:
                     reply, failure = None, error
@@ -695,14 +730,28 @@ class M1Candidates:
             plan.close()
 
     def plan_candidate_replies(
-        self, *, prepared, view, prepared_source, annotation_result, cfg,
-        check_active, primary_layers, generic_role_guidance=False, source_capture_rules=(),
+        self,
+        *,
+        prepared,
+        view,
+        prepared_source,
+        annotation_result,
+        cfg,
+        check_active,
+        primary_layers,
+        generic_role_guidance=False,
+        source_capture_rules=(),
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
         """Translate only bounded provider dispositions into the original kernel."""
         plan = self.plan_candidates(
-            prepared=prepared, view=view, prepared_source=prepared_source,
-            annotation_result=annotation_result, cfg=cfg, check_active=check_active,
-            primary_layers=primary_layers, generic_role_guidance=generic_role_guidance,
+            prepared=prepared,
+            view=view,
+            prepared_source=prepared_source,
+            annotation_result=annotation_result,
+            cfg=cfg,
+            check_active=check_active,
+            primary_layers=primary_layers,
+            generic_role_guidance=generic_role_guidance,
             source_capture_rules=source_capture_rules,
         )
         reports, failure = None, None
@@ -727,9 +776,17 @@ class M1Candidates:
             plan.close()
 
     def plan_candidates(
-        self, *, prepared, view, prepared_source, annotation_result, cfg,
-        check_active, primary_layers,
-        generic_role_guidance=False, source_capture_rules=(),
+        self,
+        *,
+        prepared,
+        view,
+        prepared_source,
+        annotation_result,
+        cfg,
+        check_active,
+        primary_layers,
+        generic_role_guidance=False,
+        source_capture_rules=(),
     ):
         """Execute only explicitly prepared language, annotation and selected primary facts.
 
@@ -747,9 +804,7 @@ class M1Candidates:
             reconcile_record_candidates,
         )
 
-        packs = configured_pack_variants(
-            prepared, cfg, generic_role_guidance=generic_role_guidance
-        )
+        packs = configured_pack_variants(prepared, cfg, generic_role_guidance=generic_role_guidance)
         assertion_qualification = AssertionQualification(
             prepared_source.source, prepared_source.annotations, view.pieces, view.items
         )
@@ -836,9 +891,7 @@ class M1Candidates:
             from corpus_structure.methods.contribution_adapter import adapt_annotation_matches
             from corpus_structure.semantic.constructions.named import RetainedNamedRules
 
-            rules = RetainedNamedRules(
-                primary_layers
-            )
+            rules = RetainedNamedRules(primary_layers)
             for product in prepared_source.annotations:
                 primary_ranges = tuple(
                     (selection.start, selection.end) for selection in prepared_source.selections
@@ -1097,8 +1150,11 @@ class M1Candidates:
                 check_active()
                 try:
                     (local_report,) = yield M1GlinerRequest(
-                        cfg.profile(), local_pack, (GlinerInput.from_context(context),),
-                        cfg.threshold, cfg.native_execution_profile,
+                        cfg.profile(),
+                        local_pack,
+                        (GlinerInput.from_context(context),),
+                        cfg.threshold,
+                        cfg.native_execution_profile,
                     )
                     contribution_batches.append(
                         adapt_report(
@@ -1181,8 +1237,11 @@ class M1Candidates:
                             )
                         )
                     (report,) = yield M1GlinerRequest(
-                        cfg.profile(), pack, (GlinerInput.from_context(context),),
-                        cfg.threshold, cfg.native_execution_profile,
+                        cfg.profile(),
+                        pack,
+                        (GlinerInput.from_context(context),),
+                        cfg.threshold,
+                        cfg.native_execution_profile,
                     )
                     association_diagnostics: list[dict[str, Any]] = []
                     report_entry = dict(
@@ -1245,7 +1304,11 @@ class M1Candidates:
                                 supplements[group_index] = supplement
                         elif family == "definition":
                             supplements[group_index] = NativeRecordGroup(
-                                (RoleInput("scope", native_pointer=context.primary.section_pointer),),
+                                (
+                                    RoleInput(
+                                        "scope", native_pointer=context.primary.section_pointer
+                                    ),
+                                ),
                                 "selected native section is the explicit definition scope",
                             )
                         elif family == "formula_context" and native_groups:

@@ -96,8 +96,13 @@ class SentenceEvidenceOperation:
         from corpus_structure.semantic.sentence_products import resolve_sentence_port
 
         return resolve_sentence_port(
-            prepared, model, operation, identity=identity, authorize=authorize,
-            custody=custody, sources=sources,
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
         )
 
     def __init__(self, profile, check_active, host=None):
