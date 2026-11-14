@@ -311,6 +311,7 @@ def construction_product_values(
         families=(
             *FAMILIES,
             "construction.math_scope",
+            "construction.navigation",
             *(("construction.named_rules",) if options.annotation_rules else ()),
         ),
     )
@@ -446,6 +447,12 @@ def construction_product_values(
                 for family in FAMILIES:
                     for selector in selected["selectors"]:
                         builder.record(family, selector, "partial", "; ".join(unavailable))
+    from .constructions.navigation import populate_navigation_products
+    populate_navigation_products(
+        builder, view, source, native, annotation_products=native_products,
+        check_active=check_active,
+        admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
+    )
     from .constructions.math_scope import populate_math_scope_products
 
     if native is None:
