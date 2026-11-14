@@ -170,3 +170,18 @@ def test_native_relationship_decoder_preserves_selected_target_carriers_and_reje
         contextual_relationship_binding(product, decision_id=decision.decision_id, edge_id="foreign")
     with pytest.raises(ValueError, match="retained identity"):
         contextual_relationship_binding(product, decision_id="foreign", edge_id=decision.selected_edges[0].edge_id)
+
+
+def test_current_definition_inventory_preserves_semantic_meaning_without_legacy_reference():
+    from corpus_structure.semantic.contextual_operations import admitted_contextual_inventory
+
+    target = target_representation("actual-component", "current-native-product-and-member-reference", "alpha", "A source definition", type_name="definition", scope="selected")
+    meaning = {"term": "alpha", "content": "A source definition", "interpretation": "definition", "scope": "selected"}
+    selection = {"source_selection": "actual-authored-target-selection", "scope": "selected", "targets": source_value([asdict(target)]), "semantic_targets": source_value({target.target_id: meaning})}
+    product = contextual_inventory_values(selection)
+    inventory = admitted_contextual_inventory(product)
+    assert inventory.semantic_groups[0].meaning == meaning
+    assert inventory.targets[0].source_binding == "current-native-product-and-member-reference"
+    selection["semantic_targets"] = source_value({})
+    with pytest.raises(ValueError, match="actual selected semantic target meaning"):
+        contextual_inventory_values(selection)

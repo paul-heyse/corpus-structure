@@ -121,7 +121,11 @@ def semantic_target_groups(
 ) -> tuple[SemanticTargetGroup, ...]:
     groups: dict[str, tuple[dict[str, _MeaningValue], list[str]]] = {}
     for target in targets:
-        if target.source_binding.startswith("definition-component:"):
+        if target.source_binding.startswith("definition-component:") or (
+            target.type_name == "definition"
+            and target.target_id in semantic_targets
+            and "curated_target" not in semantic_targets[target.target_id]
+        ):
             if target.target_id not in semantic_targets:
                 raise ValueError(
                     "component inventory requires authenticated semantic target meaning"

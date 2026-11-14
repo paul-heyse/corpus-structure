@@ -215,6 +215,8 @@ def contextual_inventory_values(selection):
 
     targets = _TARGETS.validate_python(source_python(selection["targets"]))
     meanings = source_python(selection["semantic_targets"])
+    if not isinstance(meanings, dict) or any(target.type_name == "definition" and (target.target_id not in meanings or not isinstance(meanings[target.target_id], dict) or "curated_target" in meanings[target.target_id]) for target in targets):
+        raise ValueError("native definition inventory requires actual selected semantic target meaning")
     inventory = freeze_inventory(targets, source_selection=selection["source_selection"], scope=selection["scope"], effective_version=selection.get("effective_version"), reliable_type=selection.get("reliable_type"), parent=selection.get("parent"), semantic_targets=meanings)
     return {"inventory": source_value(asdict(inventory))}
 
