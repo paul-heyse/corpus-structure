@@ -9,7 +9,7 @@ import pytest
 
 from corpus_structure.methods.contextual_candidates import retained_occurrences
 from corpus_structure.methods.scoped_relations import ScopedRelationsConfig
-from corpus_structure.orchestrate.registry import canonical_numbers
+from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.formal_evidence import build_formal_layer
 from corpus_structure.semantic.identity import canonical_bytes

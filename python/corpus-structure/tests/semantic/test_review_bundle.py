@@ -994,7 +994,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         ArtifactIdentityMethod,
     )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding, discover_relations
-    from corpus_structure.orchestrate.registry import canonical_numbers
+    from corpus_structure.core.canonical import canonical_numbers
     from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.observations import source_value

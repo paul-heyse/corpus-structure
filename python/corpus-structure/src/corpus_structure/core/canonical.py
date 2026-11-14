@@ -22,6 +22,7 @@ import math
 import re
 import unicodedata
 from decimal import Decimal
+from collections.abc import Mapping
 from typing import Any
 
 KEY_HEX_DIGITS = 32
@@ -122,3 +123,18 @@ def decimal_of_float(value: float) -> str:
     if not math.isfinite(value):
         raise ValueError(f"not a finite float: {value!r}")
     return canonical_decimal(repr(value))
+
+
+def canonical_numbers(value: Any) -> Any:
+    """Convert loader JSON numbers to their retained canonical decimal wire values."""
+    if isinstance(value, bool) or value is None or isinstance(value, int | str):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"a non-finite float {value!r}")
+        return decimal_of_float(value)
+    if isinstance(value, Mapping):
+        return {str(key): canonical_numbers(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [canonical_numbers(item) for item in value]
+    return value

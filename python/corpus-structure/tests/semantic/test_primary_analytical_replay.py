@@ -17,7 +17,7 @@ from corpus_structure.serve import primary_characterization_replay, review_bundl
 
 
 def captured_report(method, cfg, report):
-    from corpus_structure.orchestrate.registry import canonical_numbers
+    from corpus_structure.core.canonical import canonical_numbers
 
     config = canonical_numbers(cfg.model_dump(mode="json"))
     digest = config_key(method.name, method.version, config)

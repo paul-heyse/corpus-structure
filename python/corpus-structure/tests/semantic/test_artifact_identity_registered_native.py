@@ -16,7 +16,7 @@ from corpus_structure.methods.artifact_identity import (
 )
 from corpus_structure.methods.scoped_relations import SourceWorkBinding
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.semantic.artifact_identity import (
     ArtifactDeclaredRelationship,
     ArtifactIdentityProduct,
@@ -184,12 +184,9 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
         ),
     )
     method = ArtifactIdentityMethod()
-    registry = MethodRegistry(
-        [method], MethodsFile(configs={method.name: {"default": cfg.model_dump(mode="json")}})
-    )
-    resolved = registry.resolve(method.name, "default")
-    assert resolved.params["title_threshold"] == "70.5"
-    assert resolved.params["policy"] == {
+    params = canonical_numbers(cfg.model_dump(mode="json"))
+    assert params["title_threshold"] == "70.5"
+    assert params["policy"] == {
         "prior": "0.1",
         "code_m": "0.9",
         "code_u": "0.01",
@@ -226,7 +223,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
             .one()
         )
     stored = row["params"]  # Native method_config.params is JSONB, returned as a mapping.
-    assert stored == dict(resolved.params)
+    assert stored == dict(params)
     assert row["status"] == "done"
     product = row["body"]["structural_product"]["artifact_identity"]
     assert product["policy"] == policy.model_dump(mode="json")

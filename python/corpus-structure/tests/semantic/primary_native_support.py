@@ -75,7 +75,8 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     from pathlib import Path
     from types import SimpleNamespace
     from corpus_structure.core.method import MethodContext, MethodSettings, UnitView
-    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+    from corpus_structure.core.canonical import canonical_numbers
+    from corpus_structure.core.evidence import config_key
     from corpus_structure.semantic.operations import (
         BoundReader, claim_tasks, complete_unit_result, create_task, record_method,
     )
@@ -86,13 +87,12 @@ def publish_primary_fixture(conn, run, prepared, method, params):
         raise TypeError("historical primary fixture requires an explicit retained primary family")
     reader = BoundReader(conn, run, prepared)
     identities = params["characterization_source_scope"]["source_view_ids"]
-    selected = MethodRegistry(
-        (method,), MethodsFile(configs={method.name: {"primary-control": params}})
-    ).resolve(method.name, "primary-control")
+    config = method.Config.model_validate(params)
+    canonical = canonical_numbers(config.model_dump(mode="json"))
+    configuration_hash = config_key(method.name, method.version, canonical)
     config_id = record_method(
-        conn, method, selected.name, selected.params, selected.config_hash, prepared=prepared
+        conn, method, "primary-control", canonical, configuration_hash, prepared=prepared
     )
-    config = method.Config.model_validate(selected.params)
     run_view = SimpleNamespace(reader=reader)
     (ref,) = method.select(run_view, config)
     input_hash = "primary-control:" + method.name
@@ -113,9 +113,9 @@ def publish_primary_fixture(conn, run, prepared, method, params):
         key=method.name,
         version=method.version,
         runtime=runtime,
-        configuration=selected.config_hash,
+        configuration=configuration_hash,
         input=input_hash,
-        **{key: selected.params[key] for key in ("model", "grammar", "context")},
+        **{key: canonical[key] for key in ("model", "grammar", "context")},
     )
     assert all(isinstance(value, str) and value for value in operation.values())
     frozen_operation = {key: str(value) for key, value in operation.items()}
@@ -141,7 +141,7 @@ def publish_primary_fixture(conn, run, prepared, method, params):
         prepared=prepared,
         result=result,
         method=method,
-        configuration_hash=selected.config_hash,
+        configuration_hash=configuration_hash,
         source=reader.source_view(identities[0]).ref.key,
     )
     return result.characterization_layer.reference(task_id)

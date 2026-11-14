@@ -18,7 +18,8 @@ from corpus_structure.methods.scoped_relations import (
     discover_relations,
 )
 from corpus_structure.methods.table_interpretation import execute_table_correspondence
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+from corpus_structure.core.canonical import canonical_numbers
+from corpus_structure.core.evidence import config_key
 from corpus_structure.semantic.contribution_queries import read_source_contributions
 from corpus_structure.semantic.contributions import contribution_identity
 from corpus_structure.semantic.identity import canonical_bytes
@@ -198,16 +199,14 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         interpretation_mode="correspondence",
         characterization_layers=tuple(pin.values() for pin in primary_pins),
     )
-    selected = MethodRegistry(
-        (method,), MethodsFile(configs={method.name: {"correspondence": config.model_dump()}})
-    ).resolve(method.name, "correspondence")
-    configuration_hash = selected.config_hash
+    params = canonical_numbers(config.model_dump(mode="json"))
+    configuration_hash = config_key(method.name, method.version, params)
     with case.writer.begin() as conn:
         registered = record_method(
             conn,
             method,
             "correspondence",
-            selected.params,
+            params,
             configuration_hash,
             prepared=case.prepared,
         )

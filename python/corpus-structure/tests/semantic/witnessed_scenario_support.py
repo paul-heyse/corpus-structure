@@ -57,7 +57,7 @@ from semantic.native_record_fixtures import complete_contributions, contribution
 
 def _fixture_configuration(method, config):
     from corpus_structure.core.evidence import config_key
-    from corpus_structure.orchestrate.registry import canonical_numbers
+    from corpus_structure.core.canonical import canonical_numbers
     params = canonical_numbers(config.model_dump(mode="json"))
     return params, config_key(method.name, method.version, params)
 

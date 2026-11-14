@@ -329,7 +329,7 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(commit_db_eng
         check(product)
         # Ordinary registry ABI stores float config fields as canonical strings.
         # This helper still tests nonempty likelihood/routes independently of source custody.
-        from corpus_structure.orchestrate.registry import canonical_numbers
+        from corpus_structure.core.canonical import canonical_numbers
 
         canonical_cfg = canonical_numbers(cfg)
         check(product, canonical_cfg)
