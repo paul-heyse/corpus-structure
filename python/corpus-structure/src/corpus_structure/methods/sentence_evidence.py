@@ -26,7 +26,7 @@ class SentenceEvidenceOperation:
                 "presence": "required",
                 "parameter": "source",
                 "support": {
-                    "provenance": "value_substitution",
+                    "provenance": "exact",
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
