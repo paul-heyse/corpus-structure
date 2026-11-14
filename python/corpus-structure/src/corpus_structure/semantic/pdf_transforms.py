@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 
 from .identity import canonical_bytes
+from .product_reference import ProductReference
 from .types import SourceArtifact
 
 
@@ -380,7 +381,7 @@ class PreparedPdfTransform:
             return ProductReference(claim.task_id, product.values()["product_key"], digest)
 
         def retain(page, actual_recipe, *, verify_retained=False):
-            yield from retain_recognition_page(page, source, actual_recipe, original, selected.context, publish=publish_observation, verify_retained=verify_retained, check_active=check_active)
+            yield from retain_recognition_page(page, source, actual_recipe, original, selected.context, publish=publish_observation, structural_pin=selected.parent, verify_retained=verify_retained, check_active=check_active)
 
         def observations():
             failures = []
@@ -406,13 +407,17 @@ class PreparedPdfTransform:
             yield PdfRecordPublicationDraft(document=reconciled.document, product_key="integrated", kind="integrated", original=original.content, schema_bytes=selected.product.schema_bytes, recipe_bytes=recipe_bytes, health=health, companions={**{family: reconciled.journal.collection(family) for family in ("input", "occurrence", "relation", "mapping_report", "coverage")}, "health": ({"health": health, "source_scope": "whole_document"}, reconciled.health)}, metadata={"inline_candidate_pages": (selected.candidates.encoded(number) for number in selected.candidates.page_nos)})
 
 
-def retain_recognition_page(page, source, recipe, original, context, *, publish, verify_retained=False, check_active):
+def retain_recognition_page(page, source, recipe, original, context, *, publish, structural_pin: ProductReference | None = None, verify_retained=False, check_active):
     """Prepare each actual retained request, then let its fenced native owner publish."""
     from corpus_structure.ingest.pdf_recognition import recognition_observation_values
     from .pdf_integrated import prepare_integrated_pdf_product
     for row, raw, artifacts in page.requests(verify_retained=verify_retained):
         check_active()
         observation = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
+        if structural_pin is not None:
+            if not isinstance(structural_pin, ProductReference):
+                raise ValueError("recognition structural support requires an exact nominal publication pin")
+            observation["inputs"] = [{**structural_pin.values(), "role": "structural"}]
         product = prepare_integrated_pdf_product(observation, original, recipe.to_bytes(), artifacts=artifacts, context=context)
         pin = publish(product)
         check_active()

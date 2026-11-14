@@ -65,6 +65,10 @@ def _pdf_recipe(directory):
 def test_native_organization_enrichment_and_integration_keep_real_receipts_and_exact_resume(scenario_seeds, tmp_path, monkeypatch):
     from docling_core.types.doc import BoundingBox, DocItemLabel, DoclingDocument, ProvenanceItem, Size
     from corpus_structure.ingest import pdf_recognition, pdf_worker
+    from corpus_structure.semantic import pdf_integrated
+    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
+    from corpus_structure.semantic.product_reference import ProductReference
+
 
     calls = []
     def controlled_stream(self, source, *, spool_root, record_root, build_id, release_id, on_replay, check_active, **options):
@@ -100,6 +104,28 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
     monkeypatch.setattr(pdf_worker.PdfWorker, "enrich", controlled_enrichment)
     monkeypatch.setattr(pdf_recognition, "RecognitionWorker", ControlledRecognition)
+    actual_store = pdf_integrated.store_pdf_observation
+    refused_structural = []
+    def verify_selected_structure(connection, **arguments):
+        product = arguments["product"]
+        value = product.values()
+        (selected,) = value["inputs"]
+        assert selected["role"] == "structural"
+        parent = ProductReference(selected["task_id"], selected["product_key"], selected["content_digest"])
+        reader = PublishedPdfReader(connection, parent, projection_context=kernel.prepared)
+        (raw_capture,) = reader.iter_companions("input")
+        assert raw_capture["role"] == "structural" and raw_capture["task_id"] != parent.task_id
+        substituted = deepcopy(value)
+        substituted["inputs"] = [{key: raw_capture[key] for key in ("task_id", "product_key", "content_digest", "role")}]
+        artifacts = table("kb.source_artifact")
+        original_bytes = bytes(connection.scalar(select(artifacts.c.content).where(artifacts.c.artifact_digest == value["artifact_digest"])))
+        forged = pdf_integrated.prepare_integrated_pdf_product(substituted, original_bytes, NemotronRecipe("2" * 64, "3" * 64).to_bytes(), artifacts=product.artifacts, context=arguments["context"])
+        with pytest.raises(DBAPIError, match="native recognition structural input differs from exact selected PDF publication") as rejected, connection.begin_nested():
+            actual_store(connection, **{**arguments, "product": forged})
+        assert rejected.value.orig.sqlstate == "23514"
+        refused_structural.append(raw_capture)
+        return actual_store(connection, **arguments)
+    monkeypatch.setattr(pdf_integrated, "store_pdf_observation", verify_selected_structure)
     recipe = OriginalSeedRecipe(RecordSourceRecipe(), _pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(clone.admin, clone.stage.kernel.preparation, clone.stage.kernel.identities, recipe.target, clone)
@@ -120,6 +146,8 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             products[operation] = {product["role"]: decode_semantic_value(product["body"]) for product in use["products"]}
             derivations[operation] = use["derivation_id"]
         assert calls == ["capture", "enrich", "recognize"] or calls == ["capture", "recognize", "enrich"]
+        assert len(refused_structural) == 1
+        assert not tuple((tmp_path / "owned").rglob("selected-*"))
         effects = ("source.pdf_sections/organize", "source.pdf_math/enrich", "source.pdf_integrated/reconcile")
         for operation in effects:
             output = products[operation]["result"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Literal
 
 import pytest
 
@@ -18,23 +19,18 @@ def test_pdf_recipe_has_no_implicit_conversion_deadline():
     assert PdfIngestConfig().recipe().timeout_seconds is None
 
 
-def test_retained_native_configuration_preserves_domain_definition():
+def test_domain_source_selection_survives_pure_scope_configuration():
+    from copy import deepcopy
     import yaml
 
-    from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
-    from corpus_structure.semantic.product_reference import ProductReference
-
-    domain = yaml.safe_load(
-        (Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text()
-    )
+    domain = yaml.safe_load((Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text())
     values = domain["configs"]["ingest.pdf_integrated"]["default"]
-    original = PdfIntegratedIngestConfig.model_validate(values)
-    pin = ProductReference(17, "organized", "a" * 64)
-    selected = original.model_copy(update={"native_product": pin})
-    assert selected.native_product == pin and selected.integrated_product is None
-    assert selected.originals == original.originals == ("siegrist_random/Full_PDF/Full.pdf",)
-    assert selected.membership == original.membership == "descendants"
-    assert original.native_product is None and "native_product" not in values
+    before = deepcopy(values)
+    configuration = PdfIngestConfig.model_validate(values)
+    assert configuration.originals == ("siegrist_random/Full_PDF/Full.pdf",)
+    assert configuration.membership == "descendants"
+    assert configuration.section_policy().rule_id == "native-organizational-headings-v2"
+    assert values == before
 
 
 def test_owned_assets_pin_actual_table_revision_and_detect_changed_bytes(tmp_path, monkeypatch):
@@ -197,18 +193,22 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
     assert result.outcomes[0].outcome == "succeeded"
 
 
-def test_pinned_adoption_recipe_does_not_initialize_models(tmp_path):
-    from corpus_structure.ingest.pdf_methods import IngestPdf
-    from corpus_structure.semantic.product_reference import ProductReference
+def test_organization_profile_capture_does_not_initialize_models(tmp_path, monkeypatch):
+    import json
+    from corpus_structure.ingest import pdf_worker, pdf_recognition
+    from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
+    from corpus_structure.semantic.pdf_transforms import pdf_transform_operation_sources
 
-    cfg = PdfIngestConfig(
-        native_product=ProductReference(1, "organized", "a" * 64), model_cache=tmp_path / "missing"
-    )
-    producer = IngestPdf()
-    recipe = producer.original_recipe(cfg)
-    assert b"native-pdf-adoption-v1" in recipe
-    assert not producer._prepared
-    assert not producer._workers
+    def forbidden(*args, **kwargs):
+        raise AssertionError("acquisition cannot initialize PDF or recognition models")
+    monkeypatch.setattr(pdf_worker.PdfWorker, "__init__", forbidden)
+    monkeypatch.setattr(pdf_recognition.RecognitionWorker, "__init__", forbidden)
+    captured = pdf_transform_operation_sources("organized", options=SectionPolicy("explicit-policy"), directory=tmp_path)
+    (custody,) = captured.boundary_contracts
+    profile = json.loads(custody.content)
+    assert profile["options"]["rule_id"] == "explicit-policy"
+    assert profile["input_operation"] == "source.pdf/capture"
+    assert "native" not in profile and "resources" not in profile
 
 
 def test_source_view_key_qualifies_consumer_release_and_full_native_pin():
@@ -310,7 +310,7 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
 
     from corpus_structure.ingest.pdf_candidates import CandidatePage
     from corpus_structure.ingest.pdf_enrichment import classify_cells, table_candidates
-    from corpus_structure.ingest.pdf_methods import PdfEnrichConfig
+    from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions
 
     document = DoclingDocument(name="independent mixed native cell fixture")
     document.pages[1] = PageItem(page_no=1, size=Size(width=100, height=100))
@@ -330,7 +330,7 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
         data=TableData(num_rows=3, num_cols=1, table_cells=cells),
         prov=ProvenanceItem(page_no=1, bbox=BoundingBox(l=1, t=0, r=90, b=60), charspan=(0, 0)),
     )
-    cfg = PdfEnrichConfig()
+    cfg = PdfEnrichmentOptions()
     candidates = table_candidates(document, frozenset([table.self_ref]))
     demanded, reports = classify_cells(
         document,
@@ -349,8 +349,8 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
     "with_ancestor,missing_vectors,unresolved_context",
     [(False, False, False), (True, False, False), (False, True, False), (False, False, True)],
 )
-def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
-    monkeypatch, with_ancestor, missing_vectors, unresolved_context
+def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
+    tmp_path, monkeypatch, with_ancestor, missing_vectors, unresolved_context
 ):
     """Pure orchestration control; this does not qualify a model or database publication."""
     import json
@@ -365,13 +365,13 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     )
     from PIL import Image
 
-    from corpus_structure.core.method import SourceViewRef, UnitRef, UnitView
-    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
     from corpus_structure.ingest.pdf import PdfConversion, PdfConverter, publication_payload
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
     from corpus_structure.ingest.pdf_health import ObservedFormulaStage
     from corpus_structure.ingest.pdf_hierarchy import organize, snapshot
-    from corpus_structure.ingest.pdf_methods import EnrichPdfMath, IngestPdf, PdfEnrichConfig
+    from corpus_structure.ingest.pdf_methods import _drafts
+    from corpus_structure.ingest.pdf_selected_enrichment import enrich_selected_pdf
+    from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions
     from corpus_structure.semantic.product_reference import ProductReference
 
     document = DoclingDocument(name="independent document-operation fixture")
@@ -398,7 +398,7 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         )
     organization = organize(snapshot(document), PdfIngestConfig().section_policy())
     section = organization.sections[1 if with_ancestor else 0].group_ref
-    membership = "descendants" if with_ancestor else "direct"
+    membership: Literal["direct", "descendants"] = "descendants" if with_ancestor else "direct"
     candidate = InlineCandidate(1, "x", 25, 10, 35, 30, "TOPLEFT", "CMMI10", "native-math-font-v1")
     if unresolved_context:
         candidate = InlineCandidate(
@@ -434,44 +434,17 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         section_refs=frozenset([section]),
     )
     pin = ProductReference(1, "organized", "c" * 64)
-    view = SourceViewRef(10, "selected-view", 1, pin, section, membership, "d" * 64, "e" * 64)
-    reads = []
+    product = SimpleNamespace(
+        values=lambda: {key: value for key, value in payload.items() if key != "inline_candidate_pages"},
+        original=b"%PDF-fixture", schema_bytes=b"{}", recipe_bytes=b"original-native-fixture",
+    )
+    from corpus_structure.ingest.pdf_candidate_source import as_candidate_source
+    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
+    spool = PdfStreamSpool(tmp_path / "candidates")
+    for page in as_candidate_source(conversion.inline_candidates).iter_pages():
+        spool.capture_candidates(page)
+    candidate_source = spool.candidate_source
     prepared = []
-    captured_directories = []
-
-    class Reader:
-        def source_views(self):
-            return (view,)
-
-        def native_document(self, reference, *, include_candidate_pages=True):
-            reads.append(reference)
-            assert include_candidate_pages is False
-            return SimpleNamespace(
-                values=lambda: {
-                    key: value for key, value in payload.items() if key != "inline_candidate_pages"
-                },
-                original=b"%PDF-fixture",
-                schema_bytes=b"{}",
-                recipe_bytes=b"original-native-fixture",
-            )
-
-        def capture_pdf_candidates(self, reference, directory):
-            from corpus_structure.ingest.pdf_candidate_source import as_candidate_source
-            from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
-
-            assert reference == pin
-            captured_directories.append(directory)
-            spool = PdfStreamSpool(directory)
-            for page in as_candidate_source(conversion.inline_candidates).iter_pages():
-                spool.capture_candidates(page)
-            return spool.candidate_source
-
-        def prepare_pdf_product(self, value, original, schema, recipe):
-            prepared.append(value)
-            return SimpleNamespace(digest="f" * 64)
-
-        def native_product_reference(self, document, key, digest):
-            return ProductReference(2, key, digest)
 
     class Engine:
         def predict_batch(self, inputs):
@@ -497,9 +470,8 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
             CandidatePage(1, True, False, (candidate,), not missing_vectors),
         ),
     )
-    cfg = PdfEnrichConfig()
-    producer = IngestPdf()
-    recipe = cfg.recipe()
+    cfg = PdfEnrichmentOptions()
+    recipe = PdfIngestConfig().recipe()
     converter = PdfConverter(recipe)
     converter._prepared_options_report = (
         recipe.options().model_dump_json(serialize_as_any=True).encode()
@@ -513,8 +485,6 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     monkeypatch.setattr(
         worker, "enrich", lambda request, **kwargs: compute_enrichment(request, converter)
     )
-    producer._workers[recipe.digest] = worker
-    monkeypatch.setattr(producer, "_runtime", lambda cfg: (recipe, None))
 
     class Renderer:
         def __init__(self, *args, **kwargs):
@@ -530,40 +500,6 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
             return Image.new("RGB", (20, 20))
 
     monkeypatch.setattr("corpus_structure.ingest.pdf_enrichment.PdfRegionRenderer", Renderer)
-    reader = Reader()
-    run = SimpleNamespace(reader=reader)
-    import logging
-
-    from corpus_structure.core.method import MethodContext, MethodSettings
-
-    reader_port = SimpleNamespace(
-        prepared=SimpleNamespace(
-            release_id="release1",
-            manifest=json.dumps(
-                {
-                    "dependencies": [
-                        [
-                            "execution/implementation/pdf/section-text-recipe.json",
-                            sha256(_section_text_policy_bytes()).hexdigest(),
-                        ]
-                    ]
-                }
-            ),
-        ),
-        source_views=reader.source_views,
-        native_document=reader.native_document,
-        capture_pdf_candidates=reader.capture_pdf_candidates,
-        prepare_pdf_product=reader.prepare_pdf_product,
-        native_product_reference=reader.native_product_reference,
-    )
-    ctx = MethodContext(
-        run,
-        reader_port,
-        MethodSettings(data_dir=Path("."), model_cache=Path(".")),
-        logging.getLogger(__name__),
-        retain_pdf_records=lambda unit, draft: retain(draft),
-    )
-
     def retain(draft):
         # This pure control consumes the record draft synchronously, as its production
         # custody owner does; it does not claim database/provider qualification.
@@ -576,15 +512,16 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         )
         return ProductReference(2, "math-enriched", "f" * 64)
 
-    unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 1, "actual-original-key"), run)
-    (result,) = EnrichPdfMath(producer).run((unit,), cfg, ctx)
-    assert result.outcome is ObservationOutcome.EMPTY
-    assert reads == [pin]
+    draft = enrich_selected_pdf(product, pin, ((section, membership),), cfg, b"captured-enrichment-recipe", candidate_source, worker, check_active=lambda: None)
+    try:
+        reference = retain(draft)
+        source_views = _drafts(1, reference, snapshot(draft.document), draft.health, (section,), membership, "release1", recognition_coverage=draft.metadata["recognition_coverage"])
+    finally:
+        worker.close()
+    assert draft.companions["input"] == ({**pin.values(), "role": "structural"},)
     assert len(prepared) == 1
-    assert captured_directories and all(not path.exists() for path in captured_directories)
-    assert result.source_views[0].replaces_source_view_id == 10
-    assert result.source_views[0].native_product == ProductReference(2, "math-enriched", "f" * 64)
-    assert result.source_views[0].text == "1.1: Sets\nLet x be real."
+    assert source_views[0].native_product == reference
+    assert source_views[0].text == "1.1: Sets\nLet x be real."
     assert prepared[0]["health"]["inline_coverage"] == "unknown"
     row = next(
         r
@@ -594,17 +531,16 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     assert row["membership"] == membership
     expected_coverage = "partial" if missing_vectors or unresolved_context else "complete"
     assert row["outcome"] == expected_coverage
-    assert result.source_views[0].health["inline_coverage"] == expected_coverage
+    assert source_views[0].health["inline_coverage"] == expected_coverage
     if unresolved_context:
         assert prepared[0]["inline_alignment_reports"][0]["item_pointers"] == [paragraph.self_ref]
         assert prepared[0]["inline_alignment_reports"][0]["candidate_index"] == 0
         assert prepared[0]["derivation_mappings"] == []
         return
     if with_ancestor:
-        assert len(result.source_views) == 2
-        assert result.source_views[1].membership == "direct"
-        assert result.source_views[1].analysis_eligible is False
-        assert result.source_views[1].text == "1: Parent\nParent context."
+        (context,) = _drafts(1, reference, snapshot(draft.document), draft.health, (organization.sections[0].group_ref,), "direct", "release1", analysis_eligible=False, recognition_coverage=draft.metadata["recognition_coverage"])
+        assert context.membership == "direct" and context.analysis_eligible is False
+        assert context.text == "1: Parent\nParent context."
         assert {r["section_pointer"] for r in prepared[0]["recognition_coverage"]} == {
             s.group_ref for s in organization.sections[:2]
         }
@@ -671,7 +607,8 @@ def test_descendant_projection_selects_scoped_nested_roots_before_reader_filteri
         organize,
         snapshot,
     )
-    from corpus_structure.ingest.pdf_methods import PdfEnrichConfig, _select_sections
+    from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions
+    from corpus_structure.ingest.pdf_methods import _select_sections
 
     document = DoclingDocument(name="independent scoped descendant selection")
     for title, level in [
@@ -693,8 +630,8 @@ def test_descendant_projection_selects_scoped_nested_roots_before_reader_filteri
     # Unscoped ingestion also examines unheaded body content. Its residual
     # projection removes fields already owned by the selected section roots.
     assert _select_sections(nodes, cfg) == ("#/body", parent)
-    assert not isinstance(PdfEnrichConfig(), PdfIngestConfig)
-    assert "originals" not in PdfEnrichConfig.model_fields
+    assert not isinstance(PdfEnrichmentOptions(), PdfIngestConfig)
+    assert "originals" not in PdfEnrichmentOptions.model_fields
 
 
 def test_application_wire_omits_absent_optionals_without_altering_native_nulls():
@@ -725,7 +662,7 @@ def test_application_wire_omits_absent_optionals_without_altering_native_nulls()
 def test_validation_error_terminal_summary_is_bounded_and_omits_input():
     from pydantic import BaseModel, ValidationError
 
-    from corpus_structure.ingest.pdf_methods import _error_summary
+    from corpus_structure.ingest.pdf_health import error_summary as _error_summary
 
     class Row(BaseModel):
         font: str
@@ -741,3 +678,35 @@ def test_validation_error_terminal_summary_is_bounded_and_omits_input():
     assert "rows.3.font" not in summary
     assert "input_value" not in summary
     assert len(summary) < 1800
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_prepared_enrichment_retires_worker_after_last_consumer_even_on_failure(tmp_path, monkeypatch, fail):
+    from corpus_structure.ingest import pdf_selected_enrichment, pdf_worker
+    from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions, PreparedPdfTransform
+    recipe = PdfIngestConfig(device="cpu", ocr_device="cpu").recipe()
+    profile = PreparedPdfTransform(None, None, {"mode": "enriched", "options": PdfEnrichmentOptions().model_dump(mode="json"), "native": {"recipe": recipe.to_bytes().hex(), "assets": {"root": str(tmp_path), "manifest": b"{}".hex(), "files": (), "repositories": ()}, "nemotron_endpoint": None}})
+    events = []
+    class Worker:
+        def __init__(self, recipe, *, assets):
+            self.closed = False
+            events.append("opened")
+        def close(self):
+            self.closed = True
+            events.append("retired")
+    result = object()
+    def consume(product, parent, sections, options, recipe_bytes, candidates, worker, *, check_active):
+        assert not worker.closed
+        events.append("consumed")
+        if fail:
+            raise RuntimeError("controlled consumer failure")
+        return result
+    monkeypatch.setattr(pdf_worker, "PdfWorker", Worker)
+    monkeypatch.setattr(pdf_selected_enrichment, "enrich_selected_pdf", consume)
+    selected = SimpleNamespace(product=object(), parent=object(), sections=(), candidates=object())
+    if fail:
+        with pytest.raises(RuntimeError, match="controlled consumer failure"):
+            profile._enrich(selected, b"{}", lambda: None)
+    else:
+        assert profile._enrich(selected, b"{}", lambda: None) is result
+    assert events == ["opened", "consumed", "retired"]
