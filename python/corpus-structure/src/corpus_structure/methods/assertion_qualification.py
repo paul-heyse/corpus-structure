@@ -14,6 +14,7 @@ from corpus_structure.semantic.source_contexts import (
     NativeSourcePin,
     NativeSpanEvidence,
     SourceInterval,
+    SourcePin,
 )
 
 from .gliner import GlinerPack, GlinerRefused, GlinerReport, map_record_field
@@ -35,7 +36,7 @@ def _record_extent(
     pack: GlinerPack,
     report: GlinerReport,
     context: NativeSourceContext,
-    pin: NativeSourcePin,
+    pin: SourcePin,
     role: str,
     raw: Any,
 ) -> RoleSpan | None:
@@ -52,7 +53,7 @@ def _record_extent(
 
 
 def _sentence_model_start(
-    context: NativeSourceContext, pin: NativeSourcePin, sentence: SentenceAnnotation
+    context: NativeSourceContext, pin: SourcePin, sentence: SentenceAnnotation
 ) -> int | None:
     """Invert the exact source projection only for a complete, unique sentence run."""
     source_end = sentence.start

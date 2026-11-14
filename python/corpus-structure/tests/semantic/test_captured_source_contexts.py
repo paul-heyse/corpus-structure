@@ -12,6 +12,7 @@ from corpus_structure.methods.gliner import (
     map_literal,
 )
 from corpus_structure.methods.record_assembly import assemble_native_records, native_table_groups
+from corpus_structure.semantic.proposals import NativeFrameSource
 from corpus_structure.semantic.source_contexts import (
     CapturedRecognitionInterval,
     CapturedRecognitionSlice,
@@ -89,6 +90,7 @@ def test_considered_equal_text_alternative_and_source_substitution_invalidate_co
     assert selected.text == context.text and selected.dependency_digest != context.dependency_digest
     with pytest.raises(ContextRefused, match="absent"):
         replace(context, captured_dependencies=(alternative.coordinate_id,))
+    assert isinstance(context.primary, NativeFrameSource)
     with pytest.raises(ContextRefused, match="exact invocation"):
         PreparedNativeSources(
             (replace(context.primary, recipe_digest="d" * 64),), captured=(captured,)

@@ -17,6 +17,7 @@ from corpus_structure.semantic.constructions.math_scope import (
     populate_math_scope,
     retained_math_scope,
 )
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 from methods.primary_reading_fixture import prepared
 
 
@@ -26,10 +27,12 @@ def produce(
     nlp = ControlledPipeline()
     monkeypatch.setattr(annotations, "pipeline", lambda _: nlp)
     request = item(nlp, text, start=0, block=Block(text, math, (), ()), identity=identity)
+    assert isinstance(request.source, NativeSourcePin)
     if projection is not None:
         request = replace(request, source=replace(request.source, projection_digest=projection))
     (product,) = annotate([request])
     source = product.source
+    assert isinstance(source, NativeSourcePin)
     view = SimpleNamespace(
         ref=SimpleNamespace(
             id=source.source_view_id,

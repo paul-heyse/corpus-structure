@@ -290,7 +290,7 @@ def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
         coverage.update(
             outcome="partial",
             reason="independent scoped incomplete region",
-            unexamined=[dict(projection=product.source.projection_digest, start=start, end=end)],
+            unexamined=[dict(projection=product.source.values()["projection_digest"], start=start, end=end)],
         )
         body["outcome"] = "partial"
         partial = validate_layer(prepared(), body, dependencies=native)

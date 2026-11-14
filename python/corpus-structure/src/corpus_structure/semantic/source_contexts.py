@@ -17,7 +17,7 @@ from dataclasses import InitVar, asdict, dataclass, field
 from enum import StrEnum
 from hashlib import sha256
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from pydantic import JsonValue
 
@@ -84,6 +84,14 @@ class NativeSourcePin:
     @property
     def original_key(self):
         return self.native_product
+
+    @classmethod
+    @overload
+    def from_source(cls, source: NativeFrameSource) -> NativeSourcePin: ...
+
+    @classmethod
+    @overload
+    def from_source(cls, source: DeclaredNativeFrameSource) -> DeclaredSourcePin: ...
 
     @classmethod
     def from_source(cls, source: SourceFrame) -> SourcePin:
@@ -157,10 +165,10 @@ class SourceContextRequest:
 
 
 @dataclass(frozen=True)
-class SourceContextRead:
+class SourceContextRead[SourceT = PreparedSourceView]:
     """Owned source views and the metadata universe considered before hydration."""
 
-    sources: tuple[PreparedSourceView, ...]
+    sources: tuple[SourceT, ...]
     candidates: tuple[SourcePin, ...]
     membership_digest: str
     outcome: RetrievalOutcome

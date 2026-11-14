@@ -26,6 +26,7 @@ from corpus_structure.ingest.annotations import (
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, SentenceConfig
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 
 def test_prepared_unicode_whitespace_math_and_reference_coordinates_survive_wrong_pos(controlled):
@@ -81,9 +82,11 @@ def test_annotation_reuses_layout_without_tokenization_and_batches_pinned_block_
         annotate(iter(requests), AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=2)))
     )
     assert controlled.calls == [(True, 2, 1)]
-    assert [
-        (result.source.source_view_id, result.block_id, result.kind) for result in products
-    ] == [
+    positions = []
+    for result in products:
+        assert isinstance(result.source, NativeSourcePin)
+        positions.append((result.source.source_view_id, result.block_id, result.kind))
+    assert positions == [
         (1, "p:1", "paragraph"),
         (2, "li:1", "list_item"),
         (3, "cell:1", "table_cell"),
@@ -224,6 +227,7 @@ def test_replay_uses_same_source_layout_and_profile_dependencies(controlled):
     first, second = annotate((request, request))
     assert first == second
     assert first.dependency_digest == second.dependency_digest
+    assert isinstance(request.source, NativeSourcePin)
     changes = (
         replace(request, source=replace(request.source, projection_digest="d" * 64)),
         replace(request, source=replace(request.source, recipe_digest="e" * 64)),

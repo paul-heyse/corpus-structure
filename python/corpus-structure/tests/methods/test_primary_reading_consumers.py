@@ -15,6 +15,7 @@ from corpus_structure.methods.predicate_frames import predicate_frames
 from corpus_structure.semantic.characterization import select_primary_layers
 from corpus_structure.semantic.constructions.layers import ConstructionLayer
 from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
+from corpus_structure.semantic.proposals import NativeFrameSource
 from methods.native_evidence_support import native_source as native_source
 from methods.native_evidence_support import prepared as prepared
 
@@ -67,6 +68,7 @@ def primary_fixture(source, prepared, monkeypatch, *, heading=None):
         ]
     context = source_context(source_fields, identity=7)
     native = context.primary
+    assert isinstance(native, NativeFrameSource)
     ref = SimpleNamespace(
         **{
             **vars(original.ref),

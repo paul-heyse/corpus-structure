@@ -18,6 +18,7 @@ from corpus_structure.methods.native_evidence_layers import (
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import characterization_inputs
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 
 @pytest.fixture(scope="module")
@@ -37,6 +38,7 @@ def native_source(monkeypatch):
     request = item(controlled, text, start=0, block=block)
     (product,) = annotate([request])
     pin = request.source
+    assert isinstance(pin, NativeSourcePin)
     view = SimpleNamespace(
         ref=SimpleNamespace(
             id=pin.source_view_id,

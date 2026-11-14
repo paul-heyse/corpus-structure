@@ -72,7 +72,11 @@ def test_neighbor_and_declaration_have_distinct_sources_and_repeated_strings_do_
     )
     assert result.text == "XXX"
     anchors = result.map_span(0, 3, allow_multiple=True)
-    assert [(row.source.source_view_id, row.start, row.end, row.quote) for row in anchors] == [
+    actual = []
+    for row in anchors:
+        assert isinstance(row.source, NativeSourcePin)
+        actual.append((row.source.source_view_id, row.start, row.end, row.quote))
+    assert actual == [
         (1, 2, 3, "X"),
         (2, 0, 1, "X"),
         (3, 0, 1, "X"),
@@ -197,10 +201,11 @@ def test_multiple_real_pieces_require_role_permission_and_have_own_partial_coord
     )
     with pytest.raises(ContextRefused, match="multiple source anchors"):
         result.map_span(2, 6)
-    assert [
-        (row.source.source_view_id, row.start, row.end, row.quote)
-        for row in result.map_span(2, 6, allow_multiple=True)
-    ] == [
+    actual = []
+    for row in result.map_span(2, 6, allow_multiple=True):
+        assert isinstance(row.source, NativeSourcePin)
+        actual.append((row.source.source_view_id, row.start, row.end, row.quote))
+    assert actual == [
         (1, 2, 4, "cd"),
         (2, 0, 2, "ef"),
     ]
@@ -524,6 +529,7 @@ def test_actual_source_view_digest_and_frame_custody_preserve_recognition_precis
     frame = native_source_frame(view, (("s1", 0, 3),))
     result = context(frame, (SourceSlice(1, 2, 3),))
     (anchor,) = result.map_span(0, 1, literal="X")
+    assert isinstance(anchor.source, NativeSourcePin)
     assert (anchor.start, anchor.end, anchor.source.projection_digest) == (
         2,
         3,

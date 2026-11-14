@@ -27,6 +27,7 @@ from corpus_structure.semantic.pdf_contracts import (
     store_pdf_original,
 )
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 from corpus_structure.semantic.source_views import (
     load_source_view,
     selected_source_views,
@@ -960,6 +961,7 @@ def _assert_m1_owned_context_and_annotation_dependency(
     )
     assert context.outcome == RetrievalOutcome.SELECTED
     assert [view.ref.id for view in context.sources] == [identity]
+    assert isinstance(context.candidates[0], NativeSourcePin)
     assert context.candidates[0].projection_digest == source.ref.projection_digest
     assert reader.source_context_membership(identity) == reader.source_context_membership(
         child_identity

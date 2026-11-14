@@ -21,6 +21,7 @@ from spacy.vocab import Vocab
 
 from corpus_structure.ingest.annotation_views import AnnotationView, annotation_view
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
+from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
 
 PREDICATE_FRAME_VERSION = "2"
 type RoleSpan = tuple[int, int]
@@ -63,7 +64,7 @@ def source_layout(
         }:
             continue
         examined_heading = dict(
-            projection=product.source.projection_digest,
+            projection=(product.source.values()["projection_digest"] if isinstance(product.source, DeclaredSourcePin) else product.source.projection_digest),
             native_pointer=pointer,
             start=piece["start"],
             end=piece["end"],

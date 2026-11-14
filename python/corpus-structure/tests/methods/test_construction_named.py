@@ -22,6 +22,7 @@ from corpus_structure.semantic.constructions.named import (
     populate_named,
 )
 from corpus_structure.semantic.constructions.named_nominations import naming_nomination
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 
 @pytest.fixture(scope="module")
@@ -40,6 +41,7 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
     request = item(controlled, "X X é.", start=0)
     (product,) = annotate([request])
     pin = product.source
+    assert isinstance(pin, NativeSourcePin)
     view = SimpleNamespace(
         ref=SimpleNamespace(
             id=pin.source_view_id,

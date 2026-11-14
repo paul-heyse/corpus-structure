@@ -308,6 +308,7 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
     result = prepare_source(data, source_frame=frame, persisted_annotations=())
     assert result.source is frame
     assert result.regions[0].pointer == "#/texts/0"
+    assert result.preparation is not None
     assert result.preparation.sources[0] is frame
 
 

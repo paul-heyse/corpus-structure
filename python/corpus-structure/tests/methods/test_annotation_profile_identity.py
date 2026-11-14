@@ -21,6 +21,7 @@ from corpus_structure.methods.native_evidence_layers import (
 from corpus_structure.methods.native_profiles import NativeProfile
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 
 def profile_and_run(configuration=None, **changes):
@@ -131,6 +132,7 @@ def test_direct_columns_roundtrip_through_retained_layer_with_same_dependency(co
     text = " " * direct.block_start + request.block.text
     primary = primary_product(text, direct, profile, native_profile=native)
     pin = direct.source
+    assert isinstance(pin, NativeSourcePin)
     view = SimpleNamespace(
         ref=SimpleNamespace(
             id=pin.source_view_id,

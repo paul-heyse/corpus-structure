@@ -44,7 +44,7 @@ from .gliner import (
     map_literal,
     map_record_field,
 )
-from .math.pdf import FormulaOccurrence
+from .math.pdf import DeclaredFormulaOccurrence, FormulaOccurrence
 from .record_packs import (
     INSPECTION_POLICY,
     classification,
@@ -1218,7 +1218,7 @@ def native_table_groups(
 
 def native_formula_group(
     context: NativeSourceContext,
-    occurrence: FormulaOccurrence,
+    occurrence: FormulaOccurrence | DeclaredFormulaOccurrence,
     *,
     scope_pointer: str,
     declarations: tuple[RoleInput, ...] = (),

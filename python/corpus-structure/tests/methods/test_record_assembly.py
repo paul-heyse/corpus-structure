@@ -19,6 +19,7 @@ from corpus_structure.methods.record_assembly import (
 )
 from corpus_structure.methods.record_packs import family_pack
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.proposals import NativeFrameSource
 from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
     NativeSourceContext,
@@ -238,6 +239,7 @@ def test_rich_header_requires_every_canonical_child_not_summary_or_equal_foreign
     whole = rich_header_context()
     if replacement == "foreign":
         primary = whole.primary
+        assert isinstance(primary, NativeFrameSource)
         native = json.loads(primary.native_context)
         native["items"][1]["children"][1] = {"$ref": "#/texts/missing"}
         primary = replace(primary, native_context=canonical_bytes(native).decode())
