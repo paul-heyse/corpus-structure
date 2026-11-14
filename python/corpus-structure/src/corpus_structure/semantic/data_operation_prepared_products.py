@@ -82,6 +82,16 @@ def _verify_prepared_callable(expected_owner, supplied):
     ):
         raise PortRefusal("prepared product callable differs from its required qualified owner")
     module = sys.modules[function.__module__]
+    actual = module
+    try:
+        for name in function.__qualname__.split("."):
+            actual = inspect.getattr_static(actual, name)
+    except AttributeError as error:
+        raise PortRefusal("prepared product callable lost its captured runtime binding") from error
+    if isinstance(actual, staticmethod | classmethod):
+        actual = actual.__func__
+    if actual is not function:
+        raise PortRefusal("prepared product callable runtime binding was replaced")
     filename = inspect.getsourcefile(function)
     module_file = module.__dict__.get("__file__")
     if (
