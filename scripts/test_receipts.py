@@ -12,6 +12,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import re
 import shutil
 import signal
 import stat
@@ -21,7 +22,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -137,10 +138,20 @@ def run_process(
     cwd: Path = ROOT,
     env: dict[str, str] | None = None,
     timeout: float = SESSION_TIMEOUT,
+    group_cleanup: Callable[[subprocess.Popen[bytes]], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Bound the owned process group; never signal application/database processes by name."""
     with supervision(directory) as control:
-        return _run_process(argv, directory, prefix, control, cwd=cwd, env=env, timeout=timeout)
+        return _run_process(
+            argv,
+            directory,
+            prefix,
+            control,
+            cwd=cwd,
+            env=env,
+            timeout=timeout,
+            group_cleanup=group_cleanup,
+        )
 
 
 def _run_process(
@@ -152,6 +163,7 @@ def _run_process(
     cwd: Path,
     env: dict[str, str] | None,
     timeout: float,
+    group_cleanup: Callable[[subprocess.Popen[bytes]], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "argv": argv,
@@ -191,7 +203,7 @@ def _run_process(
         if child is not None:
             # Always settle the authenticated start_new_session group, including abrupt exits.
             try:
-                result["owned_group_cleanup"] = _stop_group(child)
+                result["owned_group_cleanup"] = (group_cleanup or _stop_group)(child)
             except Exception as error:
                 result["cleanup_error"] = f"{type(error).__name__}: {error}"
                 control.cancel("owned process group cleanup failed")
@@ -270,14 +282,19 @@ _INVOCATION_PACKAGES = (
 )
 
 
-def invocation_context() -> dict[str, Any]:
+def invocation_context(native_host: str = "shared") -> dict[str, Any]:
     versions: dict[str, str | None] = {}
     for package in _INVOCATION_PACKAGES:
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             versions[package] = None
-    return {"source": source_identity(), "python": sys.version, "versions": versions}
+    return {
+        "source": source_identity(),
+        "python": sys.version,
+        "versions": versions,
+        "native_host": native_host,
+    }
 
 
 def native_bindings(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -317,8 +334,68 @@ def run_python(
     test_timeout: float = TEST_TIMEOUT,
     cwd: Path = ROOT,
     managed: bool = False,
+    evidence_selection: str | None = None,
+    native_host: str = "shared",
+    python_only: bool = True,
 ) -> dict[str, Any]:
+    if native_host not in {"shared", "private"}:
+        raise ValueError("unknown native host mode")
+    if native_host == "private" and "--collect-only" not in args:
+        from native_private_cohort import (
+            finish_private_temporary,
+            private_command,
+            stop_private_cohort,
+        )
+
+        command, environment = private_command(
+            directory,
+            {
+                "pytest_args": args,
+                "timeout": timeout,
+                "test_timeout": test_timeout,
+                "cwd": str(cwd),
+                "managed": managed,
+                "evidence_selection": evidence_selection,
+                "python_only": python_only,
+            },
+            dict(os.environ),
+        )
+        process = run_process(
+            command,
+            directory,
+            "private-cohort",
+            cwd=cwd,
+            env=environment,
+            timeout=timeout,
+            group_cleanup=lambda child: stop_private_cohort(child, directory, _stop_group),
+        )
+        try:
+            process["private_temporary_cleanup"] = finish_private_temporary(directory, process)
+            if process["private_temporary_cleanup"]["state"] != "removed":
+                process["cleanup_error"] = "private PostgreSQL ownership remains unconfirmed"
+        except (OSError, ValueError) as error:
+            process["cleanup_error"] = f"private temporary ownership: {error}"
+        write_json(directory / "private-cohort.process.json", process)
+        invocation_path = directory / "invocation.json"
+        if invocation_path.is_file():
+            invocation = read_json(invocation_path)
+            child_path = directory / "private-host-child-settlement.json"
+            invocation["native_host_lifecycle"] = {
+                "process_returncode": process.get("returncode"),
+                "interruption": process.get("interruption"),
+                "owned_group_cleanup": process.get("owned_group_cleanup"),
+                "temporary_cleanup": process.get("private_temporary_cleanup"),
+                "child_settlement": read_json(child_path) if child_path.is_file() else None,
+                "logs": sorted(
+                    str(path.relative_to(directory))
+                    for path in (directory / "private-host-logs").glob("*.log")
+                ),
+            }
+            write_json(invocation_path, invocation)
+        return process
     env = dict(os.environ)
+    if native_host == "private":
+        env["CORPUS_CI_NATIVE_HOST"] = "private"
     if managed:
         for name in (
             "PYTEST_ADDOPTS",
@@ -340,6 +417,11 @@ def run_python(
         "-m",
         "pytest",
         *args,
+        *(
+            ["--qualification-evidence", evidence_selection]
+            if evidence_selection is not None
+            else []
+        ),
         "-p",
         "qualification_plugin",
         "--report-log",
@@ -455,14 +537,40 @@ def _cancelled(process: dict[str, Any]) -> bool:
 
 
 def _properties(reports: list[dict[str, Any]]) -> dict[str, Any]:
-    return {key: value for report in reports for key, value in report.get("user_properties", [])}
+    properties = {}
+    prerequisites = []
+    for report in reports:
+        for key, value in report.get("user_properties", []):
+            if key == "qualification_prerequisites":
+                for entry in value:
+                    if entry not in prerequisites:
+                        prerequisites.append(entry)
+            else:
+                properties[key] = value
+    if prerequisites:
+        properties["qualification_prerequisites"] = prerequisites
+    return properties
+
+
+def _prerequisites(properties: dict[str, Any]) -> list[dict[str, str]]:
+    entries = list(properties.get("qualification_prerequisites", []))
+    if "qualification_prerequisite" in properties:
+        legacy = {
+            "name": properties["qualification_prerequisite"],
+            "reason": properties.get("qualification_reason", "external prerequisite unavailable"),
+        }
+        if legacy not in entries:
+            entries.append(legacy)
+    return entries
 
 
 def _failed_prerequisite(report: dict[str, Any]) -> bool:
-    return report.get("when") == "setup" and "qualification_prerequisite" in _properties([report])
+    return report.get("when") == "setup" and bool(_prerequisites(_properties([report])))
 
 
-def _node_status(reports: list[dict[str, Any]], started: bool, finished: bool) -> dict[str, Any]:
+def _node_status(
+    reports: list[dict[str, Any]], started: bool, finished: bool, *, provider_required: bool = False
+) -> dict[str, Any]:
     properties = _properties(reports)
     failed = [report for report in reports if report.get("outcome") == "failed"]
     skipped = [report for report in reports if report.get("outcome") == "skipped"]
@@ -478,7 +586,11 @@ def _node_status(reports: list[dict[str, Any]], started: bool, finished: bool) -
     elif (started or reports) and not finished:
         status = "incomplete"
     elif skipped:
-        status = "inapplicable" if properties.get("qualification_optional") else "blocked"
+        status = (
+            "inapplicable"
+            if properties.get("qualification_optional") and not provider_required
+            else "blocked"
+        )
         reason = properties.get("qualification_reason") or skipped[0].get("longrepr")
     elif {"setup", "call", "teardown"} <= successful_phases and finished:
         status = "passed"
@@ -558,6 +670,23 @@ def _group_unsettled(process: dict[str, Any]) -> bool:
     return bool(process.get("cleanup_error") or cleanup.get("group_present_after_cleanup"))
 
 
+def _manifest_evidence_selection(manifest: dict[str, Any]) -> str:
+    mode = manifest.get("evidence_selection", "ordinary")
+    if mode not in {"ordinary", "providers"}:
+        raise ValueError("invalid evidence selection")
+    providers = manifest.get("provider_evidence", [])
+    if not isinstance(providers, list) or not all(isinstance(node, str) for node in providers):
+        raise ValueError("invalid provider-evidence identities")
+    selected = set(manifest["selected"])
+    if len(providers) != len(set(providers)) or not set(providers) <= selected:
+        raise ValueError("provider-evidence identities are outside selected manifest")
+    if mode == "providers" and set(providers) != selected:
+        raise ValueError("provider selection includes identities without provider evidence")
+    if mode == "ordinary" and providers:
+        raise ValueError("ordinary selection includes provider evidence")
+    return mode
+
+
 def _node_aliases(manifests: list[dict[str, Any]]) -> dict[str, str]:
     """Validate exact collected identities, including historical partial alias maps."""
     aliases: dict[str, str] = {}
@@ -585,6 +714,9 @@ def _node_aliases(manifests: list[dict[str, Any]]) -> dict[str, str]:
             aliases[raw] = logical
         if not set(manifest.get("native_required", [])).issubset(selected):
             raise ValueError("native-required nodes are outside selected manifest")
+        _manifest_evidence_selection(manifest)
+        if manifest.get("native_host", "shared") not in {"shared", "private"}:
+            raise ValueError("invalid native host mode in collection manifest")
     return aliases
 
 
@@ -619,15 +751,38 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         events, problems = read_stream(path)
         companion.extend(events)
         errors.extend(problems)
+    selection_refusals = [
+        event["message"]
+        for event in companion
+        if event.get("event") == "selection_refusal" and isinstance(event.get("message"), str)
+    ]
+    errors.extend(selection_refusals)
     # loadgroup appends scheduler-only suffixes. Retain raw reportlog unchanged while
     # comparing the original pytest identities with earlier required-node manifests.
     identity_valid = True
+    invocation = (
+        read_json(directory / "invocation.json")
+        if (directory / "invocation.json").exists()
+        else None
+    )
+    evidence_selection = (invocation or {}).get("evidence_selection", "ordinary")
+    collection_manifests: list[dict[str, Any]] = []
     try:
-        manifests = [e for e in companion if e.get("event") == "collection_finish"]
-        if not manifests:
+        collection_manifests = [e for e in companion if e.get("event") == "collection_finish"]
+        if not collection_manifests:
             raise ValueError("missing selected-node manifest")
-        aliases = _node_aliases(manifests)
-        if len({tuple(sorted(e["selected"])) for e in manifests}) > 1:
+        aliases = _node_aliases(collection_manifests)
+        hosts = {manifest.get("native_host", "shared") for manifest in collection_manifests}
+        hosts.add((invocation or {}).get("native_host", "shared"))
+        if len(hosts) != 1:
+            raise ValueError("invocation or workers disagree on native host mode")
+        modes = {_manifest_evidence_selection(manifest) for manifest in collection_manifests}
+        if invocation and "evidence_selection" in invocation:
+            modes.add(invocation["evidence_selection"])
+        if len(modes) != 1:
+            raise ValueError("invocation or workers disagree on evidence selection")
+        evidence_selection = modes.pop()
+        if len({tuple(sorted(e["selected"])) for e in collection_manifests}) > 1:
             raise ValueError("workers disagree on selected scheduled identities")
     except (ValueError, TypeError, KeyError) as error:
         errors.append(f"invalid collection identity: {error}")
@@ -636,9 +791,33 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     for event in [*companion, *reports]:
         if "nodeid" in event:
             event["nodeid"] = aliases.get(event["nodeid"], event["nodeid"])
-        for key in ("selected", "native_required", "nodes"):
+        for key in ("selected", "native_required", "provider_evidence", "nodes"):
             if key in event:
                 event[key] = [aliases.get(node, node) for node in event[key]]
+    group_observations: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+    group_metadata_complete = bool(collection_manifests)
+    for manifest in collection_manifests:
+        groups = manifest.get("affinity_groups")
+        if not isinstance(groups, dict):
+            group_metadata_complete = False
+            continue
+        for raw, values in groups.items():
+            if (
+                not isinstance(raw, str)
+                or not isinstance(values, list)
+                or not all(isinstance(value, str) for value in values)
+            ):
+                group_metadata_complete = False
+                continue
+            group_observations[aliases.get(raw, raw)].add(tuple(sorted(set(values))))
+    observed_workers: dict[str, set[str]] = defaultdict(set)
+    for event in companion:
+        if (
+            event.get("event") == "phase_start"
+            and isinstance(event.get("nodeid"), str)
+            and isinstance(event.get("worker"), str)
+        ):
+            observed_workers[event["nodeid"]].add(event["worker"])
     selected: set[str] = set()
     deselected: set[str] = set()
     starts: set[str] = set()
@@ -680,7 +859,12 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         elif kind == "SessionFinish":
             session_finishes.append(report)
     nodes = {
-        node: _node_status(by_node[node], node in starts, node in finishes)
+        node: _node_status(
+            by_node[node],
+            node in starts,
+            node in finishes,
+            provider_required=evidence_selection == "providers",
+        )
         for node in sorted(selected | set(by_node) | starts)
     }
     native_events = [e for e in companion if e.get("event") == "native_context"]
@@ -737,6 +921,16 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     if runner.get("interruption"):
         errors.append("supervising runner interrupted")
     errors.extend(_group_cleanup_errors(process))
+    cohort_path = directory / "private-cohort.process.json"
+    cohort = read_json(cohort_path) if cohort_path.exists() else {}
+    if cohort:
+        errors.extend(_group_cleanup_errors(cohort))
+        if cohort.get("interruption") or cohort.get("launch_error"):
+            errors.append("private host interrupted or failed to launch")
+        if cohort.get("returncode") not in (None, 0) and cohort.get("returncode") != process.get(
+            "returncode"
+        ):
+            errors.append("private host cohort exited unsuccessfully")
     statuses = [value["status"] for value in nodes.values()]
     empty_selection = (
         not nodes
@@ -745,7 +939,9 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         and not collection_errors
         and process.get("returncode") in (0, 5)
     )
-    process_failed = process.get("returncode") not in (None, 0) and not empty_selection
+    process_failed = (
+        process.get("returncode") not in (None, 0) or cohort.get("returncode") not in (None, 0)
+    ) and not empty_selection
     if collection_errors or "failed" in statuses:
         status = "failed"
     elif errors or worker_loss:
@@ -767,12 +963,33 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "status": status,
         "nodes": nodes,
         "selected": sorted(selected),
+        "evidence_selection": evidence_selection,
+        "scheduling": {
+            "group_metadata_complete": group_metadata_complete
+            and all(len(group_observations[node]) == 1 for node in selected),
+            "items": [
+                {
+                    "nodeid": node,
+                    "affinity_groups": list(next(iter(group_observations[node])))
+                    if group_metadata_complete and len(group_observations[node]) == 1
+                    else None,
+                    "observed_workers": sorted(observed_workers[node]),
+                    "scheduled_workers": None,
+                    "native_required": node in native_required
+                    if native_metadata_manifests
+                    else None,
+                }
+                for node in sorted(selected)
+            ],
+        },
         "deselected": sorted(deselected),
         "collection_errors": collection_errors,
         "stream_errors": errors,
+        "selection_refusals": selection_refusals,
         "active_phases": list(active.values()),
         "worker_loss": worker_loss,
         "process": process,
+        "native_host_process": cohort,
         "runner": runner,
         "process_failed": process_failed,
         "session_finishes": session_finishes,
@@ -780,12 +997,22 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "identity_valid": identity_valid,
         "empty_selection": empty_selection,
         "native_contexts": native_events,
+        "sql_batches": [event for event in companion if event.get("event") == "sql_batch"],
+        "deployments": [
+            {
+                **event["context"]["native_test_deployment"],
+                "worker": event.get("worker"),
+                "pid": event.get("pid"),
+            }
+            for event in native_events
+            if event.get("scope") == "session"
+            and isinstance(event.get("context"), dict)
+            and isinstance(event.get("context", {}).get("native_test_deployment"), dict)
+        ],
         "native_provenance": native_provenance,
         "session_contexts": [e for e in companion if e.get("event") == "session_start"],
         "worker_facts": _worker_facts(companion),
-        "invocation": read_json(directory / "invocation.json")
-        if (directory / "invocation.json").exists()
-        else None,
+        "invocation": invocation,
     }
 
 
@@ -912,15 +1139,34 @@ def classify(
     receipts = [classify_receipt(path) for path in directories]
     required: set[str] = set()
     native_required: set[str] = set()
+    required_evidence: dict[str, str] = {}
+    required_hosts: dict[str, str] = {}
     manifests = _required_manifests(required_from or [])
     missing_lanes = []
     lane_selections = {}
     for lane, candidates in (required_lanes or {}).items():
+        expected_mode = "ordinary"
+        expected_host = "shared"
+        if candidates:
+            initial = candidates[0]
+            if initial.is_dir() and (initial / "invocation.json").is_file():
+                original_invocation = read_json(initial / "invocation.json")
+                expected_mode = original_invocation.get("evidence_selection", "ordinary")
+                expected_host = original_invocation.get("native_host", "shared")
+            else:
+                with suppress(OSError, ValueError, KeyError, TypeError, IndexError):
+                    initial_manifest = _required_manifests([initial])[0]
+                    expected_mode = _manifest_evidence_selection(initial_manifest)
+                    expected_host = initial_manifest.get("native_host", "shared")
         for candidate in candidates:
             try:
                 selected = _required_manifests([candidate])
                 for manifest in selected:
                     _node_aliases([manifest])
+                    if _manifest_evidence_selection(manifest) != expected_mode:
+                        raise ValueError("replacement lane has a different evidence selection")
+                    if manifest.get("native_host", "shared") != expected_host:
+                        raise ValueError("replacement lane has a different native host mode")
             except ValueError, KeyError, TypeError:
                 continue
             manifests.extend(selected)
@@ -931,10 +1177,24 @@ def classify(
     for manifest in manifests:
         aliases = _node_aliases([manifest])
         required.update(aliases[node] for node in manifest["selected"])
+        mode = _manifest_evidence_selection(manifest)
+        for node in manifest["selected"]:
+            logical = aliases[node]
+            if logical in required_evidence and required_evidence[logical] != mode:
+                raise ValueError("required identity has conflicting evidence selections")
+            required_evidence[logical] = mode
+            host = manifest.get("native_host", "shared")
+            if logical in required_hosts and required_hosts[logical] != host:
+                raise ValueError("required identity has conflicting native host modes")
+            required_hosts[logical] = host
         native_required.update(aliases[node] for node in manifest.get("native_required", []))
     union = {
         node: [
             _union_node_status(receipt, node, native_required)
+            if receipt["evidence_selection"] == required_evidence[node]
+            and (receipt.get("invocation") or {}).get("native_host", "shared")
+            == required_hosts[node]
+            else "incomplete"
             for receipt in receipts
             if node in receipt["nodes"]
         ]
@@ -967,6 +1227,7 @@ def classify(
         {
             "directory": receipt["directory"],
             "invocation": receipt["invocation"],
+            "evidence_selection": receipt["evidence_selection"],
             "native_contexts": receipt["native_contexts"],
             "native_provenance": receipt["native_provenance"],
             "session_contexts": receipt["session_contexts"],
@@ -982,6 +1243,7 @@ def classify(
         receipt["directory"]
         for directory, receipt in zip(directories, receipts, strict=True)
         if _group_unsettled(receipt["process"])
+        or _group_unsettled(receipt.get("native_host_process", {}))
         or any(
             _group_unsettled(read_json(path))
             for name in ("rustc", "nextest-version", "nextest-list", "nextest")
@@ -1019,14 +1281,27 @@ def classify(
 
 def _coverage_context(contexts: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
     """Compare recorded facts without treating unknown as a different value."""
-    observations: dict[str, list[Any]] = {"source": [], "python": [], "workers": []}
+    observations: dict[str, list[Any]] = {
+        "source": [],
+        "python": [],
+        "workers": [],
+        "evidence_selection": [],
+        "native_host": [],
+        "native_host_context": [],
+    }
     observations.update({name: [] for name in _INVOCATION_PACKAGES})
     for context in contexts:
         invocation = context["invocation"] or {}
         versions = invocation.get("versions") or {}
+        observations["native_host"].append(invocation.get("native_host", "shared"))
+        if invocation.get("native_host", "shared") == "private":
+            observations["native_host_context"].append(invocation.get("native_host_context"))
         observations["source"].append(invocation.get("source"))
         observations["python"].append(invocation.get("python"))
         observations["workers"].append(invocation.get("workers"))
+        observations["evidence_selection"].append(
+            context.get("evidence_selection", invocation.get("evidence_selection", "ordinary"))
+        )
         for name in _INVOCATION_PACKAGES:
             observations[name].append(versions.get(name))
         provenance = context["native_provenance"]["status"]
@@ -1037,6 +1312,8 @@ def _coverage_context(contexts: list[dict[str, Any]]) -> tuple[list[str], list[s
             )
     differences, unknowns = [], []
     for name, values in observations.items():
+        if name == "native_host_context" and not values:
+            continue
         if len({json.dumps(value, sort_keys=True) for value in values if value is not None}) > 1:
             differences.append(name)
         if not values or None in values:
@@ -1091,6 +1368,115 @@ def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str,
 
 
 _FAILURE_PHASES = ("collection", "setup", "call", "teardown", "unknown")
+
+
+def _scheduling_projection(
+    result: dict[str, Any], limit: int, after: int, group: str | None
+) -> dict[str, Any]:
+    from sql_batch_receipts import sql_batches
+
+    (receipt,) = result["receipts"]
+    scheduling = receipt["scheduling"]
+    items = [
+        item
+        for item in scheduling["items"]
+        if group is None or group in (item["affinity_groups"] or [])
+    ]
+    return {
+        "status": result["status"],
+        "reporting_complete": receipt["reporting_complete"],
+        "group_metadata_complete": scheduling["group_metadata_complete"],
+        "workers": (receipt["invocation"] or {}).get("workers"),
+        "evidence_selection": receipt["evidence_selection"],
+        "native_required_count": len(receipt["native_provenance"]["required"])
+        if receipt["native_provenance"]["required"] is not None
+        else None,
+        "available": len(items),
+        "items": items[after : after + limit],
+        "deployments": receipt["deployments"][:limit],
+        "deployments_available": len(receipt["deployments"]),
+        "deployments_omitted": max(0, len(receipt["deployments"]) - limit),
+        **sql_batches(receipt, limit, after, group),
+    }
+
+
+def _startup_failure(receipt: dict[str, Any]) -> dict[str, Any] | None:
+    failure_path = Path(receipt["directory"]) / "private-host-failure.json"
+    if failure_path.is_file():
+        failure = read_json(failure_path)
+        message = f"{failure.get('type', 'Error')}: {failure.get('message', 'private host failed')}"
+        return {
+            "kind": "native_host_bootstrap",
+            "source": "private-host-failure.json",
+            "availability": "available" if len(message) <= 32768 else "omitted",
+            "diagnostic": message if len(message) <= 32768 else None,
+            **(
+                {"reason": "private host diagnostic exceeds transport limit"}
+                if len(message) > 32768
+                else {}
+            ),
+        }
+    if "missing SessionStart" not in receipt["stream_errors"] or not receipt["process_failed"]:
+        return None
+    if receipt.get("native_host_process"):
+        path = Path(receipt["directory"]) / "private-cohort.stderr"
+        result = {
+            "kind": "native_host_bootstrap",
+            "source": "private-cohort.stderr",
+            "availability": "unavailable",
+            "diagnostic": None,
+        }
+        if not path.is_file():
+            return result
+        if path.stat().st_size > 65536:
+            return {
+                **result,
+                "availability": "omitted",
+                "reason": "private bootstrap stderr exceeds capture byte limit",
+            }
+        diagnostic = path.read_text(errors="replace").strip()
+        if len(diagnostic) > 32768:
+            return {
+                **result,
+                "availability": "omitted",
+                "reason": "complete private bootstrap diagnostic exceeds transport limit",
+            }
+        return {
+            **result,
+            "availability": "available" if diagnostic else "unavailable",
+            "diagnostic": diagnostic or None,
+        }
+    result: dict[str, Any] = {
+        "kind": "pytest_child_startup",
+        "source": "pytest.stderr",
+        "availability": "unavailable",
+        "diagnostic": None,
+    }
+    path = Path(receipt["directory"]) / "pytest.stderr"
+    if not path.is_file():
+        return result
+    if path.stat().st_size > 65536:
+        return {
+            **result,
+            "availability": "omitted",
+            "reason": "startup stderr exceeds capture byte limit",
+        }
+    # Keep terminal exception messages, excluding source listings and rendered frames.
+    messages = []
+    for line in path.read_text(errors="replace").splitlines():
+        message = re.sub(r"^E\s+", "", line.lstrip())
+        if re.match(r"^[\w.]*(?:Error|Exception|Exit|Interrupt):", message):
+            messages.append(message)
+    diagnostic = "\n".join(messages)
+    if not diagnostic:
+        return result
+    if len(diagnostic) > 32768:
+        return {
+            **result,
+            "availability": "omitted",
+            "reason": "complete startup exception exceeds transport limit",
+        }
+    return {**result, "availability": "available", "diagnostic": diagnostic}
 
 
 def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
@@ -1308,7 +1694,12 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], 
         return
     for nodeid, node in receipt["nodes"].items():
         for report in sorted(
-            (report for report in node["reports"] if report.get("outcome") == "failed"),
+            (
+                report
+                for report in node["reports"]
+                if report.get("outcome") == "failed"
+                or (report.get("outcome") == "skipped" and _failed_prerequisite(report))
+            ),
             key=lambda report: (
                 _FAILURE_PHASES.index(report["when"])
                 if report.get("when") in _FAILURE_PHASES
@@ -1317,13 +1708,20 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], 
         ):
             phase = report.get("when")
             blocked = _failed_prerequisite(report)
+            prerequisites = _prerequisites(_properties([report])) if blocked else []
+            detail = _failure_diagnostic(report)
+            if blocked and detail.get("diagnostic") is None:
+                detail["diagnostic"] = "; ".join(
+                    f"{entry['name']}: {entry['reason']}" for entry in prerequisites
+                )
             yield (
                 {
                     "nodeid": nodeid,
                     "phase": phase if phase in _FAILURE_PHASES else "unknown",
                     "outcome": "blocked" if blocked else "failed",
                     "reason": "prerequisite" if blocked else "pytest_failure",
-                    **_failure_diagnostic(report),
+                    **({"prerequisites": prerequisites} if blocked else {}),
+                    **detail,
                 },
                 report,
             )
@@ -1336,6 +1734,8 @@ def _failure_projection(
     after: int = 0,
     *,
     native_traceback: bool = False,
+    native_after: int = 0,
+    native_limit: int | None = None,
 ) -> dict[str, Any]:
     (receipt,) = result["receipts"]
     items = []
@@ -1355,6 +1755,23 @@ def _failure_projection(
             for event in receipt["worker_loss"]
         ],
     ]
+    provenance = receipt["native_provenance"]
+    unresolved = sorted(provenance["unresolved"])
+    size = limit if native_limit is None else native_limit
+    native_page = unresolved[native_after : native_after + size]
+    native = None
+    if unresolved or provenance.get("reason"):
+        end = native_after + len(native_page)
+        native = {
+            "reason": provenance.get("reason"),
+            "limit": size,
+            "after": native_after,
+            "next_after": end if end < len(unresolved) else None,
+            "available": len(unresolved),
+            "selected": len(native_page),
+            "omitted": len(unresolved) - len(native_page),
+            "unresolved": native_page,
+        }
     return {
         "status": result["status"],
         "items": items,
@@ -1385,6 +1802,8 @@ def _failure_projection(
         "custody_unsettled": result["custody_unsettled"],
         "retryable": _retryable(result),
         "native_observation": receipt["native_provenance"]["status"],
+        "native_provenance": native,
+        "startup": _startup_failure(receipt),
     }
 
 
@@ -1396,6 +1815,8 @@ def _union_node_status(receipt: dict[str, Any], node: str, native_required: set[
     """
     if not receipt["identity_valid"] or node not in receipt["selected"]:
         return "incomplete"
+    if (receipt["invocation"] or {}).get("collection_only"):
+        return "not_run"
     status = receipt["nodes"][node]["status"]
     if node not in native_required or status != "passed":
         return status
@@ -1443,12 +1864,14 @@ def _retryable(result: dict[str, Any]) -> bool:
 
 def _receipt_retryable(receipt: dict[str, Any]) -> bool:
     selected = receipt["selected"]
+    if (receipt["invocation"] or {}).get("collection_only"):
+        return False
     if not selected or not receipt["identity_valid"] or receipt["collection_errors"]:
         return False
     return all(map(_canonical_node_id, selected)) and (
         bool(receipt["native_provenance"]["unresolved"])
         or any(
-            receipt["nodes"][node]["status"] in {"failed", "incomplete", "not_run"}
+            receipt["nodes"][node]["status"] in {"failed", "blocked", "incomplete", "not_run"}
             for node in selected
         )
     )
@@ -1485,6 +1908,25 @@ def write_unresolved(
     directory = Path(tempfile.mkdtemp(prefix="collection-", dir=scratch))
     selection = directory / "required.txt"
     selection.write_text("\n".join(result["required"]) + "\n")
+    modes = {receipt.get("evidence_selection", "ordinary") for receipt in result["receipts"]}
+    if len(modes) != 1:
+        raise ValueError("retry requires one original evidence selection")
+    evidence_selection = modes.pop()
+    hosts = {
+        (receipt.get("invocation") or {}).get("native_host", "shared")
+        for receipt in result["receipts"]
+    }
+    if len(hosts) != 1:
+        raise ValueError("retry requires one original native host mode")
+    native_host = hosts.pop()
+    write_json(
+        directory / "invocation.json",
+        {
+            **invocation_context(native_host),
+            "evidence_selection": evidence_selection,
+            "collection_only": True,
+        },
+    )
     with supervision(directory):
         run_python(
             directory,
@@ -1499,6 +1941,8 @@ def write_unresolved(
             cwd=Path.cwd(),
             timeout=120,
             managed=managed,
+            evidence_selection=evidence_selection,
+            native_host=native_host,
         )
     collected = classify_receipt(directory)
     if (
@@ -1520,6 +1964,8 @@ def write_unresolved(
         "nodes": nodes,
         "lane": lane,
         "validation_receipt": str(directory),
+        "evidence_selection": evidence_selection,
+        "native_host": native_host,
         "validation": "fresh collection only; no test bodies executed",
     }
 
@@ -1528,8 +1974,14 @@ def _forwardable_selector(value: str) -> bool:
     if not value or value.startswith(("-", "@")) or any(c in value for c in ("\0", "\n", "\r")):
         return False
     path = (ROOT / value.split("::", 1)[0]).resolve()
-    return any(
-        path.is_relative_to(ROOT / root) for root in ("tests", "python/corpus-structure/tests")
+    if any(path.is_relative_to(ROOT / root) for root in ("tests", "python/corpus-structure/tests")):
+        return True
+    # Explicit evidence probes are admitted by file only; they do not enter
+    # default test discovery or permit an entire historical evidence sweep.
+    return (
+        path.is_relative_to(ROOT / "docs/design_review/evidence")
+        and path.suffix == ".py"
+        and path.is_file()
     )
 
 
@@ -1559,6 +2011,7 @@ def _managed_pytest_args(
     directory: Path,
     selection_file: Path | None,
     workers: int | None = None,
+    collection_only: bool = False,
 ) -> tuple[list[str], dict[str, Any]]:
     if workers is not None and (type(workers) is not int or workers <= 0):
         raise ValueError("workers must be a positive integer")
@@ -1580,6 +2033,14 @@ def _managed_pytest_args(
             raise ValueError("retry selection must contain canonical test node IDs")
         args = nodes
         has_selector = True
+    if collection_only:
+        if lane != "ordinary" or workers is not None:
+            raise ValueError(
+                "collection-only requires the ordinary lane and owns its serial worker policy"
+            )
+        return ["-n", "0", "--collect-only", "-m", "not shared_cluster_fault", *args], {
+            "requested": 0
+        }
     if lane == "fault":
         selectors = [] if has_selector else ["tests/scripts/test_native_auth.py"]
         return ["-n", "0", "-m", "shared_cluster_fault", *selectors, *args], {"requested": 0}
@@ -1615,7 +2076,14 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run")
     run.add_argument("--out-dir", type=Path, required=True)
     run.add_argument("--python-only", action="store_true")
+    run.add_argument("--collection-only", action="store_true")
     run.add_argument("--managed-lane", choices=("ordinary", "fault"))
+    run.add_argument("--evidence-selection", choices=("ordinary", "providers"), default="ordinary")
+    run.add_argument(
+        "--native-host",
+        choices=("shared", "private"),
+        default=os.environ.get("CORPUS_CI_NATIVE_HOST", "shared"),
+    )
     run.add_argument("--workers", type=_positive_workers)
     run.add_argument("--selection-file", type=Path)
     run.add_argument("--test-timeout", type=_positive_timeout, default=TEST_TIMEOUT)
@@ -1629,11 +2097,16 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--managed-selection", action="store_true")
     projection = inspect.add_mutually_exclusive_group()
     projection.add_argument("--summary", action="store_true")
-    projection.add_argument("--projection", choices=("coverage", "unresolved", "failures"))
+    projection.add_argument(
+        "--projection", choices=("coverage", "unresolved", "failures", "scheduling")
+    )
     inspect.add_argument("--limit", type=int, choices=range(101), default=20, metavar="N")
     inspect.add_argument("--phase", choices=_FAILURE_PHASES)
     inspect.add_argument("--after", type=int, default=0)
+    inspect.add_argument("--native-after", type=int, default=0)
+    inspect.add_argument("--native-limit", type=int, choices=range(101))
     inspect.add_argument("--native-traceback", action="store_true")
+    inspect.add_argument("--group")
     inspect.add_argument(
         "--required-lane", action="append", choices=("ordinary", "fault"), default=[]
     )
@@ -1641,10 +2114,12 @@ def main(argv: list[str] | None = None) -> int:
     validate = sub.add_parser("validate-pytest")
     validate.add_argument("--report-selection", action="store_true")
     validate.add_argument("pytest_args", nargs=argparse.REMAINDER)
-    sub.add_parser("context")
+    context = sub.add_parser("context")
+    context.add_argument("--native-host", choices=("shared", "private"), default="shared")
     args = parser.parse_args(argv)
+    collection_outcome = None
     if args.action == "context":
-        print(json.dumps(invocation_context()))
+        print(json.dumps(invocation_context(args.native_host)))
         return 0
     if args.action == "validate-pytest":
         try:
@@ -1657,14 +2132,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "classify":
         if args.projection is not None and args.write_unresolved is not None:
             parser.error("inspection projections cannot write a retry selection")
-        if args.projection == "failures" and len(args.receipt_dir) != 1:
-            parser.error("failure projection requires exactly one receipt directory")
+        if args.projection in {"failures", "scheduling"} and len(args.receipt_dir) != 1:
+            parser.error("projection requires exactly one receipt directory")
         if args.native_traceback and args.projection != "failures":
             parser.error("native traceback requires a failure projection")
         if args.phase is not None and args.projection != "failures":
             parser.error("phase requires a failure projection")
-        if args.after < 0 or (args.after and args.projection != "failures"):
-            parser.error("after requires a failure projection and a nonnegative offset")
+        if args.after < 0 or (args.after and args.projection not in {"failures", "scheduling"}):
+            parser.error("after requires a paginated projection and a nonnegative offset")
+        if args.native_after < 0 or (
+            (args.native_after or args.native_limit is not None) and args.projection != "failures"
+        ):
+            parser.error(
+                "native pagination requires the failures projection and a nonnegative offset"
+            )
+        if args.group is not None and args.projection != "scheduling":
+            parser.error("group requires a scheduling projection")
         try:
             lanes = {name: [] for name in args.required_lane}
             for name, path in args.required_lane_from:
@@ -1685,6 +2168,20 @@ def main(argv: list[str] | None = None) -> int:
         pytest_args = _after_separator(args.pytest_args)
         worker_request: dict[str, Any] = {"requested": None}
         try:
+            if args.native_host == "private" and args.managed_lane != "ordinary":
+                raise ValueError(
+                    "private native host requires the managed ordinary lane; fault/shared-host claims are incompatible"
+                )
+            if args.collection_only:
+                if args.managed_lane != "ordinary":
+                    raise ValueError("collection-only requires the managed ordinary lane")
+                args.python_only = True
+            if args.evidence_selection == "providers":
+                if args.managed_lane == "fault":
+                    raise ValueError(
+                        "provider evidence is incompatible with the exclusive fault lane"
+                    )
+                args.python_only = True
             if args.managed_lane:
                 if (
                     not args.out_dir.is_absolute()
@@ -1701,6 +2198,7 @@ def main(argv: list[str] | None = None) -> int:
                     directory=directory,
                     selection_file=args.selection_file,
                     workers=args.workers,
+                    collection_only=args.collection_only,
                 )
                 args.python_only |= args.managed_lane == "fault"
             elif args.selection_file is not None:
@@ -1716,12 +2214,14 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "argv": sys.argv if argv is None else argv,
                     "cwd": str(Path.cwd()),
-                    **invocation_context(),
+                    **invocation_context(args.native_host),
                     "hypothesis_profile": "ci",
                     "session_timeout": args.command_timeout,
                     "test_timeout": args.test_timeout,
                     "python_only": args.python_only,
                     "managed_lane": args.managed_lane,
+                    "evidence_selection": args.evidence_selection,
+                    "collection_only": args.collection_only,
                     "workers": {
                         **worker_request,
                         "actual": None,
@@ -1734,10 +2234,13 @@ def main(argv: list[str] | None = None) -> int:
                 timeout=args.command_timeout,
                 test_timeout=args.test_timeout,
                 managed=bool(args.managed_lane),
+                evidence_selection=args.evidence_selection,
+                native_host=args.native_host,
+                python_only=args.python_only,
             )
-            if not args.python_only and not _cancelled(process):
+            if args.native_host == "shared" and not args.python_only and not _cancelled(process):
                 run_rust(directory, timeout=args.command_timeout)
-            elif not args.python_only:
+            elif args.native_host == "shared" and not args.python_only:
                 write_json(
                     directory / "rust-state.json",
                     {
@@ -1749,6 +2252,19 @@ def main(argv: list[str] | None = None) -> int:
                 )
             control.persist(directory)
             result = classify([directory])
+            if args.collection_only:
+                collected = result["receipts"][0]
+                collection_outcome = (
+                    "passed"
+                    if collected["reporting_complete"]
+                    and collected["identity_valid"]
+                    and collected["process"].get("returncode") == 0
+                    and collected["selected"]
+                    else "not_run"
+                    if collected["empty_selection"]
+                    else "failed"
+                )
+                result["collection_outcome"] = collection_outcome
             invocation = result["receipts"][0]["invocation"]
             invocation["workers"]["actual"] = result["receipts"][0]["worker_facts"]["actual"]
             write_json(directory / "invocation.json", invocation)
@@ -1763,15 +2279,26 @@ def main(argv: list[str] | None = None) -> int:
                     "empty": not receipt["selected"] and receipt["reporting_complete"],
                     "retryable": _retryable(result),
                     "workers": receipt["invocation"]["workers"],
+                    "evidence_selection": receipt["evidence_selection"],
+                    "selection_refusals": receipt["selection_refusals"],
+                    **({"collection_outcome": collection_outcome} if collection_outcome else {}),
                     "counts": {"selected": len(receipt["selected"])}
                     | dict(Counter(node["status"] for node in receipt["nodes"].values())),
                 }
             )
         )
     elif args.action == "classify" and args.projection is not None:
-        if args.projection == "failures":
+        if args.projection == "scheduling":
+            report = _scheduling_projection(result, args.limit, args.after, args.group)
+        elif args.projection == "failures":
             report = _failure_projection(
-                result, args.limit, args.phase, args.after, native_traceback=args.native_traceback
+                result,
+                args.limit,
+                args.phase,
+                args.after,
+                native_traceback=args.native_traceback,
+                native_after=args.native_after,
+                native_limit=args.native_limit,
             )
         else:
             report = _coverage_projection(
@@ -1814,7 +2341,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print(json.dumps(result, indent=2, sort_keys=True))
-    return 0 if result["status"] == "passed" else 1
+    return 0 if result["status"] == "passed" or collection_outcome == "passed" else 1
 
 
 if __name__ == "__main__":

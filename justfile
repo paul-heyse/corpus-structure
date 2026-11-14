@@ -20,6 +20,10 @@ test-all *args:
     set -euo pipefail
     if [[ -n ${CORPUS_CI_RECEIPT_DIR:-} ]]; then
       options=(--managed-lane ordinary --out-dir "$CORPUS_CI_RECEIPT_DIR")
+      options+=(--evidence-selection "${CORPUS_CI_EVIDENCE_SELECTION:-ordinary}")
+      if [[ ${CORPUS_CI_COLLECTION_ONLY:-0} == 1 ]]; then
+        options+=(--collection-only)
+      fi
       if [[ -n ${CORPUS_CI_TEST_WORKERS:-} ]]; then
         options+=(--workers "$CORPUS_CI_TEST_WORKERS")
       fi
@@ -239,12 +243,33 @@ db-down:
 db-status:
     @bash scripts/pg_provision.sh status
 
-# Tool presence and the versions in use
+# Tool presence and the versions in use. PostgreSQL test packages on Debian/Ubuntu:
+# postgresql-18 postgresql-client-18 postgresql-18-pgtap
+# libtap-parser-sourcehandler-pgtap-perl postgresql-common.
+# pgTAP is installed only in owned test seeds, never by host provisioning.
 doctor:
     #!/usr/bin/env bash
-    for t in just uv git git-lfs gh rg cargo rustc cargo-nextest cargo-insta cargo-deny clang mold sccache ast-grep; do
+    for t in just uv git git-lfs gh rg cargo rustc cargo-nextest cargo-insta cargo-deny clang mold sccache ast-grep pg_prove; do
       printf '%-14s ' "$t"; command -v "$t" >/dev/null && "$t" --version 2>/dev/null | head -1 || echo MISSING
     done
+    for t in psql postgres; do
+      printf '%-14s ' "PG18 $t"; "/usr/lib/postgresql/18/bin/$t" --version 2>/dev/null || echo MISSING
+    done
+    printf '%-14s ' 'Perl TAP'
+    env -u PERL5OPT -u PERL5LIB -u PERLLIB /usr/bin/perl -MTAP::Parser -MTAP::Harness -MTAP::Parser::SourceHandler::pgTAP -e 'die "pgTAP source-handler version must be 3.37\n" unless $TAP::Parser::SourceHandler::pgTAP::VERSION eq "3.37"; print "TAP::Parser $TAP::Parser::VERSION; TAP::Harness $TAP::Harness::VERSION; pgTAP source $TAP::Parser::SourceHandler::pgTAP::VERSION\n"' || echo FAILED
+    printf '%-14s ' pgTAP
+    if [[ -r /usr/share/postgresql/18/extension/pgtap--1.3.4.sql ]] && grep -Eq "^default_version[[:space:]]*=[[:space:]]*'1\.3\.4'" /usr/share/postgresql/18/extension/pgtap.control; then
+      echo '1.3.4 available for PostgreSQL 18 (test seeds only)'
+    else
+      echo 'MISSING PostgreSQL 18 pgTAP 1.3.4 extension files/default'
+    fi
+    printf '%-14s ' pg_virtualenv
+    common_version=$(dpkg-query -W -f='${Version}' postgresql-common 2>/dev/null) || common_version=
+    if [[ -x /usr/bin/pg_virtualenv && $common_version =~ ^294([.+~]|$) ]]; then
+      printf 'postgresql-common %s\n' "$common_version"
+    else
+      echo 'MISSING pg_virtualenv from postgresql-common 294'
+    fi
     printf '%-14s ' python; UV_LOCKED=0 uv run --no-project python --version
     printf '%-14s ' ruff; uv run ruff --version
     printf '%-14s ' pyrefly; uv run pyrefly --version

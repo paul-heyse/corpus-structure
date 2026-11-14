@@ -952,8 +952,18 @@ def test_cli_watchdog_overrides_and_cancellation(
     observed: dict[str, object] = {}
 
     def python_child(
-        directory: Path, args: list[str], *, timeout: float, test_timeout: float, managed: bool
+        directory: Path,
+        args: list[str],
+        *,
+        timeout: float,
+        test_timeout: float,
+        managed: bool,
+        evidence_selection: str,
+        native_host: str,
+        python_only: bool,
     ) -> dict[str, object]:
+        assert evidence_selection == "ordinary"
+        assert native_host == "shared" and python_only is False
         assert not managed
         observed["python"] = (args, timeout, test_timeout)
         receipt(directory, [report("setup"), report("call"), report("teardown")], selected=("a",))
@@ -1585,6 +1595,40 @@ def test_worker_facts_keep_actual_count_separate_from_requested():
     assert _worker_facts([{"event": "session_start", "xdist_numprocesses": 0}])["actual"] == 0
     assert _worker_facts([{"event": "session_start", "xdist_numprocesses": 4}])["actual"] is None
     assert _worker_facts([{"event": "workers_created", "count": 2}])["actual"] == 2
+
+
+def test_receipt_projects_session_deployment_records_without_inventing_item_acquisitions(tmp_path):
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    path = tmp_path / "events-controller-12.jsonl"
+    events = [json.loads(line) for line in path.read_text().splitlines()]
+    deployment = {
+        "head": "cs_sem_head_" + "a" * 16,
+        "key": "a" * 64,
+        "run_scope": "narrowed",
+        "acquisition": "reused",
+        "verification": "verified",
+        "deployment_key_gap": None,
+    }
+    events.extend(
+        [
+            {
+                "event": "native_context",
+                "scope": "session",
+                "context": {"native_test_deployment": deployment},
+            },
+            {
+                "event": "native_context",
+                "scope": "test",
+                "nodeid": "a",
+                "context": {"native_test_deployment": {"untrusted": True}},
+            },
+            {"event": "native_context", "scope": "session", "context": None},
+        ]
+    )
+    stream(path, events)
+    classified = classify_receipt(tmp_path)
+    assert classified["deployments"] == [{**deployment, "worker": None, "pid": None}]
+    assert not any(_complete_native_context(event) for event in events)
 
 
 def test_managed_workers_ignore_ambient_pytest_overrides(tmp_path, monkeypatch):

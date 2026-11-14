@@ -27,10 +27,15 @@ from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, st
 from corpus_structure.cli.recipes import RecipeError, checkout, run_owned, run_recipe
 
 Lane = Literal["ordinary", "fault"]
+EvidenceSelection = Literal["ordinary", "providers"]
+NativeHost = Literal["shared", "private"]
 Phase = Literal["collection", "setup", "call", "teardown", "unknown"]
 ReportLimit = Annotated[int, typer.Option(min=1, max=100)]
 Workers = Annotated[
-    int | None, typer.Option(min=1, help="Ordinary pytest workers (default: sized to explicit IDs; paths use auto).")
+    int | None,
+    typer.Option(
+        min=1, help="Ordinary pytest workers (default: sized to explicit IDs; paths use auto)."
+    ),
 ]
 _DEFAULT_LIMIT = 20
 _LANES: tuple[Lane, ...] = ("ordinary", "fault")
@@ -42,6 +47,11 @@ class Campaign(BaseModel):
     outcome: str
     lanes: dict[str, str]
     next_action: str | None = None
+
+
+class CollectionCampaign(Campaign):
+    collection_outcome: str
+    execution_outcome: Literal["not_run"] = "not_run"
 
 
 class Coverage(BaseModel):
@@ -180,6 +190,13 @@ def _present_native_traceback(trace: NativePytestTraceback, chars: int) -> Nativ
     return selected
 
 
+class MissingPrerequisite(BaseModel):
+    name: str
+    reason: str
+    name_truncated: bool = False
+    reason_truncated: bool = False
+
+
 class FailureEvent(BaseModel):
     lane: Lane
     nodeid: str
@@ -188,6 +205,9 @@ class FailureEvent(BaseModel):
     reason: Literal["collection_failure", "prerequisite", "pytest_failure"]
     diagnostic: str | None = None
     diagnostic_truncated: bool = False
+    prerequisites: list[MissingPrerequisite] = Field(
+        default_factory=list, exclude_if=lambda value: not value
+    )
     native_traceback: NativePytestTraceback | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -203,14 +223,119 @@ class RustEvidence(BaseModel):
     reason_truncated: bool = False
 
 
+class StartupDiagnostic(BaseModel):
+    kind: Literal["pytest_child_startup", "native_host_bootstrap"]
+    source: Literal["pytest.stderr", "private-host-failure.json", "private-cohort.stderr"]
+    availability: Literal["available", "omitted", "unavailable"]
+    diagnostic: str | None = None
+    diagnostic_truncated: bool = False
+    reason: str | None = None
+
+
+class DeploymentObservation(BaseModel):
+    head: str
+    key: str
+    run_scope: str
+    acquisition: str
+    verification: str
+    deployment_key_gap: dict[str, Any] | None = None
+    worker: str | None = None
+    pid: int | None = None
+
+
+class SchedulingMember(BaseModel):
+    lane: Lane
+    nodeid: str
+    affinity_groups: list[str] | None
+    observed_workers: list[str]
+    scheduled_workers: None = None
+    native_required: bool | None = None
+
+
+class SqlBatchMember(BaseModel):
+    nodeid: str
+    name: str
+    expected_assertions: int | None
+    observed_assertions: int | None
+    status: str
+
+
+class SqlBatchObservation(BaseModel):
+    artifact_directory: str | None
+    worker: str | None
+    pid: int | None
+    valid: bool | None
+    status: str
+    expected_cases: int | None
+    expected_assertions: int | None
+    observed_cases: int
+    passed_cases: int
+    failed_cases: int
+    pg_prove_returncode: int | None
+    psql_exit: int | None
+    psql_wait: int | None
+    context: dict[str, str | int | None]
+    members: list[SqlBatchMember]
+    members_available: int
+    members_omitted: int
+    next_member_after: int | None
+
+
+class SchedulingLane(BaseModel):
+    status: str
+    reporting_complete: bool
+    group_metadata_complete: bool
+    workers: dict[str, Any] | None
+    evidence_selection: EvidenceSelection = "ordinary"
+    native_required_count: int | None = None
+    deployments: list[DeploymentObservation]
+    deployments_available: int
+    deployments_omitted: int
+    sql_batches: list[SqlBatchObservation] = Field(default_factory=list)
+    sql_batches_available: int = 0
+    sql_batches_omitted: int = 0
+
+
+class Scheduling(BaseModel):
+    result_id: str
+    outcome: str
+    lane: Lane | None
+    group: str | None
+    limit: int
+    after: int
+    next_after: int | None
+    selected: int
+    available: int
+    omitted: int
+    sanitized_identities: int
+    evidence: str = "Affinity groups are collection designations; workers are observed phase executors. Worker assignments are not retained."
+    lanes: dict[Lane, SchedulingLane]
+    items: list[SchedulingMember]
+
+
+class NativeProvenanceGap(BaseModel):
+    reason: str | None
+    reason_truncated: bool = False
+    limit: int
+    after: int
+    next_after: int | None
+    available: int
+    selected: int
+    omitted: int
+    sanitized_identities: int = 0
+    unresolved: list[str]
+
+
 class FailureLane(BaseModel):
     status: str
     reporting_complete: bool
     native_observation: str | None = None
+    native_provenance: NativeProvenanceGap | None = None
     reporting_errors: list[str] = []
     reporting_errors_omitted: int = 0
     reporting_errors_truncated: bool = False
     rust: RustEvidence | None = None
+    startup: StartupDiagnostic | None = None
 
 
 class Failures(BaseModel):
@@ -240,7 +365,9 @@ def _display_text(value: str) -> str:
     return safe_text(value).replace("\n", r"\n").replace("\t", r"\t")
 
 
-def _sanitize_nodes(items: list[FailureEvent] | list[UnresolvedNode]) -> int:
+def _sanitize_nodes(
+    items: list[FailureEvent] | list[UnresolvedNode] | list[SchedulingMember],
+) -> int:
     sanitized = 0
     for item in items:
         display = _display_text(item.nodeid)
@@ -327,6 +454,25 @@ def _render_failures(report: Failures) -> Group:
         if not evidence.reporting_complete:
             status += ", incomplete node reporting"
         rows.add_row(lane, _literal(status))
+        provenance = evidence.native_provenance
+        if provenance is not None:
+            rows.add_row("Native provenance", _literal(provenance.reason or "unavailable"))
+            rows.add_row(
+                "Native unresolved",
+                Text(
+                    f"{provenance.selected}/{provenance.available} ({provenance.omitted} omitted)"
+                ),
+            )
+            for node in provenance.unresolved:
+                rows.add_row("Native identity", Text(node))
+            if provenance.next_after is not None:
+                rows.add_row(
+                    "Native next",
+                    Text(
+                        f"ci test failures {report.result_id} --lane {lane} "
+                        f"--native-after {provenance.next_after} --limit {provenance.limit}"
+                    ),
+                )
         if evidence.rust is not None:
             rows.add_row(
                 "Rust", _literal(f"{evidence.rust.status} ({evidence.rust.applicability})")
@@ -335,6 +481,15 @@ def _render_failures(report: Failures) -> Group:
                 rows.add_row("Rust reason", _literal(evidence.rust.reason))
         for issue in evidence.reporting_errors:
             rows.add_row("Reporting", _literal(issue))
+        if evidence.startup is not None:
+            rows.add_row(
+                "Child startup",
+                _literal(
+                    evidence.startup.diagnostic
+                    or evidence.startup.reason
+                    or evidence.startup.availability
+                ),
+            )
         if evidence.reporting_errors_omitted:
             rows.add_row("Reporting omitted", Text(str(evidence.reporting_errors_omitted)))
     rows.add_row(
@@ -473,6 +628,9 @@ def _lane(
     selection: Path | None = None,
     narrowed: bool = False,
     workers: int | None = None,
+    evidence_selection: EvidenceSelection = "ordinary",
+    collection_only: bool = False,
+    native_host: NativeHost = "shared",
 ) -> str:
     name = "test-all" if lane == "ordinary" else "test-native-faults"
     directory = result.directory / lane
@@ -487,14 +645,27 @@ def _lane(
             "CORPUS_CI_SELECTION_FILE",
             "CORPUS_CI_PYTHON_ONLY",
             "CORPUS_CI_TEST_WORKERS",
+            "CORPUS_CI_RUN_SCOPE",
+            "CORPUS_CI_EVIDENCE_SELECTION",
+            "CORPUS_CI_COLLECTION_ONLY",
+            "CORPUS_CI_NATIVE_HOST",
         }
     }
     env["CORPUS_CI_RECEIPT_DIR"] = str(directory)
+    env["CORPUS_CI_EVIDENCE_SELECTION"] = evidence_selection
+    env["CORPUS_CI_NATIVE_HOST"] = native_host
+    if collection_only:
+        env["CORPUS_CI_COLLECTION_ONLY"] = "1"
+    env["CORPUS_CI_RUN_SCOPE"] = (
+        "narrowed" if narrowed or selection is not None else "qualification"
+    )
     if lane == "ordinary" and workers is not None:
         env["CORPUS_CI_TEST_WORKERS"] = str(workers)
     if selection is not None:
         env["CORPUS_CI_SELECTION_FILE"] = str(selection)
-    if lane == "ordinary" and (narrowed or selection is not None):
+    if lane == "ordinary" and (
+        narrowed or selection is not None or evidence_selection == "providers" or collection_only
+    ):
         env["CORPUS_CI_PYTHON_ONLY"] = "1"
     result.defer_settlement()
     try:
@@ -513,6 +684,8 @@ def _lane(
     except ValueError as error:
         raise ResultError("test supervisor did not report its settlement") from error
     counts = classified["counts"]
+    for refusal in classified.get("selection_refusals", []):
+        diagnostic(safe_text(refusal)[:2000])
     result.manifest.scope.setdefault("workers", {})[lane] = classified.get("workers")
     result.manifest.details.setdefault("lane_counts", {})[lane] = counts
     if classified.get("custody_unsettled"):
@@ -526,8 +699,14 @@ def _lane(
     status = classified["status"]
     if process.returncode in (130, 143):
         outcome = "interrupted"
+    elif (
+        collection_only
+        and classified.get("collection_outcome") == "passed"
+        and process.returncode == 0
+    ):
+        outcome = "passed"
     elif status == "not_run" and classified["empty"]:
-        outcome = "empty"
+        outcome = "not_run" if evidence_selection == "providers" else "empty"
     elif status == "passed" and process.returncode == 0:
         outcome = "passed"
     else:
@@ -539,11 +718,17 @@ def _lane(
     return outcome
 
 
+def _native_host_flag(manifest: Manifest) -> str:
+    return (
+        " --native-host private" if manifest.scope.get("native_host", "shared") == "private" else ""
+    )
+
+
 def _finish(result: Invocation, outcomes: dict[str, str], json: bool) -> None:
     outcome = next(
         (
             state
-            for state in ("interrupted", "failed", "blocked", "empty")
+            for state in ("interrupted", "failed", "blocked", "not_run", "empty")
             if state in outcomes.values()
         ),
         "passed",
@@ -551,15 +736,39 @@ def _finish(result: Invocation, outcomes: dict[str, str], json: bool) -> None:
     retryable = result.manifest.details.get("retryable_lanes", [])
     if result.manifest.details.get("custody_unsettled"):
         next_action = f"ci results recover {result.id}"
-    elif outcome in {"failed", "interrupted"} and retryable:
+    elif outcome in {"failed", "interrupted", "blocked"} and retryable:
         next_action = f"ci test retry {result.id} --lane {retryable[0]}"
     else:
         failed = next((lane for lane, status in outcomes.items() if status != "passed"), None)
-        next_action = f"ci test --lane {failed}" if failed else None
+        mode = (
+            " --providers-only"
+            if result.manifest.scope.get("evidence_selection") == "providers"
+            else ""
+        )
+        next_action = (
+            f"ci test{mode}{_native_host_flag(result.manifest)} --lane {failed}" if failed else None
+        )
+    if result.manifest.action == "test.collect":
+        if outcome != "passed":
+            mode = (
+                " --providers-only"
+                if result.manifest.scope.get("evidence_selection") == "providers"
+                else ""
+            )
+            next_action = f"ci test collect{mode}{_native_host_flag(result.manifest)}"
+        result.manifest.details.update(collection_outcome=outcome, execution_outcome="not_run")
     result.settle(outcome, **result.manifest.details, lanes=outcomes, next_action=next_action)
     exit_code = 130 if outcome == "interrupted" else int(outcome != "passed")
     emit(
-        Campaign(id=result.id, outcome=outcome, lanes=outcomes, next_action=next_action),
+        CollectionCampaign(
+            id=result.id,
+            outcome=outcome,
+            lanes=outcomes,
+            next_action=next_action,
+            collection_outcome=outcome,
+        )
+        if result.manifest.action == "test.collect"
+        else Campaign(id=result.id, outcome=outcome, lanes=outcomes, next_action=next_action),
         json=json,
         exit_code=exit_code,
     )
@@ -572,28 +781,50 @@ def run_tests(
     ctx: typer.Context,
     lane: Annotated[Lane | None, typer.Option()] = None,
     workers: Workers = None,
+    native_host: Annotated[
+        NativeHost, typer.Option(help="Native PostgreSQL host for the ordinary cohort.")
+    ] = "shared",
+    providers_only: Annotated[
+        bool, typer.Option(help="Select and require only opt-in provider evidence.")
+    ] = False,
     json: JsonOpt = False,
 ) -> None:
-    """Run applicable test lanes, or select one with --lane."""
+    """Run applicable test lanes, or require providers with --providers-only."""
     if ctx.invoked_subcommand is not None:
-        if state(ctx).test_args or lane is not None or workers is not None or json:
+        if (
+            (state(ctx).test_args and ctx.invoked_subcommand != "collect")
+            or lane is not None
+            or workers is not None
+            or providers_only
+            or native_host != "shared"
+            or json
+        ):
             raise typer.BadParameter("place command options on the selected test subcommand")
         return
     args = state(ctx).test_args
     with result_boundary(json):
+        if lane == "fault" and providers_only:
+            raise ResultError("--providers-only is incompatible with the exclusive fault lane")
         if lane == "fault" and workers is not None:
             raise ResultError("--workers applies only to the ordinary lane")
         narrowed = _validate(args)
         if narrowed and lane == "fault":
             raise ResultError("the exclusive fault lane owns its selection")
-        declared = lane or ("ordinary" if narrowed else "all")
+        evidence_selection: EvidenceSelection = "providers" if providers_only else "ordinary"
+        declared = lane or ("ordinary" if narrowed or providers_only else "all")
         required_lanes = ["ordinary", "fault"] if declared == "all" else [declared]
+        if native_host == "private" and required_lanes != ["ordinary"]:
+            raise ResultError(
+                "--native-host private requires the ordinary lane; use --lane ordinary for an unnarrowed cohort"
+            )
         with result_store(ctx).operation(
             "test",
             scope={
                 "lane": declared,
                 "required_lanes": required_lanes,
                 "narrowed": narrowed,
+                "evidence_selection": evidence_selection,
+                "native_host": native_host,
                 "workers": {
                     name: {
                         "requested": workers if name == "ordinary" else 0,
@@ -607,16 +838,64 @@ def run_tests(
             outcomes: dict[str, str] = {}
             if lane != "fault":
                 outcomes["ordinary"] = _lane(
-                    result, "ordinary", args, narrowed=narrowed, workers=workers
+                    result,
+                    "ordinary",
+                    args,
+                    narrowed=narrowed,
+                    workers=workers,
+                    evidence_selection=evidence_selection,
+                    native_host=native_host,
                 )
             if (
                 not narrowed
+                and not providers_only
                 and lane != "ordinary"
                 and outcomes.get("ordinary") != "interrupted"
                 and not result.manifest.details.get("custody_unsettled")
             ):
                 outcomes["fault"] = _lane(result, "fault", args)
             _finish(result, outcomes, json)
+
+
+@app.command("collect")
+def collect(
+    ctx: typer.Context,
+    native_host: Annotated[
+        NativeHost, typer.Option(help="Host contract retained for body-free collection.")
+    ] = "shared",
+    providers_only: Annotated[
+        bool, typer.Option(help="Collect only required provider identities.")
+    ] = False,
+    json: JsonOpt = False,
+) -> None:
+    """Collect selected identities and native inventory without running fixtures or tests."""
+    args = state(ctx).test_args
+    with result_boundary(json):
+        narrowed = _validate(args)
+        mode: EvidenceSelection = "providers" if providers_only else "ordinary"
+        with result_store(ctx).operation(
+            "test.collect",
+            scope={
+                "lane": "ordinary",
+                "required_lanes": ["ordinary"],
+                "narrowed": narrowed,
+                "evidence_selection": mode,
+                "collection_only": True,
+                "native_host": native_host,
+                "workers": {"ordinary": {"requested": 0, "actual": None}},
+            },
+            observations=True,
+        ) as result:
+            outcome = _lane(
+                result,
+                "ordinary",
+                args,
+                narrowed=narrowed,
+                evidence_selection=mode,
+                collection_only=True,
+                native_host=native_host,
+            )
+            _finish(result, {"ordinary": outcome}, json)
 
 
 def _receipts(
@@ -627,7 +906,9 @@ def _receipts(
     allow_active: bool = False,
     lane: Lane | None = None,
 ) -> dict[str, tuple[Path, int]]:
-    if result.action not in {"test", "test.retry"} or (result.settled is None and not allow_active):
+    if result.action not in {"test", "test.retry", "test.collect"} or (
+        result.settled is None and not allow_active
+    ):
         raise ResultError("a settled test result is required")
     if result.settled is None or result.details.get("custody_unsettled"):
         return {}
@@ -666,12 +947,26 @@ def _next_test_action(
         return f"ci results recover {result_id}"
     if receipt_unsettled or manifest.details.get("custody_unsettled"):
         return f"Inspect supervisor settlement with ci results show {result_id} before retrying."
+    if manifest.action == "test.collect":
+        mode = (
+            " --providers-only" if manifest.scope.get("evidence_selection") == "providers" else ""
+        )
+        return (
+            None
+            if manifest.outcome == "passed"
+            else f"ci test collect{mode}{_native_host_flag(manifest)}"
+        )
     for lane in _LANES:
         if lane in retry_lanes:
             return f"ci test retry {result_id} --lane {lane}"
     for lane in _LANES:
         if lane_states.get(lane) in {"failed", "blocked", "incomplete", "interrupted"}:
-            return f"ci test --lane {lane}"
+            mode = (
+                " --providers-only"
+                if manifest.scope.get("evidence_selection") == "providers"
+                else ""
+            )
+            return f"ci test{mode}{_native_host_flag(manifest)} --lane {lane}"
     return None
 
 
@@ -696,6 +991,8 @@ def coverage(
         for result in dict.fromkeys(results):
             leases.enter_context(store.lease(result))
         manifests = [store.show(result) for result in results]
+        if any(manifest.action == "test.collect" for manifest in manifests):
+            raise ResultError("collection-only receipts establish no functional coverage")
         scopes = [
             _receipts(store, manifest, leases, allow_active=not full) for manifest in manifests
         ]
@@ -714,7 +1011,14 @@ def coverage(
         for manifest, receipts in zip(manifests[1:], scopes[1:], strict=True):
             # The supervisor tries the original first. Only a full replacement
             # can supply a lane whose original selection could not be collected.
-            if manifest.action == "test" and manifest.scope.get("narrowed") is False:
+            if (
+                manifest.action == "test"
+                and manifest.scope.get("narrowed") is False
+                and manifest.scope.get("evidence_selection", "ordinary")
+                == initial.scope.get("evidence_selection", "ordinary")
+                and manifest.scope.get("native_host", "shared")
+                == initial.scope.get("native_host", "shared")
+            ):
                 for name in sorted(required & receipts.keys()):
                     if manifest.details.get("lanes", {}).get(name) == "passed":
                         selectors.extend(("--required-lane-from", name, str(receipts[name][0])))
@@ -844,6 +1148,149 @@ def coverage(
         )
 
 
+@app.command("scheduling")
+def scheduling(
+    ctx: typer.Context,
+    result_id: Annotated[str, typer.Argument(metavar="RESULT_ID")],
+    lane: Annotated[Lane | None, typer.Option()] = None,
+    group: Annotated[str | None, typer.Option(help="Filter a collection affinity group.")] = None,
+    limit: ReportLimit = _DEFAULT_LIMIT,
+    after: Annotated[int, typer.Option(min=0)] = 0,
+    json: JsonOpt = False,
+) -> None:
+    """Read logical affinity, observed workers, deployment heads and SQL batches."""
+    with result_boundary(json), ExitStack() as leases:
+        store = result_store(ctx)
+        leases.enter_context(store.lease(result_id))
+        manifest = store.show(result_id, role=lane)
+        receipts = _receipts(store, manifest, leases, allow_active=True, lane=lane)
+        items = []
+        lanes = {}
+        available = 0
+        remaining_after = after
+        for name in _LANES:
+            if name not in receipts:
+                continue
+            path, fd = receipts[name]
+            report = _supervisor(
+                "classify",
+                "--projection",
+                "scheduling",
+                "--receipt-dir",
+                str(path),
+                "--limit",
+                str(limit - len(items)),
+                "--after",
+                str(remaining_after),
+                *(["--group", group] if group is not None else []),
+                opened={path: fd},
+            )
+            available += report["available"]
+            remaining_after = max(0, remaining_after - report["available"])
+            deployments = []
+            for raw in report["deployments"]:
+                observation = DeploymentObservation.model_validate(raw)
+                for field in ("head", "key", "run_scope", "acquisition", "verification", "worker"):
+                    value = getattr(observation, field)
+                    if value is not None:
+                        setattr(observation, field, _display_text(value))
+                if observation.deployment_key_gap is not None:
+                    observation.deployment_key_gap = {
+                        key: _display_text(value)[:600] if isinstance(value, str) else value
+                        for key, value in observation.deployment_key_gap.items()
+                    }
+                deployments.append(observation)
+            sql_observations = []
+            for raw in report.get("sql_batches", []):
+                batch = SqlBatchObservation.model_validate(raw)
+                for field in ("artifact_directory", "worker", "status"):
+                    value = getattr(batch, field)
+                    if value is not None:
+                        setattr(batch, field, _display_text(value))
+                batch.context = {
+                    key: _display_text(value) if isinstance(value, str) else value
+                    for key, value in batch.context.items()
+                }
+                for member in batch.members:
+                    member.nodeid = _display_text(member.nodeid)
+                    member.name = _display_text(member.name)
+                    member.status = _display_text(member.status)
+                sql_observations.append(batch)
+            lanes[name] = SchedulingLane(
+                status=report["status"],
+                reporting_complete=report["reporting_complete"],
+                group_metadata_complete=report["group_metadata_complete"],
+                workers=report["workers"],
+                evidence_selection=report.get("evidence_selection", "ordinary"),
+                native_required_count=report.get("native_required_count"),
+                deployments=deployments,
+                deployments_available=report["deployments_available"],
+                deployments_omitted=report["deployments_omitted"],
+                sql_batches=sql_observations,
+                sql_batches_available=report.get("sql_batches_available", 0),
+                sql_batches_omitted=report.get("sql_batches_omitted", 0),
+            )
+            for raw in report["items"]:
+                item = SchedulingMember(lane=name, **raw)
+                item.affinity_groups = (
+                    [_display_text(value) for value in item.affinity_groups]
+                    if item.affinity_groups is not None
+                    else None
+                )
+                item.observed_workers = [_display_text(value) for value in item.observed_workers]
+                items.append(item)
+        view = Scheduling(
+            result_id=result_id,
+            outcome=manifest.outcome,
+            lane=lane,
+            group=_display_text(group) if group is not None else None,
+            limit=limit,
+            after=after,
+            next_after=after + len(items) if after + len(items) < available else None,
+            selected=len(items),
+            available=available,
+            omitted=available - len(items),
+            sanitized_identities=_sanitize_nodes(items),
+            lanes=lanes,
+            items=items,
+        )
+
+        def render(_):
+            table = Table("Lane", "Collection groups", "Logical test", "Observed workers")
+            for item in view.items:
+                table.add_row(
+                    item.lane,
+                    ", ".join(item.affinity_groups)
+                    if item.affinity_groups is not None
+                    else "unavailable",
+                    item.nodeid,
+                    ", ".join(item.observed_workers) or "not observed",
+                )
+            heads = Table("Lane", "Worker", "Head", "Acquisition", "Verification")
+            for name, facts in view.lanes.items():
+                for head in facts.deployments:
+                    heads.add_row(
+                        name,
+                        head.worker or "unknown",
+                        head.head,
+                        head.acquisition,
+                        head.verification,
+                    )
+            batches = Table("Lane", "SQL batch", "Observed / expected", "Batch status", "Artifacts")
+            for name, facts in view.lanes.items():
+                for batch in facts.sql_batches:
+                    batches.add_row(
+                        name,
+                        batch.worker or "unknown",
+                        f"{batch.observed_cases} / {batch.expected_cases}",
+                        batch.status,
+                        batch.artifact_directory or "unavailable",
+                    )
+            return Group(Text(view.evidence), table, heads, batches)
+
+        emit(view, json=json, render=render)
+
+
 @app.command("failures")
 def failures(
     ctx: typer.Context,
@@ -853,6 +1300,9 @@ def failures(
     limit: ReportLimit = _DEFAULT_LIMIT,
     after: Annotated[
         int, typer.Option(min=0, help="Continue after this many filtered observations.")
+    ] = 0,
+    native_after: Annotated[
+        int, typer.Option(min=0, help="Continue each lane's unresolved native-provenance page.")
     ] = 0,
     diagnostic_chars: Annotated[
         int,
@@ -877,7 +1327,7 @@ def failures(
     ] = False,
     json: JsonOpt = False,
 ) -> None:
-    """Read exact failed pytest observations from a retained attempt."""
+    """Read pytest failures and separate unresolved native provenance from a retained attempt."""
     with result_boundary(json), ExitStack() as leases:
         store = result_store(ctx)
         leases.enter_context(store.lease(result_id))
@@ -919,6 +1369,10 @@ def failures(
                 str(limit - len(items)),
                 "--after",
                 str(remaining_after),
+                "--native-after",
+                str(native_after),
+                "--native-limit",
+                str(limit),
                 *selection,
                 opened={path: fd},
             )
@@ -933,6 +1387,9 @@ def failures(
                 status=report["status"],
                 reporting_complete=report["reporting_complete"] and not report["custody_unsettled"],
                 native_observation=report["native_observation"],
+                native_provenance=NativeProvenanceGap.model_validate(report["native_provenance"])
+                if report.get("native_provenance") is not None
+                else None,
                 rust=rust,
                 reporting_errors=[
                     _display_text(message)[:diagnostic_chars]
@@ -943,12 +1400,42 @@ def failures(
                     len(_display_text(message)) > diagnostic_chars
                     for message in report["reporting_errors"]
                 ),
+                startup=StartupDiagnostic.model_validate(report["startup"])
+                if report.get("startup") is not None
+                else None,
             )
+            provenance = lanes[name].native_provenance
+            if provenance is not None:
+                if provenance.reason is not None:
+                    reason = _display_text(provenance.reason)
+                    provenance.reason_truncated = len(reason) > diagnostic_chars
+                    provenance.reason = reason[:diagnostic_chars]
+                native_nodes = [_display_text(node) for node in provenance.unresolved]
+                provenance.sanitized_identities = sum(
+                    before != displayed
+                    for before, displayed in zip(provenance.unresolved, native_nodes, strict=True)
+                )
+                provenance.unresolved = native_nodes
+            startup = lanes[name].startup
+            if startup is not None:
+                if startup.diagnostic is not None:
+                    message = _display_text(startup.diagnostic)
+                    startup.diagnostic_truncated = len(message) > diagnostic_chars
+                    startup.diagnostic = message[:diagnostic_chars]
+                if startup.reason is not None:
+                    startup.reason = _display_text(startup.reason)
             if not report["custody_unsettled"]:
                 available += report["available"]
                 remaining_after = max(0, remaining_after - report["available"])
                 for raw in report["items"]:
                     item = FailureEvent(lane=name, **raw)
+                    for prerequisite in item.prerequisites:
+                        selected_name = _display_text(prerequisite.name)
+                        selected_reason = _display_text(prerequisite.reason)
+                        prerequisite.name_truncated = len(selected_name) > diagnostic_chars
+                        prerequisite.reason_truncated = len(selected_reason) > diagnostic_chars
+                        prerequisite.name = selected_name[:diagnostic_chars]
+                        prerequisite.reason = selected_reason[:diagnostic_chars]
                     if item.native_traceback is not None:
                         item.native_traceback = _present_native_traceback(
                             item.native_traceback, diagnostic_chars
@@ -1016,6 +1503,10 @@ def retry(
         store = result_store(ctx)
         with store.lease(original), ExitStack() as receipts_open:
             manifest = store.show(original, role=lane)
+            if manifest.action == "test.collect":
+                raise ResultError(
+                    "collection-only receipts have no functional retry; use ci test collect"
+                )
             if manifest.details.get("custody_unsettled"):
                 raise ResultError(f"settle the predecessor with ci results recover {original}")
             receipts = _receipts(store, manifest, receipts_open, lane=lane)
@@ -1026,12 +1517,16 @@ def retry(
                 observations=True,
                 scope={
                     "retry_of": original,
+                    "native_host": manifest.scope.get("native_host", "shared"),
+                    "evidence_selection": manifest.scope.get("evidence_selection", "ordinary"),
                     "required_lanes": [],
                     "workers": {},
                 },
             ) as result:
                 outcomes: dict[str, str] = {}
-                context = _supervisor("context")
+                context = _supervisor(
+                    "context", "--native-host", manifest.scope.get("native_host", "shared")
+                )
                 for current in ("ordinary", "fault"):
                     if current not in receipts or (lane is not None and lane != current):
                         continue
@@ -1046,6 +1541,18 @@ def retry(
                         )
                     if report["retryable"] and report["required_unresolved"]:
                         prior = report["contexts"][0]["invocation"] or {}
+                        if prior.get("evidence_selection", "ordinary") != manifest.scope.get(
+                            "evidence_selection", "ordinary"
+                        ):
+                            raise ResultError(
+                                "retained manifest and receipt disagree on evidence selection"
+                            )
+                        if prior.get("native_host", "shared") != manifest.scope.get(
+                            "native_host", "shared"
+                        ):
+                            raise ResultError(
+                                "retained manifest and receipt disagree on native host mode"
+                            )
                         changed = [
                             name for name, value in context.items() if prior.get(name) != value
                         ]
@@ -1074,14 +1581,24 @@ def retry(
                             "actual": None,
                         }
                         outcomes[current] = _lane(
-                            result, current, selection=selection, workers=workers
+                            result,
+                            current,
+                            selection=selection,
+                            workers=workers,
+                            evidence_selection=prior.get("evidence_selection", "ordinary"),
+                            native_host=prior.get("native_host", "shared"),
                         )
                         if outcomes[current] == "interrupted" or result.manifest.details.get(
                             "custody_unsettled"
                         ):
                             break
                     elif report["status"] != "passed":
-                        remedy = f"{current} has no exact node retry; run ci test --lane {current}"
+                        mode = (
+                            " --providers-only"
+                            if manifest.scope.get("evidence_selection") == "providers"
+                            else ""
+                        )
+                        remedy = f"{current} has no exact node retry; run ci test{mode}{_native_host_flag(manifest)} --lane {current}"
                         if lane is not None:
                             raise ResultError(remedy)
                         diagnostic(remedy)

@@ -35,7 +35,7 @@ from corpus_structure.semantic.storage_target import StorageTarget
 
 _ID = re.compile(r"[a-f0-9]{32}")
 _ROLE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]*")
-_TERMINAL = frozenset({"passed", "failed", "interrupted", "blocked", "empty"})
+_TERMINAL = frozenset({"passed", "failed", "interrupted", "blocked", "empty", "not_run"})
 _RECOVERY = ".recovery"
 _OWNER = ".owner.json"
 _PUBLICATIONS = ".publications.json"
@@ -64,7 +64,7 @@ class OperationAccount(BaseModel):
     """Durable effects and the extent of what the owner has verified."""
 
     version: Literal[1] = 1
-    outcome: Literal["running", "passed", "failed", "interrupted", "blocked", "empty"]
+    outcome: Literal["running", "passed", "failed", "interrupted", "blocked", "empty", "not_run"]
     cleanup: Literal["unknown", "unresolved", "established"]
     failure: OperationFailure | None = None
     known_effects: tuple[str, ...] | None = None

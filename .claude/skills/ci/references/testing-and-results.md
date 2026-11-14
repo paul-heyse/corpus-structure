@@ -23,6 +23,28 @@ The default campaign runs the applicable ordinary and exclusive fault lanes. Use
 `ci test --lane fault` only for the owned fault selection. This lane is serial and owns its
 selection. Coordinate it with other work using the shared cluster.
 
+Ordinary selection excludes opt-in `provider_evidence` identities. Use
+`uv run ci test --providers-only -- PATH` to select and require them; this is incompatible
+with the exclusive fault lane. Explicit provider node IDs require this mode. Missing named
+prerequisites are decided before fixtures, reported as `blocked` with every missing reason,
+and cannot become optional passing evidence. An empty provider selection is `not_run`.
+The evidence selection is retained through recollection, manual retries and coverage.
+
+Use `uv run ci test collect --json -- PATH` for a managed, serial inventory without fixture
+or test execution; `--providers-only` applies the same provider selection. Its action is
+`test.collect`, with separate collection outcome and functional `execution_outcome=not_run`.
+Read native-required flags, their count, groups and observed workers with
+`uv run ci test scheduling RESULT_ID --limit 20 --json`. Collection receipts cannot establish
+functional coverage or supply functional retries.
+
+For a throwaway functional cohort, use `ci test --native-host private -- PATH`.
+One PostgreSQL18 host serves the selected Python/SQL work and its workers. Shared is the
+default; private mode refuses shared authentication, peer and durability claims. An unnarrowed
+private selection requires `--lane ordinary`, since the fault lane keeps its shared host.
+Retry and recollection retain private mode; each replacement host has a new observed incarnation
+that coverage reports rather than treating it as the original server. Bootstrap/cancellation
+logs remain with the managed result; uncertain child custody prevents host teardown.
+
 ## Recover, retry and reconcile
 
 ```sh
@@ -30,9 +52,14 @@ uv run ci test failures ORIGINAL_ID --lane ordinary
 uv run ci test retry ORIGINAL_ID --lane ordinary --json
 uv run ci test coverage ORIGINAL_ID RETRY_ID
 uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
+uv run ci test scheduling RESULT_ID --limit 20 --json
 ```
 
-- Use `test failures` for the exact failed node, phase and lane from the classifier.
+- Use `test failures` for failed or prerequisite-blocked nodes, their phases and lanes.
+  Collection-time prerequisite skips retain every named reason in the same view; an actual
+  teardown failure remains a separate failed event.
+  A child failure before pytest starts has a separate bounded, redacted startup diagnostic;
+  it does not invent a test node or pytest native traceback.
   Add `--native-traceback --diagnostic-chars 32768` for retained pytest file locations and native
   chain descriptions. Source listings, locals and captured streams are excluded; unsupported
   native-only representations remain explicitly unavailable/partial. This view cannot recover
@@ -51,6 +78,8 @@ uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
   returned `--after`; its coordinate is retained safe Unicode codepoints, not native bytes.
   Collection truncation and native byte counts remain explicit. Reading never reruns the check.
 - Use an exact retry for a settled result with eligible unresolved pytest identities.
+  Selected blocked identities can be retried manually after their prerequisites become available;
+  their original blocked receipt and evidence mode remain intact.
   The supervisor recollects the required selection before running those nodes. Each retry
   has a new managed ID. If no authoritative collection survived or the failure is outside
   node scope, follow the fresh-lane action instead.
@@ -64,6 +93,11 @@ uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
   The original failure remains visible even when replacements cover every required node.
   A coverage report's successful delivery does not establish qualification by itself.
   Use the owning plan to judge applicability and record omitted or blocked obligations.
+- Use `test scheduling` for collection affinity groups, their logical members and workers
+  observed executing phases. Filter with `--group`, select `--lane`, and page with `--after`.
+  Collection designations and observed execution remain separate; worker assignments are
+  unavailable when they were not recorded. The same view reports acquired native heads,
+  reuse/verification and deployment-key gaps, with explicit limits on head records.
 
 ## Retained schema diagnostics
 

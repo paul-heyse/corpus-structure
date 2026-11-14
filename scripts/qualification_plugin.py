@@ -26,12 +26,92 @@ def pytest_cmdline_main(config: pytest.Config) -> Generator[None, Any, Any]:
     return (yield)
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--qualification-evidence",
+        choices=("ordinary", "providers"),
+        default="ordinary",
+        help="Select ordinary controls or explicitly required provider evidence.",
+    )
+
+
+def _explicit_provider(item: pytest.Item, config: pytest.Config) -> bool:
+    logical = item.stash[_logical_nodeid]
+    _, _, suffix = logical.partition("::")
+    for selector in config.args:
+        filename, separator, selected = selector.partition("::")
+        if (
+            separator
+            and Path(filename).resolve() == item.path.resolve()
+            and (
+                suffix == selected
+                or suffix.startswith(selected + "::")
+                or suffix.startswith(selected + "[")
+            )
+        ):
+            return True
+    return False
+
+
 @pytest.hookimpl(wrapper=True, tryfirst=True)
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> Generator[None]:
-    # Wrappers enter before xdist's non-wrapper group mutation (pytest9.1.1/xdist3.8).
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> Generator[None]:
+    # Preserve identities before xdist adds group suffixes, then apply evidence selection
+    # after normal keyword and lane filters. Excluded providers are never required nodes.
     for item in items:
         item.stash[_logical_nodeid] = item.nodeid
+    private = os.environ.get("CORPUS_CI_NATIVE_HOST", "shared") == "private"
+    explicit_incompatible = [
+        item.stash[_logical_nodeid]
+        for item in items
+        if private
+        and item.get_closest_marker("shared_cluster_fault")
+        and _explicit_provider(item, config)
+    ]
     yield
+    incompatible = [
+        item.stash[_logical_nodeid]
+        for item in items
+        if private
+        and (
+            item.get_closest_marker("shared_cluster_fault")
+            or item.get_closest_marker("private_host_incompatible")
+        )
+    ]
+    if explicit_incompatible or incompatible:
+        message = (
+            "private native host is incompatible with shared-host/authentication or durability controls: "
+            + ", ".join(sorted(set(explicit_incompatible + incompatible)))
+        )
+        _emit("selection_refusal", message=message)
+        raise pytest.UsageError(message)
+    mode = config.getoption("qualification_evidence")
+    providers = [item for item in items if item.get_closest_marker("provider_evidence")]
+    if mode == "ordinary":
+        explicit = [
+            item.stash[_logical_nodeid] for item in providers if _explicit_provider(item, config)
+        ]
+        if explicit:
+            message = "provider evidence requires ci test --providers-only: " + ", ".join(explicit)
+            _emit("selection_refusal", message=message)
+            raise pytest.UsageError(message)
+    elif any(item.get_closest_marker("shared_cluster_fault") for item in items):
+        message = "provider evidence is incompatible with the exclusive fault lane"
+        _emit("selection_refusal", message=message)
+        raise pytest.UsageError(message)
+    selected = []
+    excluded = []
+    for item in items:
+        target = (
+            selected
+            if bool(item.get_closest_marker("provider_evidence")) == (mode == "providers")
+            else excluded
+        )
+        target.append(item)
+    if excluded:
+        config.hook.pytest_deselected(items=excluded)
+        items[:] = selected
 
 
 def native_context_active() -> bool:
@@ -64,8 +144,31 @@ def record_native_context(
     _emit("native_context", context=context, scope=scope, nodeid=associated)
 
 
+def logical_nodeid(item: pytest.Item) -> str:
+    """The collection owner's identity, before any xdist scheduling suffix."""
+    if _logical_nodeid in item.stash:
+        return item.stash[_logical_nodeid]
+    if native_context_active():
+        raise RuntimeError("managed SQL selection has no authoritative logical identity")
+    return item.nodeid
+
+
+def record_sql_batch(report: dict[str, Any], *, directory: str, nodeids: list[str]) -> None:
+    """Diagnostic observations only; each pytest member gates its own qualification."""
+    _emit("sql_batch", report=report, directory=directory, nodeids=nodeids)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     global _stream, _identity
+    config.addinivalue_line("markers", "provider_evidence: opt-in actual provider evidence")
+    config.addinivalue_line("markers", "prerequisite(name): collection-time external prerequisite")
+    config.addinivalue_line(
+        "markers", "sql_family(family, case, assertions): finite native SQL family member"
+    )
+    config.addinivalue_line(
+        "markers",
+        "private_host_incompatible: requires shared host, peer authentication or durability semantics",
+    )
     directory = os.environ.get("QUALIFICATION_RECEIPT_DIR")
     if directory is None:
         return
@@ -97,6 +200,8 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         requested_worker_selection=session.config.stash.get(_requested_worker_selection, None),
         effective_worker_count=int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "0")),
         math_pool_cap=8,
+        evidence_selection=session.config.getoption("qualification_evidence"),
+        native_host=os.environ.get("CORPUS_CI_NATIVE_HOST", "shared"),
     )
 
 
@@ -122,6 +227,11 @@ def pytest_collection_finish(session: pytest.Session) -> None:
             for item in session.items
         },
         selected=[item.nodeid for item in session.items],
+        evidence_selection=session.config.getoption("qualification_evidence"),
+        native_host=os.environ.get("CORPUS_CI_NATIVE_HOST", "shared"),
+        provider_evidence=[
+            item.nodeid for item in session.items if item.get_closest_marker("provider_evidence")
+        ],
         native_required=[
             item.nodeid for item in session.items if item.get_closest_marker("db") is not None
         ],

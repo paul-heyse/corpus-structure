@@ -13,7 +13,68 @@ import pytest
 from test_receipts import ROOT, classify_receipt, read_stream, run_python
 
 
-def isolated(tmp_path, source, workers, *, conftest="", args=(), timeout=40, test_timeout=15):
+@pytest.mark.parametrize(
+    "kind, expected, sweep_rule",
+    [
+        ("session", "ci_test_42", "unleased"),
+        ("infra", "cs_sem_infra_42_0123456789ab", "unleased"),
+        ("infra_case", "cs_sem_infra_case_42_0123456789ab", "unleased"),
+        ("test", "cs_sem_test_42_0123456789ab", "unleased"),
+        ("bare", "cs_sem_bare_42_0123456789ab", "unleased"),
+        ("revision", "cs_sem_revision_42_0123456789ab", "unleased"),
+        ("init", "cs_sem_init_42_0123456789ab", "unleased"),
+        ("build", "cs_sem_build_42_0123456789ab", "unleased"),
+        ("reusable_head", "cs_sem_head_aaaaaaaaaaaaaaaa", "retained"),
+        ("run_private_head", "cs_sem_head_aaaaaaaaaaaaaaaa_bbbbbbbb", "unleased"),
+        ("stale", "cs_sem_stale_42_0123456789ab", "unleased"),
+        ("seed", "cs_sem_seed_42_0123456789ab", "unleased"),
+    ],
+)
+def test_database_naming_roundtrips_lifecycle_authority(kind, expected, sweep_rule):
+    from native_test_support import database_name, recognize_database_name
+
+    identity = database_name(kind, pid=42, token="0123456789ab", key="a" * 64, run="b" * 32)
+    assert identity.name == expected
+    assert identity.lease_key == expected
+    assert identity.sweep_rule == sweep_rule
+    assert recognize_database_name(expected) == identity
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ci_test_42_1",
+        "ci_test_",
+        "cs_sem_test_42_abc",
+        "other_project_42",
+        "cs_sem_head_aaaaaaaaaaaaaaaa_extra",
+    ],
+)
+def test_database_naming_does_not_adopt_unrecognized_names(name):
+    from native_test_support import recognize_database_name
+
+    assert recognize_database_name(name) is None
+
+
+@pytest.mark.parametrize(
+    "kind, kwargs",
+    [
+        ("test", {"pid": 0}),
+        ("test", {"token": "not_hex"}),
+        ("reusable_head", {"key": "short"}),
+        ("run_private_head", {"key": "a" * 16, "run": "short"}),
+    ],
+)
+def test_database_naming_rejects_invalid_kind_parameters(kind, kwargs):
+    from native_test_support import database_name
+
+    with pytest.raises(ValueError):
+        database_name(kind, **kwargs)
+
+
+def isolated(
+    tmp_path, source, workers, *, conftest="", args=(), timeout=40, test_timeout=15, extra_files=()
+):
     case = tmp_path / "case"
     case.mkdir()
     (case / "pytest.ini").write_text(
@@ -22,6 +83,8 @@ def isolated(tmp_path, source, workers, *, conftest="", args=(), timeout=40, tes
     )
     (case / "test_case.py").write_text(source)
     (case / "conftest.py").write_text(conftest)
+    for name, content in extra_files:
+        (case / name).write_text(content)
     output = tmp_path / "receipt"
     output.mkdir()
     run_python(
@@ -56,27 +119,24 @@ def events(output):
 @pytest.mark.db
 def test_real_collection_group_identity_and_native_acquisition(tmp_path, workers, monkeypatch):
     # The enclosing item and every child own their acquisition and clone lifetime.
-    from uuid import uuid4
-
-    from native_test_support import PgAdmin, server_url
+    from native_test_support import PgAdmin, database_name, server_url
 
     server = PgAdmin(server_url(), "template0", {})
     with (
-        server.database(f"cs_sem_bare_{os.getpid()}_{uuid4().hex[:12]}", "template0") as engine,
+        server.database(database_name("bare").name, "template0") as engine,
         engine.connect() as connection,
     ):
         assert connection.exec_driver_sql("SELECT 1").scalar_one() == 1
     source = """import os
 import time
-from uuid import uuid4
 from contextlib import contextmanager
 import pytest
-from native_test_support import PgAdmin, server_url
+from native_test_support import PgAdmin, database_name, server_url
 
 @contextmanager
 def acquired_clone():
     server = PgAdmin(server_url(), "template0", {})
-    with server.database(f"cs_sem_bare_{os.getpid()}_{uuid4().hex[:12]}", "template0") as engine:
+    with server.database(database_name("bare").name, "template0") as engine:
         with engine.connect() as connection:
             yield connection
 
@@ -381,3 +441,75 @@ def test_public_report_section_survives_two_worker_serialization(tmp_path):
     assert ["Captured public scenario call", "guard=fixture; diagnostic=public-control"] in call[
         "sections"
     ]
+
+
+def test_preparation_affinity_follows_imported_shared_and_qualified_local_fixtures(tmp_path):
+    hooks = (
+        (ROOT / "conftest.py").read_text()
+        + """
+from shared_support import statistics_pack_prepared, statistics_rules_policy
+PREPARATION_AFFINITY += (("profile", "test_case.py", "local_profile"),)
+@pytest.fixture
+def profile(): return "local"
+"""
+    )
+    support = """import pytest
+from pathlib import Path
+@pytest.fixture(scope="session")
+def statistics_pack_prepared():
+    with Path("prepare-count").open("a") as stream: stream.write("prepared\\n")
+    return object()
+@pytest.fixture(scope="session")
+def statistics_rules_policy(statistics_pack_prepared): return statistics_pack_prepared
+"""
+    source = """import pytest
+@pytest.mark.xdist_group("statistics_pack")
+@pytest.mark.xdist_group("statistics_pack")
+def test_shared(statistics_pack_prepared, statistics_rules_policy):
+    assert statistics_pack_prepared is statistics_rules_policy
+def test_local(profile): assert profile == "local"
+"""
+    other = """def test_shared_elsewhere(statistics_pack_prepared): pass
+def test_unrelated(profile): assert profile == "local"
+"""
+    output = isolated(
+        tmp_path,
+        source,
+        2,
+        conftest=hooks,
+        extra_files=(("shared_support.py", support), ("test_other.py", other)),
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "passed"
+    manifest = next(event for event in events(output) if event["event"] == "collection_finish")
+    groups = {
+        logical: manifest["affinity_groups"][raw]
+        for raw, logical in manifest["nodeid_aliases"].items()
+    }
+    assert set(groups["test_case.py::test_shared"]) == {"statistics_pack"}
+    assert groups["test_other.py::test_shared_elsewhere"] == ["statistics_pack"]
+    assert groups["test_case.py::test_local"] == ["local_profile"]
+    assert groups["test_other.py::test_unrelated"] == []
+    assert (tmp_path / "case" / "prepare-count").read_text().splitlines() == ["prepared"]
+    owners = {
+        event["worker"]
+        for event in events(output)
+        if event["event"] == "phase_start" and event["nodeid"].endswith("@statistics_pack")
+    }
+    assert len(owners) == 1
+
+
+def test_distinct_preparation_affinity_refuses_before_execution(tmp_path):
+    hooks = (ROOT / "conftest.py").read_text()
+    source = """import pytest
+@pytest.fixture
+def statistics_pack_prepared(): return object()
+@pytest.mark.xdist_group("another_preparation")
+def test_conflict(statistics_pack_prepared): raise AssertionError("body must not run")
+"""
+    output = isolated(tmp_path, source, 2, conftest=hooks)
+    result = classify_receipt(output)
+    assert result["process"]["returncode"] != 0
+    assert not any(event["event"] == "phase_start" for event in events(output))
+    diagnostic = (output / "pytest.stdout").read_text() + (output / "pytest.stderr").read_text()
+    assert "conflicting preparation affinity groups" in diagnostic
