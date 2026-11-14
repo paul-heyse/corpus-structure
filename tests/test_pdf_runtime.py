@@ -14,37 +14,24 @@ from corpus_structure.ingest.pdf_hierarchy import _section_text_policy_bytes
 from corpus_structure.ingest.pdf_methods import PdfIngestConfig
 
 
-def test_active_registry_selects_integrated_pdf_production():
-    from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
-    from corpus_structure.orchestrate.phase0 import PHASE0, registry
-
-    configured = registry(Path(__file__).resolve().parents[1] / "domains/statistics")
-    assert {"ingest.pdf", "ingest.pdf_integrated"} <= {m.name for m in configured.methods()}
-    assert "ingest.html" not in {m.name for m in configured.methods()}
-    cfg = configured.resolve("ingest.pdf_integrated", "default").config
-    assert isinstance(cfg, PdfIntegratedIngestConfig)
-    assert cfg.originals == ("siegrist_random/Full_PDF/Full.pdf",)
-    assert PHASE0.stages[0][1][0].config == "ingest.pdf_integrated/default"
+def test_pdf_recipe_has_no_implicit_conversion_deadline():
     assert PdfIngestConfig().recipe().timeout_seconds is None
 
 
-def test_retained_native_input_binding_preserves_domain_definition():
+def test_retained_native_configuration_preserves_domain_definition():
+    import yaml
     from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
-    from corpus_structure.orchestrate.phase0 import bind_pdf_source, registry
     from corpus_structure.semantic.product_reference import ProductReference
 
-    base = registry(Path(__file__).resolve().parents[1] / "domains/statistics")
-    original = base.resolve("ingest.pdf_integrated", "default")
+    domain = yaml.safe_load((Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text())
+    values = domain["configs"]["ingest.pdf_integrated"]["default"]
+    original = PdfIntegratedIngestConfig.model_validate(values)
     pin = ProductReference(17, "organized", "a" * 64)
-    bound = bind_pdf_source(base, pin)
-    selected = bound.resolve("ingest.pdf_integrated", "default")
-    assert isinstance(selected.config, PdfIntegratedIngestConfig)
-    assert selected.config.native_product == pin
-    assert selected.config.integrated_product is None
-    assert selected.params["native_product"] == pin.values()
-    assert selected.config_hash != original.config_hash
-    assert base.resolve("ingest.pdf_integrated", "default").params == original.params
-    assert "native_product" not in base.file.configs["ingest.pdf_integrated"]["default"]
+    selected = original.model_copy(update={"native_product": pin})
+    assert selected.native_product == pin and selected.integrated_product is None
+    assert selected.originals == original.originals == ("siegrist_random/Full_PDF/Full.pdf",)
+    assert selected.membership == original.membership == "descendants"
+    assert original.native_product is None and "native_product" not in values
 
 
 def test_owned_assets_pin_actual_table_revision_and_detect_changed_bytes(tmp_path, monkeypatch):

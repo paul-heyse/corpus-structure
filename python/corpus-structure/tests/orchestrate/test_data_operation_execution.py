@@ -1,5 +1,7 @@
 """Actual supplied callable to native demand, intent, product and reuse."""
 
+import json
+
 import pytest
 from semantic.data_operation_kernel_support import EXECUTION
 from sqlalchemy import text
@@ -221,13 +223,14 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
 
     class ObservedExecutor(NativeDemandExecutor):
         def _claim(self, ready, owner):
-            claim, native = super()._claim(ready, owner)
+            answer = super()._claim(ready, owner)
+            claim, native = answer
             if claim is not None:
                 claimed.append((ready.obligation, claim.task_id, claim.attempt))
                 with self.engine.connect() as connection:
                     windows.append(connection.scalar(text("SELECT count(*) FROM ops.task WHERE claimed_by=:holder AND status='running'"), {"holder": self.holder}))
                     assert connection.scalar(text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": claim.task_id}) is None
-            return claim, native
+            return answer
 
     executor = ObservedExecutor(engine, prepared, runtime, sources, policy=policy, runtime_locations=locations, schema=bundle)
     completed = executor.run(demand, limit=2)

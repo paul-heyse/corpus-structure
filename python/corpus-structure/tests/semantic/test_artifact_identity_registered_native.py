@@ -201,7 +201,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
             ((method, cfg),), selected_sources=inputs.sources,
         )
         with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
-            unit = UnitView(UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity), ctx.run)
+            unit = UnitView(UnitRef(TaskUnitType.RUN, unit_key=inputs.identity), ctx.run)
             (result,) = method.run((unit,), cfg, ctx)
         _retain_witnessed_result(case, run_id, method, cfg, result,
                                  stage="assemble", admin=record_source_admin)

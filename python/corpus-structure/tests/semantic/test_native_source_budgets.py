@@ -140,7 +140,8 @@ def test_postgresql_preflight_admits_only_requested_page_and_refuses_body_transf
 
 def test_interactive_packet_propagates_one_budget_and_refuses_whole_packet(monkeypatch):
     from corpus_structure.methods.math import native
-    from corpus_structure.orchestrate import semantic, semantic_references
+    from corpus_structure.orchestrate import semantic_references
+    from corpus_structure.semantic import retained_agent_packets as semantic
     from corpus_structure.semantic import operations
 
     budget = PublishedReadBudget(10, 10)

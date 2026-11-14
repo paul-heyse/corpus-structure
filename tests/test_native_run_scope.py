@@ -1,152 +1,36 @@
-"""Direct source execution refuses incompatible scopes before registering any run or task."""
-
-from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import MagicMock
+"""Current source intent preserves explicit native choices and refuses legacy scope shapes."""
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import Connection, Engine
 
-from corpus_structure.core.method import MethodSettings
-from corpus_structure.core.vocab import Stage
-from corpus_structure.ingest.pdf_methods import IngestPdf
-from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
-from corpus_structure.methods.math.methods import ExtractMath
-from corpus_structure.orchestrate import semantic
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
-from corpus_structure.semantic import pdf_contracts
-from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contracts import trusted_execution_inputs
-from corpus_structure.semantic.operations import OperationBinding, OperationConflict
-from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.types import (
-    PreparationError,
-    PreparationProfile,
-    ResolvedDependencies,
+from corpus_structure.orchestrate.source_request import (
+    NamedScope, SourceRunRequest, WholeDocument, source_selection,
 )
 
 
-class RegistrationBoundary(Exception):
-    """Stop after observing the exact attempted run registration, without writing a run."""
+@pytest.mark.parametrize("legacy", [
+    {"name": "trace", "locators": ["special/Normal.html#rel1"], "hash": "a" * 64},
+    {"kind": "rendition", "name": "transfer", "locators": ["inspection.html"]},
+    {"kind": "native_sections", "sections": ["Sets"]},
+])
+def test_current_source_intent_refuses_legacy_scope_payloads(legacy):
+    with pytest.raises(ValidationError):
+        SourceRunRequest.model_validate(dict(project_id="source", release_id="release",
+            runtime_id="runtime", selection=legacy))
 
 
-@pytest.fixture(scope="module")
-def source_release():
-    inputs = trusted_execution_inputs()
-    return prepare_release(
-        inputs.schema,
-        composed_dependencies(ResolvedDependencies(), inputs),
-        PreparationProfile(version="semantic-2"),
-    )
+@pytest.mark.parametrize("removed", ["scope_record", "registry", "graph", "fresh"])
+def test_current_source_intent_refuses_removed_runtime_authority(removed):
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        SourceRunRequest.model_validate(dict(project_id="source", release_id="release",
+            runtime_id="runtime", **{removed: {}}))
 
 
-@pytest.fixture
-def run_scope(monkeypatch, source_release):
-    context = pdf_contracts.trusted_pdf_context()
-    engine = MagicMock(spec=Engine)
-    conn = MagicMock(spec=Connection)
-    engine.connect.return_value.__enter__.return_value = conn
-    engine.begin.return_value.__enter__.return_value = conn
-    conn.execute.return_value.mappings.return_value.all.return_value = [
-        {
-            "key": "retained-pdf",
-            "source_uri": "retained.pdf",
-            "content_hash": "a" * 64,
-            "meta": {},
-        }
-    ]
-    archive = MagicMock(return_value=context)
-    monkeypatch.setattr(pdf_contracts, "pdf_context_for_release", archive)
-    register = MagicMock(side_effect=RegistrationBoundary)
-    tasks = MagicMock(side_effect=AssertionError("must not create tasks in scope controls"))
-    monkeypatch.setattr(semantic, "create_run", register)
-    monkeypatch.setattr(semantic, "create_task", tasks)
-
-    def execute(scope, method):
-        registry = MethodRegistry(
-            [method],
-            MethodsFile(sections={"math": {}}, configs={method.name: {"default": {}}}),
-        )
-        return semantic.run_source_methods(
-            engine,
-            project_id="scope-control",
-            prepared=source_release,
-            binding=OperationBinding(source_release.release_id, "input", 0, b"{}"),
-            registry=registry,
-            graph=Graph(((Stage.INGEST, (Step(method.name + "/default"),)),)),
-            method_settings=MethodSettings(
-                data_dir=Path("build/data"), model_cache=Path("build/models")
-            ),
-            scope_record=scope,
-        )
-
-    return SimpleNamespace(
-        execute=execute, engine=engine, conn=conn, archive=archive, register=register, tasks=tasks
-    )
-
-
-@pytest.mark.parametrize("method", [IngestPdf, IngestPdfIntegrated, ExtractMath])
-@pytest.mark.parametrize(
-    "scope",
-    [
-        {"name": "trace", "locators": ["special/Normal.html#rel1"], "hash": "a" * 64},
-        {"kind": "rendition", "name": "transfer", "locators": ["inspection.html"]},
-    ],
-)
-def test_direct_native_execution_refuses_legacy_scope_before_writes(run_scope, method, scope):
-    with pytest.raises(OperationConflict, match="select a native_sections scope"):
-        run_scope.execute(scope, method())
-    run_scope.engine.begin.assert_not_called()
-    run_scope.register.assert_not_called()
-    run_scope.tasks.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "scope",
-    [
-        {"kind": "native_sections", "sections": ["Sets"]},
-        {
-            "kind": "native_sections",
-            "name": "bad",
-            "sections": {"heading": "Sets"},
-            "include_descendants": True,
-            "hash": "a" * 64,
-        },
-    ],
-)
-def test_direct_native_execution_validates_released_scope_shape_before_writes(run_scope, scope):
-    with pytest.raises((ValidationError, PreparationError)):
-        run_scope.execute(scope, IngestPdf())
-    run_scope.archive.assert_called_once()
-    run_scope.engine.begin.assert_not_called()
-    run_scope.register.assert_not_called()
-    run_scope.tasks.assert_not_called()
-
-
-@pytest.mark.parametrize("method", [IngestPdf, IngestPdfIntegrated, ExtractMath])
-@pytest.mark.parametrize("all_sources", [False, True])
-def test_direct_native_execution_preserves_native_and_explicit_all_scope(
-    run_scope, method, all_sources
-):
-    scope = (
-        None
-        if all_sources
-        else {
-            "kind": "native_sections",
-            "name": "selected",
-            "sections": ["1.8: Combinatorial Structures"],
-            "include_descendants": True,
-            "hash": "a" * 64,
-        }
-    )
-    with pytest.raises(RegistrationBoundary):
-        run_scope.execute(scope, method())
-    run_scope.register.assert_called_once()
-    assert run_scope.register.call_args.kwargs["options"]["scope"] == scope
-    run_scope.tasks.assert_not_called()
-    if all_sources:
-        run_scope.archive.assert_not_called()
-    else:
-        run_scope.archive.assert_called_once()
+def test_current_source_intent_preserves_named_native_scope_and_whole_document():
+    named = SourceRunRequest(project_id="source", release_id="release", runtime_id="runtime",
+        selection=source_selection(scope="selected"), membership="descendants")
+    assert isinstance(named.selection, NamedScope) and named.selection.name == "selected"
+    assert named.membership == "descendants"
+    whole = named.model_copy(update={"selection": source_selection(whole_document=True)})
+    assert isinstance(whole.selection, WholeDocument)
+    assert named.selection.name == "selected"

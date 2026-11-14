@@ -94,7 +94,10 @@ def publish_primary_fixture(conn, run, prepared, method, params):
         conn, method, "primary-control", canonical, configuration_hash, prepared=prepared
     )
     run_view = SimpleNamespace(reader=reader)
-    (ref,) = method.select(run_view, config)
+    if isinstance(method, NativeEvidenceMethod):
+        (ref,) = method.select(run_view, method.Config.model_validate(canonical))
+    else:
+        (ref,) = method.select(run_view, config)
     input_hash = "primary-control:" + method.name
     task_id = create_task(
         conn,
@@ -120,18 +123,17 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     assert all(isinstance(value, str) and value for value in operation.values())
     frozen_operation = {key: str(value) for key, value in operation.items()}
     reader.characterization_selection = tuple(ProductReference(**value) for value in params.get("characterization_layers", ()))
-    (result,) = method.run(
-        (UnitView(ref, run_view, document_id=ref.unit_id),),
-        config,
-        MethodContext(
-            run=run_view,
-            reader=reader,
-            settings=MethodSettings(data_dir=Path("."), model_cache=Path(".")),
-            logger=getLogger("test-primary-publication"),
-            check_active=lambda: None,
-            characterization_operation=lambda _ref: frozen_operation,
-        ),
+    context = MethodContext(
+        run=run_view, reader=reader,
+        settings=MethodSettings(data_dir=Path("."), model_cache=Path(".")),
+        logger=getLogger("test-primary-publication"), check_active=lambda: None,
+        characterization_operation=lambda _ref: frozen_operation,
     )
+    units = (UnitView(ref, run_view, document_id=ref.unit_id),)
+    if isinstance(method, NativeEvidenceMethod):
+        (result,) = method.run(units, method.Config.model_validate(canonical), context)
+    else:
+        (result,) = method.run(units, config, context)
     assert result.characterization_layer is not None
     complete_unit_result(
         conn,

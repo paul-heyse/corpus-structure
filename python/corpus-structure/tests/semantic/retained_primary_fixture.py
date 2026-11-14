@@ -63,6 +63,10 @@ class _SealedPrimary:
 
         return Digest(canonical_bytes(cfg.model_dump(mode="json")))
 
+    @staticmethod
+    def layer(reader, cfg, operation):
+        raise NotImplementedError("a concrete historical family owns layer construction")
+
     def plan(self, units, cfg, ctx):
         yield from ()
         return self.run(units, cfg, ctx)

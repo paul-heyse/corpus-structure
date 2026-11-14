@@ -7,7 +7,6 @@ import os
 import signal
 import time
 from hashlib import sha256
-from pathlib import Path
 from threading import Event, Thread
 
 import pytest
@@ -81,34 +80,32 @@ def test_successful_empty_native_operations_reuse_one_serial_child():
     assert worker.pid is None and worker.closed
 
 
-def test_source_cleanup_attempts_all_closers_and_preserves_original_interrupt():
+def test_provider_cleanup_attempts_all_owned_lanes_after_one_teardown_failure():
     from types import SimpleNamespace
-
-    from corpus_structure.orchestrate.semantic import _close_source_resources
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.methods.characterization_resources import ProviderExecution
+    from corpus_structure.semantic.cpu_execution import OwnedByteBudget
 
     closed = []
-
     def fail():
         closed.append("first")
         raise RuntimeError("explicit teardown failure")
-
     def succeed():
         closed.append("second")
-
-    registry = SimpleNamespace(
-        methods=lambda: (SimpleNamespace(close=fail), SimpleNamespace(close=succeed))
-    )
-    original = KeyboardInterrupt()
-    _close_source_resources(registry, original)
+    policy = CharacterizationExecutionPolicy()
+    owner = ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy,
+        native_group=SimpleNamespace())
+    owner._lanes = {"first": SimpleNamespace(close=fail), "second": SimpleNamespace(close=succeed)}
+    with pytest.raises(RuntimeError, match="native invocation teardown failed") as caught:
+        owner.close()
     assert closed == ["first", "second"]
-    assert "explicit teardown failure" in original.__notes__[0]
+    assert "explicit teardown failure" in caught.value.__notes__[0]
 
 
-def test_failed_shutdown_keeps_owner_handle_and_attempts_other_closers(tmp_path):
+def test_failed_shutdown_retains_actual_child_handle_until_exit(tmp_path):
     from multiprocessing.process import BaseProcess
 
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-    from corpus_structure.ingest.pdf_methods import IngestPdf
     from corpus_structure.ingest.pdf_worker import PdfWorkerError
 
     class StubbornProcess(BaseProcess):
@@ -135,25 +132,21 @@ def test_failed_shutdown_keeps_owner_handle_and_attempts_other_closers(tmp_path)
     recipe = PdfRecipe("a" * 40, "b" * 40, device="cpu")
     other_recipe = PdfRecipe("a" * 40, "b" * 40, device="cpu", parser_threads=2)
     assets = PreparedPdfAssets(tmp_path, b"{}", (), ())
-    owner = IngestPdf()
     bad = PdfWorker(recipe, assets=assets)
     process = StubbornProcess()
     bad._process = process
     good = PdfWorker(other_recipe, assets=assets)
-    owner._workers = {recipe.digest: bad, other_recipe.digest: good}
     with pytest.raises(PdfWorkerError, match="did not exit"):
-        owner.close()
+        bad.close()
+    good.close()
     assert good.closed
-    assert owner._workers == {recipe.digest: bad}
-    assert bad._process is process
+    assert bad._process is process and bad.pid == 43210
     with pytest.raises(PdfWorkerError, match="did not exit"):
-        owner._worker(recipe, assets)
-    assert owner._workers[recipe.digest] is bad
+        bad.close()
+    assert bad._process is process
     process.released = True
-    replacement = owner._worker(recipe, assets)
-    assert replacement is not bad
+    bad.close()
     assert bad.pid is None
-    owner.close()
 
 
 def test_lost_active_claim_stops_actual_child_before_raising(tmp_path):
@@ -170,16 +163,3 @@ def test_lost_active_claim_stops_actual_child_before_raising(tmp_path):
     assert worker.closed and worker.pid is None
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
-
-
-def test_registries_have_distinct_pdf_owners_and_share_only_with_own_enricher():
-    from corpus_structure.ingest.pdf_methods import EnrichPdfMath, IngestPdf
-    from corpus_structure.orchestrate.phase0 import registry
-
-    pack = Path(__file__).resolve().parents[1] / "domains/statistics"
-    first, second = registry(pack), registry(pack)
-    left, right = first.method("ingest.pdf"), second.method("ingest.pdf")
-    assert isinstance(left, IngestPdf) and isinstance(right, IngestPdf)
-    assert left is not right
-    enrich = first.method("enrich.pdf_math")
-    assert isinstance(enrich, EnrichPdfMath) and enrich.producer is left

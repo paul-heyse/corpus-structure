@@ -136,6 +136,7 @@ def project(case):
 def test_native_artifact_nomination_keeps_directed_origins_cue_and_real_semantic_reference():
     result = project(nomination_case())
     assert result.endpoints[0].role == "attachment" and result.endpoints[1].role == "target"
+    assert result.primary_node is not None
     assert (
         result.origin_cue.text == "see" and result.primary_node.product_id == "product:navigation"
     )
