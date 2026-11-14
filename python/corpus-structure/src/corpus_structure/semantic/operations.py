@@ -888,7 +888,9 @@ def prepare_unit_completion(
                     ProductReference(**pin) for pin in retained.payload.get("dependencies", ())
                 )
             if layer is not None:
-                layer = validate_layer(prepared, layer.payload, dependencies=layers, releases=releases)
+                layer = validate_layer(
+                    prepared, layer.payload, dependencies=layers, releases=releases
+                )
                 layers[layer.reference(task_id)] = layer
             if view is not None:
                 view = validate_view(prepared, view.payload, layers, releases=releases)
@@ -1084,7 +1086,7 @@ class BoundReader:
         analysis: bool = True,
         read_budget: Any = None,
         cpu_execution=None,
-        ):
+    ):
         self.cpu_execution = cpu_execution
         self.provider_execution: Any = None
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
@@ -1311,7 +1313,7 @@ class BoundReader:
     def source_view(self, source_view_id: int):
         from .source_views import load_source_view
 
-        reference = self.source_view_ref(source_view_id)
+        self.source_view_ref(source_view_id)
         cache = getattr(self, "_native_views", None)
         if cache is None:
             cache = {}

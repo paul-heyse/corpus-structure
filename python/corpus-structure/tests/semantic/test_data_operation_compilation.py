@@ -439,13 +439,17 @@ def test_inherited_family_preserves_supplying_metadata_and_exposed_callable():
         "Concrete.__data_operation__ = {'abstract':False, 'id':'urn:fixture:inherited-family'}\n"
     )
     family = compile_data_operations(python_sources=python_inputs(code, "inherited_fixture"))
-    assert {operation.semantic_id for operation in family.operations} == {"urn:fixture:inherited-family"}
+    assert {operation.semantic_id for operation in family.operations} == {
+        "urn:fixture:inherited-family"
+    }
     operation = family.operations[0]
     assert operation.coverage == "shared-family-coverage"
     surface = operation.callable_surfaces[0]
     assert surface.declaration == "inherited_fixture.Family.run"
     assert surface.exposed == "inherited_fixture.Concrete.run"
-    assert next(origin for origin in operation.origins if origin.field == "coverage").declaration.endswith("Family")
+    assert next(
+        origin for origin in operation.origins if origin.field == "coverage"
+    ).declaration.endswith("Family")
 
 
 def test_target_composed_preparation_never_enters_legacy_approval(monkeypatch):

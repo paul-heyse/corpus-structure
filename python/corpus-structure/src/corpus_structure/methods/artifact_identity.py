@@ -94,7 +94,18 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
     return identity_records(frame, inputs, source_ref, rows, index, record_type=ArtifactRecord)
 
 
-def identity_records[_Record: (ArtifactRecord, DeclaredArtifactRecord)](frame, inputs, source_ref, rows, index, *, artifact_type=SourceArtifactOccurrence, reference_type=ArtifactReferenceDesignator, record_type: type[_Record], primary_reference=lambda reference: reference) -> tuple[_Record, ...]:
+def identity_records[Record: (ArtifactRecord, DeclaredArtifactRecord)](
+    frame,
+    inputs,
+    source_ref,
+    rows,
+    index,
+    *,
+    artifact_type=SourceArtifactOccurrence,
+    reference_type=ArtifactReferenceDesignator,
+    record_type: type[Record],
+    primary_reference=lambda reference: reference,
+) -> tuple[Record, ...]:
     """Source-bound artifact assembly shared by native and sealed address owners."""
     from .witnessed_source_links import retained_artifact_fields
 
@@ -192,9 +203,10 @@ def identity_records[_Record: (ArtifactRecord, DeclaredArtifactRecord)](frame, i
     return tuple(records)
 
 
-
-def artifact_cohort[_Record: (ArtifactRecord, DeclaredArtifactRecord)](records: list[_Record]) -> tuple[_Record, ...]:
-    cohort: dict[tuple[str, str, str], _Record] = {}
+def artifact_cohort[Record: (ArtifactRecord, DeclaredArtifactRecord)](
+    records: list[Record],
+) -> tuple[Record, ...]:
+    cohort: dict[tuple[str, str, str], Record] = {}
     for record in sorted(records, key=lambda r: r.contribution_id):
         key = (record.occurrence_id, record.artifact.source_work, record.artifact.artifact_kind)
         previous = cohort.setdefault(key, record)
@@ -365,7 +377,20 @@ def retained_artifact_nomination(
     )
 
 
-def artifact_nomination[_Nomination: (ArtifactNomination, DeclaredArtifactNomination)](inputs, records, reference, contributions, *, sources, source_key, navigation_for, origin_fields, endpoint_type=ArtifactNominationEndpoint, nomination_type: type[_Nomination], primary_reference=lambda reference: reference) -> _Nomination:
+def artifact_nomination[Nomination: (ArtifactNomination, DeclaredArtifactNomination)](
+    inputs,
+    records,
+    reference,
+    contributions,
+    *,
+    sources,
+    source_key,
+    navigation_for,
+    origin_fields,
+    endpoint_type=ArtifactNominationEndpoint,
+    nomination_type: type[Nomination],
+    primary_reference=lambda reference: reference,
+) -> Nomination:
     """Join original source origins through their actual nominal address owner."""
     if reference.contribution_id not in inputs.dependencies:
         raise ValueError("artifact nomination outside declared dependencies")

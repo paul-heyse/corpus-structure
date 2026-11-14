@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import json
 
-from corpus_structure.methods.annotation_rules import AnnotationRuleMatch, AnnotationRuleResult, LocatedRole
+from corpus_structure.methods.annotation_rules import (
+    AnnotationRuleMatch,
+    AnnotationRuleResult,
+    LocatedRole,
+)
 from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
 
 from .named_nominations import NamedNomination
@@ -15,7 +19,10 @@ class DeclaredNamedRules:
 
     def __init__(self, constructions, annotations):
         self.annotations = annotations
-        self.native = {packet["member_id"]: packet["body"] for packet in json.loads(annotations.content)["members"]}
+        self.native = {
+            packet["member_id"]: packet["body"]
+            for packet in json.loads(annotations.content)["members"]
+        }
         self.blocks = {row["block_id"] for row in self.native.values() if "block_id" in row}
         self.matches = []
         self.occurrences = {}
@@ -35,9 +42,19 @@ class DeclaredNamedRules:
                 if "named_match" not in row:
                     continue
                 container = row["named_match"]["native_container"]
-                if container["product_id"] != annotations.semantic_id or container["block_id"] not in self.blocks:
+                if (
+                    container["product_id"] != annotations.semantic_id
+                    or container["block_id"] not in self.blocks
+                ):
                     raise ValueError("named binding lacks its actual selected native block")
-                self.matches.append((DeclaredPrimaryReference(product_id=product.semantic_id, member_id=row["local_id"]), row))
+                self.matches.append(
+                    (
+                        DeclaredPrimaryReference(
+                            product_id=product.semantic_id, member_id=row["local_id"]
+                        ),
+                        row,
+                    )
+                )
 
     def decode(self, product):
         key = (product.block_id, product.dependency_digest)
@@ -51,10 +68,18 @@ class DeclaredNamedRules:
 
         def token(ref):
             body = self.native.get(ref["member_id"])
-            if ref["product_id"] != self.annotations.semantic_id or body is None or body.get("record_type") != "native_token" or body["block_id"] != product.block_id:
+            if (
+                ref["product_id"] != self.annotations.semantic_id
+                or body is None
+                or body.get("record_type") != "native_token"
+                or body["block_id"] != product.block_id
+            ):
                 raise ValueError("named binding lacks its exact native token member")
             index = body["ordinal"]
-            if index >= len(product.tokens) or (product.tokens[index].start, product.tokens[index].end) != (body["start"], body["end"]):
+            if index >= len(product.tokens) or (
+                product.tokens[index].start,
+                product.tokens[index].end,
+            ) != (body["start"], body["end"]):
                 raise ValueError("named binding changes original native token coordinates")
             return body
 
@@ -79,11 +104,41 @@ class DeclaredNamedRules:
                 continue
             if annotation["kind"] != "construction.named_binding":
                 continue
-            roles = tuple(LocatedRole(role["role"], role["node"], token(role["head"])["ordinal"], role["expansion"], tuple(token(ref)["ordinal"] for ref in role["members"]), spans(role["members"]), role["status"], role.get("reason")) for role in body["bindings"])
+            roles = tuple(
+                LocatedRole(
+                    role["role"],
+                    role["node"],
+                    token(role["head"])["ordinal"],
+                    role["expansion"],
+                    tuple(token(ref)["ordinal"] for ref in role["members"]),
+                    spans(role["members"]),
+                    role["status"],
+                    role.get("reason"),
+                )
+                for role in body["bindings"]
+            )
             indices = tuple(token(ref)["ordinal"] for ref in body["nodes"])
             sentences = {row["token_index"]: row.get("sentence") for row in body["sentences"]}
-            negative = tuple((min(extent["start"] for extent in self.occurrences[identifier]["extents"]), max(extent["end"] for extent in self.occurrences[identifier]["extents"])) for identifier in body["negation_occurrences"])
-            match = AnnotationRuleMatch(body["rule"], body["variant"], body["mechanism"], indices, tuple(sorted(set(spans(body["nodes"])))), tuple(body["piece_indices"]), tuple(sentences[index] for index in indices), body["dependency_digest"], roles, body["protocol"], negative)
+            negative = tuple(
+                (
+                    min(extent["start"] for extent in self.occurrences[identifier]["extents"]),
+                    max(extent["end"] for extent in self.occurrences[identifier]["extents"]),
+                )
+                for identifier in body["negation_occurrences"]
+            )
+            match = AnnotationRuleMatch(
+                body["rule"],
+                body["variant"],
+                body["mechanism"],
+                indices,
+                tuple(sorted(set(spans(body["nodes"])))),
+                tuple(body["piece_indices"]),
+                tuple(sentences[index] for index in indices),
+                body["dependency_digest"],
+                roles,
+                body["protocol"],
+                negative,
+            )
             if match in references and references[match] != origin:
                 raise ValueError("named binding has competing actual semantic member origins")
             matches.append(match)
@@ -99,11 +154,29 @@ class DeclaredNamedRules:
                     if sentence is None:
                         raise ValueError("named antecedent lacks its native sentence context")
                     context_start = product.sentences[sentence].start
-                nomination = NamedNomination(binding.get("demonstrative"), binding["antecedent_status"], nodes, spans(refs), context_start, binding.get("antecedent_reason"))
+                nomination = NamedNomination(
+                    binding.get("demonstrative"),
+                    binding["antecedent_status"],
+                    nodes,
+                    spans(refs),
+                    context_start,
+                    binding.get("antecedent_reason"),
+                )
                 existing = nominations.setdefault(match, {})
                 if binding["role"] in existing and existing[binding["role"]] != nomination:
                     raise ValueError("named binding has competing antecedent nominations")
                 existing[binding["role"]] = nomination
         if any((match.rule, match.variant) not in availability for match in matches):
             raise ValueError("named match lacks its retained variant availability")
-        return AnnotationRuleResult(tuple(dict.fromkeys(matches)), tuple((rule, variant, state) for (rule, variant), state in sorted(availability.items()))), references, nominations, rule_ids
+        return (
+            AnnotationRuleResult(
+                tuple(dict.fromkeys(matches)),
+                tuple(
+                    (rule, variant, state)
+                    for (rule, variant), state in sorted(availability.items())
+                ),
+            ),
+            references,
+            nominations,
+            rule_ids,
+        )

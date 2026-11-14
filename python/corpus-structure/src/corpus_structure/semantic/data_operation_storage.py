@@ -721,13 +721,23 @@ def data_operation_definition_projection(
     archived = json.loads(model.content)
     exported_bindings = {b["semantic_id"]: b["expression"] for b in archived["bindings"]}
     exported_roles = {o["semantic_id"]: o["roles"] for o in archived["operations"]}
-    incomplete = [operation.semantic_id for operation in model.operations
-                  if ids.get((operation.semantic_id, "recipe")) is None]
+    incomplete = [
+        operation.semantic_id
+        for operation in model.operations
+        if ids.get((operation.semantic_id, "recipe")) is None
+    ]
     if incomplete:
-        details = [(part.root, [(issue.location, issue.reason) for issue in part.unknowns
-                                if issue.required])
-                   for part in model.implementation_slices if not part.complete]
-        raise ValueError(f"cannot admit an incomplete implementation recipe: {incomplete!r}; required closure: {details!r}")
+        details = [
+            (
+                part.root,
+                [(issue.location, issue.reason) for issue in part.unknowns if issue.required],
+            )
+            for part in model.implementation_slices
+            if not part.complete
+        ]
+        raise ValueError(
+            f"cannot admit an incomplete implementation recipe: {incomplete!r}; required closure: {details!r}"
+        )
     for operation in model.operations:
         recipe = ids[(operation.semantic_id, "recipe")]
         roles = []

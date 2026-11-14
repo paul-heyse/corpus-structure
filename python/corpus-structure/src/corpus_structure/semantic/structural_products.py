@@ -1779,8 +1779,7 @@ def read_structural_product_report(value):
     sources = value["inputs"]["sources"]
     declared = [
         isinstance(source, DeclaredStructuralSource)
-        or (isinstance(source, dict)
-        and source.get("format") == "declared-native-source-v1")
+        or (isinstance(source, dict) and source.get("format") == "declared-native-source-v1")
         for source in sources
     ]
     if any(declared):

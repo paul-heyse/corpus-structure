@@ -18,4 +18,3 @@ class MathSection(BaseModel):
 
     def macro_table(self) -> dict[str, MacroDef]:
         return {name: MacroDef(body=body) for name, body in self.macros.items()}
-

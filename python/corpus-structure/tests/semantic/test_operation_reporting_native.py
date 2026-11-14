@@ -351,7 +351,9 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
     assert alias["members"][0]["model_path"].endswith("/classes/rewrites")
 
     async def journey():
-        server = build_retained_reader_server(read_engine=commit_reader_engine, project="alias-impact")
+        server = build_retained_reader_server(
+            read_engine=commit_reader_engine, project="alias-impact"
+        )
         async with Client(server) as client:
             answer = await client.call_tool(
                 "compare_semantic_releases",

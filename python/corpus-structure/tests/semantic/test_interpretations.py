@@ -208,11 +208,24 @@ def test_authored_wire_retains_explicit_decision_without_reextracting(statistics
     from corpus_structure.semantic.observations import source_python
 
     value = payload(statistics_pack_prepared)
-    pin = dict(source="source", native_product_task_id=3, product_key="native",
-        product_digest="a"*64, projection_digest="b"*64, recipe_digest="c"*64, source_view_id=1)
-    row = interpretation_contribution(statistics_pack_prepared,
-        semantic_type="terminology.interpretation", payload=value,
-        operation_key="authored-wire-fixture", item_key="0", pin=pin, anchors=())
+    pin = dict(
+        source="source",
+        native_product_task_id=3,
+        product_key="native",
+        product_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        source_view_id=1,
+    )
+    row = interpretation_contribution(
+        statistics_pack_prepared,
+        semantic_type="terminology.interpretation",
+        payload=value,
+        operation_key="authored-wire-fixture",
+        item_key="0",
+        pin=pin,
+        anchors=(),
+    )
     assert "occurrence_id" not in row and row["anchors"] == ()
     assert source_python(row["value"]) == value
     assert row["semantic_type"] == "terminology.interpretation"
@@ -258,7 +271,9 @@ def test_offline_error_inventory_and_file_bounds(tmp_path):
 def test_authored_source_records_decode_json_lists_without_scalar_loss(statistics_pack_prepared):
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.record_contracts import (
-        bind_record_candidates, interpretation_identity, record_identity,
+        bind_record_candidates,
+        interpretation_identity,
+        record_identity,
     )
     from semantic.record_contracts_support import measurement_record
 
@@ -267,14 +282,21 @@ def test_authored_source_records_decode_json_lists_without_scalar_loss(statistic
     record["interpretation_id"] = interpretation_identity(record)
     authored = json.loads(json.dumps(record))
     assert isinstance(authored["fields"], list)
-    decoded = statistics_pack_prepared.validate_json("SourceRecord", canonical_bytes(authored)).model_dump(mode="python", exclude_none=True)
+    decoded = statistics_pack_prepared.validate_json(
+        "SourceRecord", canonical_bytes(authored)
+    ).model_dump(mode="python", exclude_none=True)
     assert isinstance(decoded["fields"], tuple)
     fields = {field["role"]: field for field in decoded["fields"]}
     assert fields["original_value"]["value"] == {
-        "kind": "decimal", "lexical": "1.234567890123456789e-400",
+        "kind": "decimal",
+        "lexical": "1.234567890123456789e-400",
     }
-    (bound,) = bind_record_candidates(statistics_pack_prepared, source=record["pin"]["source"],
-        records=(decoded,), coordinate_texts=coordinates)
+    (bound,) = bind_record_candidates(
+        statistics_pack_prepared,
+        source=record["pin"]["source"],
+        records=(decoded,),
+        coordinate_texts=coordinates,
+    )
     assert bound.model_dump(mode="python")["record_id"] == record["record_id"]
 
 

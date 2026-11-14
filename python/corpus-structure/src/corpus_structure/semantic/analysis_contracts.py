@@ -367,7 +367,11 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
             )
         owners = {item.id: item for item in profile.ownership}
         if len(owners) != len(profile.ownership) or set(owners) != set(_OWNERSHIP_SUPPORT):
-            _fail("analysis_ownership", location, "declare exactly the implemented owned preparation families")
+            _fail(
+                "analysis_ownership",
+                location,
+                "declare exactly the implemented owned preparation families",
+            )
         for owner in profile.ownership:
             if (
                 owner.concept,
@@ -959,7 +963,11 @@ def prepare_alignment_policy(prepared: PreparedRelease | None = None):
     return profile.alignment_policy
 
 
-def prepare_placement_policy(prepared: PreparedRelease | None = None, *, context_profile: AnalysisContextProfile | None = None):
+def prepare_placement_policy(
+    prepared: PreparedRelease | None = None,
+    *,
+    context_profile: AnalysisContextProfile | None = None,
+):
     from corpus_structure.methods.llm.cascade import PlacementPolicy
 
     if context_profile is None:

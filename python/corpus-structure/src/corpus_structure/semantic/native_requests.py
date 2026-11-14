@@ -105,7 +105,9 @@ def request_source_view(
     writer_realization: str | None = None,
 ) -> NativeRequestResult:
     if demand != "render":
-        raise ValueError("mathematical analysis requires an explicit NativeDemandRequest and native demand execution")
+        raise ValueError(
+            "mathematical analysis requires an explicit NativeDemandRequest and native demand execution"
+        )
     if (writer_release is None) != (writer_realization is None):
         raise ValueError("an explicit render writer requires both release and realization")
     if writer_release is not None and demand != "render":
@@ -370,7 +372,18 @@ def request_source_view(
             assert original is not None and region is not None
             artifact_bytes = render_pdf_region(original, region, scale=scale)
             owner()
-            result = UnitResult(ref=unit, outcome=ObservationOutcome.EMPTY, coverage=(CoverageDraft(family=method.name, scope=reference.key, outcome="complete", required_capability="render"),))
+            result = UnitResult(
+                ref=unit,
+                outcome=ObservationOutcome.EMPTY,
+                coverage=(
+                    CoverageDraft(
+                        family=method.name,
+                        scope=reference.key,
+                        outcome="complete",
+                        required_capability="render",
+                    ),
+                ),
+            )
             with engine.begin() as conn:
                 artifact_digest = None
                 if artifact_bytes is not None:
@@ -426,4 +439,3 @@ def request_source_view(
         except BaseException as cleanup:
             error.add_note("native request failure settlement failed: " + repr(cleanup))
         raise
-

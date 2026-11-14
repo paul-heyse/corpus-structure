@@ -199,37 +199,72 @@ def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(p
 
 
 def test_actual_subword_lengths_bound_outer_batches_without_cutting_sentences():
-    rows = [(dict(local_id=name), [(name + ":token", "unchanged")]) for name in ("one", "two", "three")]
-    ready, refused = admitted_hanlp_rows(rows, dict(outcome="prepared_batch", members=[
-        dict(ordinal=ordinal, outcome="prepared", row_tokens=400) for ordinal in range(3)
-    ]))
+    rows = [
+        (dict(local_id=name), [(name + ":token", "unchanged")]) for name in ("one", "two", "three")
+    ]
+    ready, refused = admitted_hanlp_rows(
+        rows,
+        dict(
+            outcome="prepared_batch",
+            members=[
+                dict(ordinal=ordinal, outcome="prepared", row_tokens=400) for ordinal in range(3)
+            ],
+        ),
+    )
     assert not refused
-    batches = hanlp_sentence_batches(ready, dict(max_sentences=8, max_padded_subwords=750, max_batch_chars=32768))
-    assert [[row[0]["local_id"] for row in batch] for batch in batches] == [["one"], ["two"], ["three"]]
+    batches = hanlp_sentence_batches(
+        ready, dict(max_sentences=8, max_padded_subwords=750, max_batch_chars=32768)
+    )
+    assert [[row[0]["local_id"] for row in batch] for batch in batches] == [
+        ["one"],
+        ["two"],
+        ["three"],
+    ]
     assert all(batch[0] is rows[index] for index, batch in enumerate(batches))
-    ready, refused = admitted_hanlp_rows(rows[:1], dict(outcome="prepared_batch", members=[
-        dict(ordinal=0, outcome="limited", reason="sentence_subwords", limit=512)
-    ]))
+    ready, refused = admitted_hanlp_rows(
+        rows[:1],
+        dict(
+            outcome="prepared_batch",
+            members=[dict(ordinal=0, outcome="limited", reason="sentence_subwords", limit=512)],
+        ),
+    )
     assert not ready and refused[0][0] is rows[0]
     assert refused[0][1]["reason"] == "sentence_subwords"
 
 
-@pytest.mark.parametrize("members", [[], [dict(ordinal=1, outcome="prepared", row_tokens=400)],
-                                    [dict(ordinal=0, outcome="prepared", row_tokens=0)],
-                                    [dict(ordinal=0, outcome="prepared", row_tokens=True)]])
+@pytest.mark.parametrize(
+    "members",
+    [
+        [],
+        [dict(ordinal=1, outcome="prepared", row_tokens=400)],
+        [dict(ordinal=0, outcome="prepared", row_tokens=0)],
+        [dict(ordinal=0, outcome="prepared", row_tokens=True)],
+    ],
+)
 def test_native_sentence_admission_refuses_changed_population_order_or_lengths(members):
     with pytest.raises(ValueError, match=r"population|order|subword length"):
-        admitted_hanlp_rows([(dict(local_id="one"), [("token", "unchanged")])],
-                            dict(outcome="prepared_batch", members=members))
+        admitted_hanlp_rows(
+            [(dict(local_id="one"), [("token", "unchanged")])],
+            dict(outcome="prepared_batch", members=members),
+        )
 
 
 def test_current_hanlp_preserves_borrowed_host_cancellation_and_provider_failure(profile):
     source, canonical, _, _ = inputs(profile)
-    from corpus_structure.semantic.characterization_manifests import append_manifest, manifest_contract
+    from corpus_structure.semantic.characterization_manifests import (
+        append_manifest,
+        manifest_contract,
+    )
 
-    canonical = replace(canonical, content=canonical_bytes(append_manifest(
-        json.loads(canonical.content), manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest")
-    )))
+    canonical = replace(
+        canonical,
+        content=canonical_bytes(
+            append_manifest(
+                json.loads(canonical.content),
+                manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest"),
+            )
+        ),
+    )
 
     class Cancelled(Exception):
         pass

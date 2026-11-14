@@ -10,7 +10,10 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli import contributions as cli_adapter
-from corpus_structure.intervene.semantic_server import RetainedReaderBinding, build_retained_reader_server
+from corpus_structure.intervene.semantic_server import (
+    RetainedReaderBinding,
+    build_retained_reader_server,
+)
 from corpus_structure.serve import contributions as journey
 
 

@@ -598,8 +598,15 @@ def enriched(
 @app.command("native-request")
 def native_request(
     ctx: typer.Context,
-    request: Annotated[Path | None, typer.Option(help="NativeDemandRequest JSON with actual source facts and acquired analysis targets; '-' reads stdin.")] = None,
-    demand: Annotated[str | None, typer.Option(help="Resume this exact retained native demand ID.")] = None,
+    request: Annotated[
+        Path | None,
+        typer.Option(
+            help="NativeDemandRequest JSON with actual source facts and acquired analysis targets; '-' reads stdin."
+        ),
+    ] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Resume this exact retained native demand ID.")
+    ] = None,
     source_root: Path | None = None,
     project: str | None = None,
     execution_policy: Path | None = None,
@@ -622,5 +629,20 @@ def native_request(
     if (request is None) == (demand is None):
         raise typer.BadParameter("select exactly one --request or --demand")
     with failure_boundary(json, expected=(ValueError, OSError)):
-        parsed = None if request is None else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
-        execute_request(ctx, request=parsed, demand=demand, source_root=source_root, project=project, execution_policy=execution_policy, limit=limit, max_rounds=max_rounds, action="source.native-request", json=json)
+        parsed = (
+            None
+            if request is None
+            else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        )
+        execute_request(
+            ctx,
+            request=parsed,
+            demand=demand,
+            source_root=source_root,
+            project=project,
+            execution_policy=execution_policy,
+            limit=limit,
+            max_rounds=max_rounds,
+            action="source.native-request",
+            json=json,
+        )

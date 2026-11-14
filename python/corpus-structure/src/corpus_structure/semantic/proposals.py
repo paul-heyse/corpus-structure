@@ -288,7 +288,9 @@ def native_frame_entries(
     return entries
 
 
-def native_statement_source(frame: NativeProposalFrame | DeclaredProposalFrame, anchor: str) -> NativeFrameSource | DeclaredProposalSource:
+def native_statement_source(
+    frame: NativeProposalFrame | DeclaredProposalFrame, anchor: str
+) -> NativeFrameSource | DeclaredProposalSource:
     entries = native_frame_entries(frame)
     if anchor in entries:
         return entries[anchor][0]
@@ -305,7 +307,10 @@ def native_statement_source(frame: NativeProposalFrame | DeclaredProposalFrame, 
     candidates = []
     for source in sources:
         if "pointer" in address:
-            pointers = {item.get("self_ref", item.get("pointer")) for item in json.loads(source.native_context)["items"]} | {source.section_pointer}
+            pointers = {
+                item.get("self_ref", item.get("pointer"))
+                for item in json.loads(source.native_context)["items"]
+            } | {source.section_pointer}
             if address["pointer"] not in pointers:
                 continue
             expected = native_address(source, pointer=address["pointer"])
@@ -392,7 +397,9 @@ def native_address(
     return "pdf:" + canonical_bytes(value).decode()
 
 
-def native_evidence_entries(frame: NativeFrameSource | DeclaredNativeFrameSource) -> tuple[dict[str, Any], ...]:
+def native_evidence_entries(
+    frame: NativeFrameSource | DeclaredNativeFrameSource,
+) -> tuple[dict[str, Any], ...]:
     """Deterministic evidence handles over retained native projection pieces, not PDF glyphs."""
     context = json.loads(frame.native_context)
     integrated = (
@@ -516,7 +523,10 @@ def native_source_frame(
 
 
 def statement_anchor(
-    anchor: str, frame: ProposalFrame | NativeProposalFrame | DeclaredProposalFrame, *, index: LocatorIndex | None = None
+    anchor: str,
+    frame: ProposalFrame | NativeProposalFrame | DeclaredProposalFrame,
+    *,
+    index: LocatorIndex | None = None,
 ) -> str:
     """Resolve a local handle through its frame, never through another packet's namespace.
 

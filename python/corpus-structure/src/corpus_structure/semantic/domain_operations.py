@@ -361,14 +361,21 @@ class NativeEvidenceLink:
 
 
 def _evidence_link(observation, descriptor, start, end, locator):
-    from .proposals import NativeFrameSource, NativeProposalFrame, native_address, native_statement_source
+    from .proposals import (
+        NativeFrameSource,
+        NativeProposalFrame,
+        native_address,
+        native_statement_source,
+    )
 
     frame = descriptor.get("frame")
     if not isinstance(frame, NativeProposalFrame):
         raise DomainOperationRefused("evidence requires current SourceView custody")
     cited = native_statement_source(frame, locator)
     if not isinstance(cited, NativeFrameSource):
-        raise DomainOperationRefused("physical evidence links require genuine sealed SourceView custody")
+        raise DomainOperationRefused(
+            "physical evidence links require genuine sealed SourceView custody"
+        )
     return NativeEvidenceLink(
         observation["id"],
         cited.source_view_id,

@@ -1,7 +1,5 @@
 """Native PDF frames enter the real proposal, consolidation and evaluator boundaries."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from dataclasses import asdict
 from types import SimpleNamespace
@@ -25,6 +23,7 @@ from corpus_structure.semantic.source_views import load_source_view
 from semantic.agent_scenarios import (
     native_build_resubmission_case as native_build_resubmission_case,
 )
+from semantic.historical_agent_support import HistoricalAgentPublication
 
 
 def authored(unit, sentence, prefix) -> dict[str, Any]:
@@ -62,11 +61,11 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
         authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
         unit = authored_fixture.unit()
         assert unit["native_source"]["source_view_id"] == view
-        response = authored_fixture.publish(authored(
-                    key, unit["native_source"]["native_evidence"][0]["handle"], "prediction"
-                ))
+        response = authored_fixture.publish(
+            authored(key, unit["native_source"]["native_evidence"][0]["handle"], "prediction")
+        )
         assert response is not None
-        assert response.disposition == 'completed_accepted'
+        assert response.disposition == "completed_accepted"
 
     submit()
     finalize_bound_run(commit_writer_engine, run, "native-result")
@@ -385,11 +384,11 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         contexts = unit["native_source"]["context_sources"]
         assert [source["source_view_id"] for source in contexts] == [parent]
         handle = contexts[0]["native_evidence"][0]["handle"]
-        result = authored_fixture.publish(claims(
-                    "prediction", unit["native_source"]["native_evidence"][0]["handle"], handle
-                ))
+        result = authored_fixture.publish(
+            claims("prediction", unit["native_source"]["native_evidence"][0]["handle"], handle)
+        )
         assert result is not None
-        assert result.disposition == 'completed_accepted'
+        assert result.disposition == "completed_accepted"
 
     submit()
     finalize_bound_run(commit_writer_engine, run, "native-parent-result")

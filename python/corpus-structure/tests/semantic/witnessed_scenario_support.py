@@ -4,18 +4,17 @@ Source/component/relationship production is real; provider kernels are controlle
 Reference meanings remain explicit original-source literals, never producer projections.
 """
 
-import json
 from collections.abc import Mapping
-from dataclasses import asdict, replace
+from contextlib import contextmanager
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitView
-from corpus_structure.core.vocab import MethodTier, Stage, TaskUnitType
+from corpus_structure.core.vocab import MethodTier, TaskUnitType
 from corpus_structure.evaluate.record_references import assign_origin
 from corpus_structure.evaluate.structural_assessment import (
     StructuralAuthoredReference,
@@ -51,89 +50,167 @@ from semantic.native_record_fixtures import complete_contributions, contribution
 
 
 def _fixture_configuration(method, config):
-    from corpus_structure.core.evidence import config_key
     from corpus_structure.core.canonical import canonical_numbers
+    from corpus_structure.core.evidence import config_key
+
     params = canonical_numbers(config.model_dump(mode="json"))
     return params, config_key(method.name, method.version, params)
 
 
-def _begin_witnessed_run(case, binding, configured, *, structural_admission=(), local_semantic_admission=(), selected_sources=()):
+def _begin_witnessed_run(
+    case,
+    binding,
+    configured,
+    *,
+    structural_admission=(),
+    local_semantic_admission=(),
+    selected_sources=(),
+):
     """Create genuine native custody for these finite sealed-consumer fixture families.
 
     This records declared inputs only. It selects no methods, schedules no graph,
     dispatches no worker and supplies no production execution fallback.
     """
     from corpus_structure.semantic.operations import create_run, start_run
+
     operations = {}
     for method, config in configured:
         params, digest = _fixture_configuration(method, config)
-        operations[method.name] = dict(version=method.version, family=str(method.family),
-            tier=str(method.tier), confidence_source=method.confidence_source,
-            configuration_hash=digest, parameters=params)
-    dependencies = {"operations":operations,
-        "structural_admission":list(structural_admission),
-        "local_semantic_admission":list(local_semantic_admission)}
+        operations[method.name] = dict(
+            version=method.version,
+            family=str(method.family),
+            tier=str(method.tier),
+            confidence_source=method.confidence_source,
+            configuration_hash=digest,
+            parameters=params,
+        )
+    dependencies = {
+        "operations": operations,
+        "structural_admission": list(structural_admission),
+        "local_semantic_admission": list(local_semantic_admission),
+    }
     binding = replace(binding, dependencies=canonical_bytes(dependencies))
     with case.writer.begin() as conn:
-        run = create_run(conn, project_id=case.project_id, binding=binding, kind="full",
-            options={}, code_commit="sealed-witnessed-fixture", prepared=case.prepared)
+        run = create_run(
+            conn,
+            project_id=case.project_id,
+            binding=binding,
+            kind="full",
+            options={},
+            code_commit="sealed-witnessed-fixture",
+            prepared=case.prepared,
+        )
         start_run(conn, run)
         if selected_sources:
             from sqlalchemy import text
+
             for source in selected_sources:
-                conn.execute(text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
-                    {"source":canonical_bytes(source.model_dump(mode="json")).decode()}).scalar_one()
-                select_source_view(conn, run_id=run, source_run_id=RunId(source.run_id),
-                    source_view_id=SourceViewId(source.source_view_id), projection_context=case.prepared)
+                conn.execute(
+                    text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+                    {"source": canonical_bytes(source.model_dump(mode="json")).decode()},
+                ).scalar_one()
+                select_source_view(
+                    conn,
+                    run_id=run,
+                    source_run_id=RunId(source.run_id),
+                    source_view_id=SourceViewId(source.source_view_id),
+                    projection_context=case.prepared,
+                )
         else:
-            select_source_view(conn, run_id=run, source_run_id=RunId(case.run),
-                source_view_id=SourceViewId(case.view), projection_context=case.prepared)
+            select_source_view(
+                conn,
+                run_id=run,
+                source_run_id=RunId(case.run),
+                source_view_id=SourceViewId(case.view),
+                projection_context=case.prepared,
+            )
     return run, binding
 
 
 def _retain_witnessed_result(case, run, method, config, result, *, stage, admin=None):
     """Publish an already computed fixture result through a real fenced native task."""
     from corpus_structure.semantic.operations import (
-        record_method, create_task, claim_tasks, prepare_unit_completion, complete_task,
+        claim_tasks,
+        complete_task,
+        create_task,
+        prepare_unit_completion,
+        record_method,
     )
+
     params, digest = _fixture_configuration(method, config)
-    authority = admin if admin is not None else (case.clone.admin if case.clone is not None else None)
+    authority = (
+        admin if admin is not None else (case.clone.admin if case.clone is not None else None)
+    )
     if authority is None:
-        raise ValueError("sealed fixture publication requires its actual administrative seed connection")
+        raise ValueError(
+            "sealed fixture publication requires its actual administrative seed connection"
+        )
     with authority.begin() as conn:
-        configured = record_method(conn, method, "sealed-control", params, digest, prepared=case.prepared)
-        task = create_task(conn, run_id=run, config_id=configured, stage=stage,
-            unit_type=str(result.ref.unit_type), unit_id=result.ref.unit_id,
-            unit_key=result.ref.unit_key, input_hash=digest, fresh=True)
+        configured = record_method(
+            conn, method, "sealed-control", params, digest, prepared=case.prepared
+        )
+        task = create_task(
+            conn,
+            run_id=run,
+            config_id=configured,
+            stage=stage,
+            unit_type=str(result.ref.unit_type),
+            unit_id=result.ref.unit_id,
+            unit_key=result.ref.unit_key,
+            input_hash=digest,
+            fresh=True,
+        )
     with case.writer.begin() as conn:
         (held,) = claim_tasks(conn, run_id=run, config_id=configured, holder="witnessed-fixture")
         assert held.task_id == task
-        completion = prepare_unit_completion(conn, task_id=task, attempt=held.attempt,
-            holder="witnessed-fixture", prepared=case.prepared, method=method,
-            configuration_hash=digest, source=result.ref.unit_key, result=result, records=result.records)
+        completion = prepare_unit_completion(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="witnessed-fixture",
+            prepared=case.prepared,
+            method=method,
+            configuration_hash=digest,
+            source=result.ref.unit_key,
+            result=result,
+            records=result.records,
+        )
         assert not completion.source_views
-        complete_task(conn, task_id=task, attempt=held.attempt, holder="witnessed-fixture",
-            prepared=case.prepared, observations=completion.rows, outcome=completion.outcome,
-            error=completion.error, envelope=completion.envelope)
+        complete_task(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="witnessed-fixture",
+            prepared=case.prepared,
+            observations=completion.rows,
+            outcome=completion.outcome,
+            error=completion.error,
+            envelope=completion.envelope,
+        )
     return task
-
-
-from contextlib import contextmanager
 
 
 @contextmanager
 def _witnessed_reader(case, run, binding, tmp_path):
     """Read actual selected historical source custody; no fabricated Reader transport."""
     import logging
+
     from corpus_structure.core.method import MethodContext
     from corpus_structure.semantic.operations import BoundReader, BoundRunView
+
     with case.writer.connect() as conn, conn.begin():
         reader = BoundReader(conn, run, case.prepared)
-        reader.bind_source_tasks({case.document:case.source_task})
+        reader.bind_source_tasks({case.document: case.source_task})
         from corpus_structure.core.vocab import RunKind
+
         view = BoundRunView(run, RunKind.FULL, 0, None, binding, case.prepared, {}, reader)
-        yield MethodContext(view, reader, MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            logging.getLogger("sealed-witnessed-fixture"), check_active=lambda:None)
+        yield MethodContext(
+            view,
+            reader,
+            MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+            logging.getLogger("sealed-witnessed-fixture"),
+            check_active=lambda: None,
+        )
 
 
 def completed_metadata(case, run):
@@ -231,16 +308,26 @@ def completed_component_case(case, tmp_path, *, admin=None):
     )
 
     def produce_component(*, structural_admission=()):
-        from semantic.sealed_definition_fixture import component_descriptor, literal_component_result
+        from semantic.sealed_definition_fixture import (
+            component_descriptor,
+            literal_component_result,
+        )
 
         method = component_descriptor()
-        run, _ = _begin_witnessed_run(case,
+        run, _ = _begin_witnessed_run(
+            case,
             OperationBinding(case.prepared.release_id, "wce-source", source_revision, b"{}"),
-            ((method, component_cfg),), structural_admission=structural_admission)
+            ((method, component_cfg),),
+            structural_admission=structural_admission,
+        )
         assert component_cfg.inputs is not None
-        ref = UnitRef(TaskUnitType.RUN, unit_key="definition-components:" + component_cfg.inputs.identity)
+        ref = UnitRef(
+            TaskUnitType.RUN, unit_key="definition-components:" + component_cfg.inputs.identity
+        )
         result = literal_component_result(case.prepared, component_cfg, ref)
-        _retain_witnessed_result(case, run, method, component_cfg, result, stage="assemble", admin=admin)
+        _retain_witnessed_result(
+            case, run, method, component_cfg, result, stage="assemble", admin=admin
+        )
         return SimpleNamespace(run_id=run)
 
     component_run = produce_component()
@@ -303,7 +390,9 @@ def completed_component_case(case, tmp_path, *, admin=None):
     )
 
 
-def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_recipe=None, admin=None):
+def completed_relationship_case(
+    case, monkeypatch, tmp_path, *, overlapping_recipe=None, admin=None
+):
     completed = completed_component_case(case, tmp_path, admin=admin)
     target, component_revision, v, task = (
         completed.target,
@@ -549,15 +638,26 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
     # their native publication before constructing the retrieval configuration;
     # the later graph selects/reuses that same ordinary source producer.
     occurrence_method, occurrence_config = ActualOccurrenceProducer(), OccurrenceConfig()
-    population_id, population_binding = _begin_witnessed_run(case,
+    population_id, population_binding = _begin_witnessed_run(
+        case,
         OperationBinding(case.prepared.release_id, "wce-components", component_revision, b"{}"),
-        ((occurrence_method, occurrence_config),))
+        ((occurrence_method, occurrence_config),),
+    )
     with _witnessed_reader(case, population_id, population_binding, tmp_path) as ctx:
         native = ctx.reader.source_view(case.view)
         ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, native.ref.key)
-        (population_result,) = occurrence_method.run((UnitView(ref, ctx.run),), occurrence_config, ctx)
-    _retain_witnessed_result(case, population_id, occurrence_method, occurrence_config,
-        population_result, stage="extract", admin=admin)
+        (population_result,) = occurrence_method.run(
+            (UnitView(ref, ctx.run),), occurrence_config, ctx
+        )
+    _retain_witnessed_result(
+        case,
+        population_id,
+        occurrence_method,
+        occurrence_config,
+        population_result,
+        stage="extract",
+        admin=admin,
+    )
     population = SimpleNamespace(run_id=population_id)
     with case.writer.connect() as conn:
         tasks, results = table("ops.task"), table("ops.task_result")
@@ -578,18 +678,29 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
 
     def produce_relationship(*, local_semantic_admission=()):
         method = ContextualCandidatesWithQueryContext()
-        run, bound = _begin_witnessed_run(case,
+        run, bound = _begin_witnessed_run(
+            case,
             OperationBinding(case.prepared.release_id, "wce-components", component_revision, b"{}"),
-            ((occurrence_method, occurrence_config),(method,cfg)),
-            local_semantic_admission=local_semantic_admission)
+            ((occurrence_method, occurrence_config), (method, cfg)),
+            local_semantic_admission=local_semantic_admission,
+        )
         # Retain the independently computed literal population under this actual
         # fixture run before computing the exact contextual relationship result.
-        _retain_witnessed_result(case, run, occurrence_method, occurrence_config,
-            population_result, stage="extract", admin=admin)
+        _retain_witnessed_result(
+            case,
+            run,
+            occurrence_method,
+            occurrence_config,
+            population_result,
+            stage="extract",
+            admin=admin,
+        )
         try:
             with _witnessed_reader(case, run, bound, tmp_path) as ctx:
                 (relationship_result,) = method.run((UnitView(ref, ctx.run),), cfg, ctx)
-            _retain_witnessed_result(case, run, method, cfg, relationship_result, stage="assemble", admin=admin)
+            _retain_witnessed_result(
+                case, run, method, cfg, relationship_result, stage="assemble", admin=admin
+            )
         finally:
             close = getattr(method, "close", None)
             if close is not None:

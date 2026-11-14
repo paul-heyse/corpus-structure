@@ -67,7 +67,10 @@ from semantic.native_record_fixtures import (
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.primary_native_support import publish_primary_layers
 from semantic.witnessed_scenario_support import (
-    completed_metadata, _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+    _begin_witnessed_run,
+    _retain_witnessed_result,
+    _witnessed_reader,
+    completed_metadata,
 )
 
 POLICY = "independent-condition-qualification-1"
@@ -190,17 +193,24 @@ def test_condition_admits_only_the_exact_supported_roles(
         if sibling:
             configurations += ((sibling_method, _FailureScopeConfig()),)
         run_id, bound = _begin_witnessed_run(
-            case, OperationBinding(case.prepared.release_id,
-                source_result["output_realization_id"], revision, b"{}"),
-            configurations, selected_sources=sources, structural_admission=admissions,
+            case,
+            OperationBinding(
+                case.prepared.release_id, source_result["output_realization_id"], revision, b"{}"
+            ),
+            configurations,
+            selected_sources=sources,
+            structural_admission=admissions,
         )
         with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
             if sibling:
-                sibling_units = tuple(UnitView(ref, ctx.run)
-                    for ref in sibling_method.select(ctx.run, _FailureScopeConfig()))
+                sibling_units = tuple(
+                    UnitView(ref, ctx.run)
+                    for ref in sibling_method.select(ctx.run, _FailureScopeConfig())
+                )
                 for result in sibling_method.run(sibling_units, _FailureScopeConfig(), ctx):
-                    _retain_witnessed_result(case, run_id, sibling_method,
-                        _FailureScopeConfig(), result, stage="extract")
+                    _retain_witnessed_result(
+                        case, run_id, sibling_method, _FailureScopeConfig(), result, stage="extract"
+                    )
             units = tuple(UnitView(ref, ctx.run) for ref in method.select(ctx.run, config))
             produced = method.run(units, config, ctx)
         for result in produced:
@@ -210,12 +220,25 @@ def test_condition_admits_only_the_exact_supported_roles(
         return run_id
 
     primary_sources = excerpts(case.run).sources
-    primary_run, _ = _begin_witnessed_run(case,
-        OperationBinding(case.prepared.release_id, source_result["output_realization_id"], revision, b"{}"),
-        (), selected_sources=primary_sources)
+    primary_run, _ = _begin_witnessed_run(
+        case,
+        OperationBinding(
+            case.prepared.release_id, source_result["output_realization_id"], revision, b"{}"
+        ),
+        (),
+        selected_sources=primary_sources,
+    )
     with case.writer.begin() as conn:
-        pins = tuple(pin.values() for pin in publish_primary_layers(conn, primary_run,
-            case.prepared, tuple(source.source_view_id for source in primary_sources), formal=True))
+        pins = tuple(
+            pin.values()
+            for pin in publish_primary_layers(
+                conn,
+                primary_run,
+                case.prepared,
+                tuple(source.source_view_id for source in primary_sources),
+                formal=True,
+            )
+        )
     finalize_bound_run(case.writer, primary_run, "condition-primary")
 
     annotation = run(

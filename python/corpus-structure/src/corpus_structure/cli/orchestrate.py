@@ -171,14 +171,17 @@ def execute_source_choices(
                     for value in source or ()
                 ),
                 targets=tuple(target or ()),
-                selections=(*operation_selections, *tuple(
-                    DemandOperationSelection.model_validate(value)
-                    for value in (
-                        json_loads(operation_options.read_bytes())
-                        if operation_options is not None
-                        else ()
-                    )
-                )),
+                selections=(
+                    *operation_selections,
+                    *tuple(
+                        DemandOperationSelection.model_validate(value)
+                        for value in (
+                            json_loads(operation_options.read_bytes())
+                            if operation_options is not None
+                            else ()
+                        )
+                    ),
+                ),
                 execution_profile=execution_profile,
             )
     execute_request(
@@ -471,50 +474,120 @@ def run_characterize_command(
     )
 
 
-def _execute_declared_request(ctx, request, source_root, action, execution_policy, json, *, project=None):
+def _execute_declared_request(
+    ctx, request, source_root, action, execution_policy, json, *, project=None
+):
     from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
+
     from .demands import execute_request
 
     with _refusals(json):
         selection = NativeDemandRequest.model_validate(json_loads(request.read_bytes()))
         if project is not None and selection.project_id != project:
             raise ValueError("request belongs to another project")
-    execute_request(ctx, request=selection, source_root=source_root, action=action,
-                    project=project, execution_policy=execution_policy, json=json)
+    execute_request(
+        ctx,
+        request=selection,
+        source_root=source_root,
+        action=action,
+        project=project,
+        execution_policy=execution_policy,
+        json=json,
+    )
 
 
-def _execute_capability_choices(ctx, *, workflow, operation, source_root, request, demand,
-    project, semantic_release, runtime, domain, slice, scope, whole_document,
-    source_membership, document, source, operation_options, operation_selections,
-    execution_profile, execution_policy, json, has_profile_choices):
+def _execute_capability_choices(
+    ctx,
+    *,
+    workflow,
+    operation,
+    source_root,
+    request,
+    demand,
+    project,
+    semantic_release,
+    runtime,
+    domain,
+    slice,
+    scope,
+    whole_document,
+    source_membership,
+    document,
+    source,
+    operation_options,
+    operation_selections,
+    execution_profile,
+    execution_policy,
+    json,
+    has_profile_choices,
+):
     """Preserve ordinary intent, or resume the exact previously frozen native request."""
     from .demands import execute_request
 
     if request is not None and demand is not None:
         raise typer.BadParameter("select --request or --demand")
     if request is not None or demand is not None:
-        if (has_profile_choices or any(value is not None for value in
-            (semantic_release, runtime, domain, slice, scope, operation_options))
-            or whole_document or document or source or source_membership != "descendants"
-            or execution_profile != "source-native"):
-            raise typer.BadParameter("the frozen request or demand owns source, profile and question choices")
+        if (
+            has_profile_choices
+            or any(
+                value is not None
+                for value in (semantic_release, runtime, domain, slice, scope, operation_options)
+            )
+            or whole_document
+            or document
+            or source
+            or source_membership != "descendants"
+            or execution_profile != "source-native"
+        ):
+            raise typer.BadParameter(
+                "the frozen request or demand owns source, profile and question choices"
+            )
         if demand is not None:
-            execute_request(ctx, demand=demand, source_root=source_root, project=project,
-                action="run."+workflow, execution_policy=execution_policy, json=json)
+            execute_request(
+                ctx,
+                demand=demand,
+                source_root=source_root,
+                project=project,
+                action="run." + workflow,
+                execution_policy=execution_policy,
+                json=json,
+            )
         else:
-            _execute_declared_request(ctx, request, source_root, "run."+workflow,
-                execution_policy, json, project=project)
+            _execute_declared_request(
+                ctx,
+                request,
+                source_root,
+                "run." + workflow,
+                execution_policy,
+                json,
+                project=project,
+            )
         return
     if operation is None:
         raise typer.BadParameter("ordinary capability execution requires its explicit profile")
-    execute_source_choices(ctx, action="run."+workflow, workflow=workflow,
-        source_root=source_root, project=project, semantic_release=semantic_release,
-        runtime=runtime, domain=domain, slice=slice, scope=scope,
-        whole_document=whole_document, source_membership=source_membership,
-        document=document, source=source, target=(operation,),
-        operation_options=operation_options, operation_selections=operation_selections,
-        execution_profile=execution_profile, execution_policy=execution_policy, json=json)
+    execute_source_choices(
+        ctx,
+        action="run." + workflow,
+        workflow=workflow,
+        source_root=source_root,
+        project=project,
+        semantic_release=semantic_release,
+        runtime=runtime,
+        domain=domain,
+        slice=slice,
+        scope=scope,
+        whole_document=whole_document,
+        source_membership=source_membership,
+        document=document,
+        source=source,
+        target=(operation,),
+        operation_options=operation_options,
+        operation_selections=operation_selections,
+        execution_profile=execution_profile,
+        execution_policy=execution_policy,
+        json=json,
+    )
 
 
 @run_app.command("parsers")
@@ -522,9 +595,16 @@ def run_parsers_command(
     ctx: typer.Context,
     source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     request: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
-    demand: Annotated[str | None, typer.Option(help="Resume only this exact native demand.")] = None,
-    parser: Annotated[Literal["hanlp", "maverick", "dipo"] | None, typer.Option(help="Explicit captured parser family.")] = None,
-    profile: Annotated[str, typer.Option(help="Exact admitted operation profile.")] = "source-native",
+    demand: Annotated[
+        str | None, typer.Option(help="Resume only this exact native demand.")
+    ] = None,
+    parser: Annotated[
+        Literal["hanlp", "maverick", "dipo"] | None,
+        typer.Option(help="Explicit captured parser family."),
+    ] = None,
+    profile: Annotated[
+        str, typer.Option(help="Exact admitted operation profile.")
+    ] = "source-native",
     project: Annotated[str | None, typer.Option()] = None,
     semantic_release: Annotated[str | None, typer.Option()] = None,
     runtime: Annotated[str | None, typer.Option()] = None,
@@ -543,15 +623,35 @@ def run_parsers_command(
     """Parse explicit registered originals or retained source selectors with an acquired profile."""
     if request is None and demand is None and parser is None:
         raise typer.BadParameter("ordinary parser execution requires --parser")
-    operation = None if parser is None else "text." + ("hanlp_native" if parser == "hanlp" else parser) + "/" + profile
-    _execute_capability_choices(ctx, workflow="parsers", operation=operation,
-        source_root=source_root, request=request, demand=demand, project=project,
-        semantic_release=semantic_release, runtime=runtime, domain=domain, slice=slice,
-        scope=scope, whole_document=whole_document, source_membership=source_membership,
-        document=document, source=source, operation_options=operation_options,
-        operation_selections=(), execution_profile=execution_profile,
-        execution_policy=execution_policy, json=json,
-        has_profile_choices=parser is not None or profile != "source-native")
+    operation = (
+        None
+        if parser is None
+        else "text." + ("hanlp_native" if parser == "hanlp" else parser) + "/" + profile
+    )
+    _execute_capability_choices(
+        ctx,
+        workflow="parsers",
+        operation=operation,
+        source_root=source_root,
+        request=request,
+        demand=demand,
+        project=project,
+        semantic_release=semantic_release,
+        runtime=runtime,
+        domain=domain,
+        slice=slice,
+        scope=scope,
+        whole_document=whole_document,
+        source_membership=source_membership,
+        document=document,
+        source=source,
+        operation_options=operation_options,
+        operation_selections=(),
+        execution_profile=execution_profile,
+        execution_policy=execution_policy,
+        json=json,
+        has_profile_choices=parser is not None or profile != "source-native",
+    )
 
 
 @run_app.command("interpret")
@@ -559,12 +659,34 @@ def run_interpretation_command(
     ctx: typer.Context,
     source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     request: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
-    demand: Annotated[str | None, typer.Option(help="Resume only this exact native demand.")] = None,
-    provider: Annotated[Literal["d1", "gliner"] | None, typer.Option(help="Explicit captured interpretation provider.")] = None,
-    question: Annotated[Literal["function", "cues", "definitions"] | None, typer.Option(help="Existing declared semantic question.")] = None,
-    candidate_mode: Annotated[Literal["source", "primary"], typer.Option(help="Source-only question or D1's actual declared native candidate population.")] = "source",
-    profile: Annotated[str, typer.Option(help="Exact admitted operation profile.")] = "source-native",
-    focuses: Annotated[Path | None, typer.Option(exists=True, dir_okay=False, help="Exact focal/context extents for source-function questions.")] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Resume only this exact native demand.")
+    ] = None,
+    provider: Annotated[
+        Literal["d1", "gliner"] | None,
+        typer.Option(help="Explicit captured interpretation provider."),
+    ] = None,
+    question: Annotated[
+        Literal["function", "cues", "definitions"] | None,
+        typer.Option(help="Existing declared semantic question."),
+    ] = None,
+    candidate_mode: Annotated[
+        Literal["source", "primary"],
+        typer.Option(
+            help="Source-only question or D1's actual declared native candidate population."
+        ),
+    ] = "source",
+    profile: Annotated[
+        str, typer.Option(help="Exact admitted operation profile.")
+    ] = "source-native",
+    focuses: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            help="Exact focal/context extents for source-function questions.",
+        ),
+    ] = None,
     project: Annotated[str | None, typer.Option()] = None,
     semantic_release: Annotated[str | None, typer.Option()] = None,
     runtime: Annotated[str | None, typer.Option()] = None,
@@ -594,7 +716,9 @@ def run_interpretation_command(
             family = "d1_candidates" if candidate_mode == "primary" else "d1_source"
         else:
             if candidate_mode != "source":
-                raise typer.BadParameter("the captured GLiNER questions require source candidate mode")
+                raise typer.BadParameter(
+                    "the captured GLiNER questions require source candidate mode"
+                )
             family = "gliner_" + question
         operation = "text." + family + "/" + profile
         if focuses is not None:
@@ -602,18 +726,43 @@ def run_interpretation_command(
                 raise typer.BadParameter("explicit focuses require a source-function question")
             with _refusals(json):
                 values = json_loads(focuses.read_bytes())
-                if not isinstance(values, list) or any(not isinstance(value, dict) for value in values):
-                    raise ValueError("focuses must be a list of exact focal/context extent selections")
-                selections = (DemandOperationSelection(operation=operation, parameters={"focuses": values}),)
-    _execute_capability_choices(ctx, workflow="interpret", operation=operation,
-        source_root=source_root, request=request, demand=demand, project=project,
-        semantic_release=semantic_release, runtime=runtime, domain=domain, slice=slice,
-        scope=scope, whole_document=whole_document, source_membership=source_membership,
-        document=document, source=source, operation_options=operation_options,
-        operation_selections=selections, execution_profile=execution_profile,
-        execution_policy=execution_policy, json=json,
-        has_profile_choices=provider is not None or question is not None or focuses is not None
-            or candidate_mode != "source" or profile != "source-native")
+                if not isinstance(values, list) or any(
+                    not isinstance(value, dict) for value in values
+                ):
+                    raise ValueError(
+                        "focuses must be a list of exact focal/context extent selections"
+                    )
+                selections = (
+                    DemandOperationSelection(operation=operation, parameters={"focuses": values}),
+                )
+    _execute_capability_choices(
+        ctx,
+        workflow="interpret",
+        operation=operation,
+        source_root=source_root,
+        request=request,
+        demand=demand,
+        project=project,
+        semantic_release=semantic_release,
+        runtime=runtime,
+        domain=domain,
+        slice=slice,
+        scope=scope,
+        whole_document=whole_document,
+        source_membership=source_membership,
+        document=document,
+        source=source,
+        operation_options=operation_options,
+        operation_selections=selections,
+        execution_profile=execution_profile,
+        execution_policy=execution_policy,
+        json=json,
+        has_profile_choices=provider is not None
+        or question is not None
+        or focuses is not None
+        or candidate_mode != "source"
+        or profile != "source-native",
+    )
 
 
 def register(app: typer.Typer) -> None:

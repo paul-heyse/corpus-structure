@@ -45,8 +45,12 @@ def test_external_protocol_refuses_unadmitted_authority(change):
             "reference": "missing.Factory",
             "method": "acquire",
         }
-    expected = {"protected": "protected evaluator kinds", "reference-scope": "declared-input reference scope",
-                "effect-authorization": "native write authorization", "python-factory": "captured capability"}
+    expected = {
+        "protected": "protected evaluator kinds",
+        "reference-scope": "declared-input reference scope",
+        "effect-authorization": "native write authorization",
+        "python-factory": "captured capability",
+    }
     with pytest.raises(PreparationError, match=expected[change]):
         compile_data_operations(declarations=declarations(declared, kinds=kinds))
 
@@ -87,6 +91,7 @@ def test_frozen_model_reuses_content_and_exact_decoding_without_caching_other_in
     assert model.content is first
     decoded = read_effective_data_operations(first)
     assert read_effective_data_operations(first) is decoded
+
     class CapturedBytes(bytes):
         pass
 

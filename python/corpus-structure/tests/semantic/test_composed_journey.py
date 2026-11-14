@@ -1,7 +1,5 @@
 """An admitted composed binding across the native source/MCP/cut/result/read boundaries."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from collections import Counter
 from hashlib import sha256
@@ -13,6 +11,7 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import QuerySpec, read_session
 from semantic.agent_scenarios import ResubmissionRecipe
+from semantic.historical_agent_support import HistoricalAgentPublication
 from semantic.inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 
 
@@ -28,30 +27,30 @@ def test_composed_source_submission_final_cut_and_explanation(resubmission_case,
         authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
         unit = authored_fixture.unit()
         packet.update(unit)
-        result = authored_fixture.publish({
-                        "unit_ref": locator,
-                        "entities": [
-                            {"id": "person", "class_iri": "https://example.org/Person"}
-                        ],
-                        "claims": [
+        result = authored_fixture.publish(
+            {
+                "unit_ref": locator,
+                "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
+                "claims": [
+                    {
+                        "id": "name",
+                        "subject": "person",
+                        "predicate": "https://example.org/name",
+                        "object": {"kind": "text", "text": "Alice"},
+                        "qualification": {"modality": "asserted", "polarity": True},
+                        "establishment": "stated",
+                        "evidence": [
                             {
-                                "id": "name",
-                                "subject": "person",
-                                "predicate": "https://example.org/name",
-                                "object": {"kind": "text", "text": "Alice"},
-                                "qualification": {"modality": "asserted", "polarity": True},
-                                "establishment": "stated",
-                                "evidence": [
-                                    {
-                                        "sentence": unit["sentences"][0]["id"],
-                                        "quote": "Alice is here.",
-                                        "role": "primary",
-                                    }
-                                ],
+                                "sentence": unit["sentences"][0]["id"],
+                                "quote": "Alice is here.",
+                                "role": "primary",
                             }
                         ],
-                    })
-        assert result is not None and result.disposition == 'completed_accepted'
+                    }
+                ],
+            }
+        )
+        assert result is not None and result.disposition == "completed_accepted"
 
     submit()
     completed = finalize_bound_run(commit_writer_engine, run, "composed-result")

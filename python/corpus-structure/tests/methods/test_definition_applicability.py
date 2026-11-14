@@ -1,6 +1,6 @@
 """Independent endpoint, role and compatibility controls; no mocked efficacy claims."""
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 from itertools import pairwise
 from typing import Literal
 
@@ -22,7 +22,6 @@ from corpus_structure.methods.model_observation import (
     MODEL_OBSERVATION_INPUT,
     installed_policy,
     observation_digest,
-    request_digest,
 )
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.structural_admission import structural_statement
@@ -573,8 +572,13 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
     from semantic.sealed_definition_fixture import controlled_component_result
 
     policy, policy_digest = installed_policy()
-    prepared = SimpleNamespace(release_id="r", manifest=json.dumps({"dependencies": [(MODEL_OBSERVATION_INPUT, policy_digest)]}))
-    result = controlled_component_result(prepared, cfg, UnitRef(TaskUnitType.RUN, unit_key="control"), returned)
+    prepared = SimpleNamespace(
+        release_id="r",
+        manifest=json.dumps({"dependencies": [(MODEL_OBSERVATION_INPUT, policy_digest)]}),
+    )
+    result = controlled_component_result(
+        prepared, cfg, UnitRef(TaskUnitType.RUN, unit_key="control"), returned
+    )
     report = StructuralProductReport.model_validate(result.structural_product)
     assert report.definition_components is not None
     assert len(report.definition_components.components) == 1

@@ -6,10 +6,7 @@ from pathlib import Path
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import Engine, select
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.ingest.sentences import SentenceConfig
-from semantic.historical_agent_support import create_historical_agent_task, historical_agent_packet
 from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.metadata import table
@@ -24,6 +21,7 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.proposals import locate_proposal
 from corpus_structure.semantic.types import PreparedRelease
 from semantic.domain_scenarios import build_domain_case
+from semantic.historical_agent_support import create_historical_agent_task, historical_agent_packet
 
 
 @dataclass(frozen=True)
@@ -148,7 +146,17 @@ def imported_declaration_case(admin, writer, tmp_path):
         run, configuration = bind_primary_agent_run(
             conn, run, prepared, (view.ref.id,), configuration, method="agent.general"
         )
-        (task,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=configuration, method_name="agent.general", source_view_id=view.ref.id, unit_key=view.ref.key),)
+        (task,) = (
+            create_historical_agent_task(
+                conn,
+                run_id=run,
+                prepared=prepared,
+                configuration=configuration,
+                method_name="agent.general",
+                source_view_id=view.ref.id,
+                unit_key=view.ref.key,
+            ),
+        )
         packet = historical_agent_packet(conn, run, task, prepared)
         known_classes = dict(packet.known_classes)
         assert known_classes[subject] == ("https://example.org/Person",)

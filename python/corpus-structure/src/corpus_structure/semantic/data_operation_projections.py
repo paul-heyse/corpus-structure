@@ -1021,38 +1021,55 @@ def read_page(metadata):
         view=_var("selected_view", Text),
     )
     continuation = case(
-        (more, _obj(**pins, after=next_key, limit=_var("lim", BigInteger), max_bytes=_var("selected_max_bytes", BigInteger))), else_=null()
+        (
+            more,
+            _obj(
+                **pins,
+                after=next_key,
+                limit=_var("lim", BigInteger),
+                max_bytes=_var("selected_max_bytes", BigInteger),
+            ),
+        ),
+        else_=null(),
     )
     body_bytes = (
         select(func.coalesce(func.sum(func.octet_length(products.c.canonical_body.cast(Text))), 0))
-        .select_from(selected_uses.join(outputs, outputs.c.derivation_id == selected_uses.c.derivation_id)
-                     .join(products, products.c.id == outputs.c.product_id))
+        .select_from(
+            selected_uses.join(
+                outputs, outputs.c.derivation_id == selected_uses.c.derivation_id
+            ).join(products, products.c.id == outputs.c.product_id)
+        )
         .scalar_subquery()
     )
     payload = _obj(
-            payload=_obj(
-                **pins,
-                intent=selection,
-                root=_var("d.root", JSONB),
-                project_id=_var("d.project_id", Text),
-                release_id=_var("d.release_id", Text),
-                runtime_id=_var("d.runtime_id", Text),
-                state=state,
-                uses=result_uses,
-                obligations=result_obligations,
-                original_source_admissions=result_admissions,
-                attempt_failures=result_failures,
-                populations=result_populations,
-                continuation=continuation,
-            )
+        payload=_obj(
+            **pins,
+            intent=selection,
+            root=_var("d.root", JSONB),
+            project_id=_var("d.project_id", Text),
+            release_id=_var("d.release_id", Text),
+            runtime_id=_var("d.runtime_id", Text),
+            state=state,
+            uses=result_uses,
+            obligations=result_obligations,
+            original_source_admissions=result_admissions,
+            attempt_failures=result_failures,
+            populations=result_populations,
+            continuation=continuation,
         )
+    )
     # Frontier reads never inspect output bodies. Product pages count every
     # actual returned row before building the body-bearing JSON aggregate.
     within_budget = case(
-        (_var("selected_view", Text) == "products", body_bytes <= _var("selected_max_bytes", BigInteger)),
+        (
+            _var("selected_view", Text) == "products",
+            body_bytes <= _var("selected_max_bytes", BigInteger),
+        ),
         else_=literal(True),
     )
-    return select(case((within_budget, payload), else_=func.ops.ddo_result_bytes_refusal()).label("result"))
+    return select(
+        case((within_budget, payload), else_=func.ops.ddo_result_bytes_refusal()).label("result")
+    )
 
 
 def capture_projection_sources(*, physical_sources=None, linkml_types=None):

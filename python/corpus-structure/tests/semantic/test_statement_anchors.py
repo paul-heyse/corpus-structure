@@ -1,7 +1,5 @@
 """Packet-local statement handles resolve to immutable rendition coordinates."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import pytest
 from sqlalchemy import select
 
@@ -17,6 +15,7 @@ from corpus_structure.semantic.proposals import (
 from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.source_projection import statement_identity
 from semantic.domain_scenarios import build_domain_case
+from semantic.historical_agent_support import HistoricalAgentPublication
 from semantic.proposals_support import batch, prepared
 
 
@@ -112,13 +111,7 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
     resubmission_historical_source, tmp_path, monkeypatch
 ):
     commit_writer_engine = resubmission_historical_source.writer
-    import anyio
-    from fastmcp import Client
 
-    from corpus_structure.intervene.semantic_server import (
-        RetainedReaderBinding,
-        build_retained_reader_server,
-    )
     from corpus_structure.semantic import source_frames
     from corpus_structure.semantic.operations import seal_cut
     from semantic.agent_scenarios import queue_resubmission_agent
@@ -134,29 +127,29 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
         def complete():
             authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
             unit = authored_fixture.unit()
-            result = authored_fixture.publish({
-                            "unit_ref": locator,
-                            "entities": [
-                                {"id": "person", "class_iri": "https://example.org/Person"}
-                            ],
-                            "claims": [
+            result = authored_fixture.publish(
+                {
+                    "unit_ref": locator,
+                    "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
+                    "claims": [
+                        {
+                            "id": "name",
+                            "subject": "person",
+                            "predicate": "https://example.org/name",
+                            "object": {"kind": "text", "text": "Alice"},
+                            "qualification": {"modality": "asserted", "polarity": True},
+                            "establishment": "stated",
+                            "evidence": [
                                 {
-                                    "id": "name",
-                                    "subject": "person",
-                                    "predicate": "https://example.org/name",
-                                    "object": {"kind": "text", "text": "Alice"},
-                                    "qualification": {"modality": "asserted", "polarity": True},
-                                    "establishment": "stated",
-                                    "evidence": [
-                                        {
-                                            "sentence": unit["sentences"][0]["id"],
-                                            "quote": "Alice is here.",
-                                            "role": "primary",
-                                        }
-                                    ],
+                                    "sentence": unit["sentences"][0]["id"],
+                                    "quote": "Alice is here.",
+                                    "role": "primary",
                                 }
                             ],
-                        })
+                        }
+                    ],
+                }
+            )
             assert result.disposition == "completed_accepted"
 
         complete()

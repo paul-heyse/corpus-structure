@@ -336,7 +336,14 @@ def test_public_downstream_profile_acquires_native_consumers_without_model_execu
 
     root = primary_profile_inputs(tmp_path)
     from corpus_structure.methods.native_profiles import pm2_selection
-    (root / "hanlp.json").write_bytes(canonical_bytes(pm2_selection("hanlp", root / "assets", {"fixture": "no provider execution"}, {}).declaration()))
+
+    (root / "hanlp.json").write_bytes(
+        canonical_bytes(
+            pm2_selection(
+                "hanlp", root / "assets", {"fixture": "no provider execution"}, {}
+            ).declaration()
+        )
+    )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     (root / "schema.yaml").write_bytes(core.read_bytes())
     manifest = yaml.safe_load((root / "target.yaml").read_bytes())
@@ -348,15 +355,21 @@ def test_public_downstream_profile_acquires_native_consumers_without_model_execu
     model = bound_data_operation_model(prepared)
     operations = {operation.semantic_id: operation for operation in model.operations}
     expected = {
-        "structure.predicate_evidence/declared", "structure.scoped_relations/declared",
-        "structure.artifact_identity/declared", "structure.definition_declaration_components/declared",
-        "structure.definition_applicability/declared", "structure.definition_named_components/declared",
-        "structure.dossier/declared", "structure.compare/declared", "structure.condition_qualification/declared",
+        "structure.predicate_evidence/declared",
+        "structure.scoped_relations/declared",
+        "structure.artifact_identity/declared",
+        "structure.definition_declaration_components/declared",
+        "structure.definition_applicability/declared",
+        "structure.definition_named_components/declared",
+        "structure.dossier/declared",
+        "structure.compare/declared",
+        "structure.condition_qualification/declared",
         "retrieve.contextual/declared",
     }
     assert expected <= operations.keys()
     assert not any(identity.startswith("text.gliner") for identity in operations)
     from corpus_structure.semantic.composed import read_data_operation_inputs
+
     captured = read_data_operation_inputs(dependencies)
     assert captured is not None
     _, sources = captured

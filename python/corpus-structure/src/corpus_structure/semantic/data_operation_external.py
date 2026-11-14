@@ -159,8 +159,10 @@ class ExternalDataSession:
         return self._invoke("renew_data_request", {**_fence(claim), "lease_seconds": lease_seconds})
 
     def _read(self, packet_id: str, claim: dict) -> dict:
-        read = self._invoke("read_external_data_packet", {"packet_id": packet_id,
-                            **_fence(claim), "max_bytes": self.max_packet_bytes})
+        read = self._invoke(
+            "read_external_data_packet",
+            {"packet_id": packet_id, **_fence(claim), "max_bytes": self.max_packet_bytes},
+        )
         if read["packet"]["project_id"] != self.project_id:
             raise PortRefusal("external packet belongs to another project")
         return read
@@ -176,11 +178,25 @@ class ExternalDataSession:
                 from .external_extraction import external_extraction_prompt
 
                 value = external_extraction_prompt(value)
-            views.append({"role": item["role"], "position": item["position"], "multiplicity": item["multiplicity"], "value": value})
+            views.append(
+                {
+                    "role": item["role"],
+                    "position": item["position"],
+                    "multiplicity": item["multiplicity"],
+                    "value": value,
+                }
+            )
         return {**read, "input_views": views}
 
-    def submit(self, packet_id: str, claim: dict, result: dict, *, actor_assertion: str,
-               model_assertion: str | None) -> dict:
+    def submit(
+        self,
+        packet_id: str,
+        claim: dict,
+        result: dict,
+        *,
+        actor_assertion: str,
+        model_assertion: str | None,
+    ) -> dict:
         read = self._read(packet_id, claim)
         packet = read["packet"]
         if packet["project_id"] != self.project_id:
@@ -242,7 +258,9 @@ class ExternalDataSession:
     def inspect(self, packet_id: str) -> dict:
         return self._invoke("inspect_external_data_result", {"packet_id": packet_id})
 
-    def located(self, demand_id: str, *, limit: int = 100, continuation: dict | None = None) -> dict:
+    def located(
+        self, demand_id: str, *, limit: int = 100, continuation: dict | None = None
+    ) -> dict:
         """Read mechanically placed rich reports through the native pinned public result."""
         from .data_operation_identity import decode_semantic_value
         from .data_operation_service import read_data_demand
@@ -251,13 +269,23 @@ class ExternalDataSession:
         if self.demand_id is not None and demand_id != self.demand_id:
             raise PortRefusal("located report demand is outside this session scope")
         with self.engine.begin() as connection:
-            snapshot = read_data_demand(connection, demand_id, limit=limit, max_bytes=self.max_reply_bytes, view="products", continuation=continuation)
+            snapshot = read_data_demand(
+                connection,
+                demand_id,
+                limit=limit,
+                max_bytes=self.max_reply_bytes,
+                view="products",
+                continuation=continuation,
+            )
             if snapshot["project_id"] != self.project_id:
                 raise PortRefusal("located report demand belongs to another project")
             _, _, _, prepared = load_release_inputs(connection, snapshot["release_id"])
             model = bound_data_operation_model(prepared)
         kind = "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction"
-        contract = next((item.key for item in model.identities if item.owner == kind and item.domain == "kind"), None)
+        contract = next(
+            (item.key for item in model.identities if item.owner == kind and item.domain == "kind"),
+            None,
+        )
         if contract is None:
             raise PortRefusal("selected release has no rich external placement contract")
         reports = []
@@ -267,11 +295,23 @@ class ExternalDataSession:
                     continue
                 value = decode_semantic_value(product["body"])
                 stored, issues = located_external_batch(prepared, value)
-                reports.append({"use_id": use["use_id"], "fate": use["fate"], "product": product,
-                                "standing": value["standing"], "stored": stored.model_dump(mode="python", exclude_unset=True),
-                                "issues": list(issues)})
-        return {"demand_id": demand_id, "read_id": snapshot["read_id"], "trust_snapshot": snapshot["trust_snapshot"],
-                "continuation": snapshot["continuation"], "reports": reports}
+                reports.append(
+                    {
+                        "use_id": use["use_id"],
+                        "fate": use["fate"],
+                        "product": product,
+                        "standing": value["standing"],
+                        "stored": stored.model_dump(mode="python", exclude_unset=True),
+                        "issues": list(issues),
+                    }
+                )
+        return {
+            "demand_id": demand_id,
+            "read_id": snapshot["read_id"],
+            "trust_snapshot": snapshot["trust_snapshot"],
+            "continuation": snapshot["continuation"],
+            "reports": reports,
+        }
 
     def release(self, packet_id: str, claim: dict, *, reason: str) -> dict:
         return self._invoke(

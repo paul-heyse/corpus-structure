@@ -1,7 +1,5 @@
 """A supported bound input referent survives the actual MCP packet and fresh evaluation."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from contextlib import contextmanager
 from dataclasses import replace
@@ -11,9 +9,6 @@ import yaml
 from sqlalchemy import insert, select
 from typer.testing import CliRunner
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
-from semantic.historical_agent_support import create_historical_agent_task, historical_agent_packet
 from corpus_structure.semantic import (
     PreparationProfile,
     ResolvedDependencies,
@@ -35,6 +30,11 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.publication import EvidenceRow, SelectionRow, publish_batch
 from corpus_structure.semantic.releases import persist_release
+from semantic.historical_agent_support import (
+    HistoricalAgentPublication,
+    create_historical_agent_task,
+    historical_agent_packet,
+)
 
 
 def test_native_known_reference_packet_mcp_and_finalizer(
@@ -157,7 +157,16 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             conn, run, prepared, (view.ref.id,), configuration
         )
         locator = view.ref.key
-        (agent,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=configuration, source_view_id=view.ref.id, unit_key=locator),)
+        (agent,) = (
+            create_historical_agent_task(
+                conn,
+                run_id=run,
+                prepared=prepared,
+                configuration=configuration,
+                source_view_id=view.ref.id,
+                unit_key=locator,
+            ),
+        )
         packet = historical_agent_packet(conn, run, agent, prepared)
         assert dict(packet.known_classes)["known-alice"] == ("https://example.org/Person",)
         assert packet.known_entities[0].label == "Alice" and packet.known_entities[0].aliases == (
@@ -169,9 +178,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         authored_fixture = HistoricalAgentPublication(e, run, agent)
         authored = authored_fixture.unit()
         assert authored["known_entities"][0]["entity_id"] == "known-alice"
-        sid = next(
-            sentence["id"] for sentence in authored["sentences"] if sentence["text"] == text
-        )
+        sid = next(sentence["id"] for sentence in authored["sentences"] if sentence["text"] == text)
         raw = {
             "unit_ref": locator,
             "entities": [],

@@ -1094,11 +1094,18 @@ def native_request_analysis(
         from corpus_structure.semantic.formal_forest import retained_math_inventory
 
         value = analyze_native_operand(
-            operand, demand=demand, pointer=ref, original=item.get("orig", ""),
-            recognition_health=outcome, context_issues=context_issues,
+            operand,
+            demand=demand,
+            pointer=ref,
+            original=item.get("orig", ""),
+            recognition_health=outcome,
+            context_issues=context_issues,
             context_coverage="complete" if domain_rules and not context_issues else "unknown",
-            retained_inventory=lambda: retained_math_inventory(layers, view, ref, item["text"], macros=context.macros),
-            question=question, predicate=predicate,
+            retained_inventory=lambda ref=ref, text=item["text"], context=context: (
+                retained_math_inventory(layers, view, ref, text, macros=context.macros)
+            ),
+            question=question,
+            predicate=predicate,
         )
         results.append(value)
     return NativeAnalysisPayload(
@@ -1111,14 +1118,37 @@ def native_request_analysis(
     )
 
 
-def analyze_native_operand(operand, *, demand, pointer, original, recognition_health, context_issues, context_coverage, retained_inventory, question: str | None = None, predicate: str | None = None):
+def analyze_native_operand(
+    operand,
+    *,
+    demand,
+    pointer,
+    original,
+    recognition_health,
+    context_issues,
+    context_coverage,
+    retained_inventory,
+    question: str | None = None,
+    predicate: str | None = None,
+):
     """Original finite per-operand projection, shared by target and sealed readers."""
     import dataclasses
+
     import sympy
-    from .transform import NotRepresentable
+
     from corpus_structure.semantic.analysis_contracts import scientific_question_rule
 
-    allowed = {"lexical", "structure", "syntax", "interpretation", "occurrences", "symbolic", "scientific"}
+    from .transform import NotRepresentable
+
+    allowed = {
+        "lexical",
+        "structure",
+        "syntax",
+        "interpretation",
+        "occurrences",
+        "symbolic",
+        "scientific",
+    }
     if demand not in allowed or (demand == "scientific" and question is None):
         raise ValueError("native mathematical analysis requires its exact demand/question")
     context = operand.context
@@ -1170,9 +1200,7 @@ def analyze_native_operand(operand, *, demand, pointer, original, recognition_he
         if demand == "lexical":
             value["lexical"] = inventory["lexical"]
         else:
-            value["structure"] = {
-                key: item for key, item in inventory.items() if key != "lexical"
-            }
+            value["structure"] = {key: item for key, item in inventory.items() if key != "lexical"}
     elif demand == "syntax":
         value.update(_syntax_value(operand.syntax()))
     else:

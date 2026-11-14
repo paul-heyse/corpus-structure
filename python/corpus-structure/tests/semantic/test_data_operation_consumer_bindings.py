@@ -192,8 +192,6 @@ def hydrated_component_selection(method, binding, records):
     )
 
 
-
-
 def test_m1_consumer_optional_projection_is_exact_one_eligible_view(
     consumer_model, native_rollback
 ):

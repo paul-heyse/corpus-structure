@@ -8,11 +8,11 @@ from importlib.resources import files
 
 import pytest
 
+from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.core.evidence import config_key
 from corpus_structure.methods.scoped_relations import SCOPED_VERSION, ScopedRelationsConfig
 from corpus_structure.methods.source_preparation import prepare_source
 from corpus_structure.methods.witnessed_source_links import NAMED_NATIVE_PIECES_INPUT
-from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame

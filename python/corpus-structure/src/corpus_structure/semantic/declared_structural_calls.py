@@ -52,8 +52,8 @@ def structural_operation_declarations():
         DeclaredClauseReport,
         DeclaredComparisonReport,
         DeclaredConditionReport,
-        DeclaredDefinitionComponentsReport,
         DeclaredDefinitionApplicabilityReport,
+        DeclaredDefinitionComponentsReport,
         DeclaredDossierReport,
     )
 

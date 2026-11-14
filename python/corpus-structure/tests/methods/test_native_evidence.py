@@ -11,7 +11,6 @@ from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import annotate
 from corpus_structure.ingest.sentences import Block
 from corpus_structure.methods.native_evidence_layers import (
-    HANLP_FAMILIES,
     SPACY_FAMILIES,
     NativeEvidenceBuilder,
     retained_spacy_docs,
@@ -199,12 +198,6 @@ def test_optional_spacy_columns_retain_independent_available_families(native_sou
     )
 
 
-
-
-
-
-
-
 def test_cross_page_exact_members_keep_page_and_synthetic_gap(native_source, prepared):
     _, _, product, view, base, scope, operation = native_source
     view = SimpleNamespace(
@@ -235,10 +228,6 @@ def test_cross_page_exact_members_keep_page_and_synthetic_gap(native_source, pre
         (e["start"], e["end"], e["synthetic"])
         for e in occurrences[block["occurrences"][0]]["extents"]
     ] == [(0, 1, False), (1, 2, True), (2, 14, False)]
-
-
-
-
 
 
 @pytest.mark.parametrize("corruption", (None, "missing", "ordinal", "member", "digest"))

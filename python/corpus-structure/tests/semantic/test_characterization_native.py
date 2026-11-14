@@ -1544,10 +1544,13 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
         capture_characterization_review,
     )
     from corpus_structure.serve.review_bundle import verify_review_bundle
-    from semantic.retained_primary_fixture import SealedFormalFixture
     from semantic.primary_native_support import publish_primary_fixture
+    from semantic.retained_primary_fixture import SealedFormalFixture
     from semantic.witnessed_scenario_support import (
-        completed_metadata, _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+        _begin_witnessed_run,
+        _retain_witnessed_result,
+        _witnessed_reader,
+        completed_metadata,
     )
 
     publication = publish_selected(
@@ -1636,27 +1639,43 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
         profile="native-formula-object",
     )
 
-    case = SimpleNamespace(writer=commit_writer_engine, prepared=prepared,
-        project_id="p", run=task["run_id"], view=identity,
-        document=task["unit_id"], source_task=task["id"], clone=None)
+    case = SimpleNamespace(
+        writer=commit_writer_engine,
+        prepared=prepared,
+        project_id="p",
+        run=task["run_id"],
+        view=identity,
+        document=task["unit_id"],
+        source_task=task["id"],
+        clone=None,
+    )
 
     def run(method, cfg):
         config = method.Config.model_validate(cfg)
-        run_id, bound = _begin_witnessed_run(case,
-            OperationBinding(prepared.release_id, metadata["output_realization_id"], revision, b"{}"),
-            ((method, config),), selected_sources=(external,))
+        run_id, bound = _begin_witnessed_run(
+            case,
+            OperationBinding(
+                prepared.release_id, metadata["output_realization_id"], revision, b"{}"
+            ),
+            ((method, config),),
+            selected_sources=(external,),
+        )
         if isinstance(method, SealedFormalFixture):
             with commit_writer_engine.begin() as conn:
                 publish_primary_fixture(conn, run_id, prepared, method, cfg)
         else:
             assert isinstance(method, ComposeViewMethod)
             with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
-                unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, task["unit_id"]), ctx.run,
-                    document_id=task["unit_id"])
+                unit = UnitView(
+                    UnitRef(TaskUnitType.DOCUMENT, task["unit_id"]),
+                    ctx.run,
+                    document_id=task["unit_id"],
+                )
                 (result,) = method.run((unit,), config, ctx)
-            _retain_witnessed_result(case, run_id, method, config, result,
-                stage="extract", admin=commit_db_engine)
-        finalize_bound_run(commit_writer_engine, run_id, "unprojected-"+method.name)
+            _retain_witnessed_result(
+                case, run_id, method, config, result, stage="extract", admin=commit_db_engine
+            )
+        finalize_bound_run(commit_writer_engine, run_id, "unprojected-" + method.name)
         with commit_writer_engine.connect() as conn:
             (product,) = read_inventory(conn, run_id)["products"]
         return SimpleNamespace(run_id=run_id), ProductReference(**product["reference"])

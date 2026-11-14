@@ -3611,5 +3611,23 @@ class GlinerDefinitionPrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource, term_entity: str = "defined term or expression", content_entity: str = "defining text or formula", attachment_relation: str = "term is defined or explained by", description_arm: str = "bare", evaluation_overlap: str = "") -> LearnedPrimaryProducts:
-        return execute_learned_primary(self, source, definition_options=dict(term_entity=term_entity, content_entity=content_entity, attachment_relation=attachment_relation, description_arm=description_arm, evaluation_overlap=evaluation_overlap))
+    def run(
+        self,
+        source: FrozenNativeSource,
+        term_entity: str = "defined term or expression",
+        content_entity: str = "defining text or formula",
+        attachment_relation: str = "term is defined or explained by",
+        description_arm: str = "bare",
+        evaluation_overlap: str = "",
+    ) -> LearnedPrimaryProducts:
+        return execute_learned_primary(
+            self,
+            source,
+            definition_options=dict(
+                term_entity=term_entity,
+                content_entity=content_entity,
+                attachment_relation=attachment_relation,
+                description_arm=description_arm,
+                evaluation_overlap=evaluation_overlap,
+            ),
+        )

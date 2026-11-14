@@ -5,8 +5,8 @@
 products and executable demand/attempt interfaces. This page owns migration work, not separate
 semantic definitions or current-state tables.
 
-The [current integration/closeout account](../declared-data-operations_2026-11-12.md#producer-and-physical-owner-integration--2026-11-14)
-owns the actual family inventory, cancelled qualification and remaining work. Source/primary,
+The [current integration/closeout account](../declared-data-operations_2026-11-12.md#current-integrated-implementation-and-scoped-evidence--2026-11-14)
+owns the actual family inventory, resumed bounded qualification and remaining work. Source/primary,
 learned, M1, structural and retained-math increments do not close the complete replacement target
 below. Explicit retained-demand frontdoors are distinct from default source/book/phase0 caller
 adoption. Current formal syntax and named construction facts belong to the shared formal and

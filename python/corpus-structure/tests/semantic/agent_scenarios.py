@@ -1,7 +1,5 @@
 """Native source/task scenarios shared by semantic acceptance cases."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 from dataclasses import dataclass
 from functools import cache
@@ -14,12 +12,10 @@ from typing import Any
 import yaml
 from pydantic import create_model
 from scenario_recipes import register_scenario_builder
-from sqlalchemy import Engine, insert, select, text
+from sqlalchemy import Engine, insert, select
 
-from corpus_structure.core.method import SourceViewDraft, UnitRef
-from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.core.method import SourceViewDraft
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from semantic.historical_agent_support import create_historical_agent_task
 from corpus_structure.semantic import (
     PreparationProfile,
     ResolvedDependencies,
@@ -49,6 +45,10 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.semantic.types import PreparedRelease
+from semantic.historical_agent_support import (
+    HistoricalAgentPublication,
+    create_historical_agent_task,
+)
 from semantic.native_record_fixtures import publish_native_record_fixture, qualified_view_draft
 from semantic.scenario_preparation_support import PersistedScenario, ScenarioPreparation
 
@@ -303,7 +303,16 @@ def queue_resubmission_agent(source, engine):
     with engine.begin() as conn:
         run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
         locator = view.ref.key
-        (task,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=config, source_view_id=view.ref.id, unit_key=locator),)
+        (task,) = (
+            create_historical_agent_task(
+                conn,
+                run_id=run,
+                prepared=prepared,
+                configuration=config,
+                source_view_id=view.ref.id,
+                unit_key=locator,
+            ),
+        )
     return QueuedResubmissionStage(source, run, task, locator)
 
 
@@ -668,8 +677,14 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             tuple(v.id for v in selected_source_views(conn, run)),
             configuration,
         )
-        task = create_historical_agent_task(conn, run_id=run, prepared=prepared,
-            configuration=configuration, source_view_id=view, unit_key=draft.key)
+        task = create_historical_agent_task(
+            conn,
+            run_id=run,
+            prepared=prepared,
+            configuration=configuration,
+            source_view_id=view,
+            unit_key=draft.key,
+        )
     return prepared, run, task, view, draft.key
 
 
@@ -691,62 +706,64 @@ def submit_exclusion_case(
     def submit():
         authored_fixture = HistoricalAgentPublication(writer, run, task)
         unit = authored_fixture.unit()
-        response = authored_fixture.publish({
-                    "unit_ref": locator,
-                    "entities": [
-                        {
-                            "id": ref,
-                            "class_iri": "https://example.org/Person",
-                            "label": "Alice",
-                            "attributes": [
-                                {
-                                    "predicate": "https://example.org/name",
-                                    "value": {"kind": "text", "text": "Alice"},
-                                    "qualification": {"modality": "asserted", "polarity": True},
-                                    "establishment": "stated",
-                                    "evidence": [
-                                        {
-                                            "sentence": unit["sentences"][0]["id"],
-                                            "quote": "Alice is here.",
-                                            "role": "primary",
-                                        }
-                                    ],
-                                }
-                            ]
-                            if keyed or attribute_assertions
-                            else [],
-                        }
-                        for ref in local_ids
-                    ],
-                    "identity_exclusions": [
-                        {
-                            "id": "different",
-                            "left": {"kind": "local", "target": local_ids[0]},
-                            "right": {"kind": "local", "target": local_ids[1]},
-                            "reason": reason,
-                            "evidence": [
-                                {
-                                    "sentence": unit["sentences"][0]["id"],
-                                    "quote": "Alice is here.",
-                                    "role": "primary",
-                                },
-                                *(
-                                    [
-                                        {
-                                            "sentence": unit["sentences"][0]["id"],
-                                            "quote": "Alice",
-                                            "role": "supporting",
-                                        }
-                                    ]
-                                    if citations == 2
-                                    else []
-                                ),
-                            ],
-                        }
-                    ],
-                })
+        response = authored_fixture.publish(
+            {
+                "unit_ref": locator,
+                "entities": [
+                    {
+                        "id": ref,
+                        "class_iri": "https://example.org/Person",
+                        "label": "Alice",
+                        "attributes": [
+                            {
+                                "predicate": "https://example.org/name",
+                                "value": {"kind": "text", "text": "Alice"},
+                                "qualification": {"modality": "asserted", "polarity": True},
+                                "establishment": "stated",
+                                "evidence": [
+                                    {
+                                        "sentence": unit["sentences"][0]["id"],
+                                        "quote": "Alice is here.",
+                                        "role": "primary",
+                                    }
+                                ],
+                            }
+                        ]
+                        if keyed or attribute_assertions
+                        else [],
+                    }
+                    for ref in local_ids
+                ],
+                "identity_exclusions": [
+                    {
+                        "id": "different",
+                        "left": {"kind": "local", "target": local_ids[0]},
+                        "right": {"kind": "local", "target": local_ids[1]},
+                        "reason": reason,
+                        "evidence": [
+                            {
+                                "sentence": unit["sentences"][0]["id"],
+                                "quote": "Alice is here.",
+                                "role": "primary",
+                            },
+                            *(
+                                [
+                                    {
+                                        "sentence": unit["sentences"][0]["id"],
+                                        "quote": "Alice",
+                                        "role": "supporting",
+                                    }
+                                ]
+                                if citations == 2
+                                else []
+                            ),
+                        ],
+                    }
+                ],
+            }
+        )
         assert response is not None
-        assert response.disposition == 'completed_accepted', json.dumps(response, indent=2)
+        assert response.disposition == "completed_accepted", json.dumps(response, indent=2)
 
     submit()
     if not finalize:

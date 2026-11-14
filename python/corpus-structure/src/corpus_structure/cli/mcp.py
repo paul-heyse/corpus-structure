@@ -34,8 +34,12 @@ def serve(
 @mcp_app.command("retained")
 def retained(
     ctx: typer.Context,
-    run: Annotated[int | None, typer.Option(min=1, help="Exact retained semantic run scope.")] = None,
-    project: Annotated[str | None, typer.Option(help="Restrict unbound retained reads to this project.")] = None,
+    run: Annotated[
+        int | None, typer.Option(min=1, help="Exact retained semantic run scope.")
+    ] = None,
+    project: Annotated[
+        str | None, typer.Option(help="Restrict unbound retained reads to this project.")
+    ] = None,
 ) -> None:
     """Serve archived source/cut/contract readers, separately from external work custody."""
     from corpus_structure.intervene.semantic_server import build_retained_reader_server

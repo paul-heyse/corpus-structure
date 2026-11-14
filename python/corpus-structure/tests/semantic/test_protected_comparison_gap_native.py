@@ -1,15 +1,14 @@
 """Controlled comparison publication through protected native and detached custody."""
 
 import json
-from types import SimpleNamespace
 from copy import deepcopy
 from hashlib import sha256
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import text
 
 from corpus_structure.core.db.cancellation import OperationCancellation
-from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import Stage
 from corpus_structure.evaluate.record_references import assign_origin
 from corpus_structure.evaluate.structural_assessment import (
@@ -60,8 +59,13 @@ from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_
 from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.primary_native_support import stage_primary_layers
-from semantic.witnessed_scenario_support import (completed_component_case, completed_metadata,
-    _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result)
+from semantic.witnessed_scenario_support import (
+    _begin_witnessed_run,
+    _retain_witnessed_result,
+    _witnessed_reader,
+    completed_component_case,
+    completed_metadata,
+)
 
 LITERAL = "Clerks wait."
 POLICY = "independent-structural-comparison-1"
@@ -153,17 +157,26 @@ def test_protected_comparison_yields_detached_unconnected_sides(
     def run(method, stage, sources, cfg, label, admissions=()):
         source_result, revision, _ = completed_metadata(case, case.run)
         from corpus_structure.core.method import UnitView
+
         configuration = method.Config.model_validate(cfg)
-        identity, bound = _begin_witnessed_run(case,
-            OperationBinding(case.prepared.release_id, source_result["output_realization_id"], revision,b"{}"),
-            ((method,configuration),), selected_sources=sources, structural_admission=admissions)
+        identity, bound = _begin_witnessed_run(
+            case,
+            OperationBinding(
+                case.prepared.release_id, source_result["output_realization_id"], revision, b"{}"
+            ),
+            ((method, configuration),),
+            selected_sources=sources,
+            structural_admission=admissions,
+        )
         # This fixture invokes its single explicitly named semantic kernel. Unit
         # selection is that kernel's retained-source projection, never a graph plan.
         with _witnessed_reader(case, identity, bound, tmp_path) as ctx:
-            refs = tuple(method.select(ctx.run,configuration))
-            results = method.run(tuple(UnitView(ref,ctx.run) for ref in refs), configuration, ctx)
+            refs = tuple(method.select(ctx.run, configuration))
+            results = method.run(tuple(UnitView(ref, ctx.run) for ref in refs), configuration, ctx)
         for result in results:
-            _retain_witnessed_result(case,identity,method,configuration,result,stage=str(stage))
+            _retain_witnessed_result(
+                case, identity, method, configuration, result, stage=str(stage)
+            )
         result = SimpleNamespace(run_id=identity)
         finalize_bound_run(case.writer, result.run_id, "nce-" + label)
         metadata, revision, runtime = completed_metadata(case, result.run_id)

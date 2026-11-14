@@ -176,9 +176,9 @@ def execute_definition_applicability(
     from .declared_structural_calls import PreparedStructuralInputs, _passage
     from .declared_structural_references import DeclaredComponentRef, DeclaredRelationshipRef
     from .structural_products import (
+        DeclaredDefinitionApplicabilityReport,
         DeclaredDefinitionComponentsReport,
         DeclaredDefinitionProduct,
-        DeclaredDefinitionApplicabilityReport,
         DeclaredStructuralInput,
     )
 

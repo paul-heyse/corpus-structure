@@ -9,7 +9,6 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.canonical import canonical_json
-from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.method import (
     ConfigRef,
     Digest,
@@ -32,13 +31,10 @@ from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.math.grammar import PARSE_SECONDS
 from corpus_structure.methods.math.scope import Binders
 
-from .native import NativeDomainRule
+from .configuration import MathSection
 
 VERSION = "10"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
-
-
-from .configuration import MathSection
 
 
 MathFromPack = Annotated[MathSection | None, PackSection("math")]

@@ -273,7 +273,9 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     )
     from corpus_structure.semantic.native_requests import NativeRequestResult
 
-    server = build_retained_reader_server(RetainedReaderBinding(commit_writer_engine, task.run_id), writer_engine=commit_writer_engine)
+    server = build_retained_reader_server(
+        RetainedReaderBinding(commit_writer_engine, task.run_id), writer_engine=commit_writer_engine
+    )
     deliveries = []
 
     async def image_delivery():

@@ -357,7 +357,9 @@ def test_registered_record_tool_checks_exact_full_wire_budget(projection, monkey
         )
 
     async def journey():
-        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 41))) as client:
+        async with Client(
+            build_retained_reader_server(RetainedReaderBinding(engine, 41))
+        ) as client:
             delivered = await client.call_tool(
                 "records", {"request": request.model_dump(mode="json")}
             )

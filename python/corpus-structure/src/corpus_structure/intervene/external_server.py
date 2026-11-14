@@ -43,16 +43,26 @@ def build_external_server(
             active = None
             lock = Lock()
             with ExitStack() as resources:
+
                 def external():
                     nonlocal active
                     with lock:
                         if active is None:
+                            from corpus_structure.semantic.data_operation_external import (
+                                ExternalDataSession,
+                            )
                             from corpus_structure.semantic.runtime import open_runtime_engine
-                            from corpus_structure.semantic.data_operation_external import ExternalDataSession
 
-                            engine = resources.enter_context(open_runtime_engine(
-                                selected, "ci-mcp-external", max_size=4, purpose="write"))
-                            active = ExternalDataSession(engine, project or selected.runtime.default_project, demand_id=demand)
+                            engine = resources.enter_context(
+                                open_runtime_engine(
+                                    selected, "ci-mcp-external", max_size=4, purpose="write"
+                                )
+                            )
+                            active = ExternalDataSession(
+                                engine,
+                                project or selected.runtime.default_project,
+                                demand_id=demand,
+                            )
                         return active
 
                 yield {"external": external, "observation_writer": observations}
@@ -141,10 +151,13 @@ def build_external_server(
         return report(lambda: current(ctx).inspect(packet_id))
 
     @server.tool(annotations={"readOnlyHint": True})
-    def read_located_results(ctx: Context, demand_id: str, limit: int = 100,
-                             continuation: dict[str, Any] | None = None) -> ToolResult:
+    def read_located_results(
+        ctx: Context, demand_id: str, limit: int = 100, continuation: dict[str, Any] | None = None
+    ) -> ToolResult:
         """Read complete rich source reports and placement diagnostics on one pinned native page."""
-        return report(lambda: current(ctx).located(demand_id, limit=limit, continuation=continuation))
+        return report(
+            lambda: current(ctx).located(demand_id, limit=limit, continuation=continuation)
+        )
 
     @server.tool()
     def release_packet(

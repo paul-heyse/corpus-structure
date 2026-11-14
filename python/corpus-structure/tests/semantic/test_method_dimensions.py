@@ -1,7 +1,6 @@
 """Method/release dimensions are admission data, independent from operation protocol outcomes."""
 
 from dataclasses import replace
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -9,7 +8,7 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from corpus_structure.core.method import MethodSettings, ObservationDraft, UnitRef, UnitResult
+from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.observations import bind_result

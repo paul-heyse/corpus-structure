@@ -1,7 +1,5 @@
 """Independent reference grades and immutable pass C snapshots on a real native store."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import copy
 import json
 
@@ -23,6 +21,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_views import load_source_view
 from semantic.agent_scenarios import ResubmissionRecipe, build_resubmission_case
+from semantic.historical_agent_support import HistoricalAgentPublication
 
 
 def independent_native_frame(conn, run, unit_key, sentence_id):
@@ -50,35 +49,37 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
     def source():
         authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
         unit = authored_fixture.unit()
-        response = authored_fixture.publish({
-                    "unit_ref": locator,
-                    "entities": [
-                        {
-                            "id": "prediction_person",
-                            "class_iri": "https://example.org/Person",
-                            "label": "Alice",
-                        }
-                    ],
-                    "claims": [
-                        {
-                            "id": "prediction_name",
-                            "subject": "prediction_person",
-                            "predicate": "https://example.org/name",
-                            "object": {"kind": "text", "text": "Alice"},
-                            "qualification": {"modality": "asserted", "polarity": True},
-                            "establishment": "stated",
-                            "evidence": [
-                                {
-                                    "sentence": unit["sentences"][0]["id"],
-                                    "quote": "Alice is here.",
-                                    "role": "primary",
-                                }
-                            ],
-                        }
-                    ],
-                })
+        response = authored_fixture.publish(
+            {
+                "unit_ref": locator,
+                "entities": [
+                    {
+                        "id": "prediction_person",
+                        "class_iri": "https://example.org/Person",
+                        "label": "Alice",
+                    }
+                ],
+                "claims": [
+                    {
+                        "id": "prediction_name",
+                        "subject": "prediction_person",
+                        "predicate": "https://example.org/name",
+                        "object": {"kind": "text", "text": "Alice"},
+                        "qualification": {"modality": "asserted", "polarity": True},
+                        "establishment": "stated",
+                        "evidence": [
+                            {
+                                "sentence": unit["sentences"][0]["id"],
+                                "quote": "Alice is here.",
+                                "role": "primary",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
         assert response is not None
-        assert response.disposition == 'completed_accepted'
+        assert response.disposition == "completed_accepted"
 
     source()
     finalize_bound_run(commit_writer_engine, run, "reference-result")
@@ -568,23 +569,25 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(resubmiss
                 "evidence": evidence,
             }
 
-        response = authored_fixture.publish({
-                    "unit_ref": locator,
-                    "entities": [
-                        {
-                            "id": "source_person",
-                            "class_iri": "https://example.org/Person",
-                            "label": "Alice",
-                        }
-                    ],
-                    "claims": [
-                        claim("first_premise"),
-                        claim("duplicate_premise"),
-                        claim("conclusion", "duplicate_premise"),
-                    ],
-                })
+        response = authored_fixture.publish(
+            {
+                "unit_ref": locator,
+                "entities": [
+                    {
+                        "id": "source_person",
+                        "class_iri": "https://example.org/Person",
+                        "label": "Alice",
+                    }
+                ],
+                "claims": [
+                    claim("first_premise"),
+                    claim("duplicate_premise"),
+                    claim("conclusion", "duplicate_premise"),
+                ],
+            }
+        )
         assert response is not None
-        assert response.disposition == 'completed_accepted'
+        assert response.disposition == "completed_accepted"
 
     source()
     finalize_bound_run(commit_writer_engine, run, "duplicate-premise-result")
@@ -675,7 +678,7 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
         else:
             response = authored_fixture.publish({"unit_ref": locator, "entities": [], "claims": []})
             assert response is not None
-            assert response.disposition == 'completed_accepted'
+            assert response.disposition == "completed_accepted"
 
     empty_source()
     finalize_bound_run(commit_writer_engine, run, "empty-reference-result")

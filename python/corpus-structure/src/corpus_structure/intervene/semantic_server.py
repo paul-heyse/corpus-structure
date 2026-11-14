@@ -17,7 +17,7 @@ from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
 from mcp.types import CallToolResult
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy import Connection, Engine, func, select
 
 from corpus_structure.intervene import service
@@ -161,8 +161,12 @@ def build_retained_reader_server(
         with child_capture(run_id=bound_id) as observations:
             yield {"settings": settings or Settings(), "observation_writer": observations}
 
-    server = FastMCP(MCP_SERVER_NAME, version=FASTMCP_VERSION, lifespan=open_session,
-        instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available. Source-region rendering is an explicit native writer effect.")
+    server = FastMCP(
+        MCP_SERVER_NAME,
+        version=FASTMCP_VERSION,
+        lifespan=open_session,
+        instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available. Source-region rendering is an explicit native writer effect.",
+    )
     server.add_middleware(ObservationMiddleware(bound_id))
 
     @contextmanager
@@ -170,12 +174,26 @@ def build_retained_reader_server(
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.semantic.runtime import open_runtime_engine
 
-        injected = read_engine if read_engine is not None else binding.engine if binding is not None else None
+        injected = (
+            read_engine
+            if read_engine is not None
+            else binding.engine
+            if binding is not None
+            else None
+        )
         if injected is not None:
             with read_snapshot(injected) as connection:
                 yield connection
         else:
-            with open_runtime_engine(ctx.lifespan_context["settings"], "ci-mcp-retained-read", max_size=1, purpose="read") as engine, read_snapshot(engine) as connection:
+            with (
+                open_runtime_engine(
+                    ctx.lifespan_context["settings"],
+                    "ci-mcp-retained-read",
+                    max_size=1,
+                    purpose="read",
+                ) as engine,
+                read_snapshot(engine) as connection,
+            ):
                 yield connection
 
     def reader_project(ctx: Context) -> str:
@@ -190,7 +208,14 @@ def build_retained_reader_server(
                 from corpus_structure.semantic.metadata import table
 
                 runs = table("ops.run")
-                if connection.scalar(select(runs.c.id).where(runs.c.id == selected_run, runs.c.project_id == reader_project(ctx))) is None:
+                if (
+                    connection.scalar(
+                        select(runs.c.id).where(
+                            runs.c.id == selected_run, runs.c.project_id == reader_project(ctx)
+                        )
+                    )
+                    is None
+                ):
                     raise ProposalRefused("run does not belong to this retained reader project")
             yield connection
 
@@ -201,7 +226,12 @@ def build_retained_reader_server(
         else:
             from corpus_structure.semantic.runtime import open_runtime_engine
 
-            with open_runtime_engine(ctx.lifespan_context["settings"], "ci-mcp-retained-render", max_size=1, purpose="write") as engine:
+            with open_runtime_engine(
+                ctx.lifespan_context["settings"],
+                "ci-mcp-retained-render",
+                max_size=1,
+                purpose="write",
+            ) as engine:
                 yield engine
 
     from corpus_structure.intervene.record_tools import register_record_tools

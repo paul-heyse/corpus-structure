@@ -3,17 +3,11 @@
 from contextlib import contextmanager
 
 import pytest
-from fastmcp.exceptions import ToolError
 from sqlalchemy import select, text
 from typer.testing import CliRunner
 
-from corpus_structure.intervene.server import build_server
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.proposals import ProposalRefused
-from corpus_structure.semantic.runtime import open_runtime_engine, resolve_source_binding
-from semantic.agent_scenarios import ResubmissionRecipe
-
-from .agent_scenarios import build_resubmission_case
+from corpus_structure.semantic.runtime import open_runtime_engine
 
 
 def test_application_settings_resolve_original_credentials_before_clone_substitution(
@@ -45,12 +39,6 @@ def test_application_settings_resolve_original_credentials_before_clone_substitu
             clone,
             "corpus_sem_writer",
         )
-
-
-
-
-
-
 
 
 def test_db_migrate_uses_semantic_history_and_refuses_legacy(commit_db_engine):
@@ -144,6 +132,7 @@ def test_direct_retains_protected_direction_scope_guards(
     from corpus_structure.cli.output import CliState
 
     _, run, _, _ = resubmission_case.stage.result
+
     @contextmanager
     def engine(settings, **kwargs):
         yield commit_writer_engine
@@ -257,8 +246,6 @@ def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(commit
             == []
         )
         assert conn.execute(select(table("ops.intervention").c.id)).all() == []
-
-
 
 
 def test_default_status_and_task_listing_do_not_select_another_project(

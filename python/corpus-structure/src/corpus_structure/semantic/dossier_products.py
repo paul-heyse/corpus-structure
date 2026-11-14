@@ -225,8 +225,8 @@ class PreparedDossierInputs:
         from .declared_structural_references import DeclaredComponentRef, DeclaredStructuralSource
         from .structural_products import (
             DeclaredComparisonReport,
-            DeclaredDefinitionComponentsReport,
             DeclaredDefinitionApplicabilityReport,
+            DeclaredDefinitionComponentsReport,
             DeclaredDossierComparisonSelection,
             DeclaredDossierReport,
             DeclaredStructuralInput,

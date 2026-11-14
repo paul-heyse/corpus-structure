@@ -254,16 +254,22 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
     return units, alignment, coverage
 
 
-
 def admitted_hanlp_rows(population, reply):
     """Authenticate native admission ordinals/lengths; never cut a canonical sentence."""
     members = reply.get("members")
-    if (reply.get("outcome") != "prepared_batch" or not isinstance(members, list)
-        or len(members) != len(population)):
+    if (
+        reply.get("outcome") != "prepared_batch"
+        or not isinstance(members, list)
+        or len(members) != len(population)
+    ):
         raise ValueError("HanLP admission changed canonical sentence population")
     ready, refused = [], []
     for ordinal, (row, member) in enumerate(zip(population, members, strict=True)):
-        if not isinstance(member, dict) or type(member.get("ordinal")) is not int or member["ordinal"] != ordinal:
+        if (
+            not isinstance(member, dict)
+            or type(member.get("ordinal")) is not int
+            or member["ordinal"] != ordinal
+        ):
             raise ValueError("HanLP admission changed canonical sentence order")
         if member.get("outcome") == "prepared":
             length = member.get("row_tokens")
@@ -282,7 +288,8 @@ def hanlp_sentence_batches(ready, startup):
         size = sum(len(word) for _, word in row[1])
         if batch and (
             len(batch) == int(startup.get("max_sentences", 8))
-            or (len(batch) + 1) * max(*lengths, length) > int(startup.get("max_padded_subwords", 2048))
+            or (len(batch) + 1) * max(*lengths, length)
+            > int(startup.get("max_padded_subwords", 2048))
             or chars + size > int(startup.get("max_batch_chars", 32768))
         ):
             batches.append(batch)
@@ -293,6 +300,7 @@ def hanlp_sentence_batches(ready, startup):
     if batch:
         batches.append(batch)
     return batches
+
 
 @dataclass(frozen=True)
 class HanlpProduct:
@@ -368,10 +376,14 @@ class PreparedHanlpProfile:
                         coverage.extend(
                             dict(
                                 family=family,
-                                eligible=[ref], examined=[], unexamined=[ref],
-                                availability="unsupported", outcome="unsupported",
+                                eligible=[ref],
+                                examined=[],
+                                unexamined=[ref],
+                                availability="unsupported",
+                                outcome="unsupported",
                                 reason="native admission: " + str(member.get("reason")),
-                            ) for family in HANLP_FAMILIES
+                            )
+                            for family in HANLP_FAMILIES
                         )
                 batches = hanlp_sentence_batches(ready, startup)
                 for batch in batches:

@@ -10,6 +10,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.core.canonical import canonical_numbers
+from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.scoped_relations import (
@@ -18,8 +20,6 @@ from corpus_structure.methods.scoped_relations import (
     discover_relations,
 )
 from corpus_structure.methods.table_interpretation import execute_table_correspondence
-from corpus_structure.core.canonical import canonical_numbers
-from corpus_structure.core.evidence import config_key
 from corpus_structure.semantic.contribution_queries import read_source_contributions
 from corpus_structure.semantic.contributions import contribution_identity
 from corpus_structure.semantic.identity import canonical_bytes

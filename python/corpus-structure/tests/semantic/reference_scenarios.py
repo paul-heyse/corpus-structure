@@ -14,8 +14,6 @@ import pytest
 from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 from sqlalchemy import Engine, insert, select, text
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.evaluate.record_alignment import RecordEvaluationFrame
 from corpus_structure.evaluate.record_references import (
     PROTOCOL,
@@ -46,7 +44,10 @@ from corpus_structure.semantic.record_contracts import (
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.types import PreparedRelease
 from semantic import native_record_fixtures as source_fixture
-from semantic.historical_agent_support import HistoricalAgentPublication, create_historical_agent_task
+from semantic.historical_agent_support import (
+    HistoricalAgentPublication,
+    create_historical_agent_task,
+)
 from semantic.native_record_fixtures import private_source as private_source
 
 
@@ -122,7 +123,17 @@ def publish_reference_case(
         run, config = bind_primary_agent_run(
             conn, run, prepared, tuple(v.ref.id for v in views), config
         )
-        tasks = tuple(create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=config, source_view_id=v.ref.id, unit_key=v.ref.key) for v in views)
+        tasks = tuple(
+            create_historical_agent_task(
+                conn,
+                run_id=run,
+                prepared=prepared,
+                configuration=config,
+                source_view_id=v.ref.id,
+                unit_key=v.ref.key,
+            )
+            for v in views
+        )
 
     def submit():
         for task, view, (paragraph, batch) in zip(tasks, views, cases, strict=True):
@@ -141,9 +152,7 @@ def publish_reference_case(
                     # Expected attribute meaning and its own quote are authored by the
                     # caller. Only the acquired sentence identifier is supplied here.
                     for citation in attribute["evidence"]:
-                        matches = [
-                            s for s in unit["sentences"] if citation["quote"] in s["text"]
-                        ]
+                        matches = [s for s in unit["sentences"] if citation["quote"] in s["text"]]
                         assert len(matches) == 1, (citation["quote"], unit["sentences"])
                         citation["sentence"] = matches[0]["id"]
             for claim in batch.get("claims", ()):
@@ -155,9 +164,9 @@ def publish_reference_case(
                 claim["evidence"] = evidence
             response = authored_fixture.publish(batch)
             assert response is not None
-            assert response.disposition == 'completed_accepted', response
+            assert response.disposition == "completed_accepted", response
             assert authored_fixture.issues == (), response
-            assert len(authored_fixture.stored["claims"]) == len(batch.get('claims', ())), response
+            assert len(authored_fixture.stored["claims"]) == len(batch.get("claims", ())), response
 
     submit()
     finalize_bound_run(writer, run, "reference-result")

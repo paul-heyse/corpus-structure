@@ -123,7 +123,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
     # Independent original-kernel fixture: these are already selected semantic rows,
     # not a claim of genuine native admission or a synthetic provider response.
     retained = []
-    for passage, source, ref in zip(passages, sources, refs, strict=True):
+    for _passage, source, ref in zip(passages, sources, refs, strict=True):
         pin = source.model_dump(mode="json", exclude_none=True)
         retained.append(
             {

@@ -1,7 +1,5 @@
 """Actual source-task publication of grounded identity exclusions."""
 
-
-from semantic.historical_agent_support import HistoricalAgentPublication
 import json
 
 import pytest
@@ -10,7 +8,7 @@ from sqlalchemy import select
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from semantic.agent_scenarios import ExclusionRecipe
-
+from semantic.historical_agent_support import HistoricalAgentPublication
 
 
 def test_exclusion_only_entities_publish_grounded_memberships(exclusion_case, tmp_path):
@@ -85,10 +83,8 @@ def test_mandatory_identity_conflict_refuses_actual_cut_without_partial_output(
 )
 def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, tmp_path):
     commit_writer_engine = exclusion_case.writer
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-    from semantic.historical_agent_support import create_historical_agent_task
     from corpus_structure.semantic.operations import OperationBinding, create_run
+    from semantic.historical_agent_support import create_historical_agent_task
 
     prepared, old_run, _, first = exclusion_case.stage.result
     assert first is not None
@@ -138,7 +134,16 @@ def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, t
     with commit_writer_engine.begin() as conn:
         run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
         locator = view.ref.key
-        (task,) = (create_historical_agent_task(conn, run_id=run, prepared=prepared, configuration=config, source_view_id=view.ref.id, unit_key=locator),)
+        (task,) = (
+            create_historical_agent_task(
+                conn,
+                run_id=run,
+                prepared=prepared,
+                configuration=config,
+                source_view_id=view.ref.id,
+                unit_key=locator,
+            ),
+        )
         inherited = (
             conn.execute(
                 select(table("data.identity_exclusion")).where(
@@ -153,29 +158,31 @@ def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, t
     def submit_known():
         authored_fixture = HistoricalAgentPublication(commit_writer_engine, run, task)
         unit = authored_fixture.unit()
-        response = authored_fixture.publish({
-                    "unit_ref": locator,
-                    "claims": [
-                        {
-                            "id": "c" + str(i),
-                            "subject": entity,
-                            "predicate": "https://example.org/name",
-                            "object": {"kind": "text", "text": "Alice"},
-                            "qualification": {"modality": "asserted", "polarity": True},
-                            "establishment": "stated",
-                            "evidence": [
-                                {
-                                    "sentence": unit["sentences"][0]["id"],
-                                    "quote": "Alice is here.",
-                                    "role": "primary",
-                                }
-                            ],
-                        }
-                        for i, entity in enumerate(endpoints)
-                    ],
-                })
+        response = authored_fixture.publish(
+            {
+                "unit_ref": locator,
+                "claims": [
+                    {
+                        "id": "c" + str(i),
+                        "subject": entity,
+                        "predicate": "https://example.org/name",
+                        "object": {"kind": "text", "text": "Alice"},
+                        "qualification": {"modality": "asserted", "polarity": True},
+                        "establishment": "stated",
+                        "evidence": [
+                            {
+                                "sentence": unit["sentences"][0]["id"],
+                                "quote": "Alice is here.",
+                                "role": "primary",
+                            }
+                        ],
+                    }
+                    for i, entity in enumerate(endpoints)
+                ],
+            }
+        )
         assert response is not None
-        assert response.disposition == 'completed_accepted', json.dumps(response, indent=2)
+        assert response.disposition == "completed_accepted", json.dumps(response, indent=2)
 
     submit_known()
     second = finalize_bound_run(commit_writer_engine, run, "inherited-result")

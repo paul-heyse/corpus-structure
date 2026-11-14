@@ -6,7 +6,7 @@ This test helper supplies no current operation execution, graph, queue or select
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Iterable, Callable
+from collections.abc import Callable, Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Connection, func, select
@@ -22,7 +22,11 @@ from corpus_structure.methods.pm2_result import (
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, PM2TokenMap
 from corpus_structure.methods.pm2_worker import Pm2WorkerError
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import BoundReader, OperationConflict, complete_unit_result
+from corpus_structure.semantic.operations import (
+    BoundReader,
+    OperationConflict,
+    complete_unit_result,
+)
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 
 if TYPE_CHECKING:
@@ -178,4 +182,3 @@ def retained_interpretation_dependencies(
         return rows
 
     return resolve
-

@@ -4,7 +4,10 @@ import anyio
 from fastmcp import Client
 from sqlalchemy import text
 
-from corpus_structure.intervene.semantic_server import RetainedReaderBinding, build_retained_reader_server
+from corpus_structure.intervene.semantic_server import (
+    RetainedReaderBinding,
+    build_retained_reader_server,
+)
 from corpus_structure.serve.source_search import SourceSearchRequest, search_source
 from semantic.agent_scenarios import native_build_resubmission_case
 

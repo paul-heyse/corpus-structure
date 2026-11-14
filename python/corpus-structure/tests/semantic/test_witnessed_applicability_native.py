@@ -8,8 +8,6 @@ from psycopg import Error as PsycopgError
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import MethodSettings
-from corpus_structure.core.vocab import Stage
 from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityConfig,
 )
@@ -25,8 +23,12 @@ from corpus_structure.semantic.operations import (
 )
 from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.witnessed_scenario_support import (completed_metadata, completed_relationship_case,
-    _begin_witnessed_run, _retain_witnessed_result)
+from semantic.witnessed_scenario_support import (
+    _begin_witnessed_run,
+    _retain_witnessed_result,
+    completed_metadata,
+    completed_relationship_case,
+)
 
 
 @pytest.fixture
@@ -95,13 +97,24 @@ def applicable(private_source, monkeypatch, tmp_path):
     from semantic.sealed_definition_fixture import applicability_descriptor, applicability_result
 
     method = applicability_descriptor()
-    identity, _ = _begin_witnessed_run(case,
-        OperationBinding(case.prepared.release_id, "wce-links", revision, b"{}"), ((method,cfg),))
+    identity, _ = _begin_witnessed_run(
+        case,
+        OperationBinding(case.prepared.release_id, "wce-links", revision, b"{}"),
+        ((method, cfg),),
+    )
     assert cfg.inputs is not None
-    unit = UnitRef(TaskUnitType.RUN, unit_key="definition-applicability:" + cfg.inputs.identity + ":literal")
-    result = applicability_result(cfg, unit, component=linked.completed.component,
-        component_reference=linked.completed.reference, relationship_reference=ref,
-        decision=decision, edge=edge)
+    unit = UnitRef(
+        TaskUnitType.RUN, unit_key="definition-applicability:" + cfg.inputs.identity + ":literal"
+    )
+    result = applicability_result(
+        cfg,
+        unit,
+        component=linked.completed.component,
+        component_reference=linked.completed.reference,
+        relationship_reference=ref,
+        decision=decision,
+        edge=edge,
+    )
     _retain_witnessed_result(case, identity, method, cfg, result, stage="assemble")
     run = SimpleNamespace(run_id=identity)
     with case.writer.connect() as conn:

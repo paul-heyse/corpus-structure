@@ -16,7 +16,7 @@ from typing import Any, Literal, Protocol, Self
 from pydantic import Field, JsonValue, model_validator
 
 from corpus_structure.methods.annotation_rules import AnnotationRule, AnnotationRuleMatch
-from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
+from corpus_structure.methods.gliner import GlinerPack, GlinerProfile, GlinerRefused
 from corpus_structure.methods.predicate_frames import (
     FrameCue,
     PredicateFrameResult,
@@ -895,8 +895,6 @@ def definition_windows(passage: StructuralPassage, cfg: LocatedDefinitionQuestio
     return tuple(windows)
 
 
-
-
 class ApplicabilityCandidate(StructuralValue):
     target_id: str = Field(min_length=1)
     reference: RetainedComponentRef
@@ -1054,7 +1052,3 @@ def applicability_assessment(
             "premises; independent support unassessed."
         ),
     )
-
-
-
-

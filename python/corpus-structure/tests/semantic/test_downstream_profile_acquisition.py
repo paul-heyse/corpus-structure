@@ -55,8 +55,11 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     manifest["root"] = "core"
     manifest["schemas"][0]["name"] = "core"
     manifest["primary_profile"].update(
-        learned_selections={provider: provider + ".json" for provider in ("maverick", "dipo", "d1", "gliner")},
-        math="math.yaml", downstream=True,
+        learned_selections={
+            provider: provider + ".json" for provider in ("maverick", "dipo", "d1", "gliner")
+        },
+        math="math.yaml",
+        downstream=True,
     )
     _write_manifest(root, manifest)
 
@@ -72,19 +75,34 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     assert captured is not None and captured[1] is not None
     sources = captured[1]
     expected = {
-        "segment.sentences/source-native", "segment.sentences/canonical-projection",
-        "text.hanlp_native/source-native", "text.declaration_syntax/source-native",
-        "text.maverick/source-native", "text.dipo/source-native", "text.d1_source/source-native",
-        "text.d1_candidates/source-native", "text.gliner_cues/source-native",
-        "text.gliner_function/source-native", "text.gliner_definitions/source-native",
-        "extract.math/declared", "normalize.formula/declared", "resolve.symbol_scope/declared",
-        "analyze.math/lexical", "analyze.math/contextual",
-        "structure.predicate_evidence/declared", "structure.scoped_relations/declared",
-        "structure.artifact_identity/declared", "structure.definition_declaration_components/declared",
-        "structure.definition_named_components/declared", "structure.definition_components/declared",
-        "structure.definition_applicability/declared", "structure.dossier/declared",
-        "structure.compare/declared", "structure.condition_qualification/declared",
-        "structure.clause_classification/declared", "retrieve.contextual/declared",
+        "segment.sentences/source-native",
+        "segment.sentences/canonical-projection",
+        "text.hanlp_native/source-native",
+        "text.declaration_syntax/source-native",
+        "text.maverick/source-native",
+        "text.dipo/source-native",
+        "text.d1_source/source-native",
+        "text.d1_candidates/source-native",
+        "text.gliner_cues/source-native",
+        "text.gliner_function/source-native",
+        "text.gliner_definitions/source-native",
+        "extract.math/declared",
+        "normalize.formula/declared",
+        "resolve.symbol_scope/declared",
+        "analyze.math/lexical",
+        "analyze.math/contextual",
+        "structure.predicate_evidence/declared",
+        "structure.scoped_relations/declared",
+        "structure.artifact_identity/declared",
+        "structure.definition_declaration_components/declared",
+        "structure.definition_named_components/declared",
+        "structure.definition_components/declared",
+        "structure.definition_applicability/declared",
+        "structure.dossier/declared",
+        "structure.compare/declared",
+        "structure.condition_qualification/declared",
+        "structure.clause_classification/declared",
+        "retrieve.contextual/declared",
         "interpret.finite_candidates",
     }
     operations = {operation.semantic_id: operation for operation in model.operations}
@@ -92,8 +110,14 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     for identity in sorted(expected):
         assert operations[identity].capabilities.prepared_factory is not None, identity
         assert callable(resolve_prepared_factory(model, sources, identity)), identity
-    incomplete = [(item.root, [(unknown.location, unknown.reason) for unknown in item.unknowns
-                              if unknown.required]) for item in model.implementation_slices if not item.complete]
+    incomplete = [
+        (
+            item.root,
+            [(unknown.location, unknown.reason) for unknown in item.unknowns if unknown.required],
+        )
+        for item in model.implementation_slices
+        if not item.complete
+    ]
     assert not incomplete, incomplete
     assert preparation.version == "semantic-2" and prepared.execution_model_id is None
 
@@ -107,12 +131,25 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         assert role.support.identity_requirements == ("episode",)
     witnesses = {witness.input_role: witness for witness in components.output_witnesses}
     assert set(witnesses) == {"source", "candidates"}
-    exact_fields = {"product", "reference", "kind_contract", "project_id", "subject", "original_source", "analyzed_scope"}
+    exact_fields = {
+        "product",
+        "reference",
+        "kind_contract",
+        "project_id",
+        "subject",
+        "original_source",
+        "analyzed_scope",
+    }
     for role, witness in witnesses.items():
         assert {comparison.input.field for comparison in witness.comparisons} == exact_fields
         assert all(comparison.input.role == role for comparison in witness.comparisons)
-    custody = json.loads(next(artifact.content for artifact in sources.boundary_contracts
-                             if artifact.name == "learned/execution-custody"))
+    custody = json.loads(
+        next(
+            artifact.content
+            for artifact in sources.boundary_contracts
+            if artifact.name == "learned/execution-custody"
+        )
+    )
     assert set(custody["selections"]) == {"maverick", "dipo", "d1", "gliner"}
     assert custody["selections"]["gliner"]["profile"]["device"] == "cuda"
 
@@ -122,18 +159,30 @@ def _optional_inputs(root):
     assets = root / "literal-assets"
     assets.mkdir()
     artifact_hashes = []
-    for name in ("config.json", "encoder_config/config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json"):
+    for name in (
+        "config.json",
+        "encoder_config/config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json",
+    ):
         path = assets / name
         path.parent.mkdir(exist_ok=True)
         content = canonical_bytes({"controlled-acquisition-file": name})
         path.write_bytes(content)
         artifact_hashes.append((name, sha256(content).hexdigest()))
-    config = M1Config(snapshot=assets, checkpoint="controlled-acquisition", revision="a" * 40,
-                      artifact_hashes=tuple(artifact_hashes))
+    config = M1Config(
+        snapshot=assets,
+        checkpoint="controlled-acquisition",
+        revision="a" * 40,
+        artifact_hashes=tuple(artifact_hashes),
+    )
     frozen = gliner_selection(config.profile(), {"controlled": "acquisition-only"})
     config = config.model_copy(update={"native_execution_profile": frozen.native.wire})
     (root / "m1.yaml").write_text(yaml.safe_dump(config.model_dump(mode="json")))
-    (root / "records.yaml").write_text("id: urn:controlled-records\nname: controlled_records\nclasses: {ControlledRecord: {}}\n")
+    (root / "records.yaml").write_text(
+        "id: urn:controlled-records\nname: controlled_records\nclasses: {ControlledRecord: {}}\n"
+    )
     encoder = root / "encoder-assets"
     encoder.mkdir()
     for name in ("config.json", "modules.json"):
@@ -142,14 +191,19 @@ def _optional_inputs(root):
     (root / "encoder.yaml").write_text(yaml.safe_dump(asdict(profile)))
     manifest = _manifest(root)
     manifest["primary_profile"].update(
-        m1=dict(configuration="m1.yaml", schema_root="controlled_records",
-                schemas=[dict(name="controlled_records", path="records.yaml")]),
+        m1=dict(
+            configuration="m1.yaml",
+            schema_root="controlled_records",
+            schemas=[dict(name="controlled_records", path="records.yaml")],
+        ),
         contextual_encoder=dict(profile="encoder.yaml", model_path="encoder-assets"),
     )
     _write_manifest(root, manifest)
 
 
-def test_optional_literal_and_encoder_acquisition_retains_exact_supplied_files(tmp_path, monkeypatch):
+def test_optional_literal_and_encoder_acquisition_retains_exact_supplied_files(
+    tmp_path, monkeypatch
+):
     from corpus_structure.semantic import primary_operations
 
     root = primary_profile_inputs(tmp_path)
@@ -158,8 +212,11 @@ def test_optional_literal_and_encoder_acquisition_retains_exact_supplied_files(t
 
     def capture(bundle, **arguments):
         seen.append(arguments)
-        return SimpleNamespace(bundle=bundle, dependencies=ResolvedDependencies(),
-                               profile=PreparationProfile(version="semantic-2"))
+        return SimpleNamespace(
+            bundle=bundle,
+            dependencies=ResolvedDependencies(),
+            profile=PreparationProfile(version="semantic-2"),
+        )
 
     monkeypatch.setattr(primary_operations, "primary_operation_inputs", capture)
     acquired = acquire_data_operation_inputs(root, "target.yaml")
@@ -172,15 +229,19 @@ def test_optional_literal_and_encoder_acquisition_retains_exact_supplied_files(t
     assert arguments["record_schemas"].sources[0].content == files["records.yaml"]
     selection = arguments["contextual_encoder"]
     assert selection.model_path == root / "encoder-assets"
-    assert dict(selection.artifacts) == {name: sha256(b"{}").hexdigest()
-                                       for name in ("config.json", "modules.json")}
+    assert dict(selection.artifacts) == {
+        name: sha256(b"{}").hexdigest() for name in ("config.json", "modules.json")
+    }
 
 
-@pytest.mark.parametrize(("change", "reason"), [
-    ("unfrozen-literal", "captured native execution profile"),
-    ("duplicate-record-schema", "unique named schemas"),
-    ("missing-encoder-modules", "actual model/module configuration"),
-])
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ("unfrozen-literal", "captured native execution profile"),
+        ("duplicate-record-schema", "unique named schemas"),
+        ("missing-encoder-modules", "actual model/module configuration"),
+    ],
+)
 def test_optional_acquisition_refuses_incomplete_explicit_custody(tmp_path, change, reason):
     root = primary_profile_inputs(tmp_path)
     _optional_inputs(root)

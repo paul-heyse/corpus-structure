@@ -36,8 +36,8 @@ from corpus_structure.semantic.structural_products import (
     ComparisonMemberDecision,
     ComparisonProduct,
     DeclaredStructuralProductReport,
-    DimensionComparison,
     Dimension,
+    DimensionComparison,
     DossierComparisonBinding,
     DossierComparisonSelection,
     DossierMember,
@@ -88,8 +88,7 @@ def _target_source(source):
 
 def _succession(left, right, *, sources, primary_layers, primary_readings=None):
     if (
-        (primary_layers is None
-        and not primary_readings)
+        (primary_layers is None and not primary_readings)
         or not left.effective_version
         or not right.effective_version
     ):
@@ -719,17 +718,21 @@ def read_retained_clause(
         frame_component.get("kind") != "predicate_frame"
         or frame["pin"] != pin
         or not source_matches
-        or (not target
-        and any(
-            part.get("scope") != passage.passage_id
-            or part.get("effective_version") != passage.effective_version
-            for part in (component, frame_component)
-        ))
-        or (target
-        and (
-            component.get("scope") != frame_component.get("scope")
-            or component.get("effective_version") != frame_component.get("effective_version")
-        ))
+        or (
+            not target
+            and any(
+                part.get("scope") != passage.passage_id
+                or part.get("effective_version") != passage.effective_version
+                for part in (component, frame_component)
+            )
+        )
+        or (
+            target
+            and (
+                component.get("scope") != frame_component.get("scope")
+                or component.get("effective_version") != frame_component.get("effective_version")
+            )
+        )
     ):
         raise ValueError("retained frame differs from exact selected passage")
 
@@ -804,7 +807,10 @@ def read_retained_clause(
                 row["contribution_id"],
                 qualifier.get("condition"),
             )
-    context_fields: tuple[tuple[Dimension, str | None], ...] = (("parent", passage.parent), ("version", passage.effective_version))
+    context_fields: tuple[tuple[Dimension, str | None], ...] = (
+        ("parent", passage.parent),
+        ("version", passage.effective_version),
+    )
     for dimension, value in context_fields:
         if value is not None:
             members[dimension].append(
@@ -2131,8 +2137,7 @@ def condition_qualification(inputs, attachment, retained):
         or component["question"] != "source_predicate_interpretation"
         or version != "6"
         or relation_kind not in {"condition", "assumption"}
-        or (not target
-        and component["scope"] != inputs.scope)
+        or (not target and component["scope"] != inputs.scope)
         or tuple((e["role"], e["contribution_id"]) for e in relation["endpoints"])
         != (("qualifier", qualifier_id), ("host", host_id))
     ):

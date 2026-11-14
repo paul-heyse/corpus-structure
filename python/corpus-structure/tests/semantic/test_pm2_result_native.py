@@ -16,8 +16,6 @@ from corpus_structure.methods.native_host_clients import HostedPM2
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, SourceMapSegment
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from semantic.retained_pm2_fixture import retain_pm2_fixture
-from semantic.retained_pm2_fixture import retained_interpretation_dependencies
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.identity import canonical_bytes
@@ -57,6 +55,7 @@ from semantic.native_record_fixtures import private_source as private_source
 from semantic.native_record_fixtures import (
     private_source_with_originals as private_source_with_originals,
 )
+from semantic.retained_pm2_fixture import retain_pm2_fixture, retained_interpretation_dependencies
 
 SOURCE_PATH = "/source"
 

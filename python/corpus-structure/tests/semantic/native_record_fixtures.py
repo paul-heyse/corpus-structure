@@ -62,9 +62,9 @@ from corpus_structure.semantic.operations import (
     claim_tasks,
     complete_task,
     complete_unit_result,
-    prepare_unit_completion,
     create_run,
     create_task,
+    prepare_unit_completion,
     read_original,
     record_method,
     register_document,
@@ -236,11 +236,18 @@ class RecordSourceRecipe:
             raise ValueError(f"unknown record composition: {self.composition}")
         if self.record_method not in {"records", "policy-candidates"}:
             raise ValueError(f"unknown record method: {self.record_method}")
-        for name in ("additional_methods", "sibling_captions", "sibling_references", "sibling_originals"):
+        for name in (
+            "additional_methods",
+            "sibling_captions",
+            "sibling_references",
+            "sibling_originals",
+        ):
             value = getattr(self, name)
             if not isinstance(value, tuple) or not all(isinstance(item, str) for item in value):
                 raise TypeError(f"{name} must be a tuple of strings")
-        if self.sibling_originals and len(self.sibling_originals) != len(self.sibling_captions) + len(self.sibling_references):
+        if self.sibling_originals and len(self.sibling_originals) != len(
+            self.sibling_captions
+        ) + len(self.sibling_references):
             raise ValueError("formula originals require the exact authored sibling text population")
 
     @property
@@ -1119,9 +1126,17 @@ def complete(case, conn, records):
     )
 
     assert not completion.source_views
-    return complete_task(conn, task_id=completion.task_id, attempt=completion.attempt,
-        holder=completion.holder, prepared=completion.prepared, observations=completion.rows,
-        outcome=completion.outcome, error=completion.error, envelope=completion.envelope)
+    return complete_task(
+        conn,
+        task_id=completion.task_id,
+        attempt=completion.attempt,
+        holder=completion.holder,
+        prepared=completion.prepared,
+        observations=completion.rows,
+        outcome=completion.outcome,
+        error=completion.error,
+        envelope=completion.envelope,
+    )
 
 
 def bypass(case, conn, records):
@@ -1273,9 +1288,17 @@ def complete_contributions(case, conn, result):
     )
 
     assert not completion.source_views
-    return complete_task(conn, task_id=completion.task_id, attempt=completion.attempt,
-        holder=completion.holder, prepared=completion.prepared, observations=completion.rows,
-        outcome=completion.outcome, error=completion.error, envelope=completion.envelope)
+    return complete_task(
+        conn,
+        task_id=completion.task_id,
+        attempt=completion.attempt,
+        holder=completion.holder,
+        prepared=completion.prepared,
+        observations=completion.rows,
+        outcome=completion.outcome,
+        error=completion.error,
+        envelope=completion.envelope,
+    )
 
 
 def contribution_envelope(case, result):

@@ -21,8 +21,8 @@ import json
 import math
 import re
 import unicodedata
-from decimal import Decimal
 from collections.abc import Mapping
+from decimal import Decimal
 from typing import Any
 
 KEY_HEX_DIGITS = 32

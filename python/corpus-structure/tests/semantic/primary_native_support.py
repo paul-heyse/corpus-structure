@@ -7,7 +7,11 @@ from sqlalchemy import select
 from corpus_structure.core.vocab import Stage
 from corpus_structure.semantic.characterization_store import read_inventory
 from corpus_structure.semantic.metadata import table
-from semantic.retained_primary_fixture import SealedConstructionFixture, SealedFormalFixture, SealedNativeFixture
+from semantic.retained_primary_fixture import (
+    SealedConstructionFixture,
+    SealedFormalFixture,
+    SealedNativeFixture,
+)
 
 
 def stage_primary_layers(case, run, sources):
@@ -73,16 +77,24 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     from logging import getLogger
     from pathlib import Path
     from types import SimpleNamespace
-    from corpus_structure.core.method import MethodContext, MethodSettings, UnitView
-    from corpus_structure.core.canonical import canonical_numbers
-    from corpus_structure.core.evidence import config_key
-    from corpus_structure.semantic.operations import (
-        BoundReader, claim_tasks, complete_unit_result, create_task, record_method,
-    )
-    from corpus_structure.semantic.product_reference import ProductReference
+
     from sqlalchemy import text
 
-    if not isinstance(method, (SealedNativeFixture, SealedFormalFixture, SealedConstructionFixture)):
+    from corpus_structure.core.canonical import canonical_numbers
+    from corpus_structure.core.evidence import config_key
+    from corpus_structure.core.method import MethodContext, MethodSettings, UnitView
+    from corpus_structure.semantic.operations import (
+        BoundReader,
+        claim_tasks,
+        complete_unit_result,
+        create_task,
+        record_method,
+    )
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    if not isinstance(
+        method, (SealedNativeFixture, SealedFormalFixture, SealedConstructionFixture)
+    ):
         raise TypeError("historical primary fixture requires an explicit retained primary family")
     reader = BoundReader(conn, run, prepared)
     identities = params["characterization_source_scope"]["source_view_ids"]
@@ -118,11 +130,15 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     )
     assert all(isinstance(value, str) and value for value in operation.values())
     frozen_operation = {key: str(value) for key, value in operation.items()}
-    reader.characterization_selection = tuple(ProductReference(**value) for value in params.get("characterization_layers", ()))
+    reader.characterization_selection = tuple(
+        ProductReference(**value) for value in params.get("characterization_layers", ())
+    )
     context = MethodContext(
-        run=run_view, reader=reader,
+        run=run_view,
+        reader=reader,
         settings=MethodSettings(data_dir=Path("."), model_cache=Path(".")),
-        logger=getLogger("test-primary-publication"), check_active=lambda: None,
+        logger=getLogger("test-primary-publication"),
+        check_active=lambda: None,
         characterization_operation=lambda _ref: frozen_operation,
     )
     units = (UnitView(ref, run_view, document_id=ref.unit_id),)
@@ -145,6 +161,7 @@ def publish_primary_fixture(conn, run, prepared, method, params):
 def publish_primary_layers(conn, run, prepared, identities, *, formal=False):
     """Run real primary producers and publish their products under owned claims."""
     from pydantic import BaseModel
+
     from corpus_structure.core.method import Method
     from corpus_structure.semantic.operations import BoundReader
 

@@ -20,8 +20,10 @@ from corpus_structure.semantic.operations import OperationBinding
 from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.witnessed_scenario_support import (
-    completed_metadata, completed_relationship_case,
-    _begin_witnessed_run, _retain_witnessed_result,
+    _begin_witnessed_run,
+    _retain_witnessed_result,
+    completed_metadata,
+    completed_relationship_case,
 )
 
 
@@ -325,15 +327,24 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
     from semantic.sealed_definition_fixture import applicability_descriptor, applicability_result
 
     app_method = applicability_descriptor()
-    app_run, bound = _begin_witnessed_run(
-        case, OperationBinding(case.prepared.release_id, "wce-links", linked_revision, b"{}"),
-        ((app_method, app_cfg),), selected_sources=app_inputs.sources,
+    app_run, _bound = _begin_witnessed_run(
+        case,
+        OperationBinding(case.prepared.release_id, "wce-links", linked_revision, b"{}"),
+        ((app_method, app_cfg),),
+        selected_sources=app_inputs.sources,
     )
-    unit = UnitRef(TaskUnitType.RUN,
-        unit_key="definition-applicability:" + app_inputs.identity + ":literal")
-    app_result = applicability_result(app_cfg, unit, component=completed.component,
-        component_reference=completed.reference, relationship_reference=link_ref,
-        decision=decision, edge=edge)
+    unit = UnitRef(
+        TaskUnitType.RUN, unit_key="definition-applicability:" + app_inputs.identity + ":literal"
+    )
+    app_result = applicability_result(
+        app_cfg,
+        unit,
+        component=completed.component,
+        component_reference=completed.reference,
+        relationship_reference=link_ref,
+        decision=decision,
+        edge=edge,
+    )
     _retain_witnessed_result(case, app_run, app_method, app_cfg, app_result, stage="assemble")
     with case.writer.connect() as conn:
         app_body = conn.execute(

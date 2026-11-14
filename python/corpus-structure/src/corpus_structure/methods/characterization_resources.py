@@ -1490,5 +1490,3 @@ def selections_for_characterization(options, settings):
             if runtime is not None:
                 selected.append(gliner_selection(profile, runtime))
     return tuple({value.identity: value for value in selected}.values())
-
-

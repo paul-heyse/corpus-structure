@@ -2,7 +2,9 @@
 
 from types import SimpleNamespace
 from typing import Any, cast
+
 import pytest
+
 from corpus_structure.core.method import SourceViewRef
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -10,8 +12,8 @@ from corpus_structure.semantic.product_reference import ProductReference
 def test_standalone_source_view_unit_uses_bounded_inputs_and_release_affinity(monkeypatch):
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.semantic.retained_agent_packets import _unit
     from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.semantic.retained_agent_packets import _unit
 
     prepared = SimpleNamespace(release_id="release")
     reference = SourceViewRef(

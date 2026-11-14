@@ -20,10 +20,13 @@ def test_pdf_recipe_has_no_implicit_conversion_deadline():
 
 def test_retained_native_configuration_preserves_domain_definition():
     import yaml
+
     from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
     from corpus_structure.semantic.product_reference import ProductReference
 
-    domain = yaml.safe_load((Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text())
+    domain = yaml.safe_load(
+        (Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text()
+    )
     values = domain["configs"]["ingest.pdf_integrated"]["default"]
     original = PdfIntegratedIngestConfig.model_validate(values)
     pin = ProductReference(17, "organized", "a" * 64)

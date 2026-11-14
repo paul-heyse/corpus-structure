@@ -382,8 +382,6 @@ def test_analytical_gliner_borrows_frozen_population_without_new_runtime_or_cust
     assert declarations == [frozen]
 
 
-
-
 def test_spacy_placement_permits_only_native_upper_cpu_arrays():
     from types import SimpleNamespace
 

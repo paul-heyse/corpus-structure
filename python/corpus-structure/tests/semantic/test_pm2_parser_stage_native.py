@@ -71,6 +71,7 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
         ),
     ).sources
     from types import SimpleNamespace
+
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.operations import binding_of, create_run, start_run
@@ -79,24 +80,45 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
 
     # Explicit historical records exercise retained query/export meaning. They do
     # not rerun eligibility, select a provider or represent current demand work.
-    intents = [dict(source_view_id=case.other_view, extent=[0, len(parser_samples[0])],
-        question="pm2.hanlp.frames", operation_version="1", disposition=disposition,
-        reason=reason) for disposition, reason in (
+    intents = [
+        dict(
+            source_view_id=case.other_view,
+            extent=[0, len(parser_samples[0])],
+            question="pm2.hanlp.frames",
+            operation_version="1",
+            disposition=disposition,
+            reason=reason,
+        )
+        for disposition, reason in (
             ("ineligible", "unsupported language: fr"),
             ("unscheduled", "explicit authored historical scope was not scheduled"),
-        )]
+        )
+    ]
     with case.writer.begin() as conn:
-        run = create_run(conn, project_id=case.project_id, binding=binding_of(conn, case.run),
-            kind="slice", options={"pm2_scope_intents": intents},
-            code_commit="sealed-pm2-worklist-fixture", prepared=case.prepared)
+        run = create_run(
+            conn,
+            project_id=case.project_id,
+            binding=binding_of(conn, case.run),
+            kind="slice",
+            options={"pm2_scope_intents": intents},
+            code_commit="sealed-pm2-worklist-fixture",
+            prepared=case.prepared,
+        )
         start_run(conn, run, prepared=case.prepared)
-        select_source_view(conn, run_id=run, source_run_id=case.run,
-            source_view_id=SourceViewId(case.other_view), projection_context=case.prepared)
+        select_source_view(
+            conn,
+            run_id=run,
+            source_run_id=case.run,
+            source_view_id=SourceViewId(case.other_view),
+            projection_context=case.prepared,
+        )
     finalize_bound_run(case.writer, run, "sealed-unattempted-worklist")
     metadata, _, _ = completed_metadata(case, run)
     with case.writer.connect() as conn:
         coverage = scope_coverage(conn, run, intents)
-    report = SimpleNamespace(run_id=run, cut_id=metadata["cut_id"], tasks=(), scope_coverage=coverage)
+    report = SimpleNamespace(
+        run_id=run, cut_id=metadata["cut_id"], tasks=(), scope_coverage=coverage
+    )
     assert not report.tasks
     with read_snapshot(case.writer) as conn:
         progress = bound_status(conn, report.run_id).run

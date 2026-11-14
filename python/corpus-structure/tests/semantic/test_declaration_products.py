@@ -511,7 +511,7 @@ def test_declared_applicability_refuses_carrier_meaning_usage_or_edge_substituti
     else:
         relationship = relationship.model_copy(update={"edge_id": "edge:other"})
     with pytest.raises(
-        ValueError, match="component reference|meaning|physical occurrence|relationship edge"
+        ValueError, match=r"component reference|meaning|physical occurrence|relationship edge"
     ):
         selected_definition_applicability(
             inputs, "usage", report, component, relationship, binding, usage_frame=frame

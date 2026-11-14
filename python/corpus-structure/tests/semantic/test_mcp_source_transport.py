@@ -7,16 +7,12 @@ import anyio
 import pytest
 from fastmcp import Client
 from mcp.types import CallToolResult, TextContent
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 
-from corpus_structure.intervene import semantic_server, service
 from corpus_structure.intervene.semantic_server import (
     RetainedReaderBinding,
     build_retained_reader_server,
 )
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.proposals import ProposalIssue
-from corpus_structure.semantic.query import ReadLimit
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
 from corpus_structure.serve.pdf_visual_evidence import (
     VisualEvidencePin,
@@ -127,7 +123,9 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
         return _native_request(max_bytes=budget)
 
     async def journey():
-        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)) as client:
+        async with Client(
+            build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)
+        ) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             schema = tools[name].output_schema
             assert schema is not None and schema["type"] == "object"
@@ -172,8 +170,6 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
         engine.dispose()
 
 
-
-
 def test_tiny_source_transport_budget_is_control_error(monkeypatch):
     engine = create_engine("sqlite://")
     monkeypatch.setattr(
@@ -187,7 +183,9 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
     )
 
     async def journey():
-        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)) as client:
+        async with Client(
+            build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)
+        ) as client:
             result = await client.call_tool(
                 "inspect_source",
                 {"request": _native_request(max_bytes=1).model_dump(mode="json")},
@@ -201,10 +199,6 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
         anyio.run(journey)
     finally:
         engine.dispose()
-
-
-
-
 
 
 @pytest.mark.parametrize("large_optional_result", [False, True])
@@ -250,7 +244,9 @@ def test_registered_render_exact_wire_and_retained_reference_refusals(
         return dict(run_id=1, source_view_id=4, pointer="#/texts/0", max_bytes=budget)
 
     async def journey():
-        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)) as client:
+        async with Client(
+            build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)
+        ) as client:
             delivered = await client.call_tool("render_source_region", arguments(8192))
             assert not delivered.is_error and delivered.structured_content is not None
             assert delivered.structured_content["inline_image"]["disposition"] == "included"

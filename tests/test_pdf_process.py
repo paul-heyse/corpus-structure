@@ -82,19 +82,24 @@ def test_successful_empty_native_operations_reuse_one_serial_child():
 
 def test_provider_cleanup_attempts_all_owned_lanes_after_one_teardown_failure():
     from types import SimpleNamespace
+
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.methods.characterization_resources import ProviderExecution
     from corpus_structure.semantic.cpu_execution import OwnedByteBudget
 
     closed = []
+
     def fail():
         closed.append("first")
         raise RuntimeError("explicit teardown failure")
+
     def succeed():
         closed.append("second")
+
     policy = CharacterizationExecutionPolicy()
-    owner = ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy,
-        native_group=SimpleNamespace())
+    owner = ProviderExecution(
+        OwnedByteBudget(policy.max_owned_bytes), policy, native_group=SimpleNamespace()
+    )
     owner._lanes = {"first": SimpleNamespace(close=fail), "second": SimpleNamespace(close=succeed)}
     with pytest.raises(RuntimeError, match="native invocation teardown failed") as caught:
         owner.close()
@@ -140,6 +145,7 @@ def test_failed_shutdown_retains_actual_child_handle_until_exit(tmp_path):
         bad.close()
     good.close()
     assert good.closed
+
     def current_pid(worker: PdfWorker) -> int | None:
         return worker.pid
 

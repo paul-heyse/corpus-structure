@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from semantic.historical_agent_support import HistoricalAgentPublication
-
 import hashlib
 import json
 from collections.abc import Iterator
@@ -22,6 +20,7 @@ from corpus_structure.semantic.operation_results import RunId, TaskId
 from corpus_structure.semantic.query_compatibility import acquire_query_inputs
 from corpus_structure.semantic.types import PreparedRelease
 from native_scenario_seeds import ScenarioSeed, SeedClone
+from semantic.historical_agent_support import HistoricalAgentPublication
 
 from .agent_scenarios import build_resubmission_case
 
@@ -66,16 +65,20 @@ def build_completed_serving_case(
             }
             for item, name in [("name1", "Alice"), ("name2", "Alice"), ("name3", "Bob")]
         ]
-        result = authored_fixture.publish({
-                    "unit_ref": locator,
-                    "entities": [
-                        {"id": "person", "class_iri": "https://example.org/Person"},
-                        {"id": "person2", "class_iri": "https://example.org/Person"},
-                    ],
-                    "claims": claims,
-                })
+        result = authored_fixture.publish(
+            {
+                "unit_ref": locator,
+                "entities": [
+                    {"id": "person", "class_iri": "https://example.org/Person"},
+                    {"id": "person2", "class_iri": "https://example.org/Person"},
+                ],
+                "claims": claims,
+            }
+        )
         assert result is not None
-        assert result.disposition == 'completed_accepted', json.dumps(result.model_dump(mode="json"), sort_keys=True)
+        assert result.disposition == "completed_accepted", json.dumps(
+            result.model_dump(mode="json"), sort_keys=True
+        )
 
     submit()
     if complete_coverage:

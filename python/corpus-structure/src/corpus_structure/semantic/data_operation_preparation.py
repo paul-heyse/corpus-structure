@@ -301,35 +301,56 @@ def _acquire_primary_profile(
         )
     if profile.m1 is not None:
         from corpus_structure.methods.m1_source import M1Config
+
         selected_m1 = M1Config.model_validate(yaml.safe_load(read(profile.m1.configuration)))
         if selected_m1.native_execution_profile is None:
-            raise ValueError("literal M1 acquisition requires its captured native execution profile")
-        selected_m1 = selected_m1.model_copy(update={"snapshot": location(str(selected_m1.snapshot))})
+            raise ValueError(
+                "literal M1 acquisition requires its captured native execution profile"
+            )
+        selected_m1 = selected_m1.model_copy(
+            update={"snapshot": location(str(selected_m1.snapshot))}
+        )
         if not selected_m1.snapshot.is_dir():
             raise ValueError("literal M1 model snapshot is unavailable")
         schemas = tuple(SourceArtifact(item.name, read(item.path)) for item in profile.m1.schemas)
-        if len({item.name for item in schemas}) != len(schemas) or profile.m1.schema_root not in {item.name for item in schemas}:
+        if len({item.name for item in schemas}) != len(schemas) or profile.m1.schema_root not in {
+            item.name for item in schemas
+        }:
             raise ValueError("literal M1 requires unique named schemas and its declared root")
-        arguments.update(m1_configuration=selected_m1, record_schemas=SourceBundle(profile.m1.schema_root, schemas))
+        arguments.update(
+            m1_configuration=selected_m1,
+            record_schemas=SourceBundle(profile.m1.schema_root, schemas),
+        )
     if profile.contextual_encoder is not None:
         from pydantic import TypeAdapter
 
         from corpus_structure.methods.contextual_embeddings import EncoderProfile
 
         from .contextual_encoder import ContextualEncoderSelection
-        encoder_profile = TypeAdapter(EncoderProfile).validate_json(canonical_bytes(yaml.safe_load(read(profile.contextual_encoder.profile))), strict=True)
-        arguments["contextual_encoder"] = ContextualEncoderSelection.acquire(encoder_profile, location(profile.contextual_encoder.model_path))
+
+        encoder_profile = TypeAdapter(EncoderProfile).validate_json(
+            canonical_bytes(yaml.safe_load(read(profile.contextual_encoder.profile))), strict=True
+        )
+        arguments["contextual_encoder"] = ContextualEncoderSelection.acquire(
+            encoder_profile, location(profile.contextual_encoder.model_path)
+        )
     if profile.external_protocol is not None:
         from dataclasses import fields
 
         from pydantic import TypeAdapter
 
         from .data_operation_model import ExternalExecutorContract
+
         selected = yaml.safe_load(read(profile.external_protocol))
-        if not isinstance(selected, dict) or set(selected) != {field.name for field in fields(ExternalExecutorContract)}:
-            raise ValueError("external protocol requires its exact declared actor, model, instructions and reference scope")
+        if not isinstance(selected, dict) or set(selected) != {
+            field.name for field in fields(ExternalExecutorContract)
+        }:
+            raise ValueError(
+                "external protocol requires its exact declared actor, model, instructions and reference scope"
+            )
         arguments["external_protocol"] = TypeAdapter(ExternalExecutorContract).validate_json(
-            canonical_bytes(selected), strict=True)
+            canonical_bytes(selected), strict=True
+        )
     if profile.capture is not None:
         from corpus_structure.ingest.pdf import PdfRecipe
         from corpus_structure.ingest.pdf_assets import PreparedPdfAssets

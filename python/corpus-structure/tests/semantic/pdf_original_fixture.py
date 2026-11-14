@@ -40,4 +40,3 @@ def retain_fixture_originals(engine, claimed, method, config, holder, prepared, 
                 original=original,
                 recipe_bytes=recipe,
             )
-

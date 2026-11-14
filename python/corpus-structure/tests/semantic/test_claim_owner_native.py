@@ -423,8 +423,8 @@ def test_uncertain_intent_cannot_be_suppressed_on_normal_owner_exit(
 def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
     commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
-    from semantic.pdf_original_fixture import retain_fixture_originals
     from corpus_structure.semantic import operations
+    from semantic.pdf_original_fixture import retain_fixture_originals
 
     prepared = prepare_operation_scenario(commit_db_engine, observations=True)
     method = SimpleNamespace(

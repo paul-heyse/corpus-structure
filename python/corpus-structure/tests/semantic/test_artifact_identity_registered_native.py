@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.artifact_identity import (
@@ -16,7 +17,6 @@ from corpus_structure.methods.artifact_identity import (
 )
 from corpus_structure.methods.scoped_relations import SourceWorkBinding
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.semantic.artifact_identity import (
     ArtifactDeclaredRelationship,
     ArtifactIdentityProduct,
@@ -49,7 +49,10 @@ from semantic.native_record_fixtures import (
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.primary_native_support import publish_primary_layers
 from semantic.witnessed_scenario_support import (
-    completed_metadata, _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+    _begin_witnessed_run,
+    _retain_witnessed_result,
+    _witnessed_reader,
+    completed_metadata,
 )
 
 EDITIONS = (
@@ -197,14 +200,18 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
     def run():
         run_id, bound = _begin_witnessed_run(
             case,
-            OperationBinding(case.prepared.release_id, "artifact-abi-native-source", revision, b"{}"),
-            ((method, cfg),), selected_sources=inputs.sources,
+            OperationBinding(
+                case.prepared.release_id, "artifact-abi-native-source", revision, b"{}"
+            ),
+            ((method, cfg),),
+            selected_sources=inputs.sources,
         )
         with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
             unit = UnitView(UnitRef(TaskUnitType.RUN, unit_key=inputs.identity), ctx.run)
             (result,) = method.run((unit,), cfg, ctx)
-        _retain_witnessed_result(case, run_id, method, cfg, result,
-                                 stage="assemble", admin=record_source_admin)
+        _retain_witnessed_result(
+            case, run_id, method, cfg, result, stage="assemble", admin=record_source_admin
+        )
         return SimpleNamespace(run_id=run_id)
 
     success = run()

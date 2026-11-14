@@ -279,20 +279,40 @@ def test_external_current_runtime_distrust_refuses_new_result_but_keeps_exact_re
     assert replay["receipt"] == completed["receipt"] and replay["state"] == "committed"
 
 
-def test_native_product_page_preflights_body_and_bounds_complete_envelope_without_charging_frontier(ddo_kernel):
+def test_native_product_page_preflights_body_and_bounds_complete_envelope_without_charging_frontier(
+    ddo_kernel,
+):
     demand, _, _, retained = packet(ddo_kernel)
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     fence = session.claim(retained["packet_id"])
-    session.submit(retained["packet_id"], fence, RESULT, actor_assertion="controlled-external", model_assertion=None)
+    session.submit(
+        retained["packet_id"],
+        fence,
+        RESULT,
+        actor_assertion="controlled-external",
+        model_assertion=None,
+    )
     with ddo_kernel["engine"].begin() as connection:
         native = DataOperationStorage(connection)
-        frontier = native.invoke("read_demand_result", {"demand_id": demand["demand_id"], "max_bytes": 1})
-        assert frontier["view"] == "frontier" and frontier["uses"][0]["products"][0]["body_state"] == "not_requested"
-    for bound, reason in ((1, "product page exceeds max_bytes"), (64, "page envelope exceeds max_bytes")):
+        frontier = native.invoke(
+            "read_demand_result", {"demand_id": demand["demand_id"], "max_bytes": 1}
+        )
+        assert (
+            frontier["view"] == "frontier"
+            and frontier["uses"][0]["products"][0]["body_state"] == "not_requested"
+        )
+    for bound, reason in (
+        (1, "product page exceeds max_bytes"),
+        (64, "page envelope exceeds max_bytes"),
+    ):
         with pytest.raises(DBAPIError, match=reason), ddo_kernel["engine"].begin() as connection:
-            DataOperationStorage(connection).invoke("read_demand_result", {
-                "demand_id": demand["demand_id"], "view": "products", "max_bytes": bound})
+            DataOperationStorage(connection).invoke(
+                "read_demand_result",
+                {"demand_id": demand["demand_id"], "view": "products", "max_bytes": bound},
+            )
     with ddo_kernel["engine"].begin() as connection:
-        completed = DataOperationStorage(connection).invoke("read_demand_result", {
-            "demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000})
+        completed = DataOperationStorage(connection).invoke(
+            "read_demand_result",
+            {"demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000},
+        )
     assert completed["uses"][0]["products"][0]["body"] == ["integer", "7"]

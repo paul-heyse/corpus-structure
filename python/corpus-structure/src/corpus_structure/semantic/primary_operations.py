@@ -137,7 +137,11 @@ def primary_operation_inputs(
         )
         from .declared_math_products import math_operation_declarations, math_operation_sources
 
-        collections = (*collections, math_operation_sources(math_options), math_analysis_operation_sources(math_options))
+        collections = (
+            *collections,
+            math_operation_sources(math_options),
+            math_analysis_operation_sources(math_options),
+        )
         declarations = (*declarations, math_operation_declarations(), math_analysis_declarations())
     if external_protocol is not None:
         from .external_extraction import (
@@ -145,11 +149,13 @@ def primary_operation_inputs(
             external_extraction_operation_sources,
             rich_external_declarations,
         )
+
         bundle = external_extraction_inputs(bundle, dependencies)
         collections = (*collections, external_extraction_operation_sources())
         declarations = (*declarations, rich_external_declarations(external_protocol))
         if math_options is None:
             from .declared_math_products import math_operation_declarations
+
             declarations = (*declarations, math_operation_declarations())
     if downstream:
         from .artifact_products import artifact_inputs, artifact_operation_sources
@@ -180,32 +186,51 @@ def primary_operation_inputs(
         bundle = dossier_inputs(bundle)
         bundle = finite_interpretation_inputs(bundle)
         bundle = structural_inputs(contextual_inputs(bundle))
-        collections = (*collections, predicate_operation_sources(), scoped_operation_sources(),
-            artifact_operation_sources(), definition_operation_sources(),
+        collections = (
+            *collections,
+            predicate_operation_sources(),
+            scoped_operation_sources(),
+            artifact_operation_sources(),
+            definition_operation_sources(),
             definition_component_operation_sources(include_learned=learned_selections is not None),
-            dossier_operation_sources(), finite_interpretation_operation_sources(),
-            structural_operation_sources(), contextual_operation_sources())
+            dossier_operation_sources(),
+            finite_interpretation_operation_sources(),
+            structural_operation_sources(),
+            contextual_operation_sources(),
+        )
         declarations = (*declarations, structural_operation_declarations())
         if learned_selections is not None:
             from .clause_products import clause_inputs, clause_operation_sources
+
             bundle = clause_inputs(bundle)
             collections = (*collections, clause_operation_sources())
     if m1_configuration is not None:
         from .m1_products import m1_operation_inputs, m1_operation_sources
+
         if record_schemas is None:
             raise ValueError("literal M1 acquisition requires its actual record schema bundle")
         if m1_configuration.sentences != sentence_configuration:
-            raise ValueError("literal M1 and primary sentence profiles must select the same producer")
+            raise ValueError(
+                "literal M1 and primary sentence profiles must select the same producer"
+            )
         bundle = m1_operation_inputs(bundle)
-        collections = (*collections, m1_operation_sources(m1_configuration,
-            record_schemas=record_schemas, include_dependencies=False))
+        collections = (
+            *collections,
+            m1_operation_sources(
+                m1_configuration, record_schemas=record_schemas, include_dependencies=False
+            ),
+        )
     elif record_schemas is not None:
         raise ValueError("record schemas require an explicit literal M1 configuration")
     if contextual_encoder is not None:
         from .contextual_encoder import contextual_encoder_operation_sources
         from .contextual_operations import contextual_inputs
+
         bundle = contextual_inputs(bundle)
-        collections = (*collections, contextual_encoder_operation_sources(contextual_encoder, include_dependencies=False))
+        collections = (
+            *collections,
+            contextual_encoder_operation_sources(contextual_encoder, include_dependencies=False),
+        )
     if extra_sources is not None:
         collections = (*collections, extra_sources)
     combined = combine_primary_sources(*collections)

@@ -190,17 +190,32 @@ def test_candidate_discovery_uses_active_selection_and_retains_validation_closur
 
 def test_current_d1_configuration_requires_cuda_without_cpu_fallback():
     from pydantic import ValidationError
+
     from corpus_structure.methods.native_profiles import NativeProfile
 
     assert ModelCharacterizationConfig().d1_device == "cuda"
     with pytest.raises(ValidationError, match="cuda"):
         ModelCharacterizationConfig.model_validate({"d1_device": "cpu"})
-    profile = NativeProfile(provider="d1", runtime_identity={}, artifacts={}, parameters={},
-        dtype="bfloat16", backend="d1", device="cuda")
+    profile = NativeProfile(
+        provider="d1",
+        runtime_identity={},
+        artifacts={},
+        parameters={},
+        dtype="bfloat16",
+        backend="d1",
+        device="cuda",
+    )
     assert profile.device == "cuda" and profile.dtype == "bfloat16"
     with pytest.raises(ValueError, match="numerical recipe"):
-        NativeProfile(provider="d1", runtime_identity={}, artifacts={}, parameters={},
-            dtype="float32", backend="d1", device="cuda")
+        NativeProfile(
+            provider="d1",
+            runtime_identity={},
+            artifacts={},
+            parameters={},
+            dtype="float32",
+            backend="d1",
+            device="cuda",
+        )
 
 
 def test_native_d1_cpu_refusal_precedes_model_or_asset_loading(tmp_path):
