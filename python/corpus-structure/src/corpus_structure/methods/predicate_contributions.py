@@ -832,3 +832,71 @@ def publish_predicate_evidence(
             )
         )
     return tuple(reports)
+
+
+@dataclass(frozen=True)
+class PredicateEvidence:
+    """Original predicate projection with its full inspected-operation denominator."""
+
+    contributions: tuple[dict[str, Any], ...]
+    operations: tuple[dict[str, Any], ...]
+    coordinate_texts: tuple[dict[str, Any], ...]
+
+    @property
+    def inspection_complete(self) -> bool:
+        return bool(self.operations) and all(
+            operation["outcome"] in {"succeeded", "empty"} for operation in self.operations
+        )
+
+
+def declared_predicate_evidence(
+    frame,
+    context,
+    annotations,
+    *,
+    dependency: str,
+    annotation_errors=(),
+    passages=None,
+    qualifier_preflight: QualifierPreflight | None = None,
+    check_active=lambda: None,
+) -> PredicateEvidence:
+    """Project existing admitted annotations under their real declared source pin.
+
+    The caller owns annotation restoration/profile checks and this invocation's
+    native context preparation. No source discovery, model execution, Reader or
+    publication occurs here. Unavailable inspection retains its original operation
+    outcomes and cannot become successful empty coverage.
+    """
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, record_source_pin
+
+    if (
+        not isinstance(frame, DeclaredNativeFrameSource)
+        or not isinstance(context, NativeSourceContext)
+        or context.version != 2
+        or context.primary is not frame
+    ):
+        raise ValueError("declared predicate evidence requires its exact owned source context")
+    annotations = tuple(annotations)
+    if not dependency or any(annotation.source != frame.pin for annotation in annotations):
+        raise ValueError("predicate annotations differ from their bound source product")
+    check_active()
+    value = frame.value
+    items = {item["self_ref"]: item for item in value["items"]}
+    results = predicate_results(frame, annotations, value["pieces"], items)
+    products, coordinates = [], {}
+    operations = publish_predicate_evidence(
+        frame,
+        context,
+        record_source_pin(frame),
+        dependency,
+        results,
+        tuple(annotation_errors),
+        None,
+        passages,
+        products,
+        coordinates,
+        qualifier_preflight=qualifier_preflight,
+    )
+    check_active()
+    return PredicateEvidence(tuple(products), operations, tuple(coordinates.values()))
