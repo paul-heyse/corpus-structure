@@ -32,7 +32,9 @@ _ROOT = Path(__file__).resolve().parents[1] / "model" / "semantic"
 _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 
-def native_protocol_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
+def native_protocol_sources(
+    *, physical_sources=None, linkml_types=None
+) -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_protocol import recordable_fate_sql
@@ -997,6 +999,31 @@ def admitted_data_projection(
     return tuple(projections)
 
 
+def data_operation_immutable_relations(target_metadata, physical_sources):
+    """Derive DDO trigger ownership from captured classes and approved tables."""
+    from corpus_structure.schema.physical import physical_model_documents
+
+    documents = physical_model_documents(physical_sources)
+    declaration = documents.get("data-operation-physical.yaml")
+    if declaration is None or not isinstance(declaration.get("classes"), dict):
+        raise ValueError("captured DDO physical classes must be a mapping")
+    relations = []
+    for model_class, definition in sorted(declaration["classes"].items()):
+        selected = [
+            table for table in target_metadata.tables.values()
+            if table.info.get("model_class") == model_class
+        ]
+        if len(selected) != 1:
+            raise ValueError("approved DDO physical class lacks one table: " + model_class)
+        relation = selected[0]
+        immutability = definition.get("annotations", {}).get("ph:immutability")
+        if relation.info.get("immutability") != immutability:
+            raise ValueError("approved DDO table immutability differs from captured class: " + model_class)
+        if immutability == "intrinsic":
+            relations.append(relation)
+    return tuple(relations)
+
+
 def data_operation_native_definitions(connection, *, target_metadata=None):
     """Include every kernel function in normal server-normalized candidate custody."""
     from pglast import ast
@@ -1010,7 +1037,9 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
         sources = target_metadata.info.get("physical_sources")
         types = target_metadata.info.get("physical_linkml_types")
         if not isinstance(sources, Mapping) or not sources or not isinstance(types, bytes):
-            raise ValueError("native candidate metadata lacks explicit captured physical inputs/types")
+            raise ValueError(
+                "native candidate metadata lacks explicit captured physical inputs/types"
+            )
         captured = native_protocol_sources(physical_sources=sources, linkml_types=types)
     sql = native_sql(captured)
     prepared = prepare_sql(sql, source="data-operations:forward")
@@ -1061,28 +1090,23 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
                 grants=tuple((role, "EXECUTE", False) for role in roles),
             )
         )
-    from linkml_runtime.utils.schemaview import SchemaView
+    captured_map = _captured(captured)
+    physical_sources = {
+        source.name.removeprefix("native/projection-physical/"): source.content
+        for source in captured if source.name.startswith("native/projection-physical/")
+    }
+    if target_metadata is None:
+        from corpus_structure.schema.physical import compile_physical
 
-    from .metadata import metadata
-
-    schema = SchemaView(str(_ROOT / "data-operation-physical.yaml")).schema
-    assert schema is not None
-    declared = schema.classes
-    if not isinstance(declared, dict):
-        raise ValueError("trusted data-operation physical classes must be a mapping")
-    for model_class in sorted(str(name) for name in declared):
-        relation = next(
-            table
-            for table in metadata.tables.values()
-            if table.info.get("model_class") == model_class
+        target_metadata = compile_physical(
+            physical_sources, linkml_types=captured_map["native/projection-linkml-types.yaml"]
         )
-        if relation.info.get("immutability") != "intrinsic":
-            continue
+    for relation in data_operation_immutable_relations(target_metadata, physical_sources):
         definitions.append(
             definition_from_sql(
                 connection,
                 "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
-                + relation.fullname
+                + connection.dialect.identifier_preparer.format_table(relation)
                 + " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation()",
                 source="data-operation physical immutability:forward",
                 owner="corpus_sem_publisher",
