@@ -1328,7 +1328,6 @@ def _read_analysis_implementation_inputs(
                 ("parsing/native_adapters.py", "semantic/native_adapter_contracts.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
                 ("invocation/scheduler.py", "orchestrate/semantic.py"),
-                ("invocation/automated.py", "intervene/automated.py"),
                 ("invocation/source_frames.py", "semantic/source_frames.py"),
                 ("invocation/proposals.py", "semantic/proposals.py"),
                 ("invocation/source_search.py", "serve/source_search.py"),
@@ -1960,7 +1959,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
         "invocation/scheduler.py",
-        "invocation/automated.py",
         "invocation/source_frames.py",
         "invocation/proposals.py",
         "records/records.py",

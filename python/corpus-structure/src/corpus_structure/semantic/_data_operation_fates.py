@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-PROTOCOL_SHA256 = "ca57ec5c05d9734b9735c28db7ea56fd683c5891f6adbaa9b01fae645ebb91e6"
+PROTOCOL_SHA256 = "12adc57e900aa9e7844465f5899e95f32f4d411f4ec7069e2e4d9285f35a1e69"
 
 type RecordableFate = Literal[
     "known-absent",
@@ -44,6 +44,7 @@ type VisibleFate = Literal[
     "closed",
     "awaiting-discovery",
     "awaiting-inputs",
+    "awaiting-external",
     "awaiting-population",
     "not-applicable",
     "failed",
