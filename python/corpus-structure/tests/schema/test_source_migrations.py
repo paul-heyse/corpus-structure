@@ -287,9 +287,9 @@ def context_migration(root, *, consumer="from api import old, new\ndef invoke(co
 def test_call_context_uses_explicit_qualified_owner_and_supplied_context(tmp_path):
     preview = prepare_source_migration(tmp_path, context_migration(tmp_path))
     assert preview.ready
-    assert preview.after["src/consumer.py"] == "from api import old, new\ndef invoke(context):\n    return new(context)\n"
+    assert preview.after["src/consumer.py"] == "from api import new\ndef invoke(context):\n    return new(context)\n"
     namespace = {}
-    exec(preview.after["src/consumer.py"].replace("from api import old, new", "def new(value): return value + 3"), namespace)
+    exec(preview.after["src/consumer.py"].replace("from api import new", "def new(value): return value + 3"), namespace)
     assert namespace["invoke"](7) == 10
 
 
@@ -355,3 +355,24 @@ def test_call_context_retains_exact_declaration_owned_selector_proof(tmp_path):
     assert proof.source_digest == sha256(before).hexdigest()
     assert proof.signature == "select(view, config)"
     assert "return Owner.select_hydrated(receiver, inputs)" in preview.after["src/consumer.py"]
+
+
+def test_call_context_coordinates_removed_owner_import_and_actual_caller(tmp_path, monkeypatch):
+    from types import ModuleType
+    import sys
+
+    request = context_migration(tmp_path)
+    preview = prepare_source_migration(tmp_path, request)
+    assert preview.ready
+    api = ModuleType("api")
+    exec(preview.after["src/api.py"], api.__dict__)
+    monkeypatch.setitem(sys.modules, "api", api)
+    consumer = {}
+    exec(preview.after["src/consumer.py"], consumer)
+    assert consumer["invoke"](17) == 17
+
+
+def test_call_context_refuses_owned_callable_value_escape(tmp_path):
+    request = context_migration(tmp_path, consumer="from api import old, new\ndef invoke(context):\n    callback = old\n    return old(1)\n")
+    preview = prepare_source_migration(tmp_path, request)
+    assert not preview.ready

@@ -15,9 +15,9 @@ from typing import Literal
 import libcst as cst
 from libcst.codemod import CodemodContext, ContextAwareTransformer, TransformSuccess, transform_module
 from libcst.codemod.commands.rename import RenameCommand
-from libcst.codemod.visitors import ApplyTypeAnnotationsVisitor
+from libcst.codemod.visitors import ApplyTypeAnnotationsVisitor, RemoveImportsVisitor
 from libcst.helpers import get_full_name_for_node
-from libcst.metadata import MetadataWrapper, QualifiedNameProvider, QualifiedNameSource, ScopeProvider
+from libcst.metadata import MetadataWrapper, QualifiedNameProvider, QualifiedNameSource, ScopeProvider, ParentNodeProvider
 from pydantic import BaseModel, ConfigDict
 
 
@@ -234,13 +234,34 @@ class _RestoreImports(cst.CSTTransformer):
 
 
 class _CallContextCommand(ContextAwareTransformer):
-    METADATA_DEPENDENCIES = (QualifiedNameProvider, ScopeProvider)
+    METADATA_DEPENDENCIES = (QualifiedNameProvider, ScopeProvider, ParentNodeProvider)
 
     def __init__(self, context, old, changes):
         super().__init__(context)
         self.old = old
         self.changes = changes
         self.seen = set()
+
+    def _check_reference(self, node):
+        names = self.get_metadata(QualifiedNameProvider, node, set())
+        package = self.context.full_package_name or ""
+        qualified = {resolve_name(item.name, package) if item.name.startswith(".") else item.name for item in names}
+        if self.old not in qualified:
+            return
+        parent = self.get_metadata(ParentNodeProvider, node, None)
+        if isinstance(parent, cst.Call) and parent.func is node:
+            return
+        while isinstance(parent, (cst.Attribute, cst.ImportAlias)):
+            parent = self.get_metadata(ParentNodeProvider, parent, None)
+        if isinstance(parent, (cst.Import, cst.ImportFrom)):
+            return
+        raise ValueError("owned callable escapes the finite call-context correspondence")
+
+    def visit_Name(self, node):
+        self._check_reference(node)
+
+    def visit_Attribute(self, node):
+        self._check_reference(node)
 
     def leave_Call(self, original_node, updated_node):
         names = self.get_metadata(QualifiedNameProvider, original_node.func, set())
@@ -290,10 +311,14 @@ def _prepare_call_context(parsed, source, name, context, request):
         for node in ast.walk(tree)
     ):
         raise ValueError("dynamic source consumers require explicit resolution")
+    module, _, symbol = old.rpartition(".")
+    RemoveImportsVisitor.remove_unused_import(context, module, symbol)
     command = _CallContextCommand(context, old, changes)
     result = transform_module(command, source)
     if not isinstance(result, TransformSuccess):
         raise ValueError("call-context transformation refused: " + str(result))
+    cleaned = RemoveImportsVisitor(context).transform_module(cst.parse_module(result.code))
+    result = TransformSuccess(code=cleaned.code, warning_messages=result.warning_messages)
     if command.seen != {item.before for item in changes}:
         raise ValueError("required call-context source is absent or changed")
     # Verify the declared destination resolves from the proposed consumer source.
