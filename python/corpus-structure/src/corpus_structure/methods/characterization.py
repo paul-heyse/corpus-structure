@@ -229,7 +229,7 @@ class ComposeEnrichedDocumentOperation:
                                'roles': ['products'],
                                'collection': 'sequence'},
                               {'operator': 'collection', 'roles': ['active'], 'collection': 'sequence'},
-                              {'operator': 'any',
+                              {'operator': 'or',
                                'children': [{'operator': 'equal',
                                              'operands': [{'kind': 'parameter',
                                                            'name': 'profile',
