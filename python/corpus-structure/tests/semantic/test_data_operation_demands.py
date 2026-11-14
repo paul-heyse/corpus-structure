@@ -547,8 +547,12 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
                     ],
                 }
 
+    from typing import cast
+
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
     storage = Storage()
-    DemandPlanner(compiled, storage).expand_discovery(
+    DemandPlanner(compiled, cast(DataOperationStorage, storage)).expand_discovery(
         {"demand_id": "demand", "intent": intent},
         population="children",
         product="source-population-product",

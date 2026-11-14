@@ -753,11 +753,23 @@ class PreparedCharacterizationPort(ABC):
         arguments: dict[str, Any]
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
-            arguments = dict(sources=inputs.sources,
-                products=tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in inputs.products),
-                active=tuple(DataProductReference(product.semantic_id) for product in inputs.active), profile=inputs.profile,
-                required_families=tuple(characterization_profiles(self.prepared).get("full_characterization", ())),
-                assets=_semantic_assets(self.family).digest, check_active=check_active)
+
+            arguments = dict(
+                sources=inputs.sources,
+                products=tuple(
+                    CharacterizationSnapshot(product.semantic_id, product.content)
+                    for product in inputs.products
+                ),
+                active=tuple(
+                    DataProductReference(product.semantic_id) for product in inputs.active
+                ),
+                profile=inputs.profile,
+                required_families=tuple(
+                    characterization_profiles(self.prepared).get("full_characterization", ())
+                ),
+                assets=_semantic_assets(self.family).digest,
+                check_active=check_active,
+            )
         elif isinstance(inputs, _ConstructionInputs):
             arguments = dict(
                 source=inputs.source,

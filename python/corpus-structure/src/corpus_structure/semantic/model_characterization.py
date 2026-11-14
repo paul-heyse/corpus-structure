@@ -184,7 +184,9 @@ class DeclaredModelDependency:
     payload: dict
 
 
-type ModelDependencies = Mapping[ProductReference, LayerReport] | Mapping[DataProductReference, DeclaredModelDependency]
+type ModelDependencies = (
+    Mapping[ProductReference, LayerReport] | Mapping[DataProductReference, DeclaredModelDependency]
+)
 
 
 def declared_model_dependencies(products, source):

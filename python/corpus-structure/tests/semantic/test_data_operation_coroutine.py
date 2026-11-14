@@ -97,6 +97,7 @@ def test_original_cpu_coroutine_typed_exchange_and_domain_refusal(tmp_path, monk
         assert result.total == (0 if refuse else 30)
         assert result.disposition == ("refused" if refuse else "complete")
         assert result.pid != os.getpid() and result.pid == receipt.execution_receipt.pid
+        assert cpu._pool_ownership is not None
         assert len(cpu._pool_ownership.processes) == 1
     finally:
         cpu.close()
@@ -143,6 +144,7 @@ def test_cpu_coroutine_refuses_untyped_reply_and_cancels_hung_continuation(
                 ),
                 active,
             )
+        assert cpu._pool_ownership is not None
         processes = cpu._pool_ownership.processes
     finally:
         cpu.close()

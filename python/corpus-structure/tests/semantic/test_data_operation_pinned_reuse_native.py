@@ -26,6 +26,7 @@ CONSUMER = "urn:explicit-retained-consumer"
 
 
 def _recipe():
+    assert STORAGE.declaration_content is not None
     declarations = json.loads(STORAGE.declaration_content)
     producer = next(op for op in declarations["operations"] if op["id"] == PRODUCER)
     consumer = json.loads(json.dumps(producer))

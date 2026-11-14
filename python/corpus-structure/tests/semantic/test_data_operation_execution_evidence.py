@@ -39,7 +39,9 @@ def test_provider_scatter_receipt_preserves_real_cohort_and_exact_logical_fence(
     from corpus_structure.methods.native_host import payload_digest
 
     fence = dict(request_id="request:source", generation=2, task_id=3, attempt=4, holder="owner")
-    member = {name: fence[name] for name in ("request_id", "generation", "task_id", "attempt")}
+    member: dict[str, Any] = {
+        name: fence[name] for name in ("request_id", "generation", "task_id", "attempt")
+    }
     if foreign in member:
         member[foreign] = "request:other" if foreign == "request_id" else 99
     logical = LogicalProviderMember(
