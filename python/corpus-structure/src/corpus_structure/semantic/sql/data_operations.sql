@@ -1548,7 +1548,7 @@ BEGIN
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) JOIN sem.data_kind_contract kind ON kind.kind_contract=input_role.value->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
  RETURN QUERY
  WITH declared_pins AS MATERIALIZED (
-  SELECT entry FROM sem.data_operation_definition consumer
+  SELECT entry AS entry FROM sem.data_operation_definition consumer
   CROSS JOIN LATERAL jsonb_array_elements(consumer.input_roles) roledef
   CROSS JOIN LATERAL jsonb_array_elements(coalesce(d.selection->'source_sets'->(roledef->'support'->>'source_set'),'[]')) entry
   WHERE consumer.release_id=d.release_id AND consumer.operation_id=p_operation
