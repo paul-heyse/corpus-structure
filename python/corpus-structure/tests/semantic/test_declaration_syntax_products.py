@@ -28,3 +28,11 @@ def test_declaration_syntax_is_distinct_from_source_grammar_and_uses_actual_cano
     assert not model.operation("text.constructions/source-native").potential_dependencies
     assert next(role for role in operation.roles if role.direction == "output").kind.endswith("/DdoDeclarationSyntaxProduct")
     assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
+    full = model.operation("text.compose_view/full-native")
+    syntax = next(role for role in full.roles if role.name == "declaration_syntax")
+    assert syntax.kind.endswith("/DdoConstructionManifest")
+    assert syntax.alternatives == ("text.declaration_syntax/source-native",)
+    assert syntax.selected == "text.declaration_syntax/source-native"
+    assert operation.semantic_id in full.potential_dependencies
+    from corpus_structure.semantic.characterization import characterization_profiles
+    assert "construction.declaration_syntax" in characterization_profiles(prepared)["full_characterization"]

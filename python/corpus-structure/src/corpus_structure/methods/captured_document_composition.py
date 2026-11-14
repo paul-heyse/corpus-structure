@@ -140,6 +140,26 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
                 "selected": "text.constructions/source-native",
             },
             {
+                "name": "declaration_syntax",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "alternative",
+                "parameter": "declaration_syntax",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document_subject",
+                "alternatives": ["text.declaration_syntax/source-native"],
+                "selected": "text.declaration_syntax/source-native",
+            },
+            {
                 "name": "contextual",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualManifest",
                 "direction": "input",
@@ -199,6 +219,7 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
                 {"operator": "collection", "roles": ["hanlp"], "collection": "sequence"},
                 {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
                 {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["declaration_syntax"], "collection": "sequence"},
                 {"operator": "collection", "roles": ["contextual"], "collection": "sequence"},
                 {
                     "operator": "membership",
@@ -468,6 +489,32 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
                     ],
                 },
                 {
+                    "operator": "optional",
+                    "roles": ["declaration_syntax"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "declaration_syntax",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
                     "operator": "covers",
                     "operands": [
                         {
@@ -475,6 +522,26 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
                             "value_type": "subject-context",
                             "field": {
                                 "role": "constructions",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "declaration_syntax",
                                 "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
                                 "field": "@context",
                             },
@@ -570,6 +637,7 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
             "text.hanlp_native/source-native",
             "text.formal_evidence/source-native",
             "text.constructions/source-native",
+            "text.declaration_syntax/source-native",
             "text.contextual_evaluation/source-native",
         ],
     }
@@ -598,10 +666,11 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
         hanlp: tuple[RetainedCharacterizationProduct, ...],
         formal: tuple[RetainedCharacterizationProduct, ...],
         constructions: tuple[RetainedCharacterizationProduct, ...],
+        declaration_syntax: tuple[RetainedCharacterizationProduct, ...],
         contextual: tuple[RetainedCharacterizationProduct, ...],
         profile: str,
     ) -> EnrichedDocumentProduct | None:
         if not sources:
             return None
-        products = (*annotations, *canonical, *hanlp, *formal, *constructions, *contextual)
+        products = (*annotations, *canonical, *hanlp, *formal, *constructions, *declaration_syntax, *contextual)
         return execute_view_profile(self, sources, products, products, profile)

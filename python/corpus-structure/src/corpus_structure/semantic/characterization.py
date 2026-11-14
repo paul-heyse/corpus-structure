@@ -75,6 +75,7 @@ def _construction_model(content: bytes) -> bytes:
     from .constructions.evaluation import EVALUATION_FAMILIES
     from .constructions.math_scope import FAMILY as math_scope_family
     from .constructions.navigation import FAMILY as navigation_family
+    from .constructions.retained_declarations import DECLARATION_FAMILY
     from .contextual_characterization import CONTEXT_FAMILIES
     from .formal_evidence import FAMILIES as formal_families
     from .interpretation_questions import CHARACTERIZATION_FAMILIES
@@ -92,6 +93,7 @@ def _construction_model(content: bytes) -> bytes:
                         *formal_families,
                         *construction_families,
                         navigation_family,
+                        DECLARATION_FAMILY,
                         math_scope_family,
                         *CONTEXT_FAMILIES,
                         *CHARACTERIZATION_FAMILIES,

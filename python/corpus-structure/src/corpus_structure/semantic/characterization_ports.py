@@ -1035,9 +1035,11 @@ def full_document_view_operation_sources(
     from .canonical_sentences import canonical_sentence_operation_sources
     from .hanlp_products import hanlp_operation_sources
     from .source_discovery import source_discovery_operation_sources
+    from .declaration_products import declaration_operation_sources
 
     return combine_primary_sources(
         characterization_operation_sources(),
+        declaration_operation_sources(),
         source_discovery_operation_sources(),
         canonical_sentence_operation_sources(sentence_configuration=sentence_configuration),
         hanlp_operation_sources(hanlp_selection, sentence_configuration=sentence_configuration),
