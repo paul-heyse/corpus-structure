@@ -13,11 +13,11 @@ from tokenize import detect_encoding
 from typing import Literal
 
 import libcst as cst
-from libcst.codemod import CodemodContext, TransformSuccess, transform_module
+from libcst.codemod import CodemodContext, ContextAwareTransformer, TransformSuccess, transform_module
 from libcst.codemod.commands.rename import RenameCommand
 from libcst.codemod.visitors import ApplyTypeAnnotationsVisitor
 from libcst.helpers import get_full_name_for_node
-from libcst.metadata import MetadataWrapper, QualifiedNameProvider, QualifiedNameSource
+from libcst.metadata import MetadataWrapper, QualifiedNameProvider, QualifiedNameSource, ScopeProvider
 from pydantic import BaseModel, ConfigDict
 
 
@@ -35,16 +35,28 @@ class AuthoredSourceChange(BaseModel):
     after: str
 
 
+class CallContextChange(BaseModel):
+    """One explicit source call correspondence; context is supplied, never inferred."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    path: str
+    before: str
+    after: str
+    context_names: tuple[str, ...]
+
+
 class SourceMigration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    kind: Literal["symbol_move", "annotations"]
+    kind: Literal["symbol_move", "annotations", "call_context"]
     owner: str
+    new_owner: str | None = None
     sources: tuple[AuthoredSourceChange, ...]
     roots: tuple[SourceRoot, ...]
     excluded: tuple[str, ...] = ()
     old_name: str | None = None
     new_name: str | None = None
     overwrite_annotations: bool = False
+    calls: tuple[CallContextChange, ...] = ()
 
 
 class ConsumerOutcome(BaseModel):
@@ -56,6 +68,15 @@ class ConsumerOutcome(BaseModel):
     warnings: tuple[str, ...] = ()
 
 
+class SourceCallProof(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    owner: str
+    callable: str
+    path: str
+    source_digest: str
+    signature: str
+
+
 class SourceMigrationPreview(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     roots: tuple[SourceRoot, ...]
@@ -65,6 +86,7 @@ class SourceMigrationPreview(BaseModel):
     preparation: str
     outcomes: tuple[ConsumerOutcome, ...]
     after: dict[str, str]
+    call_proofs: tuple[SourceCallProof, ...] = ()
 
     @property
     def ready(self) -> bool:
@@ -211,15 +233,132 @@ class _RestoreImports(cst.CSTTransformer):
         return updated_node
 
 
+class _CallContextCommand(ContextAwareTransformer):
+    METADATA_DEPENDENCIES = (QualifiedNameProvider, ScopeProvider)
+
+    def __init__(self, context, old, changes):
+        super().__init__(context)
+        self.old = old
+        self.changes = changes
+        self.seen = set()
+
+    def leave_Call(self, original_node, updated_node):
+        names = self.get_metadata(QualifiedNameProvider, original_node.func, set())
+        package = self.context.full_package_name or ""
+        qualified = {
+            resolve_name(name.name, package) if name.name.startswith(".") else name.name
+            for name in names
+        }
+        spelling = self.module.code_for_node(original_node)
+        matches = [item for item in self.changes if item.before == spelling]
+        if matches and qualified != {self.old}:
+            raise ValueError("call-context receiver is not the exact declared owner")
+        if self.old not in qualified:
+            return updated_node
+        if len(names) != 1 or len(matches) != 1:
+            raise ValueError("required owned call has no unambiguous explicit correspondence")
+        change = matches[0]
+        if change.before in self.seen:
+            raise ValueError("call-context correspondence matches more than one call")
+        scope = self.get_metadata(ScopeProvider, original_node)
+        if any(not scope[item] for item in change.context_names):
+            raise ValueError("call-context lacks supplied context in the call lexical scope")
+        self.seen.add(change.before)
+        return cst.parse_expression(change.after)
+
+
+def _prepare_call_context(parsed, source, name, context, request):
+    changes = tuple(item for item in request.calls if item.path == name)
+    tree = ast.parse(source)
+    for change in changes:
+        before, after = ast.parse(change.before, mode="eval"), ast.parse(change.after, mode="eval")
+        if not isinstance(before.body, ast.Call) or not isinstance(after.body, ast.Call):
+            raise ValueError("call-context correspondence must contain call expressions")
+        if not change.context_names or any(not item.isidentifier() for item in change.context_names):
+            raise ValueError("call-context requires explicit context identifiers")
+        loaded = {node.id for node in ast.walk(after) if isinstance(node, ast.Name)}
+        if not set(change.context_names) <= loaded:
+            raise ValueError("call-context lacks explicitly supplied context")
+    old = request.old_name
+    assert old is not None
+    eligibility = _Eligibility(old, context.full_package_name or "")
+    MetadataWrapper(parsed).visit(eligibility)
+    if eligibility.ambiguous or eligibility.unresolved:
+        raise ValueError("call-context receiver is ambiguous or unresolved")
+    if any(
+        isinstance(node, ast.Name) and node.id in {"getattr", "eval", "exec", "globals", "locals", "__import__"}
+        for node in ast.walk(tree)
+    ):
+        raise ValueError("dynamic source consumers require explicit resolution")
+    command = _CallContextCommand(context, old, changes)
+    result = transform_module(command, source)
+    if not isinstance(result, TransformSuccess):
+        raise ValueError("call-context transformation refused: " + str(result))
+    if command.seen != {item.before for item in changes}:
+        raise ValueError("required call-context source is absent or changed")
+    # Verify the declared destination resolves from the proposed consumer source.
+    rewritten = cst.parse_module(result.code)
+    destination = _Eligibility(request.new_name, context.full_package_name or "")
+    MetadataWrapper(rewritten).visit(destination)
+    if changes and (not destination.matched or destination.ambiguous or destination.unresolved):
+        raise ValueError("call-context destination is not the exact declared owner")
+    return result
+
+
+def _selection_call_proofs(root, request, members, inputs):
+    """Prove a declaration-owned former selector without admitting its body."""
+    import griffe
+
+    proofs = []
+    for path, module in members.items():
+        if not request.old_name or not request.old_name.startswith(module + "."):
+            continue
+        suffix = request.old_name.removeprefix(module + ".").split(".")
+        if len(suffix) != 2:
+            continue
+        class_name, method = suffix
+        source = utf8_source(_path(root, path).read_bytes())
+        tree = ast.parse(source)
+        for node in tree.body:
+            if not isinstance(node, ast.ClassDef) or node.name != class_name:
+                continue
+            declarations = []
+            for item in node.body:
+                if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name) and item.target.id == "__selection_operation__":
+                    declarations.append(ast.literal_eval(item.value))
+                elif isinstance(item, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "__selection_operation__" for target in item.targets):
+                    declarations.append(ast.literal_eval(item.value))
+            if len(declarations) != 1 or declarations[0].get("id") != request.owner:
+                continue
+            parsed = griffe.visit(module.rsplit(".", 1)[-1], Path(path), source)
+            owner = parsed.members[class_name]
+            supplied = owner.members.get(method)
+            if not isinstance(supplied, griffe.Function):
+                raise ValueError("former selection callable is not directly captured")
+            proofs.append(SourceCallProof(owner=request.owner, callable=request.old_name, path=path, source_digest=inputs[path], signature=str(supplied.signature())))
+    if len(proofs) > 1:
+        raise ValueError("former selection callable has ambiguous captured owners")
+    return tuple(proofs)
+
+
 def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigrationPreview:
     if not request.owner or not request.sources or not request.roots:
         raise ValueError("source migration requires an owner, authored changes and explicit roots")
-    if request.kind == "symbol_move" and (not request.old_name or not request.new_name):
-        raise ValueError("symbol move requires an explicit old/new correspondence")
+    if request.kind in {"symbol_move", "call_context"} and (not request.old_name or not request.new_name):
+        raise ValueError("source move requires an explicit old/new correspondence")
+    if request.new_owner is not None and request.kind != "call_context":
+        raise ValueError("semantic owner correspondence is supported only for call-context migrations")
+    if request.kind == "call_context" and not request.calls:
+        raise ValueError("call-context migration requires explicit call correspondences")
     members = source_members(root, request.roots)
     if len({item.path for item in request.sources}) != len(request.sources):
         raise ValueError("duplicate authored source change")
+    if any(item.path not in members for item in request.calls):
+        raise ValueError("call-context path lies outside the acquired consumer universe")
+    if len({(item.path, item.before) for item in request.calls}) != len(request.calls):
+        raise ValueError("duplicate call-context correspondence")
     inputs = {name: sha256(_path(root, name).read_bytes()).hexdigest() for name in members}
+    call_proofs = _selection_call_proofs(root, request, members, inputs) if request.kind == "call_context" else ()
     after: dict[str, str] = {}
     outcomes: list[ConsumerOutcome] = []
     for owner in request.sources:
@@ -249,6 +388,19 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
                 else module_name.rpartition(".")[0],
             )
             owners = []
+            if request.kind == "call_context":
+                try:
+                    result = _prepare_call_context(parsed, source, name, context, request)
+                except ValueError as error:
+                    outcomes.append(ConsumerOutcome(path=name, state="unresolved", warnings=(str(error),)))
+                    continue
+                code = result.code
+                compile(code, name, "exec", dont_inherit=True)
+                changed = code != utf8_source(_path(root, name).read_bytes())
+                if changed:
+                    after[name] = code
+                outcomes.append(ConsumerOutcome(path=name, state="changed" if changed else "already_satisfied"))
+                continue
             if request.kind == "symbol_move":
                 old = request.old_name
                 assert old is not None and request.new_name is not None
@@ -397,6 +549,7 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
         preparation=preparation_identity(),
         outcomes=tuple(outcomes),
         after=after,
+        call_proofs=call_proofs,
     )
 
 

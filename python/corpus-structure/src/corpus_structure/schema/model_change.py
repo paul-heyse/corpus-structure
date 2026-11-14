@@ -417,7 +417,7 @@ def prepare_preview(
 
         effective = bound_data_operation_model(prepared_source)
         owners = {operation.semantic_id for operation in effective.operations}
-        if any(item.owner not in owners for item in request.source_migrations):
+        if any((item.new_owner or item.owner) not in owners for item in request.source_migrations):
             raise model.ModelError(
                 ["source migration owner is absent from the proposed effective model"]
             )
@@ -426,24 +426,33 @@ def prepare_preview(
         previous = bound_data_operation_model(
             prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
         )
-        for intent in request.source_migrations:
+        for intent, migration in zip(request.source_migrations, migrations, strict=True):
             if intent.owner not in {op.semantic_id for op in previous.operations}:
                 raise model.ModelError(
                     ["source migration owner is absent from the acquired effective model"]
                 )
-            if intent.kind == "symbol_move":
+            if intent.kind in {"symbol_move", "call_context"}:
                 before_names = {
                     surface.declaration
                     for surface in previous.operation(intent.owner).callable_surfaces
                 }
                 after_names = {
                     surface.declaration
-                    for surface in effective.operation(intent.owner).callable_surfaces
+                    for surface in effective.operation(intent.new_owner or intent.owner).callable_surfaces
                 }
-                if intent.old_name not in before_names or intent.new_name not in after_names:
+                after_operation = effective.operation(intent.new_owner or intent.owner)
+                selection = getattr(after_operation, "consumer_selection", None)
+                if selection is not None:
+                    after_names.add(selection.entrypoint)
+                proof = next((item for item in migration.call_proofs if item.owner == intent.owner and item.callable == intent.old_name and item.path in captured_paths), None)
+                if intent.old_name not in before_names and not (intent.kind == "call_context" and proof is not None):
+                    raise model.ModelError(["source migration correspondence differs from its owned callable"])
+                if intent.new_name not in after_names:
                     raise model.ModelError(
                         ["source migration correspondence differs from its owned callable"]
                     )
+                if intent.kind == "call_context":
+                    continue
                 before_surface = next(
                     surface
                     for surface in previous.operation(intent.owner).callable_surfaces
@@ -451,10 +460,10 @@ def prepare_preview(
                 )
                 after_surface = next(
                     surface
-                    for surface in effective.operation(intent.owner).callable_surfaces
+                    for surface in effective.operation(intent.new_owner or intent.owner).callable_surfaces
                     if surface.declaration == intent.new_name
                 )
-                if (
+                if intent.kind == "symbol_move" and (
                     before_surface.parameters,
                     before_surface.returns,
                     before_surface.overloads,
