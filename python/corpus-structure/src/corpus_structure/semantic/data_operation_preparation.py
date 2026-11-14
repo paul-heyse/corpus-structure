@@ -70,6 +70,7 @@ class PrimaryProfileInputs(BaseModel):
     learned_selections: dict[Literal["maverick", "dipo", "d1", "gliner"], str] | None = None
     construction: str | None = None
     math: str | None = None
+    external_protocol: str | None = None
     capture: PrimaryCaptureInputs | None = None
 
 
@@ -281,6 +282,15 @@ def _acquire_primary_profile(
         arguments["math_options"] = DeclaredMathOptions.model_validate(
             yaml.safe_load(read(profile.math))
         )
+    if profile.external_protocol is not None:
+        from dataclasses import fields
+        from pydantic import TypeAdapter
+        from .data_operation_model import ExternalExecutorContract
+        selected = yaml.safe_load(read(profile.external_protocol))
+        if not isinstance(selected, dict) or set(selected) != {field.name for field in fields(ExternalExecutorContract)}:
+            raise ValueError("external protocol requires its exact declared actor, model, instructions and reference scope")
+        arguments["external_protocol"] = TypeAdapter(ExternalExecutorContract).validate_json(
+            canonical_bytes(selected), strict=True)
     if profile.capture is not None:
         from corpus_structure.ingest.pdf import PdfRecipe
         from corpus_structure.ingest.pdf_assets import PreparedPdfAssets

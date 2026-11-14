@@ -55,6 +55,7 @@ def primary_operation_inputs(
     construction_options=None,
     sentence_selection=None,
     math_options=None,
+    external_protocol=None,
     extra_sources: PythonSourceCollection | None = None,
     declarations: tuple[SourceArtifact, ...] = (),
 ) -> PrimaryOperationInputs:
@@ -130,6 +131,17 @@ def primary_operation_inputs(
 
         collections = (*collections, math_operation_sources(math_options))
         declarations = (*declarations, math_operation_declarations())
+    if external_protocol is not None:
+        from .external_extraction import (
+            external_extraction_inputs, external_extraction_operation_sources,
+            rich_external_declarations,
+        )
+        bundle = external_extraction_inputs(bundle, dependencies)
+        collections = (*collections, external_extraction_operation_sources())
+        declarations = (*declarations, rich_external_declarations(external_protocol))
+        if math_options is None:
+            from .declared_math_products import math_operation_declarations
+            declarations = (*declarations, math_operation_declarations())
     if extra_sources is not None:
         collections = (*collections, extra_sources)
     combined = combine_primary_sources(*collections)

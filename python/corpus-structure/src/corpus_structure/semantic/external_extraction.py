@@ -71,7 +71,7 @@ def rich_external_declarations(protocol):
 
     if not isinstance(protocol, ExternalExecutorContract):
         raise TypeError("rich extraction requires its explicit authored external contract")
-    operation = {"id": "extract.rich_external", "profile": "command", "subject": "selected-native-source",
+    operation = {"id": "extract.rich_external", "profile": "command", "subject": "original-source-view",
         "context": ["original-source", "exact-rich-extraction-input"],
         "roles": [{"name": "packet", "kind": _PACKET, "direction": "input", "minimum": 1, "maximum": 1,
                    "collection": "scalar", "presence": "required", "subject_field": "/source_pin/subject",

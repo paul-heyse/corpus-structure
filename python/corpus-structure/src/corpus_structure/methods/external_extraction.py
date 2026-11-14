@@ -8,7 +8,7 @@ from corpus_structure.semantic.external_extraction import execute_rich_profile
 class RichExtractionInputOperation:
     __data_operation__: ClassVar[dict] = {'id': 'prepare.external_extraction',
      'profile': 'derivation',
-     'subject': 'selected-native-source',
+     'subject': 'original-source-view',
      'context': ['original-source', 'rich-source-report-context'],
      'entrypoints': ['run'],
      'roles': [{'name': 'source',
@@ -211,7 +211,7 @@ class RichExtractionInputOperation:
 class RichExtractionPlacementOperation:
     __data_operation__: ClassVar[dict] = {'id': 'locate.external_extraction',
      'profile': 'derivation',
-     'subject': 'selected-native-source',
+     'subject': 'original-source-view',
      'context': ['original-source', 'rich-source-report-context'],
      'entrypoints': ['run'],
      'roles': [{'name': 'packet',

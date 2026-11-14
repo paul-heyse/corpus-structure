@@ -81,8 +81,6 @@ def _recipe():
     cfg = freeze_m1_configuration(
         cfg.model_copy(
             update={
-                "annotation_rules": (),
-                "formula_syntax": False,
                 "local_schema": None,
                 "region_pointers": ("#/texts/0",),
                 "max_context_chars": 512,
