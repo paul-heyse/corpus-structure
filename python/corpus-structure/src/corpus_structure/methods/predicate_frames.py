@@ -41,18 +41,69 @@ from corpus_structure.semantic.constructions.retained_rules import (
 )
 
 
-def _reports(product):
-    layers = getattr(product, "primary_layers", None)
-    if not layers:
-        raise ValueError("predicate consumer requires exact retained primary construction layers")
-    selected = [
-        (pin, report)
-        for pin, report in layers.items()
-        if PRIMARY_RULE_FAMILY in report.payload["operation"]["produced_families"]
-    ]
+class PreparedPredicateReadings:
+    """One invocation-owned index of supplied immutable primary inventories."""
+    def __init__(self, products):
+        import json
+        from corpus_structure.semantic.data_product_reference import DataProductReference
+        from corpus_structure.semantic.data_operation_model import json_context_meaning
+        from corpus_structure.semantic.identity import canonical_bytes
+
+        self.products = tuple(products)
+        self.inventories = tuple((
+            DataProductReference(product.semantic_id),
+            body["source"],
+            json_context_meaning(canonical_bytes({"source": body["source"], "selectors": body["selectors"]})).decode(),
+            {**product.inventory(), "coverage": body["coverage"]},
+        ) for product in self.products for body in (json.loads(product.content),))
+
+    def __iter__(self):
+        return iter(self.products)
+
+    def __len__(self):
+        return len(self.products)
+
+
+def prepare_predicate_readings(products):
+    return products if isinstance(products, PreparedPredicateReadings) else PreparedPredicateReadings(products)
+
+
+def _reports(product, primary_products=()):
+    """Read explicit governed inventories, or the genuine sealed historical layers."""
+    if primary_products:
+        from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+
+        if not isinstance(product.source, DeclaredSourcePin):
+            raise ValueError("declared predicate input requires its original governed source pin")
+        source = product.source.values()
+        selected = []
+        for pin, coordinate, scope, inventory in prepare_predicate_readings(primary_products).inventories:
+            if (coordinate["document"] != source["original_source"]
+                or coordinate["projection"] != source["projection_digest"]
+                or scope != source["analyzed_scope_meaning"]):
+                raise ValueError("predicate primary product differs from its exact original source")
+            if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"]):
+                selected.append((pin, inventory))
+    else:
+        layers = getattr(product, "primary_layers", None)
+        if not layers:
+            raise ValueError("predicate consumer requires exact retained primary construction products")
+        selected = [(pin, report.payload) for pin, report in layers.items() if PRIMARY_RULE_FAMILY in report.payload["operation"]["produced_families"]]
     if not selected:
         raise ValueError("retained primary source-reading family is missing")
     return selected
+
+
+def primary_inventory(product, reference, *, primary_products=()):
+    matches = [body for pin, body in _reports(product, primary_products) if pin == reference.product]
+    if len(matches) != 1:
+        raise ValueError("predicate reference lacks one exact primary product inventory")
+    return matches[0]
+
+
+def _projection(product):
+    from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+    return product.source.values()["projection_digest"] if isinstance(product.source, DeclaredSourcePin) else product.source.projection_digest
 
 
 def _span(product, text, term, occurrences):
@@ -74,11 +125,11 @@ def _span(product, text, term, occurrences):
     return LocatedFrameSpan(indices, extents)
 
 
-def source_layout(product, text, pieces, items):
+def source_layout(product, text, pieces, items, *, primary_products=()):
     """Read the producer's structural-context interpretation without heading matching."""
     try:
-        for _pin, report in _reports(product):
-            terms = {t["local_id"]: t for t in report.payload["terms"]}
+        for _pin, body in _reports(product, primary_products):
+            terms = {t["local_id"]: t for t in body["terms"]}
             for term in terms.values():
                 if term.get("vocabulary") != PRIMARY_RULE_VOCABULARY or term["kind"] != "predicate":
                     continue
@@ -89,7 +140,7 @@ def source_layout(product, text, pieces, items):
                 }
                 if "predicate" not in members:
                     continue
-                occurrences = {o["local_id"]: o for o in report.payload["occurrences"]}
+                occurrences = {o["local_id"]: o for o in body["occurrences"]}
                 try:
                     _span(product, text, members["predicate"], occurrences)
                 except ValueError:
@@ -104,7 +155,8 @@ def source_layout(product, text, pieces, items):
     return "unknown"
 
 
-def predicate_frames(text, annotations, *, layout="prose"):
+def predicate_frames(text, annotations, *, layout="prose", primary_products=()):
+    primary_products = prepare_predicate_readings(primary_products) if primary_products else ()
     frames, issues, unresolved = [], [], []
     for product in annotations:
         available = {
@@ -138,7 +190,7 @@ def predicate_frames(text, annotations, *, layout="prose"):
             )
             continue
         try:
-            result = _project(text, product)
+            result = _project(text, product, primary_products=primary_products)
         except (ValueError, KeyError, IndexError) as error:
             issues.append(
                 FrameIssue(product.block_id, product.dependency_digest, "unavailable", str(error))
@@ -161,23 +213,22 @@ def predicate_frame_result(view, *, layout="prose"):
     return predicate_frames(text, (view.product,), layout=layout)
 
 
-def _project(text, product):
-    from corpus_structure.semantic.characterization import annotation_reference
+def _project(text, product, *, primary_products=()):
+    from corpus_structure.semantic.data_product_reference import member_reference
 
     frames, issues, unresolved = [], [], []
-    for pin, report in _reports(product):
-        body = report.payload
+    for pin, body in _reports(product, primary_products):
         for coverage in body["coverage"]:
             if coverage["family"] != PRIMARY_RULE_FAMILY:
                 continue
             examined = coverage["availability"] == "available" and any(
-                selector.get("projection") == product.source.projection_digest
+                selector.get("projection") == _projection(product)
                 and selector.get("start", 0) <= product.block_start
                 and selector.get("end", len(text)) >= product.block_end
                 for selector in coverage.get("examined", ())
             )
             unexamined = any(
-                selector.get("projection") == product.source.projection_digest
+                selector.get("projection") == _projection(product)
                 and selector.get("start", 0) < product.block_end
                 and selector.get("end", len(text)) > product.block_start
                 for selector in coverage.get("unexamined", ())
@@ -268,7 +319,7 @@ def _project(text, product):
                         span,
                         "located" if member["status"] == "interpreted" else "unresolved",
                         inherited,
-                        annotation_reference(pin, member["local_id"]),
+                        member_reference(pin, member["local_id"]),
                     )
                 )
             sentence = product.tokens[predicate.tokens[0]].sentence
@@ -287,7 +338,7 @@ def _project(text, product):
                 members["voice"]["value"],
                 members["polarity"]["value"],
                 members["interpretation"]["value"],
-                annotation_reference(pin, term["local_id"]),
+                member_reference(pin, term["local_id"]),
                 members.get("clause_role", {}).get("value", "unresolved"),
                 members.get("negation_examination", {}).get("value") == "complete",
                 members.get("modality_examination", {}).get("value") == "complete",
@@ -337,8 +388,8 @@ def _project(text, product):
                 hosts,
                 origin,
                 component,
-                annotation_reference(pin, term["local_id"]),
-                annotation_reference(pin, members["basis"]["local_id"]),
+                member_reference(pin, term["local_id"]),
+                member_reference(pin, members["basis"]["local_id"]),
             )
             cues[term["local_id"]] = cue
             if not hosts:

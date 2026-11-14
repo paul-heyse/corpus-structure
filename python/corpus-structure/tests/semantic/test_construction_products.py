@@ -491,12 +491,19 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     scope = retained_math_scope_products((product,), source, binders=binders)
     assert scope.complete and scope.sentences == ((0, len(source.value["text"])),)
     assert scope.flags(0) == {"initial"}
-    assert not retained_math_scope_products(
-        (product,), source, binders=Binders(sentence_initial=("suppose",))
-    ).complete
-    bindings = [
-        row for row in inventory["annotations"] if row["kind"] == "construction.named_binding"
-    ]
+    from corpus_structure.methods.predicate_contributions import declared_predicate_evidence
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.sentence_products import retained_source_annotation_products, source_annotation_rows
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+    rows = source_annotation_rows(json.loads(annotations.content))
+    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    native_context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "predicate target test", "retained-primary", "complete original", version=2, preparation=PreparedNativeSources((frame,)))
+    evidence = declared_predicate_evidence(frame, native_context, retained_source_annotation_products(source, annotations), dependency="native-product:" + annotations.semantic_id, primary_products=(product,), formal_products=(primary,))
+    assert evidence.inspection_complete
+    assert any(row["semantic_type"] == "structural.predicate_frame" for row in evidence.contributions)
+    assert all("product_id" in row["component"]["primary_node"] for row in evidence.contributions if row.get("component", {}).get("primary_node"))
+    assert not retained_math_scope_products((product,), source, binders=Binders(sentence_initial=("suppose",))).complete
+    bindings = [row for row in inventory["annotations"] if row["kind"] == "construction.named_binding"]
     assert len(bindings) == 1
     match = bindings[0]["named_match"]
     assert match["rule"] == "copula" and match["status"] == "matched"

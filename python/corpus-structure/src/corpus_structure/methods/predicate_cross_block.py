@@ -8,24 +8,23 @@ from corpus_structure.semantic.constructions.retained_rules import (
 )
 
 
-def cross_block_qualifiers(frame, annotations, selected, hosts, population, native, pieces):
+def cross_block_qualifiers(frame, annotations, selected, hosts, population, native, pieces, *, primary_products=()):
     """Read exact shared relations; no sibling, lexical or dependency rule runs here."""
-    from .predicate_frames import _project
+    from .predicate_frames import _project, _reports
+    from corpus_structure.semantic.data_product_reference import member_reference
 
     seen = set()
     for product in annotations:
-        layers = getattr(product, "primary_layers", {})
-        result = _project(frame.text, product)
+        result = _project(frame.text, product, primary_products=primary_products)
         cues = {
             cue.primary_ref.local_id: cue
             for cue in result.unresolved_cues
             if cue.primary_ref is not None
         }
-        for pin, report in layers.items():
-            body = report.payload
+        for pin, body in _reports(product, primary_products):
             terms = {term["local_id"]: term for term in body["terms"]}
             for key, cue in cues.items():
-                if cue.primary_ref.layer != pin or (pin, key) in seen:
+                if cue.primary_ref.product != pin or (pin, key) in seen:
                     continue
                 if not all(selected.start <= a < b <= selected.end for a, b in cue.span.extents):
                     continue
@@ -41,7 +40,7 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
                     host
                     for host in hosts
                     if host.primary_ref is not None
-                    and host.primary_ref.layer == pin
+                    and host.primary_ref.product == pin
                     and any(role["member"] == host.primary_ref.local_id for role in relations)
                 )
                 groups = [
@@ -64,7 +63,7 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
                         and row["component"].get("scope") == selected.key
                         and row["component"].get("effective_version") == selected.version
                         and row["component"].get("primary_node")
-                        == dict(layer=pin.values(), local_id=predecessors[0])
+                        == member_reference(pin, predecessors[0]).values()
                     ]
                     if len(previous) != 1:
                         continue
