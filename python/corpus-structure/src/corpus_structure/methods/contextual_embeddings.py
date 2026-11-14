@@ -7,13 +7,15 @@ source admission, task fencing and publication; this operation owns its sole nat
 from __future__ import annotations
 
 import importlib
+import json
 import math
-import multiprocessing
 import struct
-import time
+from time import monotonic
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
-from hashlib import sha256
+from hashlib import file_digest, sha256
+from functools import lru_cache
+from pathlib import Path
 from threading import Event
 from typing import Literal
 
@@ -76,11 +78,15 @@ class EncoderProfile:
             raise ValueError("encoder requires a model and declared pooling")
 
     @property
-    def profile_id(self) -> str:
+    def semantic_configuration(self):
         meaning = asdict(self)
         for key in ("max_items", "max_input_bytes", "timeout_seconds"):
             del meaning[key]
-        return identity("encoder-profile", meaning)
+        return meaning
+
+    @property
+    def profile_id(self) -> str:
+        return identity("encoder-profile", self.semantic_configuration)
 
 
 def verify_encoder_implementation(profile: EncoderProfile):
@@ -280,121 +286,140 @@ class EncoderLimited(RuntimeError):
     """Declared encoder bound or deadline exceeded."""
 
 
-def _encode_child(
-    connection,
-    profile: EncoderProfile,
-    items: tuple[ContextInput, ...],
-    local_files_only: bool,
-    cached_vectors: tuple[EncodedVector, ...],
-):
-    try:
-        from sentence_transformers import SentenceTransformer
-        from sentence_transformers.sentence_transformer.modules import Pooling
+@lru_cache(maxsize=1)
+def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
+    """Reuse immutable acquired model resources inside the existing CPU worker."""
+    profile = EncoderProfile(**json.loads(profile_content))
+    root = Path(model_path)
+    observations = ()
+    if artifact_hashes:
+        if not root.is_dir() or any(Path(name).is_absolute() or ".." in Path(name).parts for name, _ in artifact_hashes):
+            raise ValueError("encoder acquisition escapes its selected model directory")
+        if {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()} != {name for name, _ in artifact_hashes}:
+            raise ValueError("encoder model file population differs from acquired artifacts")
+        for name, digest in artifact_hashes:
+            with (root / name).open("rb") as source:
+                if file_digest(source, "sha256").hexdigest() != digest:
+                    raise ValueError("encoder model bytes differ from acquired artifacts")
+        observations = tuple((name, (root / name).stat()) for name, _ in artifact_hashes)
+    from sentence_transformers import SentenceTransformer
+    from sentence_transformers.sentence_transformer.modules import Pooling
 
-        implementation = verify_encoder_implementation(profile)
-        model = SentenceTransformer(
-            profile.model,
-            revision=profile.revision,
-            device="cpu",
-            trust_remote_code=False,
-            local_files_only=local_files_only,
-        )
-        model.float()
-        model.max_seq_length = profile.max_tokens
-        model.tokenizer.padding_side = "left" if profile.pooling == "lasttoken" else "right"
-        poolings = [module for module in model if isinstance(module, Pooling)]
-        if (
-            len(poolings) != 1
-            or poolings[0].get_config_dict().get("pooling_mode") != profile.pooling
-        ):
-            raise ValueError("loaded model pooling differs from declared profile")
-        rendered, limited_queries = [], []
-        for item in items:
-            try:
-                rendered.append(
-                    render_context(
-                        item,
-                        profile,
-                        lambda text: len(model.tokenizer.encode(text, truncation=False)),
-                    )
+    implementation = verify_encoder_implementation(profile)
+    model = SentenceTransformer(
+        model_path, revision=profile.revision, device="cpu", trust_remote_code=False,
+        local_files_only=True,
+    )
+    model.float()
+    model.max_seq_length = profile.max_tokens
+    model.tokenizer.padding_side = "left" if profile.pooling == "lasttoken" else "right"
+    poolings = [module for module in model if isinstance(module, Pooling)]
+    if len(poolings) != 1 or poolings[0].get_config_dict().get("pooling_mode") != profile.pooling:
+        raise ValueError("loaded model pooling differs from declared profile")
+    return model, implementation, observations
+
+
+def _verify_cpu_artifacts(model_path, observations):
+    root = Path(model_path)
+    if observations and {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()} != {name for name, _ in observations}:
+        raise ValueError("resident encoder model file population changed")
+    for name, prior in observations:
+        current = (Path(model_path) / name).stat()
+        if (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != (prior.st_dev, prior.st_ino, prior.st_size, prior.st_mtime_ns, prior.st_ctime_ns):
+            raise ValueError("resident encoder acquisition changed after verified loading")
+
+
+def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_hashes, check_active):
+    model, implementation, observations = _owned_cpu_encoder(canonical_bytes(profile.semantic_configuration), model_path, artifact_hashes)
+    _verify_cpu_artifacts(model_path, observations)
+    check_active()
+    rendered, limited_queries = [], []
+    for item in items:
+        check_active()
+        try:
+            rendered.append(
+                render_context(
+                    item,
+                    profile,
+                    lambda text: len(model.tokenizer.encode(text, truncation=False)),
                 )
-            except ContextCoreLimited:
-                if item.query_context is None:
-                    raise
-                limited_queries.append(item.object_id)
-        cached_by_object = {value.object_id: value for value in cached_vectors}
-        reused = {}
-        for i, item in enumerate(rendered):
-            cached = cached_by_object.get(item.object_id)
-            if (
-                item.role == "document"
-                and cached is not None
-                and (
-                    cached.source_binding == item.source_binding
-                    and cached.profile_id == profile.profile_id
-                    and cached.representation_digest == item.representation_digest
-                    and cached.input_digest == item.final_input_digest
-                )
-            ):
-                validate_vector(cached.values, profile.dimension)
-                reused[i] = cached.vector_id
-        vectors = []
-        for role in ("query", "document"):
-            positions = [
-                i for i, item in enumerate(rendered) if item.role == role and i not in reused
-            ]
-            if not positions:
-                continue
-            encode = model.encode_query if role == "query" else model.encode_document
-            prompt = profile.query_prompt if role == "query" else profile.document_prompt
-            values = encode(
-                [rendered[i].text for i in positions],
-                prompt=prompt,
-                normalize_embeddings=True,
-                precision="float32",
-                batch_size=profile.batch_size,
-                show_progress_bar=False,
             )
-            for i, value in zip(positions, values, strict=True):
-                item = rendered[i]
-                vector = validate_vector(value, profile.dimension)
-                vector_id = identity(
-                    "context-vector",
-                    [
+        except ContextCoreLimited:
+            if item.query_context is None:
+                raise
+            limited_queries.append(item.object_id)
+    cached_by_object = {value.object_id: value for value in cached_vectors}
+    reused = {}
+    for i, item in enumerate(rendered):
+        cached = cached_by_object.get(item.object_id)
+        if (
+            item.role == "document"
+            and cached is not None
+            and (
+                cached.source_binding == item.source_binding
+                and cached.profile_id == profile.profile_id
+                and cached.representation_digest == item.representation_digest
+                and cached.input_digest == item.final_input_digest
+            )
+        ):
+            validate_vector(cached.values, profile.dimension)
+            reused[i] = cached.vector_id
+    vectors = []
+    for role in ("query", "document"):
+        check_active()
+        positions = [
+            i for i, item in enumerate(rendered) if item.role == role and i not in reused
+        ]
+        if not positions:
+            continue
+        encode = model.encode_query if role == "query" else model.encode_document
+        prompt = profile.query_prompt if role == "query" else profile.document_prompt
+        values = encode(
+            [rendered[i].text for i in positions],
+            prompt=prompt,
+            normalize_embeddings=True,
+            precision="float32",
+            batch_size=profile.batch_size,
+            show_progress_bar=False,
+        )
+        for i, value in zip(positions, values, strict=True):
+            item = rendered[i]
+            vector = validate_vector(value, profile.dimension)
+            vector_id = identity(
+                "context-vector",
+                [
+                    item.object_id,
+                    item.source_binding,
+                    profile.profile_id,
+                    item.final_input_digest,
+                    item.representation_digest,
+                ],
+            )
+            vectors.append(
+                (
+                    i,
+                    EncodedVector(
+                        vector_id,
                         item.object_id,
                         item.source_binding,
                         profile.profile_id,
                         item.final_input_digest,
+                        vector,
                         item.representation_digest,
-                    ],
+                    ),
                 )
-                vectors.append(
-                    (
-                        i,
-                        EncodedVector(
-                            vector_id,
-                            item.object_id,
-                            item.source_binding,
-                            profile.profile_id,
-                            item.final_input_digest,
-                            vector,
-                            item.representation_digest,
-                        ),
-                    )
-                )
-        result = EncoderResult(
-            profile.profile_id,
-            tuple(rendered),
-            tuple(value for _, value in sorted(vectors)),
-            implementation,
-            tuple(reused[i] for i in sorted(reused)),
-            tuple(limited_queries),
-        )
-        connection.send((result, None))
-    except Exception as error:
-        connection.send((None, f"{type(error).__name__}: {error}"))
-    finally:
-        connection.close()
+            )
+    result = EncoderResult(
+        profile.profile_id,
+        tuple(rendered),
+        tuple(value for _, value in sorted(vectors)),
+        implementation,
+        tuple(reused[i] for i in sorted(reused)),
+        tuple(limited_queries),
+    )
+    check_active()
+    _verify_cpu_artifacts(model_path, observations)
+    return result
 
 
 def encode_contexts(
@@ -405,8 +430,14 @@ def encode_contexts(
     local_files_only: bool = True,
     check_active: Callable[[], None] | None = None,
     cached_vectors: Sequence[EncodedVector] = (),
+    model_path: str | None = None,
+    artifact_hashes: tuple[tuple[str, str], ...] = (),
 ) -> EncoderResult:
-    """One bounded child, no nested pool or retry. Failed/cancelled work publishes nothing."""
+    """Run original CPU inference under the caller's existing physical process owner.
+
+    Acquired DDO calls supply their exact local model artifacts. No inner process,
+    executor or provider lifecycle is created here.
+    """
     items = tuple(items)
     cached_vectors = tuple(cached_vectors)
     if len(cached_vectors) > profile.max_items or len({v.object_id for v in cached_vectors}) != len(
@@ -439,43 +470,18 @@ def encode_contexts(
         raise ValueError("duplicate encoded object identity")
     if cancel is not None and cancel.is_set():
         raise EncoderCancelled("encoding cancelled before model allocation")
-    context = multiprocessing.get_context("spawn")
-    parent, child = context.Pipe(duplex=False)
-    process = context.Process(
-        target=_encode_child, args=(child, profile, items, local_files_only, cached_vectors)
-    )
-    process.start()
-    child.close()
-    deadline = time.monotonic() + profile.timeout_seconds
-    completed = False
-    try:
-        while not parent.poll(0.05):
-            if check_active is not None:
-                check_active()
-            if cancel is not None and cancel.is_set():
-                raise EncoderCancelled("encoding cancelled during native work")
-            if time.monotonic() >= deadline:
-                raise EncoderLimited("encoder deadline exceeded")
-            if not process.is_alive():
-                raise RuntimeError("encoder child exited without a result")
-        result, error = parent.recv()
+    if local_files_only is not True:
+        raise ValueError("contextual encoder requires explicitly acquired offline resources")
+
+    deadline = monotonic() + profile.timeout_seconds
+
+    def active():
+        if monotonic() >= deadline:
+            raise EncoderLimited("encoder deadline exceeded")
+        if cancel is not None and cancel.is_set():
+            raise EncoderCancelled("encoding cancelled during native work")
         if check_active is not None:
             check_active()
-        if cancel is not None and cancel.is_set():
-            raise EncoderCancelled("encoding cancelled before result admission")
-        if error:
-            raise RuntimeError(error)
-        if not isinstance(result, EncoderResult):
-            raise RuntimeError("encoder returned an invalid result")
-        completed = True
-        return result
-    finally:
-        parent.close()
-        if completed:
-            process.join(5)
-        if process.is_alive():
-            process.terminate()
-        process.join(5)
-        if process.is_alive():
-            process.kill()
-            process.join()
+
+    active()
+    return _encode_owned_cpu(profile, items, cached_vectors, model_path=profile.model if model_path is None else model_path, artifact_hashes=artifact_hashes, check_active=active)
