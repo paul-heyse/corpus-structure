@@ -24,6 +24,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
     prepared = prepare_release(inputs.bundle, inputs.dependencies, inputs.profile)
     model = bound_data_operation_model(prepared)
     expected = {
+        "source.selected_views/discovery",
         "segment.sentences/source-native",
         "segment.sentences/canonical-projection",
         "text.hanlp_native/source-native",

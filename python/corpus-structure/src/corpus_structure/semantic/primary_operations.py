@@ -43,12 +43,14 @@ def primary_operation_inputs(
     from .formal_products import formal_operation_sources
     from .hanlp_products import hanlp_operation_sources, hanlp_product_inputs
     from .source_profiles import source_profile_inputs, source_profile_operation_sources
+    from .source_discovery import source_discovery_inputs, source_discovery_operation_sources
     from .sentence_products import sentence_operation_sources
 
     if sentence_configuration is None or hanlp_selection is None:
         raise ValueError("primary preparation requires explicitly acquired provider profiles")
-    bundle = hanlp_product_inputs(construction_product_inputs(source_profile_inputs(bundle)))
+    bundle = hanlp_product_inputs(construction_product_inputs(source_profile_inputs(source_discovery_inputs(bundle))))
     collections = (
+        source_discovery_operation_sources(),
         source_profile_operation_sources(),
         sentence_operation_sources(sentence_configuration),
         canonical_sentence_operation_sources(),

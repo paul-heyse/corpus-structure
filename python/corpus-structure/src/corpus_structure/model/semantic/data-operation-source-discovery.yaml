@@ -1,0 +1,33 @@
+id: https://corpus-structure.dev/semantic/data-operation-source-discovery
+name: data_operation_source_discovery
+prefixes:
+  dsd: https://corpus-structure.dev/semantic/data-operation-source-discovery/
+default_prefix: dsd
+default_range: string
+classes:
+  DdoSourceViewScope:
+    is_a: SourceRecordProduct
+    attributes:
+      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
+      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoSourceViewContext:
+    is_a: SourceRecordProduct
+    attributes:
+      subject: {required: true}
+      original_source: {required: true}
+      analyzed_scope: {range: DdoSourceViewScope, inlined: true, required: true}
+  DdoSourceViewPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSourceViewContext, inlined: true, required: true}
+      body: {range: DdoSelectedNativeSource, inlined: true, required: true}
+  DdoSourceViewPopulation:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: Exact explicitly selected source-view population. Completeness closes this frozen selection, not an unexamined whole-document source universe.
+    attributes:
+      document: {required: true}
+      complete: {range: boolean, required: true}
+      members: {range: DdoSourceViewPacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
