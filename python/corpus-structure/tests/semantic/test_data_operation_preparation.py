@@ -325,3 +325,40 @@ def test_primary_manifest_refuses_changed_or_unavailable_explicit_selection(tmp_
     (root / "spacy.json").write_bytes(canonical_bytes(value))
     with pytest.raises(ValueError, match="selection|configuration"):
         acquire_data_operation_inputs(root, "target.yaml")
+
+
+def test_public_downstream_profile_acquires_native_consumers_without_model_execution(tmp_path):
+    from pathlib import Path
+    import yaml
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
+
+    root = primary_profile_inputs(tmp_path)
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    (root / "schema.yaml").write_bytes(core.read_bytes())
+    manifest = yaml.safe_load((root / "target.yaml").read_bytes())
+    manifest["root"] = "core"
+    manifest["schemas"][0]["name"] = "core"
+    manifest["primary_profile"]["downstream"] = True
+    (root / "target.yaml").write_text(yaml.safe_dump(manifest))
+    bundle, dependencies, profile, prepared = prepare_data_operation_inputs(root, "target.yaml")
+    model = bound_data_operation_model(prepared)
+    operations = {operation.semantic_id: operation for operation in model.operations}
+    expected = {
+        "structure.predicate_evidence/declared", "structure.scoped_relations/declared",
+        "structure.artifact_identity/declared", "structure.definition_declaration_components/declared",
+        "structure.definition_applicability/declared", "structure.definition_named_components/declared",
+        "structure.dossier/declared", "structure.compare/declared", "structure.condition_qualification/declared",
+        "retrieve.contextual/declared",
+    }
+    assert expected <= operations.keys()
+    assert not any(identity.startswith("text.gliner") for identity in operations)
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+    captured = read_data_operation_inputs(dependencies)
+    assert captured is not None
+    _, sources = captured
+    assert sources is not None
+    for identity in expected:
+        assert callable(resolve_prepared_factory(model, sources, identity))
+    assert "data_operation_contextual" in {source.name for source in bundle.sources}
+    assert profile.version == "semantic-2"

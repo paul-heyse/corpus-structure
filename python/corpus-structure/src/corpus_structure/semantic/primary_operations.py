@@ -56,6 +56,10 @@ def primary_operation_inputs(
     sentence_selection=None,
     math_options=None,
     external_protocol=None,
+    downstream: bool = False,
+    m1_configuration=None,
+    record_schemas=None,
+    contextual_encoder=None,
     extra_sources: PythonSourceCollection | None = None,
     declarations: tuple[SourceArtifact, ...] = (),
 ) -> PrimaryOperationInputs:
@@ -144,6 +148,51 @@ def primary_operation_inputs(
         if math_options is None:
             from .declared_math_products import math_operation_declarations
             declarations = (*declarations, math_operation_declarations())
+    if downstream:
+        from .artifact_products import artifact_inputs, artifact_operation_sources
+        from .contextual_operations import contextual_inputs, contextual_operation_sources
+        from .declared_structural_calls import structural_inputs, structural_operation_declarations, structural_operation_sources
+        from .definition_component_products import definition_component_inputs, definition_component_operation_sources
+        from .definition_products import definition_inputs, definition_operation_sources
+        from .dossier_products import dossier_inputs, dossier_operation_sources
+        from .finite_interpretation_products import finite_interpretation_inputs, finite_interpretation_operation_sources
+        from .predicate_products import predicate_inputs, predicate_operation_sources
+        from .scoped_products import scoped_inputs, scoped_operation_sources
+
+        bundle = predicate_inputs(bundle)
+        bundle = scoped_inputs(bundle)
+        bundle = artifact_inputs(bundle)
+        bundle = definition_inputs(bundle)
+        bundle = definition_component_inputs(bundle, include_learned=learned_selections is not None)
+        bundle = dossier_inputs(bundle)
+        bundle = finite_interpretation_inputs(bundle)
+        bundle = structural_inputs(contextual_inputs(bundle))
+        collections = (*collections, predicate_operation_sources(), scoped_operation_sources(),
+            artifact_operation_sources(), definition_operation_sources(),
+            definition_component_operation_sources(include_learned=learned_selections is not None),
+            dossier_operation_sources(), finite_interpretation_operation_sources(),
+            structural_operation_sources(), contextual_operation_sources())
+        declarations = (*declarations, structural_operation_declarations())
+        if learned_selections is not None:
+            from .clause_products import clause_inputs, clause_operation_sources
+            bundle = clause_inputs(bundle)
+            collections = (*collections, clause_operation_sources())
+    if m1_configuration is not None:
+        from .m1_products import m1_operation_inputs, m1_operation_sources
+        if record_schemas is None:
+            raise ValueError("literal M1 acquisition requires its actual record schema bundle")
+        if m1_configuration.sentences != sentence_configuration:
+            raise ValueError("literal M1 and primary sentence profiles must select the same producer")
+        bundle = m1_operation_inputs(bundle)
+        collections = (*collections, m1_operation_sources(m1_configuration,
+            record_schemas=record_schemas, include_dependencies=False))
+    elif record_schemas is not None:
+        raise ValueError("record schemas require an explicit literal M1 configuration")
+    if contextual_encoder is not None:
+        from .contextual_encoder import contextual_encoder_operation_sources
+        from .contextual_operations import contextual_inputs
+        bundle = contextual_inputs(bundle)
+        collections = (*collections, contextual_encoder_operation_sources(contextual_encoder, include_dependencies=False))
     if extra_sources is not None:
         collections = (*collections, extra_sources)
     combined = combine_primary_sources(*collections)
