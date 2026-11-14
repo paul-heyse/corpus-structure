@@ -4,7 +4,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from corpus_structure.semantic.characterization import annotation_reference
+from corpus_structure.semantic.declared_formal_readings import formal_member_reference
 from corpus_structure.semantic.formal_sources import (
     INLINE_FORMULA_OCCURRENCE_FIELDS as INLINE_FORMULA_OCCURRENCE_FIELDS,
 )
@@ -132,7 +132,7 @@ def inline_equations(
                 status,
                 lo,
                 hi,
-                annotation_reference(pin, annotation["local_id"]).values(),
+                formal_member_reference(pin, annotation["local_id"]).values(),
             )
         )
     for key in sorted(grouped, key=lambda value: (value[1], value[2], value[0])):
@@ -180,7 +180,7 @@ def inline_symbols(
         roots = [
             row
             for row in roots
-            if annotation_reference(row[0], row[2]["local_id"]).values() == equation.primary_input
+            if formal_member_reference(row[0], row[2]["local_id"]).values() == equation.primary_input
         ]
     if len(roots) != 1:
         return (), "ambiguous" if roots else "unsupported"
@@ -216,7 +216,7 @@ def inline_symbols(
             InlineSymbol(
                 extents[0]["start"],
                 extents[0]["end"],
-                annotation_reference(pin, annotation["local_id"]).values(),
+                formal_member_reference(pin, annotation["local_id"]).values(),
                 value["parent_occurrence"],
             )
         )

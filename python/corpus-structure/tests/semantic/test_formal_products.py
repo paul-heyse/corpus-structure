@@ -913,3 +913,34 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
     completion = replace(original, operation=declared)._completion(product)
     assert completion.outcome == "produced"
     assert completion.outputs[0].content == product.content
+
+
+def test_declared_formal_adapter_retains_inline_symbol_addresses_without_task_aliases(profile):
+    from corpus_structure.methods.inline_formula_occurrences import inline_equations, inline_symbols
+    from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
+
+    source = selected(profile)
+    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+    retained = declared_formal_layers((product,), source)
+    value = source.value
+    equations = tuple(inline_equations(value["text"], value["pieces"], {item["self_ref"]: item for item in value["items"]}, None, max_chars=2048, primary_layers=retained, projection=value["source"]["projection"]))
+    assert len(equations) == 1 and equations[0].primary_input["product_id"] == product.semantic_id
+    symbols, status = inline_symbols(value["text"], equations[0], primary_layers=retained, projection=value["source"]["projection"])
+    assert status == "parsed"
+    assert [value["text"][symbol.start:symbol.end] for symbol in symbols] == ["x"]
+    assert all(symbol.primary_node["product_id"] == product.semantic_id for symbol in symbols)
+    assert all("task_id" not in symbol.primary_node for symbol in symbols)
+
+
+def test_declared_formal_adapter_refuses_scope_substitution_or_duplicate_product(profile):
+    from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
+
+    source = selected(profile)
+    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+    with pytest.raises(ValueError, match="repeats"):
+        declared_formal_layers((product, product), source)
+    changed = source.value
+    changed["selectors"][0]["end"] -= 1
+    narrowed = FrozenFormalSource.acquire(profile.prepared, changed)
+    with pytest.raises(ValueError, match="analyzed scope"):
+        declared_formal_layers((product,), narrowed)

@@ -148,7 +148,7 @@ def captured_formula_symbols(
     """
     if primary_layers is None or projection is None or source_start is None:
         return (), "unsupported"
-    from corpus_structure.semantic.characterization import annotation_reference
+    from corpus_structure.semantic.declared_formal_readings import formal_member_reference
 
     roots = []
     for pin, report in primary_layers.items():
@@ -211,11 +211,11 @@ def captured_formula_symbols(
                 name=normalized["value"],
                 syntax_parent=parent.get("value"),
                 **(
-                    {"syntax_parent_node": annotation_reference(pin, parent_id).values()}
+                    {"syntax_parent_node": formal_member_reference(pin, parent_id).values()}
                     if parent_id is not None
                     else {}
                 ),
-                primary_node=annotation_reference(pin, annotation["local_id"]).values(),
+                primary_node=formal_member_reference(pin, annotation["local_id"]).values(),
                 parent_occurrence=value["parent_occurrence"],
                 coordinate_space="native_projection"
                 if representation == "source_text"
