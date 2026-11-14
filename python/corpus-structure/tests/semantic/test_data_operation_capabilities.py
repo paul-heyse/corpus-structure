@@ -235,3 +235,42 @@ def test_uncertain_stream_submit_closes_pipes_but_keeps_cpu_admission(monkeypatc
     finally:
         cpu.close()
     assert cpu.budget.used_bytes == 0
+
+
+def test_captured_factory_rejects_rebound_imported_resolver_with_copied_identity(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata['entrypoints'] = ['run']
+    metadata['capabilities']['prepared_factory'] = 'acquire_port'
+    name = 'factory_binding_' + tmp_path.name.replace('-', '_')
+    helper_name = name + '_helper'
+    helper = ('class Port:\n'
+              '    def __init__(self, identity): self.identity = identity\n'
+              '    def plan_python(self, *args, **kwargs): yield ()\n'
+              'def resolve_port(identity): return Port(identity)\n')
+    source = ('class Operation:\n'
+              '    def run(self, index: int) -> str: return str(index)\n'
+              '    @staticmethod\n'
+              '    def acquire_port(*, identity):\n'
+              f'        from {helper_name} import resolve_port\n'
+              '        return resolve_port(identity)\n'
+              f'Operation.__data_operation__ = {metadata!r}\n')
+    inputs = []
+    for module, body in ((name, source), (helper_name, helper)):
+        path = tmp_path / (module + '.py')
+        path.write_text(body)
+        inputs.append(PythonSource(module, body.encode(), str(path)))
+    monkeypatch.syspath_prepend(str(tmp_path))
+    sources = PythonSourceCollection(tuple(inputs))
+    model = compile_data_operations(python_sources=sources)
+    factory = resolve_prepared_factory(model, sources, model.operations[0].semantic_id)
+    original = factory(identity='admitted-identity')
+    assert original.identity == 'admitted-identity'
+    assert type(original).__module__ == helper_name
+    copied = SimpleNamespace(identity=original.identity, plan_python=lambda **_: iter(()))
+    monkeypatch.setattr(importlib.import_module(helper_name), 'resolve_port', lambda identity: copied)
+    with pytest.raises(PortRefusal, match='outside acquired source|qualified owner'):
+        factory(identity='admitted-identity')

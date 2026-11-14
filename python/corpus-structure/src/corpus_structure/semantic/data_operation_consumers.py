@@ -345,6 +345,47 @@ def resolve_prepared_factory(model, sources, operation):
         raise PortRefusal("prepared acquisition requires its original static method")
     function = entry[2].__func__
 
+    # Resolve exactly the factory's called bindings, including local imports.
+    # Existing prepared-callable validation supplies code/global-owner checks;
+    # source custody below binds those checks to this acquired snapshot.
+    from .data_operation_prepared_products import _verify_prepared_callable
+    module_tree = ast.parse(source.content)
+    imports = {}
+    package = source.module if path.name == "__init__.py" else source.module.rpartition(".")[0]
+    for node in (*module_tree.body, *ast.walk(entry[1])):
+        if isinstance(node, ast.ImportFrom):
+            reference = "." * node.level + (node.module or "")
+            module_name = importlib.util.resolve_name(reference, package) if node.level else reference
+            for alias in node.names:
+                if alias.name != "*":
+                    imports[alias.asname or alias.name] = (module_name, alias.name)
+    called = set()
+    for node in ast.walk(entry[1]):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            called.add(node.func.id)
+    captured = {value.module: value for value in sources.sources}
+
+    def verify_callable(expected_owner, actual):
+        module_name = actual.__module__
+        original = captured.get(module_name)
+        if original is None:
+            raise PortRefusal("prepared callable is outside acquired source: " + expected_owner)
+        owner_module = importlib.import_module(module_name)
+        if (Path(inspect.getfile(owner_module)).resolve() != Path(original.filename).resolve()
+                or Path(original.filename).read_bytes() != original.content):
+            raise PortRefusal("prepared callable source differs from acquired bytes")
+        _verify_prepared_callable(expected_owner, actual)
+
+    def verify_bindings():
+        for name in called:
+            if name in imports:
+                supplying_module, member_name = imports[name]
+                actual = inspect.getattr_static(importlib.import_module(supplying_module), member_name)
+                if inspect.isfunction(actual):
+                    verify_callable(supplying_module + "." + member_name, actual)
+            elif name in module.__dict__ and inspect.isfunction(module.__dict__[name]):
+                verify_callable(source.module + "." + name, module.__dict__[name])
+
     def acquire(*args, **kwargs):
         if path.read_bytes() != source.content or sha256(source.content).hexdigest() != capability.source_digest:
             raise PortRefusal("prepared acquisition source differs from admitted bytes")
@@ -353,6 +394,14 @@ def resolve_prepared_factory(model, sources, operation):
             actual = inspect.getattr_static(actual, name)
         if not isinstance(actual, staticmethod) or actual.__func__ is not function or function.__code__ != entry[3] or function.__globals__ is not module.__dict__ or Path(inspect.getfile(module)).resolve() != path:
             raise PortRefusal("prepared acquisition runtime was rebound")
-        return function(*args, **kwargs)
+        verify_bindings()
+        result = function(*args, **kwargs)
+        verify_bindings()
+        from .data_operation_pdf_effect import PdfCaptureEffectPort
+        implementation = result.wrapped if isinstance(result, PdfCaptureEffectPort) else result
+        if hasattr(implementation, "plan_python"):
+            method = implementation.plan_python
+            verify_callable(type(implementation).__module__ + "." + type(implementation).__qualname__ + ".plan_python", method)
+        return result
 
     return acquire
