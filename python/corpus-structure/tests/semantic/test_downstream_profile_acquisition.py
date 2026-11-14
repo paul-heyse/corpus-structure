@@ -257,3 +257,64 @@ def test_optional_acquisition_refuses_incomplete_explicit_custody(tmp_path, chan
         (root / "encoder-assets/modules.json").unlink()
     with pytest.raises(ValueError, match=reason):
         acquire_data_operation_inputs(root, "target.yaml")
+
+
+def _use_core_schema(root):
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    (root / "schema.yaml").write_bytes(core.read_bytes())
+    manifest = _manifest(root)
+    manifest["root"] = "core"
+    manifest["schemas"][0]["name"] = "core"
+    _write_manifest(root, manifest)
+
+
+def _compiled_acquisition(root):
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+
+    _, dependencies, _, prepared = prepare_data_operation_inputs(root, "target.yaml")
+    model = bound_data_operation_model(prepared)
+    captured = read_data_operation_inputs(dependencies)
+    assert captured is not None and captured[1] is not None
+    incomplete = [(item.root, item.unknowns) for item in model.implementation_slices if not item.complete]
+    assert not incomplete, incomplete
+    return model, captured[1]
+
+
+def test_public_downstream_acquires_private_reading_resolution_without_model_selection(tmp_path):
+    root = primary_profile_inputs(tmp_path)
+    _use_core_schema(root)
+    manifest = _manifest(root)
+    manifest["primary_profile"]["downstream"] = True
+    _write_manifest(root, manifest)
+    model, sources = _compiled_acquisition(root)
+    operation = model.operation("resolve.m1_readings/declared")
+    assert operation.dependencies == ()
+    assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
+    roles = {role.name: role for role in operation.roles}
+    assert roles["policy"].support is not None
+    assert roles["policy"].support.origins == ("authored",)
+    assert roles["result"].kind.endswith("/DdoResolvedReadingReport")
+    assert "text.gliner_definitions/source-native" not in {item.semantic_id for item in model.operations}
+
+
+def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp_path, monkeypatch):
+    from corpus_structure.methods import contextual_embeddings
+
+    root = primary_profile_inputs(tmp_path)
+    _use_core_schema(root)
+    _optional_inputs(root)
+    manifest = _manifest(root)
+    manifest["primary_profile"].pop("m1")
+    manifest["primary_profile"]["downstream"] = False
+    _write_manifest(root, manifest)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("captured encoder acquisition started inference")
+
+    monkeypatch.setattr(contextual_embeddings, "encode_contexts", forbidden)
+    model, sources = _compiled_acquisition(root)
+    encoder = model.operation("retrieve.contextual_vectors/declared")
+    assert encoder.dependencies == ("retrieve.contextual_inventory/declared",)
+    for identity in (encoder.semantic_id, *encoder.dependencies):
+        assert callable(resolve_prepared_factory(model, sources, identity))
+    assert "structure.dossier/declared" not in {item.semantic_id for item in model.operations}

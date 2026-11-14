@@ -177,6 +177,10 @@ def primary_operation_inputs(
         )
         from .predicate_products import predicate_inputs, predicate_operation_sources
         from .scoped_products import scoped_inputs, scoped_operation_sources
+        from .reading_resolution_products import (
+            reading_resolution_inputs,
+            reading_resolution_operation_sources,
+        )
 
         bundle = predicate_inputs(bundle)
         bundle = scoped_inputs(bundle)
@@ -185,6 +189,7 @@ def primary_operation_inputs(
         bundle = definition_component_inputs(bundle, include_learned=learned_selections is not None)
         bundle = dossier_inputs(bundle)
         bundle = finite_interpretation_inputs(bundle)
+        bundle = reading_resolution_inputs(bundle)
         bundle = structural_inputs(contextual_inputs(bundle))
         collections = (
             *collections,
@@ -195,6 +200,7 @@ def primary_operation_inputs(
             definition_component_operation_sources(include_learned=learned_selections is not None),
             dossier_operation_sources(),
             finite_interpretation_operation_sources(),
+            reading_resolution_operation_sources(),
             structural_operation_sources(),
             contextual_operation_sources(),
         )
@@ -229,7 +235,9 @@ def primary_operation_inputs(
         bundle = contextual_inputs(bundle)
         collections = (
             *collections,
-            contextual_encoder_operation_sources(contextual_encoder, include_dependencies=False),
+            contextual_encoder_operation_sources(
+                contextual_encoder, include_dependencies=not downstream
+            ),
         )
     if extra_sources is not None:
         collections = (*collections, extra_sources)
