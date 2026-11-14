@@ -1026,6 +1026,7 @@ def _prepare_release(
     *,
     physical_sources: dict[str, bytes] | None = None,
     data_operations: str | None = None,
+    source_migrations=(),
 ):
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.model_change import physical_release_sources
@@ -1035,11 +1036,19 @@ def _prepare_release(
     if data_operations is not None:
         if names:
             raise ModelError(["target inputs and legacy domain packs are exclusive"])
+        from corpus_structure.schema.source_migrations import prepare_source_migration
         from corpus_structure.semantic.data_operation_preparation import (
             prepare_data_operation_inputs,
         )
 
-        return prepare_data_operation_inputs(root, data_operations)
+        proposed = {}
+        for migration in source_migrations:
+            staged = prepare_source_migration(root, migration)
+            for path, content in staged.after.items():
+                if path in proposed and proposed[path] != content.encode():
+                    raise ModelError([f"competing source migrations for {path}"])
+                proposed[path] = content.encode()
+        return prepare_data_operation_inputs(root, data_operations, proposed=proposed)
     if not names or any(
         not name or name in {".", ".."} or Path(name).name != name for name in names
     ):
@@ -1164,6 +1173,7 @@ def preview(
                         bound.packs,
                         physical_sources=physical_sources,
                         data_operations=bound.data_operations,
+                        source_migrations=bound.source_migrations,
                     )
                     _retain_authored_sql(sql_holder, dependencies)
                     release = local.release_id

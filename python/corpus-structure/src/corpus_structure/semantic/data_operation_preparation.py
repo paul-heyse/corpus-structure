@@ -67,7 +67,9 @@ class AcquiredDataOperationInputs:
     files: tuple[tuple[str, bytes], ...]
 
 
-def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOperationInputs:
+def acquire_data_operation_inputs(
+    root: Path, manifest: str, *, proposed: dict[str, bytes] | None = None
+) -> AcquiredDataOperationInputs:
     """Read one closed workspace-relative recipe, retaining its complete file closure."""
     root = root.resolve()
     captured: dict[str, bytes] = {}
@@ -78,7 +80,7 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
             raise ValueError("data-operation input paths must be workspace-relative")
         if not path.is_relative_to(root) or path.resolve() != path or not path.is_file():
             raise ValueError(f"unsafe or unavailable data-operation input: {name}")
-        content = path.read_bytes()
+        content = proposed[name] if proposed is not None and name in proposed else path.read_bytes()
         previous = captured.setdefault(name, content)
         if previous != content:
             raise ValueError(f"data-operation input changed during acquisition: {name}")
@@ -170,10 +172,12 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
     )
 
 
-def prepare_data_operation_inputs(root: Path, manifest: str):
+def prepare_data_operation_inputs(
+    root: Path, manifest: str, *, proposed: dict[str, bytes] | None = None
+):
     from .prepare import prepare_release
 
-    acquired = acquire_data_operation_inputs(root, manifest)
+    acquired = acquire_data_operation_inputs(root, manifest, proposed=proposed)
     return (
         acquired.bundle,
         acquired.dependencies,

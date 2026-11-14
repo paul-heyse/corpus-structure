@@ -330,7 +330,16 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         definition.sql, {"value": "PRIVATE_PARAMETER"}, UndefinedFunction("PRIVATE_NATIVE_MESSAGE")
     )
     events, failures = [], []
+
+    def dependency_rows(statement):
+        # This single isolated definition has no installed dependencies. Preserve
+        # the real ordering path before exercising the failing CREATE statement.
+        query = str(statement)
+        assert "native_scope" in query and "pg_depend" in query
+        return ()
+
     connection = SimpleNamespace(
+        execute=dependency_rows,
         scalar=lambda statement: "none" if "current_setting('role')" in str(statement) else "owner",
         begin_nested=lambda: SimpleNamespace(rollback=lambda: events.append("rollback")),
     )
@@ -355,7 +364,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         broken_native.setattr(native_objects, "observe_native", lambda *_args, **_kwargs: None)
         broken_native.setattr(native_objects, "execute_native_sql", execute)
         broken_native.setattr(schema, "author_native_candidate", refuse_author)
-        failed = run(["candidate", preview["result_id"]], settings)
+        failed = run(["candidate", preview["result_id"]], settings, catch_exceptions=False)
     assert failed.exit_code == 1, failed.output
     diagnostic = json.loads(failed.stdout)
     assert diagnostic["error"]["code"] == "NativeAuthoringError"

@@ -24,6 +24,12 @@ from corpus_structure.schema.physical import (
     physical_source_closure,
     physical_sources_id,
 )
+from corpus_structure.schema.source_migrations import (
+    SourceMigration,
+    SourceMigrationPreview,
+    check_source_migration,
+    prepare_source_migration,
+)
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.semantic.types import PreparedRelease
@@ -74,6 +80,7 @@ class ChangeRequest(NativeIntent):
     native_revision: str | None = None
     deployment: bool = False
     deployment_profile: DeploymentProfile | None = None
+    source_migrations: tuple[SourceMigration, ...] = ()
 
 
 class FileEffect(BaseModel):
@@ -127,6 +134,7 @@ class ChangePreview(BaseModel):
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
     discovery: dict | None = None
+    source_migrations: tuple[SourceMigrationPreview, ...] = ()
 
     def verify_release(self, prepared: PreparedRelease) -> None:
         verify_release_products(
@@ -262,6 +270,15 @@ def prepare_preview(
     expected_physical: str | None = None,
 ) -> ChangePreview:
     root = root.resolve()
+    if request.source_migrations and not request.data_operations:
+        raise model.ModelError(["source migrations require explicit data-operation inputs"])
+    migrations = tuple(prepare_source_migration(root, item) for item in request.source_migrations)
+    proposed: dict[str, str] = {}
+    for migration in migrations:
+        for path, content in migration.after.items():
+            if path in proposed and proposed[path] != content:
+                raise model.ModelError([f"competing source migrations for {path}"])
+            proposed[path] = content
     baseline = _ref(root, request.baseline)
     head = _ref(root, "HEAD")
     core, system, log = (
@@ -270,6 +287,7 @@ def prepare_preview(
     )
     original = {path: _git(root, "show", f"{baseline}:{path}") for path in (core, system, log)}
     current = {path: _read(root, path) for path in original}
+    acquired = None
     if request.data_operations is not None:
         if request.packs:
             raise model.ModelError(["target inputs and legacy domain packs are exclusive"])
@@ -278,6 +296,15 @@ def prepare_preview(
         )
 
         acquired = acquire_data_operation_inputs(root, request.data_operations)
+        captured_paths = {path for path, _ in acquired.files}
+        if any(
+            change.path not in captured_paths
+            for intent in request.source_migrations
+            for change in intent.sources
+        ):
+            raise model.ModelError(
+                ["authored source migration input is outside the acquired operation source closure"]
+            )
         current.update({path: content.decode() for path, content in acquired.files})
     if current[log] != original[log]:
         raise model.ModelError(["worktree revision log differs from the requested baseline"])
@@ -367,7 +394,84 @@ def prepare_preview(
         ).split("\0"):
             if path.endswith((".py", ".sql")):
                 current[path] = _read(root, path)
+    for migration in migrations:
+        for path, digest in migration.inputs.items():
+            content = _read(root, path)
+            if _digest(content) != digest:
+                raise model.ModelError([f"source changed during preview: {path}"])
+            current[path] = content
+    if migrations and request.data_operations:
+        assert acquired is not None
+        from corpus_structure.semantic.data_operation_preparation import (
+            prepare_data_operation_inputs,
+        )
+
+        _, _, _, prepared_source = prepare_data_operation_inputs(
+            root,
+            request.data_operations,
+            proposed={path: value.encode() for path, value in proposed.items()},
+        )
+        if local_release is not None and prepared_source.release_id != local_release:
+            raise model.ModelError(["proposed-source release differs from reviewed release"])
+        from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+
+        effective = bound_data_operation_model(prepared_source)
+        owners = {operation.semantic_id for operation in effective.operations}
+        if any(item.owner not in owners for item in request.source_migrations):
+            raise model.ModelError(
+                ["source migration owner is absent from the proposed effective model"]
+            )
+        from corpus_structure.semantic.prepare import prepare_release
+
+        previous = bound_data_operation_model(
+            prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
+        )
+        for intent in request.source_migrations:
+            if intent.owner not in {op.semantic_id for op in previous.operations}:
+                raise model.ModelError(
+                    ["source migration owner is absent from the acquired effective model"]
+                )
+            if intent.kind == "symbol_move":
+                before_names = {
+                    surface.declaration
+                    for surface in previous.operation(intent.owner).callable_surfaces
+                }
+                after_names = {
+                    surface.declaration
+                    for surface in effective.operation(intent.owner).callable_surfaces
+                }
+                if intent.old_name not in before_names or intent.new_name not in after_names:
+                    raise model.ModelError(
+                        ["source migration correspondence differs from its owned callable"]
+                    )
+                before_surface = next(
+                    surface
+                    for surface in previous.operation(intent.owner).callable_surfaces
+                    if surface.declaration == intent.old_name
+                )
+                after_surface = next(
+                    surface
+                    for surface in effective.operation(intent.owner).callable_surfaces
+                    if surface.declaration == intent.new_name
+                )
+                if (
+                    before_surface.parameters,
+                    before_surface.returns,
+                    before_surface.overloads,
+                ) != (after_surface.parameters, after_surface.returns, after_surface.overloads):
+                    raise model.ModelError(
+                        [
+                            "symbol_move cannot change the callable contract; use a separately supported interface migration"
+                        ]
+                    )
+
+        local_release = prepared_source.release_id
+        release_manifest_sha256 = sha256(prepared_source.manifest).hexdigest()
+        release_artifacts_sha256 = prepared_source.artifacts_sha256
     staged = {path: content for path, content in source.items() if content is not None} | generated
+    if proposed.keys() & staged.keys():
+        raise model.ModelError(["source migration overlaps a generated or canonical effect"])
+    staged.update(proposed)
     prior = {path: _read(root, path) for path in staged}
     files = tuple(
         FileEffect(path=path, before=_digest(prior[path]), after=content)
@@ -464,6 +568,7 @@ def prepare_preview(
         local_release=local_release,
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,
+        source_migrations=migrations,
         discovery=locate_consumers(root, head, identifiers, comparison=comparison)
         if identifiers or comparison
         else None,
@@ -482,6 +587,11 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
         or generator_fingerprint(root) != preview.generator
     ):
         raise model.ModelError(["model toolchain changed after preview"])
+    for migration in preview.source_migrations:
+        try:
+            check_source_migration(root, migration)
+        except ValueError as error:
+            raise model.ModelError([str(error)]) from error
     effects = {file.path: file for file in preview.files}
     for path, before in preview.inputs.items():
         if path not in effects and _digest(_read(root, path)) != before:
