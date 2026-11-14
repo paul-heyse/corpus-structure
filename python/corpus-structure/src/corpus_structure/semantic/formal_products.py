@@ -34,6 +34,7 @@ from .formal_evidence import (
     grammar_identity,
 )
 from .identity import canonical_bytes
+from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .python_operation_sources import PythonSourceCollection
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
@@ -174,6 +175,7 @@ class FormalEvidenceProduct:
                 row.body,
             )
             for ordinal, row in enumerate(cast(Any, self.value).members)
+            if row.body.record_type != "manifest"
         )
 
     def inventory(self) -> dict[str, Any]:
@@ -182,7 +184,7 @@ class FormalEvidenceProduct:
         result = {name: [] for name, _ in _INVENTORIES}
         by_kind = {kind: name for name, kind in _INVENTORIES}
         for packet in body["members"]:
-            if packet["body"]["record_type"] != "choice_member":
+            if packet["body"]["record_type"] not in {"choice_member", "manifest"}:
                 result[by_kind[packet["body"]["record_type"]]].append(packet["body"])
         return {**result, "roles": [], "coverage": body["coverage"]}
 
@@ -198,6 +200,7 @@ def validate_formal_product(
     checked = _values(prepared.validate_json("DdoFormalProduct", canonical_bytes(value)))
     selected = source.value
     member_contracts = formal_member_contracts(prepared, model)
+    packets = analytical_packets(checked, member_contracts["manifest"])
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
         raise ValueError("formal product differs from exact selected source/scope")
     data = {name: [] for name, _ in _INVENTORIES}
@@ -205,7 +208,7 @@ def validate_formal_product(
     by_kind = {kind: name for name, kind in _INVENTORIES}
     subject = source_subject(checked["source"])
     seen = set()
-    for packet in checked["members"]:
+    for packet in packets:
         if packet["kind_contract"] != member_contracts[packet["body"]["record_type"]]:
             raise ValueError("formal packet has another admitted nominal member contract")
         if (
@@ -230,7 +233,7 @@ def validate_formal_product(
     }
     actual_alternatives = {
         packet["member_id"]: packet["body"]
-        for packet in checked["members"]
+        for packet in packets
         if packet["body"]["record_type"] == "choice_member"
     }
     if actual_alternatives != expected_alternatives:
@@ -383,11 +386,14 @@ def formal_member_contracts(
         discriminator = next(
             prop.equals_string for prop in definition.properties if prop.name == "record_type"
         )
+        if discriminator == "manifest":
+            continue
         if discriminator is None or discriminator in result:
             raise ValueError("formal packet variants require unique declared kind correspondence")
         result[discriminator] = identities[definition.iri, "kind"]
     if set(result) != {kind for _, kind in _MEMBER_VARIANTS}:
         raise ValueError("formal member contracts differ from the actual produced inventories")
+    result["manifest"] = manifest_contract(prepared, model, "DdoFormalManifest")
     return result
 
 
@@ -565,7 +571,7 @@ def formal_product_values(
                 )
             )
     check_active()
-    return dict(
+    value = dict(
         source=coordinate,
         selectors=selected["selectors"],
         outcome="partial" if any(builder.problems.values()) else "complete",
@@ -574,6 +580,7 @@ def formal_product_values(
         members=members,
     )
 
+    return append_manifest(value, member_contracts["manifest"])
 
 def prepare_formal_evidence(
     prepared: PreparedRelease, model: EffectiveDataOperationModel, *, grammar: str
@@ -655,6 +662,7 @@ def formal_profile_assets() -> SourceArtifact:
         root / "characterization.py",
         root / "characterization_evidence.py",
         root / "source_products.py",
+        root / "characterization_manifests.py",
         root / "constructions/reuse.py",
         root / "constructions/nodes.py",
         root / "constructions/lexical.py",

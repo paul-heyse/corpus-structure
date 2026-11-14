@@ -42,6 +42,7 @@ def primary_operation_inputs(
     from .characterization_ports import (
         characterization_operation_sources,
         full_document_view_operation_sources,
+        captured_document_view_operation_sources,
     )
     from .construction_products import construction_product_inputs
     from .data_operation_artifacts import capture_port_generator_sources
@@ -79,7 +80,13 @@ def primary_operation_inputs(
         full_document_view_operation_sources(include_dependencies=False),
     )
     if capture_sources is not None:
-        collections = (*collections, capture_sources)
+        from .pdf_views import pdf_views_operation_sources
+
+        collections = (
+            *collections,
+            pdf_views_operation_sources(capture_sources),
+            captured_document_view_operation_sources(include_dependencies=False),
+        )
     combined = combine_primary_sources(*collections)
     native = native_protocol_sources()
     generator = capture_port_generator_sources()

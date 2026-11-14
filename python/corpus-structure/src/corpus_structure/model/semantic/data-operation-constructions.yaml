@@ -17,7 +17,7 @@ classes:
   DdoInterpretedExtent:
     is_a: DdoFormalExtent
   DdoInterpretedOccurrence:
-    is_a: DdoInterpretedMember
+    is_a: DdoConstructionMember
     attributes:
       local_id:
         required: true
@@ -30,6 +30,8 @@ classes:
       record_type:
         equals_string: occurrence
         required: true
+    mixins:
+    - DdoContextualMember
   DdoInterpretedNestedChoiceMember:
     is_a: CharacterizationChoiceMember
     slot_usage:
@@ -40,7 +42,8 @@ classes:
   DdoInterpretedAnnotation:
     is_a: CharacterizationAnnotation
     mixins:
-    - DdoInterpretedMember
+    - DdoConstructionMember
+    - DdoContextualMember
     attributes:
       record_type:
         required: true
@@ -55,7 +58,8 @@ classes:
   DdoInterpretedMembership:
     is_a: CharacterizationMembership
     mixins:
-    - DdoInterpretedMember
+    - DdoConstructionMember
+    - DdoContextualMember
     attributes:
       record_type:
         required: true
@@ -70,7 +74,8 @@ classes:
   DdoInterpretedRole:
     is_a: CharacterizationRole
     mixins:
-    - DdoInterpretedMember
+    - DdoConstructionMember
+    - DdoContextualMember
     attributes:
       record_type:
         required: true
@@ -85,7 +90,8 @@ classes:
   DdoInterpretedTerm:
     is_a: CharacterizationTerm
     mixins:
-    - DdoInterpretedMember
+    - DdoConstructionMember
+    - DdoContextualMember
     attributes:
       record_type:
         required: true
@@ -100,7 +106,8 @@ classes:
   DdoInterpretedChoiceGroup:
     is_a: CharacterizationChoiceGroup
     mixins:
-    - DdoInterpretedMember
+    - DdoConstructionMember
+    - DdoContextualMember
     attributes:
       record_type:
         required: true
@@ -123,12 +130,9 @@ classes:
         range: DdoFormalMemberContext
         required: true
         inlined: true
-      body:
-        range: DdoInterpretedMember
-        required: true
-        inlined: true
     annotations:
       cs:data_universe: ordinary
+    abstract: true
   DdoInterpretedCoverage:
     is_a: CharacterizationFamilyCoverage
     mixins:
@@ -139,6 +143,13 @@ classes:
     is_a: DdoInterpretedProduct
     annotations:
       cs:data_universe: ordinary
+    attributes:
+      members:
+        range: DdoConstructionPacket
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
   DdoContextualMeaningProduct:
     is_a: DdoInterpretedProduct
     description: Exact selected symbolic products evaluated under explicitly selected
@@ -156,10 +167,17 @@ classes:
         range: DdoMeaningEnvironment
         required: true
         inlined: true
+      members:
+        range: DdoContextualPacket
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
   DdoInterpretedChoiceMember:
     is_a: DdoInterpretedNestedChoiceMember
     mixins:
-    - DdoInterpretedMember
+    - DdoConstructionMember
+    - DdoContextualMember
     attributes:
       record_type:
         required: true
@@ -270,7 +288,7 @@ classes:
     annotations:
       cs:data_universe: ordinary
   DdoInterpretedProduct:
-    is_a: DdoCharacterizedProduct
+    is_a: DdoCharacterizationEnvelope
     attributes:
       source:
         range: DdoNativeSourceCoordinate
@@ -293,11 +311,34 @@ classes:
         inlined: true
         multivalued: true
         required: true
-      members:
-        range: DdoInterpretedPacket
-        inlined: true
-        multivalued: true
-        minimum_cardinality: 0
     annotations:
       cs:data_universe: ordinary
     abstract: true
+  DdoConstructionMember:
+    is_a: DdoInterpretedMember
+    abstract: true
+  DdoConstructionPacket:
+    is_a: DdoInterpretedPacket
+    attributes:
+      body:
+        range: DdoConstructionMember
+        inlined: true
+        required: true
+  DdoConstructionManifest:
+    is_a: DdoConstructionMember
+    mixins:
+    - DdoCharacterizedProduct
+  DdoContextualMember:
+    is_a: DdoInterpretedMember
+    abstract: true
+  DdoContextualPacket:
+    is_a: DdoInterpretedPacket
+    attributes:
+      body:
+        range: DdoContextualMember
+        inlined: true
+        required: true
+  DdoContextualManifest:
+    is_a: DdoContextualMember
+    mixins:
+    - DdoCharacterizedProduct

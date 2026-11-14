@@ -32,7 +32,7 @@ classes:
         range: boolean
         required: true
   DdoFormalOccurrence:
-    is_a: DdoFormalMember
+    is_a: DdoFormalAnalyticalMember
     attributes:
       local_id:
         required: true
@@ -172,7 +172,7 @@ classes:
         inlined: true
         minimum_cardinality: 0
   DdoFormalProduct:
-    is_a: DdoCharacterizedProduct
+    is_a: DdoCharacterizationEnvelope
     description: Positioned formal facts and packed alternatives; execution recipe/attempt/provider
       custody is not part of meaning.
     attributes:
@@ -309,7 +309,7 @@ classes:
           native_batch:
             value_presence: ABSENT
     mixins:
-    - DdoFormalMember
+    - DdoFormalAnalyticalMember
     slot_usage:
       external_premises:
         minimum_cardinality: 0
@@ -335,7 +335,7 @@ classes:
         required: true
         equals_string: membership
     mixins:
-    - DdoFormalMember
+    - DdoFormalAnalyticalMember
     slot_usage:
       required_external_choices:
         minimum_cardinality: 0
@@ -355,7 +355,7 @@ classes:
         required: true
         equals_string: term
     mixins:
-    - DdoFormalMember
+    - DdoFormalAnalyticalMember
     slot_usage:
       external_premises:
         minimum_cardinality: 0
@@ -399,20 +399,17 @@ classes:
         required: true
         equals_string: choice
     mixins:
-    - DdoFormalMember
+    - DdoFormalAnalyticalMember
   DdoFormalMember:
     is_a: SourceRecordProduct
     abstract: true
     attributes:
       record_type:
         required: true
-      local_id:
-        required: true
-        pattern: ^.+$
   DdoFormalAlternative:
     is_a: DdoFormalChoiceMember
     mixins:
-    - DdoFormalMember
+    - DdoFormalAnalyticalMember
     attributes:
       record_type:
         required: true
@@ -429,3 +426,14 @@ classes:
         maximum_cardinality: 0
     annotations:
       cs:data_universe: source
+  DdoFormalAnalyticalMember:
+    is_a: DdoFormalMember
+    abstract: true
+    attributes:
+      local_id:
+        required: true
+        pattern: ^.+$
+  DdoFormalManifest:
+    is_a: DdoFormalMember
+    mixins:
+    - DdoCharacterizedProduct

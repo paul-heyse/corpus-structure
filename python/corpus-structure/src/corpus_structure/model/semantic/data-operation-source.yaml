@@ -8,113 +8,209 @@ default_range: string
 classes:
   DdoNativeTableCell:
     is_a: SourceRecordProduct
-    description: Actual native textual and grid-cell context; original PDF bounding geometry is outside this language projection.
+    description: Actual native textual and grid-cell context; original PDF bounding
+      geometry is outside this language projection.
     attributes:
       text: {}
-      row_span: {range: integer}
-      col_span: {range: integer}
-      start_row_offset_idx: {range: integer}
-      end_row_offset_idx: {range: integer}
-      start_col_offset_idx: {range: integer}
-      end_col_offset_idx: {range: integer}
-      column_header: {range: boolean}
-      row_header: {range: boolean}
-      row_section: {range: boolean}
-      fillable: {range: boolean}
+      row_span:
+        range: integer
+      col_span:
+        range: integer
+      start_row_offset_idx:
+        range: integer
+      end_row_offset_idx:
+        range: integer
+      start_col_offset_idx:
+        range: integer
+      end_col_offset_idx:
+        range: integer
+      column_header:
+        range: boolean
+      row_header:
+        range: boolean
+      row_section:
+        range: boolean
+      fillable:
+        range: boolean
       ref: {}
   DdoNativeTableData:
     is_a: SourceRecordProduct
     attributes:
-      num_rows: {range: integer}
-      num_cols: {range: integer}
+      num_rows:
+        range: integer
+      num_cols:
+        range: integer
       orientation: {}
-      table_cells: {range: DdoNativeTableCell, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      table_cells:
+        range: DdoNativeTableCell
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
   DdoOriginalDocument:
     annotations:
       cs:data_universe: source
     is_a: SourceRecordProduct
-    description: Immutable original document bytes by their retained content digest, independent of converter recipe and physical path.
+    description: Immutable original document bytes by their retained content digest,
+      independent of converter recipe and physical path.
     attributes:
-      document: {required: true, pattern: '^.+$'}
-      content_hash: {required: true, pattern: '^[0-9a-f]{64}$'}
-      mime: {required: true, pattern: '^.+$'}
+      document:
+        required: true
+        pattern: ^.+$
+      content_hash:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      mime:
+        required: true
+        pattern: ^.+$
   DdoNativeSourceCoordinate:
     is_a: SourceRecordProduct
-    description: Semantic source identity and original projection coordinates; physical run/view custody is separate.
+    description: Semantic source identity and original projection coordinates; physical
+      run/view custody is separate.
     attributes:
-      document: {required: true, pattern: '^.+$'}
-      document_subject: {required: true, pattern: '^original-document:[0-9a-f]{64}$'}
-      section_pointer: {required: true, pattern: '^.+$'}
-      membership: {required: true, pattern: '^(direct|descendants)$'}
-      projection: {required: true, pattern: '^[0-9a-f]{64}$'}
+      document:
+        required: true
+        pattern: ^.+$
+      document_subject:
+        required: true
+        pattern: ^original-document:[0-9a-f]{64}$
+      section_pointer:
+        required: true
+        pattern: ^.+$
+      membership:
+        required: true
+        pattern: ^(direct|descendants)$
+      projection:
+        required: true
+        pattern: ^[0-9a-f]{64}$
   DdoNativeSourcePiece:
     is_a: SourceRecordProduct
     attributes:
-      kind: {required: true, pattern: '^(native_text|synthetic_separator)$'}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 0}
+      kind:
+        required: true
+        pattern: ^(native_text|synthetic_separator)$
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 0
       item_ref: {}
       source_field: {}
-      cell_index: {range: integer, minimum_value: 0}
+      cell_index:
+        range: integer
+        minimum_value: 0
   DdoNativeSourcePage:
     is_a: SourceRecordProduct
     attributes:
-      page_no: {range: integer, required: true, minimum_value: 1}
+      page_no:
+        range: integer
+        required: true
+        minimum_value: 1
   DdoNativeSourceAtom:
     is_a: SourceRecordProduct
     attributes:
-      self_ref: {required: true, pattern: '^.+$'}
-      label: {required: true, pattern: '^.+$'}
+      self_ref:
+        required: true
+        pattern: ^.+$
+      label:
+        required: true
+        pattern: ^.+$
       text: {}
       orig: {}
       parent: {}
       name: {}
-      level: {range: integer}
+      level:
+        range: integer
       content_layer: {}
       marker: {}
-      enumerated: {range: boolean}
-      children: {multivalued: true, minimum_cardinality: 0}
-      captions: {multivalued: true, minimum_cardinality: 0}
-      footnotes: {multivalued: true, minimum_cardinality: 0}
-      references: {multivalued: true, minimum_cardinality: 0}
-      data: {range: DdoNativeTableData, inlined: true}
-      prov: {range: DdoNativeSourcePage, inlined: true, multivalued: true}
+      enumerated:
+        range: boolean
+      children:
+        multivalued: true
+        minimum_cardinality: 0
+      captions:
+        multivalued: true
+        minimum_cardinality: 0
+      footnotes:
+        multivalued: true
+        minimum_cardinality: 0
+      references:
+        multivalued: true
+        minimum_cardinality: 0
+      data:
+        range: DdoNativeTableData
+        inlined: true
+      prov:
+        range: DdoNativeSourcePage
+        inlined: true
+        multivalued: true
   DdoNativeSourceRecognition:
     is_a: SourceRecordProduct
     attributes:
-      pointer: {required: true, pattern: '^.+$'}
-      outcome: {required: true, pattern: '^.+$'}
+      pointer:
+        required: true
+        pattern: ^.+$
+      outcome:
+        required: true
+        pattern: ^.+$
   DdoSelectedNativeSource:
-    description: Exact selected original text, ancestry, links and native table-grid context. Native-pointer selectors filter captured selected atoms by retained descendant ancestry and never widen the original view. PDF/image/bounding-box geometry remains owned by the original published records.
+    description: Exact selected original text, ancestry, links and native table-grid
+      context. Native-pointer selectors filter captured selected atoms by retained
+      descendant ancestry and never widen the original view. PDF/image/bounding-box
+      geometry remains owned by the original published records.
     annotations:
       cs:data_universe: source
     is_a: SourceRecordProduct
-    attributes:
-      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
-      text: {required: true}
-      pieces: {range: DdoNativeSourcePiece, inlined: true, multivalued: true, minimum_cardinality: 0}
-      ancestors: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
-      items: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
-      recognition: {range: DdoNativeSourceRecognition, inlined: true, multivalued: true}
-      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
-  DdoCharacterizedProduct:
-    is_a: SourceRecordProduct
-    abstract: true
-    description: Retained factual or interpreted characterization over one original
-      source and an explicit selected scope. Concrete nominal products own their
-      source or ordinary authority and their actual constituent representation.
     attributes:
       source:
         range: DdoNativeSourceCoordinate
         inlined: true
         required: true
+      text:
+        required: true
+      pieces:
+        range: DdoNativeSourcePiece
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      ancestors:
+        range: DdoNativeSourceAtom
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      items:
+        range: DdoNativeSourceAtom
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      recognition:
+        range: DdoNativeSourceRecognition
+        inlined: true
+        multivalued: true
       selectors:
         range: CharacterizationSourceSelector
         inlined: true
         multivalued: true
         required: true
-      coverage:
-        range: DdoCharacterizationCoverage
+        minimum_cardinality: 1
+  DdoCharacterizedProduct:
+    is_a: DdoCharacterizationEnvelope
+    abstract: true
+    description: Retained factual or interpreted characterization over one original
+      source and an explicit selected scope. Concrete nominal products own their source
+      or ordinary authority and their actual constituent representation.
+    attributes:
+      record_type:
+        required: true
+        equals_string: manifest
+      outcome:
+        required: true
+        pattern: ^(complete|partial|failed)$
+      dependencies:
+        range: DdoSemanticProductReference
         inlined: true
         multivalued: true
         value_presence: PRESENT
@@ -151,3 +247,24 @@ classes:
         required: true
         pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
       reason: {}
+  DdoCharacterizationEnvelope:
+    is_a: SourceRecordProduct
+    abstract: true
+    description: Shared source/scope/coverage for full child products and compact
+      same-product manifest members.
+    attributes:
+      source:
+        range: DdoNativeSourceCoordinate
+        inlined: true
+        required: true
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+      coverage:
+        range: DdoCharacterizationCoverage
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0

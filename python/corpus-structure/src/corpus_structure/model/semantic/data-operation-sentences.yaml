@@ -135,7 +135,7 @@ classes:
   DdoCanonicalSentences:
     annotations:
       cs:data_universe: source
-    is_a: DdoCharacterizedProduct
+    is_a: DdoCharacterizationEnvelope
     description: Declared canonical sentence/tokenization members independent of native
       linguistic labels.
     attributes:
@@ -440,7 +440,7 @@ classes:
         required: true
         inlined: true
   DdoSourceAnnotations:
-    is_a: SourceRecordProduct
+    is_a: DdoCharacterizationEnvelope
     description: One authoritative detached spaCy annotation population. A compact
       manifest member supports document fan-in without hydrating full block annotations.
     annotations:
@@ -511,3 +511,7 @@ classes:
         range: integer
         required: true
         minimum_value: 1
+  DdoCanonicalManifest:
+    is_a: DdoCanonicalUnit
+    mixins:
+    - DdoCharacterizedProduct

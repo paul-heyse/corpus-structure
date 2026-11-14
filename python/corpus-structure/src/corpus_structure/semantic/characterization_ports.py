@@ -47,6 +47,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
     root = Path(__file__).parent
     common = (
         "characterization.py",
+        "characterization_manifests.py",
         "characterization_evidence.py",
         "constructions/declarations.py",
         "constructions/nodes.py",
@@ -175,6 +176,7 @@ def _execution_custody() -> SourceArtifact:
         "formal_readings.py",
         "formal_products.py",
         "source_products.py",
+        "characterization_manifests.py",
         "sentence_products.py",
         "declared_record_sources.py",
         "data_product_reference.py",
@@ -314,7 +316,7 @@ def execute_view_profile(receiver, sources, products, active, profile):
 def _body(prepared, name, value):
     if isinstance(
         value,
-        (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SourceAnnotations),
+        (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SourceAnnotations, FrozenNativeSource),
     ):
         value = value.value
     if isinstance(value, BaseModel):
@@ -561,17 +563,24 @@ class PreparedCharacterizationPort(ABC):
                 )
                 for value in roles["sources"]
             )
-            if not sources or binding.subject != sources[0].value["source"]["document_subject"]:
+            if not sources and not getattr(self, "allow_empty", False):
+                raise PortRefusal("view requires its explicitly bound original source population")
+            if sources and binding.subject != sources[0].value["source"]["document_subject"]:
                 raise PortRefusal("view subject is not its explicitly bound original document")
+            if getattr(self, "activate_all", False):
+                names = tuple(role.name for role in self.operation.roles if role.direction == "input" and role.name != "sources")
+                retained = tuple(product for name in names for product in self._retained(roles[name], binding, name))
+                products, active = retained, retained
+            else:
+                products = self._retained(roles["products"], binding, "products")
+                active = self._retained(roles["active"], binding, "active")
+            if not sources and (products or active):
+                raise PortRefusal("closed empty view cannot contain characterization members")
             profile = decode_semantic_value(json.loads(binding.parameters))["profile"]
             if profile not in self.profiles:
                 raise PortRefusal("composition profile is outside its admitted contract")
-            return _DocumentInputs(
-                sources,
-                self._retained(roles["products"], binding, "products"),
-                self._retained(roles["active"], binding, "active"),
-                profile,
-            )
+            return _DocumentInputs(sources, products, active, profile)
+
         source = FrozenNativeSource.acquire(
             self.prepared, _body(self.prepared, "DdoSelectedNativeSource", roles["source"])
         )
@@ -618,6 +627,11 @@ class PreparedCharacterizationPort(ABC):
         return _ContextualInputs(source, formal, constructions, supporting)
 
     def _completion(self, product, binding=None):
+        if product is None:
+            from .data_operation_ports import PortCompletion, PortRefusal
+            if not getattr(self, "allow_empty", False) or "empty" not in self.operation.outcomes:
+                raise PortRefusal("this composition contract does not admit a no-product completion")
+            return PortCompletion(self.operation.semantic_id, (), outcome="empty")
         if binding is not None:
             if binding.subject_context is None:
                 raise ValueError("publication requires acquired output subject context")
@@ -649,6 +663,8 @@ class PreparedCharacterizationPort(ABC):
         self._verify()
         check_active()
         inputs = self._inputs(values, binding)
+        if isinstance(inputs, _DocumentInputs) and not inputs.sources:
+            return self._completion(None, binding)
         if isinstance(inputs, _ConstructionInputs):
             product = PreparedConstructionProfile(self.prepared, self.model).run(
                 inputs.source, inputs.formal, sentences=inputs.native, check_active=check_active
@@ -682,6 +698,8 @@ class PreparedCharacterizationPort(ABC):
 
         self._verify()
         inputs = self._inputs(values, binding)
+        if isinstance(inputs, _DocumentInputs) and not inputs.sources:
+            return self._completion(None, binding)
         products = ()
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
@@ -881,6 +899,8 @@ def full_document_view_operation_sources(
 
 
 class PreparedFullDocumentViewPort(PreparedDocumentViewPort):
+    allow_empty = True
+    activate_all = True
     profiles = ("full_characterization",)
     operation_sources = staticmethod(full_document_view_operation_sources)
 
@@ -893,3 +913,28 @@ class PreparedFullDocumentViewPort(PreparedDocumentViewPort):
 
 def resolve_full_document_view_port(prepared, model, operation, **admission):
     return _resolve(PreparedFullDocumentViewPort, prepared, model, operation, **admission)
+
+
+def captured_document_view_operation_sources(*, capture_sources=None, sentence_configuration=None, hanlp_selection=None, include_dependencies=True):
+    from .primary_operations import combine_primary_sources
+    own = _operation_sources("captured_document_composition", "view")
+    base = full_document_view_operation_sources(include_dependencies=False)
+    if not include_dependencies:
+        return combine_primary_sources(base, own)
+    from .pdf_views import pdf_views_operation_sources
+    return combine_primary_sources(full_document_view_operation_sources(
+        sentence_configuration=sentence_configuration, hanlp_selection=hanlp_selection),
+        pdf_views_operation_sources(capture_sources), own)
+
+
+class PreparedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
+    operation_sources = staticmethod(captured_document_view_operation_sources)
+
+    @property
+    def endpoint(self):
+        from corpus_structure.methods.captured_document_composition import ComposeCapturedDocumentOperation
+        return ComposeCapturedDocumentOperation
+
+
+def resolve_captured_document_view_port(prepared, model, operation, **admission):
+    return _resolve(PreparedCapturedDocumentViewPort, prepared, model, operation, **admission)

@@ -368,3 +368,37 @@ def _publication_context(source, *, document=False):
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
     )
+
+
+def test_compact_family_members_preserve_parent_identity_and_complete_source_context(profiles):
+    import json
+    from dataclasses import replace
+    from corpus_structure.semantic.characterization_manifests import manifest_contract
+    from corpus_structure.semantic.construction_products import PreparedContextualProfile
+    from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct, compose_enriched_document
+    from corpus_structure.semantic.data_product_reference import DataProductReference
+    from corpus_structure.semantic.identity import canonical_bytes
+    formal, construction = profiles
+    source = selected(formal, "All samples are finite.")
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    symbolic = construction.run(source, (primary,), subject_context=context)
+    contextual = PreparedContextualProfile(construction.prepared, construction.model).run(
+        source, (symbolic,), (primary,), subject_context=context)
+    retained = []
+    for product, name in ((primary, "DdoFormalManifest"), (symbolic, "DdoConstructionManifest"), (contextual, "DdoContextualManifest")):
+        value = json.loads(product.content)
+        manifests = [packet for packet in value["members"] if packet["body"]["record_type"] == "manifest"]
+        assert len(manifests) == 1
+        manifest = manifests[0]
+        assert manifest["kind_contract"] == manifest_contract(construction.prepared, construction.model, name)
+        assert manifest["context"]["subject"] == context.subject
+        assert manifest["body"]["source"] == source.value["source"]
+        assert "members" not in manifest["body"] and "lexicon" not in manifest["body"]
+        wrapper = RetainedCharacterizationProduct.acquire(construction.prepared, construction.model,
+            construction.prepared.index.definitions[name].iri, canonical_bytes(manifest["body"]), subject_context=context)
+        retained.append(replace(wrapper, selected_product=product.semantic_id, selected_member=manifest["member_id"]))
+    view = compose_enriched_document(construction.prepared, construction.model, (source,), tuple(retained),
+        active=tuple(DataProductReference(product.semantic_id) for product in retained),
+        profile="selected_layers", subject_context=_publication_context(source, document=True))
+    assert json.loads(view.content)["products"] == [{"product_id": product.semantic_id} for product in (primary, symbolic, contextual)]

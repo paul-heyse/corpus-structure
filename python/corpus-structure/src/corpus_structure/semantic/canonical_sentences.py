@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .characterization_manifests import analytical_packets, append_manifest
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
@@ -71,6 +72,7 @@ def canonical_projection_spec(model, container_kind):
     kinds = {kind.semantic_id: kind for kind in model.kinds}
     ids = {(item.owner, item.domain): item.key for item in model.identities}
     records = {}
+    manifest = None
     for owner in derive_member_kinds(model, container_kind):
         properties = [
             json.loads(kinds[edge.target].facts)
@@ -82,6 +84,11 @@ def canonical_projection_spec(model, container_kind):
             for prop in properties
             if prop["name"] == "record_type" and prop.get("equals_string")
         ]
+        if tags == ["manifest"]:
+            if manifest is not None:
+                raise ValueError("canonical product repeats a declared manifest type")
+            manifest = ids[owner, "kind"]
+            continue
         if len(tags) != 1 or tags[0] in records:
             raise ValueError("canonical members need distinct actual nominal record discriminators")
         records[tags[0]] = dict(
@@ -89,7 +96,9 @@ def canonical_projection_spec(model, container_kind):
         )
     if set(records) != {"token", "sentence"}:
         raise ValueError("canonical model must declare exactly sentence and token units")
-    return dict(records=records, families=list(SPACY_FAMILIES[:2]))
+    if manifest is None:
+        raise ValueError("canonical product lacks its declared compact manifest")
+    return dict(records=records, families=list(SPACY_FAMILIES[:2]), manifest_contract=manifest)
 
 
 def canonical_packet_values(inventory: dict, projection: dict) -> dict:
@@ -104,7 +113,7 @@ def canonical_packet_values(inventory: dict, projection: dict) -> dict:
                 "body": {field: body[field] for field in projection["records"][body["record_type"]]["fields"] if field in body}}
                for body in source_annotation_member_values(inventory)]
     coverage = [row for row in inventory["coverage"] if row["family"] in projection["families"]]
-    return {
+    value = {
         **{key: inventory[key] for key in ("source", "selectors", "block_coverage")},
         "outcome": "complete"
         if all(row["outcome"] in {"complete", "empty"} for row in coverage)
@@ -112,6 +121,7 @@ def canonical_packet_values(inventory: dict, projection: dict) -> dict:
         "coverage": coverage,
         "members": packets,
     }
+    return append_manifest(value, projection["manifest_contract"])
 
 
 @dataclass(frozen=True)
@@ -130,7 +140,8 @@ class PreparedCanonicalProfile:
 
     def validate_output(self, value, *, subject_context=None):
         result = self.prepared.validate_json(self.output_name, canonical_bytes(value))
-        rows = result.model_dump(mode="python", exclude_unset=True)["members"]
+        value = result.model_dump(mode="json", exclude_unset=True)
+        rows = analytical_packets(value, json.loads(self.projection)["manifest_contract"])
         by_id = {row["member_id"]: row["body"] for row in rows}
         if len(by_id) != len(rows):
             raise ValueError("canonical projection repeats a member")
@@ -182,6 +193,7 @@ def canonical_profile_assets():
     return SourceArtifact(
         "canonical/profile-assets",
         canonical_bytes(dict(definitions=selected, families=SPACY_FAMILIES[:2],
+            manifests=Path(__file__).with_name("characterization_manifests.py").read_bytes().hex(),
             annotation_projection=_semantic_nodes(Path(__file__).with_name("sentence_products.py").read_bytes(),
                 ("_id", "source_annotation_member_values")),
             original_subject=_semantic_nodes(Path(__file__).with_name("source_products.py").read_bytes(), ("source_subject",)))),
@@ -192,6 +204,7 @@ def canonical_execution_custody():
     root = Path(__file__).parent
     paths = (
         Path(__file__),
+        root / "characterization_manifests.py",
         root / "sentence_products.py",
         root / "source_products.py",
         root / "data_operation_prepared_products.py",

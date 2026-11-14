@@ -30,6 +30,7 @@ from .data_product_reference import DataProductReference, member_reference, refe
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
+from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .sentence_products import SourceAnnotations, SourceAnnotationReadings, sentence_product_inputs
 from .source_products import FrozenNativeSource, source_subject
 from .types import PreparedRelease, SourceArtifact, SourceBundle
@@ -145,11 +146,15 @@ def interpreted_member_contracts(prepared, model):
         tag = next(
             prop.equals_string for prop in definition.properties if prop.name == "record_type"
         )
+        if tag == "manifest":
+            continue
         if tag is None or tag in result:
             raise ValueError("construction members require unique nominal discriminators")
         result[tag] = identities[definition.iri, "kind"]
     if set(result) != {tag for _, tag in _MEMBER_VARIANTS}:
         raise ValueError("construction member contracts differ from actual inventories")
+    result["construction_manifest"] = manifest_contract(prepared, model, "DdoConstructionManifest")
+    result["contextual_manifest"] = manifest_contract(prepared, model, "DdoContextualManifest")
     return result
 
 
@@ -193,7 +198,7 @@ class InterpretedProduct:
         result = {name: [] for name, _ in _INVENTORIES}
         names = {tag: name for name, tag in _INVENTORIES}
         for packet in json.loads(self.content)["members"]:
-            if packet["body"]["record_type"] != "choice_member":
+            if packet["body"]["record_type"] not in {"choice_member", "manifest"}:
                 result[names[packet["body"]["record_type"]]].append(packet["body"])
         return result
 
@@ -201,6 +206,7 @@ class InterpretedProduct:
 @dataclass(frozen=True)
 class ConstructionProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoConstructionProduct"
+    manifest_name: ClassVar[str] = "DdoConstructionManifest"
 
 
 @dataclass(frozen=True)
@@ -223,7 +229,7 @@ class CharacterizationSnapshot:
             tag = packet["body"]["record_type"]
             if tag in names:
                 result[names[tag]].append(packet["body"])
-            elif tag != "choice_member":
+            elif tag not in {"choice_member", "manifest"}:
                 result["source_facts"].append(packet)
         return {**result, "coverage": body["coverage"]}
 
@@ -309,11 +315,8 @@ def construction_product_values(
             )
     if native is not None:
         native_body = json.loads(native.content)
-        boundaries = [
-            packet["body"]
-            for packet in native_body["members"]
-            if packet["body"]["record_type"] == "sentence"
-        ]
+        from .sentence_products import source_annotation_member_values
+        boundaries = [row for row in source_annotation_member_values(native_body) if row["record_type"] == "sentence"]
         regions = [
             (max(a, row["start"]), min(b, row["end"]))
             for a, b in regions
@@ -421,7 +424,7 @@ def construction_product_values(
         original_source=coordinate["document"],
         analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
     )
-    return dict(
+    value = dict(
         source=coordinate,
         selectors=selected["selectors"],
         dependencies=[
@@ -442,6 +445,7 @@ def construction_product_values(
         ],
     )
 
+    return append_manifest(value, member_contracts["construction_manifest"])
 
 def validate_interpreted_product(
     prepared,
@@ -456,6 +460,7 @@ def validate_interpreted_product(
     checked = prepared.validate_json(product_type.kind_name, canonical_bytes(value)).model_dump(
         mode="json", exclude_unset=True
     )
+    packets = analytical_packets(checked, manifest_contract(prepared, model, product_type.manifest_name))
     selected = source.value
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
         raise ValueError("construction product changes its exact original source/scope")
@@ -473,7 +478,7 @@ def validate_interpreted_product(
         analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
     )
     seen = set()
-    for packet in checked.get("members", []):
+    for packet in packets:
         row = packet["body"]
         if (
             packet["kind_contract"] != contracts[row["record_type"]]
@@ -492,7 +497,7 @@ def validate_interpreted_product(
     }
     actual_alternatives = {
         packet["member_id"]: packet["body"]
-        for packet in checked["members"]
+        for packet in packets
         if packet["body"]["record_type"] == "choice_member"
     }
     if expected_alternatives != actual_alternatives:
@@ -610,6 +615,7 @@ class PreparedConstructionProfile:
 @dataclass(frozen=True)
 class ContextualMeaningProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoContextualMeaningProduct"
+    manifest_name: ClassVar[str] = "DdoContextualManifest"
 
 
 @dataclass(frozen=True)
@@ -742,4 +748,4 @@ def contextual_product_values(
             attribution=[ref.values() for ref in env.attribution],
         ),
     )
-    return value
+    return append_manifest(value, contracts["contextual_manifest"])

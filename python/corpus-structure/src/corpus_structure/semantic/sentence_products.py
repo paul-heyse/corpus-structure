@@ -218,17 +218,9 @@ def source_annotation_member_values(value):
 
 
 def annotation_manifest(value, *, kind_contract):
-    context = {
-        "subject": source_subject(value["source"]),
-        "original_source": value["source"]["document"],
-        "analyzed_scope": {"source": value["source"], "selectors": value["selectors"]},
-    }
-    return {
-        "member_id": "source-annotation-manifest:" + sha256(canonical_bytes(context)).hexdigest(),
-        "kind_contract": kind_contract,
-        "context": context,
-        "body": {key: value[key] for key in ("source", "selectors", "coverage", "outcome")},
-    }
+    from .characterization_manifests import compact_manifest
+
+    return compact_manifest(value, kind_contract)
 
 
 def validate_source_annotations(
@@ -822,6 +814,7 @@ def sentence_profile_assets(
     root = Path(__file__).parent
     paths = (
         root / "source_products.py",
+        root / "characterization_manifests.py",
         root.parent / "ingest/sentences.py",
         root.parent / "methods/source_preparation.py",
         _MODEL,

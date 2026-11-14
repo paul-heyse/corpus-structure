@@ -89,7 +89,7 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
     assert restored[0].block_start == 0 and restored[0].block_end == len(source.value["text"])
     assert product.value.outcome == "partial"
     assert len(value["members"]) == 1
-    assert set(value["members"][0]["body"]) == {"source", "selectors", "coverage", "outcome"}
+    assert set(value["members"][0]["body"]) == {"record_type", "source", "selectors", "coverage", "outcome", "dependencies"}
     assert not any("tokens" in packet["body"] or "blocks" in packet["body"] for packet in value["members"])
     assert "annotation_columns" not in value
     assert "DdoSentenceInventory" not in prepared.index.definitions
@@ -115,7 +115,7 @@ def test_canonical_projection_uses_annotations_without_native_label_determinants
     changed = copy.deepcopy(value)
     changed["blocks"][0]["annotation"]["tokens"][0]["lemma"] = "another-native-label"
     assert canonical_packet_values(changed, projection) == canonical
-    assert len(canonical["members"]) == 5
+    assert len(canonical["members"]) == 6
     sentence = next(packet["body"] for packet in canonical["members"] if packet["body"]["record_type"] == "sentence")
     assert sentence["start"] == 0 and sentence["end"] == 14
     assert len(sentence["token_ids"]) == 4

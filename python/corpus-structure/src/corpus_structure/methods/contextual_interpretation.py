@@ -253,7 +253,7 @@ class ContextualEvaluationOperation:
             },
             {
                 "name": "supporting",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizationEnvelope",
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,

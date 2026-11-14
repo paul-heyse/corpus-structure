@@ -95,3 +95,49 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         "text.constructions/source-native",
         "text.contextual_evaluation/source-native",
     }
+
+    full = model.operation("text.compose_view/full-native")
+    inputs = {role.name: role for role in full.roles if role.direction == "input"}
+    assert set(inputs) == {"sources", "annotations", "canonical", "hanlp", "formal", "constructions", "contextual"}
+    assert all(role.presence == "alternative" and role.minimum == 0 and len(role.alternatives) == 1 for role in inputs.values())
+    assert full.outcomes == ("success", "empty", "failed")
+    assert full.dependencies == ("source.selected_views/discovery",)
+    assert "DdoCharacterizedProduct" not in inputs["annotations"].kind
+    assert model.operation("segment.sentences/source-native").roles[1].kind.endswith("/DdoSourceAnnotations")
+
+
+def test_captured_primary_profile_declares_capture_views_and_authentic_full_fanin(tmp_path, monkeypatch):
+    from corpus_structure.ingest.pdf import PdfRecipe
+    from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+    from corpus_structure.methods import native_profiles
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.semantic.pdf_capture import pdf_capture_operation_sources
+    from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
+    import pytest
+
+    monkeypatch.setattr(native_profiles, "spacy_selection", lambda config: NativeSelection(
+        NativeProfile("spacy", {"controlled": "runtime"}, {}, config.model_dump(mode="json"), "float32", "cupy", 4, 1), tmp_path))
+    with pytest.raises(ValueError, match="actual captured capture dependency"):
+        pdf_views_operation_sources()
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    recipe = PdfRecipe("0" * 40, "1" * 40, recipe_id="docling-standard-pdf-stream-v1")
+    capture = pdf_capture_operation_sources(recipe, PreparedPdfAssets(tmp_path, b"{}", ()), directory=tmp_path / "owned")
+    acquired = primary_operation_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)),
+        sentence_configuration=SentenceConfig(),
+        hanlp_selection=pm2_selection("hanlp", tmp_path, {"controlled": "runtime"}, {}),
+        capture_sources=capture,
+    )
+    prepared = prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
+    model = bound_data_operation_model(prepared)
+    views = model.operation("source.pdf_views/discovery")
+    full = model.operation("text.compose_view/captured-full-native")
+    assert views.dependencies == ("source.pdf/capture",)
+    assert full.dependencies == ("source.pdf_views/discovery",)
+    sources = next(role for role in full.roles if role.name == "sources")
+    assert sources.selected == "source.pdf_views/discovery"
+    assert sources.minimum == 0
+    assert views.effects == ()
+    for identity in (views.semantic_id, full.semantic_id):
+        assert callable(resolve_prepared_factory(model, acquired.sources, identity))
+    assert model.operation("text.compose_view/full-native").dependencies == ("source.selected_views/discovery",)

@@ -33,7 +33,7 @@ class RetainedCharacterizationProduct:
         if (
             definition is None
             or definition.abstract
-            or "DdoCharacterizedProduct" not in definition.ancestors
+            or "DdoCharacterizationEnvelope" not in definition.ancestors
         ):
             raise ValueError("view input lacks a concrete declared characterization kind")
         value = prepared.validate_json(definition.name, content)

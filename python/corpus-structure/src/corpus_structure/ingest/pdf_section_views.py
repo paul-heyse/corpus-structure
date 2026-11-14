@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any, Literal
 
 from corpus_structure.core.method import SourceViewDraft
@@ -48,16 +50,23 @@ def select_published_sections(rows, selections, membership, scope):
     return ("#/body", *selected) if include_body else selected
 
 
-def published_section_drafts(
-    reader: PublishedPdfReader,
-    *,
-    document_id: int,
-    selections: tuple[str, ...],
-    membership: Literal["direct", "descendants"],
-    scope: Any,
-    consumer_release: str,
-    projection_policy: bytes | None = None,
-) -> tuple[SourceViewDraft, ...]:
+@dataclass(frozen=True)
+class PublishedSectionProjection:
+    section_pointer: str
+    membership: Literal["direct", "descendants"]
+    text: str
+    pieces: tuple[dict[str, Any], ...]
+    items: tuple[dict[str, Any], ...]
+    ancestors: tuple[dict[str, Any], ...]
+    health: dict[str, Any]
+    recipe: bytes
+
+
+def published_section_projections(reader: PublishedPdfReader, *, selections: tuple[str, ...],
+    membership: Literal["direct", "descendants"], scope: Any,
+    projection_policy: bytes | None = None, check_active: Callable[[], None] = lambda: None) -> tuple[PublishedSectionProjection, ...]:
+    """Project authentic pinned sections independently of legacy source-view row custody."""
+    check_active()
     sections = reader.sections()
     selected_sections = select_published_sections(sections, selections, membership, scope)
     # The root is an authentic residual scope, never an invented section heading.
@@ -79,6 +88,7 @@ def published_section_drafts(
     recipe = section_text_recipe(reference, analysis_eligible=True, policy=projection_policy)
     result = []
     for section in selected_sections:
+        check_active()
         selected_membership = "direct" if section == "#/body" else membership
         rows = reader.section_nodes(section, selected_membership)
         members = tuple(row["pointer"] for row in rows if row["role"] == "selected")
@@ -120,6 +130,7 @@ def published_section_drafts(
                         f"content_layer={value.get('content_layer', 'body')!r}"
                     )
             nodes.update(excluded)
+        check_active()
         projection = project_section_nodes(
             nodes,
             reference.content_digest,
@@ -152,22 +163,21 @@ def published_section_drafts(
             recognition_coverage=coverage,
             recognition_coverage_present=coverage_present,
         )
-        key = section_view_key(
-            consumer_release, reference, section, selected_membership, True, recipe
-        )
-        result.append(
-            SourceViewDraft(
-                key,
-                document_id,
-                reference,
-                section,
-                selected_membership,
-                projection.text,
-                tuple(piece.to_wire() for piece in projection.pieces),
-                members,
-                ancestors,
-                health,
-                recipe,
-            )
-        )
+        result.append(PublishedSectionProjection(section, selected_membership, projection.text,
+            tuple(piece.to_wire() for piece in projection.pieces),
+            tuple(nodes[pointer] for pointer in members), tuple(nodes[pointer] for pointer in ancestors),
+            health, recipe))
     return tuple(result)
+
+
+def published_section_drafts(reader: PublishedPdfReader, *, document_id: int,
+    selections: tuple[str, ...], membership: Literal["direct", "descendants"], scope: Any,
+    consumer_release: str, projection_policy: bytes | None = None) -> tuple[SourceViewDraft, ...]:
+    """Existing original-view publisher consumes the same owned section projections."""
+    return tuple(SourceViewDraft(
+        section_view_key(consumer_release, reader.reference, row.section_pointer, row.membership, True, row.recipe),
+        document_id, reader.reference, row.section_pointer, row.membership, row.text, row.pieces,
+        tuple(item["self_ref"] for item in row.items), tuple(item["self_ref"] for item in row.ancestors),
+        row.health, row.recipe,
+    ) for row in published_section_projections(reader, selections=selections,
+        membership=membership, scope=scope, projection_policy=projection_policy))

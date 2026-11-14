@@ -24,7 +24,8 @@ def source_product_inputs(bundle: SourceBundle) -> SourceBundle:
     """Capture the one common nominal source model, reusing existing selectors."""
     from .characterization import characterization_inputs
 
-    bundle = characterization_inputs(bundle)
+    from .data_product_reference import reference_inputs
+    bundle = reference_inputs(characterization_inputs(bundle))
     names = {source.name for source in bundle.sources}
     if "data_operation_source" in names:
         if (

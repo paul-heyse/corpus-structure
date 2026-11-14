@@ -23,64 +23,150 @@ class ComposeFullDocumentOperation(ComposeEnrichedDocumentOperation):
                 "name": "sources",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
                 "direction": "input",
-                "minimum": 1,
+                "minimum": 0,
                 "maximum": None,
                 "collection": "sequence",
-                "presence": "required",
+                "presence": "alternative",
                 "parameter": "sources",
                 "support": {
-                    "provenance": "value_substitution",
-                    "identity_requirements": [],
-                    "origins": ["computation", "original-source"],
-                    "source": "original-source",
-                    "coverage": "selected-scope",
-                },
-                "subject_field": "/source/document_subject",
-            },
-            {
-                "name": "products",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct",
-                "direction": "input",
-                "minimum": 0,
-                "maximum": None,
-                "collection": "sequence",
-                "presence": "optional",
-                "parameter": "products",
-                "support": {
-                    "provenance": "value_substitution",
-                    "identity_requirements": [],
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
                     "origins": ["computation"],
                     "source": "original-source",
                     "coverage": "selected-scope",
                 },
                 "subject_field": "/source/document_subject",
+                "alternatives": ["source.selected_views/discovery"],
+                "selected": "source.selected_views/discovery",
             },
             {
-                "name": "active",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizedProduct",
+                "name": "annotations",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotationManifest",
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
                 "collection": "sequence",
-                "presence": "optional",
-                "parameter": "active",
+                "presence": "alternative",
+                "parameter": "annotations",
                 "support": {
-                    "provenance": "value_substitution",
-                    "identity_requirements": [],
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
                     "origins": ["computation"],
                     "source": "original-source",
                     "coverage": "selected-scope",
                 },
                 "subject_field": "/source/document_subject",
+                "alternatives": ["segment.sentences/source-native"],
+                "selected": "segment.sentences/source-native",
+            },
+            {
+                "name": "canonical",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoCanonicalManifest",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "alternative",
+                "parameter": "canonical",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document_subject",
+                "alternatives": ["segment.sentences/canonical-projection"],
+                "selected": "segment.sentences/canonical-projection",
+            },
+            {
+                "name": "hanlp",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpManifest",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "alternative",
+                "parameter": "hanlp",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document_subject",
+                "alternatives": ["text.hanlp_native/source-native"],
+                "selected": "text.hanlp_native/source-native",
+            },
+            {
+                "name": "formal",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalManifest",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "alternative",
+                "parameter": "formal",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document_subject",
+                "alternatives": ["text.formal_evidence/source-native"],
+                "selected": "text.formal_evidence/source-native",
+            },
+            {
+                "name": "constructions",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "alternative",
+                "parameter": "constructions",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document_subject",
+                "alternatives": ["text.constructions/source-native"],
+                "selected": "text.constructions/source-native",
+            },
+            {
+                "name": "contextual",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualManifest",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "alternative",
+                "parameter": "contextual",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode", "alternative"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+                "subject_field": "/source/document_subject",
+                "alternatives": ["text.contextual_evaluation/source-native"],
+                "selected": "text.contextual_evaluation/source-native",
             },
             {
                 "name": "result",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoEnrichedDocumentView",
                 "direction": "output",
-                "minimum": 1,
+                "minimum": 0,
                 "maximum": 1,
                 "collection": "scalar",
-                "presence": "required",
+                "presence": "optional",
             },
         ],
         "applicability": ["qualified-full-characterization-fan-in"],
@@ -89,8 +175,8 @@ class ComposeFullDocumentOperation(ComposeEnrichedDocumentOperation):
             "governed-semantic-member-references",
             "explicit-coverage-and-private-standing",
         ],
-        "coverage": "exact-selected-source-scope",
-        "outcomes": ["success", "failed"],
+        "coverage": "complete-frozen-source-population-per-declared-family",
+        "outcomes": ["success", "empty", "failed"],
         "precision": "retained-positioned-characterization",
         "dependencies": ["source.selected_views/discovery"],
         "effects": [],
@@ -101,14 +187,19 @@ class ComposeFullDocumentOperation(ComposeEnrichedDocumentOperation):
             "cancellation": "cooperative",
             "ownership": "immutable",
         },
-        "behavior": "compose retained typed view products without upstream language reacquisition",
+        "behavior": "compose complete per-family scoped manifests, or explicitly complete with no product "
+        "for a closed empty source population",
         "parameters": {"profile": {"value_type": "string"}},
         "binding": {
             "operator": "all",
             "children": [
                 {"operator": "collection", "roles": ["sources"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["products"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["active"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["annotations"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["canonical"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["hanlp"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["contextual"], "collection": "sequence"},
                 {
                     "operator": "membership",
                     "operands": [
@@ -117,6 +208,328 @@ class ComposeFullDocumentOperation(ComposeEnrichedDocumentOperation):
                             "kind": "literal",
                             "value_type": "string",
                             "value": ["full_characterization"],
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["sources"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "sources",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "sources",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["annotations"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "annotations",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotationManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "annotations",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotationManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["canonical"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "canonical",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoCanonicalManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "canonical",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoCanonicalManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["hanlp"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "hanlp",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "hanlp",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["formal"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "formal",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "formal",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["constructions"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "constructions",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "constructions",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
+                        },
+                    ],
+                },
+                {
+                    "operator": "optional",
+                    "roles": ["contextual"],
+                    "children": [
+                        {
+                            "operator": "membership",
+                            "operands": [
+                                {
+                                    "kind": "field",
+                                    "value_type": "subject-context",
+                                    "field": {
+                                        "role": "contextual",
+                                        "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualManifest",
+                                        "field": "@context",
+                                    },
+                                },
+                                {
+                                    "kind": "population",
+                                    "value_type": "subject-context",
+                                    "name": "selected-source-views",
+                                    "population_projection": "qualified-context",
+                                },
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "operator": "covers",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "subject-context",
+                            "field": {
+                                "role": "contextual",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualManifest",
+                                "field": "@context",
+                            },
+                        },
+                        {
+                            "kind": "population",
+                            "value_type": "subject-context",
+                            "name": "selected-source-views",
+                            "population_projection": "qualified-context",
                         },
                     ],
                 },
@@ -178,8 +591,15 @@ class ComposeFullDocumentOperation(ComposeEnrichedDocumentOperation):
     def run(
         self,
         sources: tuple[FrozenNativeSource, ...],
-        products: tuple[RetainedCharacterizationProduct, ...],
-        active: tuple[RetainedCharacterizationProduct, ...],
+        annotations: tuple[RetainedCharacterizationProduct, ...],
+        canonical: tuple[RetainedCharacterizationProduct, ...],
+        hanlp: tuple[RetainedCharacterizationProduct, ...],
+        formal: tuple[RetainedCharacterizationProduct, ...],
+        constructions: tuple[RetainedCharacterizationProduct, ...],
+        contextual: tuple[RetainedCharacterizationProduct, ...],
         profile: str,
-    ) -> EnrichedDocumentProduct:
-        return execute_view_profile(self, sources, products, active, profile)
+    ) -> EnrichedDocumentProduct | None:
+        if not sources:
+            return None
+        products = (*annotations, *canonical, *hanlp, *formal, *constructions, *contextual)
+        return execute_view_profile(self, sources, products, products, profile)
