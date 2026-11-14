@@ -472,7 +472,7 @@ class PreparedCharacterizationPort(ABC):
         from .data_operation_prepared_products import verify_prepared_product
 
         bridge_name = "execute_" + self.family + "_profile"
-        if getattr(sys.modules[self.endpoint.__module__], bridge_name) is not self.bridge:
+        if getattr(sys.modules[self.endpoint.run.__module__], bridge_name) is not self.bridge:
             raise PortRefusal("prepared endpoint no longer binds its admitted resource bridge")
         functions = (
             (self.operation.callable_surfaces[0].declaration, self.endpoint.run),
@@ -992,7 +992,7 @@ def _resolve(port_type, prepared, model, operation, *, identity, authorize, cust
         custody,
         port_type.operation_sources() if sources is None else sources,
     )
-    declaration = port.endpoint.__module__ + "." + port.endpoint.__qualname__ + ".run"
+    declaration = port.endpoint.run.__module__ + "." + port.endpoint.run.__qualname__
     if (
         selected.capabilities.forms != ("scalar",)
         or selected.capabilities.preparation != "resource"
@@ -1088,6 +1088,20 @@ def captured_document_view_operation_sources(
     )
 
 
+def enriched_captured_document_view_operation_sources(*, include_dependencies=False):
+    if include_dependencies:
+        raise ValueError("enriched composition requires its separately captured actual PDF profile")
+    from .primary_operations import combine_primary_sources
+    return combine_primary_sources(captured_document_view_operation_sources(include_dependencies=False), _operation_sources("captured_enriched_composition", "view"))
+
+
+def integrated_captured_document_view_operation_sources(*, include_dependencies=False):
+    if include_dependencies:
+        raise ValueError("integrated composition requires its separately captured actual PDF profile")
+    from .primary_operations import combine_primary_sources
+    return combine_primary_sources(captured_document_view_operation_sources(include_dependencies=False), _operation_sources("captured_integrated_composition", "view"))
+
+
 class PreparedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
     operation_sources = staticmethod(captured_document_view_operation_sources)
 
@@ -1100,5 +1114,29 @@ class PreparedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
         return ComposeCapturedDocumentOperation
 
 
+class PreparedEnrichedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
+    operation_sources = staticmethod(enriched_captured_document_view_operation_sources)
+
+    @property
+    def endpoint(self):
+        from corpus_structure.methods.captured_enriched_composition import ComposeEnrichedCapturedDocumentOperation
+        return ComposeEnrichedCapturedDocumentOperation
+
+
+class PreparedIntegratedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
+    operation_sources = staticmethod(integrated_captured_document_view_operation_sources)
+
+    @property
+    def endpoint(self):
+        from corpus_structure.methods.captured_integrated_composition import ComposeIntegratedCapturedDocumentOperation
+        return ComposeIntegratedCapturedDocumentOperation
+
+
 def resolve_captured_document_view_port(prepared, model, operation, **admission):
-    return _resolve(PreparedCapturedDocumentViewPort, prepared, model, operation, **admission)
+    if operation == "text.compose_view/enriched-captured-full-native":
+        port = PreparedEnrichedCapturedDocumentViewPort
+    elif operation == "text.compose_view/integrated-captured-full-native":
+        port = PreparedIntegratedCapturedDocumentViewPort
+    else:
+        port = PreparedCapturedDocumentViewPort
+    return _resolve(port, prepared, model, operation, **admission)

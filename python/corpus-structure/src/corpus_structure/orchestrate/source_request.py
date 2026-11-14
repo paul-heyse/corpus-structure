@@ -66,6 +66,8 @@ class SourceRunRequest(BaseModel):
     selection: SourceSelection = PackDefault()
     workflow: Literal["phase0", "capture", "characterize", "parsers", "interpret"] = "phase0"
     membership: Literal["direct", "descendants"] = "descendants"
+    pdf_mode: Literal["standard", "enriched", "integrated"] = "standard"
+    recognition_pages: tuple[int, ...] = ()
     documents: tuple[str, ...] = ()
     retained_sources: tuple[RetainedSourceSelection, ...] = ()
     targets: tuple[str, ...] = ()

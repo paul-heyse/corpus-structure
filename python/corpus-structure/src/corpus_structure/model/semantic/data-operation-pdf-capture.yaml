@@ -12,7 +12,7 @@ classes:
       display_coverage: {required: true}
       inline_coverage: {required: true}
       cell_coverage: {required: true}
-  DdoPdfCapture:
+  DdoPdfPublication:
     is_a: SourceRecordProduct
     annotations: {cs:data_universe: source}
     description: The exact whole sealed publication projection authenticated by the PDF owner. Physical build/attempt attribution is in its original PDF execution receipt.
@@ -22,5 +22,18 @@ classes:
       logical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       schema_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      kind: {equals_string: native, required: true}
+      kind: {required: true}
       health: {range: DdoPdfCaptureHealth, inlined: true, required: true}
+
+  DdoPdfCapture:
+    is_a: DdoPdfPublication
+    attributes:
+      kind: {equals_string: native, required: true}
+  DdoPdfEnrichedPublication:
+    is_a: DdoPdfPublication
+    attributes:
+      kind: {equals_string: native, required: true}
+  DdoPdfIntegratedPublication:
+    is_a: DdoPdfPublication
+    attributes:
+      kind: {equals_string: integrated, required: true}

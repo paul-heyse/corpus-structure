@@ -6,8 +6,9 @@ from corpus_structure.semantic.pdf_views import execute_pdf_views
 from corpus_structure.semantic.source_discovery import SourceViewPopulation
 
 
-class PdfSourceViewsOperation:
+class PdfSourceViewsFamily:
     __data_operation__: ClassVar[dict] = {
+        "abstract": True,
         "id": "source.pdf_views/discovery",
         "profile": "discovery",
         "subject": "original-document",
@@ -18,17 +19,19 @@ class PdfSourceViewsOperation:
                 "name": "capture",
                 "parameter": "capture",
                 "direction": "input",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfCapture",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfPublication",
                 "minimum": 1,
                 "maximum": 1,
                 "collection": "scalar",
-                "presence": "required",
+                "presence": "alternative",
+                "alternatives": ["source.pdf/capture"],
+                "selected": "source.pdf/capture",
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
                     "coverage": "whole-document",
                     "origins": ["computation"],
-                    "identity_requirements": ["episode"],
+                    "identity_requirements": ["episode", "alternative"],
                 },
             },
             {
@@ -128,3 +131,7 @@ class PdfSourceViewsOperation:
         self, capture: dict, sections: tuple[str, ...], membership: str
     ) -> SourceViewPopulation:
         return execute_pdf_views(self, capture, sections, membership)
+
+
+class PdfSourceViewsOperation(PdfSourceViewsFamily):
+    __data_operation__: ClassVar[dict] = {"abstract": False}

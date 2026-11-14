@@ -50,7 +50,7 @@ def pdf_views_custody():
     )
 
 
-def pdf_views_operation_sources(capture_sources=None):
+def pdf_views_operation_sources(capture_sources=None, *, mode="standard", transformation_sources=None):
     from .primary_operations import combine_primary_sources
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
@@ -66,10 +66,14 @@ def pdf_views_operation_sources(capture_sources=None):
         boundary_contracts=(pdf_views_assets(), pdf_views_custody()),
     )
     if capture_sources is None:
-        raise ValueError(
-            "PDF source-view discovery requires its actual captured capture dependency"
-        )
-    return combine_primary_sources(capture_sources, own)
+        raise ValueError("PDF source-view discovery requires its actual captured capture dependency")
+    if mode == "standard":
+        return combine_primary_sources(capture_sources, own)
+    if mode not in {"enriched", "integrated"} or transformation_sources is None:
+        raise ValueError("PDF transformed discovery requires its actual acquired effect profile")
+    path = root / "ingest" / ("pdf_" + mode + "_views.py")
+    specialized = PythonSourceCollection((PythonSource("corpus_structure.ingest.pdf_" + mode + "_views", path.read_bytes(), str(path)),))
+    return combine_primary_sources(capture_sources, transformation_sources, own, specialized)
 
 
 @dataclass(frozen=True)
@@ -124,8 +128,7 @@ class PreparedPdfViews:
             )
             publication = receipt.publication
             if (
-                publication.source_digest != capture["source_digest"]
-                or publication.logical_digest != capture["logical_digest"]
+                any(getattr(publication, name) != capture[name] for name in ("source_digest", "logical_digest", "recipe_digest", "schema_digest", "kind"))
             ):
                 raise ValueError(
                     "selected PDF source differs from its authenticated capture projection"
@@ -253,7 +256,7 @@ class PreparedPdfViewsPort:
         ):
             raise PortRefusal("PDF source discovery requires exactly its nominal capture input")
         capture = self.profile.prepared.validate_json(
-            "DdoPdfCapture", canonical_bytes(_untrusted_value(values[0].value))
+            "DdoPdfPublication", canonical_bytes(_untrusted_value(values[0].value))
         ).model_dump(mode="json")
         parameters = decode_semantic_value(json.loads(binding.parameters))
         if set(parameters) != {"sections", "membership"}:
@@ -293,7 +296,7 @@ class PreparedPdfViewsPort:
 
 def resolve_pdf_views_port(prepared, model, operation, *, identity, authorize, custody, sources):
     selected = model.operation(operation)
-    if selected.semantic_id != "source.pdf_views/discovery" or selected.effects:
+    if selected.semantic_id not in {"source.pdf_views/discovery", "source.pdf_enriched_views/discovery", "source.pdf_integrated_views/discovery"} or selected.effects:
         raise ValueError("PDF views require their exact declared read-only discovery profile")
     port = PreparedPdfViewsPort(
         identity, selected, PreparedPdfViews(prepared, model), authorize, custody, sources

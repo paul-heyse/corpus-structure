@@ -11,8 +11,9 @@ from corpus_structure.semantic.enriched_document_products import (
 from corpus_structure.semantic.source_products import FrozenNativeSource
 
 
-class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
+class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
     __data_operation__: ClassVar[dict] = {
+        "abstract": True,
         "id": "text.compose_view/captured-full-native",
         "profile": "derivation",
         "subject": "original-document",
@@ -686,3 +687,7 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
             *contextual,
         )
         return execute_view_profile(self, sources, products, products, profile)
+
+
+class ComposeCapturedDocumentOperation(ComposeCapturedDocumentFamily):
+    __data_operation__: ClassVar[dict] = {"abstract": False}

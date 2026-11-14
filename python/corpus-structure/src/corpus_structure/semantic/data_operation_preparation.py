@@ -48,6 +48,13 @@ class PythonInputs(BaseModel):
     ] = ()
 
 
+class PrimaryRecognitionInputs(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    recipe: str = Field(min_length=1)
+    options: str = Field(min_length=1)
+    resources: str = Field(min_length=1)
+
+
 class PrimaryCaptureInputs(BaseModel):
     """References to the existing frozen PDF recipe and prepared asset manifest."""
 
@@ -58,6 +65,8 @@ class PrimaryCaptureInputs(BaseModel):
     directory: str = Field(min_length=1)
     nemotron_endpoint: str | None = None
     require_nemotron_handoff: bool = False
+    enrichment_options: str | None = None
+    recognition: PrimaryRecognitionInputs | None = None
 
 
 class LiteralM1Inputs(BaseModel):
@@ -356,6 +365,23 @@ def _acquire_primary_profile(
             nemotron_endpoint=capture.nemotron_endpoint,
             require_nemotron_handoff=capture.require_nemotron_handoff,
         )
+        if capture.enrichment_options is not None:
+            from .pdf_transforms import PdfEnrichmentOptions, pdf_transform_operation_sources
+            options = PdfEnrichmentOptions.model_validate(yaml.safe_load(read(capture.enrichment_options)))
+            arguments["pdf_enrichment_sources"] = pdf_transform_operation_sources("enriched", recipe=recipe, assets=assets, options=options, directory=location(capture.directory), nemotron_endpoint=capture.nemotron_endpoint)
+        if capture.recognition is not None:
+            from corpus_structure.ingest.pdf_recognition import NemotronRecipe
+            from .pdf_transforms import PdfIntegrationOptions, PdfRecognitionResources, pdf_transform_operation_sources
+            selected = capture.recognition
+            recognition_recipe = NemotronRecipe(**yaml.safe_load(read(selected.recipe)))
+            options = PdfIntegrationOptions.model_validate(yaml.safe_load(read(selected.options)))
+            resources = PdfRecognitionResources.model_validate(yaml.safe_load(read(selected.resources)))
+            # Resource paths are explicit acquisition locations; interpreter and worker bytes
+            # are retained and authenticated by the effect profile before every invocation.
+            resources = resources.model_copy(update={"python": str(location(resources.python)), "script": str(location(resources.script)), "receipts": str(location(resources.receipts))})
+            if Path(resources.script).is_relative_to(root):
+                read(str(Path(resources.script).relative_to(root)))
+            arguments["pdf_integration_sources"] = pdf_transform_operation_sources("integrated", options=options, recognition_recipe=recognition_recipe, resources=resources, directory=location(capture.directory))
     return arguments
 
 

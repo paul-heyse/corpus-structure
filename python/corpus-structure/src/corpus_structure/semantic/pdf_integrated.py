@@ -581,7 +581,7 @@ def store_pdf_observation(
     context: PreparedPdfContext | None = None,
 ) -> str:
     """Publish a validated recognition observation; document bodies use record publication."""
-    from .contracts import require_database_operation
+    from .pdf_domain import require_pdf_database_action
 
     archived = pdf_context_for_task(conn, task_id)
     if context is not None and context != archived:
@@ -598,7 +598,7 @@ def store_pdf_observation(
     archived.boundary.validate_json("PdfObservationProduct", product.payload)
     if product.values()["kind"] != "recognition_observation":
         raise ValueError("observation publication refuses native or integrated document bodies")
-    require_database_operation(conn, archived.release_id, "publish_pdf_observation")
+    require_pdf_database_action(conn, archived.release_id, "publish_pdf_observation")
     from ._operation_calls import TaskAttempt, TaskId, publish_pdf_observation
     from .releases import open_release
 
