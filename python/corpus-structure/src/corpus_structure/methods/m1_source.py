@@ -121,7 +121,7 @@ def _retained_report(report, profiles):
 
 def _structural_groups(view, selection, context):
     """Only explicit native table geometry and an existing formula occurrence owner."""
-    from corpus_structure.methods.math.pdf import FormulaOccurrence
+    from corpus_structure.methods.math.pdf import formula_occurrence
     from corpus_structure.methods.record_assembly import native_formula_group, native_table_groups
 
     node = next(item for item in view.items if item["self_ref"] == selection.region)
@@ -132,13 +132,7 @@ def _structural_groups(view, selection, context):
         status = health.get(selection.region, "unknown")
         if status not in {"succeeded", "failed", "unknown", "not_requested"}:
             status = "unknown"
-        occurrence = FormulaOccurrence(
-            view.ref.native_product.content_digest,
-            selection.region,
-            node.get("text", ""),
-            node.get("orig", ""),
-            status,
-        )
+        occurrence = formula_occurrence(context.primary, node, status)
         return (native_formula_group(context, occurrence, scope_pointer=context.primary.section_pointer),)
     if selection.families != ("table",):
         return ()
@@ -992,7 +986,7 @@ class M1Candidates:
                     )
             if cfg.formula_syntax and selection.families == ("formula_context",):
                 from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
-                from corpus_structure.methods.math.pdf import FormulaOccurrence
+                from corpus_structure.methods.math.pdf import formula_occurrence
 
                 node = next(row for row in view.items if row["self_ref"] == selection.region)
                 if node.get("label") == "formula":
@@ -1003,13 +997,7 @@ class M1Candidates:
                     status = health.get(selection.region, "unknown")
                     if status not in {"succeeded", "failed", "unknown", "not_requested"}:
                         status = "unknown"
-                    occurrence = FormulaOccurrence(
-                        view.ref.native_product.content_digest,
-                        selection.region,
-                        node.get("text", ""),
-                        node.get("orig", ""),
-                        status,
-                    )
+                    occurrence = formula_occurrence(context.primary, node, status)
                     contribution_batches.append(
                         adapt_formula_syntax(
                             context, occurrence, input_policy=cfg.formula_syntax_input_policy

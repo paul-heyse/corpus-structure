@@ -1231,7 +1231,9 @@ def native_formula_group(
     LaTeX coordinates, parser symbol ordinals and nearby prose cannot supply formula evidence.
     Symbol declarations are explicitly supplied, never joined by equal spellings.
     """
-    if occurrence.conversion_digest != context.primary.native_product.content_digest:
+    from corpus_structure.methods.math.pdf import formula_matches_source
+
+    if not formula_matches_source(occurrence, context.primary):
         raise GlinerRefused("formula occurrence belongs to another pinned native product")
     spans = _item_spans(context, occurrence.item_pointer)
     located = bool(spans) and "".join(span.text for span in spans) == occurrence.original_text

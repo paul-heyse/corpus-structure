@@ -658,7 +658,9 @@ def adapt_formula_syntax(context, occurrence, *, seconds=1.0, input_policy="reco
         macro_environment="none",
     )
 
-    if occurrence.conversion_digest != context.primary.native_product.content_digest:
+    from corpus_structure.methods.math.pdf import formula_matches_source
+
+    if not formula_matches_source(occurrence, context.primary):
         raise GlinerRefused("syntax occurrence belongs to another native product")
     anchor = native_item_anchor(context, occurrence.item_pointer)
     native = json.loads(context.primary.native_context)

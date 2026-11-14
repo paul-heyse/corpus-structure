@@ -142,3 +142,31 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
     assert result.source is frame
     assert result.regions[0].pointer == "#/texts/0"
     assert result.preparation.sources[0] is frame
+
+
+def test_declared_formula_occurrence_keeps_original_member_address_without_conversion_alias():
+    from corpus_structure.methods.math.pdf import DeclaredFormulaOccurrence, formula_matches_source, formula_occurrence
+    from corpus_structure.methods.record_assembly import native_formula_group
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+    from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+
+    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
+    prepared = prepare_release(declared_record_inputs(source_product_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))))
+    item = {"self_ref": "#/texts/0", "label": "formula", "text": "x+y", "orig": "x+y", "prov": []}
+    native = FrozenNativeSource.from_projection(prepared, document="original:doc", section_pointer="#/groups/0", membership="descendants", text="x+y",
+        pieces=[{"kind": "native_text", "item_ref": "#/texts/0", "source_field": "orig", "start": 0, "end": 3}], items=[item])
+    member = BoundRoleMember("product:population", "kind:source", "subject:section", "original:doc", b'{"page":1}', b'{}', (), b'{}', member="member:one")
+    frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
+    occurrence = formula_occurrence(frame, item, "succeeded")
+    assert isinstance(occurrence, DeclaredFormulaOccurrence)
+    assert occurrence.source.values()["source_member"] == "member:one"
+    assert not hasattr(occurrence, "conversion_digest")
+    assert formula_matches_source(occurrence, frame)
+    context = NativeSourceContext(frame, (), (source_slice(frame, 0, 3),), "formula", "declared-test", "selected", version=2, preparation=PreparedNativeSources((frame,)))
+    group = native_formula_group(context, occurrence, scope_pointer="#/groups/0")
+    assert group.fields[0].spans[0].text == "x+y"
+    other = DeclaredNativeFrameSource.acquire(prepared, native.value, replace(member, member="member:other"), project="p")
+    assert not formula_matches_source(occurrence, other)
