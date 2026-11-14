@@ -75,93 +75,95 @@ def _visible(table):
     )
 
 
+def _node(kind, identity):
+    kind_value = literal(kind) if isinstance(kind, str) else kind
+    return select(cast(kind_value, Text).label("kind"), cast(identity, Text).label("id"))
+
+
+def _reference_node(reference):
+    from sqlalchemy import case
+
+    original = reference["kind"].astext == "original-source"
+    use = reference["admission_use_id"].astext.is_not(None)
+    return (
+        case((original, literal("original")), (use, literal("use")), else_=literal("episode")),
+        case((original, reference["admission_id"].astext), (use, reference["admission_use_id"].astext), else_=reference["derivation_id"].astext),
+    )
+
+
+def _support_walk(metadata, seed):
+    """Visit finite receipt nodes, including explicitly selected replacement support.
+
+    Indexed per-node lateral lookups avoid materializing every historical edge.
+    UNION deduplicates nodes; this is reachability, never all-path expansion.
+    """
+    support = metadata.tables["ops.data_derivation_support"]
+    original_support = metadata.tables["ops.data_derivation_original_support"]
+    uses = metadata.tables["ops.demand_use"]
+    populations = metadata.tables["ops.data_population"]
+    closure = select(seed.c.kind, seed.c.id).where(seed.c.id.is_not(None)).cte("support_closure", recursive=True)
+    reference = _items(func.coalesce(uses.c.selection["support"], _json([])), "selected_support_reference")
+    population_ref = _items(func.coalesce(uses.c.selection["populations"], _json([])), "selected_population_reference")
+    reference_kind, reference_id = _reference_node(reference.c.value)
+    from sqlalchemy import case
+
+    edge_queries = (
+        _node(case((support.c.admission_use_id.is_not(None), literal("use")), else_=literal("episode")), func.coalesce(support.c.admission_use_id, support.c.support_derivation_id)).where(closure.c.kind == "episode", support.c.derivation_id == closure.c.id),
+        _node("original", original_support.c.admission_id).where(closure.c.kind == "episode", original_support.c.derivation_id == closure.c.id),
+        _node("episode", uses.c.derivation_id).where(closure.c.kind == "use", uses.c.id == closure.c.id),
+        _node(reference_kind, reference_id).select_from(uses.join(reference, literal(True))).where(closure.c.kind == "use", uses.c.id == closure.c.id),
+        _node("population", populations.c.id).select_from(uses.join(population_ref, literal(True)).join(populations, and_(populations.c.id == population_ref.c.value["population_id"].astext, populations.c.demand_id == uses.c.demand_id))).where(closure.c.kind == "use", uses.c.id == closure.c.id),
+        _node("use", uses.c.id).select_from(populations.join(uses, and_(uses.c.id == populations.c.evidence["admission_use_id"].astext, uses.c.derivation_id == populations.c.evidence["derivation_id"].astext, uses.c.demand_id == populations.c.demand_id))).where(closure.c.kind == "population", populations.c.id == closure.c.id),
+        _node("population", populations.c.evidence["selection"]["parent_population_id"].astext).where(closure.c.kind == "population", populations.c.id == closure.c.id),
+    )
+    edges = union_all(*(query.correlate(closure) for query in edge_queries)).lateral("support_edge")
+    return closure.union(select(edges.c.kind, edges.c.id).select_from(closure.join(edges, literal(True))).where(edges.c.id.is_not(None)))
+
+
+def _scope_projection(metadata, nodes, project, direct_sources):
+    episodes = metadata.tables["ops.data_derivation"]
+    requests = metadata.tables["ops.data_request"]
+    admissions = metadata.tables["ops.original_source_admission"]
+    sources = union(
+        direct_sources,
+        select(requests.c.original_source.label("source")).select_from(nodes.join(episodes, and_(nodes.c.kind == "episode", episodes.c.id == nodes.c.id)).join(requests, requests.c.id == episodes.c.request_id)).where(requests.c.project_id == project),
+        select(admissions.c.original_source.label("source")).select_from(nodes.join(admissions, and_(nodes.c.kind == "original", admissions.c.id == nodes.c.id))).where(admissions.c.project_id == project),
+    ).cte("support_sources")
+    scope = func.ops.ddo_scope(project, sources.c.source)
+    return select(scope.label("scope")).where(sources.c.source.is_not(None)).order_by(scope)
+
+
 def support_scopes(metadata):
-    """All structurally relevant support, independent of current revocation validity."""
-    demand = _var("d.id", Text)
-    project = _var("d.project_id", Text)
+    """Pinned reader validity and publication use the same selected-support walk."""
+    demand, project = _var("d.id", Text), _var("d.project_id", Text)
     selection = _var("d.selection", JSONB)
     root = _items(_var("d.root", JSONB), "root")
     sets = _each(func.coalesce(selection["source_sets"], _json({})), "source_set")
     entry = _items(sets.c.value, "source_entry")
-    source_entries = (
-        select(entry.c.value.label("entry"))
-        .select_from(sets.join(entry, literal(True)))
-        .cte("source_entries")
-    )
+    source_entries = select(entry.c.value.label("entry")).select_from(sets.join(entry, literal(True))).cte("source_entries")
     uses = metadata.tables["ops.demand_use"]
     populations = metadata.tables["ops.data_population"]
     episodes = metadata.tables["ops.data_derivation"]
     outputs = metadata.tables["ops.data_derivation_output"]
     requests = metadata.tables["ops.data_request"]
-    support = metadata.tables["ops.data_derivation_support"]
-    original_support = metadata.tables["ops.data_derivation_original_support"]
     admissions = metadata.tables["ops.original_source_admission"]
-    external = exists(
-        select(1)
-        .select_from(source_entries)
-        .where(
-            func.ops.ddo_semantic_source_reference(source_entries.c.entry["reference"]),
-            source_entries.c.entry["product"].astext == outputs.c.product_id,
-        )
-    )
-    selected_uses = (
-        select(uses.c.obligation_id, uses.c.derivation_id, uses.c.fate)
-        .where(
-            uses.c.demand_id == demand,
-            _visible(uses),
-        )
-        .distinct(uses.c.obligation_id)
-        .order_by(uses.c.obligation_id, uses.c.created_at.desc(), uses.c.id.desc())
-        .cte("selected_use_seeds")
-    )
-    event_seed = union(
-        select(selected_uses.c.derivation_id.label("id")).where(
-            selected_uses.c.derivation_id.is_not(None), selected_uses.c.fate == "fulfilled"
-        ),
-        select(populations.c.evidence["derivation_id"].astext.label("id")).where(
-            populations.c.demand_id == demand,
-            _visible(populations),
-            populations.c.evidence["derivation_id"].astext.is_not(None),
-        ),
-        select(episodes.c.id)
-        .select_from(
-            episodes.join(outputs, outputs.c.derivation_id == episodes.c.id)
-            .join(uses, uses.c.derivation_id == episodes.c.id)
-            .join(requests, requests.c.id == episodes.c.request_id)
-        )
-        .where(requests.c.project_id == project, external, _visible(uses)),
+    selected_uses = select(uses.c.obligation_id, uses.c.id, uses.c.fate).where(uses.c.demand_id == demand, _visible(uses)).distinct(uses.c.obligation_id).order_by(uses.c.obligation_id, uses.c.created_at.desc(), uses.c.id.desc()).cte("selected_use_seeds")
+    external = exists(select(1).select_from(source_entries).where(func.ops.ddo_semantic_source_reference(source_entries.c.entry["reference"]), source_entries.c.entry["product"].astext == outputs.c.product_id))
+    seed = union(
+        _node("use", selected_uses.c.id).where(selected_uses.c.fate == "fulfilled"),
+        _node("population", populations.c.id).where(populations.c.demand_id == demand, _visible(populations)),
+        _node("use", uses.c.id).select_from(episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(uses, uses.c.derivation_id == episodes.c.id).join(requests, requests.c.id == episodes.c.request_id)).where(requests.c.project_id == project, external, uses.c.fate == "fulfilled", _visible(uses)),
+        _node("original", admissions.c.id).where(admissions.c.demand_id == demand, _visible(admissions)),
     ).cte("support_seed")
-    closure = select(event_seed.c.id).cte("support_closure", recursive=True)
-    closure = closure.union(
-        select(support.c.support_derivation_id).join(
-            closure, closure.c.id == support.c.derivation_id
-        )
-    )
-    producing_sources = (
-        select(requests.c.original_source.label("source"))
-        .select_from(
-            closure.join(episodes, episodes.c.id == closure.c.id).join(
-                requests, requests.c.id == episodes.c.request_id
-            )
-        )
-        .where(requests.c.project_id == project)
-    )
-    original_ids = union(
-        select(admissions.c.id).where(admissions.c.demand_id == demand, _visible(admissions)),
-        select(original_support.c.admission_id).join(
-            closure, closure.c.id == original_support.c.derivation_id
-        ),
-    ).cte("original_ids")
-    sources = union(
-        select(root.c.value["original_source"].astext.label("source")),
-        select(source_entries.c.entry["original_source"].astext),
-        producing_sources,
-        select(admissions.c.original_source)
-        .join(original_ids, original_ids.c.id == admissions.c.id)
-        .where(admissions.c.project_id == project),
-    ).cte("support_sources")
-    scope = func.ops.ddo_scope(project, sources.c.source)
-    return select(scope.label("scope")).where(sources.c.source.is_not(None)).order_by(scope)
+    direct = union(select(root.c.value["original_source"].astext.label("source")), select(source_entries.c.entry["original_source"].astext)).cte("direct_sources")
+    return _scope_projection(metadata, _support_walk(metadata, seed), project, select(direct.c.source))
+
+
+def lock_support_scopes(metadata):
+    reference = _items(_var("support", JSONB), "root_support_reference")
+    kind, identity = _reference_node(reference.c.value)
+    seed = _node(kind, identity).select_from(reference).cte("support_seed")
+    return _scope_projection(metadata, _support_walk(metadata, seed), _var("project", Text), select(_var("source", Text).label("source")))
 
 
 def binding_row_contract():
@@ -897,7 +899,7 @@ def read_page(metadata):
     )
 
 
-def capture_projection_sources():
+def capture_projection_sources(*, physical_sources=None, linkml_types=None):
     """Acquire explicit physical bytes and the generated native products together."""
     from pathlib import Path
 
@@ -910,13 +912,20 @@ def capture_projection_sources():
     from .identity import canonical_bytes
     from .types import SourceArtifact
 
-    root = Path(__file__).resolve().parents[1] / "model/semantic"
-    sources = physical_source_closure("physical.yaml", lambda name: (root / name).read_bytes())
-    types = linkml_types_source()
+    if physical_sources is None:
+        root = Path(__file__).resolve().parents[1] / "model/semantic"
+        sources = physical_source_closure("physical.yaml", lambda name: (root / name).read_bytes())
+        types = linkml_types_source() if linkml_types is None else linkml_types
+    else:
+        sources = dict(physical_sources)
+        if not sources or not isinstance(linkml_types, bytes):
+            raise ValueError("explicit Core projection inputs require physical closure and captured LinkML types")
+        types = linkml_types
     metadata = compile_physical(sources, linkml_types=types)
     branches = binding_branches(metadata)
     products = {
         "support_scopes": compiled(support_scopes(metadata)),
+        "lock_support_scopes": compiled(lock_support_scopes(metadata)),
         "binding_returns": native_return_shape(),
         "binding_computed": compiled(branches[0]),
         "binding_original": compiled(branches[1]),

@@ -63,11 +63,11 @@ class BindingSourceStage:
 
 @cache
 def binding_source_recipe():
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "src/corpus_structure/semantic/sql/data_operations.sql"
-    )
-    return BindingSourceRecipe(path.read_bytes(), binding_native_sql().encode())
+    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+
+    # The source now contains captured Core projection placeholders. Resolve the
+    # production template once before selecting its three independent codec helpers.
+    return BindingSourceRecipe(native_sql(native_protocol_sources()).encode(), binding_native_sql().encode())
 
 
 def build_binding_source(recipe, admin, writer, directory, *, purpose_engine=None):

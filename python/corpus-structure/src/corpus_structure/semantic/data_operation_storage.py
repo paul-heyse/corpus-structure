@@ -7,6 +7,7 @@ call bindings are derived together; candidate operations cannot choose SQL symbo
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
@@ -31,7 +32,7 @@ _ROOT = Path(__file__).resolve().parents[1] / "model" / "semantic"
 _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 
-def native_protocol_sources() -> tuple[SourceArtifact, ...]:
+def native_protocol_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_protocol import recordable_fate_sql
@@ -45,11 +46,21 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_wire_native import wire_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
 
-    protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
+    if physical_sources is None:
+        protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
+        physical = (_ROOT / "data-operation-physical.yaml").read_bytes()
+    else:
+        if not isinstance(linkml_types, bytes):
+            raise ValueError("explicit native physical inputs lack captured LinkML types")
+        try:
+            protocol = physical_sources["data-operation-native.yaml"]
+            physical = physical_sources["data-operation-physical.yaml"]
+        except KeyError as error:
+            raise ValueError("explicit native physical closure lacks DDO declarations") from error
     from .data_operation_projections import capture_projection_sources
 
     return (
-        *capture_projection_sources(),
+        *capture_projection_sources(physical_sources=physical_sources, linkml_types=linkml_types),
         SourceArtifact(
             "native/data-operation-provider-profiles.py",
             Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
@@ -95,7 +106,7 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
         ),
         SourceArtifact(
             "native/data-operation-physical.yaml",
-            (_ROOT / "data-operation-physical.yaml").read_bytes(),
+            physical,
         ),
         *binding_native_sources(),
         *wire_native_sources(),
@@ -986,14 +997,21 @@ def admitted_data_projection(
     return tuple(projections)
 
 
-def data_operation_native_definitions(connection):
+def data_operation_native_definitions(connection, *, target_metadata=None):
     """Include every kernel function in normal server-normalized candidate custody."""
     from pglast import ast
 
     from .native_objects import definition_from_sql
     from .prepared_sql import prepare_sql
 
-    captured = native_protocol_sources()
+    if target_metadata is None:
+        captured = native_protocol_sources()
+    else:
+        sources = target_metadata.info.get("physical_sources")
+        types = target_metadata.info.get("physical_linkml_types")
+        if not isinstance(sources, Mapping) or not sources or not isinstance(types, bytes):
+            raise ValueError("native candidate metadata lacks explicit captured physical inputs/types")
+        captured = native_protocol_sources(physical_sources=sources, linkml_types=types)
     sql = native_sql(captured)
     prepared = prepare_sql(sql, source="data-operations:forward")
     public = {item["name"]: item for item in _protocol(captured)}

@@ -127,14 +127,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE scope_key text; snapshot jsonb:='{}'; e bigint;
 BEGIN
  -- A recursive closure includes every producing scope, not merely caller named epochs.
- FOR scope_key IN WITH RECURSIVE closure(id) AS (
- SELECT value->>'derivation_id' FROM jsonb_array_elements(support) WHERE coalesce(value->>'kind','computation')='computation'
- UNION SELECT s.support_derivation_id FROM ops.data_derivation_support s JOIN closure c ON c.id=s.derivation_id
- ), scopes AS (
- SELECT ops.ddo_scope(project,source) AS scope UNION
- SELECT ops.ddo_scope(r.project_id,r.original_source) FROM closure c JOIN ops.data_derivation d ON d.id=c.id JOIN ops.data_request r ON r.id=d.request_id
- UNION SELECT ops.ddo_scope(original.project_id,original.original_source) FROM ops.original_source_admission original WHERE original.id IN (SELECT value->>'admission_id' FROM jsonb_array_elements(support) WHERE value->>'kind'='original-source' UNION SELECT selected.admission_id FROM ops.data_derivation_original_support selected JOIN closure c ON c.id=selected.derivation_id)
- ) SELECT scope FROM scopes ORDER BY scope LOOP
+ FOR scope_key IN __DDO_CORE_LOCK_SUPPORT_SCOPES__ LOOP
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
  SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR UPDATE;
  snapshot:=snapshot||jsonb_build_object(scope_key,e);

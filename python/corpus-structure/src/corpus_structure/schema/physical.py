@@ -163,9 +163,8 @@ def compile_physical(
     importmap: dict[str, str | dict[str, Any]] = {
         name.removesuffix(".yaml"): document for name, document in documents.items()
     }
-    types = _document(
-        _LINKML_TYPES, linkml_types_source() if linkml_types is None else linkml_types
-    )
+    types_content = linkml_types_source() if linkml_types is None else linkml_types
+    types = _document(_LINKML_TYPES, types_content)
     if _imports(_LINKML_TYPES, types):
         raise ModelError(["unsupported imports in retained LinkML types"])
     importmap[_LINKML_TYPES] = types
@@ -182,4 +181,5 @@ def compile_physical(
         raise ModelError([f"invalid physical declaration: {error}"]) from error
     metadata.info["physical_model_id"] = physical_sources_id(sources)
     metadata.info["physical_sources"] = dict(sources)
+    metadata.info["physical_linkml_types"] = types_content
     return metadata

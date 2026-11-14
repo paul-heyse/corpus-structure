@@ -758,7 +758,7 @@ def series_predecessor_definitions(connection):
     )
 
 
-def series_native_definitions(connection, *, include_selected=True):
+def series_native_definitions(connection, *, include_selected=True, target_metadata=None):
     from .archive_native import archive_native_definitions
     from .pdf_completion_native import pdf_completion_native_sql
     from .pdf_integrated_native import observation_publication_sql
@@ -793,7 +793,7 @@ def series_native_definitions(connection, *, include_selected=True):
 
     definitions = [
         *archive_native_definitions(connection),
-        *data_operation_native_definitions(connection),
+        *data_operation_native_definitions(connection, target_metadata=target_metadata),
         *_release_guard_definitions(
             connection,
             Path(__file__).with_name("sql").joinpath("closure.sql").read_text()
@@ -1929,7 +1929,7 @@ def _prepare_series_authoring(
     owned_authoring=False,
 ):
     """Normalize native definitions against the authoring transaction row types."""
-    products = series_native_definitions(connection, include_selected=include_selected)
+    products = series_native_definitions(connection, include_selected=include_selected, target_metadata=target_metadata)
     source = _predecessor_source(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
@@ -2068,7 +2068,7 @@ def _prepare_series_authoring(
     # dependencies exist. Frozen predecessor normalization keeps its interpretation.
     checked_functions = frozenset(
         item.identity
-        for item in data_operation_native_definitions(connection)
+        for item in data_operation_native_definitions(connection, target_metadata=target_metadata)
         if item.identity.kind == "function"
     ) | {
         # This adjacent guard authenticates both legacy and runless PDF source
