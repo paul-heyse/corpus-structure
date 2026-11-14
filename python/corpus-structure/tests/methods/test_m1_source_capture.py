@@ -5,11 +5,16 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
-
 from corpus_structure.methods.m1_source_capture import RecordCaptureRule
 from methods.domain_configuration import candidate_configuration
-from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
+from methods.m1_producer_support import (
+    ROOT,
+    ControlledDecoder,
+    candidate_fixture_inputs,
+    candidate_fixture_product,
+    owned_reader,
+    view,
+)
 
 
 @pytest.fixture(scope="module")
@@ -26,8 +31,14 @@ def compare(monkeypatch, text, rules):
     decoder = ControlledDecoder("empty")
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
-    baseline = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder)
-    captured = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder, source_capture_rules=rules)
+    baseline = candidate_fixture_product(
+        candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder
+    )
+    captured = candidate_fixture_product(
+        candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active),
+        decoder,
+        source_capture_rules=rules,
+    )
     assert not baseline.records
     assert baseline.parse_detail is not None and captured.parse_detail is not None
     assert "comparison_arm" not in baseline.parse_detail

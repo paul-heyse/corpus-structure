@@ -1,10 +1,5 @@
 """Detached review integrity and publication, independently specified records."""
 
-from semantic.sealed_structural_fixture import (
-    artifact_descriptor,
-    artifact_result,
-)
-
 import json
 from typing import Any
 
@@ -25,6 +20,10 @@ from semantic.review_bundle_doubles import (
     synthetic_source_projection as synthetic_source_projection,
 )
 from semantic.review_bundle_support import source_row as source_row
+from semantic.sealed_structural_fixture import (
+    artifact_descriptor,
+    artifact_result,
+)
 
 
 def selection(**values):
@@ -997,7 +996,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
-        )
+    )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding, discover_relations
     from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
     from corpus_structure.semantic.identity import canonical_bytes
@@ -1163,7 +1162,14 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         ),
     )
     _projection_context = context
-    (result,) = (artifact_result(_projection_context.reader, configuration, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref, check_active=_projection_context.check_active),)
+    (result,) = (
+        artifact_result(
+            _projection_context.reader,
+            configuration,
+            ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref,
+            check_active=_projection_context.check_active,
+        ),
+    )
     report = StructuralProductReport.model_validate(result.structural_product)
     structural = dict(
         selection_index=0,

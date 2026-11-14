@@ -6,41 +6,72 @@ kernels. They do not select work, own execution, acquire providers or grant auth
 
 from corpus_structure.core.method import UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.operations import OperationDescriptor
-from corpus_structure.methods.structural_products import (
-    StructuralComparisonConfig, StructuralDossierConfig, ConditionQualificationConfig,
-    SEALED_COMPARISON_NAME, SEALED_COMPARISON_VERSION,
-    SEALED_CONDITION_NAME, SEALED_CONDITION_VERSION,
-    produce_structural_comparison, dossier_root, produce_structural_dossier,
-    produce_condition_qualification,
-)
 from corpus_structure.methods.artifact_identity import (
-    ArtifactIdentityConfig, SEALED_ARTIFACT_NAME, SEALED_ARTIFACT_VERSION,
+    SEALED_ARTIFACT_NAME,
+    SEALED_ARTIFACT_VERSION,
+    ArtifactIdentityConfig,
 )
+from corpus_structure.methods.structural_products import (
+    SEALED_COMPARISON_NAME,
+    SEALED_COMPARISON_VERSION,
+    SEALED_CONDITION_NAME,
+    SEALED_CONDITION_VERSION,
+    ConditionQualificationConfig,
+    StructuralComparisonConfig,
+    StructuralDossierConfig,
+    dossier_root,
+    produce_condition_qualification,
+    produce_structural_comparison,
+    produce_structural_dossier,
+)
+from corpus_structure.semantic.operations import OperationDescriptor
 from corpus_structure.semantic.structural_products import (
-    StructuralProductReport, LocatedDefinitionComponent,
+    LocatedDefinitionComponent,
 )
 
 
 def comparison_descriptor():
-    return OperationDescriptor(SEALED_COMPARISON_NAME, SEALED_COMPARISON_VERSION,
-        "consolidate", "deterministic", TaskUnitType.RUN, StructuralComparisonConfig)
+    return OperationDescriptor(
+        SEALED_COMPARISON_NAME,
+        SEALED_COMPARISON_VERSION,
+        "consolidate",
+        "deterministic",
+        TaskUnitType.RUN,
+        StructuralComparisonConfig,
+    )
 
 
 def dossier_descriptor():
-    return OperationDescriptor("structure.dossier", "3", "consolidate", "deterministic",
-        TaskUnitType.RUN, StructuralDossierConfig)
+    return OperationDescriptor(
+        "structure.dossier",
+        "3",
+        "consolidate",
+        "deterministic",
+        TaskUnitType.RUN,
+        StructuralDossierConfig,
+    )
 
 
 def condition_descriptor():
-    return OperationDescriptor(SEALED_CONDITION_NAME, SEALED_CONDITION_VERSION,
-        "resolve", "deterministic", TaskUnitType.RUN, ConditionQualificationConfig)
+    return OperationDescriptor(
+        SEALED_CONDITION_NAME,
+        SEALED_CONDITION_VERSION,
+        "resolve",
+        "deterministic",
+        TaskUnitType.RUN,
+        ConditionQualificationConfig,
+    )
 
 
 def artifact_descriptor():
-    return OperationDescriptor(SEALED_ARTIFACT_NAME, SEALED_ARTIFACT_VERSION,
-        "consolidate", "deterministic", TaskUnitType.RUN, ArtifactIdentityConfig)
-
+    return OperationDescriptor(
+        SEALED_ARTIFACT_NAME,
+        SEALED_ARTIFACT_VERSION,
+        "consolidate",
+        "deterministic",
+        TaskUnitType.RUN,
+        ArtifactIdentityConfig,
+    )
 
 
 def comparison_result(reader, cfg, ref, *, check_active):
@@ -67,7 +98,11 @@ def comparison_result(reader, cfg, ref, *, check_active):
         predicate_version="6",
         check_active=check_active,
     )
-    return UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json"))
+    return UnitResult(
+        ref=ref,
+        outcome=ObservationOutcome.PRODUCED,
+        structural_product=report.model_dump(mode="json"),
+    )
 
 
 def dossier_result(reader, cfg, ref, *, check_active):
@@ -90,9 +125,7 @@ def dossier_result(reader, cfg, ref, *, check_active):
     contribution_retained = []
     for reference in cfg.contribution_predecessors:
         check_active()
-        contribution_retained.append(
-            (reference, reader.retained_source_contribution(reference))
-        )
+        contribution_retained.append((reference, reader.retained_source_contribution(reference)))
     report = produce_structural_dossier(
         cfg.inputs,
         root_component=cfg.root_component,
@@ -105,7 +138,11 @@ def dossier_result(reader, cfg, ref, *, check_active):
         policy=cfg.policy,
         check_active=check_active,
     )
-    return UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json"))
+    return UnitResult(
+        ref=ref,
+        outcome=ObservationOutcome.PRODUCED,
+        structural_product=report.model_dump(mode="json"),
+    )
 
 
 def condition_result(reader, cfg, ref, *, check_active):
@@ -119,7 +156,11 @@ def condition_result(reader, cfg, ref, *, check_active):
     report = produce_condition_qualification(
         cfg.inputs, attachment=cfg.attachment, retained=retained
     )
-    return UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json", exclude_none=True))
+    return UnitResult(
+        ref=ref,
+        outcome=ObservationOutcome.PRODUCED,
+        structural_product=report.model_dump(mode="json", exclude_none=True),
+    )
 
 
 def artifact_result(reader, cfg, ref, *, check_active):
@@ -128,7 +169,13 @@ def artifact_result(reader, cfg, ref, *, check_active):
 
     if cfg.inputs is None or cfg.policy is None:
         raise ValueError("artifact identity inputs absent")
-    primary = reader.characterization_layers(tuple(ProductReference(**pin) for pin in cfg.characterization_layers)) if cfg.characterization_layers else {}
+    primary = (
+        reader.characterization_layers(
+            tuple(ProductReference(**pin) for pin in cfg.characterization_layers)
+        )
+        if cfg.characterization_layers
+        else {}
+    )
     bindings = {value.native_content_digest for value in cfg.work_bindings}
     frames = {}
     for source in cfg.inputs.sources:
@@ -139,6 +186,15 @@ def artifact_result(reader, cfg, ref, *, check_active):
     for reference in sorted(cfg.external_nomination_refs, key=lambda value: value.contribution_id):
         check_active()
         retained.append((reference, reader.retained_source_contribution(reference)))
-    report = project_retained_artifact_identity(cfg, frames=frames, primary_layers=primary,
-        nomination_inputs=tuple(retained), check_active=check_active)
-    return UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json"))
+    report = project_retained_artifact_identity(
+        cfg,
+        frames=frames,
+        primary_layers=primary,
+        nomination_inputs=tuple(retained),
+        check_active=check_active,
+    )
+    return UnitResult(
+        ref=ref,
+        outcome=ObservationOutcome.PRODUCED,
+        structural_product=report.model_dump(mode="json"),
+    )

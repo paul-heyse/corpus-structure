@@ -381,7 +381,6 @@ def plan_candidate_replies(
         plan.close()
 
 
-
 def plan_candidates(
     *,
     prepared,
@@ -425,9 +424,7 @@ def plan_candidates(
         annotation_product=(
             {
                 **annotation_result,
-                "blocks": [
-                    product.dependency_digest for product in prepared_source.annotations
-                ],
+                "blocks": [product.dependency_digest for product in prepared_source.annotations],
             }
             if "semantic_product" in annotation_result
             else dict(
@@ -468,9 +465,7 @@ def plan_candidates(
     if source_capture_rules:
         from corpus_structure.methods.m1_source_capture import SourceRecordCapture
 
-        source_capture = SourceRecordCapture(
-            prepared, _source_vocabulary(), source_capture_rules
-        )
+        source_capture = SourceRecordCapture(prepared, _source_vocabulary(), source_capture_rules)
         details["comparison_arm"] = "exact-source-rule-capture-1"
         details["source_capture_rules"] = [
             rule.model_dump(mode="json") for rule in source_capture_rules
@@ -632,9 +627,7 @@ def plan_candidates(
             for family in selection.families:
                 for variant, anchor, selected_pack in packs[family]:
                     retain_unexecuted(index, selected_pack, "limited", str(error))
-                    execution[index, family, variant].update(
-                        outcome="limited", reason=str(error)
-                    )
+                    execution[index, family, variant].update(outcome="limited", reason=str(error))
                     metadata = (
                         dict(variant=variant, anchor_role=anchor)
                         if cfg.policy in {POLICY_V5, POLICY_V6}
@@ -865,11 +858,7 @@ def plan_candidates(
                             supplements[group_index] = supplement
                     elif family == "definition":
                         supplements[group_index] = NativeRecordGroup(
-                            (
-                                RoleInput(
-                                    "scope", native_pointer=context.primary.section_pointer
-                                ),
-                            ),
+                            (RoleInput("scope", native_pointer=context.primary.section_pointer),),
                             "selected native section is the explicit definition scope",
                         )
                     elif family == "formula_context" and native_groups:
@@ -969,9 +958,7 @@ def plan_candidates(
                         outcome="partial" if incomplete else "complete",
                         reason="assembly diagnostics retained"
                         if incomplete
-                        else (
-                            "extraction complete; empty output leaves source meaning unresolved"
-                        ),
+                        else ("extraction complete; empty output leaves source meaning unresolved"),
                     )
                 )
                 execution[index, family, variant].update(

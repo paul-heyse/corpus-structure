@@ -392,11 +392,19 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
 
     from methods.m1_producer_support import candidate_fixture_product
 
-    result = candidate_fixture_product(dict(
-        prepared=release(), view=view, prepared_source=product,
-        annotation_result=dict(method="extract.m1_annotations", input_hash="input", configuration_hash="config"),
-        cfg=cfg, check_active=lambda: None,
-    ), Worker())
+    result = candidate_fixture_product(
+        dict(
+            prepared=release(),
+            view=view,
+            prepared_source=product,
+            annotation_result=dict(
+                method="extract.m1_annotations", input_hash="input", configuration_hash="config"
+            ),
+            cfg=cfg,
+            check_active=lambda: None,
+        ),
+        Worker(),
+    )
     assert result.parse_detail is not None
     details = result.parse_detail
     executions = detail_objects(details["execution"])

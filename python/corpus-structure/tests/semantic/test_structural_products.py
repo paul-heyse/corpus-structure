@@ -1,10 +1,5 @@
 """Independent structural expectations: unknown is not absence or equivalence."""
 
-from semantic.sealed_structural_fixture import (
-    comparison_descriptor,
-    comparison_result,
-)
-
 from types import SimpleNamespace
 
 import pytest
@@ -23,6 +18,10 @@ from corpus_structure.semantic.structural_products import (
     LocatedDefinitionSpan,
     definition_component,
     legacy_structural_sources,
+)
+from semantic.sealed_structural_fixture import (
+    comparison_descriptor,
+    comparison_result,
 )
 from semantic.structural_products_support import inputs as inputs
 
@@ -244,8 +243,24 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
     def validate_inputs(actual):
         assert actual == value
 
-    _projection_context = SimpleNamespace(check_active=lambda: None, reader=SimpleNamespace(retained_source_contribution=lambda r: retained[r.contribution_id], validate_structural_inputs=validate_inputs, primary_characterization=lambda source_view_id, **selection: select_primary_layers(primary, views[source_view_id], **selection)))
-    result = (comparison_result(_projection_context.reader, cfg, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key='run')),))[0].ref, check_active=_projection_context.check_active),)[0]
+    _projection_context = SimpleNamespace(
+        check_active=lambda: None,
+        reader=SimpleNamespace(
+            retained_source_contribution=lambda r: retained[r.contribution_id],
+            validate_structural_inputs=validate_inputs,
+            primary_characterization=lambda source_view_id, **selection: select_primary_layers(
+                primary, views[source_view_id], **selection
+            ),
+        ),
+    )
+    result = (
+        comparison_result(
+            _projection_context.reader,
+            cfg,
+            ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="run")),))[0].ref,
+            check_active=_projection_context.check_active,
+        ),
+    )[0]
     assert result.structural_product is not None
     assert result.structural_product["kind"] == "qualified_comparison"
     report = StructuralProductReport.model_validate(result.structural_product)

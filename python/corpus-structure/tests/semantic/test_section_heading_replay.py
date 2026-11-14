@@ -10,8 +10,6 @@ from types import SimpleNamespace
 import pytest
 from methods.m1_producer_support import view
 
-from semantic.sealed_contextual_fixture import contextual_descriptor, contextual_fixture_inputs, contextual_fixture_result
-
 from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
@@ -35,6 +33,10 @@ from corpus_structure.serve.review_bundle import (
 )
 from semantic.review_bundle_doubles import (
     synthetic_source_projection as synthetic_source_projection,
+)
+from semantic.sealed_contextual_fixture import (
+    contextual_fixture_inputs,
+    contextual_fixture_result,
 )
 
 
@@ -261,9 +263,13 @@ def test_detached_section_replay_requires_complete_witnesses(
         source_result=lambda *_: scoped["body"],
         contextual_section_headings=heading_targets,
     )
-    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, config), config,
-        UnitRef(TaskUnitType.SOURCE_VIEW, 7, source.ref.key), version=version,
-        neighborhood=reader.contextual_mutual_neighbors)
+    result = contextual_fixture_result(
+        contextual_fixture_inputs(reader, source, config),
+        config,
+        UnitRef(TaskUnitType.SOURCE_VIEW, 7, source.ref.key),
+        version=version,
+        neighborhood=reader.contextual_mutual_neighbors,
+    )
     configuration = config.model_dump(mode="json")
     retained = json.loads(
         canonical_bytes(

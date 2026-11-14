@@ -13,8 +13,6 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from semantic.sealed_contextual_fixture import contextual_descriptor, contextual_fixture_inputs, contextual_fixture_result
-
 from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitView
 from corpus_structure.core.vocab import MethodTier, TaskUnitType
 from corpus_structure.evaluate.record_references import assign_origin
@@ -48,6 +46,11 @@ from corpus_structure.semantic.structural_products import (
     StructuralProductReport,
 )
 from semantic.native_record_fixtures import complete_contributions, contribution_drafts
+from semantic.sealed_contextual_fixture import (
+    contextual_descriptor,
+    contextual_fixture_inputs,
+    contextual_fixture_result,
+)
 
 
 def _fixture_configuration(method, config):
@@ -687,12 +690,19 @@ def completed_relationship_case(
         with _witnessed_reader(case, run, bound, tmp_path) as ctx:
             source = ctx.reader.source_view(ref.unit_id)
             relationship_result = contextual_fixture_result(
-                contextual_fixture_inputs(ctx.reader, source, cfg), cfg, ref,
-                encode=controlled_encoder, retrieve=ctx.reader.contextual_candidates,
+                contextual_fixture_inputs(ctx.reader, source, cfg),
+                cfg,
+                ref,
+                encode=controlled_encoder,
+                retrieve=ctx.reader.contextual_candidates,
                 neighborhood=ctx.reader.contextual_mutual_neighbors,
-                choose=controlled_interpretation if overlapping_recipe is None else select_relationships,
+                choose=controlled_interpretation
+                if overlapping_recipe is None
+                else select_relationships,
             )
-        _retain_witnessed_result(case, run, method, cfg, relationship_result, stage="assemble", admin=admin)
+        _retain_witnessed_result(
+            case, run, method, cfg, relationship_result, stage="assemble", admin=admin
+        )
         return SimpleNamespace(run_id=run)
 
     outcome = produce_relationship()

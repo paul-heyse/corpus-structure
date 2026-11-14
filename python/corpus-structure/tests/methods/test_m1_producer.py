@@ -6,8 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
-
 from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
@@ -20,6 +18,7 @@ from methods.m1_producer_support import (
 from methods.m1_producer_support import (
     ControlledDecoder as ControlledDecoder,
 )
+from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
 from methods.m1_producer_support import (
     detail_object as detail_object,
 )
@@ -69,7 +68,10 @@ def test_local_schema_survives_empty_record_outputs(monkeypatch):
             "local_schema": {"entities": ["term"]},
         }
     )
-    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None), decoder)
+    result = candidate_fixture_product(
+        candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None),
+        decoder,
+    )
     assert result.contributions is not None
     types = {row["semantic_type"] for row in result.contributions}
     assert "entity.term" in types
@@ -126,8 +128,14 @@ def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkey
     )
     ctx = SimpleNamespace(reader=owned_reader(source), check_active=lambda: None)
 
-    baseline = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder)
-    guided = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder, generic_role_guidance=True)
+    baseline = candidate_fixture_product(
+        candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder
+    )
+    guided = candidate_fixture_product(
+        candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active),
+        decoder,
+        generic_role_guidance=True,
+    )
 
     assert baseline.parse_detail is not None and guided.parse_detail is not None
     assert "comparison_arm" not in baseline.parse_detail
@@ -204,7 +212,10 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
     cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
         update={"local_schema": {"entities": ["term"]}}
     )
-    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None), decoder)
+    result = candidate_fixture_product(
+        candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None),
+        decoder,
+    )
     assert result.parse_detail is not None
     local = detail_objects(result.parse_detail["local_execution"])
     assert [row["outcome"] for row in local] == (
@@ -324,7 +335,10 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
             "source_projection_digest": selected.ref.projection_digest,
         }
     )
-    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(selected), selected, cfg, check_active=lambda: None), decoder)
+    result = candidate_fixture_product(
+        candidate_fixture_inputs(owned_reader(selected), selected, cfg, check_active=lambda: None),
+        decoder,
+    )
     assert worker.calls and all(item.text == first for _, inputs in worker.calls for item in inputs)
     assert result.parse_detail is not None
     regions = detail_objects(result.parse_detail["regions"])
@@ -334,10 +348,13 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
     worker.calls.clear()
     bad = cfg.model_copy(update={"region_pointers": ("#/texts/99999",)})
     with pytest.raises(m1_source.GlinerRefused, match="unknown native region"):
-        candidate_fixture_product(candidate_fixture_inputs(owned_reader(selected), selected, bad, check_active=lambda: None), decoder)
+        candidate_fixture_product(
+            candidate_fixture_inputs(
+                owned_reader(selected), selected, bad, check_active=lambda: None
+            ),
+            decoder,
+        )
     assert worker.calls == []
-
-
 
 
 def test_context_relationship_diagnostics_cross_the_source_report_boundary(monkeypatch):
@@ -355,10 +372,14 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
     )
     frozen = candidate_fixture_inputs(reader, source, cfg)
     prepared_source = frozen["prepared_source"]
-    frozen["prepared_source"] = replace(prepared_source,
-        selections=tuple(replace(row, relationships=((8, ContextRelationship.NEIGHBOR, "nearby unit"),))
-                         for row in prepared_source.selections),
-        annotation_errors=("controlled unavailable annotation",))
+    frozen["prepared_source"] = replace(
+        prepared_source,
+        selections=tuple(
+            replace(row, relationships=((8, ContextRelationship.NEIGHBOR, "nearby unit"),))
+            for row in prepared_source.selections
+        ),
+        annotation_errors=("controlled unavailable annotation",),
+    )
     result = candidate_fixture_product(frozen)
 
     decoded = source_python(source_value(result.parse_detail))
@@ -382,7 +403,10 @@ def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(mo
         reader=owned_reader(source),
         check_active=lambda: checks.append("checked"),
     )
-    result = candidate_fixture_product(candidate_fixture_inputs(context.reader, source, cfg, check_active=context.check_active), decoder)
+    result = candidate_fixture_product(
+        candidate_fixture_inputs(context.reader, source, cfg, check_active=context.check_active),
+        decoder,
+    )
     details = result.parse_detail
     assert details is not None
     regions = details["regions"]
@@ -484,7 +508,10 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
-    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None), decoder)
+    result = candidate_fixture_product(
+        candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None),
+        decoder,
+    )
     assert result.records is not None
     assert len(worker.calls) == 1 and len(result.records) == 2
     zero, blank = ({f["role"]: f for f in row["fields"]} for row in result.records)
@@ -588,7 +615,17 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     del reader
     worker = ControlledDecoder("definition")
     decoder = worker
-    product = candidate_fixture_product(dict(prepared=prepared, view=source, prepared_source=frozen_inputs, annotation_result=annotation_result, cfg=cfg, check_active=lambda: None), decoder)
+    product = candidate_fixture_product(
+        dict(
+            prepared=prepared,
+            view=source,
+            prepared_source=frozen_inputs,
+            annotation_result=annotation_result,
+            cfg=cfg,
+            check_active=lambda: None,
+        ),
+        decoder,
+    )
     assert isinstance(product, m1_source.M1CandidateProduct)
     assert product.outcome == ObservationOutcome.PRODUCED
     assert not hasattr(product, "ref")

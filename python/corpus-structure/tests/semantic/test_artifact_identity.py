@@ -1,10 +1,5 @@
 """Artifact candidates keep source-work scope and evidence, without merging authority."""
 
-from semantic.sealed_structural_fixture import (
-    artifact_descriptor,
-    artifact_result,
-)
-
 import json
 from types import SimpleNamespace
 
@@ -25,6 +20,10 @@ from corpus_structure.semantic.constructions.navigation import (
 )
 from semantic.artifact_identity_support import nomination as nomination
 from semantic.artifact_identity_support import record as record
+from semantic.sealed_structural_fixture import (
+    artifact_descriptor,
+    artifact_result,
+)
 
 
 def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope():
@@ -325,7 +324,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
-        )
+    )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.observations import observation_inputs
@@ -417,7 +416,16 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
             reader=Reader(inputs, reference.identity, frame, bind), check_active=lambda: None
         )
         _projection_context = ctx
-        (result,) = (artifact_result(_projection_context.reader, cfg, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref, check_active=_projection_context.check_active),)
+        (result,) = (
+            artifact_result(
+                _projection_context.reader,
+                cfg,
+                ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[
+                    0
+                ].ref,
+                check_active=_projection_context.check_active,
+            ),
+        )
         assert result.structural_product is not None
         from corpus_structure.semantic.refusals import SemanticRefusal
         from corpus_structure.semantic.structural_admission import structural_statement

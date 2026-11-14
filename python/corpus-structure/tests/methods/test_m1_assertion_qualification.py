@@ -6,8 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
-
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.methods.assertion_qualification import AssertionQualification
 from corpus_structure.methods.gliner import GlinerRefused
@@ -24,6 +22,8 @@ from methods.domain_configuration import candidate_configuration
 from methods.m1_producer_support import (
     ROOT,
     ControlledDecoder,
+    candidate_fixture_inputs,
+    candidate_fixture_product,
     detail_object,
     detail_objects,
     owned_reader,
@@ -62,7 +62,9 @@ def produce(monkeypatch, text, groups, *, heading=None):
     decoder = AssertionDecoder(text, groups)
     decoder = decoder
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
-    result = candidate_fixture_product(candidate_fixture_inputs(reader, source, cfg, check_active=lambda: None), decoder)
+    result = candidate_fixture_product(
+        candidate_fixture_inputs(reader, source, cfg, check_active=lambda: None), decoder
+    )
     assert result.records and result.parse_detail
     assert all(r["family"] == "assertion" and r["standing"] == "candidate" for r in result.records)
     return result.records, result.parse_detail

@@ -5,11 +5,11 @@ from types import SimpleNamespace
 
 import pytest
 from semantic.characterization_support import layer_payload
+from semantic.sealed_primary_fixture import compose_view_result
 
 from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.characterization import ComposeViewConfig
-from semantic.sealed_primary_fixture import compose_view_result
 from corpus_structure.semantic.characterization import _published_layer_manifest, validate_layer
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -91,7 +91,7 @@ def test_selected_layer_closure_is_retained(prepared):
 
 
 def test_unbound_config_and_wrong_document_refuse(prepared):
-    body, reader, _run, unit = inputs(prepared)
+    body, reader, _run, _unit = inputs(prepared)
     with pytest.raises(ValueError, match="explicit base"):
         ComposeViewConfig().require_selection()
     cfg = ComposeViewConfig(

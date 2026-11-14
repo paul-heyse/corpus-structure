@@ -133,10 +133,11 @@ class ControlledDecoder:
 def owned_reader(source):
     """Persisted-operation-shaped fixture with actual local linguistic columns."""
 
+    from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
+
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
     from corpus_structure.ingest.sentences import pipeline
     from corpus_structure.methods.m1_annotations import M1AnnotationConfig
-    from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
     from corpus_structure.methods.source_preparation import annotation_inputs
     from corpus_structure.semantic.constructions.layers import ConstructionLayer
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
@@ -230,34 +231,64 @@ def candidate_fixture_inputs(reader, source, cfg, *, check_active=lambda: None):
     from corpus_structure.methods.source_preparation import prepare_source
 
     check_active()
-    if cfg.source_projection_digest is not None and source.ref.projection_digest != cfg.source_projection_digest:
+    if (
+        cfg.source_projection_digest is not None
+        and source.ref.projection_digest != cfg.source_projection_digest
+    ):
         raise GlinerRefused("source view differs from selected projection digest")
     if cfg.region_pointers is not None:
         missing = set(cfg.region_pointers) - {item["self_ref"] for item in source.items}
         if missing:
-            raise GlinerRefused("unknown native region pointer in selected source view: " + ", ".join(sorted(missing)))
+            raise GlinerRefused(
+                "unknown native region pointer in selected source view: "
+                + ", ".join(sorted(missing))
+            )
     profile = AnnotationProfile(cfg.sentences)
     annotations, errors, annotation_info = consume_annotations(reader, source, profile)
-    prepared_source = prepare_source(source, profile=profile, max_chars=cfg.max_context_chars,
-        max_pieces=cfg.max_context_pieces, max_annotation_chars=cfg.max_annotation_chars,
-        check_active=check_active, reader=reader, persisted_annotations=annotations,
-        annotation_errors=errors, policy=cfg.policy, formula_prose=cfg.formula_prose,
-        region_pointers=cfg.region_pointers)
-    return dict(prepared=reader.prepared, view=source, prepared_source=prepared_source,
-                annotation_result=annotation_info, cfg=cfg, check_active=check_active)
+    prepared_source = prepare_source(
+        source,
+        profile=profile,
+        max_chars=cfg.max_context_chars,
+        max_pieces=cfg.max_context_pieces,
+        max_annotation_chars=cfg.max_annotation_chars,
+        check_active=check_active,
+        reader=reader,
+        persisted_annotations=annotations,
+        annotation_errors=errors,
+        policy=cfg.policy,
+        formula_prose=cfg.formula_prose,
+        region_pointers=cfg.region_pointers,
+    )
+    return dict(
+        prepared=reader.prepared,
+        view=source,
+        prepared_source=prepared_source,
+        annotation_result=annotation_info,
+        cfg=cfg,
+        check_active=check_active,
+    )
 
 
-def candidate_fixture_product(inputs, decoder=None, *, generic_role_guidance=False, source_capture_rules=()):
+def candidate_fixture_product(
+    inputs, decoder=None, *, generic_role_guidance=False, source_capture_rules=()
+):
     """Answer actual typed inference questions with an explicitly supplied test decoder.
 
     No Reader, UnitView, provider allocation, resident replacement or task owner enters
     this boundary. Real provider execution remains with the declared shared-host port.
     """
     from corpus_structure.methods.gliner import GlinerRefused
-    from corpus_structure.methods.m1_source import M1GlinerReply, M1GlinerRequest, plan_candidate_replies
+    from corpus_structure.methods.m1_source import (
+        M1GlinerReply,
+        M1GlinerRequest,
+        plan_candidate_replies,
+    )
 
-    plan = plan_candidate_replies(**inputs, generic_role_guidance=generic_role_guidance,
-                                 source_capture_rules=source_capture_rules)
+    plan = plan_candidate_replies(
+        **inputs,
+        generic_role_guidance=generic_role_guidance,
+        source_capture_rules=source_capture_rules,
+    )
     try:
         try:
             request = next(plan)
@@ -265,10 +296,16 @@ def candidate_fixture_product(inputs, decoder=None, *, generic_role_guidance=Fal
             return completed.value
         while True:
             assert isinstance(request, M1GlinerRequest)
-            assert decoder is not None, "a yielded native question needs its explicit controlled decoder"
+            assert decoder is not None, (
+                "a yielded native question needs its explicit controlled decoder"
+            )
             try:
-                reports = decoder.extract(request.pack, request.inputs, threshold=request.threshold,
-                                          check_active=inputs["check_active"])
+                reports = decoder.extract(
+                    request.pack,
+                    request.inputs,
+                    threshold=request.threshold,
+                    check_active=inputs["check_active"],
+                )
                 reply = M1GlinerReply(reports=tuple(reports))
             except GlinerRefused as error:
                 reply = M1GlinerReply(failure="refused", message=str(error))

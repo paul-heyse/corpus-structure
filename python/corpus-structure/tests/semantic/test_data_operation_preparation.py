@@ -137,10 +137,6 @@ def test_target_acquisition_archives_generated_interface_selection(tmp_path):
     _validate_manifest(bundle, deps, profile, prepared)
 
 
-
-
-
-
 def test_original_source_schema_is_explicitly_acquired_for_native_admission(tmp_path):
     root = inputs(tmp_path)
     from pathlib import Path

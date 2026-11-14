@@ -1,12 +1,5 @@
 """Analytical replay consumes the captured primary selection without recognizing source again."""
 
-from semantic.sealed_structural_fixture import (
-    artifact_descriptor,
-    artifact_result,
-    comparison_descriptor,
-    comparison_result,
-)
-
 from copy import deepcopy
 from dataclasses import asdict
 from types import SimpleNamespace
@@ -21,6 +14,12 @@ from corpus_structure.semantic.structural_products import (
     legacy_structural_sources,
 )
 from corpus_structure.serve import primary_characterization_replay, review_bundle
+from semantic.sealed_structural_fixture import (
+    artifact_descriptor,
+    artifact_result,
+    comparison_descriptor,
+    comparison_result,
+)
 
 
 def captured_report(method, cfg, report):
@@ -89,7 +88,7 @@ def artifact_fixture():
 
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
-        )
+    )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding
     from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
     from corpus_structure.semantic.proposals import native_source_frame
@@ -113,8 +112,21 @@ def artifact_fixture():
         policy=ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05),
     )
     method = artifact_descriptor()
-    _projection_context = SimpleNamespace(check_active=lambda: None, reader=SimpleNamespace(structural_source_frame=lambda *_: native_source_frame(view, ()), characterization_layers=lambda _: layers))
-    (result,) = (artifact_result(_projection_context.reader, cfg, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref, check_active=_projection_context.check_active),)
+    _projection_context = SimpleNamespace(
+        check_active=lambda: None,
+        reader=SimpleNamespace(
+            structural_source_frame=lambda *_: native_source_frame(view, ()),
+            characterization_layers=lambda _: layers,
+        ),
+    )
+    (result,) = (
+        artifact_result(
+            _projection_context.reader,
+            cfg,
+            ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref,
+            check_active=_projection_context.check_active,
+        ),
+    )
     report = StructuralProductReport.model_validate(result.structural_product)
     source_row = dict(
         source_view_id=view.ref.id,
@@ -170,7 +182,7 @@ def test_artifact_replay_preserves_current_primary_source_fields(monkeypatch, mu
 def comparison_fixture():
     from corpus_structure.methods.structural_products import (
         StructuralComparisonConfig,
-        )
+    )
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
     from semantic.primary_formal_fixture import formal_layers
     from semantic.typed_structural_composition_support import threshold_inputs
@@ -261,8 +273,22 @@ def comparison_fixture():
         characterization_layers=tuple(pin.values() for pin in layers),
     )
     method = comparison_descriptor()
-    _projection_context = SimpleNamespace(check_active=lambda: None, reader=SimpleNamespace(validate_structural_inputs=lambda _: None, primary_characterization=lambda *_args, **_kwargs: layers, retained_source_contribution=lambda reference: payloads[reference.contribution_id]))
-    (result,) = (comparison_result(_projection_context.reader, cfg, ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref, check_active=_projection_context.check_active),)
+    _projection_context = SimpleNamespace(
+        check_active=lambda: None,
+        reader=SimpleNamespace(
+            validate_structural_inputs=lambda _: None,
+            primary_characterization=lambda *_args, **_kwargs: layers,
+            retained_source_contribution=lambda reference: payloads[reference.contribution_id],
+        ),
+    )
+    (result,) = (
+        comparison_result(
+            _projection_context.reader,
+            cfg,
+            ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[0].ref,
+            check_active=_projection_context.check_active,
+        ),
+    )
     report = StructuralProductReport.model_validate(result.structural_product)
     return captured_report(method, cfg, report), report, layers, payloads
 

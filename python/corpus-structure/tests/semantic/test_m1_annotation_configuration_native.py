@@ -10,11 +10,11 @@ from sqlalchemy import select
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.m1_annotations import METHOD, M1AnnotationConfig
-from semantic.sealed_primary_fixture import m1_annotation_descriptor
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationConflict, record_method
 from semantic.operation_scenario_support import prepare_operation_scenario
+from semantic.sealed_primary_fixture import m1_annotation_descriptor
 
 
 # The original v1 class had no description in its JSON schema.
@@ -59,11 +59,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
     methods, configs = map(table, ("ops.method", "ops.method_config"))
     with commit_db_engine.connect() as conn:
         before = dict(
-            conn.execute(
-                select(methods).where(
-                    methods.c.name == METHOD, methods.c.version == "1"
-                )
-            )
+            conn.execute(select(methods).where(methods.c.name == METHOD, methods.c.version == "1"))
             .mappings()
             .one()
         )
@@ -92,9 +88,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
     with commit_db_engine.connect() as conn:
         rows = [
             dict(row)
-            for row in conn.execute(
-                select(methods).where(methods.c.name == METHOD)
-            ).mappings()
+            for row in conn.execute(select(methods).where(methods.c.name == METHOD)).mappings()
         ]
         assert {row["version"] for row in rows} == {"1", "3"}
         assert next(row for row in rows if row["version"] == "1") == before

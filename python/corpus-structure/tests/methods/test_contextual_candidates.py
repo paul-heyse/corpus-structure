@@ -6,8 +6,11 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
-from semantic.sealed_contextual_fixture import contextual_descriptor, contextual_fixture_inputs, contextual_fixture_result
+from semantic.sealed_contextual_fixture import (
+    contextual_descriptor,
+    contextual_fixture_inputs,
+    contextual_fixture_result,
+)
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import UnitRef
@@ -313,7 +316,6 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     def unavailable(_profile):
         raise OSError("encoder unavailable")
 
-
     def encoded(items, profile, **_kwargs):
         digest = "a" * 64
         vectors = tuple(
@@ -338,7 +340,6 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
             for item in items
         )
         return EncoderResult(profile.profile_id, (), vectors, ())
-
 
     def retrieve(**request):
         (wrong,) = [target for target in targets if target.designator != "6.2"]
@@ -416,8 +417,14 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
 
-    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref,
-        encode=encoded if provider_available else None, retrieve=retrieve, neighborhood=reader.contextual_mutual_neighbors)
+    result = contextual_fixture_result(
+        contextual_fixture_inputs(reader, source, cfg),
+        cfg,
+        unit.ref,
+        encode=encoded if provider_available else None,
+        retrieve=retrieve,
+        neighborhood=reader.contextual_mutual_neighbors,
+    )
     assert result.contribution_operations is not None
     for operation in result.contribution_operations:
         contextual_report_release.validate_python("SourceContributionOperation", operation)
@@ -649,9 +656,23 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     if isinstance(failure, DatabaseOperationCancelled):
         with pytest.raises(DatabaseOperationCancelled):
-            contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref, encode=encoded, retrieve=retrieve, version="7")
+            contextual_fixture_result(
+                contextual_fixture_inputs(reader, source, cfg),
+                cfg,
+                unit.ref,
+                encode=encoded,
+                retrieve=retrieve,
+                version="7",
+            )
         return
-    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref, encode=encoded, retrieve=retrieve, version="7")
+    result = contextual_fixture_result(
+        contextual_fixture_inputs(reader, source, cfg),
+        cfg,
+        unit.ref,
+        encode=encoded,
+        retrieve=retrieve,
+        version="7",
+    )
     assert result.contribution_operations is not None
     first, *phases = result.contribution_operations
     report = first["contextual_enrichment"]
@@ -1133,8 +1154,14 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
 
-    result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref,
-        encode=encoded, retrieve=retrieve, neighborhood=reader.contextual_mutual_neighbors)
+    result = contextual_fixture_result(
+        contextual_fixture_inputs(reader, source, cfg),
+        cfg,
+        unit.ref,
+        encode=encoded,
+        retrieve=retrieve,
+        neighborhood=reader.contextual_mutual_neighbors,
+    )
     assert set(looked_up) == {wrong.reference.component_id, right.reference.component_id}
     assert result.contribution_operations is not None
     primary, retrieval, selection = result.contribution_operations

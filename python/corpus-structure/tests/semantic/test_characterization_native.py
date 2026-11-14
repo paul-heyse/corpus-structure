@@ -455,8 +455,8 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
         )
         from corpus_structure.core.method import UnitRef, UnitResult
         from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-        from semantic.sealed_primary_fixture import compose_view_descriptor, compose_view_result
         from corpus_structure.semantic.operations import complete_unit_result
+        from semantic.sealed_primary_fixture import compose_view_descriptor
 
         receipt = complete_unit_result(
             conn,
@@ -1532,7 +1532,6 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.core.method import UnitRef, UnitView
     from corpus_structure.core.vocab import TaskUnitType
-    from semantic.sealed_primary_fixture import compose_view_descriptor, compose_view_result
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.semantic.characterization_store import read_inventory
     from corpus_structure.semantic.operations import OperationBinding, complete_task
@@ -1546,6 +1545,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     from corpus_structure.serve.review_bundle import verify_review_bundle
     from semantic.primary_native_support import publish_primary_fixture
     from semantic.retained_primary_fixture import SealedFormalFixture
+    from semantic.sealed_primary_fixture import compose_view_descriptor, compose_view_result
     from semantic.witnessed_scenario_support import (
         _begin_witnessed_run,
         _retain_witnessed_result,

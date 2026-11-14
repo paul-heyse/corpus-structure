@@ -11,9 +11,11 @@ from corpus_structure.semantic.contextual_characterization import (
     ContextualLayer,
 )
 from methods.contextual_characterization_support import (
+    add_metadata as add_metadata,
+)
+from methods.contextual_characterization_support import (
     canonical_tokens,
     reuse_native,
-    add_metadata as add_metadata,
 )
 from methods.contextual_characterization_support import (
     context_builder as context_builder,

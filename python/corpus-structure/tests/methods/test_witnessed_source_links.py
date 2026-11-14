@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.methods.scoped_relations import (
-    ScopedRelationsConfig,
     SCOPED_VERSION,
+    ScopedRelationsConfig,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value

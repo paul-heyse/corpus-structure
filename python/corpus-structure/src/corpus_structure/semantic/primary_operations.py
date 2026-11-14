@@ -169,19 +169,22 @@ def primary_operation_inputs(
             definition_component_inputs,
             definition_component_operation_sources,
         )
+        from .definition_location_products import (
+            definition_location_inputs,
+            definition_location_operation_sources,
+        )
         from .definition_products import definition_inputs, definition_operation_sources
-        from .definition_location_products import definition_location_inputs, definition_location_operation_sources
         from .dossier_products import dossier_inputs, dossier_operation_sources
         from .finite_interpretation_products import (
             finite_interpretation_inputs,
             finite_interpretation_operation_sources,
         )
         from .predicate_products import predicate_inputs, predicate_operation_sources
-        from .scoped_products import scoped_inputs, scoped_operation_sources
         from .reading_resolution_products import (
             reading_resolution_inputs,
             reading_resolution_operation_sources,
         )
+        from .scoped_products import scoped_inputs, scoped_operation_sources
 
         bundle = predicate_inputs(bundle)
         bundle = scoped_inputs(bundle)

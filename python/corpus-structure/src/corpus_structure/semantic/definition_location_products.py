@@ -42,25 +42,52 @@ def definition_location_inputs(bundle: SourceBundle) -> SourceBundle:
         return bundle
     if root in existing:
         raise ValueError("definition location uses its reserved schema root")
-    return SourceBundle(root, (*bundle.sources, SourceArtifact(name, _MODEL.read_bytes()),
-        SourceArtifact(root, yaml.safe_dump({"id": "urn:corpus:definition-location-root",
-            "name": root, "imports": [bundle.root, name]}).encode())))
+    return SourceBundle(
+        root,
+        (
+            *bundle.sources,
+            SourceArtifact(name, _MODEL.read_bytes()),
+            SourceArtifact(
+                root,
+                yaml.safe_dump(
+                    {
+                        "id": "urn:corpus:definition-location-root",
+                        "name": root,
+                        "imports": [bundle.root, name],
+                    }
+                ).encode(),
+            ),
+        ),
+    )
 
 
 def definition_location_assets():
-    return SourceArtifact("definition-location/profile-assets", canonical_bytes({
-        "version": "declared-definition-location-1", "schema": _MODEL.read_bytes().hex(),
-        "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES]}))
+    return SourceArtifact(
+        "definition-location/profile-assets",
+        canonical_bytes(
+            {
+                "version": "declared-definition-location-1",
+                "schema": _MODEL.read_bytes().hex(),
+                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
+            }
+        ),
+    )
 
 
 def definition_location_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
-    return PythonSourceCollection(tuple(PythonSource(
-        "corpus_structure." + name.removesuffix(".py").replace("/", "."),
-        (_ROOT / name).read_bytes(), str((_ROOT / name).resolve()))
-        for name in (_FILES[0], _FILES[1], _FILES[2], _FILES[-1])),
-        boundary_contracts=(definition_location_assets(),))
+    return PythonSourceCollection(
+        tuple(
+            PythonSource(
+                "corpus_structure." + name.removesuffix(".py").replace("/", "."),
+                (_ROOT / name).read_bytes(),
+                str((_ROOT / name).resolve()),
+            )
+            for name in (_FILES[0], _FILES[1], _FILES[2], _FILES[-1])
+        ),
+        boundary_contracts=(definition_location_assets(),),
+    )
 
 
 def definition_location_values(frame, report, reference, selection, *, check_active=lambda: None):
@@ -77,15 +104,24 @@ def definition_location_values(frame, report, reference, selection, *, check_act
     report = DeclaredDefinitionComponentsReport.model_validate(report)
     component_ids = tuple(selection["component_ids"])
     roles = tuple((row["role"], row["envelope"], row["index"]) for row in selection["roles"])
-    if (not component_ids and not roles) or (component_ids and roles) or max(len(component_ids), len(roles)) > 256:
-        raise ValueError("location requires one bounded explicit component or independent role population")
+    if (
+        (not component_ids and not roles)
+        or (component_ids and roles)
+        or max(len(component_ids), len(roles)) > 256
+    ):
+        raise ValueError(
+            "location requires one bounded explicit component or independent role population"
+        )
     if len(set(component_ids)) != len(component_ids) or len(set(roles)) != len(roles):
         raise ValueError("location selection repeats a retained definition identity")
     pin = frame.pin.values()
     passages = {row.passage_id: row for row in report.inputs.passages}
     sources = {row.identity: row for row in report.inputs.sources}
     components = {row.component_id: row for row in report.definition_components.components}
-    candidates = {(row.role, row.envelope, row.index): row for row in report.definition_components.role_candidates or ()}
+    candidates = {
+        (row.role, row.envelope, row.index): row
+        for row in report.definition_components.role_candidates or ()
+    }
     selected = []
     for identity in component_ids:
         if identity not in components:
@@ -93,24 +129,52 @@ def definition_location_values(frame, report, reference, selection, *, check_act
         component = components[identity]
         # Preserve the directed attachment and actual producer address; locating the
         # term supplies no independent support for this component's interpretation.
-        meaning = {"role": "defined_term", "component_reference": {**reference,
-            "structural_id": report.product_id, "component_id": component.component_id},
-            "attachment": {"term": component.term.model_dump(mode="json"),
+        meaning = {
+            "role": "defined_term",
+            "component_reference": {
+                **reference,
+                "structural_id": report.product_id,
+                "component_id": component.component_id,
+            },
+            "attachment": {
+                "term": component.term.model_dump(mode="json"),
                 "content": component.content.model_dump(mode="json"),
-                "interpretation": component.interpretation}}
-        selected.append((component.term, "definition.term", "occurrence", meaning, component.component_id))
+                "interpretation": component.interpretation,
+            },
+        }
+        selected.append(
+            (component.term, "definition.term", "occurrence", meaning, component.component_id)
+        )
     for identity in roles:
         if identity not in candidates:
             raise ValueError("selected definition role is absent from the retained report")
         candidate = candidates[identity]
-        meaning = {"role": candidate.role, "role_reference": {"report": {**reference,
-            "structural_id": report.product_id}, "role": candidate.role,
-            "envelope": candidate.envelope, "index": candidate.index}}
+        meaning = {
+            "role": candidate.role,
+            "role_reference": {
+                "report": {**reference, "structural_id": report.product_id},
+                "role": candidate.role,
+                "envelope": candidate.envelope,
+                "index": candidate.index,
+            },
+        }
         key = "definition-role:" + sha256(canonical_bytes(meaning["role_reference"])).hexdigest()
-        selected.append((candidate.span, "definition.term" if candidate.role == "term" else "definition.defining_text",
-            "proposal", meaning, key))
-    operation_key = operation_identity("locate.definition_terms/declared", "declared-definition-location-1",
-        reference, selection, pin)
+        selected.append(
+            (
+                candidate.span,
+                "definition.term" if candidate.role == "term" else "definition.defining_text",
+                "proposal",
+                meaning,
+                key,
+            )
+        )
+    operation_key = operation_identity(
+        "locate.definition_terms/declared",
+        "declared-definition-location-1",
+        reference,
+        selection,
+        pin,
+    )
     preparation = PreparedNativeSources((frame,), max_sources=1)
     products, coordinates, dependencies = [], {}, []
     for span, semantic_type, kind, meaning, identity in selected:
@@ -119,30 +183,60 @@ def definition_location_values(frame, report, reference, selection, *, check_act
         source = sources[passage.source_ref]
         if not source.matches_pin(pin):
             raise ValueError("retained definition belongs to another selected native source")
-        if (not passage.start <= span.start < span.end <= passage.end
-            or frame.text[span.start:span.end] != span.text
-            or frame.text[passage.start:passage.end] != passage.text):
+        if (
+            not passage.start <= span.start < span.end <= passage.end
+            or frame.text[span.start : span.end] != span.text
+            or frame.text[passage.start : passage.end] != passage.text
+        ):
             raise ValueError("retained definition span differs from its exact native source")
-        context = NativeSourceContext(frame, (), (source_slice(frame, span.start, span.end),),
-            "retained definition role projection", "retained-definition-role-declared-1",
-            "exact selected retained span", max_chars=span.end - span.start, max_pieces=1,
-            max_sources=1, version=2, preparation=preparation)
-        anchors, located = locate_definition_span(context, span.model_dump(mode="json"), offset=span.start)
+        context = NativeSourceContext(
+            frame,
+            (),
+            (source_slice(frame, span.start, span.end),),
+            "retained definition role projection",
+            "retained-definition-role-declared-1",
+            "exact selected retained span",
+            max_chars=span.end - span.start,
+            max_pieces=1,
+            max_sources=1,
+            version=2,
+            preparation=preparation,
+        )
+        anchors, located = locate_definition_span(
+            context, span.model_dump(mode="json"), offset=span.start
+        )
         for coordinate in located:
-            coordinates[canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})] = coordinate
+            coordinates[
+                canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})
+            ] = coordinate
         deps = (reference["product_id"], report.product_id, identity)
         dependencies.extend(deps)
-        row = dict(contract="RetainedContributionSemantics", kind=kind, semantic_type=semantic_type,
-            operation_key=operation_key, item_key="retained-definition:" + identity, pin=pin,
-            anchors=anchors, occurrence_id=occurrence_identity(anchors), disposition="located_proposal",
-            standing="retained_private", score_state="missing", computation_dependencies=deps,
-            value=source_value(meaning))
+        row = dict(
+            contract="RetainedContributionSemantics",
+            kind=kind,
+            semantic_type=semantic_type,
+            operation_key=operation_key,
+            item_key="retained-definition:" + identity,
+            pin=pin,
+            anchors=anchors,
+            occurrence_id=occurrence_identity(anchors),
+            disposition="located_proposal",
+            standing="retained_private",
+            score_state="missing",
+            computation_dependencies=deps,
+            value=source_value(meaning),
+        )
         row["contribution_id"] = contribution_identity(row)
         products.append(row)
-    operation = dict(operation_key=operation_key, question="locate_role_from_retained_definition_evidence",
-        operation_version="declared-definition-location-1", outcome="succeeded",
-        inspected_count=len(selected), emitted_count=len(products),
-        computation_dependencies=tuple(dict.fromkeys(dependencies)))
+    operation = dict(
+        operation_key=operation_key,
+        question="locate_role_from_retained_definition_evidence",
+        operation_version="declared-definition-location-1",
+        outcome="succeeded",
+        inspected_count=len(selected),
+        emitted_count=len(products),
+        computation_dependencies=tuple(dict.fromkeys(dependencies)),
+    )
     return tuple(products), (operation,), tuple(coordinates.values())
 
 
@@ -166,31 +260,58 @@ class PreparedDefinitionLocation:
         from .declared_record_sources import DeclaredNativeFrameSource
         from .structural_products import DeclaredStructuralInputPin
 
-        frame = DeclaredNativeFrameSource.acquire(self.prepared, source,
-            self.member("source", whole=False), project=self.context.project_id)
-        selection = self.prepared.validate_json("DdoDefinitionLocationSelection", json_bytes(selection)).model_dump(mode="python", exclude_unset=True)
-        reference = DeclaredStructuralInputPin.from_bound(self.member("components"), project=self.context.project_id).model_dump(mode="json", exclude_none=True)
-        products, operations, coordinates = definition_location_values(frame, components, reference,
-            selection, check_active=self.check_active)
+        frame = DeclaredNativeFrameSource.acquire(
+            self.prepared,
+            source,
+            self.member("source", whole=False),
+            project=self.context.project_id,
+        )
+        selection = self.prepared.validate_json(
+            "DdoDefinitionLocationSelection", json_bytes(selection)
+        ).model_dump(mode="python", exclude_unset=True)
+        reference = DeclaredStructuralInputPin.from_bound(
+            self.member("components"), project=self.context.project_id
+        ).model_dump(mode="json", exclude_none=True)
+        products, operations, coordinates = definition_location_values(
+            frame, components, reference, selection, check_active=self.check_active
+        )
         model = bound_data_operation_model(self.prepared)
-        result = candidate_inspection_report(self.prepared, model, frame, self.context,
-            inspection_outcome="produced", contributions=products, operations=operations,
-            coordinate_texts=coordinates, diagnostics={"version": "declared-definition-location-1"})
+        result = candidate_inspection_report(
+            self.prepared,
+            model,
+            frame,
+            self.context,
+            inspection_outcome="produced",
+            contributions=products,
+            operations=operations,
+            coordinate_texts=coordinates,
+            diagnostics={"version": "declared-definition-location-1"},
+        )
         for name in ("components", "selection"):
-            value = DeclaredStructuralInputPin.from_bound(self.member(name), project=self.context.project_id).model_dump(mode="json", exclude_none=True)
+            value = DeclaredStructuralInputPin.from_bound(
+                self.member(name), project=self.context.project_id
+            ).model_dump(mode="json", exclude_none=True)
             # The native witness addresses product/member through its canonical
             # reference; no historical task or source-view row is introduced.
             value.pop("member_id", None)
             result[name + "_input"] = value
-        return self.prepared.validate_json("DdoDefinitionLocationReport", json_bytes(result)).model_dump(mode="python", exclude_unset=True)
+        return self.prepared.validate_json(
+            "DdoDefinitionLocationReport", json_bytes(result)
+        ).model_dump(mode="python", exclude_unset=True)
 
 
 def execute_definition_location(receiver, source, components, selection):
     return receiver.inputs.run(source, components, selection)
 
 
-def definition_location_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...],
-    context: SubjectContext, *, prepared: PreparedRelease, check_active) -> dict:
+def definition_location_kernel(
+    arguments: dict,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
+    *,
+    prepared: PreparedRelease,
+    check_active,
+) -> dict:
     return PreparedDefinitionLocation(prepared, roles, context, check_active).run(**arguments)
 
 
@@ -206,21 +327,40 @@ class DefinitionLocationPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("definition location requires its actual qualified binding")
         signature = inspect.signature(definition_location_kernel, eval_str=True)
-        bound = signature.bind(arguments=arguments.arguments, roles=binding.roles,
-            context=binding.subject_context, prepared=self.prepared, check_active=check_active)
+        bound = signature.bind(
+            arguments=arguments.arguments,
+            roles=binding.roles,
+            context=binding.subject_context,
+            prepared=self.prepared,
+            check_active=check_active,
+        )
         captured = definition_location_operation_sources()
-        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content)
-            for source in captured.sources),
-            "corpus_structure.semantic.definition_location_products.definition_location_kernel", (),
-            verification="prepared-kernel", control_parameter="check_active",
-            prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
-        reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.port._verify,
-            execution_owner=execution_owner, check_active=check_active)
-        return PreparedCallResult(json.loads(reply.content),
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        descriptor = PythonCPUDescriptor(
+            tuple((source.module, source.filename, source.content) for source in captured.sources),
+            "corpus_structure.semantic.definition_location_products.definition_location_kernel",
+            (),
+            verification="prepared-kernel",
+            control_parameter="check_active",
+            prepared_parameter="prepared",
+            prepared_release_id=self.prepared.release_id,
+        )
+        reply = yield from plan_cpu_call(
+            descriptor,
+            bound,
+            signature,
+            verify=self.port._verify,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        return PreparedCallResult(
+            json.loads(reply.content),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
 
-def resolve_definition_location_port(prepared, model, operation, *, identity, authorize, custody, sources):
+def resolve_definition_location_port(
+    prepared, model, operation, *, identity, authorize, custody, sources
+):
     from corpus_structure.methods.definition_location import DefinitionLocationOperation
 
     from .data_operation_prepared_call import PreparedOriginalCallPort
@@ -230,11 +370,29 @@ def resolve_definition_location_port(prepared, model, operation, *, identity, au
         raise ValueError("definition location factory differs from its declared producer")
     receiver = DefinitionLocationOperation(None)
     plan = DefinitionLocationPlan(prepared)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run,
-        plan.plan, "corpus_structure.semantic.definition_location_products.DefinitionLocationPlan.plan",
-        authorize, (definition_location_assets(),), definition_location_operation_sources(),
-        functions=(("corpus_structure.semantic.definition_location_products.execute_definition_location", execute_definition_location),
-            ("corpus_structure.semantic.definition_location_products.definition_location_kernel", definition_location_kernel)),
-        requires_prepared_schema=True)
+    port = PreparedOriginalCallPort(
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
+        "corpus_structure.semantic.definition_location_products.DefinitionLocationPlan.plan",
+        authorize,
+        (definition_location_assets(),),
+        definition_location_operation_sources(),
+        functions=(
+            (
+                "corpus_structure.semantic.definition_location_products.execute_definition_location",
+                execute_definition_location,
+            ),
+            (
+                "corpus_structure.semantic.definition_location_products.definition_location_kernel",
+                definition_location_kernel,
+            ),
+        ),
+        requires_prepared_schema=True,
+    )
     plan.port = port
     return port

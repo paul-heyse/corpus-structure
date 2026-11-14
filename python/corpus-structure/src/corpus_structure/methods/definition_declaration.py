@@ -97,9 +97,7 @@ def project_retained_declarations(reader, cfg, *, check_active=lambda: None):
                     passage_id=item.passage_id,
                     operation="attachment",
                     outcome="succeeded",
-                    reason=(
-                        "Released declaration chain replayed from exact native parser roles."
-                    ),
+                    reason=("Released declaration chain replayed from exact native parser roles."),
                 )
                 for item in cfg.selections
             ),

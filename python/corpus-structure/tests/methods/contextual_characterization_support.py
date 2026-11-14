@@ -7,7 +7,6 @@ from corpus_structure.semantic.contextual_characterization import (
     ContextualLayer,
     digest,
 )
-
 from corpus_structure.semantic.product_reference import ProductReference
 
 

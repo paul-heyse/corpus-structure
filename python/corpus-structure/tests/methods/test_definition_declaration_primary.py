@@ -355,9 +355,9 @@ def test_primary_declaration_missing_or_substituted_native_evidence_refuses(fail
 
 def test_retained_projection_and_detached_replay_use_exact_same_evidence(monkeypatch):
     from corpus_structure.methods.definition_declaration import (
+        CHAIN_METHOD,
         DeclarationChainSelection,
         DeclarationComponentsConfig,
-        CHAIN_METHOD,
         project_retained_declarations,
     )
     from corpus_structure.methods.model_observation import (

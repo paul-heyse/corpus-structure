@@ -47,8 +47,10 @@ class DefinitionTermsConfig(StructuralValue):
 
 def project_retained_definition_terms(reader, view, cfg, *, check_active=lambda: None):
     """Locate exact original definition roles; the caller supplies the retained source."""
-    if (view.ref.native_product.content_digest != cfg.source_product_digest
-        or view.ref.projection_digest != cfg.source_projection_digest):
+    if (
+        view.ref.native_product.content_digest != cfg.source_product_digest
+        or view.ref.projection_digest != cfg.source_projection_digest
+    ):
         raise ValueError("definition term projection differs from configured original source")
     check_active()
     frame = native_source_frame(view, ())
@@ -80,15 +82,11 @@ def project_retained_definition_terms(reader, view, cfg, *, check_active=lambda:
             ]
             span = candidate["span"]
             semantic_type = (
-                "definition.term"
-                if reference.role == "term"
-                else "definition.defining_text"
+                "definition.term" if reference.role == "term" else "definition.defining_text"
             )
             item_key = "retained-definition-role:" + reference.identity
             deps = (reference.report.product_id, reference.envelope, item_key)
-            meaning = dict(
-                role=reference.role, role_reference=reference.model_dump(mode="json")
-            )
+            meaning = dict(role=reference.role, role_reference=reference.model_dump(mode="json"))
             kind = "proposal"
         else:
             retained = reader.retained_definition_component(reference)
@@ -120,7 +118,9 @@ def project_retained_definition_terms(reader, view, cfg, *, check_active=lambda:
             raise ValueError("retained definition term belongs to another original source")
         anchors, located_coordinates = locate_definition_span(context, span)
         for coordinate in located_coordinates:
-            coordinates[canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})] = coordinate
+            coordinates[
+                canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})
+            ] = coordinate
         dependencies.extend(deps)
         row = dict(
             contract="RetainedContributionSemantics",
@@ -154,7 +154,9 @@ def project_retained_definition_terms(reader, view, cfg, *, check_active=lambda:
 def locate_definition_span(context, span, *, offset=0):
     """Map one retained half-open literal span through its actual source owner."""
     anchors, coordinates = [], []
-    for piece in context.map_span(span["start"] - offset, span["end"] - offset, literal=span["text"], allow_multiple=True):
+    for piece in context.map_span(
+        span["start"] - offset, span["end"] - offset, literal=span["text"], allow_multiple=True
+    ):
         anchor, coordinate = evidence_anchor(context, piece, native=True)
         anchors.append(anchor)
         coordinates.append(coordinate)

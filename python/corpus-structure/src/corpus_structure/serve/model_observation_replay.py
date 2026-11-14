@@ -774,12 +774,12 @@ def verify_projected_definition_roles(root, manifest, products, structural_scope
         ):
             raise ValueError("projected definition role differs from configured source")
         reader = SimpleNamespace(retained_structural_report=retained)
-        contributions, operations, _coordinates = project_retained_definition_terms(reader, view, cfg)
+        contributions, operations, _coordinates = project_retained_definition_terms(
+            reader, view, cfg
+        )
         if canonical_bytes(contributions) != canonical_bytes(
             body["contributions"]
-        ) or canonical_bytes(operations) != canonical_bytes(
-            body["contribution_operations"]
-        ):
+        ) or canonical_bytes(operations) != canonical_bytes(body["contribution_operations"]):
             raise ValueError("projected definition role differs from its indexed source evidence")
 
 

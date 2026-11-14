@@ -63,4 +63,3 @@ def consume_annotations(
         primary_layers=pins,
     )
     return products, (), result
-

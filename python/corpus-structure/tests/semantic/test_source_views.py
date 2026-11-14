@@ -683,7 +683,6 @@ def _assert_m1_owned_context_and_annotation_dependency(
         RetrievalOutcome,
         SourceContextRequest,
     )
-
     from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
 
     reader = BoundReader(conn, run, prepared)

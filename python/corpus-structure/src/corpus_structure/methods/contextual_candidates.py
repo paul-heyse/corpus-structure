@@ -32,12 +32,7 @@ from corpus_structure.semantic.source_contexts import (
 )
 from corpus_structure.semantic.structural_products import ExternalSourceRef
 
-
 from .contextual_query import QueryContextSelection
-
-
-
-
 
 
 def relationship_contributions(decision, source_products, inventory, operation_key):
@@ -661,12 +656,6 @@ def retained_occurrences(
             + ", ".join(sorted(missing))
         )
     return tuple(products), contexts, tuple(coordinates.values())
-
-
-
-
-
-
 
 
 class ContextualQueryConfig(ContextualCandidateConfig):

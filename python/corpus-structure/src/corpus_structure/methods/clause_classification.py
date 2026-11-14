@@ -317,9 +317,7 @@ def project_retained_clause(reader, cfg, *, check_active=lambda: None):
         passages[selection.passage_id].source_ref for selection in cfg.focuses
     ):
         source = sources[source_ref]
-        primary[source_ref] = reader.primary_characterization(
-            source.source_view_id, families=()
-        )
+        primary[source_ref] = reader.primary_characterization(source.source_view_id, families=())
         native[source_ref] = reader.structural_source_frame(cfg.inputs, source_ref)
         if cfg.context_policy == "adjacent_sentences":
             annotations[source_ref] = reader.structural_source_annotations(
@@ -350,9 +348,7 @@ def project_retained_clause(reader, cfg, *, check_active=lambda: None):
         context_digest = (
             digest_
             or sha256(
-                canonical_bytes(
-                    [cfg.context_policy, selection.model_dump(mode="json"), examined]
-                )
+                canonical_bytes([cfg.context_policy, selection.model_dump(mode="json"), examined])
             ).hexdigest()
         )
         readings.append(
@@ -378,5 +374,7 @@ def project_retained_clause(reader, cfg, *, check_active=lambda: None):
             context_policy=cfg.context_policy, readings=tuple(readings)
         ),
     )
-    return report, dict(version="primary-clause-functions-1", characterization_layers=[
-        pin.values() for layers in primary.values() for pin in layers])
+    return report, dict(
+        version="primary-clause-functions-1",
+        characterization_layers=[pin.values() for layers in primary.values() for pin in layers],
+    )

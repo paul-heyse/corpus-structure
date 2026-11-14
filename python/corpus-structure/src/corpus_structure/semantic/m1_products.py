@@ -14,11 +14,11 @@ from typing import Any
 from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
 from corpus_structure.methods.m1_source import (
     M1CandidateProduct,
-    plan_candidates,
-    plan_candidate_replies,
     M1Config,
     M1GlinerReply,
     M1GlinerRequest,
+    plan_candidate_replies,
+    plan_candidates,
 )
 
 from .data_operation_json import json_bytes

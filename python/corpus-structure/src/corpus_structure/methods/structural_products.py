@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from hashlib import sha256
 from itertools import pairwise
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field, model_validator
 
@@ -38,7 +38,6 @@ from corpus_structure.semantic.structural_products import (
     DossierComparisonSelection,
     DossierMember,
     DossierProduct,
-    LocatedDefinitionComponent,
     LocatedDefinitionSpan,
     MemberRole,
     RetainedComponentRef,
@@ -901,9 +900,7 @@ def select_dossier(
     cancelled=lambda: False,
 ):
     """Represent an already authenticated membership; this never grants support."""
-    from hashlib import sha256
 
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_products import (
         DeclaredDossierProduct,
         DeclaredStructuralInput,
@@ -1222,9 +1219,7 @@ def derive_dossier_members(
     require_comparison_focus=False,
 ):
     """Derive role spans from actual retained products, never from input inventory."""
-    from hashlib import sha256
 
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
         DeclaredDossierMember,
@@ -1617,8 +1612,6 @@ class StructuralComparisonConfig(StructuralValue):
         return self
 
 
-
-
 class StructuralDossierConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
@@ -1668,8 +1661,6 @@ class StructuralDossierConfig(StructuralValue):
         ):
             raise ValueError("dossier comparison binding requires exact declared dependencies")
         return self
-
-
 
 
 class ConditionQualificationConfig(StructuralValue):
@@ -1849,7 +1840,6 @@ def condition_qualification(inputs, attachment, retained):
         qualifier=locations(cue),
         host_predicate=locations(member),
     )
-
 
 
 # Exact historical verifier identities; these constants confer no execution capability.

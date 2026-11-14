@@ -5,7 +5,10 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.methods.contextual_candidates import retained_definition_witnesses
-from corpus_structure.methods.definition_terms import DefinitionTermsConfig, project_retained_definition_terms
+from corpus_structure.methods.definition_terms import (
+    DefinitionTermsConfig,
+    project_retained_definition_terms,
+)
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
@@ -70,7 +73,9 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
         ),
         check_active=lambda: None,
     )
-    products, _operations, _coordinates = project_retained_definition_terms(ctx.reader, source_view, cfg)
+    products, _operations, _coordinates = project_retained_definition_terms(
+        ctx.reader, source_view, cfg
+    )
     (product,) = products
     assert product["anchors"][0]["source_piece"] == "Mean"
     assert product["anchors"][0]["start"] == 0 and product["anchors"][0]["end"] == 4
@@ -125,7 +130,9 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
     }
     role_cfg = cfg.model_copy(update={"component_refs": (), "role_refs": (role_ref,)})
     ctx.reader.retained_structural_report = lambda _: {"report": report}
-    located, _operations, _coordinates = project_retained_definition_terms(ctx.reader, source_view, role_cfg)
+    located, _operations, _coordinates = project_retained_definition_terms(
+        ctx.reader, source_view, role_cfg
+    )
     (role,) = located
     assert role["kind"] == "proposal"
     assert role["occurrence_id"] == product["occurrence_id"]

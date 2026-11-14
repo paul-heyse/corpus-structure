@@ -6,7 +6,6 @@ reused within a worker; committed database state is never shared between cases h
 
 from __future__ import annotations
 
-import copy
 import json
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
@@ -16,7 +15,6 @@ from tempfile import TemporaryDirectory
 from types import MappingProxyType
 from typing import Any
 
-import yaml
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import Connection, Engine, insert, select
 
@@ -440,6 +438,7 @@ classes:
 
 
 POPULATION = _population_recipe()
+
 
 def _execution_recipe():
     name = "ddo_execution_fixture"

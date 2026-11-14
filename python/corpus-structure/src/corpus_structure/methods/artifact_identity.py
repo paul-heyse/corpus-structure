@@ -495,18 +495,21 @@ def artifact_nomination[Nomination: (ArtifactNomination, DeclaredArtifactNominat
     )
 
 
-
 # Exact historical verifier identity; no execution capability is retained.
 SEALED_ARTIFACT_NAME = "structure.artifact_identity"
 SEALED_ARTIFACT_VERSION = "5"
 
 
-def project_retained_artifact_identity(cfg, *, frames, primary_layers, nomination_inputs=(), check_active):
+def project_retained_artifact_identity(
+    cfg, *, frames, primary_layers, nomination_inputs=(), check_active
+):
     """Replay a sealed artifact report from explicit retained inputs, without execution ownership."""
     if cfg.inputs is None or cfg.policy is None:
         raise ValueError("artifact identity inputs absent")
     bindings = {b.native_content_digest: b for b in cfg.work_bindings}
-    if set(frames) != {source.identity for source in cfg.inputs.sources if source.native_content_digest in bindings}:
+    if set(frames) != {
+        source.identity for source in cfg.inputs.sources if source.native_content_digest in bindings
+    }:
         raise ValueError("retained artifact frames differ from the exact bound source cohort")
     records = []
     unbound = []
@@ -520,19 +523,28 @@ def project_retained_artifact_identity(cfg, *, frames, primary_layers, nominatio
         frame = frames[source.identity]
         records.extend(
             discover_identity_records(
-                frame, cfg.inputs, source.identity, binding.source_work, primary_layers=primary_layers
+                frame,
+                cfg.inputs,
+                source.identity,
+                binding.source_work,
+                primary_layers=primary_layers,
             )
         )
         provenance.append(binding.provenance)
     selected = artifact_cohort(records)
     expected = tuple(sorted(cfg.external_nomination_refs, key=lambda ref: ref.contribution_id))
     if tuple(reference for reference, _ in nomination_inputs) != expected:
-        raise ValueError("retained artifact nominations differ from the exact configured population")
+        raise ValueError(
+            "retained artifact nominations differ from the exact configured population"
+        )
     nominations = []
     for reference, payload in nomination_inputs:
         check_active()
-        nominations.append(retained_artifact_nomination(
-            cfg.inputs, selected, reference, payload, primary_layers=primary_layers))
+        nominations.append(
+            retained_artifact_nomination(
+                cfg.inputs, selected, reference, payload, primary_layers=primary_layers
+            )
+        )
     alias, _ = native_alias_candidates(selected)
     explicit_references = artifact_reference_resolutions(selected)
     declarations = artifact_declared_relationships(

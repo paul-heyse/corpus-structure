@@ -1,15 +1,5 @@
 """Controlled comparison publication through protected native and detached custody."""
 
-from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
-from semantic.sealed_scoped_fixture import scoped_relation_descriptor, scoped_relation_result
-
-from semantic.sealed_structural_fixture import (
-    comparison_descriptor,
-    comparison_result,
-    dossier_descriptor,
-    dossier_result,
-)
-
 import json
 from copy import deepcopy
 from hashlib import sha256
@@ -63,6 +53,14 @@ from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_
 from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.primary_native_support import publish_primary_layers
+from semantic.sealed_primary_fixture import m1_annotation_descriptor, m1_annotation_result
+from semantic.sealed_scoped_fixture import scoped_relation_descriptor, scoped_relation_result
+from semantic.sealed_structural_fixture import (
+    comparison_descriptor,
+    comparison_result,
+    dossier_descriptor,
+    dossier_result,
+)
 from semantic.witnessed_scenario_support import (
     _begin_witnessed_run,
     _retain_witnessed_result,
@@ -73,6 +71,7 @@ from semantic.witnessed_scenario_support import (
 
 LITERAL = "Clerks wait."
 
+
 def annotation_projection(reader, configuration, ref, *, check_active):
     check_active()
     return m1_annotation_result(reader, reader.source_view(ref.unit_id), configuration, ref)
@@ -81,6 +80,7 @@ def annotation_projection(reader, configuration, ref, *, check_active):
 def scoped_projection(reader, configuration, ref, *, check_active):
     check_active()
     return scoped_relation_result(reader, reader.source_view(ref.unit_id), configuration, ref)
+
 
 POLICY = "independent-structural-comparison-1"
 
@@ -183,18 +183,34 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         )
         from corpus_structure.core.method import UnitRef
         from corpus_structure.core.vocab import TaskUnitType
+
         with _witnessed_reader(case, identity, bound, tmp_path) as ctx:
             if source_units:
-                refs = tuple(ctx.reader.source_view_ref(source) for source in sorted({value.source_view_id for value in sources}))
-                results = tuple(build(ctx.reader, configuration,
-                    UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key),
-                    check_active=ctx.check_active) for ref in refs if ref is not None)
+                refs = tuple(
+                    ctx.reader.source_view_ref(source)
+                    for source in sorted({value.source_view_id for value in sources})
+                )
+                results = tuple(
+                    build(
+                        ctx.reader,
+                        configuration,
+                        UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key),
+                        check_active=ctx.check_active,
+                    )
+                    for ref in refs
+                    if ref is not None
+                )
                 assert len(results) == len(refs)
             else:
                 assert configuration.inputs is not None
-                results = (build(ctx.reader, configuration,
-                    UnitRef(TaskUnitType.RUN, unit_key=configuration.inputs.identity),
-                    check_active=ctx.check_active),)
+                results = (
+                    build(
+                        ctx.reader,
+                        configuration,
+                        UnitRef(TaskUnitType.RUN, unit_key=configuration.inputs.identity),
+                        check_active=ctx.check_active,
+                    ),
+                )
         for result in results:
             _retain_witnessed_result(
                 case, identity, method, configuration, result, stage=str(stage)
@@ -229,14 +245,35 @@ def test_protected_comparison_yields_detached_unconnected_sides(
 
     primary_sources = excerpts(case.run).sources
     source_result, revision, _ = completed_metadata(case, case.run)
-    primary_run, _ = _begin_witnessed_run(case,
-        OperationBinding(case.prepared.release_id, source_result["output_realization_id"], revision, b"{}"),
-        (), selected_sources=primary_sources)
+    primary_run, _ = _begin_witnessed_run(
+        case,
+        OperationBinding(
+            case.prepared.release_id, source_result["output_realization_id"], revision, b"{}"
+        ),
+        (),
+        selected_sources=primary_sources,
+    )
     with case.writer.begin() as connection:
-        pins = tuple(pin.values() for pin in publish_primary_layers(connection, primary_run,
-            case.prepared, tuple(dict.fromkeys(source.source_view_id for source in primary_sources)), formal=True))
+        pins = tuple(
+            pin.values()
+            for pin in publish_primary_layers(
+                connection,
+                primary_run,
+                case.prepared,
+                tuple(dict.fromkeys(source.source_view_id for source in primary_sources)),
+                formal=True,
+            )
+        )
     finalize_bound_run(case.writer, primary_run, "comparison-primary")
-    annotation = run(m1_annotation_descriptor(), Stage.EXTRACT, excerpts(case.run).sources, {'characterization_layers': pins}, 'annotations', build=annotation_projection, source_units=True)
+    annotation = run(
+        m1_annotation_descriptor(),
+        Stage.EXTRACT,
+        excerpts(case.run).sources,
+        {"characterization_layers": pins},
+        "annotations",
+        build=annotation_projection,
+        source_units=True,
+    )
     frozen = excerpts(annotation["run_id"])
     scope = StructuralInput(
         question="Compare two exact stated actor and action readings",
@@ -247,7 +284,19 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         passages=frozen.passages,
         dependencies=("controlled-original",),
     )
-    scoped = run(scoped_relation_descriptor(), Stage.SCOPE, scope.sources, dict(inputs=scope.model_dump(mode='json'), structural_input_digest=scope.identity, characterization_layers=pins), 'scoped', build=scoped_projection, source_units=True)
+    scoped = run(
+        scoped_relation_descriptor(),
+        Stage.SCOPE,
+        scope.sources,
+        dict(
+            inputs=scope.model_dump(mode="json"),
+            structural_input_digest=scope.identity,
+            characterization_layers=pins,
+        ),
+        "scoped",
+        build=scoped_projection,
+        source_units=True,
+    )
 
     def report_row(custody, kind):
         with case.writer.connect() as conn:
@@ -348,7 +397,14 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         left_reading=readings["left"].model_dump(mode="json"),
         right_reading=readings["right"].model_dump(mode="json"),
     )
-    candidate = run(comparison_descriptor(), Stage.ASSEMBLE, inputs.sources, cfg, 'candidate', build=comparison_result)
+    candidate = run(
+        comparison_descriptor(),
+        Stage.ASSEMBLE,
+        inputs.sources,
+        cfg,
+        "candidate",
+        build=comparison_result,
+    )
     _, raw = report_row(candidate, "structure.compare")
     product = StructuralProductReport.model_validate(raw["structural_product"])
     assert structural_statement(product) == expected
@@ -361,7 +417,15 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         frame_digest=frame.identity,
         policy_id=POLICY,
     )
-    published = run(comparison_descriptor(), Stage.ASSEMBLE, inputs.sources, cfg, 'published', (binding,), build=comparison_result)
+    published = run(
+        comparison_descriptor(),
+        Stage.ASSEMBLE,
+        inputs.sources,
+        cfg,
+        "published",
+        (binding,),
+        build=comparison_result,
+    )
     comparison_custody, _ = report_row(published, "structure.compare")
     comparison = RetainedStructuralRef(**comparison_custody, product_id=product.product_id)
     root_report = RetainedStructuralRef.model_validate(
@@ -374,7 +438,19 @@ def test_protected_comparison_yields_detached_unconnected_sides(
             "dependencies": (*inputs.dependencies, root_report.product_id, comparison.product_id),
         }
     )
-    dossier = run(dossier_descriptor(), Stage.ASSEMBLE, dossier_inputs.sources, dict(inputs=dossier_inputs.model_dump(mode='json'), structural_input_digest=dossier_inputs.identity, root_component=root.reference.model_dump(mode='json'), predecessors=[root_report.model_dump(mode='json'), comparison.model_dump(mode='json')]), 'dossier', build=dossier_result)
+    dossier = run(
+        dossier_descriptor(),
+        Stage.ASSEMBLE,
+        dossier_inputs.sources,
+        dict(
+            inputs=dossier_inputs.model_dump(mode="json"),
+            structural_input_digest=dossier_inputs.identity,
+            root_component=root.reference.model_dump(mode="json"),
+            predecessors=[root_report.model_dump(mode="json"), comparison.model_dump(mode="json")],
+        ),
+        "dossier",
+        build=dossier_result,
+    )
     dossier_custody, _ = report_row(dossier, "structure.dossier")
     request = GapRequest(
         report="unconnected_supported_comparison",
