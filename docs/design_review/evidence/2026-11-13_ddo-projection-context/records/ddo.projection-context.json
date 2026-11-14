@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "id": "ddo.projection-context",
+  "title": "Current projection-model admission and complete-context native discovery",
+  "group": "declared-data-operations",
+  "package": "DDO-04/05",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does an immutable forward successor enforce current target-model interpretation and complete-context population closure while preserving native publication and persistent database custody?",
+  "answers": [
+    "DDO-CA-05",
+    "DDO-CA-06",
+    "DDO-CA-07"
+  ],
+  "method": "Inspect the exact four body-only transitions, author a rollback-only candidate, register immutable new files, run existing native foundation suites, and replace affected failed/source scopes with ten focused final-source identities while preserving independent typed body and JSON context meanings.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-13_ddo-projection-context/change.yaml --json",
+    "uv run ci model change candidate 10a81274757548a084cad38f26fd10da --json",
+    "uv run ci model change inspect-candidate 7ccd25c86a534675a5db847dc2d5db27 --view operations --limit 10 --json",
+    "uv run ci model change inspect-candidate 7ccd25c86a534675a5db847dc2d5db27 --view sql --limit 10 --json",
+    "uv run ci model change register 7ccd25c86a534675a5db847dc2d5db27 --json",
+    "uv run ci test --workers 2 --json -- python/corpus-structure/tests/semantic/test_data_operation_storage.py python/corpus-structure/tests/semantic/test_data_operation_population_native.py python/corpus-structure/tests/semantic/test_data_operation_binding_native.py python/corpus-structure/tests/semantic/test_data_operation_consumer_native.py python/corpus-structure/tests/orchestrate/test_data_operation_claim_source_native.py",
+    "uv run ci test --workers 2 --json -- python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_distinct_root_contexts_attach_and_publish_equal_bodies[scope-storage] python/corpus-structure/tests/semantic/test_data_operation_population_native.py::test_discovery_same_local_subject_distinct_contexts_reach_child_publication python/corpus-structure/tests/semantic/test_data_operation_population_native.py::test_discovery_duplicate_complete_context_refuses_including_equal_json_numbers python/corpus-structure/tests/orchestrate/test_data_operation_claim_source_native.py python/corpus-structure/tests/semantic/test_data_operation_null_scope.py",
+    "uv run ci test coverage 07021252b8464b599428d0d3655957e0 09ecb5f88e5f476a9ed8bcd226e30829 --json",
+    "uv run ci db status --maintenance --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "Exact immutable native successor request",
+      "sha256": "7056f11e6021b7cdd387ad8db41e3010f05cbf584b19cd560cf7da04d7d5901c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/native-operations.json",
+      "role": "Exact four body transitions with unchanged owners and ACLs",
+      "sha256": "ab944d34d8f6789c28796d332c2c0b06b635e6b3b0b3cbb503e58f122bdd48b8"
+    },
+    {
+      "path": "raw/native-sql.json",
+      "role": "Retained bounded SQL comparison",
+      "sha256": "2f40bcec09a0cf52f536d9e5729273714118c555012560187e3f6cc845559618"
+    },
+    {
+      "path": "raw/registered-candidate.json",
+      "role": "Post-maintenance exact frozen registration verification and separate generator staleness",
+      "sha256": "06c63ddbc313ce2957b16b2ff35a6ffb69096e34116570b17083f1a3c82ff302"
+    },
+    {
+      "path": "raw/after-database.json",
+      "role": "Persistent database observation after registration",
+      "sha256": "28617e769f97dea922a9cbb0652012e41135c8f746375220ad9c1f1b76424416"
+    },
+    {
+      "path": "raw/native-initial-result.json",
+      "role": "Initial 94-identity managed result preserving three failures",
+      "sha256": "c193039286cb9ed0b1cff893cf45cc0b1fb296b3949ca99b31e98decd7e1a613"
+    },
+    {
+      "path": "raw/native-initial-failures.json",
+      "role": "Separate setup race and invalid authored input failures",
+      "sha256": "c11ac03ed9157c673152c750b6d2efe506a7bea3c2a84761d2d6ad08f7dda0e3"
+    },
+    {
+      "path": "raw/native-final-result.json",
+      "role": "Final ten-identity passing replacement result",
+      "sha256": "9ccf4f0b7cea46b6067a6a83dd665919066e5e75688a5ca741127d377b3ff104"
+    },
+    {
+      "path": "raw/native-coverage.json",
+      "role": "Explicit obsolete invalid identity and source applicability differences",
+      "sha256": "3df9bd90a015402f5053411abbadc757bce7d3f10c4df8d71a04792e8ebe6abf"
+    },
+    {
+      "path": "raw/final-database.json",
+      "role": "Persistent database observation after native verification",
+      "sha256": "28617e769f97dea922a9cbb0652012e41135c8f746375220ad9c1f1b76424416"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native body-only transitions",
+      "value": 4,
+      "of": null,
+      "unit": "transitions",
+      "note": null
+    },
+    {
+      "name": "ordinary schema operations",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    },
+    {
+      "name": "initial identities passed",
+      "value": 91,
+      "of": 94,
+      "unit": "identities",
+      "note": "Initial receipt remains failed; one setup race and two invalid authored cases."
+    },
+    {
+      "name": "final replacement identities passed",
+      "value": 10,
+      "of": 10,
+      "unit": "identities",
+      "note": "No wholesale retry; final source execution and independent null-scope controls included."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The registered semantic_ddo_projection_v1 successor changes only four function bodies. Distinct complete member contexts sharing a local subject reach child publication; exact and JSON-number-equivalent duplicate contexts refuse. Final source publication/resume and explicit JSON-null controls pass. Earlier passing native publication, purpose, binding, hydration and recovery controls retain their original receipt. Coverage against the original inventory still names one removed invalid typed-population parameter and source differences; the coordinator owns that retirement and applicability judgment. Frozen files remain exact, while subsequent preparation edits make the original candidate lifecycle action stale. The persistent database remains semantic_bep_located_v2/OID25921445/system7701811359771751232; no deployment, activation, provider/book campaign or production cutover occurred.",
+  "consumed_by": [
+    "DDO-04",
+    "DDO-05",
+    "declared-data-operations"
+  ]
+}

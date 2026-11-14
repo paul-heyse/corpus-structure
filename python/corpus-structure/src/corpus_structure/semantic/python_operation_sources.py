@@ -1017,6 +1017,14 @@ class ClosedPythonSources:
         edges: set[SemanticEdge] = set()
         unknowns: set[SourceUnknown] = set()
         used_boundaries: set[OpaqueBoundary] = set()
+        custom_builtin_modules = {
+            name
+            for name, module in self.modules.items()
+            if any(
+                isinstance(item, cst.Name) and item.value == "__builtins__"
+                for item in module.contexts
+            )
+        }
         todo = [surface.declaration for surface in surfaces]
         receiver = self.resolve(exposed)
         if isinstance(receiver, griffe.Class):
@@ -1127,6 +1135,17 @@ class ClosedPythonSources:
                 return
             module_name, node = self.definitions[path]
             module = self.modules[module_name]
+            # A function captures this namespace at definition time, independently
+            # of later module globals. Arbitrary replacement is outside the closed
+            # standard-builtin interpretation, even if the name is not called here.
+            if module_name in custom_builtin_modules:
+                unknowns.add(
+                    SourceUnknown(
+                        path,
+                        module.source.filename,
+                        "custom builtin namespace requires an admitted interpretation",
+                    )
+                )
             location = module.source.filename + ":" + str(module.positions[node].start.line)
             if isinstance(node, cst.ClassDef):
                 # Class configuration and bases are determinants.
@@ -1639,6 +1658,23 @@ class ClosedPythonSources:
                         ancestor = module.parent_nodes.get(ancestor)
                     for candidate in candidates:
                         if candidate.source == QualifiedNameSource.BUILTIN:
+                            if module.contexts.get(node) == ExpressionContext.LOAD:
+                                target_id = "builtin:" + candidate.name
+                                nodes[target_id] = SemanticNode(
+                                    target_id,
+                                    "standard_builtin",
+                                    canonical_bytes(
+                                        {
+                                            "name": candidate.name,
+                                            "interpretation": "python-standard-builtins-v1",
+                                        }
+                                    ),
+                                )
+                                edges.add(
+                                    SemanticEdge(
+                                        node_id, target_id, "builtin_reference", node.value
+                                    )
+                                )
                             continue
                         target = candidate.name
                         if candidate.source == QualifiedNameSource.LOCAL:

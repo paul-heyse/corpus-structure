@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING
 
-from .data_operation_model import read_effective_data_operations
+from .data_operation_model import MODEL_VERSION, read_effective_data_operations
 from .data_operation_ports import PythonPortIdentity
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
@@ -40,7 +40,10 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
         or manifest.get("data_operation_model") != artifacts[0].digest
     ):
         raise SemanticRefusal("release lacks an unambiguous target operation model")
-    return read_effective_data_operations(artifacts[0].content)
+    model = read_effective_data_operations(artifacts[0].content)
+    if model.version != MODEL_VERSION:
+        raise SemanticRefusal("execution requires the current target operation model; regenerate")
+    return model
 
 
 def require_data_operation_call_context(
@@ -63,15 +66,10 @@ def require_data_operation_call_context(
 
 def admit_data_operation_release(connection: Connection, prepared: PreparedRelease) -> str:
     """Require the actual trusted kernel, then admit exact compiled definitions."""
-    from .data_operation_storage import (
-        admit_data_operation_definitions,
-        require_data_operation_native,
-    )
+    from .data_operation_storage import admit_data_operation_definitions
 
     model = bound_data_operation_model(prepared)
-    native = require_data_operation_native(connection, prepared)
-    admit_data_operation_definitions(connection, prepared, model)
-    return native
+    return admit_data_operation_definitions(connection, prepared, model)
 
 
 @dataclass(frozen=True)

@@ -28,7 +28,7 @@ classes:
     description: Explicit target input
 """)
     (tmp_path / "operations.yaml").write_text(
-        "version: data-operation-model-v1\noperations: []\nkinds: []\n"
+        "version: data-operation-model-v3\noperations: []\nkinds: []\n"
     )
     (tmp_path / "target.yaml").write_text("""version: data-operation-inputs-v1
 root: target

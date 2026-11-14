@@ -261,6 +261,11 @@ class SemanticGraph:
                 selected.update(nx.ancestors(self._graph, root, backend="networkx"))
         return tuple(sorted(selected))
 
+    def direct_dependencies(self, owner: str) -> tuple[str, ...]:
+        if owner not in self._nodes:
+            raise ValueError("unknown semantic root " + owner)
+        return tuple(sorted(self._graph.successors(owner)))
+
     def _projection(self, relations: set[str] | None) -> nx.DiGraph:
         if relations is None:
             return self._graph

@@ -64,3 +64,60 @@ def test_seed_freezing_rejects_links_without_changing_external_file(tmp_path):
     with pytest.raises(ValueError, match="symbolic links"):
         _freeze_tree(directory, {})
     assert external.stat().st_mode == mode
+
+
+@pytest.mark.parametrize("counts", [(1, 0), (1, 1)])
+def test_seed_validation_waits_for_exit_but_refuses_persistent_backends(monkeypatch, counts):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    import native_test_support
+    from native_scenario_seeds import ScenarioSeeds
+    from native_test_support import PgAdmin
+
+    observed = []
+    pending = iter(counts)
+
+    class Connection:
+        def execute(self, statement, parameters):
+            assert "pg_stat_activity" in str(statement)
+            assert parameters == {"name": "owned-seed"}
+            count = next(pending)
+            observed.append(count)
+            return SimpleNamespace(scalar_one=lambda: count)
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    # Exercise the shared bounded waiter with a deterministic deadline rather
+    # than spending two seconds on the deliberate persistent-session control.
+    clock = iter((0.0, 0.0, 3.0))
+    monkeypatch.setattr(
+        native_test_support,
+        "time",
+        SimpleNamespace(monotonic=lambda: next(clock), sleep=lambda _: None),
+    )
+    recipe = Recipe("case")
+    policy = object()
+    server = SimpleNamespace(
+        _deployment_record=lambda _: (42, None, "owned", True, False, False),
+        owned_comment=lambda comment, oid: (comment, oid) == ("owned", 42),
+        policy=lambda _: policy,
+        connect=connect,
+        _wait_for_backend_exit=PgAdmin._wait_for_backend_exit,
+    )
+    registry = ScenarioSeeds(cast(Any, server), cast(Any, None), cast(Any, None), cast(Any, None))
+    seed = SimpleNamespace(
+        recipe=recipe,
+        recipe_id=recipe_id(recipe),
+        database="owned-seed",
+        database_oid=42,
+        policy=policy,
+    )
+    if counts[-1]:
+        with pytest.raises(RuntimeError, match="still has connected backends"):
+            registry.validate(cast(Any, seed))
+    else:
+        registry.validate(cast(Any, seed))
+    assert observed == list(counts)

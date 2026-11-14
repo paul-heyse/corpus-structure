@@ -19,8 +19,8 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v2"
-ARCHIVED_MODEL_VERSION = "data-operation-model-v1"
+MODEL_VERSION = "data-operation-model-v3"
+ARCHIVED_MODEL_VERSION = "data-operation-model-v2"
 
 
 @dataclass(frozen=True)
@@ -375,6 +375,56 @@ class EffectiveOperation:
 
 
 @dataclass(frozen=True)
+class GraphProjectionDefinition:
+    """Compiled interpretation; concrete snapshots supply selection, never new semantics."""
+
+    name: Literal["semantic-reference", "potential-producers", "selected-dependencies"]
+    source_contract: Literal["effective-semantic-records", "effective-operations"]
+    node_kinds: tuple[str, ...]
+    relationship_kinds: tuple[str, ...]
+    orientation: Literal["owner-to-dependency"] = "owner-to-dependency"
+    identity: Literal["stable-semantic-reference"] = "stable-semantic-reference"
+    occurrences: Literal["typed-role-position-multiplicity"] = "typed-role-position-multiplicity"
+    selection: Literal["complete-model", "explicit-producer-choices"] = "complete-model"
+    snapshot: Literal["immutable-effective-model"] = "immutable-effective-model"
+    unresolved: Literal["refuse"] = "refuse"
+    completeness: Literal["closed-declared-universe"] = "closed-declared-universe"
+    attributes: Literal["canonical-semantic-payload-unweighted"] = (
+        "canonical-semantic-payload-unweighted"
+    )
+    analyses: tuple[str, ...] = ("root-inclusive-closure", "strong-components")
+
+    @property
+    def identity_bytes(self) -> bytes:
+        return canonical_bytes(asdict(self))
+
+
+def compiled_graph_projections(nodes, edges) -> tuple[GraphProjectionDefinition, ...]:
+    """Derive views of the owned typed facts, not a second authored graph catalogue."""
+    return (
+        GraphProjectionDefinition(
+            "semantic-reference",
+            "effective-semantic-records",
+            tuple(sorted({node.category for node in nodes})),
+            tuple(sorted({edge.relation for edge in edges})),
+        ),
+        GraphProjectionDefinition(
+            "potential-producers",
+            "effective-operations",
+            ("operation",),
+            ("operation_dependency", "potential_operation_dependency"),
+        ),
+        GraphProjectionDefinition(
+            "selected-dependencies",
+            "effective-operations",
+            ("operation",),
+            ("operation_dependency", "selected_operation_dependency"),
+            selection="explicit-producer-choices",
+        ),
+    )
+
+
+@dataclass(frozen=True)
 class EffectiveDataOperationModel:
     version: str
     kinds: tuple[EffectiveKind, ...]
@@ -384,12 +434,72 @@ class EffectiveDataOperationModel:
     edges: tuple[SemanticEdge, ...]
     implementation_slices: tuple[ImplementationSlice, ...] = ()
     identities: tuple[EffectiveIdentity, ...] = ()
+    graph_projections: tuple[GraphProjectionDefinition, ...] = ()
 
     def semantic_records(self) -> dict:
         return {
             "nodes": tuple(node.record() for node in self.nodes),
             "edges": tuple(asdict(edge) for edge in self.edges),
         }
+
+    def projection_graph(self, name: str, *, selected_dependencies=()):
+        """Construct an authenticated declared view, retaining isolates and typed occurrences."""
+        from .data_operation_identity import SemanticGraph
+
+        if self.version != MODEL_VERSION:
+            raise ValueError("historical model cannot supply current projection interpretation")
+        expected = compiled_graph_projections(self.nodes, self.edges)
+        if self.graph_projections != expected:
+            raise ValueError("missing or incompatible compiled graph projection interpretation")
+        definition = next((p for p in self.graph_projections if p.name == name), None)
+        if definition is None:
+            raise ValueError("unknown graph projection " + name)
+        choices = dict(selected_dependencies)
+        if len(choices) != len(selected_dependencies):
+            raise ValueError("duplicate producer selection")
+        if name == "semantic-reference":
+            if choices:
+                raise ValueError("semantic projection does not consume producer choices")
+            records = self.semantic_records()
+        else:
+            operations = {operation.semantic_id: operation for operation in self.operations}
+            if not choices.keys() <= operations.keys():
+                raise ValueError("unknown selected operation")
+            if name != "selected-dependencies" and choices:
+                raise ValueError("potential projection does not consume producer choices")
+            selected_edges = []
+            for operation in self.operations:
+                selected = choices.get(operation.semantic_id, ())
+                if len(set(selected)) != len(selected) or not set(selected) <= set(
+                    operation.potential_dependencies
+                ):
+                    raise ValueError("selected dependency is outside the declared alternatives")
+                for position, dependency in enumerate(operation.dependencies):
+                    selected_edges.append(
+                        SemanticEdge(
+                            operation.semantic_id,
+                            dependency,
+                            "operation_dependency",
+                            position=position,
+                        )
+                    )
+                optional = (
+                    operation.potential_dependencies if name == "potential-producers" else selected
+                )
+                relation = (
+                    "potential_operation_dependency"
+                    if name == "potential-producers"
+                    else "selected_operation_dependency"
+                )
+                for position, dependency in enumerate(optional):
+                    selected_edges.append(
+                        SemanticEdge(operation.semantic_id, dependency, relation, position=position)
+                    )
+            records = {
+                "nodes": tuple(node.record() for node in self.nodes if node.id in operations),
+                "edges": tuple(asdict(edge) for edge in selected_edges),
+            }
+        return SemanticGraph(records)
 
     def operation(self, semantic_id: str) -> EffectiveOperation:
         return next(
@@ -421,22 +531,10 @@ class EffectiveDataOperationModel:
             if not operation["result_fields"]:
                 operation.pop("result_fields")
         if self.version == ARCHIVED_MODEL_VERSION:
-            # Re-export the v1 shape, including its absence of v2 constructs.
-            def historical_expression(expression):
-                expression.pop("operands")
-                expression.pop("choice_parameter")
-                for child in expression["children"]:
-                    historical_expression(child)
-
-            for operation in record["operations"]:
-                operation.pop("potential_dependencies")
-                for role in operation["roles"]:
-                    if role["support"] is not None:
-                        if tuple(role["support"]["origins"]) != ("computation",):
-                            raise ValueError("v1 support cannot declare origin eligibility")
-                        role["support"].pop("origins")
-            for binding in record["bindings"]:
-                historical_expression(binding["expression"])
+            # Retained v2 candidates retain their exact bytes, without invented projections.
+            if self.graph_projections:
+                raise ValueError("historical v2 cannot declare current graph projections")
+            record.pop("graph_projections")
         return canonical_bytes(encode(record))
 
 
@@ -580,7 +678,7 @@ class ResolvedOperationBinding:
 
 
 def read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
-    """Read a complete pinned product; v1 retains its closed historical semantics."""
+    """Read current meaning or exact retained v2 meaning; never promote old interpretation."""
     from dataclasses import fields, is_dataclass
 
     from cattrs import Converter
@@ -592,7 +690,7 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
         ARCHIVED_MODEL_VERSION,
     }:
         raise ValueError("unsupported archived data-operation model version")
-    archived_v1 = record["version"] == ARCHIVED_MODEL_VERSION
+    archived_v2 = record["version"] == ARCHIVED_MODEL_VERSION
     converter = Converter(forbid_extra_keys=True, detailed_validation=False)
 
     def structure_bytes(value, _):
@@ -603,23 +701,13 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
     def structure_record(cls):
         build = make_dict_structure_fn(cls, converter, _cattrs_forbid_extra_keys=True)
         expected = {field.name for field in fields(cls)}
-        # Fixed v1 semantics, not dataclass defaults: a v1 expression has no demand
-        # operands/choice and a v1 operation has no alternative producer graph.
         historical = (
-            {"operands": [], "choice_parameter": None}
-            if cls is BindingExpression
-            else {"potential_dependencies": []}
-            if cls is EffectiveOperation
-            else {}
+            {"graph_projections": []} if cls is EffectiveDataOperationModel and archived_v2 else {}
         )
-        archived_fields = expected - historical.keys() if archived_v1 else expected
+        archived_fields = expected - historical.keys()
 
         def structure(value, _):
             if cls is InputSupport and isinstance(value, dict):
-                if archived_v1 and ("source_set" in value or "source_reference_field" in value):
-                    raise ValueError("v1 support cannot declare a source set")
-                if archived_v1 and "origins" in value:
-                    raise ValueError("v1 support cannot declare origin eligibility")
                 value = {
                     "source_set": None,
                     "source_reference_field": None,
@@ -627,16 +715,12 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
                     **value,
                 }
             if cls is OperationRole and isinstance(value, dict):
-                if archived_v1 and "subject_field" in value:
-                    raise ValueError("v1 role cannot declare a subject association")
                 value = {"subject_field": None, **value}
             if cls is EffectiveOperation and isinstance(value, dict):
-                if archived_v1 and "result_fields" in value:
-                    raise ValueError("v1 operation cannot declare result correspondence")
                 value = {"result_fields": [], **value}
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
-            return build({**value, **historical} if archived_v1 else value, cls)
+            return build({**value, **historical}, cls)
 
         return structure
 

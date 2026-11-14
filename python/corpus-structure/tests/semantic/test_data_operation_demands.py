@@ -288,7 +288,7 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         (),
         b"{}",
         b"{}",
-        "data-operation-model-v2",
+        "data-operation-model-v3",
         "definition:one",
         "eligibility:one",
         (),

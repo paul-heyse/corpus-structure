@@ -64,6 +64,7 @@ def test_declaration_and_closed_python_share_effective_domain_contract():
         "python:example.derive",
         "python:example.helper",
         "python:example.GLOBAL",
+        "builtin:builtins.int",
         "interpretation:closed-python-operations-v1",
     }
     assert extracted.implementation_slices[0].complete
@@ -1206,3 +1207,20 @@ def test_receiver_escape_to_builtin_observer_has_no_reusable_identity():
     assert not model.implementation_slices[0].complete
     assert any("escape" in u.reason for u in model.implementation_slices[0].unknowns)
     assert not any(item.domain == "recipe" for item in model.identities)
+
+
+@pytest.mark.parametrize("number", [7, 8])
+def test_custom_builtin_namespace_cannot_claim_complete_recipe(number):
+    model = compile_data_operations(
+        python_sources=python_inputs(
+            operation_source(
+                "return str(len((x,)))",
+                extra=f"def fake_len(value): return {number}\n__builtins__ = {{'len': fake_len, 'str': str, 'int': int}}\n",
+            )
+        )
+    )
+    implementation = model.implementation_slices[0]
+    assert not implementation.complete
+    assert any("custom builtin namespace" in item.reason for item in implementation.unknowns)
+    assert any(node.category == "standard_builtin" for node in implementation.nodes)
+    assert any(edge.relation == "builtin_reference" for edge in implementation.edges)

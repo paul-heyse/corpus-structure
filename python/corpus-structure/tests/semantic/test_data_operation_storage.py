@@ -2351,3 +2351,63 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
     if uncommitted_intent:
         with pytest.raises(DBAPIError, match=r"stale|fence"):
             publish(ddo_kernel, consumer_fence, original_intent)
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_overlapping_differing_intents_preserve_one_answer_and_its_publication(ddo_kernel):
+    from queue import Queue
+
+    _, _, _, attached = attach(ddo_kernel)
+    fence = claim(ddo_kernel, attached)
+    payload = {
+        **fence,
+        "runtime_id": ddo_kernel["runtime"],
+        "completion": {
+            "outcome": "success",
+            "inputs": [],
+            "support": [],
+            "implementation_revision": "native-test-source-v1",
+            "outputs": [
+                {
+                    "role": "result",
+                    "position": 0,
+                    "multiplicity": 1,
+                    "product": {
+                        "kind_contract": ddo_kernel["kind"],
+                        "body": ["integer", "1"],
+                        "members": [],
+                    },
+                }
+            ],
+        },
+    }
+    changed = json.loads(json.dumps(payload))
+    changed["completion"]["outputs"][0]["product"]["body"] = ["integer", "2"]
+    backend = Queue()
+
+    def conflicting():
+        with ddo_kernel["engine"].begin() as connection:
+            backend.put(connection.execute(text("SELECT pg_backend_pid()")).scalar_one())
+            return DataOperationStorage(connection).invoke("retain_data_completion_intent", changed)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with ddo_kernel["engine"].begin() as connection:
+            original = DataOperationStorage(connection).invoke(
+                "retain_data_completion_intent", payload
+            )
+            future = pool.submit(conflicting)
+            pid = backend.get(timeout=10)
+            deadline = time.monotonic() + 10
+            while not connection.execute(
+                text("SELECT cardinality(pg_blocking_pids(:pid))>0"), {"pid": pid}
+            ).scalar_one():
+                if time.monotonic() >= deadline:
+                    pytest.fail("conflicting intent did not reach the retained-answer lock")
+                time.sleep(0.01)
+        with pytest.raises(DBAPIError, match="immutable"):
+            future.result(timeout=10)
+    receipt = publish(ddo_kernel, fence, original)
+    assert publish(ddo_kernel, fence, original) == {**receipt, "replayed": True}
+    with ddo_kernel["engine"].connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1

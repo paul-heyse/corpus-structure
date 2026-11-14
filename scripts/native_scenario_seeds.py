@@ -293,12 +293,17 @@ class ScenarioSeeds:
         if record[4] or record[5] or self.server.policy(seed.database) != seed.policy:
             raise RuntimeError("scenario seed is not sealed with its captured policy")
         with self.server.connect() as connection:
-            clients = connection.execute(
-                text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
-                {"name": seed.database},
-            ).scalar_one()
-        if clients:
-            raise RuntimeError("scenario seed has connected backends")
+
+            def drained() -> bool:
+                return not connection.execute(
+                    text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
+                    {"name": seed.database},
+                ).scalar_one()
+
+            # Reuse the sealing/cleanup owner: closing libpq can precede backend
+            # exit. Persistent sessions still refuse; validation never terminates
+            # a backend or reopens the sealed seed to make a clone possible.
+            self.server._wait_for_backend_exit(seed.database, drained)
 
     @contextmanager
     def commit_clone(self, recipe: object) -> Generator[SeedClone]:

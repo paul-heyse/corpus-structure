@@ -300,9 +300,6 @@ def native_operation_calls(
     return tuple(result)
 
 
-trusted_data_operation_calls = native_operation_calls
-
-
 def native_calls_from_dependencies(model, dependencies):
     return native_operation_calls(model, sources=dependencies.artifacts)
 

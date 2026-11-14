@@ -317,7 +317,7 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
         reasons=(),
         parameters=b'["mapping",[["allowed",["sequence",[["integer","2"]]]]]]',
         choices=b"{}",
-        model_version="data-operation-model-v2",
+        model_version="data-operation-model-v3",
         definition="definition:fixed",
         eligibility="eligibility:fixed",
         admission_evidence=(b'{"trust":"pinned"}',),
@@ -466,15 +466,22 @@ def test_projection_contract_and_typed_demand_refuse_unsafe_inputs(storage):
         )
 
 
-def test_archived_v1_shape_is_exact_and_current_defaults_never_enter():
+def test_archived_v2_is_exact_read_only_and_never_gains_projection_interpretation():
     source = model(BindingExpression("scan", roles=("items",)))
-    archived = replace(source, version="data-operation-model-v1")
+    archived = replace(source, version="data-operation-model-v2", graph_projections=())
     content = archived.content
-    assert b'"operands"' not in content and b'"potential_dependencies"' not in content
-    assert read_effective_data_operations(content).content == content
+    assert b'"graph_projections"' not in content
+    restored = read_effective_data_operations(content)
+    assert restored.content == content
+    with pytest.raises(ValueError, match="historical"):
+        restored.projection_graph("semantic-reference")
     corrupt = json.loads(content)
-    corrupt["bindings"][0]["expression"]["operands"] = []
+    corrupt["graph_projections"] = []
     with pytest.raises(ValueError):
+        read_effective_data_operations(canonical_bytes(corrupt))
+    corrupt = json.loads(content)
+    corrupt["version"] = "data-operation-model-v1"
+    with pytest.raises(ValueError, match="unsupported"):
         read_effective_data_operations(canonical_bytes(corrupt))
 
 

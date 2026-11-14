@@ -289,7 +289,7 @@ classes:
 """,
     canonical_bytes(
         {
-            "version": "data-operation-model-v1",
+            "version": "data-operation-model-v3",
             "operations": [
                 source_declaration(),
                 _sample_declaration(),
@@ -392,7 +392,7 @@ classes:
       members: {range: Packet, minimum_cardinality: 0, multivalued: true, inlined_as_list: true}
 """,
         canonical_bytes(
-            {"version": "data-operation-model-v1", "operations": [producer, consumer, child]}
+            {"version": "data-operation-model-v3", "operations": [producer, consumer, child]}
         ),
         MANIFEST,
     )
@@ -476,7 +476,7 @@ def consumer_recipe(case):
     return KernelRecipe(
         "consumer-" + case,
         yaml.safe_dump(schema, sort_keys=False),
-        canonical_bytes({"version": "data-operation-model-v2", "operations": declarations}),
+        canonical_bytes({"version": "data-operation-model-v3", "operations": declarations}),
         MANIFEST.replace("test-operations", "actual-consumer-and-controls"),
     )
 
@@ -538,7 +538,7 @@ default_prefix: t
 classes:
   Thing: {}
 """,
-    canonical_bytes({"version": "data-operation-model-v1", "operations": [source_declaration()]}),
+    canonical_bytes({"version": "data-operation-model-v3", "operations": [source_declaration()]}),
     """version: data-operation-inputs-v1
 root: target
 schemas: [{name: target, path: schema.yaml}]
@@ -599,7 +599,7 @@ prefixes: {t: 'urn:original-fact-test:'}
 default_prefix: t
 classes: {Marker: {}}
 """,
-        canonical_bytes({"version": "data-operation-model-v1", "operations": [operation]}),
+        canonical_bytes({"version": "data-operation-model-v3", "operations": [operation]}),
         manifest,
         execution_profile=execution_profile,
         project_id=None,

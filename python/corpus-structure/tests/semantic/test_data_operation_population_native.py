@@ -6,6 +6,7 @@ import json
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -241,4 +242,80 @@ def test_native_empty_partial_populations_do_not_invent_closed_children(
             assert all(request.operation != "urn:consumer" for request in ready)
         assert all(
             request.subject in {"doc", *(f"item:{value}" for value in values)} for request in ready
+        )
+
+
+@pytest.mark.parametrize("scopes", [({"page": 1}, {"page": 2})])
+def test_discovery_same_local_subject_distinct_contexts_reach_child_publication(ddo_kernel, scopes):
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+
+    contexts = tuple(
+        {"subject": "local", "original_source": "source:test", "analyzed_scope": scope}
+        for scope in scopes
+    )
+    demand, _, population = discover(ddo_kernel, values=(5, 25), member_contexts=contexts)
+    assert [member["subject"] for member in population["members"]] == ["local", "local"]
+    assert {member["member_id"]: member["analyzed_scope"] for member in population["members"]} == {
+        "m5": scopes[0],
+        "m25": scopes[1],
+    }
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        snapshot = planner.resume(demand["demand_id"])
+        producer = next(use for use in snapshot["uses"] if use["products"])
+        planner.expand_discovery(
+            snapshot,
+            population="all-items",
+            product=producer["products"][0]["product_id"],
+            derivation=producer["derivation_id"],
+        )
+        children = tuple(
+            request
+            for request in planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+            if request.operation == "urn:child"
+        )
+    assert len(children) == 2
+    assert {child.subject for child in children} == {"local"}
+    assert len({json.loads(child.native)["request_id"] for child in children}) == 2
+    assert sorted(
+        (json.loads(child.resolved.subject_context.analyzed_scope) for child in children),
+        key=lambda value: json.dumps(value, sort_keys=True),
+    ) == sorted(scopes, key=lambda value: json.dumps(value, sort_keys=True))
+    receipts = [_complete_ready(ddo_kernel, child) for child in children]
+    assert len({receipt["derivation_id"] for receipt in receipts}) == 2
+    with ddo_kernel["engine"].connect() as connection:
+        uses = DataOperationStorage(connection).invoke("read_demand_result", demand)["uses"]
+    child_obligations = {child.obligation for child in children}
+    fulfilled = [use for use in uses if use["obligation_id"] in child_obligations]
+    assert len(fulfilled) == 2 and all(use["fate"] == "fulfilled" for use in fulfilled)
+
+
+@pytest.mark.parametrize("scopes", [({"page": 1}, {"page": 1}), ({"page": 1}, {"page": 1.0})])
+def test_discovery_duplicate_complete_context_refuses_including_equal_json_numbers(
+    ddo_kernel, scopes
+):
+    contexts = tuple(
+        {"subject": "local", "original_source": "source:test", "analyzed_scope": scope}
+        for scope in scopes
+    )
+    with pytest.raises(DBAPIError, match="ambiguous duplicate complete contexts"):
+        # The population's declared body uses integer pages; member-header JSON
+        # may spell the same number as 1.0. Native packet authentication compares
+        # their JSONB meaning before closure checks duplicate complete contexts.
+        discover(
+            ddo_kernel,
+            values=(5, 25),
+            member_contexts=contexts,
+            member_body_contexts=(
+                {
+                    "subject": "local",
+                    "original_source": "source:test",
+                    "analyzed_scope": {"page": 1},
+                },
+                {
+                    "subject": "local",
+                    "original_source": "source:test",
+                    "analyzed_scope": {"page": 1},
+                },
+            ),
         )

@@ -1,0 +1,6 @@
+baseline: 94539f712
+packs: [statistics]
+native_predecessor: semantic_test_pdf_seal_producer
+native_revision: semantic_ddo_projection_v1
+deployment: true
+deployment_profile: development

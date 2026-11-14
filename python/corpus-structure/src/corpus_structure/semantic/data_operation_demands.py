@@ -11,7 +11,6 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
 
-import networkx as nx
 from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
@@ -104,19 +103,13 @@ def freeze_demand(
     if len(supplied) != len(selections):
         raise ValueError("duplicate operation selection")
     operations = {op.semantic_id: op for op in model.operations}
-    graph = nx.DiGraph()
-    graph.add_nodes_from(operations)
-    for operation in model.operations:
-        selection = supplied.get(operation.semantic_id, OperationSelection(operation.semantic_id))
-        potential = set(operation.potential_dependencies)
-        if not set(selection.selected_dependencies) <= potential:
-            raise ValueError("selected dependency is outside the declared alternatives")
-        graph.add_edges_from(
-            (operation.semantic_id, dependency)
-            for dependency in (*operation.dependencies, *selection.selected_dependencies)
-        )
-    if not nx.is_directed_acyclic_graph(graph, backend="networkx"):
-        raise ValueError("selected demand dependency cycle")
+    graph = model.projection_graph(
+        "selected-dependencies",
+        selected_dependencies=tuple(
+            (name, item.selected_dependencies) for name, item in supplied.items()
+        ),
+    )
+    graph.require_acyclic({"operation_dependency", "selected_operation_dependency"})
     requested = set(targets)
     for relation in discovery:
         producer = operations.get(relation.producer)
@@ -136,10 +129,10 @@ def freeze_demand(
         raise ValueError("unknown demand target")
     closure = set(requested)
     for target in requested:
-        closure.update(nx.descendants(graph, target, backend="networkx"))
+        closure.update(graph.closure((target,)))
     root_operations = set(targets) | {relation.producer for relation in discovery}
     for target in tuple(root_operations):
-        root_operations.update(nx.descendants(graph, target, backend="networkx"))
+        root_operations.update(graph.closure((target,)))
     if not supplied.keys() <= closure:
         raise ValueError("selection is outside the requested closure")
     identities = {(item.owner, item.domain): item.key for item in model.identities}
@@ -174,7 +167,7 @@ def freeze_demand(
                 "parameter_meaning": semantic_value(parameters),
                 "choices": choices,
                 "replicate": item.replicate,
-                "dependencies": sorted(graph.successors(operation_id)),
+                "dependencies": list(graph.direct_dependencies(operation_id)),
                 "definition": identities[operation_id, "definition"],
                 "recipe": identities[operation_id, "recipe"],
                 "eligibility": identities[operation_id, "eligibility"],

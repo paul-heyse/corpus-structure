@@ -11,14 +11,12 @@ import json
 from dataclasses import asdict, fields, replace
 from typing import Any, Never, cast
 
-import networkx as nx
 import yaml
 from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
 from .data_operation_json import json_loads, scope_identity, wire_json_loads
 from .data_operation_model import (
-    ARCHIVED_MODEL_VERSION,
     MODEL_VERSION,
     BindingExpression,
     BindingField,
@@ -39,6 +37,7 @@ from .data_operation_model import (
     SourceUnknown,
     StateDimension,
     StateTransition,
+    compiled_graph_projections,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
 from .identity import canonical_bytes
@@ -767,7 +766,7 @@ def compile_data_operations(
         except (ValueError, yaml.YAMLError) as exc:
             _fail(source.name, str(exc))
         raw = _mapping(raw, source.name, {"version", "operations", "kinds"})
-        if raw.get("version") not in {MODEL_VERSION, ARCHIVED_MODEL_VERSION}:
+        if raw.get("version") != MODEL_VERSION:
             _fail(source.name, "unsupported operation declaration version")
         for value in raw.get("operations", []):
             value = dict(_mapping(value, source.name))
@@ -1465,17 +1464,6 @@ def compile_data_operations(
     for edge in edges:
         if edge.source not in nodes or edge.target not in nodes:
             _fail(edge.source, "unresolved typed semantic reference " + edge.target)
-    for relation in ("inherits", "operation_dependency"):
-        graph = nx.DiGraph()
-        graph.add_nodes_from(nodes)
-        graph.add_edges_from((e.source, e.target) for e in edges if e.relation == relation)
-        cyclic = [
-            tuple(sorted(component))
-            for component in nx.strongly_connected_components(graph, backend="networkx")
-            if len(component) > 1 or any(graph.has_edge(node, node) for node in component)
-        ]
-        if cyclic:
-            _fail("model/" + relation, "unsupported cycle: " + repr(sorted(cyclic)))
     model = EffectiveDataOperationModel(
         MODEL_VERSION,
         tuple(kinds[key] for key in sorted(kinds)),
@@ -1484,6 +1472,7 @@ def compile_data_operations(
         tuple(nodes[key] for key in sorted(nodes)),
         tuple(sorted(edges, key=lambda e: (e.source, e.target, e.relation, e.role))),
         tuple(slices),
+        graph_projections=compiled_graph_projections(tuple(nodes.values()), edges),
     )
 
     return replace(model, identities=_compile_identities(model))
@@ -1512,7 +1501,6 @@ def _binding_record(expression: BindingExpression, *, result_only: bool = False)
 def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveIdentity, ...]:
     """Consume the DDO-02 encoding directly; never issue a reusable unknown recipe."""
     from .data_operation_identity import (
-        SemanticGraph,
         definition_fingerprint,
         eligibility_fingerprint,
         implementation_slice_fingerprint,
@@ -1520,7 +1508,10 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         recipe_fingerprint,
     )
 
-    graph = SemanticGraph(model.semantic_records())
+    try:
+        graph = model.projection_graph("semantic-reference")
+    except ValueError as error:
+        _fail("model/graph", str(error))
     identities = []
     kinds = {}
     incomplete_kinds = {kind.semantic_id for kind in model.kinds if not kind.complete}

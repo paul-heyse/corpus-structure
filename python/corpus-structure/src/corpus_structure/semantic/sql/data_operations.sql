@@ -540,7 +540,7 @@ BEGIN
  complete:=(data.ddo_json(data.ddo_field(x.canonical_body,'complete')) #>> '{}')::boolean;
  IF EXISTS(SELECT FROM kb.data_product_member m WHERE m.product_id=x.id AND (nullif(m.subject,'') IS NULL OR m.original_source IS DISTINCT FROM x.original_source OR m.analyzed_scope IS NULL)) THEN RAISE EXCEPTION 'discovery member lacks qualified subject/source/scope'; END IF;
  SELECT coalesce(jsonb_agg(jsonb_build_object('member_id',m.member_id,'subject',m.subject,'original_source',m.original_source,'analyzed_scope',m.analyzed_scope) ORDER BY m.member_id),'[]') INTO members FROM kb.data_product_member m WHERE m.product_id=x.id;
- IF EXISTS(SELECT FROM jsonb_array_elements(members) m GROUP BY m->>'subject' HAVING count(*)<>1) THEN RAISE EXCEPTION 'discovery has ambiguous duplicate subjects'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(members) m GROUP BY m->>'subject',m->>'original_source',m->'analyzed_scope' HAVING count(*)<>1) THEN RAISE EXCEPTION 'discovery has ambiguous duplicate complete contexts'; END IF;
  SELECT * INTO STRICT source_use FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_use_valid(u) ORDER BY u.created_at DESC,u.id DESC LIMIT 1;
  semantic_key:='population-value:'||ops.ddo_digest(jsonb_build_object('product',x.id,'member_role',p->>'member_role','members',members,'complete',complete));
  evidence:=jsonb_build_object('product_id',x.id,'derivation_id',producer.id,'member_role',p->>'member_role','admission_use_id',source_use.id,'trust_snapshot',snapshot,'producer_context',jsonb_build_object('operation_id',r.operation_id,'subject',r.subject,'original_source',r.original_source,'analyzed_scope',r.analyzed_scope));

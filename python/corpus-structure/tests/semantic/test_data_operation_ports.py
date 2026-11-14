@@ -1136,3 +1136,167 @@ def test_ambiguous_success_return_refuses_before_authorization_or_target_import(
             model.operations[0].semantic_id,
             authorize=lambda _: pytest.fail("ambiguous return was authorized"),
         )
+
+
+@pytest.mark.parametrize("through_helper", [False, True])
+def test_captured_builtin_mapping_is_authenticated_on_acquisition_and_each_call(
+    tmp_path, monkeypatch, through_helper
+):
+    import builtins
+    import importlib
+    import types
+
+    body = "return helper(index)" if through_helper else "return str(len((index,)))"
+    header = "def helper(index):\n    return str(len((index,)))\n" if through_helper else ""
+    model, inputs = fixture_source(tmp_path, monkeypatch, body=body, header=header)
+    module = importlib.import_module(inputs.sources[0].module)
+    name = "helper" if through_helper else "derive"
+    original = getattr(module, name)
+    namespace = dict(vars(builtins))
+    module.__dict__["__builtins__"] = namespace
+    replacement = types.FunctionType(
+        original.__code__, module.__dict__, original.__name__, original.__defaults__
+    )
+    replacement.__annotations__ = original.__annotations__
+    setattr(module, name, replacement)
+    # A function's captured mapping remains independent of later module globals.
+    module.__dict__["__builtins__"] = vars(builtins)
+    namespace["len"] = lambda value: 7
+    with pytest.raises(PortRefusal, match=r"captured builtin.*len"):
+        resolve_python_port(
+            model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+        )
+    namespace["len"] = len
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    values = (PythonRoleValue("index", kind(model, "index"), 2),)
+    assert port.invoke_python(values).outputs[0].value() == "1"
+    namespace["unconsumed_name"] = object()
+    assert port.invoke_python(values).outputs[0].value() == "1"
+    namespace["len"] = lambda value: 9
+    with pytest.raises(PortRefusal, match=r"captured builtin.*len"):
+        port.invoke_python(values)
+
+
+def test_generated_method_checks_its_captured_builtin_mapping(tmp_path, monkeypatch):
+    import builtins
+    import importlib
+    import types
+
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["roles"][0]["kind"] = "urn:test:generated-input"
+    metadata["kinds"] = [
+        {
+            "id": "urn:test:generated-input",
+            "python": "ddo_port_" + tmp_path.name.replace("-", "_") + ".Item",
+        }
+    ]
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: Item",
+        "return str(index.value)",
+        metadata=metadata,
+        header="from dataclasses import dataclass\n@dataclass\nclass Item:\n    value: int\n",
+        profiles=("dataclasses-runtime",),
+    )
+    module = importlib.import_module(inputs.sources[0].module)
+    original = module.Item.__eq__
+    namespace = dict(vars(builtins))
+    globals_ = dict(original.__globals__, __builtins__=namespace)
+    replacement = types.FunctionType(
+        original.__code__, globals_, original.__name__, original.__defaults__, original.__closure__
+    )
+    module.Item.__eq__ = replacement
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    namespace["NotImplemented"] = object()
+    with pytest.raises(PortRefusal, match=r"captured builtin.*NotImplemented"):
+        port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
+
+
+def test_stream_pull_refuses_changed_captured_builtin_before_next_item(tmp_path, monkeypatch):
+    import builtins
+    import importlib
+    import types
+
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata["capabilities"]["forms"] = ["stream"]
+    metadata["opaque"] = [
+        {
+            "reference": "collections.abc.Iterator",
+            "contract": "python-iterator-annotation",
+            "role": "annotation",
+            "content_digest": "a" * 64,
+        }
+    ]
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: int",
+        "yield str(index)\n    yield str(index + 1)",
+        metadata=metadata,
+        header="from collections.abc import Iterator",
+        returns="Iterator[str]",
+    )
+    module = importlib.import_module(inputs.sources[0].module)
+    original = module.derive
+    namespace = dict(vars(builtins))
+    module.__dict__["__builtins__"] = namespace
+    replacement = types.FunctionType(original.__code__, module.__dict__, original.__name__)
+    replacement.__annotations__ = original.__annotations__
+    module.__dict__["derive"] = replacement
+    module.__dict__["__builtins__"] = vars(builtins)
+    port = resolve_python_port(
+        model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    stream = port.open_stream_python((PythonRoleValue("index", kind(model, "index"), 3),))
+    assert next(stream)[1].outputs[0].value() == "3"
+    namespace["str"] = lambda value: "changed"
+    with pytest.raises(PortRefusal, match=r"captured builtin.*str"):
+        next(stream)
+    assert stream.terminal is not None and stream.terminal.state == "failed"
+
+
+def test_builtin_mapping_subclass_cannot_hide_runtime_lookup(tmp_path, monkeypatch):
+    import builtins
+    import importlib
+    import types
+
+    class AlternateLookup(dict):
+        def __getitem__(self, name):
+            if name == "len":
+                return lambda value: 7
+            return super().__getitem__(name)
+
+    model, inputs = fixture_source(tmp_path, monkeypatch, body="return str(len((index,)))")
+    module = importlib.import_module(inputs.sources[0].module)
+    original = module.derive
+    namespace = AlternateLookup(vars(builtins))
+    assert namespace.get("len") is len
+    module.__dict__["__builtins__"] = namespace
+    replacement = types.FunctionType(
+        original.__code__, module.__dict__, original.__name__, original.__defaults__
+    )
+    replacement.__annotations__ = original.__annotations__
+    module.__dict__["derive"] = replacement
+    module.__dict__["__builtins__"] = vars(builtins)
+    with pytest.raises(PortRefusal, match="ordinary dictionary"):
+        resolve_python_port(
+            model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+        )
+
+
+def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    from corpus_structure.semantic.data_operation_model import ARCHIVED_MODEL_VERSION
+
+    model, inputs = fixture_source(tmp_path, monkeypatch, body='return "fixed"')
+    historical = replace(model, version=ARCHIVED_MODEL_VERSION, graph_projections=())
+    with pytest.raises(PortRefusal, match="historical model"):
+        resolve_python_port(
+            historical, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+        )

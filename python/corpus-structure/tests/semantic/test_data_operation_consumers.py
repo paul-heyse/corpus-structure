@@ -29,7 +29,7 @@ def retained(operation):
         (),
         b"{}",
         b"{}",
-        "data-operation-model-v2",
+        "data-operation-model-v3",
         "definition:one",
         "eligibility:one",
         (b"{}",),

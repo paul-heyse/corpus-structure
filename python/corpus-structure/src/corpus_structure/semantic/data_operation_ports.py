@@ -21,7 +21,7 @@ from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from types import CodeType, ModuleType
+from types import CodeType, MappingProxyType, ModuleType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
 
 if TYPE_CHECKING:
@@ -35,6 +35,10 @@ from .data_operation_model import EffectiveDataOperationModel, EffectiveOperatio
 from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
 from .python_operation_sources import PythonSourceCollection
+
+# Trusted references are captured once rather than reread from a mutable namespace
+# during invocation. Only consumed names participate in callable authentication.
+_STANDARD_BUILTINS = MappingProxyType(dict(vars(builtins)))
 
 
 class PortRefusal(ValueError):
@@ -706,7 +710,10 @@ def python_port_identity(
     from dataclasses import asdict
 
     from .data_operation_compilation import compile_data_operations
+    from .data_operation_model import MODEL_VERSION
 
+    if model.version != MODEL_VERSION:
+        raise PortRefusal("historical model cannot authorize a current Python port")
     selected = model.operation(operation)
     if len(selected.callable_surfaces) != 1 or selected.implementation_root is None:
         raise PortRefusal("operation has no single closed original callable surface")
@@ -984,7 +991,7 @@ def _cpu_descriptor(model, selected, sources, paths, receiver):
 
 def _source_reference(node, module):
     if isinstance(node, ast.Name):
-        return module.__dict__.get(node.id, getattr(builtins, node.id, None))
+        return module.__dict__.get(node.id, _STANDARD_BUILTINS.get(node.id))
     if isinstance(node, ast.Attribute):
         return inspect.getattr_static(_source_reference(node.value, module), node.attr)
     raise PortRefusal("class base requires a closed named reference")
@@ -1072,6 +1079,7 @@ def _verify_closed_runtime_sources(
                     or value.__globals__ is not module.__dict__
                 ):
                     raise PortRefusal("runtime callable implementation differs: " + name)
+                _verify_function_builtins(value)
                 if hasattr(value, "__signature__") or hasattr(value, "__wrapped__"):
                     raise PortRefusal("runtime signature transformation differs: " + name)
                 runtime_signature = inspect.signature(value, eval_str=True)
@@ -1087,10 +1095,10 @@ def _verify_closed_runtime_sources(
                     for dependency in ast.walk(annotation):
                         if (
                             isinstance(dependency, ast.Name)
-                            and hasattr(builtins, dependency.id)
+                            and dependency.id in _STANDARD_BUILTINS
                             and dependency.id in module.__dict__
                             and module.__dict__[dependency.id]
-                            is not getattr(builtins, dependency.id)
+                            is not _STANDARD_BUILTINS[dependency.id]
                         ):
                             raise PortRefusal(
                                 "runtime annotation dependency differs: " + dependency.id
@@ -1134,9 +1142,9 @@ def _verify_closed_runtime_sources(
                         raise PortRefusal("runtime parameter default differs: " + argument.arg)
                 for global_name in value.__code__.co_names:
                     if (
-                        hasattr(builtins, global_name)
+                        global_name in _STANDARD_BUILTINS
                         and global_name in value.__globals__
-                        and value.__globals__[global_name] is not getattr(builtins, global_name)
+                        and value.__globals__[global_name] is not _STANDARD_BUILTINS[global_name]
                     ):
                         raise PortRefusal("runtime builtin dependency was replaced: " + global_name)
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -1468,6 +1476,7 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
     def verify_method(actual: Any, modeled: Any, label: str) -> None:
         if not inspect.isfunction(actual) or actual.__code__ != modeled.__code__:
             raise PortRefusal("generated dataclass " + label + " implementation differs")
+        _verify_function_builtins(actual)
         if not same_default(actual.__defaults__, modeled.__defaults__):
             raise PortRefusal("generated dataclass " + label + " defaults differ")
         actual_kw = actual.__kwdefaults__ or {}
@@ -1540,6 +1549,18 @@ def _code_globals(code: CodeType) -> set[str]:
         if isinstance(constant, CodeType):
             names.update(_code_globals(constant))
     return names
+
+
+def _verify_function_builtins(function) -> None:
+    """Authenticate actual captured lookup, including nested code and helper methods."""
+    if type(function.__builtins__) is not dict:
+        raise PortRefusal("runtime captured builtin namespace requires an ordinary dictionary")
+    for name in _code_globals(function.__code__):
+        if name in function.__globals__:
+            continue
+        expected = _STANDARD_BUILTINS.get(name, inspect.Parameter.empty)
+        if expected is inspect.Parameter.empty or function.__builtins__.get(name) is not expected:
+            raise PortRefusal("runtime captured builtin dependency differs: " + name)
 
 
 def _verify_consumed_globals(
@@ -1713,8 +1734,8 @@ def _verify_consumed_globals(
                 if actual is not expected:
                     raise PortRefusal("runtime imported module attribute was rebound: " + name)
                 return expected
-            if hasattr(builtins, name):
-                expected = getattr(builtins, name)
+            if name in _STANDARD_BUILTINS:
+                expected = _STANDARD_BUILTINS[name]
                 if actual is not inspect.Parameter.empty and actual is not expected:
                     raise PortRefusal("runtime builtin dependency was replaced: " + name)
                 return expected

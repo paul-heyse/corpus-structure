@@ -64,7 +64,7 @@ classes:
     declaration["roles"].insert(0, incoming)
     artifact = SourceArtifact(
         "operation",
-        canonical_bytes({"version": "data-operation-model-v1", "operations": [declaration]}),
+        canonical_bytes({"version": "data-operation-model-v3", "operations": [declaration]}),
     )
     if valid:
         result = compile_data_operations(schema=schema, declarations=(artifact,))

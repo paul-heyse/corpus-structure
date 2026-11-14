@@ -109,7 +109,7 @@ def consumer_selection_declarations(
                 SourceArtifact(
                     "consumer-selection:" + source.module,
                     canonical_bytes(
-                        {"version": "data-operation-model-v2", "operations": contracts.operations}
+                        {"version": "data-operation-model-v3", "operations": contracts.operations}
                     ),
                 )
             )

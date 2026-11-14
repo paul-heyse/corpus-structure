@@ -269,7 +269,7 @@ def _authored_result(roles, *, status: BindingStatus = "ready", reasons=(), choi
         reasons=reasons,
         parameters=b'["mapping",[]]',
         choices=choices,
-        model_version="data-operation-model-v2",
+        model_version="data-operation-model-v3",
         definition="definition:fixed",
         eligibility="eligibility:fixed",
         admission_evidence=(b'{"trust":"pinned"}',),
@@ -460,7 +460,14 @@ BINDING_RANGE_CASES = {
 
 
 def discover(
-    ddo_kernel, *, complete=True, ambiguous=False, values=(5, 15, 25), inference="inference:test"
+    ddo_kernel,
+    *,
+    complete=True,
+    ambiguous=False,
+    values=(5, 15, 25),
+    inference="inference:test",
+    member_contexts=None,
+    member_body_contexts=None,
 ):
     from corpus_structure.semantic.data_operation_demands import (
         DiscoverySelection,
@@ -558,14 +565,20 @@ def discover(
         {
             "member_id": f"m{value}",
             "kind_contract": sample_kind,
-            "context": {
-                "subject": f"item:{value}",
-                "original_source": "source:test",
-                "analyzed_scope": scope,
-            },
+            "context": (
+                member_body_contexts[position]
+                if member_body_contexts is not None
+                else member_contexts[position]
+                if member_contexts is not None
+                else {
+                    "subject": f"item:{value}",
+                    "original_source": "source:test",
+                    "analyzed_scope": scope,
+                }
+            ),
             "body": {"value": value, "document_subject": "doc"},
         }
-        for value in values
+        for position, value in enumerate(values)
     ]
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
@@ -588,8 +601,14 @@ def discover(
                                 "kind_contract": population_kind,
                                 "body": semantic_value({"complete": complete, "members": packets}),
                                 "members": [
-                                    {**packet, "body": semantic_value(packet["body"])}
-                                    for packet in packets
+                                    {
+                                        **packet,
+                                        "context": member_contexts[position]
+                                        if member_contexts is not None
+                                        else packet["context"],
+                                        "body": semantic_value(packet["body"]),
+                                    }
+                                    for position, packet in enumerate(packets)
                                 ],
                             },
                         }
