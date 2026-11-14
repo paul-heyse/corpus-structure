@@ -46,7 +46,9 @@ from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
 if TYPE_CHECKING:
+    from corpus_structure.cli.managed import ResultStore
     from corpus_structure.schema.model_change import ChangePreview
+    from corpus_structure.schema.model_deployment import Candidate
 
 app = typer.Typer(help="Check the model and prepare canonical changes.")
 changes = typer.Typer(help="Preview, apply and deploy exact model changes.")
@@ -144,6 +146,14 @@ class PreviewPatchReport(BaseModel):
     next_after_hunk: int | None
 
 
+class CandidateOperationCounts(BaseModel):
+    """Logical upgrade operations in the exact retained candidate, never executed."""
+
+    native: int = Field(ge=0)
+    privilege: int = Field(ge=0)
+    ordinary: int = Field(ge=0)
+
+
 class CandidateInspection(EffectGuidance):
     candidate_id: str
     preview_id: str | None
@@ -163,6 +173,8 @@ class CandidateInspection(EffectGuidance):
     registration: Literal["verified", "unverified", "not_applicable"]
     registration_detail: str | None
     dependency_available: bool
+    operation_counts: CandidateOperationCounts | None = None
+    operation_counts_detail: str | None = None
 
 
 @app.command()
@@ -751,6 +763,62 @@ def inspect_preview(
         )
 
 
+def _candidate_operation_counts(
+    store: ResultStore, candidate_id: str, binding: Candidate
+) -> tuple[CandidateOperationCounts | None, str | None]:
+    """Inspect authenticated serialized operations and rendered upgrade structure."""
+    import ast
+    import json
+    import os
+
+    from corpus_structure.cli.managed import ResultError
+    from corpus_structure.semantic.alembic_privileges import native_operation_payloads
+
+    names = ("native_candidate.py", "native_operations.json")
+    if not all(name in binding.hashes for name in names):
+        return None, "this retained candidate has no complete native authoring products"
+    products = {}
+    with store.open_artifact(candidate_id, "candidate") as (_, directory):
+        for name in names:
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+            with os.fdopen(fd, "rb") as stream:
+                raw = stream.read()
+            if sha256(raw).hexdigest() != binding.hashes[name]:
+                raise ResultError("frozen authoring product differs from candidate binding")
+            products[name] = raw
+    try:
+        state_ = json.loads(products["native_operations.json"])
+        native = len(native_operation_payloads(state_))
+        privilege = len(state_.get("operations", ())) - native
+        tree = ast.parse(products["native_candidate.py"])
+        upgrade = next(
+            (
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == "upgrade"
+            ),
+            None,
+        )
+        if upgrade is None:
+            return None, "retained rendering has no upgrade function"
+        commands = [
+            node
+            for node in upgrade.body
+            if not isinstance(node, ast.Pass)
+            and not (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            )
+        ]
+        ordinary = len(commands) - native - privilege
+        if ordinary < 0:
+            return None, "retained rendering does not match its serialized operation inventory"
+    except SyntaxError, ValueError, TypeError:
+        return None, "retained authoring products cannot supply operation counts"
+    return CandidateOperationCounts(native=native, privilege=privilege, ordinary=ordinary), None
+
+
 def _candidate_view(report: CandidateInspection) -> Table:
     return report_fields(
         ("Candidate", report.candidate_id),
@@ -770,6 +838,16 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Registration", report.registration),
         ("Registration detail", report.registration_detail or "none"),
         ("Dependency", "available" if report.dependency_available else "unavailable"),
+        (
+            "Operation counts",
+            (
+                f"{report.operation_counts.native} native, {report.operation_counts.privilege} privilege, "
+                f"{report.operation_counts.ordinary} ordinary"
+                if report.operation_counts is not None
+                else "unavailable"
+            ),
+        ),
+        ("Operation count detail", report.operation_counts_detail or "none"),
         *_guidance_fields(report),
     )
 
@@ -855,6 +933,8 @@ def inspect_candidate(
         status: Literal["verified", "unverified", "not_applicable"] = "unverified"
         detail = None
         guidance = EffectGuidance()
+        operation_counts = None
+        operation_counts_detail = "the managed authoring dependency is unavailable"
         with store.lease(candidate_id):
             if view == "sql":
                 from corpus_structure.schema.model_explanation import explanation_page
@@ -942,6 +1022,10 @@ def inspect_candidate(
                 return
             scope = store.show(candidate_id).scope
             dependency_available = store.dependency_available(candidate_id)
+            if dependency_available:
+                operation_counts, operation_counts_detail = _candidate_operation_counts(
+                    store, candidate_id, binding
+                )
             try:
                 root = checkout(ctx)
                 if str(root) != binding.workspace:
@@ -1013,6 +1097,8 @@ def inspect_candidate(
                 registration=status,
                 registration_detail=detail,
                 dependency_available=dependency_available,
+                operation_counts=operation_counts,
+                operation_counts_detail=operation_counts_detail,
                 **guidance.model_dump(),
             ),
             json=json_,

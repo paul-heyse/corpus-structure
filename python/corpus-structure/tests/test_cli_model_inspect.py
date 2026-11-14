@@ -848,3 +848,90 @@ def test_effects_omit_large_comparison_inventories(model_results):
         {"kind": "added", "model_ref": f"Type{i}"} for i in range(8)
     ]
     assert len(effects.stdout) < 8192
+
+
+@pytest.mark.parametrize("envelope", [1, 2])
+def test_candidate_summary_counts_exact_retained_upgrade_without_execution(
+    model_results, tmp_path, monkeypatch, envelope
+):
+    from corpus_structure.schema import model_deployment
+
+    native = {"version": 1, "before": None, "after": {}, "recreate": False}
+    policy = {
+        "kind": "table",
+        "name": "ops.sample",
+        "owner": "corpus_sem_publisher",
+        "acl": [],
+        "columns": [],
+    }
+    records = (
+        [native]
+        if envelope == 1
+        else [
+            {"kind": "native", "payload": native},
+            {
+                "kind": "privilege",
+                "payload": {
+                    "version": 1,
+                    "before": None,
+                    "after": policy,
+                    "normalization": True,
+                },
+            },
+        ]
+    )
+    source = (
+        "raise AssertionError('must not execute retained rendering')\n"
+        "def upgrade():\n"
+        "    'operation documentation'\n"
+        "    op.native_transition({})\n"
+        + ("    op.privilege_transition({})\n" if envelope == 2 else "")
+        + "    with owned_operation():\n        op.drop_constraint('old')\n"
+        "    op.owned_sql('publisher', 'frozen CHECK contract')\n"
+        "    pass\n"
+    ).encode()
+    products = {
+        "native_candidate.py": source,
+        "native_operations.json": json.dumps({"version": envelope, "operations": records}).encode(),
+    }
+    binding = Candidate(
+        workspace=str(tmp_path),
+        model_revision="model",
+        generator="unused",
+        revision=None,
+        predecessor=None,
+        target="bound",
+        release="release",
+        packs=(),
+        files={},
+        hashes={name: sha256(raw).hexdigest() for name, raw in products.items()},
+    )
+    with model_results.operation("model.candidate") as result:
+        deployment = result.directory / "deployment.json"
+        deployment.write_text(binding.model_dump_json())
+        result.publish("deployment", deployment)
+        directory = result.directory / "candidate"
+        directory.mkdir()
+        for name, raw in products.items():
+            (directory / name).write_bytes(raw)
+        result.publish("candidate", directory)
+        result.settle(sha256=sha256(deployment.read_bytes()).hexdigest())
+    monkeypatch.setattr(model_deployment, "_verify_installed_revision", lambda *args: None)
+    monkeypatch.setattr(model_deployment, "check_candidate_files", lambda *args: None)
+    monkeypatch.setattr("corpus_structure.cli.recipes.checkout", lambda *args: tmp_path)
+    response = CliRunner().invoke(
+        app, ["model", "change", "inspect-candidate", result.id, "--json"]
+    )
+    assert response.exit_code == 0, response.output
+    body = json.loads(response.stdout)
+    assert body["operation_counts"] == {
+        "native": 1,
+        "privilege": 0 if envelope == 1 else 1,
+        "ordinary": 2,
+    }
+    assert body["operation_counts_detail"] is None
+    # Hash authentication remains mandatory even for a read-only aggregate.
+    (directory / "native_candidate.py").write_bytes(b"def upgrade(): pass")
+    damaged = CliRunner().invoke(app, ["model", "change", "inspect-candidate", result.id, "--json"])
+    assert damaged.exit_code != 0
+    assert "differs from candidate binding" in json.loads(damaged.stdout)["error"]["message"]
