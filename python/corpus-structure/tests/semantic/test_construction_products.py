@@ -474,7 +474,7 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(p
     assert ref["product_id"] == annotations.semantic_id
     token = native_members[ref["member_id"]]
     assert source.value["text"][token["start"]:token["end"]] == "is"
-    assert any(row["family"] == "construction.named_rules" and row["outcome"] == "complete" for row in inventory["coverage"])
+    assert any(row["family"] == "construction.named_rules" and row["outcome"] == "complete" for row in json.loads(product.content)["coverage"])
     forged = json.loads(product.content)
     for packet in forged["members"]:
         if packet["body"].get("kind") == "construction.named_binding":
@@ -502,5 +502,6 @@ def test_target_math_scope_keeps_unavailable_native_coverage_open(profiles):
     product = construction.run(source, (primary,), ConstructionOptions(math_scope_binders=binders), subject_context=context)
     readings = retained_math_scope_products((product,), source, binders=binders)
     assert not readings.complete and readings.sentences == () and readings.cues == ()
-    coverage = [row for row in product.inventory()["coverage"] if row["family"] == "construction.math_scope"]
+    import json
+    coverage = [row for row in json.loads(product.content)["coverage"] if row["family"] == "construction.math_scope"]
     assert coverage and coverage[0]["outcome"] == "unknown"
