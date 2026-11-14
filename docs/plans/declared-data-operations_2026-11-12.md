@@ -194,6 +194,7 @@ confirmation/decision route. This is plan adoption, not implementation or renewe
 
 | Supporting plan | Owns design detail |
 |---|---|
+| [PostgreSQL realization and retirement](declared-data-operations/postgresql-realization-and-retirement.md) | Shared typed native realization, scoped access, pool/failure/transfer ownership and complete PostgreSQL consumer/retirement boundaries; status remains here |
 | [Source evolution and migrations](declared-data-operations/source-evolution-and-migrations.md) | Source-effect preparation, migration eligibility/results, library composition and ongoing preview/apply; DDO-03/07/08/10 with DDO-09/11/12 boundaries |
 | [Implementation contracts and fingerprints](declared-data-operations/implementation-contracts-and-fingerprints.md) | Shared Python/declaration authoring, extraction APIs, slice identities, derived contracts/drift and profile qualification |
 | [Graph projections and analysis](declared-data-operations/graph-projections-and-analysis.md) | Shared projection/algorithm/lifecycle contracts across DDO-01–12; complete capability selection and conditional triggers |
@@ -273,6 +274,69 @@ cancelled; do not restart them. When verification is authorized, select affected
 identities rather than repeat passing/full scope after a fix. Retain independent native admission
 and catalog observations; emitted SQL matching its own generator alone proves only derivation.
 Full union qualification and persistent deployment/activation/adoption remain separately open.
+
+## PostgreSQL domain alignment amendment · accepted 2026-11-14
+
+The operator selected **all actionable portions of domain-alignment I01–I08**, with conditions
+preserved, from [the integrated review](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md)
+at `a1b9cc73a`. The [PostgreSQL companion](declared-data-operations/postgresql-realization-and-retirement.md)
+owns technical realization, consumer/deletion boundaries, pivotal library mechanisms and conditional
+triggers. Existing semantic companions keep their responsibilities. This coordinator alone owns
+scheduled recommendation/question status; no DDO-13, separate findings register or PostgreSQL
+qualification campaign is introduced.
+
+**Planning adoption, not implementation · 2026-11-14.** Existing bounded foundation completions,
+CA-08/09 closure and SQLAlchemy/Alembic I01–I05 implementation retain their evidence. New typed
+native-consumer/decoder and compiler-reduction extensions are open, even where an enclosing package
+has a completed earlier foundation slice. DDO-06–12 and the three unresolved closeout journeys remain
+open. Product/native/provider tests, authoring, deployment and activation do not resume through
+this amendment. Expected benefits remain Proposed and unmeasured.
+
+| Source-qualified recommendation | Scheduled disposition / responsible packages | Required closure or conditional trigger |
+|---|---|---|
+| [Domain PG I01](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I01) | **Open:** DDO-01/03/04 typed native structure/correspondence and archived products; DDO-02 identity preservation; DDO-05/06/10 actual consumers | PG-Q1 design, correspondence validator/kind lowering, emitter and exact decoder work together. Protocol-only changes reach real consumers; nominal/union/absent/null controls retain independent expectations and Draft7 authority. |
+| [Domain PG I02](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I02) | **Open accepted-obligation extension:** DDO-04 early selected read contract, DDO-09/10 cut/currentness and every public/protected consumer, DDO-11 sealed retirement | Native → actual ci/MCP resource/cursor → export/verify/detached replay uses one pinned selection; all recipes and protected source/prediction isolation covered. Demand inspection alone is insufficient. |
+| [Domain PG I03](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I03) | **Open accepted retirement:** DDO-06–11 producer/consumer/native/config/test slices | Remove run-based semantic reuse/grouping/fallbacks and obsolete APIs/grants with actual callers; preserve physical attempt/lease fences, original episodes and required historical custody. |
+| [Domain PG I04](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I04) | **Open:** DDO-04/05/06 scoped selected verification; carries prior PostgreSQL I01's native half | PG-Q2 distinguishes selected-body and necessary population work. Current scoped successor is retained; no unconditional selected-only filter. Independent candidate/native semantics and qualified population/support checks survive. |
+| [Domain PG I05](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I05) | **Open:** DDO-06 plus shared store/failure owners | PG-Q3 actual borrower/renewal ownership; once-per-physical-session dialect setup; locale-independent bounded rollback-confirmed retry with honest causes and lease checks. Exact uncertain-effect reconciliation retained. |
+| [Domain PG I06](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I06) | **Open additional reduction:** DDO-01/10 compiler/helper consumers; DDO-11 historical imports/custody | PG-Q4 precedes destructive legacy compiler/interchange/HalfVec/old migration removal. Current Arrow conversion, semantic compilation, generated DTOs and real historical imports/readers remain supported. |
+| [Domain PG I07](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I07) | **Open required preservation/recording:** DDO-07/08/10/11; **conditional Arrow extension** | Record transient typed-vector contract and retire legacy writers/readers. Retain exact JSON and transaction-sharing COPY. New DDO Arrow read requires an actual tabular consumer and PG-Q5; no mandatory backend investigation before trigger. |
+| [Domain PG I08](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I08) | **Open bounded cleanup:** DDO-03/04, carrying prior PostgreSQL I05; conditional DDO-09/10 cross-check | Selected pglast header edits/shared fact decoder with body/ACL preservation at next affected native authoring change. SQLGlot compiled-SQL cross-check only for a named diagnostic consumer; declared semantics stay authoritative. |
+
+### Preparation questions and readiness
+
+The companion defines the investigation content and safe boundaries; this table owns current
+question disposition. Settling a design does not certify its implementation.
+
+| Question | Current disposition / owner | Settling result and constrained work |
+|---|---|---|
+| PG-Q1 (I01) | **Open**, DDO-03 with DDO-01/04 | Current protocol construct/nominal correspondence and exact recursive decoding design; supports all current valid operations and archived generation. Precedes generator/correspondence changes and dependent consumer migration. |
+| PG-Q2 (I04) | **Open**, DDO-04/05 | Actual frozen-predicate scope/column analysis selects selective acquisition or justifies necessary scoped aggregate. Precedes native verification rewrite; not a benchmark gate. |
+| PG-Q3 (I05) | **Open**, DDO-06/store owner | Actual retained renewal checkout/settlement lock plus port/admission borrower lifetimes; select sufficient capacity/initialization hooks and reconcile D3/D9. Rule impact, if any, precedes dependent implementation. |
+| PG-Q4 (I06/I03) | **Open**, DDO-01/10/11 | Finite live helper/compiler/format and historical migration/reference consumer account; specifies preserved/imported/regenerated and removable portions. Blocks only affected destructive retirement. |
+| PG-Q5 (I07) | **Deferred until trigger**, DDO-10 | Named tabular consumer first; then select and qualify native-pin/owner-XID visibility and snapshot handoff. Until then bounded native/Psycopg reads remain the route. |
+
+**Sequence:** establish I01 typed/correspondence and I02 selected-read design together before
+consumer detail. Integrate I04 scoped verification and I05 actual lifecycle work with their native/
+executor slices; complete I02/I03 producer, reuse/consolidation and public migrations vertically.
+I06 can proceed after its finite live-helper/import findings without waiting for unrelated provider
+completion. I08 joins the next actual affected authoring change under one successor-chain owner.
+DDO-11 verifies preserved closure before physical retirement; DDO-12 owns the combined final union.
+An agreed contract does not establish an implemented or verified prerequisite.
+
+**Defect and prior-review coverage:** prior PostgreSQL notice handlers and renewal locale defects
+are owned by I05; HalfVec mapping by I06/PG-Q4; stale D3/D9 pool/version/transfer text by I05/I07 with
+owner updates at the selected decision/implementation; version-specific parser/deparser limits by
+I08's affected cases. The withdrawn staged-member route stays withdrawn. Conditional Arrow,
+compiled-SQL checks, approximate search and other catalogue capabilities keep their triggers and
+non-adoptions in the companion. SQLA/Alembic I01–I05 foundations are reused, not rescheduled as defects.
+Original F01–F14/C1–C7 and CA IDs retain the existing rows and evidence owners.
+
+**Rules:** adopting planned scope does not adopt an unspecified new pool topology or consistency
+model. No new automatic rule change was identified by the review. A concrete changed rule discovered
+by PG-Q1–Q5 follows operator confirmation and the existing ADR/architectural route before dependent
+implementation. Correct stale descriptions with the appropriate owner; never edit accepted ADRs
+in place. This amendment grants no broader test, data or deployment authority.
 
 ## Foundation execution receipt · 2026-11-14
 
@@ -447,23 +511,28 @@ in main; named dependent receipts are held. Complete series qualification remain
 
 ## Execution queue and readiness
 
+The [PostgreSQL amendment](#postgresql-domain-alignment-amendment--accepted-2026-11-14)
+adds open scoped extensions to these packages; earlier foundation completion is not completion of
+those extensions. Read its readiness/question table alongside this queue before resuming. The
+operator's implementation/test stop remains in force.
+
 DDO-00 is **complete at its scoped preparation boundary**; DDO-01/02 retain **bounded foundation completion**. DDO-03/04 CA-08/09 repairs and immediate SQLA/Alembic alignment are **implemented; scoped Tested, 2026-11-14**. Explicit discovery input association under ADR-0104 is implemented and scoped native Tested across DDO-03/04/05. DDO-05 retains the delivered resolver and consumes the repaired native premises; actual selected-view child-binding integration now passes. The findings table and foundation receipt own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. The previous DDO-06–08 increment ended at the operator's closeout boundary; its full/provider qualification stays cancelled. The authorized focused foundation checks are concluded; complete final-head/family/provider qualification remains with DDO-12.
 
 | Package | Prerequisite capability | Delivered behavior and completion boundary |
 |---|---|---|
 | DDO-00 | Accepted RC01–09 and current code/data | Durable decisions/owner updates, complete operation/consumer inventory and preservation root classification; no destructive action before concrete closure |
-| DDO-01 | DDO-00 accepted mixed ownership | Both closed source/declaration frontends and one normalized operation/kind model; source/aggregate/effectful profiles represented |
+| DDO-01 | DDO-00 accepted mixed ownership | Both closed source/declaration frontends and one normalized operation/kind model; source/aggregate/effectful profiles represented. Explicit native nominal correspondence and legacy compiler reduction per Domain PG I01/I06 are additional open slices. |
 | DDO-02 | DDO-01 effective IR | Versioned canonical kind/subject/product/recipe/binding and admitted implementation-slice identities, independent expected examples |
-| DDO-03 | DDO-01/02; captured protocol and authoring alignment above | Direct suitable typed invocation plus generated native/wire correspondence, fixed relational bindings and equivalent native/explanation semantics; explicit source-migration effect preparation; no hidden selector authority |
-| DDO-04 | DDO-01–03 implemented contracts; aligned successor authoring | Native products/support/request/attempt/intent/fulfillment operations and purpose permissions, captured fate constraints, Core read realization and governed table/schema privilege transitions work under real transactional controls |
-| DDO-05 | DDO-03/04 including CA-08/09 and immediate SQLA/Alembic alignment | Native frozen demand, declared discovery/aggregate closure, explicit producer selection and dependency-derived frontier over coherent pinned binding rows |
-| DDO-06 | DDO-04 and DDO-05 resolved requests | Cross-demand coalescing, owned execution, fenced publication, exact uncertain replay, bounded drain and resume |
-| DDO-07 | DDO-01–06 usable vertical primitives | Capture/recognition/source and primary providers publish new products with their immediate consumers migrated |
-| DDO-08 | Same primitives + required DDO-07 products | Every downstream/structural/authored/external operation and effectful action realizes its declared profile; bypasses removed |
-| DDO-09 | DDO-02–04; integration with DDO-05–08 | Complete declared reuse, support-aware revocation/impact and modeled consolidation; remove conservative old mechanisms only after replacement works |
-| DDO-10 | DDO-04 selection; DDO-07–09 products | Pinned read/export/replay, protected assessment and supported operator model-update preview/apply; no hidden inference or cross-snapshot meaning |
-| DDO-11 | DDO-00 preserved closure + all target callers/native behavior | Coordinated forward adoption, disposable regeneration, verified source/reference custody and obsolete authority retirement |
-| DDO-12 | Complete functional DDO-00–11/frozen source | Series-owned applicable functional/native/fault/provider/nonfunctional union and retained-book/consumer qualification covered |
+| DDO-03 | DDO-01/02; captured protocol and authoring alignment above | Direct suitable typed invocation plus generated native/wire correspondence, fixed relational bindings and equivalent native/explanation semantics; explicit source-migration effect preparation; no hidden selector authority. Domain PG I01 includes correspondence validation, nested typed generation/decoder and actual consumers; I08 bounds native header cleanup. |
+| DDO-04 | DDO-01–03 implemented contracts; aligned successor authoring | Native products/support/request/attempt/intent/fulfillment operations and purpose permissions, captured fate constraints, Core read realization and governed table/schema privilege transitions work under real transactional controls. Domain PG I02/I04 adds selected-read contract and scoped verification; retain effect acquisition and frozen successors. |
+| DDO-05 | DDO-03/04 including CA-08/09 and immediate SQLA/Alembic alignment | Native frozen demand, declared discovery/aggregate closure, explicit producer selection and dependency-derived frontier over coherent pinned binding rows. Consume typed results and selective native premises under Domain PG I01/I04 without weakening population semantics. |
+| DDO-06 | DDO-04 and DDO-05 resolved requests | Cross-demand coalescing, owned execution, fenced publication, exact uncertain replay, bounded drain and resume. Domain PG I01/I03/I05 adds typed claim/replay callers, actual DB/renewal ownership, notice setup and contextual retry. |
+| DDO-07 | DDO-01–06 usable vertical primitives | Capture/recognition/source and primary providers publish new products with their immediate consumers migrated. Domain PG I03/I07 includes obsolete publisher/vector pathways with immediate readers and exact transfer custody. |
+| DDO-08 | Same primitives + required DDO-07 products | Every downstream/structural/authored/external operation and effectful action realizes its declared profile; bypasses removed. Domain PG I03/I07 includes external/visual/effect and vector consumer/native/config retirement. |
+| DDO-09 | DDO-02–04; integration with DDO-05–08 | Complete declared reuse, support-aware revocation/impact and modeled consolidation; remove conservative old mechanisms only after replacement works. Domain PG I02/I03 requires exact cut/currentness consumers before copied-task and stale-cut mechanism removal. |
+| DDO-10 | DDO-04 selection; DDO-07–09 products | Pinned read/export/replay, protected assessment and supported operator model-update preview/apply; no hidden inference or cross-snapshot meaning. Domain PG I01/I02/I06/I07 covers every public/protected consumer, compiler helpers and conditional Arrow visibility. |
+| DDO-11 | DDO-00 preserved closure + all target callers/native behavior | Coordinated forward adoption, disposable regeneration, verified source/reference custody and obsolete authority retirement. Domain PG I03/I06 requires actual sealed reader/import/reference closure before final obsolete physical/API/grant retirement. |
+| DDO-12 | Complete functional DDO-00–11/frozen source | Series-owned applicable functional/native/fault/provider/nonfunctional union and retained-book/consumer qualification covered. Include adopted PostgreSQL caller/lifecycle/retirement cases in the same applicable union, not another campaign. |
 
 DDO-09's admission/reuse contract design precedes first reuse-capable callers; the full package can
 finish after their integrations. DDO-10 defines public selection needs alongside DDO-04/07.

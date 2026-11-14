@@ -220,6 +220,20 @@ Alembic Utils, revision branch or second migration engine is required.
 
 ### Protected Core reads and explicit effects — I02
 
+**Domain PG I02/I04/I08 additions · accepted 2026-11-14.** Existing SQLA/Alembic foundation is
+retained. DDO-04 now also supplies the early selected-read contract consumed by public interfaces,
+and PG-Q2's [predicate-shaped selected verification](postgresql-realization-and-retirement.md#reads).
+The existing binding aggregate is already scoped by operation/subject/source/analyzed scope; narrow
+body acquisition only where actual predicates permit it. Preserve product-qualified member/grouped
+witnesses, population universals/absence, provider/trust identity and independent native selected
+verification. DDO-05 consumes usable native premises, not merely an agreed select shape.
+
+[Native structural cleanup](postgresql-realization-and-retirement.md#transfers) joins the next
+affected authoring change: selected pglast headers/shared descriptor extraction preserve body bytes,
+ACL/owner custody, Core placeholders and specialized effects. Changed bodies use immutable successors
+under one chain owner. No duplicate privilege/data-step rewrite or new migration framework is needed.
+
+
 Revise current `ops.data_binding_rows` and the read part of `ops.read_demand_result` with CA-08/09
 and the existing binding repair. Derive eligible body/row shape from Core selects over the shared
 `MetaData`, using the existing `projection_recipe`, `companion_projection_native` and

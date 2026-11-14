@@ -15,6 +15,15 @@ Source observations below are **Interface-checked, 2026-11-14**; recommendations
 recommendations keep their existing disposition owners. Publishing this review does not adopt its
 recommendations or change accepted scope or progress.
 
+**Planning adoption · 2026-11-14:** the operator subsequently selected all actionable I01–I08
+portions, preserving conditional triggers, in the
+[DDO coordinator amendment](../plans/declared-data-operations_2026-11-12.md#postgresql-domain-alignment-amendment--accepted-2026-11-14).
+That coordinator now owns scheduled disposition and investigation readiness; the
+[PostgreSQL companion](../plans/declared-data-operations/postgresql-realization-and-retirement.md)
+retains the implementation design and deletion boundaries. This source review retains its dated
+assessment and evidence limits. Selection and plan publication establish no implementation or
+new qualification.
+
 Code references below are relative to `python/corpus-structure/src/corpus_structure/`, unless
 otherwise specified. Symbol names and line locations refer to the inspected baseline.
 

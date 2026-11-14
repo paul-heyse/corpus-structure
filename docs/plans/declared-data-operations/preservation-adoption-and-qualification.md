@@ -36,6 +36,20 @@ before adoption. Unsettled work remains protected, not presumed recoverable or d
 
 ## DDO-11 — One coordinated forward adoption
 
+**Domain PG I03/I06/I07 adoption detail · accepted 2026-11-14.** Reconcile
+[the PostgreSQL retirement boundaries](postgresql-realization-and-retirement.md#retirement) with
+actual selected roots/readers before destructive steps. PG-Q4 covers live Arrow helpers/payload
+encoders/compiler identity, HalfVec/frozen imports, the older Alembic tree and protected old-frame
+applicability. Preserving source migration files alone does not establish instance recovery. Missing
+required custody constrains the affected deletion; it does not require preserving unrelated dead
+runtime paths or creating a legacy upgrade adapter.
+
+Current consumers migrate before physical retirement. Remove obsolete native APIs/grants,
+run-based semantic reuse/fallbacks, compiler target and mechanism-only tests with their replacements;
+retain physical attempt/lease fences, real sealed interpretation, source/reference bytes and
+independent expectations. Do not rewrite frozen active migrations, historical results or golds.
+
+
 Prepare target declarations/storage/native operations and migrate callers in code before choosing
 active entry points. Target foundations may exist unused while work proceeds; do not offer two
 independent production authorities or compatibility fallback after adoption.
@@ -98,6 +112,7 @@ No test count or earlier successful campaign substitutes for the declared union.
 | Serving/evaluation | Actual native/ci/MCP/resources, definition/assertion/all3contextual recipes, exact export/verify/detached replay; source and prediction releases separate; protected labels excluded from production |
 | Source evolution | Adopted finite transformations and ongoing `ci model change` preview/apply: independently expected source and domain meaning, actual migrated callers, complete required population, proposed-source compilation, staleness and concurrent/partial-apply recovery; former route removed |
 | Retained whole document | One frozen original316-view/518-page source demand, complete demanded-family fate/coverage account, controlled interruption/resume and exact completed-product preservation; no repeated PDF recognition merely to change identity |
+| PostgreSQL realization | Protocol-only structural/nominal changes at real callers; exact recursive/Decimal/absent/null fidelity; selected versus necessary population verification; actual renewal/port acquisition and once-only physical initialization; honest rollback versus uncertain-effect recovery; complete public/reference migration and live Arrow/helper/historical-import retirement. Conditional Arrow/SQL cross-check cases join only when triggered and selected. |
 | Generality | Independently specified non-statistics context involving attributed/quoted material and meaningful relationships; no page/corpus-specific planner logic |
 
 Qualification distinguishes authentic execution, source/family examination, retained fidelity and

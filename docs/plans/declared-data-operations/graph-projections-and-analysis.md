@@ -22,6 +22,15 @@ the governing contracts; it does not maintain a second completion ledger.
 
 ## Projection contract and physical route — I01
 
+**Domain PG I02/I04 integration · accepted 2026-11-14.** Runtime graph row acquisition consumes
+[the common selected read contract](postgresql-realization-and-retirement.md#reads), including typed
+product/member/context/support identities and the same cursor/trust interpretation as public
+read/export consumers. SQL row derivation and faithful graph construction are complementary
+responsibilities; neither can relabel candidate filtering as native selected admission. Narrowing
+body acquisition must retain all population/relationship/intermediate facts needed by the declared
+examined graph. No graph-specific database mirror, latest selection or separate cursor authority.
+
+
 **Accepted target; current completion boundary:** the pure typed graph kernels, dependency records
 and member `projection_families` policies cover useful subsets. They do not yet deliver the
 governing projection interpretation below. The coordinator's completion audit owns CA-06 and

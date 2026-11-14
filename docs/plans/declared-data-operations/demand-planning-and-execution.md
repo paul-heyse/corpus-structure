@@ -229,6 +229,21 @@ and delivered artifacts cannot silently supply missing intent.
 
 ### Physical route and exhaustion
 
+**Domain PG I01/I04/I05 integration · accepted 2026-11-14.** Consume generated typed native
+read/claim/result structures rather than reconstructing their fields from Any mappings after
+validation. Couple planner/native updates to [the selected read contract](postgresql-realization-and-retirement.md#reads)
+and PG-Q2 predicate requirements, preserving full-context roles and closed-population witnesses.
+A selected-key query is insufficient for an absence/universal predicate needing its full scope.
+
+DDO-06 delivers [database lifetime corrections](postgresql-realization-and-retirement.md#lifecycle)
+with the actual executor. PG-Q3 starts with maintained_claims' retained renewal checkout and settlement
+lock, then admission/port/foreground borrowers; thread counts alone cannot establish contention or
+safe capacity. Repair repeated physical dialect notice setup and use operation-owned bounded
+rollback-confirmed cancellation/lock-unavailability retry with lease checks. Preserve honest cause,
+unknown effects, native fences and exact receipt replay. Inference and capacity-waiting ports retain no foreground DB checkout; independently owned
+renewal residency follows PG-Q3. These open extensions do not undo earlier foundation evidence or restart testing.
+
+
 Prepare compiled rules once per verified release/execution context. Use set-oriented selection
 rooted in the demand's obligations and member identities, indexed by demand/subject/kind and exact
 input role. Publication/discovery advances the affected kind/subject frontier; reconnect/resume

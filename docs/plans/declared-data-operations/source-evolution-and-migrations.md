@@ -75,6 +75,20 @@ behavior change have different applicability contracts; none is inferred from te
 
 ## Preparation, coverage and publication
 
+**PostgreSQL consumer migration · accepted 2026-11-14 (Domain PG I01–I03/I06).** Include actual
+native typed-call, pinned query/export/evaluation and compiler/helper consumers from
+[the PostgreSQL account](postgresql-realization-and-retirement.md#retirement) in each finite source
+universe. Generate call/row/archive products through their owners; do not codemod generated outputs.
+Admitted call correspondence and authentic demand/read/trust context precede caller transformation.
+A former dynamic caller unresolved by this workflow remains a migration obligation at its package.
+
+The initial source-effect contract has no whole-file deletion. Where a selected automated retirement
+requires that capability, extend the existing effect/preview/apply owner deliberately with exact
+before-byte, staleness and retry semantics before claiming that migration delivered. Ordinary
+explicit repository edits under later implementation authorization can retire whole files without
+inventing another writer. No source migration deploys a native successor or rewrites historical bytes.
+
+
 1. Acquire the explicitly selected authored inputs, logical module/import context and consumer
    source universe through the existing source owners. Define its roots/exclusions and required
    consumer population from the actual operation/adapter inventory, including relevant new files;

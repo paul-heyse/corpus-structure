@@ -18,6 +18,17 @@ neither implements DDO-09's semantic classifications nor closes copied-task reus
 
 ## One mechanism for currentness and substitutability
 
+**Domain PG I02/I03 completion detail · accepted 2026-11-14.** DDO-09 owns one cut/selection,
+substitutability/currentness and reverse-lineage meaning consumed by native projections, serving
+and evaluation. Define the early selected contract alongside DDO-04/10; do not wait for all providers
+before specifying it. [PostgreSQL consumer boundaries](postgresql-realization-and-retirement.md#retirement)
+require actual cut and public readers to stop dereferencing copied task origins before retiring
+twin lookup/task_dependency_scope/reused_task_id semantic equality and competing stale-cut logic.
+Preserve per-run published knowledge where required, authentic producer episodes, current support
+admission and independent nonreuse cases. Completing a new reuse helper while current consolidation
+or export retains the old classifier cannot close this obligation.
+
+
 Compile typed producer/consumer dependencies from the common effective model of both authoring routes. Reuse existing normalized
 member diffs as change facts; `semantic/operation_reporting.py:791–888` does not already provide
 complete transitive data-operation impact. Use shared graph primitives for declaration closure and pinned runtime lineage/impact

@@ -45,7 +45,9 @@ performs no review and changes no implementation plan.
   whole Python PostgreSQL responsibility and consumer review; derived typed native surfaces,
   complete pinned read/reuse and legacy retirement boundaries, pool/failure ownership, legacy
   compiler reduction and transfer preservation. Identifies the uncommitted read-pin obstacle to
-  separate-session ADBC snapshot reads. Reconciles both earlier PostgreSQL reviews; proposals only.
+  separate-session ADBC snapshot reads. Reconciles both earlier PostgreSQL reviews. Actionable portions were subsequently selected with
+  conditions preserved in the [DDO amendment](../plans/declared-data-operations_2026-11-12.md#postgresql-domain-alignment-amendment--accepted-2026-11-14);
+  the coordinator owns execution disposition.
 
 - [Declared data operations with PostgreSQL client libraries](declared-data-operations-postgresql-libraries_2026-11-14.md):
   full overview/addendum coverage of pglast, sqlglot, psycopg, psycopg-pool, pgpq, pgvector and

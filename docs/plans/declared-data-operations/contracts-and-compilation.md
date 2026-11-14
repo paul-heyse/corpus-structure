@@ -288,6 +288,25 @@ recipe determinants under the supported profile; broad runtime/library inventory
 
 ### Typed ports and trust boundaries
 
+**PostgreSQL amendment · accepted 2026-11-14 (Domain PG I01).** In addition to suitable direct
+Python algorithm ports, DDO-03 must deliver useful typed requests/results at the fixed native wire
+boundary. The [shared realization](postgresql-realization-and-retirement.md#typed-native) owns
+captured protocol structural emission/decoding; this section owns nominal field correspondence,
+absent/null/recursive exact value semantics and their effective-model meaning. Existing generic
+json_payload call signatures do not complete this extension. PG-Q1 in the coordinator precedes
+changes to correspondence validation (currently rejecting nested records), emitter and decoder.
+Runtime Draft7 preserves conditional/cross-field constraints; no complete static-schema equivalence
+or new editable DTO catalog is promised. Generated types confer no native authority.
+
+Migrate planner/service, claim/publication/recovery, admission/external and new public read callers
+with the generated interface. A protocol-only change must reach actual consumed fields and archived
+products, while explicit nominal correspondence distinguishes otherwise identical identifier strings.
+Keep exact value/wire identity and historical interpretation unchanged unless a separately identified
+semantic change requires versioning. DDO-01/10 also reduce the legacy relational target only after
+[its live type/helper consumers](postgresql-realization-and-retirement.md#retirement) are separated;
+DDO-02's earlier identity evidence remains bounded evidence, not coverage of this new extension.
+
+
 Use the authoritative typed Python invocation surface directly where suitable. Generate necessary
 native/wire/protocol correspondences and declaration-owned operation boundaries from DDO-01; do not
 maintain redundant parameter/default wrappers for implementation-owned operations. Preserve nominal semantic distinctions through the existing

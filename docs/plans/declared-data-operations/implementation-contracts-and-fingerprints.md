@@ -27,6 +27,17 @@ the governing contracts; it does not maintain a second completion ledger.
 
 ## Authoring authority and effective model — I01
 
+**Domain PG I01 integration · accepted 2026-11-14.** The native wire protocol remains an externally
+owned captured definition; stronger Python interfaces are derived products, not implementation-owned
+facts that reverse that authority. [Typed native realization](postgresql-realization-and-retirement.md#typed-native)
+extends existing source/call/artifact emission through correspondence validation and exact decoding.
+Capture generator/source/correspondence determinants in archive preparation and drift; avoid another
+editable checkout signature/DTO copy. Non-derivable nominal field bindings are explicit owned facts.
+Custom producer validators and runtime admission stay in their own scopes. Actual planner/executor/
+public caller adoption is required before retiring duplicate field maps; a successful extraction or
+type generation example alone does not cover the consumer population.
+
+
 DDO-00 inventories the actual semantic owner of each supported operation. Externally defined
 protocols/model semantics keep declaration-owned contracts and implementation conformance. Coupled
 Python algorithms use an implementation-owned typed operation class with colocated domain metadata;

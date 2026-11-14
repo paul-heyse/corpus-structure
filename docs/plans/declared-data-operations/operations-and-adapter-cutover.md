@@ -92,6 +92,21 @@ algorithm and focused independent controls—not new central method-name lists.
 
 ## Boundaries and acceptance
 
+**Domain PG I03/I07 replacement boundary · accepted 2026-11-14.** Each migrated family includes
+its actual PostgreSQL writer and immediate readers. Use [the concrete consumer/deletion account](postgresql-realization-and-retirement.md#retirement)
+to cover complete_task payloads, run preparation/finalization/reporting, visual/external request
+routes, vector JSON/text-cast storage, native symbols/grants, configuration and mechanism tests.
+Reacquire remaining callers: several ordinary drivers and providers are already replaced, so do not
+reschedule deleted mechanisms or treat declaration existence as integrated acceptance.
+
+Current vector products use typed transient VECTOR(d) exact retrieval over the selected inventory;
+record that contract and remove the old stored-task-vector route only with its actual callers.
+Exact JSON semantic bodies and same-transaction Psycopg/pgpq PDF/archive staging remain legitimate
+owned transports. Original episodes, physical task fences, CPU/provider custody and useful kernels
+survive semantic run/group/reuse removal. Public read/reference retirement still requires DDO-10/11;
+no invented legacy task/view address may bridge a missing target consumer.
+
+
 DDO-09 supplies shared reuse/trust/change decisions; DDO-10 supplies public and protected read
 projections. Their interface design proceeds alongside these families, not after publication is
 finalized. DDO-11 coordinates final direct cutover once all active callers are ready. Old machinery

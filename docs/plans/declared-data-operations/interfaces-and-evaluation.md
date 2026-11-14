@@ -7,6 +7,27 @@ contract design participates in producer/native publication packages rather than
 
 ## One read projection
 
+**Domain PG I01/I02/I06/I07 extension · accepted 2026-11-14.** Build the selected read contract
+early with DDO-04/09 and consume useful typed native records from DDO-03. The
+[PostgreSQL realization](postgresql-realization-and-retirement.md#reads) and
+[consumer account](postgresql-realization-and-retirement.md#retirement) define actual migration
+boundaries: journey/read and contribution queries, characterization/contextual navigation,
+definition/assertion/all three contextual recipes, records/export, MCP resources/cursors,
+selected-source/review bundles, detached verification/replay, and evaluation/reference tools.
+Internal demand inspection does not replace any of these supported journeys.
+
+Current exports require explicit source/runtime/support pins before missing-runtime or dual-address
+fallback removal. Retained old frame/pair/singleton applicability and original-grade comparison need
+reviewed correspondence, not automatic regrading. Coordinate live SQL-to-Arrow helper extraction
+with DDO-01 before deleting legacy interchange; preserve current record export type fidelity.
+
+New DDO Arrow transport stays conditional on an actual tabular consumer. PG-Q5 then resolves the
+[read-pin visibility obstacle](postgresql-realization-and-retirement.md#transfers): importing a
+snapshot cannot expose the acquiring transaction's uncommitted read row or reproduce owner-XID
+visibility. Preserve native/Psycopg bounded reads until a handoff is selected and qualified. A pure
+projection/atomic JSON page remains valid; no second read authority or backend delivery gate follows.
+
+
 Replace task/run-origin joins with a pinned DemandResult/CutSelection projection over selected
 fulfillment, source and support. Retain original producing episodes, zero-output operation
 population, coverage, unresolved alternatives and rejected/failed fates. The projection is derived,
