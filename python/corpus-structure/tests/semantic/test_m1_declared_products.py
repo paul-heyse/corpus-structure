@@ -243,7 +243,12 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
     )
     assert "records" not in report and "contributions" not in report
     (packet,) = report["members"]
-    assert packet["member_id"] == "record:" + records[0]["record_id"]
+    assert packet["member_id"].startswith("record:")
+    alternative = {**records[0], "interpretation_id": "distinct-interpretation"}
+    alternatives = candidate_report(prepared, model, M1CandidateProduct(ObservationOutcome.PRODUCED, records=(*records, alternative), contributions=()), frame, SubjectContext("p", member.subject, member.original_source, member.analyzed_scope))
+    assert len({row["member_id"] for row in alternatives["members"]}) == 2
+    assert {row["body"]["record_id"] for row in alternatives["members"]} == {records[0]["record_id"]}
+    assert {row["body"]["interpretation_id"] for row in alternatives["members"]} == {records[0]["interpretation_id"], "distinct-interpretation"}
     assert packet["body"]["candidate_type"] == "record"
     assert packet["body"]["record_id"] == records[0]["record_id"]
     kind = next(

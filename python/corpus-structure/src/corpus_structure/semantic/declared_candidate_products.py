@@ -1,11 +1,13 @@
 """One source-bound private candidate inspection artifact for declared producers."""
 
 from pathlib import Path
+from hashlib import sha256
 
 import yaml
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import json_context_meaning
+from .identity import canonical_bytes
 from .declared_record_sources import declared_record_inputs
 from .source_products import source_product_inputs
 from .types import SourceArtifact, SourceBundle
@@ -45,6 +47,15 @@ def candidate_inspection_inputs(bundle):
             ),
         ),
     )
+
+
+def candidate_member_id(candidate_type, value):
+    """Address an actual interpretation, preserving shared domain record identity."""
+    if candidate_type == "record":
+        return "record:" + sha256(canonical_bytes([value["record_id"], value["interpretation_id"]])).hexdigest()
+    if candidate_type == "contribution":
+        return "contribution:" + value["contribution_id"]
+    raise ValueError("unknown candidate member family")
 
 
 def candidate_inspection_report(
@@ -90,9 +101,9 @@ def candidate_inspection_report(
     kinds = {kind.name: kind.semantic_id for kind in model.kinds}
     contracts = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     packets = []
-    for candidate_type, class_name, identifier, values in (
-        ("record", record_class, "record_id", records),
-        ("contribution", contribution_class, "contribution_id", contributions),
+    for candidate_type, class_name, values in (
+        ("record", record_class, records),
+        ("contribution", contribution_class, contributions),
     ):
         for value in values:
             if value.get("candidate_type", candidate_type) != candidate_type:
@@ -103,7 +114,7 @@ def candidate_inspection_report(
             )
             packets.append(
                 {
-                    "member_id": candidate_type + ":" + value[identifier],
+                    "member_id": candidate_member_id(candidate_type, checked),
                     "kind_contract": contracts[kinds[class_name], "kind"],
                     "context": {
                         "subject": context.subject,
