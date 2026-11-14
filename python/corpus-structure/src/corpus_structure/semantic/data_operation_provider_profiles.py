@@ -4,6 +4,7 @@ A semantic asset owns the provider projection. Runtime manifests attest an acqui
 execution projection; neither caller inference strings nor current request settings
 can supply an input's original producing profile.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,11 +29,16 @@ def _identity(key, meaning, domain):
 
 def profile_asset(name, selection, policy):
     projections = selection.native.identity_projections(inference_policy=policy)
-    return SourceArtifact(name, canonical_bytes({
-        "version": VERSION,
-        "identity": projections.inference.key,
-        "meaning": json.loads(projections.inference.canonical_input),
-    }))
+    return SourceArtifact(
+        name,
+        canonical_bytes(
+            {
+                "version": VERSION,
+                "identity": projections.inference.key,
+                "meaning": json.loads(projections.inference.canonical_input),
+            }
+        ),
+    )
 
 
 def profile_attestation(selection, policy):
@@ -48,7 +54,11 @@ def profile_attestation(selection, policy):
 
 def checked_profile(content):
     value = json.loads(content)
-    if not isinstance(value, dict) or set(value) != {"version", "identity", "meaning"} or value["version"] != VERSION:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"version", "identity", "meaning"}
+        or value["version"] != VERSION
+    ):
         raise ValueError("unsupported captured provider profile")
     _identity(value["identity"], value["meaning"], "inference")
     if canonical_bytes(value) != content:
@@ -57,16 +67,27 @@ def checked_profile(content):
 
 
 def checked_attestation(value, profile):
-    if not isinstance(value, dict) or set(value) != {"version", "identity", "meaning", "execution_identity", "execution_meaning"} or value["version"] != EXECUTION_VERSION:
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {"version", "identity", "meaning", "execution_identity", "execution_meaning"}
+        or value["version"] != EXECUTION_VERSION
+    ):
         raise ValueError("unsupported provider execution attestation")
     if (value["identity"], value["meaning"]) != (profile["identity"], profile["meaning"]):
         raise ValueError("provider execution meaning differs from captured semantic profile")
     _identity(value["execution_identity"], value["execution_meaning"], "execution-profile")
     fields = decode_semantic_value(value["execution_meaning"][3])
-    if not isinstance(fields, dict) or any(not isinstance(row, dict) or set(row) != {"role", "value"} or row["role"] not in {"semantic", "execution"} for row in fields.values()):
+    if not isinstance(fields, dict) or any(
+        not isinstance(row, dict)
+        or set(row) != {"role", "value"}
+        or row["role"] not in {"semantic", "execution"}
+        for row in fields.values()
+    ):
         raise ValueError("provider execution field roles differ")
     semantic = {name: row["value"] for name, row in fields.items() if row["role"] == "semantic"}
     from .data_operation_identity import semantic_fields
+
     expected = canonical_identity("inference", semantic_fields(semantic.items()))
     if expected.key != profile["identity"]:
         raise ValueError("execution profile semantic fields differ from provider profile")
@@ -89,8 +110,11 @@ def operation_profile(operation, contracts):
 
 def runtime_profiles(model, sources):
     """Resolve only explicitly supplied runtime archive inputs, never ambient resources."""
-    contracts = tuple(SourceArtifact(source.name.removeprefix("data-operations/contracts/"), source.content)
-        for source in sources if source.name.startswith("data-operations/contracts/"))
+    contracts = tuple(
+        SourceArtifact(source.name.removeprefix("data-operations/contracts/"), source.content)
+        for source in sources
+        if source.name.startswith("data-operations/contracts/")
+    )
     result = {}
     for operation in model.operations:
         profile = operation_profile(operation, contracts)
@@ -100,7 +124,7 @@ def runtime_profiles(model, sources):
         for source in contracts:
             try:
                 document = json.loads(source.content)
-            except (ValueError, UnicodeDecodeError):
+            except ValueError:
                 continue
             if isinstance(document, dict) and "provider_profile" in document:
                 candidate = document["provider_profile"]
@@ -109,6 +133,10 @@ def runtime_profiles(model, sources):
         if len(matches) != 1:
             raise ValueError("provider operation requires one exact runtime profile attestation")
         source, attestation = matches[0]
-        result[operation.semantic_id] = {"profile": profile, "attestation": attestation,
-            "runtime_contract": source.name, "runtime_sha256": source.digest}
+        result[operation.semantic_id] = {
+            "profile": profile,
+            "attestation": attestation,
+            "runtime_contract": source.name,
+            "runtime_sha256": source.digest,
+        }
     return result

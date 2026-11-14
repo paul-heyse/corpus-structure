@@ -33,6 +33,7 @@ from .data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from .data_operation_projections import member_columns
 from .data_operation_source_sets import (
     FrozenSourceSet,
     is_semantic_source_reference,
@@ -49,7 +50,6 @@ BindingStatus = Literal[
     "invalid",
     "unavailable",
 ]
-from .data_operation_projections import member_columns
 
 _MEMBER_COLUMNS = member_columns()
 

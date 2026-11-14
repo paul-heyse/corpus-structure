@@ -34,6 +34,7 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
+    from .data_operation_protocol import recordable_fate_sql
     from .data_operation_source_native import source_native_sources
     from .data_operation_support import (
         ORIGINAL_REFERENCE_SCHEMA,
@@ -43,14 +44,16 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     )
     from .data_operation_wire_native import wire_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
-    from .data_operation_protocol import recordable_fate_sql
 
     protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
     from .data_operation_projections import capture_projection_sources
 
     return (
         *capture_projection_sources(),
-        SourceArtifact("native/data-operation-provider-profiles.py", Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-provider-profiles.py",
+            Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
+        ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(
             "native/data-operation-pdf-completion.sql", pdf_completion_native_sql().encode()
@@ -70,7 +73,9 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/data-operation-recordable-fates.sql", recordable_fate_sql(protocol).encode()),
+        SourceArtifact(
+            "native/data-operation-recordable-fates.sql", recordable_fate_sql(protocol).encode()
+        ),
         SourceArtifact(
             "native/data-operation-protocol.py",
             Path(__file__).with_name("data_operation_protocol.py").read_bytes(),
@@ -117,18 +122,30 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-support.py",
     }
     if b"__DDO_RECORDABLE_FATES__" in result.get("native/data-operations.sql", b""):
-        required.update({"native/data-operation-protocol.py", "native/data-operation-recordable-fates.sql"})
+        required.update(
+            {"native/data-operation-protocol.py", "native/data-operation-recordable-fates.sql"}
+        )
     if b"admit_original_document_asset" in result.get("native/data-operation-protocol.yaml", b""):
         required.add("native/data-operation-original-support-reference.json")
     if b".data_operation_json import" in result.get("native/data-operation-wire.py", b""):
         required.add("native/data-operation-json.py")
     if b"__DDO_CORE_" in result.get("native/data-operations.sql", b""):
-        required.update({"native/data-operation-projections.py", "native/data-operation-projections.json", "native/data-operation-provider-profiles.py"})
+        required.update(
+            {
+                "native/data-operation-projections.py",
+                "native/data-operation-projections.json",
+                "native/data-operation-provider-profiles.py",
+            }
+        )
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
-    if b"__DDO_CORE_" in result["native/data-operations.sql"]:
-        if result.get("native/projection-physical/data-operation-native.yaml") != result["native/data-operation-protocol.yaml"] or result.get("native/projection-physical/data-operation-physical.yaml") != result["native/data-operation-physical.yaml"]:
-            raise ValueError("Core projection physical/protocol capture differs from native custody")
+    if b"__DDO_CORE_" in result["native/data-operations.sql"] and (
+        result.get("native/projection-physical/data-operation-native.yaml")
+        != result["native/data-operation-protocol.yaml"]
+        or result.get("native/projection-physical/data-operation-physical.yaml")
+        != result["native/data-operation-physical.yaml"]
+    ):
+        raise ValueError("Core projection physical/protocol capture differs from native custody")
     return result
 
 
@@ -608,7 +625,11 @@ def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 def data_operation_definition_projection(
-    prepared: PreparedRelease, model: EffectiveDataOperationModel, *, native_digest: str, captured_contracts=()
+    prepared: PreparedRelease,
+    model: EffectiveDataOperationModel,
+    *,
+    native_digest: str,
+    captured_contracts=(),
 ) -> bytes:
     """Compile the fixed native projection for authenticated release archiving."""
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
@@ -712,7 +733,11 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
-                    **({"provider_profile": profile} if (profile := operation_profile(operation, captured_contracts)) is not None else {}),
+                    **(
+                        {"provider_profile": profile}
+                        if (profile := operation_profile(operation, captured_contracts)) is not None
+                        else {}
+                    ),
                     **(
                         {
                             "output_witnesses": [
@@ -824,7 +849,7 @@ def admitted_data_projection(
     The query rechecks the trust snapshot when executed. Evidence captures the same
     pins, and contains no claim that a raw product row is admissible evidence.
     """
-    from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, Numeric, String, cast, column
+    from sqlalchemy import cast
 
     from .data_operation_bindings import ProjectionBinding, ProjectionField
     from .data_operation_kind_refinements import input_kind_contracts
@@ -850,6 +875,7 @@ def admitted_data_projection(
     from .data_operation_projections import binding_columns
 
     columns = binding_columns(decoder=True)
+    json_columns = {item.name for item in binding_columns() if isinstance(item.type, JSONB)}
     names = tuple(item.name for item in columns)
     relation = func.ops.data_binding_rows(
         demand_id,
@@ -913,7 +939,10 @@ def admitted_data_projection(
             fields = [field for field in fields if field.name != name]
             meaning = cast(func.data.ddo_field(relation.c.meaning_body, name), JSONB)
             expression, value_type = typed_field_projection(
-                meaning, relation.c.body[name], value_type, multivalued=bool(prop.get("multivalued"))
+                meaning,
+                relation.c.body[name],
+                value_type,
+                multivalued=bool(prop.get("multivalued")),
             )
             selected.append(expression.label(label))
             fields.append(ProjectionField(name, label, value_type))
