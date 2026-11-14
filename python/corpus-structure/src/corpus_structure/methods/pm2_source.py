@@ -21,6 +21,7 @@ from corpus_structure.semantic.source_contexts import (
     NativeSpanReading,
     SourceSlice,
     evidence_anchor,
+    source_slice,
 )
 
 if TYPE_CHECKING:
@@ -236,7 +237,7 @@ class PM2SourceMap:
         if (
             prepared.source != pin
             or not _bounds(start, end, len(context.primary.text))
-            or context.pieces != (SourceSlice(pin.source_view_id, start, end),)
+            or context.pieces != (source_slice(context.primary, start, end),)
             or context.text != prepared.block.text
             or sha256(context.text.encode()).hexdigest() != layout.text_digest
         ):

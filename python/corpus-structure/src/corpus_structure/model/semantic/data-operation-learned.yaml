@@ -1,0 +1,220 @@
+id: https://corpus-structure.dev/semantic/data-operation-learned
+name: data_operation_learned
+prefixes:
+  dlp: https://corpus-structure.dev/semantic/data-operation-learned/
+default_prefix: dlp
+default_range: string
+imports:
+- data_operation_source
+- data_operation_source_discovery
+- data_operation_candidate_inspection
+- data_operation_constructions
+classes:
+  DdoLearnedObservation:
+    is_a: DdoCharacterizationEnvelope
+    abstract: true
+    attributes:
+      provider:
+        required: true
+      profile_digest:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      source_pin:
+        range: RecordSourcePin
+        inlined: true
+        required: true
+      standing:
+        required: true
+        equals_string: native_provider_observation
+      observations:
+        range: SourceObject
+        inlined_as_list: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      outcome:
+        required: true
+        pattern: ^(complete|partial)$
+      dependencies:
+        range: DdoSemanticProductReference
+        inlined_as_list: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  DdoMaverickManifest:
+    is_a: DdoCharacterizedProduct
+    attributes: {}
+  DdoMaverickManifestPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSourceViewContext
+        inlined: true
+        required: true
+      body:
+        range: DdoMaverickManifest
+        inlined: true
+        required: true
+  DdoMaverickObservations:
+    is_a: DdoLearnedObservation
+    attributes:
+      members:
+        range: DdoMaverickManifestPacket
+        inlined_as_list: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        maximum_cardinality: 1
+  DdoDipoManifest:
+    is_a: DdoCharacterizedProduct
+    attributes: {}
+  DdoDipoManifestPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSourceViewContext
+        inlined: true
+        required: true
+      body:
+        range: DdoDipoManifest
+        inlined: true
+        required: true
+  DdoDipoObservations:
+    is_a: DdoLearnedObservation
+    attributes:
+      members:
+        range: DdoDipoManifestPacket
+        inlined_as_list: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        maximum_cardinality: 1
+  DdoD1SourceManifest:
+    is_a: DdoCharacterizedProduct
+    attributes: {}
+  DdoD1SourceManifestPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSourceViewContext
+        inlined: true
+        required: true
+      body:
+        range: DdoD1SourceManifest
+        inlined: true
+        required: true
+  DdoD1SourceObservations:
+    is_a: DdoLearnedObservation
+    attributes:
+      members:
+        range: DdoD1SourceManifestPacket
+        inlined_as_list: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        maximum_cardinality: 1
+  DdoD1CandidatesManifest:
+    is_a: DdoCharacterizedProduct
+    attributes: {}
+  DdoD1CandidatesManifestPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSourceViewContext
+        inlined: true
+        required: true
+      body:
+        range: DdoD1CandidatesManifest
+        inlined: true
+        required: true
+  DdoD1CandidatesObservations:
+    is_a: DdoLearnedObservation
+    attributes:
+      members:
+        range: DdoD1CandidatesManifestPacket
+        inlined_as_list: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        maximum_cardinality: 1
+  DdoGlinerCuesManifest:
+    is_a: DdoCharacterizedProduct
+    attributes: {}
+  DdoGlinerCuesManifestPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSourceViewContext
+        inlined: true
+        required: true
+      body:
+        range: DdoGlinerCuesManifest
+        inlined: true
+        required: true
+  DdoGlinerCuesObservations:
+    is_a: DdoLearnedObservation
+    attributes:
+      members:
+        range: DdoGlinerCuesManifestPacket
+        inlined_as_list: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        maximum_cardinality: 1
+  DdoGlinerFunctionManifest:
+    is_a: DdoCharacterizedProduct
+    attributes: {}
+  DdoGlinerFunctionManifestPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      kind_contract:
+        required: true
+      context:
+        range: DdoSourceViewContext
+        inlined: true
+        required: true
+      body:
+        range: DdoGlinerFunctionManifest
+        inlined: true
+        required: true
+  DdoGlinerFunctionObservations:
+    is_a: DdoLearnedObservation
+    attributes:
+      members:
+        range: DdoGlinerFunctionManifestPacket
+        inlined_as_list: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        maximum_cardinality: 1
+  DdoContextualNativeProduct:
+    is_a: DdoInterpretedProduct
+    attributes:
+      members:
+        range: DdoContextualPacket
+        inlined_as_list: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0

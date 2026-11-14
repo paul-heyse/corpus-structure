@@ -51,8 +51,18 @@ def digest(value: Any) -> str:
     return sha256(canonical_bytes(value)).hexdigest()
 
 
+def source_identity(view):
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    return view.source_key if isinstance(view, DeclaredNativeFrameSource) else view.ref.id
+
+
+def source_projection(view):
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    return view.projection_digest if isinstance(view, DeclaredNativeFrameSource) else view.ref.projection_digest
+
+
 def source_selector(view: Any, start: int, end: int, pointer: str | None = None) -> dict[str, Any]:
-    row = dict(projection=view.ref.projection_digest, start=start, end=end)
+    row = dict(projection=source_projection(view), start=start, end=end)
     if pointer is not None:
         row["native_pointer"] = pointer
     return row
@@ -69,7 +79,7 @@ def has_selected_native_text(view: Any, selectors: Sequence[Mapping[str, Any]]) 
         if piece["kind"] != "native_text":
             continue
         for selector in selectors:
-            if selector["projection"] != view.ref.projection_digest:
+            if selector["projection"] != source_projection(view):
                 continue
             pointer = selector.get("native_pointer")
             current, seen = piece.get("item_ref"), set()
@@ -132,16 +142,16 @@ class NativeEvidenceBuilder:
             raise ValueError("native extent is outside its source projection")
         extents = []
         position = start
-        if view.ref.id not in self._source_maps:
+        if source_identity(view) not in self._source_maps:
             real = [p for p in view.pieces if p["kind"] == "native_text"]
             items = {node["self_ref"]: node for node in getattr(view, "items", ())}
-            self._source_maps[view.ref.id] = (
+            self._source_maps[source_identity(view)] = (
                 [p["end"] for p in view.pieces],
                 real,
                 [p["end"] for p in real],
                 items,
             )
-        piece_ends, real, real_ends, items = self._source_maps[view.ref.id]
+        piece_ends, real, real_ends, items = self._source_maps[source_identity(view)]
         first = bisect_right(piece_ends, start)
         for piece in view.pieces[first:]:
             if piece["start"] >= end:
@@ -161,14 +171,16 @@ class NativeEvidenceBuilder:
             if pointer is None:
                 raise ValueError("synthetic token has no source context")
             extent = dict(
-                projection=view.ref.projection_digest,
-                source_view_id=view.ref.id,
+                projection=source_projection(view),
                 native_pointer=pointer,
                 start=a,
                 end=b,
                 text=view.text[a:b],
                 synthetic=synthetic,
             )
+            from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+            if not isinstance(view, DeclaredNativeFrameSource):
+                extent["source_view_id"] = view.ref.id
             if not synthetic:
                 node = items.get(pointer, {})
                 pages = {
@@ -600,9 +612,7 @@ class NativeEvidenceBuilder:
                     )
         return missing_predicate
 
-    def payload(
-        self, release_id: str, *, dependencies: Sequence[Mapping[str, Any]] = ()
-    ) -> dict[str, Any]:
+    def coverage_values(self):
         coverage = []
         for family in self.families:
             rows = self.covered[family]
@@ -659,6 +669,12 @@ class NativeEvidenceBuilder:
             if not complete:
                 row["reason"] = "; ".join(reasons) or "native family is incomplete"
             coverage.append(row)
+        return coverage
+
+    def payload(
+        self, release_id: str, *, dependencies: Sequence[Mapping[str, Any]] = ()
+    ) -> dict[str, Any]:
+        coverage = self.coverage_values()
         return dict(
             format="characterization-layer-v1",
             base_document=self.base,

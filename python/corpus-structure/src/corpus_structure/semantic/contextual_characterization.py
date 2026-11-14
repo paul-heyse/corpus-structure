@@ -15,9 +15,13 @@ from corpus_structure.methods.native_evidence_layers import (
     NativeEvidenceBuilder,
     digest,
     source_selector,
+    source_identity,
+    source_projection,
 )
 from corpus_structure.methods.pm2_dipo_products import _pair, _tree_children, _validate_boundaries
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.data_product_reference import (DataProductReference, DataProductMemberReference, member_reference, read_member_reference)
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 
 CONTEXT_FAMILIES = (
     "context.structure",
@@ -65,7 +69,7 @@ class ContextInput:
                 raise ValueError("context source part lies outside its projection")
             if index:
                 previous = parts[index - 1]
-                contiguous = previous.view.ref.id == part.view.ref.id and previous.end == part.start
+                contiguous = source_identity(previous.view) == source_identity(part.view) and previous.end == part.start
                 if not contiguous:
                     chunks.append("\n")
                     position += 1
@@ -196,7 +200,8 @@ class ContextualLayer(NativeEvidenceBuilder):
             pin: layers[pin] for pin in (layers if semantic_pins is None else semantic_pins)
         }
         for pin, report in layers.items():
-            if report.base_document.values() != self.base:
+            actual_base = report.payload["source"] if isinstance(pin, DataProductReference) else report.base_document.values()
+            if actual_base != self.base:
                 raise ValueError("context dependency belongs to another source document")
             for group in report.payload["choices"]:
                 for member in group["members"]:
@@ -222,7 +227,7 @@ class ContextualLayer(NativeEvidenceBuilder):
         if len(candidates) != 1:
             raise ValueError("context endpoint is absent or ambiguous in its retained layer")
         source = candidates[0]
-        external = dict(layer=pin.values(), local_id=local_id)
+        external = member_reference(pin, local_id).values()
         occurrences = {o["local_id"]: o for o in body["occurrences"]}
         selected = []
         for oid in source.get("occurrences", ()):
@@ -230,8 +235,8 @@ class ContextualLayer(NativeEvidenceBuilder):
             # A source-local endpoint must belong to this operation's examined source.
             if not all(
                 any(
-                    e["projection"] == part.view.ref.projection_digest
-                    and e.get("source_view_id") == part.view.ref.id
+                    e["projection"] == source_projection(part.view)
+                    and (isinstance(part.view, DeclaredNativeFrameSource) or e.get("source_view_id") == part.view.ref.id)
                     and part.start
                     <= e.get("start", part.start)
                     <= e.get("end", part.end)
@@ -275,7 +280,7 @@ class ContextualLayer(NativeEvidenceBuilder):
         self, pin: ProductReference, node: Mapping[str, Any]
     ) -> list[dict[str, Any]]:
         return [
-            dict(layer=pin.values(), local_id=choice) for choice in node.get("required_choices", ())
+            member_reference(pin, choice).values() for choice in node.get("required_choices", ())
         ] + list(node.get("required_external_choices", ()))
 
     def propose(
@@ -295,14 +300,15 @@ class ContextualLayer(NativeEvidenceBuilder):
             raise ValueError("context hypothesis has an unknown endpoint")
         seen = {}
         for choice in choices:
-            pin = ProductReference(**choice["layer"])
-            selected = self._choice_groups.get((pin, choice["local_id"]))
+            reference = read_member_reference(choice)
+            pin, local_id = (reference.product, reference.member_id) if isinstance(reference, DataProductMemberReference) else (reference.layer, reference.local_id)
+            selected = self._choice_groups.get((pin, local_id))
             if selected is None:
                 raise ValueError("context hypothesis requires an unknown analytical choice")
             group, compatibility = selected
             if compatibility in {"exclusive", "unknown"}:
-                previous = seen.setdefault((pin, group), choice["local_id"])
-                if previous != choice["local_id"]:
+                previous = seen.setdefault((pin, group), local_id)
+                if previous != local_id:
                     raise ValueError("context hypothesis combines incompatible analytical choices")
         occurrences = list(
             dict.fromkeys(
@@ -399,7 +405,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                 ):
                     continue
                 if any(
-                    e["projection"] == part.view.ref.projection_digest
+                    e["projection"] == source_projection(part.view)
                     and e.get("start", 0) <= position < e.get("end", 0)
                     for e in protected
                 ):
@@ -415,7 +421,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                     _, start = stack.pop()
                     occurrence = self.occurrence(part.view, start, position + 1)
                     key = "context-quote:" + digest(
-                        [part.view.ref.projection_digest, start, position + 1]
+                        [source_projection(part.view), start, position + 1]
                     )
                     self.node(
                         key,
@@ -426,7 +432,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                         scheme="source-quotation-delimiters-1",
                         status="native_evidence",
                     )
-                    self._quotes.append((part.view.ref.projection_digest, start, position + 1, key))
+                    self._quotes.append((source_projection(part.view), start, position + 1, key))
                 elif character in {'"', "“"}:
                     stack.append((character, position))
             if stack:
@@ -457,7 +463,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                     self.occurrence(part.view, max(part.start, p["start"]), min(part.end, p["end"]))
                     for p in pieces
                 ]
-                key = "context-structure:" + digest([part.view.ref.projection_digest, pointer])
+                key = "context-structure:" + digest([source_projection(part.view), pointer])
                 if key not in selected:
                     self.node(
                         key,
@@ -472,7 +478,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                     selected[key] = (item, part.view, occurrences)
         for key, (item, view, occurrences) in selected.items():
             parent = item.get("parent", {}).get("$ref")
-            parent_key = "context-structure:" + digest([view.ref.projection_digest, parent])
+            parent_key = "context-structure:" + digest([source_projection(view), parent])
             if parent_key in selected:
                 self.membership(
                     parent_key,
@@ -497,7 +503,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                 ancestors.add(pointer)
                 pointer = by_pointer.get(pointer, {}).get("parent", {}).get("$ref")
             for heading, (node, heading_view, _) in selected.items():
-                if heading_view.ref.id != view.ref.id or node.get("label") not in {
+                if source_identity(heading_view) != source_identity(view) or node.get("label") not in {
                     "section_header",
                     "title",
                     "heading",
@@ -910,7 +916,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                                 target,
                                 "declared_binding_site",
                                 "context.binding",
-                                external=[dict(layer=pin.values(), local_id=term["local_id"])],
+                                external=[member_reference(pin, term["local_id"]).values()],
                                 choices=[
                                     *self.required_choices(pin, term),
                                     *self.required_choices(pin, variable),
@@ -933,7 +939,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                                 "list_heading_participant_context_candidate",
                                 "context.inheritance",
                                 premises=[inherited["basis"]["premises"][0]],
-                                external=[dict(layer=pin.values(), local_id=term["local_id"])],
+                                external=[member_reference(pin, term["local_id"]).values()],
                                 choices=self.required_choices(pin, term),
                             )
                 elif term["kind"] == "attribution":
@@ -951,7 +957,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                                 target,
                                 "attribution_" + edge["role"],
                                 "context.attribution",
-                                external=[dict(layer=pin.values(), local_id=term["local_id"])],
+                                external=[member_reference(pin, term["local_id"]).values()],
                                 choices=[
                                     *self.required_choices(pin, term),
                                     *self.required_choices(pin, child),
@@ -974,8 +980,8 @@ class ContextualLayer(NativeEvidenceBuilder):
                                 "context.host",
                                 premises=[native],
                                 external=[
-                                    dict(layer=pin.values(), local_id=term["local_id"]),
-                                    dict(layer=pin.values(), local_id=host["local_id"]),
+                                    member_reference(pin, term["local_id"]).values(),
+                                    member_reference(pin, host["local_id"]).values(),
                                 ],
                                 choices=[
                                     *self.required_choices(pin, term),

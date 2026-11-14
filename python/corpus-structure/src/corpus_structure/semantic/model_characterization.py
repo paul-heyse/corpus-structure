@@ -54,8 +54,11 @@ from corpus_structure.semantic.source_contexts import (
     PreparedNativeSources,
     SourceSlice,
     record_source_pin,
+    source_slice,
 )
 from corpus_structure.semantic.source_views import PreparedSourceView
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+from corpus_structure.semantic.data_product_reference import (DataProductReference, DataProductMemberReference, member_reference, read_member_reference)
 
 PROFILE = "baseline-model-characterization-v1"
 D1_SOURCE_FAMILIES = CHARACTERIZATION_FAMILIES[:4]
@@ -85,7 +88,7 @@ def _score(value: Any, event: str, scheme: str = "d1-native-probability-v1") -> 
 
 @dataclass(frozen=True, slots=True)
 class ModelScope:
-    view: PreparedSourceView
+    view: PreparedSourceView | DeclaredNativeFrameSource
     focal: tuple[int, int]
     examined: tuple[int, int]
     mapping: PM2SourceMap
@@ -94,8 +97,8 @@ class ModelScope:
     def identity(self) -> str:
         return digest(
             dict(
-                source=self.view.ref.native_product.values(),
-                projection=self.view.ref.projection_digest,
+                source=(self.view.pin.values() if isinstance(self.view, DeclaredNativeFrameSource) else self.view.ref.native_product.values()),
+                projection=_projection(self.view),
                 focal=self.focal,
                 examined=self.examined,
                 source_map=self.mapping.input_digest,
@@ -104,7 +107,7 @@ class ModelScope:
 
 
 def prepare_model_scope(
-    view: PreparedSourceView,
+    view: PreparedSourceView | DeclaredNativeFrameSource,
     focal: tuple[int, int],
     examined: tuple[int, int],
     *,
@@ -114,12 +117,12 @@ def prepare_model_scope(
     a, b = examined
     if not 0 <= a <= focal[0] < focal[1] <= b <= len(view.text):
         raise ValueError("model focal scope must lie inside its declared examined context")
-    source = native_source_frame(view, ())
+    source = view if isinstance(view, DeclaredNativeFrameSource) else native_source_frame(view, ())
     preparation = PreparedNativeSources((source,))
     context = NativeSourceContext(
         source,
         (),
-        (SourceSlice(source.source_view_id, a, b),),
+        (source_slice(source, a, b),),
         "source-language characterization",
         "exact-focal-and-declared-source-context-v1",
         "explicit retained source context",
@@ -127,10 +130,10 @@ def prepare_model_scope(
         version=2,
         preparation=preparation,
     )
-    formulas = {item["self_ref"] for item in view.items if item.get("label") == "formula"}
+    formulas = {item["self_ref"] for item in _source_rows(view, "items") if item.get("label") == "formula"}
     atoms = tuple(
         (piece["start"] - a, piece["end"] - a)
-        for piece in view.pieces
+        for piece in _source_rows(view, "pieces")
         if piece.get("item_ref") in formulas and piece["start"] < b and a < piece["end"]
     )
     if any(start < 0 or end > b - a for start, end in atoms):
@@ -141,19 +144,62 @@ def prepare_model_scope(
     return ModelScope(view, focal, examined, mapping)
 
 
+def _projection(view):
+    return view.projection_digest if isinstance(view, DeclaredNativeFrameSource) else view.ref.projection_digest
+
+
+def _source_rows(view, name):
+    return view.value.get(name, ()) if isinstance(view, DeclaredNativeFrameSource) else getattr(view, name)
+
+
+def _related_member(reference, local_id):
+    selected = read_member_reference(reference)
+    product = selected.product if isinstance(selected, DataProductMemberReference) else selected.layer
+    return member_reference(product, local_id).values()
+
+
+@dataclass(frozen=True)
+class DeclaredModelDependency:
+    reference: DataProductReference
+    payload: dict
+
+
+def declared_model_dependencies(products, source):
+    """Project selected current semantic inventories without manufacturing legacy refs."""
+    dependencies = {}
+    for product in products:
+        body = json.loads(product.content)
+        if body["source"] != source.value["source"] or body["selectors"] != source.value["selectors"]:
+            raise ValueError("model dependency belongs to another original source projection")
+        reference = DataProductReference(product.semantic_id)
+        if reference in dependencies:
+            raise ValueError("model dependency repeats a selected semantic product")
+        dependencies[reference] = DeclaredModelDependency(reference, {
+            **product.inventory(), "source": body["source"], "coverage": body["coverage"],
+        })
+    return dependencies
+
+
 def _resolve(
     reference: Mapping[str, Any], dependencies: Mapping[ProductReference, LayerReport]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    pin = ProductReference(**reference["layer"])
-    layer = dependencies.get(pin)
-    if layer is None or layer.reference(pin.task_id) != pin:
-        raise ValueError("model candidate is outside the exact retained dependency closure")
+    selected = read_member_reference(reference)
+    if isinstance(selected, DataProductMemberReference):
+        pin, local_id = selected.product, selected.member_id
+        layer = dependencies.get(pin)
+        if layer is None or layer.reference != pin:
+            raise ValueError("model candidate is outside its exact selected semantic closure")
+    else:
+        pin, local_id = selected.layer, selected.local_id
+        layer = dependencies.get(pin)
+        if layer is None or layer.reference(pin.task_id) != pin:
+            raise ValueError("model candidate is outside the exact retained dependency closure")
     body = layer.payload
     rows = [
         row
         for name in ("annotations", "terms")
         for row in body.get(name, ())
-        if row["local_id"] == reference["local_id"]
+        if row["local_id"] == local_id
     ]
     if len(rows) != 1:
         raise ValueError("model candidate is not one exact retained annotation or term")
@@ -195,7 +241,7 @@ def freeze_candidates(
             node, occurrences = _resolve(reference, dependencies)
             choices.extend(node.get("required_external_choices", ()))
             choices.extend(
-                dict(layer=reference["layer"], local_id=choice)
+                _related_member(reference, choice)
                 for choice in node.get("required_choices", ())
             )
             if node["kind"] not in {"context.symbolic_site", "context.evidence_site"}:
@@ -208,8 +254,8 @@ def freeze_candidates(
             raise ValueError("candidate type or source support differs from the released question")
         extents = [extent for occurrence in occurrences for extent in occurrence["extents"]]
         if any(
-            extent["source_view_id"] != scope.view.ref.id
-            or extent["projection"] != scope.view.ref.projection_digest
+            (not isinstance(scope.view, DeclaredNativeFrameSource) and extent["source_view_id"] != scope.view.ref.id)
+            or extent["projection"] != _projection(scope.view)
             or extent.get("synthetic")
             or not scope.examined[0]
             <= extent.get("start", -1)
@@ -293,7 +339,7 @@ def contextual_candidate_populations(
                 and not row.get("unexamined")
             ):
                 complete |= any(
-                    selector["projection"] == scope.view.ref.projection_digest
+                    selector["projection"] == _projection(scope.view)
                     and selector.get("start", 0) <= scope.examined[0]
                     and selector.get("end", len(scope.view.text)) >= scope.examined[1]
                     for selector in row.get("examined", ())
@@ -328,9 +374,9 @@ def contextual_candidate_populations(
             entry = groups.setdefault(owner, dict(candidates={}))
             support = dict(
                 premises=[
-                    dict(layer=pin.values(), local_id=role["local_id"]),
+                    member_reference(pin, role["local_id"]).values(),
                     *(
-                        dict(layer=pin.values(), local_id=key)
+                        member_reference(pin, key).values()
                         for key in role["basis"].get("premises", ())
                     ),
                 ],
@@ -338,7 +384,7 @@ def contextual_candidate_populations(
                     *role.get("required_external_choices", ()),
                     *role["basis"].get("required_external_choices", ()),
                     *(
-                        dict(layer=pin.values(), local_id=choice)
+                        member_reference(pin, choice).values()
                         for choice in (
                             *role.get("required_choices", ()),
                             *role["basis"].get("choice_refs", ()),
@@ -360,10 +406,10 @@ def contextual_candidate_populations(
                 for focus in node.get("premises", ()):
                     groups.setdefault(focus, dict(candidates={}))
         for owner, group in groups.items():
-            focus = dict(layer=pin.values(), local_id=owner)
+            focus = member_reference(pin, owner).values()
             _node, focus_occurrences = _resolve(focus, dependencies)
             if not all(
-                extent["projection"] == scope.view.ref.projection_digest
+                extent["projection"] == _projection(scope.view)
                 and scope.focal[0]
                 <= extent.get("start", -1)
                 < extent.get("end", -1)
@@ -375,7 +421,7 @@ def contextual_candidate_populations(
             alternatives = [
                 dict(
                     key="candidate_" + digest([pin.values(), candidate]),
-                    members=[dict(layer=pin.values(), local_id=candidate)],
+                    members=[member_reference(pin, candidate).values()],
                 )
                 for candidate in group["candidates"]
             ]
@@ -455,7 +501,7 @@ def compile_question_stage(
         ),
         structural_context=[
             dict(pointer=node["self_ref"], label=node.get("label"), text=node.get("text", ""))
-            for node in scope.view.ancestors
+            for node in _source_rows(scope.view, "ancestors")
         ],
         prior_answers={
             key: dict(prior[key])

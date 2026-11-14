@@ -17,7 +17,10 @@ from corpus_structure.semantic.source_contexts import (
     PreparedNativeSources,
     SourceSlice,
     record_source_pin,
+    source_slice,
 )
+
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused, GlinerReport, _json
 from .gliner_worker import GlinerWorker, GlinerWorkerError
@@ -85,7 +88,7 @@ def classification_mapping(source, extent: tuple[int, int], preparation: Prepare
     context = NativeSourceContext(
         source,
         (),
-        (SourceSlice(source.source_view_id, start, end),),
+        (source_slice(source, start, end),),
         "private passage classification",
         "pm2-gliner-classification-scope-1",
         "explicit selected source scope",
@@ -118,7 +121,7 @@ def classification_request(
         or not question.multiple
         or question.candidate_options
         or len(context.pieces) != 1
-        or not isinstance(scope := context.pieces[0], SourceSlice)
+        or not isinstance(scope := context.pieces[0], (SourceSlice, DeclaredSourceSlice))
         or context.related
         or context.retrievals
         or context.text != mapping.provider_text
