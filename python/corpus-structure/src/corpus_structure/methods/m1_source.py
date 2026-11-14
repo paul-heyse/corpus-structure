@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Generator
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -22,6 +22,7 @@ from corpus_structure.methods.gliner import (
     GlinerInput,
     GlinerPack,
     GlinerProfile,
+    GlinerReport,
     GlinerRefused,
 )
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
@@ -316,6 +317,20 @@ class M1GlinerRequest:
     inputs: tuple[GlinerInput, ...]
     threshold: float
     native_profile: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class M1GlinerReply:
+    reports: tuple[GlinerReport, ...] = ()
+    failure: Literal["none", "refused", "worker"] = "none"
+    message: str = ""
+
+    def __post_init__(self):
+        if self.failure == "none":
+            if self.message:
+                raise ValueError("successful M1 reply cannot carry a provider failure")
+        elif self.failure not in {"refused", "worker"} or self.reports or not self.message:
+            raise ValueError("M1 failure reply requires one declared disposition and reason")
 
 
 @dataclass(frozen=True)
@@ -676,6 +691,38 @@ class M1Candidates:
                     failure = None
                 except BaseException as error:
                     reply, failure = None, error
+        finally:
+            plan.close()
+
+    def plan_candidate_replies(
+        self, *, prepared, view, prepared_source, annotation_result, cfg,
+        check_active, primary_layers, generic_role_guidance=False, source_capture_rules=(),
+    ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
+        """Translate only bounded provider dispositions into the original kernel."""
+        plan = self.plan_candidates(
+            prepared=prepared, view=view, prepared_source=prepared_source,
+            annotation_result=annotation_result, cfg=cfg, check_active=check_active,
+            primary_layers=primary_layers, generic_role_guidance=generic_role_guidance,
+            source_capture_rules=source_capture_rules,
+        )
+        reports, failure = None, None
+        try:
+            while True:
+                try:
+                    request = plan.throw(failure) if failure is not None else plan.send(reports)
+                except StopIteration as completed:
+                    return completed.value
+                reply = yield request
+                if not isinstance(reply, M1GlinerReply):
+                    raise TypeError("M1 requires its typed provider reply")
+                if reply.failure == "refused":
+                    reports, failure = None, GlinerRefused(reply.message)
+                elif reply.failure == "worker":
+                    reports, failure = None, GlinerWorkerError(reply.message)
+                elif len(reply.reports) != len(request.inputs):
+                    raise ValueError("M1 reply changed its exact inference question population")
+                else:
+                    reports, failure = reply.reports, None
         finally:
             plan.close()
 

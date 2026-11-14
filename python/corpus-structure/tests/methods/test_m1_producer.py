@@ -756,3 +756,29 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
         plan.throw(GlinerWorkerError("deliberate provider-boundary failure"))
     assert completed.value.value.outcome == ObservationOutcome.FAILED
     assert "deliberate provider-boundary failure" in completed.value.value.error
+
+
+@pytest.mark.parametrize("failure,expected", [("worker", ObservationOutcome.FAILED), ("refused", ObservationOutcome.EMPTY)])
+def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure, expected):
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.orchestrate.m1 import registry
+
+    source = view()
+    method = m1_source.M1Candidates()
+    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    plan = method.plan_candidate_replies(
+        prepared=release(), view=source, prepared_source=prepare_source(source, persisted_annotations=(), policy=cfg.policy),
+        annotation_result={"method": "controlled-boundary", "input_hash": "input", "configuration_hash": "configuration"},
+        cfg=cfg, check_active=lambda: None, primary_layers={},
+    )
+    request = next(plan)
+    questions = 0
+    while True:
+        assert isinstance(request, m1_source.M1GlinerRequest)
+        questions += 1
+        assert questions <= 3
+        try:
+            request = plan.send(m1_source.M1GlinerReply(failure=failure, message="deliberate typed failure"))
+        except StopIteration as completed:
+            assert completed.value.outcome == expected
+            break
