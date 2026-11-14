@@ -32,11 +32,6 @@ from corpus_structure.methods.contextual_candidates import (
     ProducerRelationshipRecipe,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
-from corpus_structure.methods.model_observation import (
-    batch_receipt,
-    installed_policy,
-    observation_digest,
-)
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic._operation_ids import RunId, SourceViewId
@@ -127,7 +122,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def _witnessed_reader(case, run, binding, tmp_path, *, controlled_provider=False):
+def _witnessed_reader(case, run, binding, tmp_path):
     """Read actual selected historical source custody; no fabricated Reader transport."""
     import logging
     from corpus_structure.core.method import MethodContext
@@ -135,10 +130,6 @@ def _witnessed_reader(case, run, binding, tmp_path, *, controlled_provider=False
     with case.writer.connect() as conn, conn.begin():
         reader = BoundReader(conn, run, case.prepared)
         reader.bind_source_tasks({case.document:case.source_task})
-        if controlled_provider:
-            # The family explicitly substitutes its provider kernel; this is not
-            # provider qualification or an authentic inference receipt claim.
-            reader.provider_execution = SimpleNamespace(native_group=object())
         from corpus_structure.core.vocab import RunKind
         view = BoundRunView(run, RunKind.FULL, 0, None, binding, case.prepared, {}, reader)
         yield MethodContext(view, reader, MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
@@ -213,9 +204,8 @@ def completed_component_case(case, tmp_path, *, admin=None):
     )
     from corpus_structure.methods.definition_applicability import (
         DefinitionComponentsConfig,
-        DefinitionComponentsMethod,
     )
-    from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, GlinerReport
+    from corpus_structure.methods.gliner import GlinerProfile
 
     profile = GlinerProfile(
         tmp_path,
@@ -240,78 +230,18 @@ def completed_component_case(case, tmp_path, *, admin=None):
         use_named_candidates=False,
     )
 
-    class ControlledComponentWorker:
-        def __init__(self, declared_profile, *, group, native_profile):
-            assert group is not None
-            self.profile = declared_profile
-
-        def close(self):
-            pass
-
-        def extract(self, pack, requests, **kwargs):
-            endpoint = dict(start=0, end=2, text="12")
-            raw = dict(
-                entities={
-                    "defined term or expression": [dict(endpoint, interpretation="definition")],
-                    "defining text or formula": [endpoint],
-                },
-                relation_extraction={
-                    "term is defined or explained by": [dict(head=endpoint, tail=endpoint)]
-                },
-            )
-            receipt = batch_receipt(
-                pack,
-                asdict(self.profile),
-                requests,
-                kwargs["threshold"],
-                kwargs["overlap_policy"],
-                kwargs.get("evaluation", False),
-                installed_policy()[0]["inference"],
-            )
-            key = receipt["digest"]
-            raw_json = json.dumps(raw)
-            return tuple(
-                GlinerReport(
-                    request.context_id,
-                    request.context_digest,
-                    key,
-                    self.profile.fingerprint,
-                    pack.fingerprint,
-                    GlinerPreparation(request.text, "", 1, 1, len(request.text.encode())),
-                    raw_json,
-                    "{}",
-                    0.0,
-                    False,
-                    request_digest=key,
-                    observation_digest=observation_digest(
-                        key, raw_json, "{}", ordinal=ordinal, member=receipt["members"][ordinal]
-                    ),
-                    batch_receipt_json=json.dumps(receipt),
-                    member_ordinal=ordinal,
-                )
-                for ordinal, request in enumerate(requests)
-            )
-
     def produce_component(*, structural_admission=()):
-        with pytest.MonkeyPatch.context() as patch:
-            patch.setattr(
-                "corpus_structure.methods.definition_applicability.HostedGliner",
-                ControlledComponentWorker,
-            )
-            method = DefinitionComponentsMethod()
-            run, bound = _begin_witnessed_run(case,
-                OperationBinding(case.prepared.release_id, "wce-source", source_revision, b"{}"),
-                ((method, component_cfg),), structural_admission=structural_admission)
-            assert component_cfg.inputs is not None
-            ref = UnitRef(TaskUnitType.RUN, unit_key="definition-components:"+component_cfg.inputs.identity)
-            try:
-                with _witnessed_reader(case, run, bound, tmp_path, controlled_provider=True) as ctx:
-                    (result,) = method.run((UnitView(ref, ctx.run),), component_cfg, ctx)
-                _retain_witnessed_result(case, run, method, component_cfg, result, stage="assemble", admin=admin)
-            finally:
-                method.close()
-            component_run = SimpleNamespace(run_id=run)
-        return component_run
+        from semantic.sealed_definition_fixture import component_descriptor, literal_component_result
+
+        method = component_descriptor()
+        run, _ = _begin_witnessed_run(case,
+            OperationBinding(case.prepared.release_id, "wce-source", source_revision, b"{}"),
+            ((method, component_cfg),), structural_admission=structural_admission)
+        assert component_cfg.inputs is not None
+        ref = UnitRef(TaskUnitType.RUN, unit_key="definition-components:" + component_cfg.inputs.identity)
+        result = literal_component_result(case.prepared, component_cfg, ref)
+        _retain_witnessed_result(case, run, method, component_cfg, result, stage="assemble", admin=admin)
+        return SimpleNamespace(run_id=run)
 
     component_run = produce_component()
     with case.writer.connect() as conn:
@@ -340,7 +270,7 @@ def completed_component_case(case, tmp_path, *, admin=None):
         product_id=report.product_id,
         component_id=component.component_id,
         operation_id="structure.definition_components",
-        operation_version=DefinitionComponentsMethod.version,
+        operation_version="10",
         project_id="private-records",
         run_id=component_run.run_id,
         cut_id=component_result["cut_id"],

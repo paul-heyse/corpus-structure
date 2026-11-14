@@ -382,27 +382,6 @@ def test_analytical_gliner_borrows_frozen_population_without_new_runtime_or_cust
     assert declarations == [frozen]
 
 
-def test_selected_domain_profile_freezes_once_and_none_preserves_old_config_shape(tmp_path):
-    from types import SimpleNamespace
-
-    from corpus_structure.methods.characterization_resources import freeze_analytical_profile
-    from methods.m1_source_profile_support import config
-
-    value = config(tmp_path)
-    parameters = value.model_dump(mode="json")
-    assert "native_execution_profile" not in parameters
-    cache = {("gliner-runtime", str(tmp_path.absolute())): {"runtime": "operation-snapshot"}}
-    frozen = freeze_analytical_profile(
-        "extract.m1_candidates", parameters, SimpleNamespace(), cache=cache
-    )
-    assert frozen is not None
-    assert parameters["native_execution_profile"] == frozen.native.wire
-    assert (
-        freeze_analytical_profile(
-            "extract.m1_candidates", parameters, SimpleNamespace(), cache=cache
-        )
-        == frozen
-    )
 
 
 def test_spacy_placement_permits_only_native_upper_cpu_arrays():

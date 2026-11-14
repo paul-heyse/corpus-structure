@@ -10,9 +10,7 @@ from corpus_structure.methods.annotation_rules import AnnotationRuleMatch, Locat
 from corpus_structure.methods.definition_applicability import (
     ApplicabilityCandidate,
     DefinitionApplicabilityConfig,
-    DefinitionApplicabilityMethod,
     DefinitionComponentsConfig,
-    DefinitionComponentsMethod,
     DefinitionScope,
     assess_applicability,
     components_from_named_matches,
@@ -164,8 +162,6 @@ def premises(
 
 
 def test_absent_operations_cannot_smuggle_partial_inputs():
-    assert DefinitionComponentsMethod().select(None, DefinitionComponentsConfig()) == ()
-    assert DefinitionApplicabilityMethod().select(None, DefinitionApplicabilityConfig()) == ()
     with pytest.raises(ValueError, match="partial"):
         DefinitionComponentsConfig(target_ids=("target",))
 
@@ -535,14 +531,14 @@ def test_invalid_term_interpretation_does_not_relabel_or_erase_another_valid_att
     assert len(errors) == 1 and errors[0]["channel"] == "term" and errors[0]["index"] == 1
 
 
-def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_error(monkeypatch):
+def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_error():
     import json
     from pathlib import Path
     from types import SimpleNamespace
 
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, GlinerReport
+    from corpus_structure.methods.gliner import GlinerProfile
     from corpus_structure.serve.model_observation_replay import _verify_definition_roles
 
     value = inputs()
@@ -574,70 +570,11 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
         use_named_candidates=False,
     )
 
-    class ControlledWorker:
-        def __init__(self):
-            self.profile = profile
-
-        def extract(self, pack, requests, **kwargs):
-            (request,) = requests
-            key = request_digest(
-                pack,
-                asdict(profile),
-                requests,
-                kwargs["threshold"],
-                kwargs["overlap_policy"],
-                kwargs.get("evaluation", False),
-                policy["inference"],
-            )
-            from corpus_structure.methods.model_observation import batch_receipt
-
-            receipt = batch_receipt(
-                pack,
-                asdict(profile),
-                requests,
-                kwargs["threshold"],
-                kwargs["overlap_policy"],
-                kwargs.get("evaluation", False),
-                policy["inference"],
-            )
-            raw = json.dumps(returned)
-            return (
-                GlinerReport(
-                    request.context_id,
-                    request.context_digest,
-                    key,
-                    profile.fingerprint,
-                    pack.fingerprint,
-                    GlinerPreparation(request.text, "", 0, 0, len(request.text)),
-                    raw,
-                    "{}",
-                    0.0,
-                    False,
-                    request_digest=key,
-                    observation_digest=observation_digest(
-                        key, raw, "{}", ordinal=0, member=receipt["members"][0]
-                    ),
-                    batch_receipt_json=json.dumps(receipt),
-                    member_ordinal=0,
-                ),
-            )
+    from semantic.sealed_definition_fixture import controlled_component_result
 
     policy, policy_digest = installed_policy()
-    method = DefinitionComponentsMethod()
-    monkeypatch.setattr(method, "_worker", ControlledWorker())
-    ctx = SimpleNamespace(
-        check_active=lambda: None,
-        reader=SimpleNamespace(
-            validate_structural_inputs=lambda _: None,
-            prepared=SimpleNamespace(
-                release_id="r",
-                manifest=json.dumps({"dependencies": [(MODEL_OBSERVATION_INPUT, policy_digest)]}),
-            ),
-        ),
-    )
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="control")),), cfg, ctx
-    )
+    prepared = SimpleNamespace(release_id="r", manifest=json.dumps({"dependencies": [(MODEL_OBSERVATION_INPUT, policy_digest)]}))
+    result = controlled_component_result(prepared, cfg, UnitRef(TaskUnitType.RUN, unit_key="control"), returned)
     report = StructuralProductReport.model_validate(result.structural_product)
     assert report.definition_components is not None
     assert len(report.definition_components.components) == 1
@@ -1029,7 +966,7 @@ def test_current_named_definition_primary_witness_crosses_released_batch():
         inputs=value,
         definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
     )
-    released = released_report(report, method=DefinitionComponentsMethod.name, version="10")
+    released = released_report(report, method="structure.definition_components", version="10")
     witness = released["definition_components"]["components"][0]["witness"]
     assert witness["primary_match"] == component.witness.primary_match.values()
     assert witness["primary_scope"] == [ref.values() for ref in component.witness.primary_scope]

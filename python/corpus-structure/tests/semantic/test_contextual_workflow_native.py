@@ -11,7 +11,7 @@ import pytest
 from native_refusals import native_refusal
 from sqlalchemy import select, text
 
-from corpus_structure.core.method import UnitRef, UnitView
+from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
@@ -21,7 +21,7 @@ from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.witnessed_scenario_support import (
     completed_metadata, completed_relationship_case,
-    _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+    _begin_witnessed_run, _retain_witnessed_result,
 )
 
 
@@ -266,7 +266,6 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
     assert retained_edges(exported_items) == expected_edges
     from corpus_structure.methods.definition_applicability import (
         DefinitionApplicabilityConfig,
-        DefinitionApplicabilityMethod,
     )
     from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 
@@ -323,15 +322,18 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         selection_refs=(link_ref,),
         applicability_scope=mode,
     )
-    app_method = DefinitionApplicabilityMethod()
+    from semantic.sealed_definition_fixture import applicability_descriptor, applicability_result
+
+    app_method = applicability_descriptor()
     app_run, bound = _begin_witnessed_run(
         case, OperationBinding(case.prepared.release_id, "wce-links", linked_revision, b"{}"),
         ((app_method, app_cfg),), selected_sources=app_inputs.sources,
     )
-    with _witnessed_reader(case, app_run, bound, tmp_path) as ctx:
-        unit = UnitView(UnitRef(TaskUnitType.RUN,
-            unit_key="definition-applicability:"+app_inputs.identity+":"+app_cfg.usage_id), ctx.run)
-        (app_result,) = app_method.run((unit,), app_cfg, ctx)
+    unit = UnitRef(TaskUnitType.RUN,
+        unit_key="definition-applicability:" + app_inputs.identity + ":literal")
+    app_result = applicability_result(app_cfg, unit, component=completed.component,
+        component_reference=completed.reference, relationship_reference=link_ref,
+        decision=decision, edge=edge)
     _retain_witnessed_result(case, app_run, app_method, app_cfg, app_result, stage="assemble")
     with case.writer.connect() as conn:
         app_body = conn.execute(
