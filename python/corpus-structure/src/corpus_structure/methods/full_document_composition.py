@@ -209,7 +209,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
         },
         "behavior": "compose complete per-family scoped manifests, or explicitly complete with no product "
         "for a closed empty source population",
-        "parameters": {"profile": {"value_type": "string"}},
+        "parameters": {"profile": {"value_type": "string", "default": "full_characterization"}},
         "binding": {
             "operator": "all",
             "children": [
@@ -666,7 +666,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
         constructions: tuple[RetainedCharacterizationProduct, ...],
         declaration_syntax: tuple[RetainedCharacterizationProduct, ...],
         contextual: tuple[RetainedCharacterizationProduct, ...],
-        profile: str,
+        profile: str = "full_characterization",
     ) -> EnrichedDocumentProduct | None:
         if not sources:
             return None

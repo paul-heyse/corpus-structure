@@ -141,7 +141,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
     clone, kernel, request = primary_source_case
     methods = MethodSettings(data_dir=tmp_path, model_cache=tmp_path)
     with clone.admin.connect() as connection:
-        builds_before = connection.scalar(text("SELECT count(*) FROM ops.pdf_build"))
+        builds_before = connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
         frozen = prepare_source_demand(connection, request)
     selected = {value.operation: value for value in frozen.selections}
     assert selected["source.selected_views/discovery"].parameters == {"complete": True}
@@ -163,7 +163,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
     )
     with clone.admin.begin() as connection:
         snapshot = read_data_demand(connection, result.demand_id, view="products")
-        builds_after = connection.scalar(text("SELECT count(*) FROM ops.pdf_build"))
+        builds_after = connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
     assert builds_after == builds_before, "retained sources must never recapture their original"
     assert all(value["fate"] == "fulfilled" for value in snapshot["obligations"]), snapshot[
         "obligations"

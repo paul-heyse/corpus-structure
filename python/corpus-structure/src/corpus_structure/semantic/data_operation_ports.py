@@ -33,7 +33,9 @@ if TYPE_CHECKING:
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
-from .data_operation_compilation import compile_data_operations as _STATIC_COMPILER
+from .data_operation_static_preparation import (
+    _STATIC_COMPILER, _STATIC_COMPILER_CONTEXT, _ordinary_static_input, _prepared_python_sources,
+)
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
@@ -51,13 +53,6 @@ from .types import (
 # during invocation. Only consumed names participate in callable authentication.
 _STANDARD_BUILTINS = MappingProxyType(dict(vars(builtins)))
 
-# A process-local compilation cache cannot survive analyzer/compiler replacement.
-# Exact source and interpretation settings remain part of each cache key below.
-_STATIC_COMPILER_CONTEXT = (
-    _STATIC_COMPILER,
-    _STATIC_COMPILER.__code__,
-    tuple((name, _package_version(name)) for name in ("griffe", "libcst", "astroid")),
-)
 
 
 class PortRefusal(ValueError):
@@ -794,53 +789,6 @@ def _untrusted_value(value: Any) -> Any:
         return [_untrusted_value(item) for item in value]
     return copy.deepcopy(value)
 
-
-_STATIC_INPUT_TYPES = (
-    SourceBundle,
-    SourceArtifact,
-    PythonSourceCollection,
-    PythonSource,
-    ClassDefinition,
-    PropertyDefinition,
-    VocabularySnapshot,
-    VocabularyMember,
-)
-
-
-def _ordinary_static_input(value: object) -> bool:
-    """Cache eligibility only; nonordinary inputs retain the compiler's validation.
-
-    A subclass can replace equality/hash while exposing different source bytes.
-    Never let caller-controlled equality select previously compiled source facts.
-    """
-    kind = type(value)
-    if any(kind is ordinary for ordinary in (str, bytes, int, float, bool, type(None))):
-        return True
-    if kind is tuple:
-        return all(_ordinary_static_input(item) for item in typing.cast(tuple[object, ...], value))
-    if any(kind is ordinary for ordinary in _STATIC_INPUT_TYPES):
-        return all(
-            _ordinary_static_input(getattr(value, field.name))
-            for field in dataclasses.fields(typing.cast(Any, value))
-        )
-    return False
-
-
-@lru_cache(maxsize=16)
-def _prepared_python_sources(schema, declarations, sources, definitions, vocabularies, context):
-    """Reuse immutable static facts, never analyzer managers or acquired authority.
-
-    Every input is an exact frozen preparation value. The context names the active
-    compiler implementation and process analyzer selection; it is not a durable
-    semantic fingerprint or authorization cache.
-    """
-    return _STATIC_COMPILER(
-        schema,
-        declarations=declarations,
-        python_sources=sources,
-        definitions=definitions,
-        vocabularies=vocabularies,
-    )
 
 
 def python_port_identity(

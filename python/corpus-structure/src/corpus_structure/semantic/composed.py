@@ -290,12 +290,12 @@ def data_operations_from_dependencies(
     bundle: SourceBundle, dependencies: ResolvedDependencies, definitions, vocabularies=()
 ):
     """Compile one closed supplied manifest, or return None when the feature is absent."""
-    from .data_operation_compilation import compile_data_operations
+    from .data_operation_static_preparation import prepare_data_operation_model
 
     captured = read_data_operation_inputs(dependencies)
     if captured is None:
         return None
     declarations, inputs = captured
-    return compile_data_operations(
+    return prepare_data_operation_model(
         bundle, declarations, inputs, definitions=definitions, vocabularies=tuple(vocabularies)
     )

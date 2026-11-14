@@ -29,7 +29,7 @@ def execute_scope(receiver, source, occurrences, symbolic, constructions, inheri
             or normalized.occurrence_input != profile.reference("occurrences")):
         raise ValueError("symbol scope requires exact source and occurrence/normalization correspondence")
     retained = _RetainedCharacterization(profile.member("constructions").product,
-        canonical_bytes(constructions), profile.prepared, "DdoConstructionProduct")
+        canonical_bytes(constructions), profile.prepared, "DdoPrimaryConstructionProduct")
     primary = retained_math_scope_products((retained,), FrozenNativeSource.acquire(profile.prepared, source),
         binders=profile.options.math_scope_binders, rules=profile.options.math_domain_rules)
     domains = domain_blocks_columns(root=frame.section_pointer, text=frame.text,

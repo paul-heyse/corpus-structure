@@ -11,6 +11,7 @@ import inspect
 import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -121,6 +122,12 @@ def math_operation_declarations():
     )
 
 
+@lru_cache(maxsize=64)
+def _normalized_math_source(content: bytes) -> str:
+    """Reuse pure extraction only for identical captured bytes, never native authority."""
+    return ast.dump(ast.parse(content), include_attributes=False)
+
+
 def math_profile_assets(options: DeclaredMathOptions) -> SourceArtifact:
     root = Path(__file__).parents[1]
     profile = acquire_analysis_context_profile()
@@ -134,7 +141,7 @@ def math_profile_assets(options: DeclaredMathOptions) -> SourceArtifact:
                 "algorithms": [
                     (
                         name,
-                        ast.dump(ast.parse((root / name).read_bytes()), include_attributes=False),
+                        _normalized_math_source((root / name).read_bytes()),
                     )
                     for name in _PATHS
                 ],
@@ -251,7 +258,7 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
             scope_member.product,
             canonical_bytes(constructions),
             profile.prepared,
-            "DdoConstructionProduct",
+            "DdoPrimaryConstructionProduct",
         )
         frozen = FrozenNativeSource.acquire(profile.prepared, source)
         scope = retained_math_scope_products(
