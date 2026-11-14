@@ -41,12 +41,21 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Declared data operations with PostgreSQL client libraries](declared-data-operations-postgresql-libraries_2026-11-14.md):
+  full overview/addendum coverage of pglast, sqlglot, psycopg, psycopg-pool, pgpq, pgvector and
+  adbc-driver-postgresql, with a table of responsibilities done several ways. Set-based input
+  hydration, bounded executor database concurrency, one failure contract, a vector contract for
+  DDO-08 and declaration-edit cleanup; Arrow reads and compiled-SQL cross-checks conditional;
+  five observed defects. A typed staged member route was withdrawn after independent challenge.
+  Proposals only; DDO plans remain unchanged.
+
 - [Declared data operations with SQLAlchemy and Alembic](declared-data-operations-sqlalchemy-alembic_2026-11-14.md):
   full overview/addendum coverage against an already library-based baseline; DDO-09/10 read
   projections through the existing Core-to-native route, compared table and schema privilege
   operations, the stored fate set derived from the wire protocol, extended shared binding cases
   and change-owned data steps; three observed defects. ORM, native ENUM, Alembic Utils and
-  revision branches have no current fit. Proposals only; DDO plans remain unchanged.
+  revision branches have no current fit. I01–I05 were subsequently selected in the
+  [DDO coordinator amendment](../plans/declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14).
 
 - [DDO structural analysis, codemods and model-driven updates](declared-data-operations-ast-grep_2026-11-13.md):
   full ast-grep-py/LibCST capability comparison; owned regeneration, programmatic Python
