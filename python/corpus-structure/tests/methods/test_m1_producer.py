@@ -689,3 +689,40 @@ def test_witnessed_recipe_is_explicit_versioned_and_rejects_old_writer_config():
     )
     with pytest.raises(ValidationError, match="annotation_token_rules"):
         m1_source.M1Config.model_validate({**baseline.model_dump(), "annotation_token_rules": {}})
+
+
+def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monkeypatch):
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.m1_annotations import consume_annotations
+    from corpus_structure.orchestrate.m1 import registry
+
+    source = view()
+    reader = owned_reader(source)
+    method = m1_source.M1Candidates()
+    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    annotations, errors, annotation_result = consume_annotations(reader, source, AnnotationProfile(cfg.sentences))
+    frozen_inputs = m1_source.prepare_source(
+        source, profile=AnnotationProfile(cfg.sentences),
+        max_chars=cfg.max_context_chars, max_pieces=cfg.max_context_pieces,
+        max_annotation_chars=cfg.max_annotation_chars, reader=reader,
+        persisted_annotations=annotations, annotation_errors=errors,
+        policy=cfg.policy, formula_prose=cfg.formula_prose, region_pointers=cfg.region_pointers,
+    )
+    prepared = reader.prepared
+    # Everything consumed from the reader has been frozen before kernel execution.
+    del reader
+    worker = ControlledDecoder("definition")
+    monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
+    product = method.produce_candidates(
+        prepared=prepared, view=source, prepared_source=frozen_inputs,
+        annotation_result=annotation_result, cfg=cfg, check_active=lambda: None,
+        primary_layers={},
+    )
+    assert isinstance(product, m1_source.M1CandidateProduct)
+    assert product.outcome == ObservationOutcome.PRODUCED
+    assert not hasattr(product, "ref")
+    (record,) = product.records
+    fields = {field["role"]: field for field in record["fields"]}
+    assert fields["term"]["original"] == "Mean"
+    assert fields["defining_text"]["original"] == "average"
+    assert len(worker.calls) == 3

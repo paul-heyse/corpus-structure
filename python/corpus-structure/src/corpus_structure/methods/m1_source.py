@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
@@ -312,6 +313,20 @@ def _select_eligible_projection(rows, digest=None):
     return selected
 
 
+@dataclass(frozen=True)
+class M1CandidateProduct:
+    """Located candidate output independent of a physical task or source-method facade."""
+
+    outcome: ObservationOutcome
+    error: str | None = None
+    parse_detail: Mapping[str, Any] | None = None
+    coverage: tuple[CoverageDraft, ...] = ()
+    records: tuple[Mapping[str, Any], ...] | None = None
+    contribution_operations: tuple[Mapping[str, Any], ...] | None = None
+    contributions: tuple[Mapping[str, Any], ...] | None = None
+    contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
+
+
 class M1Candidates:
     name = "extract.m1_candidates"
     version = "10"
@@ -571,23 +586,9 @@ class M1Candidates:
     ):
         from threadpoolctl import ThreadpoolController
 
-        from corpus_structure.methods.assertion_qualification import AssertionQualification
-        from corpus_structure.methods.record_assembly import (
-            AssemblyDiagnostic,
-            NativeRecordGroup,
-            RoleInput,
-            assemble_native_records,
-            assemble_records,
-            native_group_identity,
-            reconcile_record_candidates,
-        )
-
         if unit.ref.unit_id is None:
             raise ValueError("M1 requires a selected source view")
         ctx.check_active()
-        packs = configured_pack_variants(
-            ctx.reader.prepared, cfg, generic_role_guidance=generic_role_guidance
-        )
         view = ctx.reader.source_view(unit.ref.unit_id)
         if (
             cfg.source_projection_digest is not None
@@ -623,6 +624,48 @@ class M1Candidates:
                 formula_prose=cfg.formula_prose,
                 region_pointers=cfg.region_pointers,
             )
+        primary_layers = (
+            ctx.reader.primary_characterization(view.ref.id, families=("construction.named_rules",))
+            if cfg.annotation_rules else {}
+        )
+        product = self.produce_candidates(
+            prepared=ctx.reader.prepared, view=view, prepared_source=prepared_source,
+            annotation_result=annotation_result, cfg=cfg, check_active=ctx.check_active,
+            primary_layers=primary_layers, provider_execution=getattr(ctx.reader, "provider_execution", None),
+            generic_role_guidance=generic_role_guidance, source_capture_rules=source_capture_rules,
+        )
+        return UnitResult(
+            ref=unit.ref, outcome=product.outcome, error=product.error,
+            parse_detail=product.parse_detail, coverage=product.coverage, records=product.records,
+            contribution_operations=product.contribution_operations,
+            contributions=product.contributions,
+            contribution_coordinate_texts=product.contribution_coordinate_texts,
+        )
+
+    def produce_candidates(
+        self, *, prepared, view, prepared_source, annotation_result, cfg,
+        check_active, primary_layers, provider_execution=None,
+        generic_role_guidance=False, source_capture_rules=(),
+    ) -> M1CandidateProduct:
+        """Execute only explicitly prepared language, annotation and selected primary facts.
+
+        Preparation and native binding own discovery. This kernel never obtains a
+        Reader, UnitView, task, connection or selection query.
+        """
+        from corpus_structure.methods.assertion_qualification import AssertionQualification
+        from corpus_structure.methods.record_assembly import (
+            AssemblyDiagnostic,
+            NativeRecordGroup,
+            RoleInput,
+            assemble_native_records,
+            assemble_records,
+            native_group_identity,
+            reconcile_record_candidates,
+        )
+
+        packs = configured_pack_variants(
+            prepared, cfg, generic_role_guidance=generic_role_guidance
+        )
         assertion_qualification = AssertionQualification(
             prepared_source.source, prepared_source.annotations, view.pieces, view.items
         )
@@ -673,7 +716,7 @@ class M1Candidates:
             from corpus_structure.methods.m1_source_capture import SourceRecordCapture
 
             source_capture = SourceRecordCapture(
-                ctx.reader.prepared, _source_vocabulary(), source_capture_rules
+                prepared, _source_vocabulary(), source_capture_rules
             )
             details["comparison_arm"] = "exact-source-rule-capture-1"
             details["source_capture_rules"] = [
@@ -710,9 +753,7 @@ class M1Candidates:
             from corpus_structure.semantic.constructions.named import RetainedNamedRules
 
             rules = RetainedNamedRules(
-                ctx.reader.primary_characterization(
-                    view.ref.id, families=("construction.named_rules",)
-                )
+                primary_layers
             )
             for product in prepared_source.annotations:
                 primary_ranges = tuple(
@@ -722,7 +763,7 @@ class M1Candidates:
                     a < product.block_end and b > product.block_start for a, b in primary_ranges
                 ):
                     continue
-                ctx.check_active()
+                check_active()
                 match_result = rules.match(product, rules=cfg.annotation_rules)
                 matches = match_result.matches
                 if cfg.region_pointers is not None:
@@ -808,8 +849,7 @@ class M1Candidates:
                         retain_unexecuted(pending, local_pack, "not_run", terminal, local=True)
             details["producer_failure"] = str(reason)
             combined = ContributionBatch.combine(contribution_batches)
-            return UnitResult(
-                ref=unit.ref,
+            return M1CandidateProduct(
                 outcome=ObservationOutcome.PRODUCED
                 if combined.contributions
                 else ObservationOutcome.FAILED,
@@ -849,15 +889,14 @@ class M1Candidates:
             reason = "; ".join(prepared_source.annotation_errors)
             for row in details["execution"]:
                 row.update(outcome="not_run", reason="required annotation profile unavailable")
-            return UnitResult(
-                ref=unit.ref,
+            return M1CandidateProduct(
                 outcome=ObservationOutcome.FAILED,
                 error=reason,
                 parse_detail=details,
                 coverage=tuple(coverage),
             )
         for index, selection in enumerate(prepared_source.selections):
-            ctx.check_active()
+            check_active()
             try:
                 context = selection.context(
                     prepared_source.source,
@@ -924,7 +963,7 @@ class M1Candidates:
                     if not captured:
                         continue
                     assembled = assemble_native_records(
-                        ctx.reader.prepared,
+                        prepared,
                         context,
                         contract=contract,
                         occurrence_roles=(anchor,),
@@ -977,17 +1016,17 @@ class M1Candidates:
                         )
                     )
             if local_pack is not None:
-                ctx.check_active()
+                check_active()
                 try:
                     (local_report,) = self._resident(
                         cfg.profile(),
-                        providers=getattr(ctx.reader, "provider_execution", None),
+                        providers=provider_execution,
                         native_profile=cfg.native_execution_profile,
                     ).extract(
                         local_pack,
                         (GlinerInput.from_context(context),),
                         threshold=cfg.threshold,
-                        check_active=ctx.check_active,
+                        check_active=check_active,
                     )
                     contribution_batches.append(
                         adapt_report(
@@ -1047,7 +1086,7 @@ class M1Candidates:
                     native_records = ()
                     if native_groups and family == "table":
                         native = assemble_native_records(
-                            ctx.reader.prepared,
+                            prepared,
                             context,
                             contract=contract,
                             occurrence_roles=occurrence_roles,
@@ -1071,13 +1110,13 @@ class M1Candidates:
                         )
                     (report,) = self._resident(
                         cfg.profile(),
-                        providers=getattr(ctx.reader, "provider_execution", None),
+                        providers=provider_execution,
                         native_profile=cfg.native_execution_profile,
                     ).extract(
                         pack,
                         (GlinerInput.from_context(context),),
                         threshold=cfg.threshold,
-                        check_active=ctx.check_active,
+                        check_active=check_active,
                     )
                     association_diagnostics: list[dict[str, Any]] = []
                     report_entry = dict(
@@ -1205,7 +1244,7 @@ class M1Candidates:
                                     if len(matching) == 1:
                                         supplements[group_index] = matching[0]
                     assembled = assemble_records(
-                        ctx.reader.prepared,
+                        prepared,
                         context,
                         pack,
                         report,
@@ -1284,11 +1323,11 @@ class M1Candidates:
                         )
                     )
                     return stop_failed_worker(error, family, index)
-        ctx.check_active()
+        check_active()
         contribution_batch = ContributionBatch.combine(contribution_batches)
         records = tuple(
             record.model_dump(mode="python")
-            for record in reconcile_record_candidates(ctx.reader.prepared, assemblies)
+            for record in reconcile_record_candidates(prepared, assemblies)
         )
         from corpus_structure.methods.record_readings import interpret_candidate_readings
 
@@ -1309,8 +1348,7 @@ class M1Candidates:
             )
             for record in records
         ]
-        return UnitResult(
-            ref=unit.ref,
+        return M1CandidateProduct(
             outcome=ObservationOutcome.PRODUCED
             if records or contribution_batch.contributions
             else ObservationOutcome.EMPTY,
