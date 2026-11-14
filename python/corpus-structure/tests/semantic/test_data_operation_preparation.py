@@ -234,3 +234,76 @@ def test_original_source_schema_is_explicitly_acquired_for_native_admission(tmp_
     )
     source = next(kind for kind in model["kinds"] if kind["name"] == "DdoSelectedNativeSource")
     assert source["facts"]["json"]["universe"] == "source"
+
+
+def primary_profile_inputs(tmp_path):
+    """Frozen fixture selections exercise acquisition without starting any provider."""
+    import yaml
+
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+
+    root = inputs(tmp_path)
+    (root / "assets").mkdir()
+    configuration = SentenceConfig(exclude=("ner",))
+    (root / "sentences.yaml").write_text(yaml.safe_dump(configuration.model_dump(mode="json")))
+    for provider in ("spacy", "hanlp"):
+        native = NativeProfile(
+            provider, {"fixture": "no provider execution"}, {"files": {}},
+            configuration.model_dump(mode="json") if provider == "spacy" else {},
+            "float32", "cupy" if provider == "spacy" else "torch",
+        )
+        (root / (provider + ".json")).write_bytes(
+            canonical_bytes(NativeSelection(native, root / "assets").declaration())
+        )
+    with (root / "target.yaml").open("a") as output:
+        output.write("""primary_profile:
+  sentence_configuration: sentences.yaml
+  sentence_selection: spacy.json
+  hanlp_selection: hanlp.json
+""")
+    return root
+
+
+def test_primary_manifest_uses_shared_composition_and_retains_exact_profile_files(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import primary_operations
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+
+    root = primary_profile_inputs(tmp_path)
+    seen = []
+
+    def compose(bundle, **arguments):
+        seen.append(arguments)
+        return SimpleNamespace(bundle=bundle, dependencies=ResolvedDependencies(), profile=PreparationProfile(version="semantic-2"))
+
+    monkeypatch.setattr(primary_operations, "primary_operation_inputs", compose)
+    acquired = acquire_data_operation_inputs(root, "target.yaml")
+    (arguments,) = seen
+    assert arguments["sentence_selection"].provider == "spacy"
+    assert arguments["hanlp_selection"].provider == "hanlp"
+    assert arguments["sentence_configuration"].exclude == ("ner",)
+    assert arguments["sentence_selection"].assets == root / "assets"
+    assert arguments["extra_sources"] is None
+    assert [artifact.name for artifact in arguments["declarations"]] == ["operations"]
+    captured = dict(acquired.files)
+    assert {"target.yaml", "schema.yaml", "operations.yaml", "sentences.yaml", "spacy.json", "hanlp.json"} == set(captured)
+    assert captured["spacy.json"] == (root / "spacy.json").read_bytes()
+
+
+@pytest.mark.parametrize("change", ["fingerprint", "provider", "configuration", "unavailable-assets"])
+def test_primary_manifest_refuses_changed_or_unavailable_explicit_selection(tmp_path, change):
+    root = primary_profile_inputs(tmp_path)
+    value = json.loads((root / "spacy.json").read_bytes())
+    if change == "fingerprint":
+        value["fingerprint"] = "changed"
+    elif change == "provider":
+        value = json.loads((root / "hanlp.json").read_bytes())
+    elif change == "configuration":
+        (root / "sentences.yaml").write_text("exclude: []\n")
+    else:
+        value["assets"] = str(root / "absent")
+    (root / "spacy.json").write_bytes(canonical_bytes(value))
+    with pytest.raises(ValueError, match="selection|configuration"):
+        acquire_data_operation_inputs(root, "target.yaml")

@@ -6,9 +6,11 @@ the effective model; checkout paths do not become operation identity.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,6 +48,31 @@ class PythonInputs(BaseModel):
     ] = ()
 
 
+class PrimaryCaptureInputs(BaseModel):
+    """References to the existing frozen PDF recipe and prepared asset manifest."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    recipe: str = Field(min_length=1)
+    assets_manifest: str = Field(min_length=1)
+    assets_root: str = Field(min_length=1)
+    directory: str = Field(min_length=1)
+    nemotron_endpoint: str | None = None
+    require_nemotron_handoff: bool = False
+
+
+class PrimaryProfileInputs(BaseModel):
+    """File references, using each provider's existing configuration shape."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    sentence_configuration: str = Field(min_length=1)
+    sentence_selection: str = Field(min_length=1)
+    hanlp_selection: str = Field(min_length=1)
+    learned_selections: dict[Literal["maverick", "dipo", "d1", "gliner"], str] | None = None
+    construction: str | None = None
+    math: str | None = None
+    capture: PrimaryCaptureInputs | None = None
+
+
 class DataOperationInputs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     version: Literal["data-operation-inputs-v1"]
@@ -58,6 +85,7 @@ class DataOperationInputs(BaseModel):
     source_bindings: bool = False
     record_bindings: bool = False
     pdf_contracts: bool = False
+    primary_profile: PrimaryProfileInputs | None = None
 
 
 @dataclass(frozen=True)
@@ -156,6 +184,25 @@ def acquire_data_operation_inputs(
         if declared.consumer_bindings and sources is not None
         else ()
     )
+    if declared.primary_profile is not None:
+        from .primary_operations import primary_operation_inputs
+
+        primary = _acquire_primary_profile(declared.primary_profile, read, root)
+        composed = primary_operation_inputs(
+            bundle,
+            **primary,
+            dependencies=ResolvedDependencies(artifacts(declared.dependencies)),
+            extra_sources=sources,
+            declarations=(*artifacts(declared.declarations), *consumer_declarations),
+        )
+        dependencies = composed.dependencies
+        if declared.pdf_contracts and declared.primary_profile.capture is None:
+            from .pdf_domain import pdf_domain_dependencies
+
+            dependencies = pdf_domain_dependencies(dependencies)
+        return AcquiredDataOperationInputs(
+            composed.bundle, dependencies, composed.profile, tuple(sorted(captured.items()))
+        )
     native = native_protocol_sources()
     generator = capture_port_generator_sources()
     dependencies = data_operation_dependencies(
@@ -177,6 +224,90 @@ def acquire_data_operation_inputs(
         PreparationProfile(version="semantic-2"),
         tuple(sorted(captured.items())),
     )
+
+
+def _acquire_primary_profile(
+    profile: PrimaryProfileInputs, read: Callable[[str], bytes], root: Path
+) -> dict[str, Any]:
+    """Reconstitute explicit frozen selections; never acquire a default provider."""
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+
+    from .identity import canonical_bytes
+
+    def location(name: str) -> Path:
+        path = Path(name)
+        return (path if path.is_absolute() else root / path).resolve()
+
+    def selection(name: str, provider: str):
+        value = json.loads(read(name))
+        if not isinstance(value, dict) or set(value) != {"profile", "fingerprint", "assets"}:
+            raise ValueError("native selection must use the complete NativeSelection declaration")
+        native = NativeProfile.from_content(canonical_bytes(value["profile"]))
+        if native.provider != provider or native.fingerprint != value["fingerprint"]:
+            raise ValueError("native selection provider or captured fingerprint differs")
+        assets = location(value["assets"])
+        if not assets.is_dir():
+            raise ValueError("explicit native selection assets are unavailable")
+        return NativeSelection(native, assets)
+
+    configuration = SentenceConfig.model_validate(yaml.safe_load(read(profile.sentence_configuration)))
+    sentence = selection(profile.sentence_selection, "spacy")
+    if sentence.native.parameters != configuration.model_dump(mode="json"):
+        raise ValueError("sentence configuration differs from its frozen native selection")
+    arguments: dict[str, Any] = dict(
+        sentence_configuration=configuration,
+        sentence_selection=sentence,
+        hanlp_selection=selection(profile.hanlp_selection, "hanlp"),
+    )
+    if profile.learned_selections is not None:
+        if set(profile.learned_selections) != {"maverick", "dipo", "d1", "gliner"}:
+            raise ValueError("learned primary profile requires all four explicit selections")
+        arguments["learned_selections"] = {
+            provider: selection(path, provider)
+            for provider, path in profile.learned_selections.items()
+        }
+    if profile.construction is not None:
+        from .construction_products import ConstructionOptions
+
+        arguments["construction_options"] = ConstructionOptions.model_validate(
+            yaml.safe_load(read(profile.construction))
+        )
+    if profile.math is not None:
+        from .declared_math_products import DeclaredMathOptions
+
+        arguments["math_options"] = DeclaredMathOptions.model_validate(
+            yaml.safe_load(read(profile.math))
+        )
+    if profile.capture is not None:
+        from corpus_structure.ingest.pdf import PdfRecipe
+        from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+
+        from .pdf_capture import pdf_capture_operation_sources
+
+        capture = profile.capture
+        recipe = PdfRecipe.from_bytes(read(capture.recipe))
+        manifest = read(capture.assets_manifest)
+        value = json.loads(manifest)
+        if not isinstance(value, dict) or set(value) != {"recipe", "repositories", "files"} or value["recipe"] != "pdf-model-assets-v1":
+            raise ValueError("PDF assets require the existing prepared model manifest")
+        assets = PreparedPdfAssets(
+            location(capture.assets_root), manifest,
+            tuple((name, digest) for name, digest in value["files"]),
+            tuple((name, revision) for name, revision in value["repositories"]),
+        )
+        if any(
+            not name or Path(name).is_absolute() or ".." in Path(name).parts
+            for name, _digest in assets.files
+        ) or len({name for name, _digest in assets.files}) != len(assets.files):
+            raise ValueError("PDF asset manifest requires unique relative artifact names")
+        assets.verify()
+        arguments["capture_sources"] = pdf_capture_operation_sources(
+            recipe, assets, directory=location(capture.directory),
+            nemotron_endpoint=capture.nemotron_endpoint,
+            require_nemotron_handoff=capture.require_nemotron_handoff,
+        )
+    return arguments
 
 
 def prepare_data_operation_inputs(
