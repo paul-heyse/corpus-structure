@@ -2,27 +2,24 @@
 
 import json
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import replace
 from typing import Any
 
 import pytest
-from semantic.conftest import semantic_db_engine as semantic_db_engine
-from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
-from semantic.conftest import semantic_writer_engine as semantic_writer_engine
-from semantic.native_record_fixtures import complete_contributions, contribution_drafts
+from evaluation_operation_assessment_native_support import freeze as freeze
+from semantic.method_dimensions_native_support import current_guarded_database
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
+    complete_contributions,
+    contribution_drafts,
+)
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.reference_scenarios import expected_reading
-from semantic.reference_scenarios import private_source_options as private_source_options
 from semantic.reference_scenarios import reference_source as reference_source
-from semantic.test_method_dimensions_native import current_guarded_database
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.evidence import config_key
 from corpus_structure.evaluate.operation_assessment import (
-    PROTOCOL,
-    OperationCase,
-    OperationEvaluationFrame,
     adjudication_packet,
     author_packet,
     compare_assessments,
@@ -32,9 +29,7 @@ from corpus_structure.evaluate.operation_assessment import (
     reference_evaluate,
     review_export,
 )
-from corpus_structure.evaluate.record_references import assign_origin, source_binding
-from corpus_structure.evaluate.semantic import ReferenceError, split_documents
-from corpus_structure.evaluate.split import SplitConfig
+from corpus_structure.evaluate.semantic import ReferenceError
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -43,191 +38,17 @@ from corpus_structure.semantic.operations import seal_cut
 _CELL_CONFIGURATION = config_key("private.records", "1", {})
 
 
-def freeze(
-    conn,
-    case,
-    partition="development",
-    label="operation-source-only",
-    *,
-    frame_version=1,
-    comparison=None,
-    frame_source_state="stated",
-):
-    uri = conn.scalar(
-        select(table("kb.document").c.source_uri).where(
-            table("kb.document").c.id == case.view_row["document_id"]
-        )
-    )
-    origins = table("eval.reference_origin_source")
-    if (
-        conn.scalar(
-            select(origins.c.origin_group).where(
-                origins.c.project_id == "private-records", origins.c.source_uri == uri
-            )
-        )
-        is None
-    ):
-        assign_origin(
-            conn,
-            project_id="private-records",
-            origin_group="operation-fixture-origin",
-            partition=partition,
-            source_uris=(uri,),
-            provenance={"source": "independent two-cell control"},
-        )
-    splits = table("eval.document_split")
-    if (
-        conn.scalar(
-            select(splits.c.id).where(
-                splits.c.project_id == "private-records", splits.c.source_uri == uri
-            )
-        )
-        is None
-    ):
-        split_documents(
-            conn,
-            "private-records",
-            SplitConfig(forced_dev={uri: "controlled source"}),
-            release_id=case.prepared.release_id,
-        )
-    logical = source_binding(
-        conn, source_run_id=case.run, source_view_id=case.view, source_cut_id=case.cut
-    )
-    reading, old_frame = expected_reading(case, logical)
-    frame = OperationEvaluationFrame(
-        unit=old_frame.unit,
-        release_id=old_frame.release_id,
-        guideline_version="operation-guideline-1",
-        rubric_version="cell-value-1",
-        context_policy="native-source-only-1",
-        operation_question="recover_returned_local_contributions",
-        operation_version="retained-native-contributions-1",
-        domain="scientific-source",
-        direction="source_first",
-        pin=old_frame.pin,
-        anchor_ids=tuple(anchor["anchor_id"] for anchor in reading["anchors"]),
-        anchor_scopes=old_frame.anchor_scopes,
-    )
-    if frame_version == 2:
-        from corpus_structure.evaluate.operation_assessment import (
-            OperationEvaluationFrameV2,
-            OperationSourceOpportunity,
-        )
-
-        frame = OperationEvaluationFrameV2(
-            **asdict(frame),
-            source_group="operation-fixture-origin",
-            partition=partition,
-            inspected_scope="two-cell native source control",
-            opportunities=(
-                OperationSourceOpportunity(
-                    "cell-value" if comparison else "cell-opportunity-without-output",
-                    case.view,
-                    0,
-                    2,
-                    "value" if comparison else "location",
-                    "stated",
-                ),
-            ),
-        )
-    if frame_version == 3:
-        from corpus_structure.evaluate.operation_assessment import (
-            CharacterizationSourceOpportunity,
-            OperationEvaluationFrameV3,
-        )
-
-        projection = case.view_row["projection"]
-        piece = next(
-            p for p in projection["pieces"] if p["kind"] == "native_text" and p["end"] > p["start"]
-        )
-        frame = OperationEvaluationFrameV3(
-            **asdict(frame),
-            source_group="operation-fixture-origin",
-            partition=partition,
-            inspected_scope="independently selected native source piece",
-            opportunities=(
-                CharacterizationSourceOpportunity(
-                    "cell-value",
-                    (
-                        dict(
-                            source_view_id=case.view,
-                            projection=case.view_row["projection_digest"],
-                            native_pointer=piece["item_ref"],
-                            start=piece["start"],
-                            end=piece["end"],
-                        ),
-                    ),
-                    "value",
-                    frame_source_state,
-                ),
-            ),
-        )
-    created = create_reference_set(
-        conn,
-        project_id="private-records",
-        source_run_id=case.run,
-        source_cut_id=case.cut,
-        label=label,
-        legacy_split="dev",
-        guideline=frame.guideline_version,
-        guideline_text="Transcribe only independently selected source cell.",
-        partition=partition,
-        frames={frame.unit: frame},
-        sampling=dict(
-            seed=1,
-            strata={frame.unit: "body_cell"},
-            inclusion_probabilities={frame.unit: 1},
-            provenance={"selection": "source-only controlled cell"},
-            cohort="native-controls",
-            **(
-                {
-                    "comparison_arms": {
-                        arm: {frame.unit: binding} for arm, binding in comparison.items()
-                    }
-                }
-                if comparison
-                else {}
-            ),
-        ),
-    )
-    units = table("eval.reference_unit")
-    unit = conn.scalar(select(units.c.id).where(units.c.set_id == created["set_id"]))
-    expected = OperationCase(
-        case_id="cell-value",
-        facet="value",
-        anchor_ids=(frame.anchor_ids[0],),
-        inspected_scope="controlled/table/cell-0",
-        source_state="stated",
-        judgment="supported",
-        alternatives=({"value": {"kind": "text", "text": "12"}},),
-        explanation="The source cell independently spells 12.",
-        assessor_provenance={"assistance": "none"},
-        opportunity_id="cell-value" if frame_version == 3 else None,
-        required_family="native.spatial" if frame_version == 3 else None,
-    )
-    payload = dict(
-        protocol=PROTOCOL,
-        release_id=frame.release_id,
-        unit_ref=frame.unit,
-        guideline=frame.guideline_version,
-        rubric_version=frame.rubric_version,
-        context_policy=frame.context_policy,
-        operation_question=frame.operation_question,
-        operation_version=frame.operation_version,
-        domain=frame.domain,
-        direction=frame.direction,
-        reason="Controlled independent source-only pass",
-        cases=[asdict(expected)],
-        adjudication_passes=[],
-    )
-    return created, unit, frame, payload
-
-
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_source_only_passes_and_protected_inventory(
-    reference_source, semantic_evaluator_engine
+    reference_source, record_source_evaluator
 ):
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(conn, source)
         packet = author_packet(conn, unit)
         assert packet["native_contexts"]
@@ -274,7 +95,7 @@ def test_native_source_only_passes_and_protected_inventory(
     with source.writer.begin() as conn:
         final = seal_cut(conn, source.run, "operation-grade-final", final=True)
     consolidate_cut(source.writer, final, "operation-grade-output")
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         graded = reference_evaluate(
             conn, project_id="private-records", run_id=source.run, set_id=created["set_id"]
         )
@@ -350,11 +171,17 @@ def test_native_source_only_passes_and_protected_inventory(
         conn.execute(text("SELECT authored FROM eval.reference_pass LIMIT 1"))
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_heldout_review_export_retains_sealed_inventory_only(
-    reference_source, semantic_evaluator_engine
+    reference_source, record_source_evaluator
 ):
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(conn, source, "feature_fit")
         ids = []
         for kind in ("A", "B", "C"):
@@ -374,20 +201,26 @@ def test_heldout_review_export_retains_sealed_inventory_only(
         assert exported["judgments"] == [] and not exported["judgments_exposed"]
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_uncovered_scope(
-    private_source, semantic_evaluator_engine
+    private_source, record_source_evaluator
 ):
     source = private_source
     with source.writer.begin() as conn:
         complete_contributions(source, conn, contribution_drafts(source))
-        source.cut = seal_cut(conn, source.run, "paired-source-frame", final=False)
+        source = replace(source, cut=seal_cut(conn, source.run, "paired-source-frame", final=False))
     binding = dict(
         method=source.method.name,
         method_version=source.method.version,
         operation_question="inspect_cell",
         operation_version="1",
     )
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(
             conn,
             source,
@@ -418,7 +251,7 @@ def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_unco
     with source.writer.begin() as conn:
         final = seal_cut(conn, source.run, "paired-predictions", final=True)
     consolidate_cut(source.writer, final, "paired-operation-assessment")
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         args = dict(project_id="private-records", run_id=source.run, set_id=created["set_id"])
         with pytest.raises(ReferenceError, match="frozen baseline or revised"):
             reference_evaluate(conn, **args)
@@ -440,18 +273,22 @@ def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_unco
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"record_configuration_hash": _CELL_CONFIGURATION}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(composition="reference", record_configuration_hash=_CELL_CONFIGURATION)],
+    indirect=True,
 )
 def test_same_operation_comparison_authenticates_each_completed_configuration(
-    private_source, semantic_db_engine, semantic_evaluator_engine
+    private_source, record_source_admin, record_source_evaluator
 ):
     source = private_source
     with source.writer.begin() as conn:
         complete_contributions(source, conn, contribution_drafts(source))
-        source.cut = seal_cut(conn, source.run, "exact-configuration-frame", final=False)
+        source = replace(
+            source, cut=seal_cut(conn, source.run, "exact-configuration-frame", final=False)
+        )
         final = seal_cut(conn, source.run, "exact-configuration-predictions", final=True)
     consolidate_cut(source.writer, final, "exact-configuration-assessment")
-    current_guarded_database(semantic_db_engine)
+    current_guarded_database(record_source_admin)
     binding = dict(
         method=source.method.name,
         method_version=source.method.version,
@@ -463,7 +300,7 @@ def test_same_operation_comparison_authenticates_each_completed_configuration(
         binding,
         configuration_hash=config_key(source.method.name, source.method.version, {"context": True}),
     )
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         for left, right in ((binding, binding), (literal, binding), (literal, literal)):
             with pytest.raises(ReferenceError, match="distinct registered configuration"):
                 freeze(
@@ -490,7 +327,7 @@ def test_same_operation_comparison_authenticates_each_completed_configuration(
             )
             if kind != "C":
                 ids.append(identity)
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         args = dict(project_id="private-records", run_id=source.run, set_id=created["set_id"])
         with pytest.raises(ReferenceError, match="frozen arm configuration"):
             reference_evaluate(conn, comparison_arm="revised", **args)
@@ -526,12 +363,18 @@ def test_same_operation_comparison_authenticates_each_completed_configuration(
                 )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_conditional_proposal_endpoint_cases_preserve_kind_and_source_scope(
-    reference_source, semantic_db_engine, semantic_evaluator_engine
+    reference_source, record_source_admin, record_source_evaluator
 ):
-    current_guarded_database(semantic_db_engine)
+    current_guarded_database(record_source_admin)
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         _, unit, frame, payload = freeze(conn, source)
         expected: dict[str, Any] = payload["cases"][0]
         expected.update(
@@ -599,15 +442,21 @@ def test_native_conditional_proposal_endpoint_cases_preserve_kind_and_source_sco
         ]
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 @pytest.mark.parametrize("partition", ["final_event_calibration", "final_assessment"])
 def test_sealed_access_control_fixture_history_has_no_labels(
-    reference_source, semantic_evaluator_engine, partition
+    reference_source, record_source_evaluator, partition
 ):
     """Controlled fixture labels test access only; no valid heldout quality follows."""
     from corpus_structure.evaluate.review_assessments import iter_assessment_review_rows
 
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(
             conn, source, partition, label="sealed-access-control-fixture-not-research-evidence"
         )
@@ -644,13 +493,19 @@ def test_sealed_access_control_fixture_history_has_no_labels(
         assert getattr(refused.value.orig, "sqlstate", None) == "42501"
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_v2_source_opportunities_require_origin_group_and_partition(
-    reference_source, semantic_evaluator_engine
+    reference_source, record_source_evaluator
 ):
     from dataclasses import replace
 
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, _payload = freeze(conn, source, frame_version=2)
         assert created["sampling"]["source_frame_abi"] == "source-operation-frame-2"
         packet = author_packet(conn, unit)
@@ -695,16 +550,22 @@ def test_native_v2_source_opportunities_require_origin_group_and_partition(
             )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_characterization_source_reference_is_blind_and_uses_existing_abc(
     reference_source,
-    semantic_evaluator_engine,
+    record_source_evaluator,
 ):
     from dataclasses import replace
 
     from corpus_structure.evaluate.operation_assessment import OperationEvaluationFrameV3
 
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(
             conn,
             source,
@@ -778,14 +639,20 @@ def test_native_characterization_source_reference_is_blind_and_uses_existing_abc
             )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_operation_inspection_pages_retained_cases_and_binds_cursor(
     reference_source,
-    semantic_evaluator_engine,
+    record_source_evaluator,
 ):
     from corpus_structure.evaluate.operation_assessment import inspect_evaluation
 
     source = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(conn, source, label="inspection-controls")
         payload["cases"].append(
             dict(payload["cases"][0], case_id="second-case", facet="second-facet")
@@ -814,7 +681,7 @@ def test_native_operation_inspection_pages_retained_cases_and_binds_cursor(
     with source.writer.begin() as conn:
         final = seal_cut(conn, source.run, "operation-inspection-final", final=True)
     consolidate_cut(source.writer, final, "operation-inspection-output")
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         graded = reference_evaluate(
             conn, project_id="private-records", run_id=source.run, set_id=created["set_id"]
         )

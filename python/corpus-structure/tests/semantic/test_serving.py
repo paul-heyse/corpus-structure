@@ -27,25 +27,17 @@ from corpus_structure.serve.results import (
     StatementAnswer,
     TransformationAnswer,
 )
-
-from .serving_scenarios import (
-    build_completed_serving_case,
-    install_pack_scenario,
-)
-from .serving_scenarios import (
-    serving_read_scenario as serving_read_scenario,
-)
-from .serving_scenarios import (
-    serving_scenario_seed as serving_scenario_seed,
-)
+from semantic.serving_scenarios import build_completed_serving_case, install_pack_scenario
+from semantic.serving_scenarios import serving_read_scenario as serving_read_scenario
+from semantic.serving_scenarios import serving_scenario_seed as serving_scenario_seed
 
 
 def test_named_semantic_pages_explanations_and_source_search(serving_read_scenario):
     prepared, run, _task, locator = (
-        serving_read_scenario.prepared,
-        serving_read_scenario.run,
-        serving_read_scenario.task,
-        serving_read_scenario.locator,
+        serving_read_scenario.stage.prepared,
+        serving_read_scenario.stage.run,
+        serving_read_scenario.stage.task,
+        serving_read_scenario.stage.locator,
     )
     registry = open_query_registry(
         prepared, Path(__file__).resolve().parents[4] / "domains/statistics"
@@ -282,7 +274,7 @@ def test_named_semantic_pages_explanations_and_source_search(serving_read_scenar
 def test_full_projection_exports_and_cancel_cleanup(serving_read_scenario, tmp_path, monkeypatch):
     import pyarrow.parquet as pq
 
-    _run = serving_read_scenario.run
+    _run = serving_read_scenario.stage.run
     uri = serving_read_scenario.reader.url.render_as_string(hide_password=False).replace(
         "postgresql+psycopg:", "postgresql:"
     )
@@ -317,7 +309,7 @@ def test_full_projection_exports_and_cancel_cleanup(serving_read_scenario, tmp_p
 
 
 def test_statistics_named_algorithms_and_exact_ownership(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     from corpus_structure.serve.protocol import QueryContext
 
@@ -374,14 +366,14 @@ def test_statistics_named_algorithms_and_exact_ownership(
         ]
 
     _prepared, _batch = install_pack_scenario(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         "statistics",
         with_transformations,
         contexts=True,
     )
     registry = build_registry(GENERIC, Path(__file__).resolve().parents[4] / "domains/statistics")
-    with read_session(semantic_reader_engine, "pack") as session:
+    with read_session(commit_reader_engine, "pack") as session:
         ctx = QueryContext(0, session.connection)
         ctx.__dict__["session"] = session
 
@@ -439,7 +431,7 @@ def test_statistics_named_algorithms_and_exact_ownership(
 
 
 def test_toy_pack_delivers_ownership_distinct_identities_and_contextual_inspection(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     from decimal import Decimal
 
@@ -518,9 +510,9 @@ def test_toy_pack_delivers_ownership_distinct_identities_and_contextual_inspecti
             "Qualification",
         ),
     ]
-    _, _batch = install_pack_scenario(semantic_db_engine, semantic_writer_engine, "toy", entries)
+    _, _batch = install_pack_scenario(commit_db_engine, commit_writer_engine, "toy", entries)
     registry = build_registry(GENERIC, Path(__file__).resolve().parents[4] / "domains/toy")
-    with read_session(semantic_reader_engine, "pack") as session:
+    with read_session(commit_reader_engine, "pack") as session:
         ctx = QueryContext(0, session.connection)
         ctx.__dict__["session"] = session
         query = registry["ownership_at"]
@@ -559,7 +551,7 @@ def test_toy_pack_delivers_ownership_distinct_identities_and_contextual_inspecti
 def test_real_cli_query_explain_and_export_dispatch(serving_read_scenario, tmp_path, cli):
     from corpus_structure.settings import Settings
 
-    run, locator = serving_read_scenario.run, serving_read_scenario.locator
+    run, locator = serving_read_scenario.stage.run, serving_read_scenario.stage.locator
     settings = Settings(
         database={
             "url": serving_read_scenario.reader.url.set(drivername="postgresql").render_as_string(
@@ -676,7 +668,7 @@ def test_real_cli_query_explain_and_export_dispatch(serving_read_scenario, tmp_p
 
 
 def test_real_cli_query_implementation_edit_and_bound_followups(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, cli, monkeypatch
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, cli, monkeypatch
 ):
     from corpus_structure.schema import pack as pack_module
     from corpus_structure.settings import Settings
@@ -690,13 +682,13 @@ def test_real_cli_query_implementation_edit_and_bound_followups(
     )
     (pack / "queries.py").write_text(plugin)
     prepared, run, _, locator = build_completed_serving_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path, query_pack=pack
+        commit_db_engine, commit_writer_engine, tmp_path, query_pack=pack
     )
     original = open_query_registry(prepared, pack)
     monkeypatch.setattr(pack_module, "DOMAINS", packs)
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -821,18 +813,18 @@ def test_real_cli_query_implementation_edit_and_bound_followups(
 
 
 def test_empty_named_continuation_does_not_assert_whole_query_absence(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.semantic.query import read_snapshot
 
     prepared, run, _, _ = build_completed_serving_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path, complete_coverage=True
+        commit_db_engine, commit_writer_engine, tmp_path, complete_coverage=True
     )
     registry = open_query_registry(
         prepared, Path(__file__).resolve().parents[4] / "domains/statistics"
     )
     params = {"predicate": "https://example.org/name"}
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         first = serve_query(conn, registry, "claims", params, run=run, max_rows=1)
         assert first.rows and first.next_page_token
         assert any(c.scope == "*" and c.outcome == "complete" for c in first.coverage)

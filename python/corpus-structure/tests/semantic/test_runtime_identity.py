@@ -21,7 +21,7 @@ from corpus_structure.semantic.runtime_bindings import (
     validate_runtime_binding,
 )
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-from semantic.test_execution_release import _bundle
+from semantic.execution_release_support import bundle as _bundle
 
 
 @pytest.fixture(scope="module")

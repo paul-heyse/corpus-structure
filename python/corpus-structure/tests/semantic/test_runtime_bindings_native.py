@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import psycopg
 import pytest
+from native_refusals import native_refusal
 from pydantic import create_model
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
@@ -29,8 +30,14 @@ from corpus_structure.semantic.runtime_binding_store import (
 )
 from corpus_structure.semantic.runtime_bindings import RuntimeBindingError, prepare_runtime_binding
 from corpus_structure.semantic.types import SourceArtifact
+from semantic.native_admission_scenarios import RuntimeRegistrationRecipe
+from semantic.operation_scenario_support import prepare_operation_scenario
 
-from .operation_scenario_support import prepare_operation_scenario
+
+@pytest.fixture
+def runtime_registration_case(scenario_seeds):
+    with scenario_seeds.rollback_family(RuntimeRegistrationRecipe()) as family:
+        yield family.stage.prepared, family
 
 
 def alternate_runtime(prepared):
@@ -64,16 +71,16 @@ def native_run(conn, prepared, binding):
 
 
 def test_distinct_runtime_pins_preserve_one_release_and_reopen_exact_archives(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     first = prepare_runtime_binding(prepared)
     second = alternate_runtime(prepared)
     assert first.runtime_id != second.runtime_id
     release = table("sem.release")
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         original = conn.execute(select(release.c.prepared_bytes, release.c.manifest_bytes)).one()
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         first_run = create_run(
             conn,
             project_id="p",
@@ -86,7 +93,7 @@ def test_distinct_runtime_pins_preserve_one_release_and_reopen_exact_archives(
         )
         second_run = native_run(conn, prepared, second)
         assert persist_runtime_binding(conn, prepared, first) == first.runtime_id
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert runtime_binding_for_run(conn, first_run, prepared) == first
         assert runtime_binding_for_run(conn, second_run, prepared) == second
         assert conn.scalar(text("SELECT count(*) FROM sem.runtime_binding")) == 2
@@ -111,9 +118,9 @@ def test_distinct_runtime_pins_preserve_one_release_and_reopen_exact_archives(
     ],
 )
 def test_native_registration_refuses_altered_or_incompatible_binding(
-    semantic_db_engine, semantic_writer_engine, mutation
+    runtime_registration_case, mutation
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared, family = runtime_registration_case
     binding = prepare_runtime_binding(prepared)
     manifest, archive = json.loads(binding.manifest), json.loads(binding.archive)
     if mutation == "release":
@@ -133,34 +140,69 @@ def test_native_registration_refuses_altered_or_incompatible_binding(
     else:
         archive["inputs"] = archive["inputs"][1:]
     manifest_bytes = canonical_bytes(manifest)
-    with pytest.raises(DBAPIError) as rejected, semantic_writer_engine.begin() as conn:
-        calls.register_runtime_binding(
-            conn,
-            release_id=calls.ReleaseId(prepared.release_id),
-            runtime_id=calls.RuntimeId("runtime:" + sha256(manifest_bytes).hexdigest()),
-            manifest=manifest_bytes,
-            archive=canonical_bytes(archive),
-            projection_context=prepared,
+    expected_message = {
+        "release": "unsupported runtime binding contract",
+        "archive": "runtime source archive differs from declared digest",
+        "contract": "unsupported runtime binding contract",
+        "model": "runtime binding belongs to another execution model",
+        "compiler": "unsupported runtime binding contract",
+        "compiler_mismatch": "runtime binding belongs to another execution model",
+        "semantic": "runtime semantic inputs differ from released meaning",
+        "membership": "runtime source archive membership differs from manifest",
+    }[mutation]
+    runtime = calls.RuntimeId("runtime:" + sha256(manifest_bytes).hexdigest())
+    with family.principal("write") as conn:
+        bindings = table("sem.runtime_binding")
+        with conn.begin_nested() as accepted:
+            calls.register_runtime_binding(
+                conn,
+                release_id=calls.ReleaseId(prepared.release_id),
+                runtime_id=calls.RuntimeId(binding.runtime_id),
+                manifest=binding.manifest,
+                archive=binding.archive,
+                projection_context=prepared,
+            )
+            assert (
+                conn.scalar(
+                    select(bindings.c.runtime_id).where(bindings.c.runtime_id == binding.runtime_id)
+                )
+                == binding.runtime_id
+            )
+            accepted.rollback()
+        with native_refusal("23514", message=expected_message), conn.begin_nested():
+            calls.register_runtime_binding(
+                conn,
+                release_id=calls.ReleaseId(prepared.release_id),
+                runtime_id=runtime,
+                manifest=manifest_bytes,
+                archive=canonical_bytes(archive),
+                projection_context=prepared,
+            )
+        assert (
+            conn.scalar(
+                select(bindings.c.runtime_id).where(
+                    bindings.c.runtime_id.in_((binding.runtime_id, runtime))
+                )
+            )
+            is None
         )
-    assert isinstance(rejected.value.orig, psycopg.Error)
-    assert rejected.value.orig.sqlstate == "23514"
 
 
 def test_native_pin_and_archive_are_immutable_and_writer_cannot_bypass_registration(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     binding = prepare_runtime_binding(prepared)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = native_run(conn, prepared, binding)
     for sql, parameters in (
         ("UPDATE ops.run SET runtime_id=NULL WHERE id=:run", {"run": run}),
         ("UPDATE sem.runtime_binding SET archive_bytes='different'::bytea", {}),
         ("DELETE FROM sem.runtime_binding", {}),
     ):
-        with pytest.raises(DBAPIError), semantic_db_engine.begin() as conn:
+        with pytest.raises(DBAPIError), commit_db_engine.begin() as conn:
             conn.execute(text(sql), parameters)
-    with pytest.raises(DBAPIError) as denied, semantic_writer_engine.begin() as conn:
+    with pytest.raises(DBAPIError) as denied, commit_writer_engine.begin() as conn:
         conn.execute(
             table("sem.runtime_binding")
             .insert()
@@ -173,17 +215,17 @@ def test_native_pin_and_archive_are_immutable_and_writer_cannot_bypass_registrat
         )
     assert isinstance(denied.value.orig, psycopg.Error)
     assert denied.value.orig.sqlstate == "42501"
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert runtime_binding_for_run(conn, run, prepared) == binding
 
 
 def test_runtime_change_fences_python_twin_selection_and_native_reuse(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     first = prepare_runtime_binding(prepared)
     second = alternate_runtime(prepared)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         origin_run = native_run(conn, prepared, first)
         same_run = native_run(conn, prepared, first)
         other_run = native_run(conn, prepared, second)
@@ -254,13 +296,13 @@ def test_runtime_change_fences_python_twin_selection_and_native_reuse(
 
 
 def test_changed_runtime_cannot_start_or_claim_an_existing_run(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     other_runtime = alternate_runtime(prepared)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = native_run(conn, prepared, other_runtime)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         with pytest.raises(RuntimeBindingError, match="installed runtime differs"):
             start_run(conn, run, prepared=prepared)
         with pytest.raises(RuntimeBindingError, match="installed runtime differs"):
@@ -278,12 +320,12 @@ def test_changed_runtime_cannot_start_or_claim_an_existing_run(
 
 
 def test_unknown_runtime_and_legacy_creation_abi_cannot_create_an_unpinned_current_run(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     with (
         pytest.raises(DBAPIError, match="unknown same-release runtime binding"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         calls.create_run(
             conn,
@@ -302,7 +344,7 @@ def test_unknown_runtime_and_legacy_creation_abi_cannot_create_an_unpinned_curre
         )
     with (
         pytest.raises(DBAPIError, match="new run requires an immutable runtime binding"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         conn.execute(
             text(
@@ -311,5 +353,5 @@ def test_unknown_runtime_and_legacy_creation_abi_cannot_create_an_unpinned_curre
             ),
             {"release": prepared.release_id},
         )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM ops.run")) == 0

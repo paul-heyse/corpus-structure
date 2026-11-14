@@ -12,28 +12,17 @@ from corpus_structure.semantic.analytics import AnalysisScope, load_packet
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.ontology import CS, validate_projected_graph
 from corpus_structure.semantic.query import read_session
-
-from .inventory_reading import inventory_items
+from semantic.inventory_reading import inventory_items
 
 
 @pytest.mark.parametrize("attribute_assertions", [False, True])
 def test_identity_exclusion_snapshot_reader_and_columnar_closure(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
-    tmp_path,
-    attribute_assertions,
+    exclusion_read_case, tmp_path, attribute_assertions
 ):
-    from .test_identity_exclusions import exclusion_result
-
-    _prepared, _run, _cut, result = exclusion_result(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path,
-        attribute_assertions=attribute_assertions,
-    )
+    commit_reader_engine = exclusion_read_case.reader
+    _prepared, _run, _cut, result = exclusion_read_case.stage.result
     assert result is not None
-    with read_session(semantic_reader_engine, result.realization_id) as session:
+    with read_session(commit_reader_engine, result.realization_id) as session:
         rows = session.identity_exclusions()
         assert len(rows) == 1
         exclusion = rows[0]
@@ -106,7 +95,7 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
         else:
             assert fact_id is None
 
-        uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+        uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
             hide_password=False
         )
         packet = load_packet(session, uri)

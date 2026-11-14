@@ -23,13 +23,12 @@ from corpus_structure.semantic.operations import (
     record_method,
     seal_cut,
 )
+from semantic.operation_scenario_support import prepare_operation_scenario
 
-from .operation_scenario_support import prepare_operation_scenario
 
-
-def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semantic_writer_engine):
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+def test_native_terminal_fence_replay_and_sealed_cut(commit_db_engine, commit_writer_engine):
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     binding = OperationBinding(p.release_id, "z", 0, b"{}")
     with e.begin() as c:
         run = create_run(
@@ -123,9 +122,9 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
         c.execute(table("kb.observation").insert().values(task_id=task))
 
 
-def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_engine):
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+def test_binding_revision_and_wrong_attempt(commit_db_engine, commit_writer_engine):
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     with pytest.raises(OperationConflict), e.begin() as c:
         create_run(
             c,
@@ -179,7 +178,7 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
 
 
 def test_recognizer_terminal_source_boundary_and_coverage(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     from pydantic import BaseModel
 
@@ -205,8 +204,8 @@ def test_recognizer_terminal_source_boundary_and_coverage(
     class SourceConfig(BaseModel):
         pass
 
-    p = prepare_operation_scenario(semantic_db_engine, observations=True, evaluation=True)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine, observations=True, evaluation=True)
+    e = commit_writer_engine
     method = SimpleNamespace(
         name="read",
         version="1",
@@ -356,7 +355,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
     with e.connect().execution_options(isolation_level="SERIALIZABLE") as c, c.begin():
         cut = seal_cut(c, run, "measurement-final", final=True)
     consolidate_cut(e, cut, "measurement-output")
-    with read_session(semantic_reader_engine, "measurement-output") as session:
+    with read_session(commit_reader_engine, "measurement-output") as session:
         measurements = [m.model_dump(mode="python") for m in session.measurements("count")]
     assert len(measurements) == 4
     assert [m["source_position"] for m in measurements] == [0, 1, 2, 3]
@@ -383,7 +382,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
     ):
         with pytest.raises(DBAPIError), e.begin() as c:
             c.execute(text(statement), {"run": run, "task": task})
-    with read_session(semantic_reader_engine, "measurement-output") as session:
+    with read_session(commit_reader_engine, "measurement-output") as session:
         assert [m.model_dump()["source_position"] for m in session.measurements("count")] == [
             0,
             1,
@@ -403,7 +402,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
         },
         {"kind": "object", "fields": [{"name": "x", "position": 4, "value": {"kind": "null"}}]},
     )
-    with semantic_db_engine.connect() as c:
+    with commit_db_engine.connect() as c:
         for malformed in malformed_values:
             with pytest.raises(DBAPIError), c.begin_nested():
                 c.execute(
@@ -412,9 +411,9 @@ def test_recognizer_terminal_source_boundary_and_coverage(
                 )
 
 
-def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writer_engine):
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+def test_reuse_requires_complete_bound_meaning(commit_db_engine, commit_writer_engine):
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     method = SimpleNamespace(
         name="read",
         version="1",
@@ -472,7 +471,7 @@ def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writ
 
 
 def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     from contextlib import contextmanager
 
@@ -483,8 +482,8 @@ def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
     from corpus_structure.ingest.methods import METHODS
     from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 
-    p = prepare_operation_scenario(semantic_db_engine, observations=True, archive=True)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine, observations=True, archive=True)
+    e = commit_writer_engine
     corpus = tmp_path / "corpus"
     from pdf_acceptance_support import write_controlled_pdf
 
@@ -573,13 +572,11 @@ def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
         "self",
     ],
 )
-def test_native_role_cannot_forge_reuse_binding(
-    semantic_db_engine, semantic_writer_engine, difference
-):
+def test_native_role_cannot_forge_reuse_binding(commit_db_engine, commit_writer_engine, difference):
     from sqlalchemy import update
 
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     method = SimpleNamespace(
         name="read",
         version="1",
@@ -616,7 +613,7 @@ def test_native_role_cannot_forge_reuse_binding(
     if difference == "dependencies":
         deps = b'{"policy":"changed"}'
     if difference in {"project", "release", "revision"}:
-        with semantic_db_engine.begin() as c:
+        with commit_db_engine.begin() as c:
             if difference == "project":
                 project, z = "other", "other-z"
                 c.execute(insert(table("data.project")).values(project_id=project))
@@ -629,11 +626,10 @@ def test_native_role_cannot_forge_reuse_binding(
                 from corpus_structure.semantic.composed import composed_dependencies
                 from corpus_structure.semantic.releases import persist_release
                 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-
-                from .test_releases import source_bundle
+                from semantic.releases_support import source_bundle
 
                 bundle = source_bundle(b"# independent other release\n")
-                from .method_dimensions_support import fixture_execution_inputs
+                from semantic.method_dimensions_support import fixture_execution_inputs
 
                 dependencies = composed_dependencies(
                     ResolvedDependencies(), fixture_execution_inputs("read")
@@ -685,7 +681,7 @@ def test_native_role_cannot_forge_reuse_binding(
     # The independently invalid bound origin must also fail after reaching the native guard.
     with (
         pytest.raises(DBAPIError, match="reuse origin has another bound source context") as guarded,
-        semantic_db_engine.begin() as c,
+        commit_db_engine.begin() as c,
     ):
         c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         c.execute(
@@ -704,12 +700,12 @@ def test_native_role_cannot_forge_reuse_binding(
 
 
 def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     from sqlalchemy import update
 
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     with e.begin() as c:
         run = create_run(
             c,
@@ -768,7 +764,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
     # Independently reach the lifecycle guard with an actor that can issue the invalid DML.
     with (
         pytest.raises(DBAPIError, match="terminal source task is immutable") as guarded,
-        semantic_db_engine.begin() as c,
+        commit_db_engine.begin() as c,
     ):
         c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         c.execute(
@@ -807,7 +803,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
     assert denied.value.orig.sqlstate == "42501"
     with (
         pytest.raises(DBAPIError, match="sealed run cannot reopen") as guarded,
-        semantic_db_engine.begin() as c,
+        commit_db_engine.begin() as c,
     ):
         c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         c.execute(
@@ -825,10 +821,10 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
 
 
 def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     method = SimpleNamespace(
         name="read",
         version="1",
@@ -895,12 +891,12 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
 
 
 def test_native_cancel_drains_claims_and_blocks_late_completion(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     from corpus_structure.semantic.operations import end_source_run
 
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     with e.begin() as c:
         run = create_run(
             c,
@@ -948,10 +944,10 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
 
 
 def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     t = table("ops.task")
     with e.begin() as c:
         run = create_run(
@@ -983,7 +979,7 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
         )
         first = claim_tasks(c, run_id=run, config_id=cfg, holder="first")[0]
     # Time expiry is fixture setup, not a write capability granted to the worker.
-    with semantic_db_engine.begin() as c:
+    with commit_db_engine.begin() as c:
         c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         c.execute(
             t.update()

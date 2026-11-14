@@ -39,7 +39,7 @@ from corpus_structure.semantic.releases import persist_release
 
 
 def test_native_known_reference_packet_mcp_and_finalizer(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     domain = {
@@ -66,7 +66,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
     )
     bundle = observation_inputs(proposal_inputs(bundle, deps))
     bundle, deps = analytical_inputs(bundle, deps)
-    from .method_dimensions_support import fixture_execution_inputs
+    from semantic.method_dimensions_support import fixture_execution_inputs
 
     deps = composed_dependencies(deps, fixture_execution_inputs("pdf.controlled-source"))
     profile = PreparationProfile(version="semantic-2")
@@ -74,7 +74,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
 
     bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, deps, profile)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="known"))
         conn.execute(
@@ -108,7 +108,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
     batch = replace(
         batch, selection=tuple(SelectionRow(row.fact_id) for row in batch.fact)
     ).bind_preparation(prepared)
-    publish_batch(semantic_writer_engine, batch)
+    publish_batch(commit_writer_engine, batch)
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 
     from corpus_structure.ingest.sentences import SentenceConfig
@@ -123,7 +123,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         "packet_cap_chars": 18000,
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
-    e = semantic_writer_engine
+    e = commit_writer_engine
     with e.begin() as conn:
         run = create_run(
             conn,
@@ -151,7 +151,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         original=original,
         paragraphs=("Alice is here.",),
     )
-    from .primary_native_support import bind_primary_agent_run
+    from semantic.primary_native_support import bind_primary_agent_run
 
     with e.begin() as conn:
         run, configuration = bind_primary_agent_run(

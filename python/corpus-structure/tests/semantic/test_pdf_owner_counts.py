@@ -24,8 +24,7 @@ from corpus_structure.semantic.pdf_publication import (
 from corpus_structure.semantic.pdf_publication_native import publication_sql
 from corpus_structure.semantic.pdf_records import iter_native_records
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
-
-from .pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize(
@@ -33,7 +32,7 @@ from .pdf_staging_support import private_build as private_build
     ["orphan", "repeated-owner", "disconnected-cycle", "root-cycle", "scalar-gap", "empty-scalar"],
 )
 def test_native_owner_counts_refuse_missing_or_duplicate_membership(
-    private_build, semantic_writer_engine, semantic_db_engine, defect
+    private_build, commit_writer_engine, commit_db_engine, defect
 ):
     build = private_build
     document = DoclingDocument(name="independent ownership control")
@@ -109,7 +108,7 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
                     ),
                 )
             )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         for family in ("header", "native", "membership", "reference"):
             adopt_pdf_batch(
                 conn,
@@ -154,7 +153,7 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
     sql = publication_sql()
     start = sql.index("CREATE OR REPLACE FUNCTION ops.validate_pdf_build(")
     stop = sql.index("CREATE OR REPLACE FUNCTION ops.seal_pdf_build(", start)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(sql[start:stop], execution_options={"no_parameters": True})
     with (
@@ -165,7 +164,7 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
                 r"containment cycle or unreachable record|ordered membership incomplete)"
             ),
         ),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         conn.execute(
             text("SELECT * FROM ops.validate_pdf_build(:build,:task,:attempt,:holder,:frozen)"),

@@ -5,8 +5,9 @@ from dataclasses import replace
 from hashlib import sha256
 
 import pytest
+from methods.m1_source_preparation_support import source
 from methods.primary_reading_fixture import primary_product
-from methods.test_scoped_relations import complete_native_fields, discover_relations, source
+from methods.scoped_relations_support import complete_native_fields, discover_relations
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -100,7 +101,7 @@ def frame_rows(output):
 
 def authored_product(monkeypatch, spelling, columns):
     """Native lexical positions with independent POS/dependency/lemma gold."""
-    from ingest.test_annotations import ControlledPipeline, item
+    from annotation_support import ControlledPipeline, item
 
     controlled = ControlledPipeline()
     monkeypatch.setattr(annotations, "pipeline", lambda _: controlled)
@@ -118,7 +119,7 @@ def authored_product(monkeypatch, spelling, columns):
     )
 
 
-def test_native_list_host_requires_exact_selected_membership(semantic_db_engine):
+def test_native_list_host_requires_exact_selected_membership(commit_db_engine):
     intro = "For each of the following, assume that all inputs are valid:"
     spelling = f"{intro}\nThe analyst records the input.\nThe reviewer checks the result."
     view = complete_native_fields(source(spelling, labels=("text", "list_item", "list_item")))
@@ -166,7 +167,7 @@ def test_native_list_host_requires_exact_selected_membership(semantic_db_engine)
     population = {row["contribution_id"]: row for row in output["contributions"]}
     parameters = primary_parameters(view, output["_primary_layers"])
     witnessed = {}
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for row in population.values():
             relation = row.get("component", {})
             if "host_witness" not in relation:
@@ -204,12 +205,12 @@ def test_native_list_host_requires_exact_selected_membership(semantic_db_engine)
         parameters,
         view=json.dumps(dict(id=view.ref.id, projection_digest="f" * 64, projection=projection)),
     )
-    with semantic_db_engine.connect() as conn, pytest.raises(DBAPIError) as refused:
+    with commit_db_engine.connect() as conn, pytest.raises(DBAPIError) as refused:
         native_member(conn, changed, predicate, anchors, selection=(0, len(spelling)))
     assert getattr(refused.value.orig, "sqlstate", None) == "23514"
 
 
-def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine):
+def test_native_clipped_role_population_detects_omitted_roles(commit_db_engine):
     from corpus_structure.ingest.sentences import pipeline
 
     spelling = "The analyst records the input."
@@ -255,7 +256,7 @@ def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine
     assert object_["token_indices"] == (3,) and object_["outcome"] == "partial"
     population = {row["contribution_id"]: row for row in output["contributions"]}
     parameters = primary_parameters(view, output["_primary_layers"])
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for role in ("actor", "object"):
             member = members[role]
             anchors = population[member["contribution"]]["anchors"]
@@ -308,11 +309,9 @@ def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine
         )
 
 
-def test_native_attribution_requires_an_eligible_reporting_governor(
-    semantic_db_engine, monkeypatch
-):
+def test_native_attribution_requires_an_eligible_reporting_governor(commit_db_engine, monkeypatch):
     spelling = "Suppose we wait."
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for pos, expected in (("VERB", "reference"), ("NOUN", "unresolved")):
             product = authored_product(
                 monkeypatch,
@@ -341,8 +340,8 @@ def test_native_attribution_requires_an_eligible_reporting_governor(
             )
 
 
-def test_native_block_negation_preserves_direct_and_shared_scope(semantic_db_engine, monkeypatch):
-    with semantic_db_engine.connect() as conn:
+def test_native_block_negation_preserves_direct_and_shared_scope(commit_db_engine, monkeypatch):
+    with commit_db_engine.connect() as conn:
         for connector, expected in (
             ("and", {2: "negative_scope_unresolved", 4: "negative_scope_unresolved"}),
             ("but", {2: "negative", 4: "positive"}),
@@ -370,7 +369,7 @@ def test_native_block_negation_preserves_direct_and_shared_scope(semantic_db_eng
 
 
 def test_native_example_cue_uses_one_governor_and_refuses_numbered_reference(
-    semantic_db_engine, monkeypatch
+    commit_db_engine, monkeypatch
 ):
     cases = (
         (
@@ -398,7 +397,7 @@ def test_native_example_cue_uses_one_governor_and_refuses_numbered_reference(
             "unresolved",
         ),
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for spelling, columns, host, expected in cases:
             product = authored_product(monkeypatch, spelling, columns)
             result = predicate_frames(spelling, (product,))

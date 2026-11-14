@@ -33,14 +33,13 @@ from corpus_structure.semantic.source_views import (
     store_native_source_frame,
     store_source_view,
 )
-
-from .native_record_fixtures import publish_native_record_fixture, qualified_view_draft
-from .operation_scenario_support import prepare_operation_scenario
-from .primary_native_support import publish_primary_layers
+from semantic.native_record_fixtures import publish_native_record_fixture, qualified_view_draft
+from semantic.operation_scenario_support import prepare_operation_scenario
+from semantic.primary_native_support import publish_primary_layers
 
 
 def test_native_source_view_is_real_unit_with_exact_context(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     from docling_core.types.doc import (
         BoundingBox,
@@ -60,7 +59,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     from corpus_structure.semantic.proposals import native_source_frame
 
     prepared = prepare_operation_scenario(
-        semantic_db_engine, observations=True, characterization=True, composed=True
+        commit_db_engine, observations=True, characterization=True, composed=True
     )
     original = b"%PDF-1.7\nindependent source view fixture"
     recipe = b'{"recipe":"native-scope-fixture"}'
@@ -157,7 +156,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     from corpus_structure.semantic.source_views import source_view_health
 
     product = prepare_pdf_product(payload, original, schema, recipe)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -214,7 +213,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
             recipe_bytes=recipe,
         )
     published = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "native-records",
         task_id=task,
         attempt=claim.attempt,
@@ -223,7 +222,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         document=doc,
     )
     native_reference = ProductReference(task, "native", published.logical_digest)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         reader = BoundReader(conn, run, prepared)
         reader.bind_source_tasks({document: task})
         # No selected view or future-output input config exists yet. The current
@@ -282,7 +281,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         reader.bind_source_tasks({document: another})
         with pytest.raises(OperationConflict, match="exact claimed"):
             reader.native_document(native_reference)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         draft = SourceViewDraft(
             "view-independent",
             document,
@@ -598,7 +597,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
                 conn, task_id=agent_task, packet_hash=packet_hash, frame=wrong
             )
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         assert (
             conn.execute(
@@ -609,7 +608,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         )
 
     # An archived native product is adopted only by an exact declared, claimed input.
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         adopted = create_run(
             conn,
             project_id="p",
@@ -685,14 +684,14 @@ def test_native_source_view_is_real_unit_with_exact_context(
     # Regenerate actual math operations over the exact captured views. The source
     # executor authors the immutable dependency manifest containing these pins;
     # no hand-written run manifest substitutes for a current producer.
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         primary_pins = publish_primary_layers(
             conn, run, prepared, (identity, child_identity), formal=True
         )
     capture_run = run
 
     def select_captured(created):
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             for source_id in (identity, child_identity):
                 select_source_view(
                     conn,
@@ -773,7 +772,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     parent_method = ParentContext()
     math = ExtractMath()
     regenerated = run_source_methods(
-        semantic_writer_engine,
+        commit_writer_engine,
         project_id="p",
         prepared=prepared,
         binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
@@ -810,7 +809,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     run = regenerated.run_id
 
     lexical = request_source_view(
-        semantic_writer_engine,
+        commit_writer_engine,
         source_run_id=run,
         source_view_id=identity,
         demand="lexical",
@@ -828,7 +827,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     with monkeypatch.context() as patch:
         patch.setattr(native, "native_request_analysis", forbidden)
         repeated = request_source_view(
-            semantic_writer_engine,
+            commit_writer_engine,
             source_run_id=run,
             source_view_id=identity,
             demand="lexical",
@@ -840,7 +839,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         patch.setattr(native, "native_ancestor_declarations", forbidden)
         patch.setattr(native, "stored_native_ancestor_declarations", forbidden)
         child_weak = request_source_view(
-            semantic_writer_engine,
+            commit_writer_engine,
             source_run_id=run,
             source_view_id=child_identity,
             demand="lexical",
@@ -851,7 +850,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     with monkeypatch.context() as patch:
         patch.setattr(native, "native_ancestor_declarations", forbidden)
         child_strong = request_source_view(
-            semantic_writer_engine,
+            commit_writer_engine,
             source_run_id=run,
             source_view_id=child_identity,
             demand="interpretation",
@@ -866,7 +865,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         and "preparation_observation" in d["evidence"]
         for d in declarations
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         params = conn.execute(
             text(
                 "SELECT c.params FROM ops.task t JOIN ops.method_config c ON "
@@ -902,7 +901,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         patch.setattr(native, "native_request_analysis", timed_out)
         for _ in range(2):
             failed = request_source_view(
-                semantic_writer_engine,
+                commit_writer_engine,
                 source_run_id=run,
                 source_view_id=identity,
                 demand="syntax",
@@ -916,7 +915,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
                 and failed.cut_id is None
                 and failed.result["items"][0]["failure"]["category"] == "timeout"
             )
-            with semantic_writer_engine.connect() as conn:
+            with commit_writer_engine.connect() as conn:
                 assert (
                     conn.execute(
                         text("SELECT status FROM ops.task WHERE id=:task"), {"task": failed.task_id}

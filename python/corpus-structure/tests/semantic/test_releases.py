@@ -22,69 +22,9 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.types import PreparedArtifact
-
-from .archive_faults import administrative_archive_edit
-
-
-def source_bundle(extra: bytes = b"") -> SourceBundle:
-    # Deliberately preserve comments, CRLF and source/dependency ordering independently
-    # of YAML's interpreted meaning and the compiler's sorted digest manifest.
-    return SourceBundle(
-        "archive",
-        (
-            SourceArtifact(
-                "archive",
-                b"""id: https://example.org/archive
-name: archive
-prefixes:
-  ex: https://example.org/
-default_prefix: ex
-imports: [base]
-classes:
-  Child:
-    is_a: Parent
-    attributes:
-      label:
-        range: string
-"""
-                + extra,
-            ),
-            SourceArtifact(
-                "base",
-                b"""# exact imported bytes
-id: https://example.org/base
-name: base
-prefixes:
-  ex: https://example.org/
-default_prefix: ex
-types:
-  string:
-    base: str
-    uri: xsd:string
-classes:
-  Parent:
-    attributes:
-      id:
-        identifier: true
-""".replace(b"\n", b"\r\n"),
-            ),
-        ),
-    )
-
-
-def stage(conn, bundle=None, *, composed=True):
-    bundle = source_bundle() if bundle is None else bundle
-    dependencies = ResolvedDependencies(
-        (SourceArtifact("opaque", b"\x00exact external bytes\xff"),)
-    )
-    from corpus_structure.semantic.composed import composed_dependencies
-
-    if composed:
-        dependencies = composed_dependencies(dependencies)
-    profile = PreparationProfile(version="semantic-2" if composed else "semantic-1")
-    prepared = prepare_release(bundle, dependencies, profile)
-    releases.persist_release(conn, bundle, dependencies, profile, prepared)
-    return bundle, dependencies, profile, prepared
+from semantic.archive_faults import administrative_archive_edit
+from semantic.releases_support import source_bundle as source_bundle
+from semantic.releases_support import stage as stage
 
 
 def project(conn, release_id=None):
@@ -97,8 +37,8 @@ def project(conn, release_id=None):
     return project_id
 
 
-def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, monkeypatch):
-    with semantic_db_engine.begin() as conn:
+def test_archive_is_exact_offline_and_idempotent(commit_db_engine: Engine, monkeypatch):
+    with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn, composed=False)
         assert prepared.execution_model_id is None  # Pure artifact custody grants no execution.
         calls = []
@@ -158,11 +98,11 @@ def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, mon
 
 
 def test_composed_analysis_runtime_survives_exact_persist_and_load(
-    semantic_db_engine: Engine, monkeypatch
+    commit_db_engine: Engine, monkeypatch
 ):
     from corpus_structure.semantic import determinants
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn)
         libraries = json.loads(prepared.manifest)["libraries"]
         assert libraries["sqlglot"] == "30.27.0"
@@ -184,8 +124,8 @@ def test_composed_analysis_runtime_survives_exact_persist_and_load(
             releases.verify_release(conn, prepared.release_id)
 
 
-def test_conflicting_artifact_refuses_without_partial_changes(semantic_db_engine: Engine):
-    with semantic_db_engine.begin() as conn:
+def test_conflicting_artifact_refuses_without_partial_changes(commit_db_engine: Engine):
+    with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn)
         pid = project(conn, prepared.release_id)
         forged = replace(prepared, artifacts=(PreparedArtifact("forged", b"different bytes"),))
@@ -216,8 +156,8 @@ def test_conflicting_artifact_refuses_without_partial_changes(semantic_db_engine
         ),
     ],
 )
-def test_tampered_archive_or_projection_refuses(semantic_db_engine: Engine, relation, key, changed):
-    with semantic_db_engine.begin() as conn:
+def test_tampered_archive_or_projection_refuses(commit_db_engine: Engine, relation, key, changed):
+    with commit_db_engine.begin() as conn:
         *_, prepared = stage(conn)
         target = table("sem." + relation)
         with administrative_archive_edit(conn, target):
@@ -233,8 +173,8 @@ def test_tampered_archive_or_projection_refuses(semantic_db_engine: Engine, rela
             releases.load_release(conn, prepared.release_id)
 
 
-def test_changed_compiler_version_refuses_before_reprepare(semantic_db_engine: Engine, monkeypatch):
-    with semantic_db_engine.begin() as conn:
+def test_changed_compiler_version_refuses_before_reprepare(commit_db_engine: Engine, monkeypatch):
+    with commit_db_engine.begin() as conn:
         *_, prepared = stage(conn)
         manifest = json.loads(prepared.manifest)
         manifest["libraries"]["pydantic"] = "0.0.0"
@@ -255,12 +195,12 @@ def test_changed_compiler_version_refuses_before_reprepare(semantic_db_engine: E
             releases.load_release(conn, prepared.release_id)
 
 
-def test_release_extension_changes_rows_without_ddl(semantic_db_engine: Engine):
+def test_release_extension_changes_rows_without_ddl(commit_db_engine: Engine):
     snapshot_sql = text("""SELECT n.nspname,c.relname,c.relkind,a.attname,a.atttypid,a.attnotnull
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         LEFT JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0
         WHERE n.nspname IN ('sem','data') ORDER BY 1,2,4""")
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
         before = conn.execute(snapshot_sql).all()
         head = conn.execute(text("SELECT version_num FROM semantic_alembic_version")).all()
@@ -280,8 +220,8 @@ def test_release_extension_changes_rows_without_ddl(semantic_db_engine: Engine):
         }
 
 
-def test_activation_rejects_aba_and_preserves_existing_realization(semantic_db_engine: Engine):
-    with semantic_db_engine.begin() as conn:
+def test_activation_rejects_aba_and_preserves_existing_realization(commit_db_engine: Engine):
+    with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
         *_, second = stage(conn, source_bundle(b"# release two\n"))
         pid = project(conn, first.release_id)
@@ -331,8 +271,8 @@ def test_activation_rejects_aba_and_preserves_existing_realization(semantic_db_e
         )
 
 
-def test_failed_constraint_admission_preserves_pointer(semantic_db_engine: Engine):
-    with semantic_db_engine.begin() as conn:
+def test_failed_constraint_admission_preserves_pointer(commit_db_engine: Engine):
+    with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
         bad = source_bundle().sources
         bad_bundle = SourceBundle(
@@ -360,8 +300,8 @@ def test_failed_constraint_admission_preserves_pointer(semantic_db_engine: Engin
         assert releases.activation_token(conn, pid) == releases.ActivationToken(first.release_id, 0)
 
 
-def test_concurrent_activation_has_one_winner(semantic_db_engine: Engine):
-    with semantic_db_engine.begin() as conn:
+def test_concurrent_activation_has_one_winner(commit_db_engine: Engine):
+    with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
         *_, second = stage(conn, source_bundle(b"# second\n"))
         *_, third = stage(conn, source_bundle(b"# third\n"))
@@ -369,7 +309,7 @@ def test_concurrent_activation_has_one_winner(semantic_db_engine: Engine):
     barrier = Barrier(2)
 
     def attempt(release_id):
-        with semantic_db_engine.begin() as conn:
+        with commit_db_engine.begin() as conn:
             barrier.wait(timeout=15)
             try:
                 return releases.activate_release(
@@ -382,17 +322,17 @@ def test_concurrent_activation_has_one_winner(semantic_db_engine: Engine):
         results = list(pool.map(attempt, (second.release_id, third.release_id)))
     assert sum(result is not None for result in results) == 1
     winner = next(result for result in results if result is not None)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         assert releases.activation_token(conn, pid) == winner
         assert winner.generation == 1
 
 
-def test_failed_archive_leaves_no_partial_release(semantic_db_engine: Engine):
+def test_failed_archive_leaves_no_partial_release(commit_db_engine: Engine):
     from sqlalchemy.exc import IntegrityError
 
     bundle = source_bundle()
     prepared = prepare_release(bundle)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         with pytest.raises(IntegrityError):
             releases.persist_release(
                 conn,
@@ -408,12 +348,12 @@ def test_failed_archive_leaves_no_partial_release(semantic_db_engine: Engine):
 
 
 def test_authenticated_writer_cannot_modify_definitions(
-    semantic_db_engine: Engine,
-    semantic_writer_engine: Engine,
+    commit_db_engine: Engine,
+    commit_writer_engine: Engine,
 ):
     from sqlalchemy.exc import DBAPIError
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, prepared = stage(conn)
     for name in (
         "release",
@@ -428,7 +368,7 @@ def test_authenticated_writer_cannot_modify_definitions(
         "registry_row",
     ):
         target = table("sem." + name)
-        with pytest.raises(DBAPIError) as error, semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError) as error, commit_writer_engine.begin() as conn:
             conn.execute(
                 update(target)
                 .where(target.c.release_id == prepared.release_id)
@@ -438,8 +378,8 @@ def test_authenticated_writer_cannot_modify_definitions(
         assert error.value.orig.sqlstate == "42501"
 
 
-def test_same_local_property_name_retains_distinct_iris(semantic_db_engine: Engine):
-    with semantic_db_engine.begin() as conn:
+def test_same_local_property_name_retains_distinct_iris(commit_db_engine: Engine):
+    with commit_db_engine.begin() as conn:
         *_, prepared = stage(
             conn,
             source_bundle(b"""  Other:
@@ -461,7 +401,7 @@ def test_same_local_property_name_retains_distinct_iris(semantic_db_engine: Engi
         assert releases.load_release(conn, prepared.release_id) == prepared
 
 
-def test_archive_retains_explicit_ontology_dependency_selection(semantic_db_engine: Engine):
+def test_archive_retains_explicit_ontology_dependency_selection(commit_db_engine: Engine):
     bundle = source_bundle()
     dependencies = ResolvedDependencies(
         artifacts=(
@@ -471,7 +411,7 @@ def test_archive_retains_explicit_ontology_dependency_selection(semantic_db_engi
         ontology_sources=("ontology",),
     )
     prepared = prepare_release(bundle, dependencies)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         releases.persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
         inputs = table("sem.input")
         assert (
@@ -488,12 +428,12 @@ def test_archive_retains_explicit_ontology_dependency_selection(semantic_db_engi
 
 
 def test_sql_admission_and_pointer_share_activation_savepoint(
-    semantic_db_engine: Engine,
-    semantic_reader_engine: Engine,
+    commit_db_engine: Engine,
+    commit_reader_engine: Engine,
 ):
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
         bundle = source_bundle()
         dependencies = ResolvedDependencies(
@@ -515,7 +455,7 @@ def test_sql_admission_and_pointer_share_activation_savepoint(
                 expected_generation=0,
             )
         with (
-            semantic_reader_engine.connect() as reader,
+            commit_reader_engine.connect() as reader,
             pytest.raises(releases.ActivationConflict),
         ):
             releases.activate_release(
@@ -529,7 +469,7 @@ def test_sql_admission_and_pointer_share_activation_savepoint(
         admission = table("sem.sql_admission")
         assert conn.execute(select(admission.c.release_id)).all() == []
         assert releases.activation_token(conn, pid) == releases.ActivationToken(first.release_id, 0)
-        with semantic_reader_engine.connect() as reader:
+        with commit_reader_engine.connect() as reader:
             token = releases.activate_release(
                 conn,
                 pid,

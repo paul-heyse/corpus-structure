@@ -7,8 +7,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import text
 
 from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt, PublishedPdfDocumentRef
-
-from .pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_pdf_sealed_publisher_receipt_retains_original_physical_custody():
@@ -35,9 +34,9 @@ def test_pdf_sealed_publisher_receipt_retains_original_physical_custody():
 
 
 def test_native_legacy_stage_context_authenticates_real_original_and_owner(
-    private_build, semantic_db_engine
+    private_build, commit_db_engine
 ):
-    with semantic_db_engine.connect() as connection:
+    with commit_db_engine.connect() as connection:
         context = (
             connection.execute(
                 text("SELECT * FROM ops.pdf_task_context(:task)"), {"task": private_build.task_id}

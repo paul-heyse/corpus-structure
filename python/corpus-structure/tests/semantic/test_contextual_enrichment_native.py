@@ -1,8 +1,10 @@
 """Real protected report completion and exact pgvector retrieval on controlled source inputs."""
 
+from copy import deepcopy
 from typing import Any
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 
@@ -19,26 +21,32 @@ from corpus_structure.semantic.contextual_storage import (
     eligible_vector_relation,
 )
 from corpus_structure.semantic.metadata import table
-from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import (
-    bypass_contributions as bypass,
-)
-from .native_record_fixtures import (
-    complete_contributions as complete,
-)
-from .native_record_fixtures import (
+from semantic.native_record_fixtures import (
+    ContextualSourceRecipe,
+    RecordSourceRecipe,
+    claim_record_source_on_connection,
     contextual_result,
     curated_case,
 )
-from .native_record_fixtures import (
-    contribution_envelope as envelope,
-)
+from semantic.native_record_fixtures import bypass_contributions as bypass
+from semantic.native_record_fixtures import complete_contributions as complete
+from semantic.native_record_fixtures import contribution_envelope as envelope
+from semantic.native_record_fixtures import private_source as private_source
+
+
+@pytest.fixture
+def contextual_atomic_case(scenario_seeds):
+    with (
+        scenario_seeds.rollback_family(ContextualSourceRecipe()) as family,
+        family.principal("write") as connection,
+    ):
+        yield claim_record_source_on_connection(family.stage, connection), connection
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_native_contextual_report_projection_and_exact_pgvector(private_source):
     case = curated_case(private_source)
@@ -80,13 +88,11 @@ def test_native_contextual_report_projection_and_exact_pgvector(private_source):
         "forge_parent",
     ],
 )
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
-def test_native_contextual_refusal_is_atomic(private_source, corruption):
-    case = curated_case(private_source)
+def test_native_contextual_refusal_is_atomic(contextual_atomic_case, corruption):
+    case, conn = contextual_atomic_case
     result, _, _ = contextual_result(case)
     raw = envelope(case, result)
+    clean = deepcopy(raw)
     report = raw["contribution_operations"][0]["contextual_enrichment"]
     if corruption == "vector_dimension":
         report["vectors"][0]["values"] = [1.0]
@@ -150,15 +156,38 @@ def test_native_contextual_refusal_is_atomic(private_source, corruption):
         value["list_id"] = numeric_identity(
             "concept-candidates", {k: v for k, v in value.items() if k != "list_id"}
         )
-    with case.writer.begin() as conn:
-        with pytest.raises(DBAPIError), conn.begin_nested():
+    expected = {
+        "vector_dimension": "contextual vector profile/source/value binding differs",
+        "foreign_inventory": "contextual inventory identity differs from eligible representations",
+        "empty_selected": "relationship identity differs from complete question decision",
+        "wrong_occurrence": "candidate list differs from frozen source/inventory/vector",
+        "wrong_policy": "candidate channel policy/budgets/eligible population differs",
+        "wrong_rank": "candidate ranks/fusion/channel witnesses differ from declared RRF",
+        "wrong_fusion": "candidate ranks/fusion/channel witnesses differ from declared RRF",
+        "wrong_channel": "candidate channel differs from exact eligible source/vector scores",
+        "wrong_decision": "relationship identity differs from complete question decision",
+        "stale_representation": "contextual vector profile/source/value binding differs",
+        "omit_registry": "contextual target input requires its registered curated registry custody",
+        "forge_type": "contextual target source or eligibility differs",
+        "forge_parent": "contextual target source or eligibility differs",
+    }[corruption]
+    with conn.begin_nested():
+        with conn.begin_nested() as positive:
+            bypass(case, conn, clean)
+            assert (
+                conn.scalar(select(table("kb.contextual_vector").c.task_id).limit(1)) == case.task
+            )
+            positive.rollback()
+        with native_refusal("23514", message=expected), conn.begin_nested():
             bypass(case, conn, raw)
         assert conn.execute(select(table("kb.contextual_vector"))).first() is None
         assert conn.execute(select(table("kb.source_contribution"))).first() is None
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_changed_registry_reuses_original_same_runtime_vectors(private_source):
     first = curated_case(private_source)
@@ -206,7 +235,9 @@ def test_changed_registry_reuses_original_same_runtime_vectors(private_source):
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_unversioned_targets_are_eligible_in_known_source_version(private_source):
     case = curated_case(private_source)
@@ -219,7 +250,9 @@ def test_unversioned_targets_are_eligible_in_known_source_version(private_source
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_native_known_version_excludes_conflicting_target_version(private_source):
     case = curated_case(private_source, target_version="v2")
@@ -248,7 +281,9 @@ def test_native_known_version_excludes_conflicting_target_version(private_source
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_genuine_competing_senses_are_retained_natively(private_source):
     case = curated_case(private_source)
@@ -273,7 +308,9 @@ def test_genuine_competing_senses_are_retained_natively(private_source):
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_composed_transient_channels_match_resident_and_refuse_bad_membership(private_source):
     from dataclasses import replace
@@ -369,10 +406,12 @@ def test_composed_transient_channels_match_resident_and_refuse_bad_membership(pr
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+    "private_source",
+    [RecordSourceRecipe(additional_methods=("private.contextual",))],
+    indirect=True,
 )
 def test_scoped_reader_reuses_detached_preparation_between_native_snapshots(
-    private_source, semantic_reader_engine, monkeypatch
+    private_source, record_source_reader, monkeypatch
 ):
     from typing import cast
 
@@ -394,10 +433,10 @@ def test_scoped_reader_reuses_detached_preparation_between_native_snapshots(
     )
     with case.writer.begin() as conn:
         complete(case, conn, result)
-    with semantic_reader_engine.connect() as setup:
+    with record_source_reader.connect() as setup:
         owner = BoundReader(setup, case.run, case.prepared)
     assert setup.closed
-    reader = ScopedSourceReader(semantic_reader_engine, owner)
+    reader = ScopedSourceReader(record_source_reader, owner)
     preparations, connections, borrowing = [], [], []
     original = contextual_storage.transient_vector_relation
 
@@ -415,9 +454,9 @@ def test_scoped_reader_reuses_detached_preparation_between_native_snapshots(
         borrowing.append("checkin")
 
     monkeypatch.setattr(contextual_storage, "transient_vector_relation", prepare)
-    event.listen(semantic_reader_engine, "engine_connect", connected)
-    event.listen(semantic_reader_engine, "checkout", checkout)
-    event.listen(semantic_reader_engine, "checkin", checkin)
+    event.listen(record_source_reader, "engine_connect", connected)
+    event.listen(record_source_reader, "checkout", checkout)
+    event.listen(record_source_reader, "checkin", checkin)
     request = dict(
         occurrence_id=query.object_id,
         query=query,
@@ -467,13 +506,13 @@ def test_scoped_reader_reuses_detached_preparation_between_native_snapshots(
         )
 
         other_owner = BoundReader(setup, case.run, case.prepared)
-        other_reader = ScopedSourceReader(semantic_reader_engine, other_owner)
+        other_reader = ScopedSourceReader(record_source_reader, other_owner)
         assert other_reader.contextual_candidates(**request) == first
         assert len(preparations) == 2
         assert other_owner._contextual_preparation is not entry
         assert other_owner.conn is setup
         released(5)
     finally:
-        event.remove(semantic_reader_engine, "engine_connect", connected)
-        event.remove(semantic_reader_engine, "checkout", checkout)
-        event.remove(semantic_reader_engine, "checkin", checkin)
+        event.remove(record_source_reader, "engine_connect", connected)
+        event.remove(record_source_reader, "checkout", checkout)
+        event.remove(record_source_reader, "checkin", checkin)

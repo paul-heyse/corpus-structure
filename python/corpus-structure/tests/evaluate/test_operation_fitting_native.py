@@ -6,15 +6,11 @@ from dataclasses import asdict, replace
 from typing import Any
 
 import pytest
+from native_refusals import native_refusal
 from semantic import native_record_fixtures as sources
-from semantic.conftest import semantic_db_engine as semantic_db_engine
-from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
-from semantic.conftest import semantic_reader_engine as semantic_reader_engine
-from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.reference_scenarios import private_source_options as private_source_options
 from sqlalchemy import select, text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.evaluate.operation_assessment import (
     PROTOCOL,
@@ -95,7 +91,7 @@ def _development_grade(case, evaluator):
     )
     with case.writer.begin() as conn:
         sources.complete_contributions(case, conn, batch)
-        case.cut = seal_cut(conn, case.run, "event-source-ready", final=False)
+        case = replace(case, cut=seal_cut(conn, case.run, "event-source-ready", final=False))
     with evaluator.begin() as conn:
         uri = conn.scalar(
             select(table("kb.document").c.source_uri).where(
@@ -243,25 +239,36 @@ def _development_grade(case, evaluator):
         )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_operation_event_fit_retains_exact_frame_and_blocks_forgery(
-    private_source, semantic_evaluator_engine, semantic_reader_engine
+    private_source, record_source_evaluator, record_source_reader
 ):
-    grade = _development_grade(private_source, semantic_evaluator_engine)
+    grade = _development_grade(private_source, record_source_evaluator)
     fitted = fit_native_operation_event(
-        semantic_evaluator_engine, project_id="private-records", evaluation_id=grade.id
+        record_source_evaluator, project_id="private-records", evaluation_id=grade.id
     )
     assert fitted["result"]["status"] == "fitted"
     assert fitted["result"]["positive"] == fitted["result"]["negative"] == 2
     assert fitted["cut_id"] == fitted["frame"]["cut_id"]
-    with semantic_reader_engine.begin() as conn:
+    with record_source_reader.begin() as conn:
         runtime = read_native_fit(conn, project_id="private-records", fit_id=fitted["id"])
         assert runtime["parameters"] is not None and "judgment" not in json.dumps(runtime)
-        with pytest.raises(DBAPIError) as refusal, conn.begin_nested():
+        with (
+            native_refusal("42501", message="permission denied for schema eval"),
+            conn.begin_nested(),
+        ):
             read_native_fit(conn, project_id="private-records", fit_id=fitted["id"], protected=True)
-        assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
-        with pytest.raises(DBAPIError), conn.begin_nested():
+        with (
+            native_refusal("42501", message="permission denied for schema eval"),
+            conn.begin_nested(),
+        ):
             conn.execute(select(table("eval.operation_event_fit")))
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         native, frame = read_native_frame(
             conn, project_id="private-records", evaluation_id=grade.id
         )
@@ -276,6 +283,57 @@ def test_native_operation_event_fit_retains_exact_frame_and_blocks_forgery(
         statement = text(
             "SELECT eval.record_operation_event_fit(:p,:e,CAST(:f AS jsonb),CAST(:r AS jsonb))"
         )
+        retained = conn.scalar(
+            select(table("eval.operation_event_fit").c.id).where(
+                table("eval.operation_event_fit").c.id == fitted["id"]
+            )
+        )
+        assert retained == fitted["id"]
+        before = conn.scalar(text("SELECT count(*) FROM eval.operation_event_fit"))
+        with conn.begin_nested() as reach:
+            accepted = conn.scalar(
+                statement,
+                dict(p="private-records", e=grade.id, f=json.dumps(native), r=json.dumps(result)),
+            )
+            assert accepted > fitted["id"]
+            assert conn.scalar(text("SELECT count(*) FROM eval.operation_event_fit")) == before + 1
+            saved = conn.execute(
+                select(
+                    table("eval.operation_event_fit").c.frame,
+                    table("eval.operation_event_fit").c.result,
+                ).where(table("eval.operation_event_fit").c.id == accepted)
+            ).one()
+            assert saved.frame == native and saved.result == result
+            reach.rollback()
+        assert conn.scalar(text("SELECT count(*) FROM eval.operation_event_fit")) == before
+
+        reasons = {
+            "cut": ("23514", "operation fitting source/frame/C snapshot is stale or forged"),
+            "shape": ("23514", "operation fitted parameters must be finite and shape-complete"),
+            "label leak": (
+                "23514",
+                "fitted parameters lack exact event applicability or finite algorithm",
+            ),
+            "class counts": (
+                "23514",
+                "operation fit result changes the declared event/label population",
+            ),
+            "event identity": ("23514", "operation predictions change exact event/label identity"),
+            **{
+                ("null algorithm " + field): (
+                    "23514",
+                    "fitted parameters lack exact event applicability or finite algorithm",
+                )
+                for field in ("regularization_c", "tolerance", "max_iterations")
+            },
+            **{
+                ("prediction " + field): (
+                    "23514",
+                    "operation predictions require finite status-qualified probabilities",
+                )
+                for field in ("prior_probability", "fitted_probability")
+            },
+        }
         mutations = [("cut", dict(native, cut_id=native["cut_id"] + 1), result)]
         wrong = deepcopy(result)
         wrong["parameters"]["coefficients"].append(1)
@@ -302,14 +360,29 @@ def test_native_operation_event_fit_retains_exact_frame_and_blocks_forgery(
             wrong = deepcopy(result)
             wrong["predictions"][0][field] = value
             mutations.append(("prediction " + field, native, wrong))
-        for _label, captured, product in mutations:
-            with pytest.raises(DBAPIError), conn.begin_nested():
-                conn.execute(
-                    statement,
-                    dict(
-                        p="private-records",
-                        e=grade.id,
-                        f=json.dumps(captured),
-                        r=json.dumps(product),
-                    ),
+        for label, captured, product in mutations:
+            sqlstate, message = reasons[label]
+            try:
+                with native_refusal(sqlstate, message=message), conn.begin_nested():
+                    conn.execute(
+                        statement,
+                        dict(
+                            p="private-records",
+                            e=grade.id,
+                            f=json.dumps(captured),
+                            r=json.dumps(product),
+                        ),
+                    )
+            except AssertionError as error:
+                raise AssertionError(f"{label}: {error}") from error
+            assert conn.scalar(text("SELECT count(*) FROM eval.operation_event_fit")) == before, (
+                label
+            )
+            assert (
+                conn.scalar(
+                    select(table("eval.operation_event_fit").c.id).where(
+                        table("eval.operation_event_fit").c.id == fitted["id"]
+                    )
                 )
+                == retained
+            ), label

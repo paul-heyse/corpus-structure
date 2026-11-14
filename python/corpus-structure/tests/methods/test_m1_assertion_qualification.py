@@ -21,8 +21,7 @@ from corpus_structure.semantic.source_contexts import (
     SourceSlice,
     SyntheticText,
 )
-
-from .test_m1_producer import (
+from methods.m1_producer_support import (
     ROOT,
     ControlledDecoder,
     detail_object,
@@ -30,8 +29,8 @@ from .test_m1_producer import (
     owned_reader,
     view,
 )
-from .test_m1_source_profile import config
-from .test_record_assembly import report, span
+from methods.m1_source_profile_support import config
+from methods.record_assembly_support import report, span
 
 
 def group(text, subject, predicate, obj, *, start=0):
@@ -338,8 +337,7 @@ def test_missing_cue_columns_withhold_only_unsupported_conclusions(
     from dataclasses import fields
 
     from corpus_structure.ingest.annotations import AnnotationProduct
-
-    from .primary_reading_fixture import native_execution_for_product, primary_product
+    from methods.primary_reading_fixture import native_execution_for_product, primary_product
 
     source_view = view(text)
     reader = owned_reader(source_view)

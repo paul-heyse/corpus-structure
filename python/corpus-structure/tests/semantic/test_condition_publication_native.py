@@ -36,7 +36,6 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.orchestrate.semantic import run_source_methods
-from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding
@@ -63,19 +62,17 @@ from corpus_structure.serve.structural_products import (
     StructuralRequest,
     serve_structural_products,
 )
-
-from .native_record_fixtures import complete_contributions, contribution_drafts
-from .native_record_fixtures import private_source as private_source
-from .primary_native_support import stage_primary_layers
-from .witnessed_scenario_support import completed_metadata
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
+    complete_contributions,
+    contribution_drafts,
+)
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.primary_native_support import stage_primary_layers
+from semantic.witnessed_scenario_support import completed_metadata
 
 POLICY = "independent-condition-qualification-1"
 SCOPE = "condition-scope"
-
-
-@pytest.fixture
-def private_source_options():
-    return {"bundle_transform": characterization_inputs}
 
 
 class _FailureScopeConfig(BaseModel):
@@ -129,21 +126,23 @@ class _FailedSibling:
     ("private_source", "qualifier", "host"),
     [
         pytest.param(
-            {
-                "sibling_references": (
+            RecordSourceRecipe(
+                composition="characterization",
+                sibling_references=(
                     "If the sample includes duplicates, the algorithm computes the mean.",
-                )
-            },
+                ),
+            ),
             "If the sample includes duplicates",
             "computes",
             id="textbook",
         ),
         pytest.param(
-            {
-                "sibling_references": (
+            RecordSourceRecipe(
+                composition="characterization",
+                sibling_references=(
                     "If the manager approves the invoice, the clerk must release the payment.",
-                )
-            },
+                ),
+            ),
             "If the manager approves the invoice",
             "release",
             id="business",
@@ -155,9 +154,9 @@ def test_condition_admits_only_the_exact_supported_roles(
     private_source,
     qualifier,
     host,
-    semantic_evaluator_engine,
-    semantic_reader_engine,
-    semantic_application_settings,
+    record_source_evaluator,
+    record_source_reader,
+    record_source_settings,
     tmp_path,
 ):
     case = private_source
@@ -327,7 +326,7 @@ def test_condition_admits_only_the_exact_supported_roles(
             policy_id=POLICY,
         )
 
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         assign_origin(
             conn,
             project_id=case.project_id,
@@ -388,7 +387,7 @@ def test_condition_admits_only_the_exact_supported_roles(
     cfg["attachment"] = exact.model_dump(mode="json")
     method = ConditionQualificationMethod()
     candidate = run(method, Stage.ASSEMBLE, inputs.sources, cfg, "condition-private")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         page = serve_structural_products(
             conn,
             StructuralRequest(
@@ -402,7 +401,7 @@ def test_condition_admits_only_the_exact_supported_roles(
     published = run(
         method, Stage.ASSEMBLE, inputs.sources, cfg, "condition-public", (bound,), sibling=True
     )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         page = serve_structural_products(
             conn,
             StructuralRequest(
@@ -467,7 +466,7 @@ def test_condition_admits_only_the_exact_supported_roles(
                 if relation != "structural_public_assertions"
             ],
         )
-    _assert_transport_parity(page, semantic_application_settings, case.project_id, tmp_path)
+    _assert_transport_parity(page, record_source_settings, case.project_id, tmp_path)
 
     for i, binding in enumerate(
         (dict(wrong_support, product_id=product.product_id), dict(bound, c_content_digest="f" * 64))

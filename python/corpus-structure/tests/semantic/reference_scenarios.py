@@ -22,7 +22,6 @@ from corpus_structure.evaluate.record_references import (
     PROTOCOL,
     assign_origin,
     create_reference_set,
-    reference_inputs,
     source_binding,
 )
 from corpus_structure.evaluate.semantic import split_documents
@@ -50,21 +49,8 @@ from corpus_structure.semantic.record_contracts import (
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.types import PreparedRelease
 from semantic import native_record_fixtures as source_fixture
-from semantic.conftest import (
-    semantic_db_engine as semantic_db_engine,
-)
-from semantic.conftest import (
-    semantic_evaluator_engine as semantic_evaluator_engine,
-)
-from semantic.conftest import (
-    semantic_reader_engine as semantic_reader_engine,
-)
-from semantic.conftest import (
-    semantic_writer_engine as semantic_writer_engine,
-)
+from semantic.agent_scenarios import lease_and_read
 from semantic.native_record_fixtures import private_source as private_source
-
-from .agent_scenarios import lease_and_read
 
 
 def publish_reference_case(
@@ -79,7 +65,7 @@ def publish_reference_case(
         raise ValueError("reference journeys use one independently authored source paragraph")
     # Production preparation reuse is keyed by exact acquired inputs. A domain-name
     # cache here would conceal a changed pack or query implementation in this process.
-    from .method_dimensions_support import prepare_fixture_pack
+    from semantic.method_dimensions_support import prepare_fixture_pack
 
     bundle, deps, profile, prepared = prepare_fixture_pack(
         DOMAINS / domain, "pdf.controlled-source", "coverage.witness"
@@ -133,7 +119,7 @@ def publish_reference_case(
         original=original,
         paragraphs=paragraphs,
     )
-    from .primary_native_support import bind_primary_agent_run
+    from semantic.primary_native_support import bind_primary_agent_run
 
     with writer.begin() as conn:
         run, config = bind_primary_agent_run(
@@ -194,16 +180,11 @@ def publish_reference_case(
 
 
 @pytest.fixture
-def private_source_options():
-    return dict(bundle_transform=reference_inputs)
-
-
-@pytest.fixture
 def reference_source(private_source):
     case = private_source
     with case.writer.begin() as conn:
         source_fixture.complete(case, conn, ())
-        case.cut = seal_cut(conn, case.run, "source-ready-references", final=False)
+        case = replace(case, cut=seal_cut(conn, case.run, "source-ready-references", final=False))
     return case
 
 

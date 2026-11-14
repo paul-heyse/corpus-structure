@@ -90,7 +90,7 @@ def test_a_mistyped_field_inside_a_section_is_refused(cli) -> None:
     assert "data_dirr" in result.stderr
 
 
-def test_recipe_redacts_before_clipping(cli, monkeypatch):
+def test_recipe_redacts_credential_forms(cli, monkeypatch):
     from corpus_structure.cli import operations
 
     child = "postgresql://user:example-secret@localhost/db" + "x" * 11960
@@ -104,6 +104,42 @@ def test_recipe_redacts_before_clipping(cli, monkeypatch):
     assert all(
         secret not in output for secret in ("example-secret", "quoted secret", "another-secret")
     )
+
+
+@pytest.mark.parametrize(
+    ("stream", "limit", "field"),
+    [("stdout", 12000, "output"), ("stderr", 6000, "diagnostic")],
+)
+def test_recipe_redacts_before_clipping(cli, monkeypatch, stream, limit, field):
+    from corpus_structure.cli import operations
+
+    prefix, suffix = "postgresql://user:", "@localhost/db"
+    secret, mask = "boundary-secret-" * 8, "**********"
+    # The redacted URL fits exactly at the window start. The longer raw URL
+    # instead places that window inside the secret, after its recognizable prefix.
+    filler = "x" * (limit - len(prefix + mask + suffix))
+    child = prefix + secret + suffix + filler
+    cut_inside_secret = len(child) - limit - len(prefix)
+    assert 0 < cut_inside_secret < len(secret)
+    surviving_secret = secret[cut_inside_secret:]
+    raw_window = child[-limit:]
+    assert raw_window.startswith(surviving_secret)
+    assert "://" not in raw_window and "user:" not in raw_window
+    monkeypatch.setattr(
+        operations,
+        "run_recipe",
+        lambda *a, **kw: CompletedProcess(
+            [],
+            0,
+            child if stream == "stdout" else "",
+            child if stream == "stderr" else "",
+        ),
+    )
+    result = cli("check", "--only", "lint", "--json")
+    assert result.exit_code == 0
+    actual = json.loads(result.stdout)[field]
+    assert actual == prefix + mask + suffix + filler
+    assert surviving_secret not in actual
 
 
 def test_context_reports_winning_setting_source(cli, tmp_path):
@@ -300,6 +336,31 @@ for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.s
         [sys.executable, "-c", script, json.dumps(arguments)], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_fresh_non_cli_collection_does_not_load_command_registry() -> None:
+    import subprocess
+    import sys
+
+    script = """
+import sys
+import pytest
+
+class CheckImports:
+    def pytest_collection_finish(self, session):
+        assert len(session.items) == 1
+        for name in (
+            "corpus_structure.cli", "corpus_structure.cli.app", "corpus_structure.cli.output"
+        ):
+            assert name not in sys.modules, name
+
+raise SystemExit(pytest.main([
+    "--collect-only", "-n", "0",
+    "python/corpus-structure/tests/test_db_fixtures.py::test_server_url_follows_the_settings_default",
+], plugins=[CheckImports()]))
+"""
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_archive_opening_import_does_not_acquire_current_compiler() -> None:

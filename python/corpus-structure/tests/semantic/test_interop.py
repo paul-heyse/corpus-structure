@@ -13,12 +13,12 @@ from corpus_structure.settings import DatabaseSettings, Settings
 
 
 def test_adbc_exact_numeric_and_uncommitted_connection_boundary(
-    semantic_db_engine, semantic_reader_engine
+    commit_db_engine, commit_reader_engine
 ):
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         owner.exec_driver_sql(
             "CREATE TABLE public.semantic_interop (n numeric, lexical text, b bytea, flag boolean)"
         )
@@ -51,7 +51,7 @@ def test_adbc_exact_numeric_and_uncommitted_connection_boundary(
             }
         ]
     # ADBC owns a different libpq session; it cannot participate in the COPY write transaction.
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         owner.exec_driver_sql("INSERT INTO public.semantic_interop(n) VALUES (2)")
         with (
             owned_adbc_read(
@@ -63,8 +63,8 @@ def test_adbc_exact_numeric_and_uncommitted_connection_boundary(
             assert cursor.fetchone() == (1,)
 
 
-def test_single_pool_returns_idle_connection_and_resets_isolation(semantic_writer_engine):
-    uri = semantic_writer_engine.url.set(drivername="postgresql").render_as_string(
+def test_single_pool_returns_idle_connection_and_resets_isolation(commit_writer_engine):
+    uri = commit_writer_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
     settings = Settings(database=DatabaseSettings(url=uri))

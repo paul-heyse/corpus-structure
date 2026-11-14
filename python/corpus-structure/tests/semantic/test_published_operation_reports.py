@@ -14,23 +14,22 @@ from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.settings import Settings
-
-from .pdf_staging_support import private_build as private_build
-from .test_selected_source_native import publish_selected
+from semantic.pdf_staging_support import private_build as private_build
+from semantic.selected_source_native_support import publish_selected
 
 
 def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observations(
-    private_build, semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, cli
+    private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, cli
 ):
-    published = publish_selected(semantic_writer_engine, private_build, tmp_path / "publication")
-    with semantic_writer_engine.connect() as conn:
+    published = publish_selected(commit_writer_engine, private_build, tmp_path / "publication")
+    with commit_writer_engine.connect() as conn:
         task = conn.execute(
             text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
             dict(task=private_build.task_id),
         ).one()
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -63,7 +62,7 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert checks["published_document"]["status"] == "applicable"
     assert checks["selected_source_views"]["status"] == "unavailable"
     assert not before["complete"]  # An observation does not invent missing live evaluators.
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == 0
         prepared = open_release(conn, private_build.release_id)
         reader = published_record_reader(conn, ProductReference(**pin), projection_context=prepared)
@@ -111,7 +110,7 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert publication_checks["invariant:published_document_address"]["status"] == "unresolved"
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(semantic_reader_engine, "published"))
+        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "published"))
         async with Client(server) as client:
             answer = await client.call_tool(
                 "explain_operation",
@@ -181,7 +180,7 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert observation["operation"] == "read_source_view"
     assert observation["category"] == "invalid_input"
     assert observation["input_path"] == "/task_id"
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == len(drafts)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM ops.pdf_published_revision")) == 1

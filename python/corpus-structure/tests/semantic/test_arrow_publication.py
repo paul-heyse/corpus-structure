@@ -10,6 +10,7 @@ from typing import Any, cast
 import psycopg
 import pyarrow as pa
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 
@@ -35,9 +36,9 @@ from corpus_structure.semantic.publication import (
     SupportRow,
     ValueRow,
 )
-
-from .domain_scenarios import fixture_model
-from .domain_scenarios import seed as seed_publication
+from semantic.domain_scenarios import fixture_model
+from semantic.domain_scenarios import seed as seed_publication
+from semantic.native_admission_scenarios import InferenceIntentRecipe
 
 Z = "realization:test"
 C = "https://example/Thing"
@@ -85,10 +86,16 @@ def derived_rows(result, *, identity=None, expected_data_revision=None):
 
 
 def inference_fixture(admin, writer):
-    from .test_inference import compute, setup
+    from semantic.inference_support import compute, setup
 
     binding, _ = setup(admin, writer, [("a", "b"), ("b", "c")], rules=("transitive",))
     return compute(writer, binding)
+
+
+@pytest.fixture
+def unbound_arrow_case(scenario_seeds):
+    with scenario_seeds.rollback_family(InferenceIntentRecipe()) as family:
+        yield family.stage.result, family
 
 
 def test_exact_frozen_schema_and_content():
@@ -153,14 +160,14 @@ def test_optional_numeric_projection_never_rounds_lexical():
         ArrowPublicationBatch(R, Z, "bad", {"typed_value": relation})
 
 
-def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer_engine):
-    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+def test_native_arrow_copy_receipt_and_fence(commit_db_engine, commit_writer_engine):
+    result = inference_fixture(commit_db_engine, commit_writer_engine)
     candidate = derived_rows(result)
-    receipt = publish_arrow(semantic_writer_engine, candidate)
+    receipt = publish_arrow(commit_writer_engine, candidate)
     assert receipt.data_revision == 2
     # The old source revision is still valid for exact receipt recovery.
-    assert publish_arrow(semantic_writer_engine, candidate) == receipt
-    with semantic_db_engine.connect() as conn:
+    assert publish_arrow(commit_writer_engine, candidate) == receipt
+    with commit_db_engine.connect() as conn:
         assert (
             bytes(
                 conn.scalar(
@@ -173,11 +180,11 @@ def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
     stale = derived_rows(result, identity="stale")
     with pytest.raises(StaleAnalysisError, match="recompute"):
-        publish_arrow(semantic_writer_engine, stale)
-    with semantic_writer_engine.connect() as conn:
+        publish_arrow(commit_writer_engine, stale)
+    with commit_writer_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 3
         assert conn.scalar(text("SELECT count(*) FROM sem.release")) == 1
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError):
+    with commit_writer_engine.begin() as conn, native_refusal("42501"):
         conn.execute(
             text(
                 "INSERT INTO data.entity(release_id,realization_id,entity_id) VALUES ('x','x','x')"
@@ -185,8 +192,8 @@ def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer
         )
 
 
-def test_native_binary_copy_invalid_null_is_atomic(semantic_db_engine, semantic_writer_engine):
-    R = seed(semantic_db_engine).release_id
+def test_native_binary_copy_invalid_null_is_atomic(commit_db_engine, commit_writer_engine):
+    R = seed(commit_db_engine).release_id
     invalid = ArrowPublicationBatch(
         R,
         Z,
@@ -196,19 +203,19 @@ def test_native_binary_copy_invalid_null_is_atomic(semantic_db_engine, semantic_
         },
     )
     with pytest.raises(DBAPIError) as refused:
-        publish_arrow(semantic_writer_engine, invalid)
+        publish_arrow(commit_writer_engine, invalid)
     assert isinstance(refused.value.orig, psycopg.Error)
     assert refused.value.orig.sqlstate == "23502"
     assert refused.value.orig.diag.column_name == "entity_id"
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 0
 
 
 def test_arrow_serialization_retry_replays_same_buffers(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     barrier = Barrier(2)
     original = arrow.stage_arrow
@@ -223,13 +230,13 @@ def test_arrow_serialization_retry_replays_same_buffers(
 
     monkeypatch.setattr(arrow, "stage_arrow", staged)
     event.listen(
-        semantic_writer_engine,
+        commit_writer_engine,
         "handle_error",
         lambda ctx: states.append(getattr(ctx.original_exception, "sqlstate", None)),
     )
     candidates = [ArrowPublicationBatch.from_rows(batch(x, entity=x)) for x in ("a", "b")]
     with ThreadPoolExecutor(max_workers=2) as pool:
-        receipts = list(pool.map(lambda c: publish_arrow(semantic_writer_engine, c), candidates))
+        receipts = list(pool.map(lambda c: publish_arrow(commit_writer_engine, c), candidates))
     assert {r.data_revision for r in receipts} == {1, 2}
     assert "40001" in states
     assert len(seen) >= 3
@@ -242,13 +249,13 @@ def test_arrow_serialization_retry_replays_same_buffers(
 
 
 def test_arrow_ambiguous_commit_resolves_receipt(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
     import psycopg
 
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
-    original = semantic_writer_engine.dialect.do_commit
+    original = commit_writer_engine.dialect.do_commit
     commits = []
 
     def lost(driver):
@@ -257,10 +264,10 @@ def test_arrow_ambiguous_commit_resolves_receipt(
         if len(commits) == 1:
             raise psycopg.OperationalError("lost after commit")
 
-    monkeypatch.setattr(semantic_writer_engine.dialect, "do_commit", lost)
+    monkeypatch.setattr(commit_writer_engine.dialect, "do_commit", lost)
     assert (
         publish_arrow(
-            semantic_writer_engine,
+            commit_writer_engine,
             ArrowPublicationBatch.from_rows(batch()),
         ).data_revision
         == 1
@@ -268,8 +275,8 @@ def test_arrow_ambiguous_commit_resolves_receipt(
     assert len(commits) == 1
 
 
-def test_arrow_cancel_rolls_back(semantic_db_engine, semantic_writer_engine, monkeypatch):
-    R = seed(semantic_db_engine).release_id
+def test_arrow_cancel_rolls_back(commit_db_engine, commit_writer_engine, monkeypatch):
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     original = arrow.stage_arrow
 
@@ -279,8 +286,8 @@ def test_arrow_cancel_rolls_back(semantic_db_engine, semantic_writer_engine, mon
 
     monkeypatch.setattr(arrow, "stage_arrow", cancelled)
     with pytest.raises(KeyboardInterrupt):
-        publish_arrow(semantic_writer_engine, ArrowPublicationBatch.from_rows(batch()))
-    with semantic_db_engine.connect() as conn:
+        publish_arrow(commit_writer_engine, ArrowPublicationBatch.from_rows(batch()))
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 0
 
@@ -317,8 +324,8 @@ def test_owned_readonly_buffers_and_batch_replay():
             memoryview(chunk.buffers()[1])[0] = 9
 
 
-def test_native_numeric_temporal_and_null_fidelity(semantic_db_engine, semantic_writer_engine):
-    R = seed(semantic_db_engine).release_id
+def test_native_numeric_temporal_and_null_fidelity(commit_db_engine, commit_writer_engine):
+    R = seed(commit_db_engine).release_id
     source = PublicationBatch(
         R,
         Z,
@@ -337,8 +344,8 @@ def test_native_numeric_temporal_and_null_fidelity(semantic_db_engine, semantic_
         ),
     )
     candidate = ArrowPublicationBatch.from_rows(source)
-    assert publish_arrow(semantic_writer_engine, candidate).data_revision == 1
-    with semantic_db_engine.connect() as conn:
+    assert publish_arrow(commit_writer_engine, candidate).data_revision == 1
+    with commit_db_engine.connect() as conn:
         values = {
             r.value_id: r
             for r in conn.execute(
@@ -358,8 +365,8 @@ def test_native_numeric_temporal_and_null_fidelity(semantic_db_engine, semantic_
         assert values["bool"].boolean_value is False
 
 
-def test_native_malformed_copy_rolls_back(semantic_db_engine, semantic_writer_engine, monkeypatch):
-    R = seed(semantic_db_engine).release_id
+def test_native_malformed_copy_rolls_back(commit_db_engine, commit_writer_engine, monkeypatch):
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
 
@@ -383,16 +390,16 @@ def test_native_malformed_copy_rolls_back(semantic_db_engine, semantic_writer_en
         ArrowWriteProfile, "new_encoder", lambda profile: CorruptEncoder(original(profile))
     )
     with pytest.raises(psycopg.errors.BadCopyFileFormat):
-        publish_arrow(semantic_writer_engine, candidate)
-    with semantic_db_engine.connect() as conn:
+        publish_arrow(commit_writer_engine, candidate)
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 0
 
 
 def test_analysis_serialization_requires_recomputation(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
-    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+    result = inference_fixture(commit_db_engine, commit_writer_engine)
     barrier = Barrier(2)
     original = arrow.stage_arrow
     seen = []
@@ -408,14 +415,14 @@ def test_analysis_serialization_requires_recomputation(
 
     def attempt(candidate):
         try:
-            return publish_arrow(semantic_writer_engine, candidate)
+            return publish_arrow(commit_writer_engine, candidate)
         except StaleAnalysisError as exc:
             return exc
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(attempt, candidates))
     assert sum(isinstance(r, StaleAnalysisError) for r in results) == 1
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 2
         assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 2
 
@@ -454,11 +461,10 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
     ],
 )
 def test_native_derived_model_binding_refuses_unbound_intent(
-    semantic_db_engine,
-    semantic_writer_engine,
+    unbound_arrow_case,
     changes,
 ):
-    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+    result, family = unbound_arrow_case
     candidate = ArrowPublicationBatch.from_rows(result.batch)
     binding = result.binding
     params = dict(
@@ -476,34 +482,56 @@ def test_native_derived_model_binding_refuses_unbound_intent(
         cut=None,
         profile=None,
     )
-    params.update(changes)
-    with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-        pytest.raises(DBAPIError),
-    ):
-        arrow.stage_arrow(conn, candidate)
-        conn.execute(
-            text(
-                "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,"
-                ":source_release,:source_realization,:revision,:capture,"
-                ":operation,:projection,:contract,:cut,:profile)"
-            ),
-            params,
-        )
-    with semantic_db_engine.connect() as conn:
+    expected = {
+        "operation": "operation does not permit derived projection",
+        "contract": "operation does not permit derived projection",
+        "projection": "accepted inference requires exact same-realization input",
+        "source_release": "derived source release/capture differs",
+        "cut": "accepted inference requires exact same-realization input",
+        "profile": "accepted inference requires exact same-realization input",
+    }[next(iter(changes))]
+    statement = text(
+        "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,"
+        ":source_release,:source_realization,:revision,:capture,"
+        ":operation,:projection,:contract,:cut,:profile)"
+    )
+    with family.principal("write", isolation_level="SERIALIZABLE") as conn:
+        with conn.begin_nested() as positive:
+            arrow.stage_arrow(conn, candidate)
+            conn.execute(statement, params)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.publication_intent WHERE batch_id=:batch"),
+                    {"batch": candidate.batch_id},
+                )
+                == 1
+            )
+            positive.rollback()
+        with native_refusal("23514", message=expected), conn.begin_nested():
+            arrow.stage_arrow(conn, candidate)
+            conn.execute(statement, params | changes)
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM data.publication_intent")) == 0
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT data_revision FROM data.realization WHERE release_id=:r AND realization_id=:z"
+                ),
+                {"r": binding.release_id, "z": binding.realization_id},
+            )
+            == binding.data_revision
+        )
 
 
 def test_native_legacy_derived_abi_cannot_admit_new_intent(
-    semantic_db_engine,
-    semantic_writer_engine,
+    commit_db_engine,
+    commit_writer_engine,
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = ArrowPublicationBatch.from_rows(batch())
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
         pytest.raises(DBAPIError, match="model-bound v2 ABI"),
     ):
@@ -517,8 +545,8 @@ def test_native_legacy_derived_abi_cannot_admit_new_intent(
         )
 
 
-def test_native_inference_effect_refuses_assertion_rows(semantic_db_engine, semantic_writer_engine):
-    R = seed(semantic_db_engine).release_id
+def test_native_inference_effect_refuses_assertion_rows(commit_db_engine, commit_writer_engine):
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.query import SnapshotBinding
 
@@ -527,18 +555,18 @@ def test_native_inference_effect_refuses_assertion_rows(semantic_db_engine, sema
         batch(), source=source, operation_id="publish_inference", projection_id="accepted"
     )
     with pytest.raises(DBAPIError, match="source/assertion transport rows"):
-        publish_arrow(semantic_writer_engine, candidate)
+        publish_arrow(commit_writer_engine, candidate)
 
 
-def test_native_inference_effect_requires_staged_proof(semantic_db_engine, semantic_writer_engine):
+def test_native_inference_effect_requires_staged_proof(commit_db_engine, commit_writer_engine):
     from corpus_structure.semantic.inference import InferenceResult
 
-    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+    result = inference_fixture(commit_db_engine, commit_writer_engine)
     forged = InferenceResult(
         result.binding, replace(result.batch, derivation=(), derivation_premise=())
     )
     with pytest.raises(DBAPIError, match="lacks its staged proof conclusion"):
-        publish_arrow(semantic_writer_engine, derived_rows(forged))
+        publish_arrow(commit_writer_engine, derived_rows(forged))
 
 
 def test_derived_composes_actual_owned_transport_without_another_freeze(monkeypatch):
@@ -656,11 +684,11 @@ def test_inference_retries_and_recovers_using_actual_lowered_transport(monkeypat
 
 
 def test_encoder_failure_discards_stream_and_fresh_replay_is_atomic(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
     from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
 
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = ArrowPublicationBatch.from_rows(batch("encoder-replay"))
     factory = ArrowWriteProfile.new_encoder
@@ -688,12 +716,12 @@ def test_encoder_failure_discards_stream_and_fresh_replay_is_atomic(
     with monkeypatch.context() as patch:
         patch.setattr(ArrowWriteProfile, "new_encoder", fail_entity)
         with pytest.raises(ValueError, match="forced encoder failure"):
-            publish_arrow(semantic_writer_engine, candidate)
+            publish_arrow(commit_writer_engine, candidate)
     assert finished == []
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 0
-    assert publish_arrow(semantic_writer_engine, candidate).batch_id == "encoder-replay"
-    with semantic_db_engine.connect() as conn:
+    assert publish_arrow(commit_writer_engine, candidate).batch_id == "encoder-replay"
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 1

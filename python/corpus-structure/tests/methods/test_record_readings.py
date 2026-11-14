@@ -30,7 +30,7 @@ from corpus_structure.semantic.source_contexts import (
     RelatedNativeSource,
     SourceSlice,
 )
-from methods.test_record_assembly import context, fields, release, report, source, span
+from methods.record_assembly_support import context, fields, release, report, source, span
 
 
 def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():

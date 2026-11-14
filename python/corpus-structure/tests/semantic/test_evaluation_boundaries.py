@@ -9,8 +9,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.metadata import table
-
-from .domain_scenarios import build_domain_case
+from semantic.domain_scenarios import build_domain_case
 
 
 def _candidate_publication(inputs, batch, cut):
@@ -29,35 +28,29 @@ def _candidate_publication(inputs, batch, cut):
     )
 
 
-def test_finished_result_refuses_new_protected_publication(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
+def test_finished_result_refuses_new_protected_publication(domain_default_case, tmp_path):
+    commit_writer_engine = domain_default_case.writer
     from corpus_structure.semantic.publication import PublicationBatch, publish_batch
 
-    prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    prepared, _run, cut = domain_default_case.stage.result
+    result = consolidate_cut(commit_writer_engine, cut, "evaluated")
     with pytest.raises(DBAPIError, match="evaluated realization is immutable"):
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(prepared.release_id, "evaluated", "after-finish"),
         )
-    assert consolidate_cut(semantic_writer_engine, cut, "evaluated") == result
+    assert consolidate_cut(commit_writer_engine, cut, "evaluated") == result
 
 
-def test_native_source_locator_is_checked_against_stored_citation(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
+def test_native_source_locator_is_checked_against_stored_citation(domain_default_case, tmp_path):
+    commit_writer_engine = domain_default_case.writer
     import json
 
     from corpus_structure.semantic.arrow_publication import publish_arrow_on_connection
     from corpus_structure.semantic.domain_operations import _cut_input
 
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    _prepared, _run, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "hostile")
     evidence = tuple(
         replace(e, locator=json.dumps({**json.loads(e.locator), "locator": "invented#not-source"}))
         for e in inputs.batch.evidence
@@ -66,7 +59,7 @@ def test_native_source_locator_is_checked_against_stored_citation(
     batch = replace(inputs.batch, evidence=evidence, evidence_source=tuple(links))
     with (
         pytest.raises(DBAPIError, match="native evidence differs from a located supplied citation"),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -75,19 +68,16 @@ def test_native_source_locator_is_checked_against_stored_citation(
         publish_arrow_on_connection(conn, _candidate_publication(inputs, batch, cut))
 
 
-def test_unknown_occurrence_source_cannot_bypass_normalized_context(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
+def test_unknown_occurrence_source_cannot_bypass_normalized_context(domain_default_case, tmp_path):
+    commit_writer_engine = domain_default_case.writer
     from sqlalchemy import select
 
     from corpus_structure.semantic.arrow_publication import publish_arrow_on_connection
     from corpus_structure.semantic.domain_operations import _cut_input
     from corpus_structure.semantic.identity import occurrence_key
 
-    prepared, run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    prepared, run, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "hostile")
     target = next(row for row in inputs.batch.occurrence if row.item == "claims/0")
     forged = occurrence_key(prepared.release_id, "hostile", "unknown-source", target.item)
     links = native_evidence_sources(inputs)
@@ -126,7 +116,7 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
         pytest.raises(
             DBAPIError, match="evaluated occurrence source differs from its bound observation"
         ),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -137,7 +127,7 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
             {"cut": cut, "out": "hostile", "batch": batch.batch_id},
         )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert not conn.execute(
             select(table("data.realization")).where(
                 table("data.realization").c.realization_id == "hostile"
@@ -151,10 +141,8 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
         )
 
 
-def test_finished_result_cannot_contain_an_unbacked_selected_fact(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
-
+def test_finished_result_cannot_contain_an_unbacked_selected_fact(domain_default_case, tmp_path):
+    commit_writer_engine = domain_default_case.writer
     from corpus_structure.semantic.arrow_publication import publish_arrow_on_connection
     from corpus_structure.semantic.consolidation import SourceItem, assemble
     from corpus_structure.semantic.domain_operations import _cut_input
@@ -163,10 +151,8 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
         SelectionRow,
     )
 
-    prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    prepared, _run, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "hostile")
     candidate = inputs.candidates[0]
     draft = SourceItem(
         candidate.subject,
@@ -201,7 +187,7 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
             DBAPIError,
             match="evaluated fact has no source support, admitted proof or bound input lineage",
         ),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -215,19 +201,20 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
 
 
 def test_finished_replay_does_not_reinterpret_an_advanced_input(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     from corpus_structure.semantic.domain_operations import DomainOperationRefused
     from corpus_structure.semantic.publication import PublicationBatch, publish_batch
 
+    # This consumer authors its own known variant beyond the shared default/prefix.
     prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", known=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", known=True
     )
-    result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    result = consolidate_cut(commit_writer_engine, cut, "evaluated")
     publish_batch(
-        semantic_writer_engine,
+        commit_writer_engine,
         PublicationBatch(prepared.release_id, "source", "advance-after-finish"),
     )
-    assert consolidate_cut(semantic_writer_engine, cut, "evaluated") == result
+    assert consolidate_cut(commit_writer_engine, cut, "evaluated") == result
     with pytest.raises(DomainOperationRefused, match="finished run is bound to another"):
-        consolidate_cut(semantic_writer_engine, cut, "different-output")
+        consolidate_cut(commit_writer_engine, cut, "different-output")

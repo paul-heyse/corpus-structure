@@ -34,7 +34,7 @@ from corpus_structure.semantic.contextual_retrieval import (
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.record_contracts import anchor_identity
-from methods.test_m1_producer import view
+from methods.m1_producer_support import view
 
 PIN = dict(
     source="source",
@@ -246,8 +246,7 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
         )
     from corpus_structure.methods.witnessed_source_links import match_named_source_links
     from corpus_structure.semantic.structural_products import StructuralPassage
-
-    from .navigation_fixture import primary_navigation
+    from methods.navigation_fixture import primary_navigation
 
     primary_layers = primary_navigation(source)
     passage = StructuralPassage(
@@ -927,8 +926,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     )
     from corpus_structure.methods.witnessed_source_links import match_named_source_links
     from corpus_structure.semantic.structural_products import StructuralPassage
-
-    from .navigation_fixture import primary_navigation
+    from methods.navigation_fixture import primary_navigation
 
     primary_layers = primary_navigation(source)
     passage = StructuralPassage(

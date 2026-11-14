@@ -12,7 +12,7 @@ from corpus_structure.settings import Settings
 
 
 def test_native_apply_reports_actual_authoring_acquisition(
-    model_checkout, semantic_application_settings, semantic_db_engine, monkeypatch, cli
+    model_checkout, commit_application_settings, commit_db_engine, monkeypatch, cli
 ):
     from contextlib import contextmanager
 
@@ -25,7 +25,7 @@ def test_native_apply_reports_actual_authoring_acquisition(
 
     root, location = model_checkout
     configured = Settings(
-        database=semantic_application_settings.database.model_dump(),
+        database=commit_application_settings.database.model_dump(),
         deployment={"url": "postgresql://unopened:deployment-secret@localhost:5434/destination"},
         ci_results=root / "results",
     )
@@ -35,7 +35,7 @@ def test_native_apply_reports_actual_authoring_acquisition(
     ):
         identity = acquired_target(conn, purpose="maintenance")
         predecessor = current_revision(conn)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         expected_database, expected_oid = conn.exec_driver_sql(
             "SELECT datname, oid FROM pg_database WHERE datname = current_database()"
         ).one()

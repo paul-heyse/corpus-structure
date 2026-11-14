@@ -1,19 +1,15 @@
 """Execute the primary navigation owner, then hand retained products to consumers."""
 
 import json
-from dataclasses import asdict
 from types import SimpleNamespace
 from typing import Any
 
-from corpus_structure.methods.native_evidence import native_run
-from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES, NativeEvidenceBuilder
 from corpus_structure.methods.source_preparation import prepare_source
 from corpus_structure.semantic.constructions.layers import ConstructionLayer
 from corpus_structure.semantic.constructions.navigation import FAMILY, populate_navigation
 from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
 from corpus_structure.semantic.formal_evidence import build_formal_layer
-
-from .primary_reading_fixture import prepared
+from methods.primary_reading_fixture import prepared
 
 
 def primary_navigation(
@@ -53,45 +49,25 @@ def primary_navigation(
         input="fixture",
         context="source",
     )
-    native = NativeEvidenceBuilder(
+    from methods.primary_native_fixture import primary_native_layer
+    from methods.primary_reading_fixture import native_execution_for_product
+
+    execution = (
+        native_execution_for_product(annotations[0], native_profile=native_profile)
+        if annotations
+        else None
+    )
+    native_layer, native_pin = primary_native_layer(
         view.ref.native_product.values(),
         scope,
         operation,
-        profile="spacy_only",
-        families=SPACY_FAMILIES,
+        prepared(),
+        ((view, product) for product in annotations),
+        configuration="fixture",
+        digest="pipeline",
+        reference=task_start,
+        execution=execution,
     )
-    for product in annotations:
-        native.spacy(view, product, "spacy")
-    if annotations:
-        product = annotations[0]
-        run = native_run(
-            "spacy",
-            "spacy_only",
-            "fixture",
-            model=product.model,
-            version=product.model_version,
-            runtime_version=product.spacy_version,
-            layout=[],
-            text=[],
-            components=[asdict(c) for c in product.components],
-        )
-        run["configuration_digest"] = product.pipeline_config_digest
-        from corpus_structure.semantic.observations import source_value
-
-        from .primary_reading_fixture import native_execution_for_product
-
-        execution = native_execution_for_product(product, native_profile=native_profile)
-        if execution is not None:
-            run["execution_profile"] = source_value(execution.wire)
-        from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS
-
-        run["availability"] = [
-            dict(family=SPACY_COLUMNS[row.attribute], attribute=row.attribute, status=row.status)
-            for row in product.availability
-        ]
-        native.native_runs.append(run)
-    native_layer = native.finish(prepared())
-    native_pin = native_layer.reference(task_start)
     layers = {native_pin: native_layer}
     navigation = ConstructionLayer(
         view.ref.native_product.values(),

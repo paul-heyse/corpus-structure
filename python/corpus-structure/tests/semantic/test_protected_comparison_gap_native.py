@@ -30,7 +30,6 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.orchestrate.semantic import run_source_methods
-from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operations import OperationBinding
 from corpus_structure.semantic.query import read_snapshot
@@ -60,16 +59,10 @@ from corpus_structure.serve.source_decision_journey import (
     source_decision_journey,
 )
 from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_gap
-
-from .native_record_fixtures import private_source as private_source
-from .primary_native_support import stage_primary_layers
-from .witnessed_scenario_support import completed_component_case, completed_metadata
-
-
-@pytest.fixture
-def private_source_options():
-    return {"bundle_transform": characterization_inputs}
-
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.primary_native_support import stage_primary_layers
+from semantic.witnessed_scenario_support import completed_component_case, completed_metadata
 
 LITERAL = "Clerks wait."
 POLICY = "independent-structural-comparison-1"
@@ -146,13 +139,13 @@ def expected_public_statement(inputs):
 
 @pytest.mark.parametrize(
     "private_source",
-    [{"sibling_references": (LITERAL, LITERAL)}],
+    [RecordSourceRecipe(composition="characterization", sibling_references=(LITERAL, LITERAL))],
     indirect=True,
 )
 def test_protected_comparison_yields_detached_unconnected_sides(
     private_source,
-    semantic_evaluator_engine,
-    semantic_reader_engine,
+    record_source_evaluator,
+    record_source_reader,
     tmp_path,
 ):
     case = private_source
@@ -297,7 +290,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         ),
     )
     body = canonical_bytes(authored.model_dump(mode="json", exclude_none=True))
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         assign_origin(
             conn,
             project_id=case.project_id,
@@ -392,7 +385,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         require_original_gap_reports=True,
     )
     bundle = tmp_path / "review"
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         page = serve_structural_gap(conn, request)
         assert page.status == "actionable"
         (row,) = page.rows

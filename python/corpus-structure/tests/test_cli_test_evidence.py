@@ -125,6 +125,7 @@ def test_cli_workers_reach_owned_recipe_and_scope(
             original_id = original.id
     monkeypatch.setenv("CORPUS_CI_TEST_WORKERS", "999")
     monkeypatch.setenv("PYTEST_XDIST_AUTO_NUM_WORKERS", "999")
+    monkeypatch.setenv("CORPUS_CI_RUN_SCOPE", "qualification")
     calls = []
     collections = []
 
@@ -132,6 +133,7 @@ def test_cli_workers_reach_owned_recipe_and_scope(
         assert name == "test-all"
         assert env.get("CORPUS_CI_TEST_WORKERS") == (str(workers) if workers else None)
         assert env["CORPUS_CI_PYTHON_ONLY"] == "1"
+        assert env["CORPUS_CI_RUN_SCOPE"] == "narrowed"
         if retry:
             selection = Path(env["CORPUS_CI_SELECTION_FILE"])
             assert selection.read_text().splitlines() == nodes
@@ -199,6 +201,52 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     assert len(collections) == int(retry)
     if retry:
         assert "--managed-selection" in collections[0]
+
+
+@pytest.mark.parametrize("lane", ["ordinary", "fault"])
+@pytest.mark.parametrize(
+    "narrowed, retry, expected",
+    [(False, False, "qualification"), (True, False, "narrowed"), (False, True, "narrowed")],
+)
+def test_lane_owns_run_scope_instead_of_inheriting_outer_value(
+    tmp_path, monkeypatch, lane, narrowed, retry, expected
+):
+    from corpus_structure.cli import testing
+
+    monkeypatch.setenv("CORPUS_CI_RUN_SCOPE", "outer-value")
+
+    def recipe(name, *args, env):
+        assert env["CORPUS_CI_RUN_SCOPE"] == expected
+        directory = Path(env["CORPUS_CI_RECEIPT_DIR"])
+        directory.mkdir()
+        (directory / "classification.json").write_text("{}")
+        return subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                {
+                    "counts": {"selected": 1, "passed": 1},
+                    "workers": {},
+                    "custody_unsettled": False,
+                    "retryable": False,
+                    "status": "passed",
+                    "empty": False,
+                }
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(testing, "run_recipe", recipe)
+    with ResultStore(tmp_path / "results").operation("test", scope={}) as result:
+        assert (
+            testing._lane(
+                result,
+                lane,
+                narrowed=narrowed,
+                selection=tmp_path / "selection.txt" if retry else None,
+            )
+            == "passed"
+        )
 
 
 def test_installed_compact_coverage_and_exact_failures(tmp_path):

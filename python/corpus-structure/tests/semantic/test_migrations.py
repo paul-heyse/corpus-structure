@@ -77,8 +77,8 @@ def _seed(conn) -> tuple[str, str]:
     return releases[0], releases[1]
 
 
-def test_native_cross_realization_and_variant_constraints(semantic_db_engine: Engine) -> None:
-    with semantic_db_engine.begin() as conn:
+def test_native_cross_realization_and_variant_constraints(commit_db_engine: Engine) -> None:
+    with commit_db_engine.begin() as conn:
         release_a, release_b = _seed(conn)
         with pytest.raises(IntegrityError), conn.begin_nested():
             conn.execute(
@@ -149,8 +149,8 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
             )
 
 
-def test_bootstrap_downgrade_refuses_destructive_reversal(semantic_db_engine: Engine) -> None:
-    with semantic_db_engine.begin() as conn:
+def test_bootstrap_downgrade_refuses_destructive_reversal(commit_db_engine: Engine) -> None:
+    with commit_db_engine.begin() as conn:
         before = current_revision(conn)
         with pytest.raises(RuntimeError, match="destructive"):
             downgrade(conn)
@@ -158,9 +158,9 @@ def test_bootstrap_downgrade_refuses_destructive_reversal(semantic_db_engine: En
         assert "selected_fact" in inspect(conn).get_view_names(schema="data")
 
 
-def test_partial_scalar_indexes_do_not_limit_exact_payload_size(semantic_db_engine: Engine) -> None:
+def test_partial_scalar_indexes_do_not_limit_exact_payload_size(commit_db_engine: Engine) -> None:
     lexical = "9" * 10000
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         release_a, _release_b = _seed(conn)
         values = table("data.typed_value")
         conn.execute(

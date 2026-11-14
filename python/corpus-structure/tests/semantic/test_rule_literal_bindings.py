@@ -1,7 +1,6 @@
 """Independent literal controls over the exact prepared rule-policy model."""
 
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 import yaml
@@ -9,18 +8,7 @@ import yaml
 from corpus_structure.schema.rulelang import RuleError, RuleErrorCode
 from corpus_structure.semantic.domain_operations import RULE_INPUT, ReleasedRulesPolicy
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.regeneration import prepare_packs
 from corpus_structure.semantic.types import SourceArtifact
-
-
-@pytest.fixture(scope="module")
-def inputs():
-    return prepare_packs((Path(__file__).resolve().parents[4] / "domains/statistics",))
-
-
-@pytest.fixture(scope="module")
-def policy(inputs):
-    return ReleasedRulesPolicy(inputs[3])
 
 
 @pytest.mark.parametrize(
@@ -45,18 +33,20 @@ def policy(inputs):
     ],
 )
 def test_exact_bound_literals_compile_and_nearby_unknown_literals_refuse(
-    policy, accepted, refused, nearest
+    statistics_rules_policy, accepted, refused, nearest
 ):
-    policy.language.compile("literal.accepted", accepted)
+    statistics_rules_policy.language.compile("literal.accepted", accepted)
     with pytest.raises(RuleError) as caught:
-        policy.language.compile("literal.refused", refused)
+        statistics_rules_policy.language.compile("literal.refused", refused)
     assert caught.value.codes == {RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY}
     assert all(problem.rule == "literal.refused" for problem in caught.value.problems)
     assert all(repr(nearest) in problem.message for problem in caught.value.problems)
 
 
-def test_source_model_changes_determine_binding_and_identity_vocabularies(inputs, policy):
-    bundle, dependencies, profile, _ = inputs
+def test_source_model_changes_determine_binding_and_identity_vocabularies(
+    statistics_pack_inputs, statistics_rules_policy
+):
+    bundle, dependencies, profile, _ = statistics_pack_inputs
     sources = []
     for source in bundle.sources:
         document = yaml.safe_load(source.content)
@@ -85,7 +75,7 @@ def test_source_model_changes_determine_binding_and_identity_vocabularies(inputs
         replace(dependencies, artifacts=tuple(artifacts)),
         profile,
     )
-    assert changed.release_id != policy.release_id
+    assert changed.release_id != statistics_rules_policy.release_id
     released = ReleasedRulesPolicy(changed)
     for expression in (
         "$all([b.bind != 'model_free' for b in claim.bindings])",
@@ -93,7 +83,7 @@ def test_source_model_changes_determine_binding_and_identity_vocabularies(inputs
     ):
         released.language.compile("changed.accepted", expression)
         with pytest.raises(RuleError) as caught:
-            policy.language.compile("original.refused", expression)
+            statistics_rules_policy.language.compile("original.refused", expression)
         assert caught.value.codes == {RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY}
     with pytest.raises(RuleError) as caught:
         released.language.compile(

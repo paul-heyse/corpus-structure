@@ -73,9 +73,9 @@ def verify_artifact(raw, report):
 
 
 def artifact_fixture():
+    from methods.m1_source_preparation_support import source
     from methods.navigation_fixture import primary_navigation
-    from methods.test_m1_source_preparation import source
-    from methods.test_scoped_relations import complete_native_fields, original_inputs
+    from methods.scoped_relations_support import complete_native_fields, original_inputs
 
     from corpus_structure.methods.artifact_identity import (
         ArtifactIdentityConfig,
@@ -173,9 +173,8 @@ def comparison_fixture():
         StructuralComparisonMethod,
     )
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-
-    from .primary_formal_fixture import formal_layers
-    from .test_typed_structural_composition import threshold_inputs
+    from semantic.primary_formal_fixture import formal_layers
+    from semantic.typed_structural_composition_support import threshold_inputs
 
     inputs = threshold_inputs(
         "revenue ≥ 100 USD\nComparison basis: annual revenue.",

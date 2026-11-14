@@ -11,18 +11,23 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.witnessed_scenario_support import (
+    authored_component_admission,
+    completed_component_case,
+)
 
-from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
-from .witnessed_scenario_support import authored_component_admission, completed_component_case
 
-
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_exact_component_admits_without_whole_applicability(
-    private_source, semantic_evaluator_engine, tmp_path
+    private_source, record_source_evaluator, tmp_path
 ):
     case = private_source
     completed = completed_component_case(case, tmp_path)
-    authored = authored_component_admission(completed, semantic_evaluator_engine)
+    authored = authored_component_admission(completed, record_source_evaluator)
     admission, expected = authored.admission, authored.expected
 
     def produce(binding, output):

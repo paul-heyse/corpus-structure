@@ -4,15 +4,11 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from alembic.migration import MigrationContext
-from alembic.operations import Operations, ops
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.native_candidate import prepare_series_candidate
-from corpus_structure.semantic.native_objects import admit_native
 from corpus_structure.semantic.operations import (
     OperationBinding,
     claim_tasks,
@@ -20,28 +16,14 @@ from corpus_structure.semantic.operations import (
     create_task,
     record_method,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.method_dimensions_native_support import (
+    current_guarded_database as current_guarded_database,
+)
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 class Config(BaseModel):
     pass
-
-
-def current_guarded_database(admin):
-    with admin.begin() as conn:
-        script, authored = prepare_series_candidate(conn, owned_authoring=True)
-        operations = Operations(MigrationContext.configure(conn))
-
-        def apply(item):
-            if isinstance(item, ops.OpContainer):
-                for child in item.ops:
-                    apply(child)
-            else:
-                operations.invoke(item)
-
-        apply(script.upgrade_ops)
-        admit_native(conn, authored.desired)
 
 
 def task(admin, writer):
@@ -113,9 +95,9 @@ def complete(conn, claim, *, family="value", outcome="produced", confidence=None
 
 
 def test_native_report_dimensions_refuse_before_observation_effects(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    _prepared, _run, _config, identity, claim = task(semantic_db_engine, semantic_writer_engine)
+    _prepared, _run, _config, identity, claim = task(commit_db_engine, commit_writer_engine)
     for values, message in [
         ({"family": "mention"}, "family/outcome"),
         ({"outcome": "done"}, "family/outcome"),
@@ -126,9 +108,9 @@ def test_native_report_dimensions_refuse_before_observation_effects(
             "method result outcome differs from protected task completion",
         ),
     ]:
-        with pytest.raises(DBAPIError, match=message), semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError, match=message), commit_writer_engine.begin() as conn:
             complete(conn, claim, **values)
-        with semantic_db_engine.connect() as conn:
+        with commit_db_engine.connect() as conn:
             assert (
                 conn.scalar(
                     text("SELECT count(*) FROM kb.observation WHERE task_id=:task"),
@@ -147,11 +129,11 @@ def test_native_report_dimensions_refuse_before_observation_effects(
                 )
                 == 0
             )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         receipt = complete(conn, claim, envelope={"outcome": "produced"})
         assert receipt["receipt"]["protocol"] == "done"
         assert receipt["receipt"]["task_id"] == identity
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM kb.observation WHERE task_id=:task"), {"task": identity}
@@ -161,10 +143,10 @@ def test_native_report_dimensions_refuse_before_observation_effects(
 
 
 def test_native_task_guard_rejects_metadata_outside_its_release(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    _prepared, run, config, _identity, _claim = task(semantic_db_engine, semantic_writer_engine)
-    with semantic_db_engine.begin() as conn:
+    _prepared, run, config, _identity, _claim = task(commit_db_engine, commit_writer_engine)
+    with commit_db_engine.begin() as conn:
         method_id = conn.scalar(
             select(table("ops.method_config").c.method_id).where(
                 table("ops.method_config").c.id == config
@@ -186,7 +168,7 @@ def test_native_task_guard_rejects_metadata_outside_its_release(
             .values(method_id=bad_method, name="bad", params={}, config_hash="bad-dimension")
             .returning(table("ops.method_config").c.id)
         )
-    with pytest.raises(DBAPIError, match="not admitted"), semantic_writer_engine.begin() as conn:
+    with pytest.raises(DBAPIError, match="not admitted"), commit_writer_engine.begin() as conn:
         create_task(
             conn,
             run_id=run,
@@ -195,7 +177,7 @@ def test_native_task_guard_rejects_metadata_outside_its_release(
             unit_type="run",
             input_hash="wrong-family",
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id=:run"), {"run": run}) == 1
         )

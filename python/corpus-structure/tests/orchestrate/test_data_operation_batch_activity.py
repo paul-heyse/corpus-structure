@@ -55,6 +55,8 @@ def test_uncertain_batch_member_remains_uncertain_without_hiding_live_sibling():
 def test_all_batch_claims_lost_during_owned_cpu_work_retire_process(tmp_path, monkeypatch):
     import copy
 
+    from semantic.data_operation_port_support import fixture_source, kind, scope
+
     from corpus_structure.core.work import drive_prepared_work
     from corpus_structure.semantic import cpu_execution
     from corpus_structure.semantic.data_operation_ports import (
@@ -63,9 +65,6 @@ def test_all_batch_claims_lost_during_owned_cpu_work_retire_process(tmp_path, mo
         resolve_python_port,
     )
     from corpus_structure.semantic.identity import claim_source_item__data_operation__
-
-    from ..semantic.test_data_operation_cpu import scope
-    from ..semantic.test_data_operation_ports import fixture_source, kind
 
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["batch"]

@@ -120,7 +120,7 @@ def test_page_envelope_delegates_native_serializer_and_preserves_assembly_classe
     tmp_path, monkeypatch
 ):
     from docling.datamodel.base_models import ContainerElement, Table
-    from ingest.test_pdf_assembly import assembly
+    from ingest_pdf_assembly_support import assembly
 
     page, image = page_with_image()
     page.assembled = assembly()

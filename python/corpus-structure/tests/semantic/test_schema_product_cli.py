@@ -199,7 +199,7 @@ def test_schema_compile_invalid_detail_does_not_publish_output(cli, tmp_path, mo
 
 
 def test_schema_check_archived_release_forwards_dependency_request(
-    cli, semantic_db_engine, semantic_application_settings
+    cli, commit_db_engine, commit_application_settings
 ):
     from pathlib import Path
 
@@ -207,7 +207,7 @@ def test_schema_check_archived_release_forwards_dependency_request(
     from corpus_structure.semantic.releases import persist_release
 
     bundle, dependencies, profile, prepared = prepare_packs((Path("domains/statistics"),))
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
     result = cli(
         "schema",
@@ -220,7 +220,7 @@ def test_schema_check_archived_release_forwards_dependency_request(
         "--dependency-limit",
         "1",
         "--json",
-        settings=lambda: semantic_application_settings,
+        settings=lambda: commit_application_settings,
     )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)["validation"]

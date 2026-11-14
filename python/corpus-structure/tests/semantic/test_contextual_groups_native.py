@@ -8,8 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.identity import canonical_bytes
-
-from .test_contextual_enrichment import (
+from semantic.contextual_enrichment_support import (
     candidates,
     definition_inventory,
     select_definition_origins,
@@ -38,7 +37,7 @@ def replay(conn, decision, candidate_list, inventory):
     )
 
 
-def test_native_same_meaning_corroboration_preserves_one_edge_and_all_proofs(semantic_db_engine):
+def test_native_same_meaning_corroboration_preserves_one_edge_and_all_proofs(commit_db_engine):
     meaning = semantic_definition_meaning()
     inventory = definition_inventory({"a": meaning, "b": deepcopy(meaning)})
     rule = witness("rule", "a")
@@ -50,7 +49,7 @@ def test_native_same_meaning_corroboration_preserves_one_edge_and_all_proofs(sem
     assert edge.member_target_ids == ("a", "b")
     assert {proof.witness_id for proof in edge.witnesses} == {"rule", "model"}
     assert edge.edge_id == single.selected_edges[0].edge_id
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         replay(conn, decision, candidates(inventory), inventory)
         unsupported = select_definition_origins(
             inventory, (rule, replace(model, support_state="unsupported"))
@@ -64,7 +63,7 @@ def test_native_same_meaning_corroboration_preserves_one_edge_and_all_proofs(sem
             replay(conn, corrupt, candidates(inventory), inventory)
 
 
-def test_native_distinct_source_meanings_remain_competing_senses(semantic_db_engine):
+def test_native_distinct_source_meanings_remain_competing_senses(commit_db_engine):
     first = semantic_definition_meaning()
     second = deepcopy(first)
     second["content"]["text"] = "another"
@@ -72,5 +71,5 @@ def test_native_distinct_source_meanings_remain_competing_senses(semantic_db_eng
     decision = select_definition_origins(inventory, (witness("a", "a"), witness("b", "b")))
     assert decision.outcome == "ambiguous" and not decision.selected_edges
     assert len(decision.alternative_groups[0].edges) == 2
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         replay(conn, decision, candidates(inventory), inventory)

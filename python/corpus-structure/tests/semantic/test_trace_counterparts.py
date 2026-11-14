@@ -6,8 +6,7 @@ from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.query_compatibility import open_query_registry
 from corpus_structure.serve.journey import serve_query
-
-from .reference_scenarios import publish_reference_case
+from semantic.reference_scenarios import publish_reference_case
 
 STAT = "https://corpus-structure.dev/domains/statistics/"
 
@@ -147,7 +146,7 @@ def publish_case(admin, writer, directory, paragraph, authored_batch):
 
 
 def test_trace_t1_current_construction_is_not_a_distribution_family(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     paragraph = (
         "For a real-valued Z, let X = a + b Z where a is real and b is positive; "
@@ -272,13 +271,13 @@ def test_trace_t1_current_construction_is_not_a_distribution_family(
         ),
     ]
     _prepared, run, registry = publish_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
         paragraph,
         batch(entities, claims),
     )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         construction_id = entity_id(conn, registry, run, "location-scale family")
         location_id = entity_id(conn, registry, run, "location parameter")
         scale_id = entity_id(conn, registry, run, "scale parameter")
@@ -334,7 +333,7 @@ def test_trace_t1_current_construction_is_not_a_distribution_family(
 
 
 def test_trace_t2_respectively_pairing_and_parameters_belong_to_family(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     paragraph = (
         "Suppose X has a normal distribution with location parameter mu and scale parameter sigma; "
@@ -393,13 +392,13 @@ def test_trace_t2_respectively_pairing_and_parameters_belong_to_family(
         ),
     ]
     _, run, registry = publish_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
         paragraph,
         batch(entities, claims, kind="remark"),
     )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         profile = rows(conn, registry, run, "family_profile", family="normal distribution")
         all_claims = rows(conn, registry, run)
         pairs = {
@@ -435,7 +434,7 @@ def test_trace_t2_respectively_pairing_and_parameters_belong_to_family(
 
 
 def test_trace_t3_serves_supposed_premise_and_defers_derived_standard_deviation(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     paragraph = (
         "Suppose X is normal with mean mu and variance sigma squared; "
@@ -525,13 +524,13 @@ def test_trace_t3_serves_supposed_premise_and_defers_derived_standard_deviation(
         ),
     ]
     _, run, registry = publish_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
         paragraph,
         batch(entities, claims, kind="theorem"),
     )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         transformations = rows(
             conn, registry, run, "transformations_of", family="normal distribution"
         )
@@ -571,7 +570,7 @@ def test_trace_t3_serves_supposed_premise_and_defers_derived_standard_deviation(
 
 
 def test_trace_t4_keeps_log_normal_parameters_distinct_from_normal_mean(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     paragraph = (
         "Suppose Y has a normal distribution with mean mu and standard deviation sigma; "
@@ -668,13 +667,13 @@ def test_trace_t4_keeps_log_normal_parameters_distinct_from_normal_mean(
         ),
     ]
     _prepared, run, registry = publish_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
         paragraph,
         batch(entities, claims),
     )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         lognormal_id = entity_id(conn, registry, run, "lognormal distribution")
         mu_id = entity_id(conn, registry, run, "mu parameter")
         sigma_id = entity_id(conn, registry, run, "sigma parameter")

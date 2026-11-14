@@ -34,15 +34,14 @@ from corpus_structure.semantic.source_views import (
     selected_source_views,
     store_source_view,
 )
-
-from .native_record_fixtures import publish_native_record_fixture
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.native_record_fixtures import publish_native_record_fixture
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 @pytest.fixture
-def reuse_sources(semantic_db_engine, semantic_writer_engine, tmp_path):
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
-    writer = semantic_writer_engine
+def reuse_sources(commit_db_engine, commit_writer_engine, tmp_path):
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True, composed=True)
+    writer = commit_writer_engine
     original = b"%PDF-1.7 retained source reuse custody"
     recipe = b'{"fixture":"retained-source-reuse"}'
     schema = (

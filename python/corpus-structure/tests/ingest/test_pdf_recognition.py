@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pypdfium2
 import pytest
+from pdf_region_support import landmark_pdf as landmark_pdf
 from PIL import Image
 
 from corpus_structure.ingest.pdf_recognition import (
@@ -32,46 +33,6 @@ from corpus_structure.ingest.pdf_recognition import (
     transform_point,
 )
 from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
-
-
-def landmark_pdf() -> bytes:
-    # Media origin is deliberately nonzero; crop clips all four media edges. Independent
-    # red landmark center: absolute PDF(100,450), media-relative TOPLEFT(90,170).
-    content = b"1 0 0 rg 95 445 10 10 re f\nBT /F1 12 Tf 0 1 -1 0 200 250 Tm (ROTATED) Tj ET"
-    objects = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 >>",
-    ]
-    for rotation in (0, 90, 180, 270):
-        objects.append(
-            (
-                "<< /Type /Page /Parent 2 0 R /MediaBox [10 20 410 620] "
-                f"/CropBox [60 120 360 520] /Rotate {rotation} "
-                "/Resources << /Font << /F1 8 0 R >> >> /Contents 7 0 R >>"
-            ).encode()
-        )
-    objects.extend(
-        [
-            b"<< /Length "
-            + str(len(content)).encode()
-            + b" >>\nstream\n"
-            + content
-            + b"\nendstream",
-            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        ]
-    )
-    result = b"%PDF-1.4\n"
-    offsets = [0]
-    for i, obj in enumerate(objects, 1):
-        offsets.append(len(result))
-        result += f"{i} 0 obj\n".encode() + obj + b"\nendobj\n"
-    xref = len(result)
-    result += f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode()
-    result += b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets[1:])
-    return (
-        result
-        + f"trailer << /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
-    )
 
 
 @pytest.mark.parametrize(
@@ -166,10 +127,9 @@ def endpoint():
 def owner(tmp_path, endpoint):
     root = Path(__file__).resolve().parents[4]
     runtime = root / "services/nemotron-parse/.venv/bin/python"
-    if not runtime.exists():
+    if not runtime.is_file():
         runtime = Path.home() / ".cache/corpus-structure/nemotron-runtime-py312/bin/python"
-    if not runtime.exists():
-        pytest.skip("isolated public Nemotron parser environment unavailable")
+    assert runtime.is_file(), "collection must admit the isolated Nemotron runtime prerequisite"
     return RecognitionWorker(
         python=runtime,
         script=root / "services/nemotron-parse/worker.py",
@@ -179,6 +139,7 @@ def owner(tmp_path, endpoint):
     )
 
 
+@pytest.mark.prerequisite("nemotron_runtime")
 def test_public_triple_exact_images_raw_crops_and_replay(tmp_path, endpoint, monkeypatch):
     url, requests, replies = endpoint
     table = "<x_100><y_200><table><tr><td>one</td></tr></table><x_700><y_800><class_Table>"
@@ -250,6 +211,7 @@ def test_public_triple_exact_images_raw_crops_and_replay(tmp_path, endpoint, mon
         list(completed[0].requests(verify_retained=True))
 
 
+@pytest.mark.prerequisite("nemotron_runtime")
 def test_later_crop_failure_preserves_prior_actual_responses(tmp_path, endpoint):
     url, requests, replies = endpoint
     table = "<x_0.1><y_0.2><table><tr><td>x</td></tr></table><x_0.7><y_0.8><class_Table>"
@@ -266,6 +228,7 @@ def test_later_crop_failure_preserves_prior_actual_responses(tmp_path, endpoint)
     assert (page.directory / "decisions.json").exists()
 
 
+@pytest.mark.prerequisite("nemotron_runtime")
 def test_zero_crop_is_real_triple_and_repeated_raw_occurrences_are_distinct(tmp_path, endpoint):
     url, requests, replies = endpoint
     raw = "<x_0.1><y_0.2>equal<x_0.8><y_0.3><class_Text>"
@@ -283,6 +246,7 @@ def test_zero_crop_is_real_triple_and_repeated_raw_occurrences_are_distinct(tmp_
     assert values["occurrences"][0]["text"] == values["occurrences"][1]["text"] == "equal"
 
 
+@pytest.mark.prerequisite("nemotron_runtime")
 def test_cancellation_terminates_owned_process_retains_admitted_request(tmp_path, endpoint):
     url, _, replies = endpoint
     replies.append(1.0)
@@ -302,6 +266,7 @@ def test_cancellation_terminates_owned_process_retains_admitted_request(tmp_path
     assert len(list(tmp_path.glob("**/input.json"))) == 1
 
 
+@pytest.mark.prerequisite("nemotron_runtime")
 def test_bounded_parallel_pages_keep_identity_independent_handles_and_parent_cancellation(
     tmp_path, endpoint
 ):
@@ -345,6 +310,7 @@ def test_bounded_parallel_pages_keep_identity_independent_handles_and_parent_can
     assert len(list(tmp_path.glob("**/attempt-00002/interrupted.json"))) == len(admitted)
 
 
+@pytest.mark.prerequisite("nemotron_runtime")
 def test_capped_repetition_recovery_is_explicit_bounded_and_failed_receipts_replay(
     tmp_path, endpoint
 ):
@@ -397,7 +363,12 @@ def test_completion_driven_refill_does_not_wait_for_slow_first_page(tmp_path, mo
         yield RecognitionPage(number, tmp_path, {"outcome": "succeeded"}, {})
 
     monkeypatch.setattr(RecognitionWorker, "_recognize_pages", recognize)
-    worker = owner(tmp_path, "http://unused")
+    worker = RecognitionWorker(
+        python=tmp_path / "unused-interpreter",
+        script=tmp_path / "unused-worker.py",
+        endpoint="http://unused",
+        receipts=tmp_path,
+    )
     pages = worker.recognize_pages(
         PreparedRecognitionSource.prepare(landmark_pdf()),
         NemotronRecipe("1" * 64, "2" * 64),

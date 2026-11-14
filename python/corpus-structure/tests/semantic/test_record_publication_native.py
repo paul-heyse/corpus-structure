@@ -21,43 +21,14 @@ from corpus_structure.semantic.domain_operations import _cut_input, consolidate_
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import complete_unit_result, seal_cut
 from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, reconstruct_record
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import candidate, complete
-from .native_record_fixtures import private_source as private_source
-
-
-def record_cut(case, *, empty=False):
-    with case.writer.begin() as conn:
-        if empty:
-            complete_unit_result(
-                conn,
-                task_id=case.task,
-                attempt=case.held.attempt,
-                holder="records",
-                prepared=case.prepared,
-                method=case.method,
-                configuration_hash="private-config",
-                source="private-unit",
-                result=UnitResult(
-                    ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-                    outcome=ObservationOutcome.EMPTY,
-                    coverage=(
-                        CoverageDraft(
-                            family="table",
-                            scope="private-unit",
-                            outcome="complete",
-                            reason="controlled inspection completed with empty record output",
-                        ),
-                    ),
-                ),
-                records=(),
-            )
-        else:
-            complete(case, conn, (candidate(case), candidate(case, 1, projected=True)))
-        return seal_cut(conn, case.run, "records-final", final=True)
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate, complete
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.record_publication_native_support import record_cut as record_cut
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_actual_cut_records_publish_without_graph_product_membership(private_source):
     case = private_source
     cut = record_cut(case)
@@ -104,6 +75,9 @@ def test_actual_cut_records_publish_without_graph_product_membership(private_sou
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_empty_cut_keeps_report_and_routing_coverage(private_source):
     case = private_source
     cut = record_cut(case, empty=True)
@@ -141,6 +115,9 @@ def test_completed_empty_cut_keeps_report_and_routing_coverage(private_source):
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_tampering_accepted_standing_and_append_refuse_atomically(private_source):
     case = private_source
     cut = record_cut(case)
@@ -287,20 +264,23 @@ def test_native_tampering_accepted_standing_and_append_refuse_atomically(private
         transaction.rollback()
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_shared_structure_accepts_complete_reference_but_public_policy_still_refuses(
-    private_source, semantic_db_engine
+    private_source, record_source_admin
 ):
     """Structural correctness is shared; evaluator/public authority remains separate."""
     from copy import deepcopy
 
     from sqlalchemy.dialects.postgresql import JSONB
 
-    from .native_record_fixtures import identities
+    from semantic.native_record_fixtures import identities
 
     case = private_source
     expected = candidate(case)
     expected["standing"] = "accepted"
-    with semantic_db_engine.begin() as conn:
+    with record_source_admin.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         statement = text("SELECT data.validate_source_record_structure(:r,:record)").bindparams(
             bindparam("record", type_=JSONB)
@@ -363,16 +343,18 @@ def test_shared_structure_accepts_complete_reference_but_public_policy_still_ref
         conn.execute(statement, {"r": case.prepared.release_id, "record": expected})
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_shared_structure_requires_each_complete_literal_set_in_source_order(
-    private_source, semantic_db_engine
+    private_source, record_source_admin
 ):
     from copy import deepcopy
 
     from sqlalchemy.dialects.postgresql import JSONB
 
     from corpus_structure.semantic.record_contracts import anchor_identity, evidence_set_identity
-
-    from .native_record_fixtures import identities
+    from semantic.native_record_fixtures import identities
 
     case = private_source
     expected = candidate(case)
@@ -390,7 +372,7 @@ def test_shared_structure_requires_each_complete_literal_set_in_source_order(
         evidence_sets=(evidence["set_id"],),
     )
     identities(case, expected)
-    with semantic_db_engine.begin() as conn:
+    with record_source_admin.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         statement = text("SELECT data.validate_source_record_structure(:r,:record)").bindparams(
             bindparam("record", type_=JSONB)
@@ -434,8 +416,11 @@ def test_shared_structure_requires_each_complete_literal_set_in_source_order(
             conn.execute(statement, {"r": case.prepared.release_id, "record": overlap})
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_public_reader_pins_detached_projection_and_retains_source_selectors(
-    private_source, semantic_reader_engine
+    private_source, record_source_reader
 ):
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
@@ -444,7 +429,7 @@ def test_completed_public_reader_pins_detached_projection_and_retains_source_sel
     case = private_source
     cut = record_cut(case)
     result = consolidate_cut(case.writer, cut, "public-reader-result")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         packet = read_completed_record_projection(
             conn, run_id=case.run, project_id="private-records"
         )
@@ -493,8 +478,11 @@ def test_completed_public_reader_pins_detached_projection_and_retains_source_sel
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_public_reader_distinguishes_empty_report_from_missing_source(
-    private_source, semantic_reader_engine
+    private_source, record_source_reader
 ):
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
@@ -502,7 +490,7 @@ def test_completed_public_reader_distinguishes_empty_report_from_missing_source(
     case = private_source
     cut = record_cut(case, empty=True)
     consolidate_cut(case.writer, cut, "public-reader-empty")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         present = read_completed_record_projection(
             conn, run_id=case.run, source_view_ids=(case.view,)
         )
@@ -523,9 +511,12 @@ def test_completed_public_reader_distinguishes_empty_report_from_missing_source(
     assert missing.coverage == ()
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize("no_report_status", ["empty", "failed", "skipped"])
 def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
-    private_source, semantic_reader_engine, no_report_status
+    private_source, record_source_reader, no_report_status
 ):
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
     from corpus_structure.semantic.query import read_snapshot
@@ -603,7 +594,7 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
     request = RecordRequest(
         run_id=case.run, family="table", standing="accepted", include_diagnostics=True
     )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         page = serve_record_results(conn, request)
         selected = serve_record_results(
             conn, request.model_copy(update={"source_view_ids": (case.other_view,)})
@@ -658,8 +649,11 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
             )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_record_continuation_keeps_completed_cut_after_project_selection_changes(
-    private_source, semantic_db_engine, semantic_reader_engine
+    private_source, record_source_admin, record_source_reader
 ):
     from sqlalchemy import update
 
@@ -670,7 +664,7 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
     cut = record_cut(case)
     consolidate_cut(case.writer, cut, "public-continuation-pin")
     project = table("data.project")
-    with semantic_db_engine.begin() as conn:
+    with record_source_admin.begin() as conn:
         conn.execute(
             update(project)
             .where(project.c.project_id == "private-records")
@@ -681,11 +675,11 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
             )
         )
     request = RecordRequest(run_id=case.run, limit=1)
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         first = serve_record_results(conn, request)
     assert first.next_cursor is not None
     # This is a genuinely changed selection, not a second read of one snapshot.
-    with semantic_db_engine.begin() as conn:
+    with record_source_admin.begin() as conn:
         conn.execute(
             update(project)
             .where(project.c.project_id == "private-records")
@@ -694,7 +688,7 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
                 generation=project.c.generation + 1,
             )
         )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         second = serve_record_results(
             conn, request.model_copy(update={"cursor": first.next_cursor})
         )
@@ -703,9 +697,12 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
     assert second.records != first.records and second.population_paging_complete
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize("resolver_status", ["failed", "skipped"])
 def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
-    private_source, semantic_reader_engine, resolver_status
+    private_source, record_source_reader, resolver_status
 ):
     from corpus_structure.evaluate.record_references import prediction_records
     from corpus_structure.methods.m1_readings import M1Readings
@@ -757,7 +754,7 @@ def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
             )
         cut = seal_cut(conn, case.run, "terminal-resolver-final", final=True)
     consolidate_cut(case.writer, cut, "public-terminal-resolver")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         projection = read_completed_record_projection(conn, run_id=case.run)
     # The raw candidate exists in the successful public projection. Actual registered
     # resolver authority nevertheless governs no-output even without cut membership.
@@ -778,8 +775,11 @@ def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
     assert predictions == () and reports == ()
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_public_reader_refuses_wrong_run_project_and_invalid_selectors(
-    private_source, semantic_reader_engine
+    private_source, record_source_reader
 ):
     from corpus_structure.semantic.operations import OperationBinding, create_run
     from corpus_structure.semantic.query import read_snapshot
@@ -798,7 +798,7 @@ def test_completed_public_reader_refuses_wrong_run_project_and_invalid_selectors
             options={},
             code_commit="reader-ownership-control",
         )
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         for wrong_run in (unfinished, 10**15):
             with pytest.raises(SemanticRefusal, match="completed run/project"):
                 read_completed_record_projection(
@@ -820,8 +820,11 @@ def test_completed_public_reader_refuses_wrong_run_project_and_invalid_selectors
             read_completed_record_projection(conn, run_id=case.run, max_bytes=0)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
-    private_source, semantic_reader_engine
+    private_source, record_source_reader
 ):
     import json
     from dataclasses import asdict
@@ -835,7 +838,7 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
     case = private_source
     cut = record_cut(case)
     consolidate_cut(case.writer, cut, "public-reader-budgets")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         packet = read_completed_record_projection(conn, run_id=case.run)
         assert len(packet.rows["source_record"]) == 2
         row_collections: Mapping[str, Any] = packet.rows
@@ -875,7 +878,7 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
 
 
 def test_completed_public_reader_refuses_archive_without_record_projection(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     from importlib.resources import files
 
@@ -927,7 +930,7 @@ classes:
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     assert not any(artifact.kind == "record_projection.json" for artifact in prepared.artifacts)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="unprojected"))
         conn.execute(
@@ -937,7 +940,7 @@ classes:
                 release_id=prepared.release_id,
             )
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="unprojected",
@@ -947,16 +950,19 @@ classes:
             code_commit="archive-reader-control",
         )
         cut = seal_cut(conn, run, "unprojected-final", final=True)
-    consolidate_cut(semantic_writer_engine, cut, "unprojected-output")
+    consolidate_cut(commit_writer_engine, cut, "unprojected-output")
     with (
-        read_snapshot(semantic_reader_engine) as conn,
+        read_snapshot(commit_reader_engine) as conn,
         pytest.raises(SemanticRefusal, match="no supported record projection"),
     ):
         read_completed_record_projection(conn, run_id=run, project_id="unprojected")
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_public_reader_selects_and_pages_roots_before_hydration(
-    private_source, semantic_reader_engine
+    private_source, record_source_reader
 ):
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.record_queries import (
@@ -968,7 +974,7 @@ def test_completed_public_reader_selects_and_pages_roots_before_hydration(
     case = private_source
     cut = record_cut(case)
     consolidate_cut(case.writer, cut, "public-reader-paged")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         with pytest.raises(RecordReadLimit):
             read_completed_record_projection(conn, run_id=case.run, max_records=1)
         first = read_completed_record_projection(

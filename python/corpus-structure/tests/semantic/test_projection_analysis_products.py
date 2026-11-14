@@ -21,16 +21,14 @@ from corpus_structure.semantic.projection_analysis_products import (
 )
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.types import PreparedArtifact, ResolvedDependencies, SourceArtifact
-
-from .test_operation_reporting import prepared
+from semantic.operation_reporting_support import prepared
 
 
 def test_runtime_mismatch_refuses_before_warm_preparation_or_direct_production(monkeypatch):
     from corpus_structure.semantic import determinants
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import PreparationError
-
-    from .test_operation_reporting import report_inputs
+    from semantic.operation_reporting_support import report_inputs
 
     inputs = report_inputs()
     prepare_release(*inputs)
@@ -86,8 +84,7 @@ def test_retained_analysis_read_does_not_consult_current_analyzer(monkeypatch):
 def test_cold_composed_preparation_uses_proposed_profile_before_and_after_apply(tmp_path):
     from corpus_structure.schema.model import MODEL_DIR
     from corpus_structure.schema.physical import PHYSICAL_ROOT, physical_source_closure
-
-    from .test_operation_reporting import report_inputs
+    from semantic.operation_reporting_support import report_inputs
 
     bundle = report_inputs()[0]
     package = MODEL_DIR.parent

@@ -2,17 +2,15 @@
 
 import json
 from copy import deepcopy
-from typing import Any
 
 import pytest
+from pdf_acceptance_support import inventory
 
-from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore, metadata_classes
-from corpus_structure.semantic.pdf_payloads import PROFILE, prepare_payload_family
+from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore
 from corpus_structure.semantic.pdf_record_identity import byte_root
+from semantic.pdf_payload_validation_support import captured as captured
 
 from . import pdf_integration_support as integrated_examples
-from .test_pdf_ocr_contracts import inventory
 
 native_source = integrated_examples.native_source
 independent_integrated = integrated_examples.independent_integrated
@@ -197,61 +195,6 @@ def test_frozen_occurrence_text_uses_lossless_checked_byte_field(tmp_path):
             store.companion_value(row)
     finally:
         store.close()
-
-
-def captured(tmp_path, page):
-    store = FrozenPayloadStore(tmp_path / "frozen.sqlite")
-    context = trusted_pdf_context()
-    store.schemas = {
-        kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes().items()
-    }
-    codec = prepare_payload_family(context)
-    payload = codec.encode(page)
-    length, root = byte_root((payload,))
-    row = dict(
-        family="native_metadata",
-        local_id="page:0",
-        ordinal=0,
-        body=dict(
-            kind="inline_candidate_pages",
-            ordinal=0,
-            page_no=page["page_no"],
-            payload_codec=PROFILE,
-            payload_schema_digest=codec.schema_digest,
-            payload_logical_digest=codec.logical_digest(page),
-        ),
-    )
-    store.add("companion", row)
-    store.add(
-        "companion",
-        dict(
-            family="health",
-            local_id="health",
-            ordinal=0,
-            body=dict(
-                source_scope="whole_document", inline_coverage="unknown", cell_coverage="unknown"
-            ),
-        ),
-    )
-    store.add(
-        "companion_field",
-        dict(
-            family="native_metadata",
-            local_id="page:0",
-            field_name="value",
-            stream_id="page",
-            scalar_kind="y",
-        ),
-    )
-    store.add(
-        "artifact_stream",
-        dict(stream_id="page", byte_length=length, byte_root=root.hex(), encoding_profile=PROFILE),
-    )
-    store.add("artifact_part", dict(stream_id="page", ordinal=0, body=payload.hex()))
-    projection = tmp_path / "access.jsonl"
-    projection.write_text("")
-    document: dict[str, Any] = {"pages": {"1": {"size": {"width": 200, "height": 300}}}}
-    return store, row, document, projection
 
 
 def test_valid_frozen_page_checks_actual_bytes_and_semantics(tmp_path):

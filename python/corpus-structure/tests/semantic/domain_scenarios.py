@@ -1,14 +1,15 @@
 """Explicit synthetic semantic scenarios used by domain operation tests."""
 
 from collections.abc import Sequence
-from dataclasses import replace
-from functools import cache
+from dataclasses import dataclass, replace
+from functools import cache, wraps
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict
+from scenario_recipes import register_scenario_builder
 from sqlalchemy import Engine, insert, select
 
 from corpus_structure.semantic import (
@@ -18,10 +19,11 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
-from corpus_structure.semantic._operation_ids import CutId, RunId
+from corpus_structure.semantic._operation_ids import CutId, DocumentId, RunId
 from corpus_structure.semantic.analytical_profile import analytical_inputs
+from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
-from corpus_structure.semantic.identity import fact_key, occurrence_key
+from corpus_structure.semantic.identity import canonical_bytes, fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
@@ -54,6 +56,7 @@ from corpus_structure.semantic.publication import (
 )
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.types import PreparedRelease
+from semantic.scenario_preparation_support import PersistedScenario, ScenarioPreparation
 
 
 class DomainFixtureConfig(BaseModel):
@@ -62,37 +65,37 @@ class DomainFixtureConfig(BaseModel):
     variant: str | None = None
 
 
-def build_domain_case(
-    admin: Engine,
-    writer: Engine,
-    path: Path,
-    *,
-    rules: bytes = b"rules: []\n",
-    graph: bool = False,
-    duplicate: bool = False,
-    formulas: Sequence[str] = (),
-    known: bool = False,
-    local_known: bool = False,
-    input_noise: bool = False,
-    nary: bool = False,
-    broken: bool = False,
-    claim_chain: bool = False,
-    cycle: bool = False,
-    condition: dict[str, Any] | None = None,
-    report_count: int = 1,
-    global_person_identity: bool = False,
-    authored_alternative: bool = False,
-    integer_alias: bool = False,
-    math: dict[str, Any] | None = None,
-    second_math: dict[str, Any] | None = None,
-    statement_packets: str | None = None,
-    attribute_assertions: bool = False,
-    incomplete_key: bool = False,
-    isolated_entity: bool = False,
-    membership_subtype: bool = False,
-    unselected_report: bool = False,
-    characterization: bool = False,
-) -> tuple[PreparedRelease, RunId, CutId]:
+@dataclass(frozen=True)
+class DomainPreparationRecipe:
+    rules: bytes = b"rules: []\n"
+    graph: bool = False
+    formula_values: bool = False
+    known: bool = False
+    input_noise: bool = False
+    nary: bool = False
+    broken: bool = False
+    global_person_identity: bool = False
+    integer_alias: bool = False
+    incomplete_key: bool = False
+    membership_subtype: bool = False
+    characterization: bool = False
+
+
+def _assemble_domain_preparation(
+    recipe: DomainPreparationRecipe,
+) -> ScenarioPreparation[DomainPreparationRecipe]:
+    rules = recipe.rules
+    graph = recipe.graph
+    formulas = recipe.formula_values
+    known = recipe.known
+    input_noise = recipe.input_noise
+    nary = recipe.nary
+    broken = recipe.broken
+    global_person_identity = recipe.global_person_identity
+    integer_alias = recipe.integer_alias
+    incomplete_key = recipe.incomplete_key
+    membership_subtype = recipe.membership_subtype
+    characterization = recipe.characterization
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
         "id": "https://example.org/domain",
@@ -177,8 +180,7 @@ def build_domain_case(
     bundle = observation_inputs(proposal_inputs(bundle, deps))
     bundle, deps = analytical_inputs(bundle, deps)
     from corpus_structure.semantic.composed import composed_dependencies
-
-    from .method_dimensions_support import fixture_execution_inputs
+    from semantic.method_dimensions_support import fixture_execution_inputs
 
     deps = composed_dependencies(
         deps, fixture_execution_inputs("pdf.controlled-source", "coverage.witness")
@@ -189,6 +191,32 @@ def build_domain_case(
 
         bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, deps, profile)
+    return ScenarioPreparation(recipe, bundle, deps, profile, prepared)
+
+
+_cached_domain_preparation = cache(_assemble_domain_preparation)
+
+
+def prepare_domain_case(
+    recipe: DomainPreparationRecipe,
+) -> ScenarioPreparation[DomainPreparationRecipe]:
+    """Reuse the pure input assembly; overrides leave the ordinary memo untouched."""
+    if implementation_overridden():
+        return _assemble_domain_preparation(recipe)
+    return _cached_domain_preparation(recipe)
+
+
+def persist_domain_release(
+    admin: Engine, writer: Engine, preparation: ScenarioPreparation[DomainPreparationRecipe]
+) -> PersistedScenario[DomainPreparationRecipe]:
+    """Persist only the release/project stage, without PDF publication or task creation."""
+    bundle, deps, profile, prepared = (
+        preparation.bundle,
+        preparation.dependencies,
+        preparation.profile,
+        preparation.prepared,
+    )
+    known, input_noise = preparation.recipe.known, preparation.recipe.input_noise
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
@@ -231,6 +259,42 @@ def build_domain_case(
                 initial, selection=tuple(SelectionRow(f.fact_id) for f in initial.fact)
             ).bind_preparation(prepared),
         )
+    return PersistedScenario(preparation, writer)
+
+
+@dataclass(frozen=True)
+class DomainSourceStage:
+    preparation: ScenarioPreparation[DomainPreparationRecipe]
+    document: DocumentId
+    run: RunId
+    views: tuple
+
+    @property
+    def seed_files(self) -> tuple[Path, ...]:
+        # Controlled publication retains originals in the database.
+        return ()
+
+    def validate_clone(self, admin: Engine) -> None:
+        from corpus_structure.semantic.operations import read_original
+
+        documents, artifacts = table("kb.document"), table("kb.source_artifact")
+        with admin.connect() as connection:
+            retained = connection.scalar(
+                select(artifacts.c.artifact_digest)
+                .select_from(
+                    documents.join(
+                        artifacts, artifacts.c.artifact_digest == documents.c.content_hash
+                    )
+                )
+                .where(documents.c.id == self.document)
+            )
+            if retained is None:
+                raise ValueError("domain source seed has no retained original")
+            read_original(connection, self.document, prepared=self.preparation.prepared)
+
+
+def publish_domain_source(preparation, writer, path, *, duplicate=False, statement_packets=None):
+    prepared = preparation.prepared
     double_source = duplicate or statement_packets == "different"
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 
@@ -252,7 +316,9 @@ def build_domain_case(
         run = create_run(
             conn,
             project_id="p",
-            binding=OperationBinding(prepared.release_id, "source", 1 if known else 0, b"{}"),
+            binding=OperationBinding(
+                prepared.release_id, "source", 1 if preparation.recipe.known else 0, b"{}"
+            ),
             kind="full",
             options={"corpus": {"documents": [document_key]}},
             code_commit="test",
@@ -265,6 +331,26 @@ def build_domain_case(
         original=original,
         paragraphs=paragraphs,
     )
+    return DomainSourceStage(preparation, document, run, tuple(views))
+
+
+@dataclass(frozen=True)
+class DomainTaskStage:
+    source: DomainSourceStage
+    configuration: Any
+    task: Any
+    frame: Any
+    packet: Any
+
+
+@dataclass(frozen=True)
+class ClaimedDomainTask:
+    source: DomainTaskStage
+    lease: Any
+
+
+def create_domain_source_task(source, writer, *, math=None, duplicate=False):
+    prepared, run, views = source.preparation.prepared, source.run, source.views
     with writer.begin() as conn:
         view = views[0]
         cid = record_method(
@@ -300,10 +386,187 @@ def build_domain_case(
             packet_hash=packet.hash,
             agent=True,
         )
-        lease = claim_tasks(conn, run_id=run, config_id=cid, holder="worker", agent=True)[0]
-        from corpus_structure.semantic.source_frames import capture_source_frame
+    return DomainTaskStage(source, cid, task, frame, packet)
 
-        capture_source_frame(conn, task, packet)
+
+def claim_domain_source_task(stage, writer):
+    from corpus_structure.semantic.source_frames import capture_source_frame
+
+    with writer.begin() as connection:
+        lease = claim_tasks(
+            connection,
+            run_id=stage.source.run,
+            config_id=stage.configuration,
+            holder="worker",
+            agent=True,
+        )[0]
+        capture_source_frame(connection, stage.task, stage.packet)
+    return ClaimedDomainTask(stage, lease)
+
+
+@dataclass(frozen=True)
+class DomainSourceRecipe:
+    preparation: DomainPreparationRecipe = DomainPreparationRecipe()
+    duplicate: bool = False
+    statement_packets: str | None = None
+
+
+@dataclass(frozen=True)
+class DomainCaseRecipe:
+    preparation: DomainPreparationRecipe = DomainPreparationRecipe()
+    duplicate: bool = False
+    formulas: tuple[str, ...] = ()
+    local_known: bool = False
+    claim_chain: bool = False
+    cycle: bool = False
+    condition: bytes | None = None
+    report_count: int = 1
+    authored_alternative: bool = False
+    math: bytes | None = None
+    second_math: bytes | None = None
+    statement_packets: str | None = None
+    attribute_assertions: bool = False
+    isolated_entity: bool = False
+    unselected_report: bool = False
+    occurrence_context: bool = False
+    outside_statement: bool = False
+
+    @property
+    def source_recipe(self) -> DomainSourceRecipe:
+        return DomainSourceRecipe(self.preparation, self.duplicate, self.statement_packets)
+
+
+@dataclass(frozen=True)
+class CompletedDomainStage:
+    source: DomainSourceStage
+    cut: CutId
+
+    @property
+    def result(self) -> tuple[PreparedRelease, RunId, CutId]:
+        return self.source.preparation.prepared, self.source.run, self.cut
+
+    @property
+    def seed_files(self) -> tuple[Path, ...]:
+        return self.source.seed_files
+
+    def validate_clone(self, admin: Engine) -> None:
+        self.source.validate_clone(admin)
+        with admin.connect() as connection:
+            if (
+                connection.scalar(
+                    select(table("ops.input_cut").c.id).where(
+                        table("ops.input_cut").c.id == self.cut,
+                        table("ops.input_cut").c.run_id == self.source.run,
+                    )
+                )
+                != self.cut
+            ):
+                raise ValueError("domain seed lacks its exact sealed cut")
+
+
+def domain_case_recipe(
+    *,
+    rules: bytes = b"rules: []\n",
+    graph: bool = False,
+    duplicate: bool = False,
+    formulas: Sequence[str] = (),
+    known: bool = False,
+    local_known: bool = False,
+    input_noise: bool = False,
+    nary: bool = False,
+    broken: bool = False,
+    claim_chain: bool = False,
+    cycle: bool = False,
+    condition: dict[str, Any] | None = None,
+    report_count: int = 1,
+    global_person_identity: bool = False,
+    authored_alternative: bool = False,
+    integer_alias: bool = False,
+    math: dict[str, Any] | None = None,
+    second_math: dict[str, Any] | None = None,
+    statement_packets: str | None = None,
+    attribute_assertions: bool = False,
+    incomplete_key: bool = False,
+    isolated_entity: bool = False,
+    membership_subtype: bool = False,
+    unselected_report: bool = False,
+    characterization: bool = False,
+    occurrence_context: bool = False,
+    outside_statement: bool = False,
+) -> DomainCaseRecipe:
+    return DomainCaseRecipe(
+        preparation=DomainPreparationRecipe(
+            rules=rules,
+            graph=graph,
+            formula_values=bool(formulas),
+            known=known,
+            input_noise=input_noise,
+            nary=nary,
+            broken=broken,
+            global_person_identity=global_person_identity,
+            integer_alias=integer_alias,
+            incomplete_key=incomplete_key,
+            membership_subtype=membership_subtype,
+            characterization=characterization,
+        ),
+        duplicate=duplicate,
+        formulas=tuple(formulas),
+        local_known=local_known,
+        claim_chain=claim_chain,
+        cycle=cycle,
+        condition=canonical_bytes(condition) if condition is not None else None,
+        report_count=report_count,
+        authored_alternative=authored_alternative,
+        math=canonical_bytes(math) if math is not None else None,
+        second_math=canonical_bytes(second_math) if second_math is not None else None,
+        statement_packets=statement_packets,
+        attribute_assertions=attribute_assertions,
+        isolated_entity=isolated_entity,
+        unselected_report=unselected_report,
+        occurrence_context=occurrence_context,
+        outside_statement=outside_statement,
+    )
+
+
+def build_domain_case(admin: Engine, writer: Engine, path: Path, **options):
+    """Compose the complete domain case; caller-owned variants remain explicit builds."""
+    recipe = domain_case_recipe(**options)
+    preparation = prepare_domain_case(recipe.preparation)
+    persist_domain_release(admin, writer, preparation)
+    source = publish_domain_source(
+        preparation,
+        writer,
+        path,
+        duplicate=recipe.duplicate,
+        statement_packets=recipe.statement_packets,
+    )
+    return finish_domain_case(source, writer, path, recipe).result
+
+
+def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> CompletedDomainStage:
+    """Finish a published prefix with this consumer's declarations, task and proposal."""
+    import json
+
+    prepared = source.preparation.prepared
+    graph, known = recipe.preparation.graph, recipe.preparation.known
+    nary, broken = recipe.preparation.nary, recipe.preparation.broken
+    integer_alias = recipe.preparation.integer_alias
+    formulas, duplicate = recipe.formulas, recipe.duplicate
+    local_known, claim_chain, cycle = recipe.local_known, recipe.claim_chain, recipe.cycle
+    condition = json.loads(recipe.condition) if recipe.condition is not None else None
+    math = json.loads(recipe.math) if recipe.math is not None else None
+    second_math = json.loads(recipe.second_math) if recipe.second_math is not None else None
+    report_count, authored_alternative = recipe.report_count, recipe.authored_alternative
+    statement_packets, attribute_assertions = recipe.statement_packets, recipe.attribute_assertions
+    isolated_entity, unselected_report = recipe.isolated_entity, recipe.unselected_report
+    run, views = source.run, source.views
+    task_stage = create_domain_source_task(source, writer, math=math, duplicate=duplicate)
+    claimed = claim_domain_source_task(task_stage, writer)
+    cid, task, frame = task_stage.configuration, task_stage.task, task_stage.frame
+    lease, view = claimed.lease, views[0]
+    from corpus_structure.semantic.proposals import proposal_packet
+    from corpus_structure.semantic.source_frames import capture_source_frame
+
     raw: dict[str, Any] = {
         "unit_ref": view.ref.key,
         "entities": [{"id": "person", "class_iri": "https://example.org/Person", "label": "Alice"}],
@@ -465,6 +728,23 @@ def build_domain_case(
                 ],
             }
         ]
+    if recipe.occurrence_context:
+        raw["entities"][0]["reference"] = {
+            "description": "source-declared unresolved person",
+            "source_uri": "external.html",
+            "locator": "#person",
+        }
+        raw["claims"][0]["evidence"].append(
+            {"sentence": "s1", "quote": "Alice is here.", "role": "supporting"}
+        )
+        raw["claims"][1]["statement_role"] = "premise"
+        raw["claims"][1]["evidence"] = [
+            {"sentence": "s1", "quote": "Alice is here.", "role": "condition"},
+            {"sentence": "s1", "quote": "Alice is here.", "role": "primary"},
+        ]
+        if recipe.outside_statement:
+            raw["claims"][0].pop("statement")
+            raw["claims"][0].pop("statement_role")
     located = (
         locate_proposal(
             prepared, raw, frame, known_classes={"known:alice": ("https://example.org/Person",)}
@@ -567,6 +847,8 @@ def build_domain_case(
             )
         cut = seal_cut(conn, run, "final", final=True)
     if unselected_report:
+        from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
+
         # A real protected report in another run is deliberately outside this cut.
         # Reuse the admitted model/configuration, not forged observation storage.
         foreign_original = write_controlled_pdf(
@@ -648,7 +930,28 @@ def build_domain_case(
                     }
                 ],
             )
-    return prepared, run, cut
+    return CompletedDomainStage(source, cut)
+
+
+def build_domain_source_recipe(recipe, admin, writer, directory, *, purpose_engine=None):
+    preparation = prepare_domain_case(recipe.preparation)
+    persist_domain_release(admin, writer, preparation)
+    return publish_domain_source(
+        preparation,
+        writer,
+        directory / "source.pdf",
+        duplicate=recipe.duplicate,
+        statement_packets=recipe.statement_packets,
+    )
+
+
+def build_domain_recipe(recipe, admin, writer, directory, *, purpose_engine=None):
+    source = build_domain_source_recipe(recipe.source_recipe, admin, writer, directory)
+    return finish_domain_case(source, writer, directory / "source.pdf", recipe)
+
+
+register_scenario_builder(DomainSourceRecipe, build_domain_source_recipe)
+register_scenario_builder(DomainCaseRecipe, build_domain_recipe)
 
 
 Z = "realization:test"
@@ -656,8 +959,7 @@ C = "https://example/Thing"
 P = "https://example/label"
 
 
-@cache
-def fixture_model(
+def _assemble_fixture_model(
     scope: Literal["shape", "accepted_value", "occurrence", "context"] = "accepted_value",
     unique=False,
     label_range="string",
@@ -758,6 +1060,16 @@ def fixture_model(
         version="semantic-2" if conditional or composed else "semantic-1", constraint_scope=scope
     )
     return bundle, prepare_release(bundle, deps, profile)
+
+
+_cached_fixture_model = cache(_assemble_fixture_model)
+
+
+@wraps(_assemble_fixture_model)
+def fixture_model(*args, **kwargs):
+    if implementation_overridden():
+        return _assemble_fixture_model(*args, **kwargs)
+    return _cached_fixture_model(*args, **kwargs)
 
 
 def seed(

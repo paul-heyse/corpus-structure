@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 from typing import Any
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
@@ -18,6 +17,7 @@ from corpus_structure.core.db.ownership import DatabaseReservation
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 from corpus_structure.semantic.migrations import head_revision
 from corpus_structure.settings import Settings
+from native_test_support import database_name
 
 
 def settings(native_server: Any, name: str, template: str | None = None) -> Settings:
@@ -86,7 +86,7 @@ def test_init_refuses_extensions_at_other_versions(
 def test_reserved_cli_never_adopts_or_drops_an_intervening_database(
     cli: Any, native_server: Any, cancel: bool
 ) -> None:
-    name = f"cs_sem_init_{os.getpid()}_{uuid4().hex[:12]}"
+    name = database_name("init").name
     expected = BaseExceptionGroup if cancel else RuntimeError
     try:
         with (
@@ -129,8 +129,8 @@ def test_reserved_cli_never_adopts_or_drops_an_intervening_database(
 
 
 def test_cli_subprocess_acknowledges_creation_before_failed_migration(native_server: Any) -> None:
-    name = f"cs_sem_init_{os.getpid()}_{uuid4().hex[:12]}"
-    template = f"cs_sem_test_{os.getpid()}_{uuid4().hex[:12]}"
+    name = database_name("init").name
+    template = database_name("test").name
     with native_server.database(template, native_server.template) as engine:
         with engine.begin() as connection:
             connection.exec_driver_sql("CREATE TABLE public.alembic_version(version_num text)")

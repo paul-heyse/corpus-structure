@@ -23,7 +23,7 @@ from corpus_structure.semantic.source_contexts import (
     SourceSlice,
     SyntheticText,
 )
-from methods.test_record_assembly import context, release, report, source, span
+from methods.record_assembly_support import context, release, report, source, span
 
 
 def definition_pack():
@@ -800,7 +800,7 @@ def test_zero_output_and_unsupported_top_level_shape_have_population_rows():
 
 
 def test_captured_recognition_retains_distinct_coordinate_space_and_binding():
-    from semantic.test_captured_source_contexts import prepared_context
+    from semantic.captured_source_contexts_support import prepared_context
 
     ctx, captured = prepared_context(text="term", with_native=False)
     pack = definition_pack()

@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from sqlalchemy import JSON, Boolean, Column, Integer, MetaData, String, Table, create_engine
+from sqlalchemy import Boolean, Column, Integer, MetaData, String, Table
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeEngine
 
 from corpus_structure.semantic.data_operation_bindings import (
@@ -84,8 +85,7 @@ def consumer_model():
 
 
 @contextmanager
-def admitted(model, groups):
-    engine = create_engine("sqlite://")
+def admitted(connection, model, groups):
     metadata = MetaData()
     tables = {}
     for kind in groups:
@@ -105,58 +105,60 @@ def admitted(model, groups):
                 )
             ),
             *(
-                Column(name, JSON)
+                Column(name, JSONB)
                 for name in ("analyzed_scope", "coverage", "support_episodes", "support_evidence")
             ),
             Column("position", Integer),
             Column("multiplicity", Integer),
             *(Column(name, native_type(name)) for name in FIELDS[kind]),
         )
-    metadata.create_all(engine)
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     projections = []
-    with engine.begin() as connection:
-        for kind, rows in groups.items():
-            table = tables[kind]
-            for row in rows:
-                value = dict(
-                    product="product:" + row["id"],
-                    kind_contract=identities[PREFIX + kind, "kind"],
-                    subject=row["subject"],
-                    original_source=row.get("source", "original"),
-                    member=row["id"],
-                    provider_identity=None,
-                    alternative_identity=None,
-                    analyzed_scope={},
-                    coverage={},
-                    support_episodes=["episode:" + row["id"]],
-                    support_evidence={"native": "fixture"},
-                    position=0,
-                    multiplicity=1,
+    with connection.begin_nested() as transaction:
+        try:
+            metadata.create_all(connection)
+            for kind, rows in groups.items():
+                table = tables[kind]
+                for row in rows:
+                    value = dict(
+                        product="product:" + row["id"],
+                        kind_contract=identities[PREFIX + kind, "kind"],
+                        subject=row["subject"],
+                        original_source=row.get("source", "original"),
+                        member=row["id"],
+                        provider_identity=None,
+                        alternative_identity=None,
+                        analyzed_scope={},
+                        coverage={},
+                        support_episodes=["episode:" + row["id"]],
+                        support_evidence={"native": "fixture"},
+                        position=0,
+                        multiplicity=1,
+                    )
+                    value.update({field: row.get(field) for field in FIELDS[kind]})
+                    connection.execute(table.insert(), value)
+                projections.append(
+                    ProjectionBinding(
+                        PREFIX + kind,
+                        table,
+                        tuple(
+                            ProjectionField(
+                                name,
+                                name,
+                                "boolean"
+                                if name in BOOLEANS
+                                else "integer"
+                                if name in INTEGERS
+                                else "string",
+                            )
+                            for name in FIELDS[kind]
+                        ),
+                        b'{"native":"fixture"}',
+                    )
                 )
-                value.update({field: row.get(field) for field in FIELDS[kind]})
-                connection.execute(table.insert(), value)
-            projections.append(
-                ProjectionBinding(
-                    PREFIX + kind,
-                    table,
-                    tuple(
-                        ProjectionField(
-                            name,
-                            name,
-                            "boolean"
-                            if name in BOOLEANS
-                            else "integer"
-                            if name in INTEGERS
-                            else "string",
-                        )
-                        for name in FIELDS[kind]
-                    ),
-                    b'{"native":"fixture"}',
-                )
-            )
-        yield connection, tuple(projections)
-    engine.dispose()
+            yield connection, tuple(projections)
+        finally:
+            transaction.rollback()
 
 
 def population(name, *members):
@@ -190,7 +192,7 @@ def hydrated_component_selection(method, binding, records):
     )
 
 
-def test_native_consumer_resolves_shared_base_document_views(consumer_model):
+def test_native_consumer_resolves_shared_base_document_views(consumer_model, native_rollback):
     rows = [
         dict(
             id="view:one",
@@ -203,7 +205,10 @@ def test_native_consumer_resolves_shared_base_document_views(consumer_model):
             id="view:other", subject="view:other", document_subject="document", base_product="other"
         ),
     ]
-    with admitted(consumer_model, {"DdoSourceViewBinding": rows}) as (connection, projections):
+    with admitted(native_rollback.connection, consumer_model, {"DdoSourceViewBinding": rows}) as (
+        connection,
+        projections,
+    ):
         result = execute_binding(
             connection,
             compile_binding(
@@ -226,7 +231,9 @@ def test_native_consumer_resolves_shared_base_document_views(consumer_model):
         assert [view.member.member for view in views] == ["view:one"]
 
 
-def test_m1_consumer_optional_projection_is_exact_one_eligible_view(consumer_model):
+def test_m1_consumer_optional_projection_is_exact_one_eligible_view(
+    consumer_model, native_rollback
+):
     rows = [
         dict(
             id=name,
@@ -241,7 +248,10 @@ def test_m1_consumer_optional_projection_is_exact_one_eligible_view(consumer_mod
             ("ineligible", "selected", False),
         )
     ]
-    with admitted(consumer_model, {"DdoSourceViewBinding": rows}) as (connection, projections):
+    with admitted(native_rollback.connection, consumer_model, {"DdoSourceViewBinding": rows}) as (
+        connection,
+        projections,
+    ):
         base = dict(
             subject="document",
             choices={"source_selection": "views"},
@@ -297,7 +307,9 @@ def test_m1_consumer_optional_projection_is_exact_one_eligible_view(consumer_mod
         assert result.status == "not-applicable"
 
 
-def test_contextual_consumer_requires_every_requested_occurrence_id(consumer_model):
+def test_contextual_consumer_requires_every_requested_occurrence_id(
+    consumer_model, native_rollback
+):
     rows = [
         dict(
             id="occurrence:one",
@@ -324,7 +336,7 @@ def test_contextual_consumer_requires_every_requested_occurrence_id(consumer_mod
         ],
         "DdoOccurrenceBinding": rows,
     }
-    with admitted(consumer_model, groups) as (connection, projections):
+    with admitted(native_rollback.connection, consumer_model, groups) as (connection, projections):
         for required, status in ((("one",), "ready"), (("one", "missing"), "not-applicable")):
             result = execute_binding(
                 connection,
@@ -354,7 +366,9 @@ def test_contextual_consumer_requires_every_requested_occurrence_id(consumer_mod
                 assert [row.value()["occurrence_id"] for row in occurrences] == ["one"]
 
 
-def test_structural_consumer_keeps_two_original_sources_and_reading_associations(consumer_model):
+def test_structural_consumer_keeps_two_original_sources_and_reading_associations(
+    consumer_model, native_rollback
+):
     references = [
         ExternalSourceRef(
             project_id="project",
@@ -420,7 +434,9 @@ def test_structural_consumer_keeps_two_original_sources_and_reading_associations
         "right_reading_id": "contribution:right",
     }
     with admitted(
-        consumer_model, {"DdoPassageBinding": passages, "DdoReadingBinding": readings}
+        native_rollback.connection,
+        consumer_model,
+        {"DdoPassageBinding": passages, "DdoReadingBinding": readings},
     ) as (connection, projections):
         result = execute_binding(
             connection,

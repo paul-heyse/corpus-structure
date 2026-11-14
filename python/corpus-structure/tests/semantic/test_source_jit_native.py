@@ -29,8 +29,7 @@ from corpus_structure.orchestrate.source_reader import ScopedSourceReader
 from corpus_structure.semantic._operation_ids import RunId
 from corpus_structure.semantic.claim_lifetime import ClaimOwner
 from corpus_structure.semantic.operations import OperationBinding, register_document
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 def _current_claim_rows(writer, ctx, units, method, policy):
@@ -91,14 +90,14 @@ def _controlled_math_batch(reader, identity):
 
 
 def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     # Native task/dependency mechanics and real owned reads are exercised here; the
     # controlled kernels establish scheduler behavior, not mathematical extraction.
     # Both independent controlled kernels use the dependency-free extraction
     # configuration; the six-view cases below exercise actual normalization prerequisites.
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, evaluation=True)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True, evaluation=True)
+    with commit_writer_engine.begin() as conn:
         for number in range(6):
             path = tmp_path / f"input-{number}.pdf"
             original = f"%PDF-1.7\nindependent source {number}".encode()
@@ -138,7 +137,7 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
             self, units: Sequence[UnitView], cfg: C, ctx: MethodContext
         ) -> Sequence[UnitResult]:
             _owner, claims, _rows, running = _current_claim_rows(
-                semantic_writer_engine, ctx, units, self.name, policy
+                commit_writer_engine, ctx, units, self.name, policy
             )
             running_windows.append(running)
             batches.append((self.name, len(units)))
@@ -165,7 +164,7 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
         ),
     )
     result = run_source_methods(
-        semantic_writer_engine,
+        commit_writer_engine,
         project_id="p",
         prepared=prepared,
         binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
@@ -189,7 +188,7 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
     caches[0].native.clear()
     assert all(len(cache.native) == 1 for cache in caches[1:])
     assert result.status == "source_ready"
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.task WHERE run_id=:run AND status='empty'"),
@@ -657,16 +656,16 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
 
 
 def test_six_published_views_keep_current_claims_and_native_dependencies(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     _run_source_view_dependency_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch, reclaim=False
+        commit_db_engine, commit_writer_engine, tmp_path, monkeypatch, reclaim=False
     )
 
 
 def test_source_view_reclaim_preserves_prior_batch_and_refuses_stale_completion(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     _run_source_view_dependency_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch, reclaim=True
+        commit_db_engine, commit_writer_engine, tmp_path, monkeypatch, reclaim=True
     )

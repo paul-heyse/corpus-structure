@@ -44,19 +44,18 @@ from corpus_structure.semantic.source_views import (
     store_source_view,
 )
 from corpus_structure.serve.native_regions import render_pdf_region
-
-from .native_record_fixtures import publish_native_record_fixture
-from .pdf_staging_support import private_build as private_build
+from semantic.native_record_fixtures import publish_native_record_fixture
+from semantic.pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize("private_build", ["renderable_pdf"], indirect=True)
 def test_published_region_render_frame_artifact_replay_and_invalid_address(
     private_build,
-    semantic_db_engine,
-    semantic_writer_engine,
+    commit_db_engine,
+    commit_writer_engine,
     tmp_path,
 ):
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         task = conn.execute(
             text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
             dict(task=private_build.task_id),
@@ -110,7 +109,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     )
     product = prepare_pdf_product(payload, original, schema, recipe, context=context)
     published = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "records",
         task_id=private_build.task_id,
         attempt=private_build.attempt,
@@ -119,7 +118,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
         document=document,
     )
     reference = ProductReference(private_build.task_id, "region-source", published.logical_digest)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepared = open_release(conn, private_build.release_id)
         reader = published_record_reader(conn, reference, projection_context=prepared)
         assert reader is not None
@@ -199,22 +198,22 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
             content=rendered,
         )
 
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         digest = store(conn, selection)
         assert store(conn, selection) == digest == sha256(rendered).hexdigest()
     for changed in (
         dict(selection, pointer="#/texts/999"),
         dict(selection, content_digest="0" * 64),
     ):
-        with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError):
+        with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError):
             store(conn, changed)
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError):
         store(conn, selection, holder="stale-renderer")
     # Exercise the actual composite endpoint constraint independently of the
     # protected writer's own address lookup. Both the private build and public
     # pin exist; they must not be combined into a fabricated placement.
     assert private_build.build_id != published.build_id
-    with pytest.raises(DBAPIError) as misplaced, semantic_db_engine.begin() as conn:
+    with pytest.raises(DBAPIError) as misplaced, commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
             text(
@@ -246,7 +245,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     diagnostic = validation_failure_report(InvariantViolation(failure)).model_dump(mode="json")
     assert diagnostic["model_id"] == context.execution.model_id
     assert diagnostic["release_id"] == private_build.release_id
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         row = conn.execute(
             text(
                 "SELECT a.native_build_id,a.native_revision_id,a.pointer,a.region_index,s.content "
@@ -274,7 +273,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     )
     from corpus_structure.semantic.native_requests import NativeRequestResult
 
-    server = build_semantic_server(SemanticAgentSession(semantic_writer_engine, task.run_id))
+    server = build_semantic_server(SemanticAgentSession(commit_writer_engine, task.run_id))
     deliveries = []
 
     async def image_delivery():
@@ -310,7 +309,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     assert refused_body["artifact_digest"] == included_body["artifact_digest"]
     assert refused_body["inline_image"]["reason"] == "oversized_item"
     expected_runtime = prepare_runtime_binding(prepared)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for body in (included_body, refused_body):
             assert (
                 conn.scalar(
@@ -350,7 +349,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     def record_sql(conn, cursor, statement, parameters, context, executemany):
         selected_sql.append(statement)
 
-    event.listen(semantic_writer_engine, "before_cursor_execute", record_sql)
+    event.listen(commit_writer_engine, "before_cursor_execute", record_sql)
     try:
         native = NativeRequestResult(
             **{
@@ -368,9 +367,9 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
                 )
             }
         )
-        bounded = _rendered_artifact_result(semantic_writer_engine, native, 1024)
+        bounded = _rendered_artifact_result(commit_writer_engine, native, 1024)
     finally:
-        event.remove(semantic_writer_engine, "before_cursor_execute", record_sql)
+        event.remove(commit_writer_engine, "before_cursor_execute", record_sql)
     wire = bounded.to_mcp_result()
     assert isinstance(wire, WireToolResult)
     assert wire.is_error
@@ -379,8 +378,8 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     assert not any("SELECT kb.source_artifact.content" in statement for statement in selected_sql)
 
     _check_sealed_archive_render(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         task.run_id,
         view_id,
         item.self_ref,

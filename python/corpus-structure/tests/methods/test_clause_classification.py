@@ -147,7 +147,7 @@ def test_primary_functions_preserve_overlaps_scores_and_exact_focal_scope():
     from dataclasses import asdict
     from pathlib import Path
 
-    from semantic.test_model_characterization import (
+    from semantic.model_characterization_support import (
         builder,
         gliner_profile,
         gliner_report,

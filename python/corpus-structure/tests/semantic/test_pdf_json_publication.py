@@ -190,6 +190,7 @@ def test_descriptor_helper_is_part_of_exact_native_admission(pdf13_db):
         admit_execution_release(db.prepared, connection=conn)
 
 
+@pytest.mark.prerequisite("task86_witness")
 def test_retained_book_witness_descriptor_and_content_fit_without_relation_jsonb(pdf13_db):
     import gzip
     import json
@@ -207,8 +208,6 @@ def test_retained_book_witness_descriptor_and_content_fit_without_relation_jsonb
             ),
         )
     )
-    if not witness.is_file():
-        pytest.skip("retained task86 canonical-byte witness is not available")
     payload = gzip.decompress(witness.read_bytes())
     assert len(payload) == 558190320
     assert (

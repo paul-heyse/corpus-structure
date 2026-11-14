@@ -22,12 +22,11 @@ from corpus_structure.semantic.pdf_publication import (
     validate_pdf_build,
 )
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
-
-from .pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
-    private_build, semantic_db_engine, semantic_writer_engine, tmp_path
+    private_build, commit_db_engine, commit_writer_engine, tmp_path
 ):
     import pyarrow as pa
 
@@ -56,14 +55,14 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         with pa.memory_map(str(replay.path), "r") as source:
             reader = pa.ipc.open_file(source)
             for index in range(reader.num_record_batches):
-                with semantic_writer_engine.begin() as conn:
+                with commit_writer_engine.begin() as conn:
                     adopt_pdf_batch(
                         conn,
                         build,
                         f"{replay.family}:{index}",
                         {replay.family: (reader.get_batch(index),)},
                     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -81,9 +80,9 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    validate_pdf_build(semantic_writer_engine, frozen)
+    validate_pdf_build(commit_writer_engine, frozen)
     bodies = {}
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         for family in ("access", "region"):
             bodies[family] = (
@@ -118,7 +117,7 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
     )
     for family, rows in bodies.items():
         for row in rows:
-            with semantic_writer_engine.begin() as conn:
+            with commit_writer_engine.begin() as conn:
                 conn.execute(statement, params | {"family": family, "body": json.dumps(row)})
         row = rows[0]
         changes = (
@@ -129,7 +128,7 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         for change in changes:
             with (
                 pytest.raises(DBAPIError, match="projection membership is immutable"),
-                semantic_writer_engine.begin() as conn,
+                commit_writer_engine.begin() as conn,
             ):
                 conn.execute(
                     statement, params | {"family": family, "body": json.dumps(row | change)}

@@ -125,7 +125,7 @@ def test_each_pack_file_lints_clean(schema: Path, tmp_path: Path) -> None:
     # the pack imports `core`, which the loader maps to the model's file; lint sees it beside it
     shutil.copy(schema, tmp_path / schema.name)
     shutil.copy(REPO / "python/corpus-structure/src/corpus_structure/model/core.yaml", tmp_path)
-    from .lint_support import lint_errors
+    from schema_lint_support import lint_errors
 
     assert lint_errors(tmp_path / schema.name, REPO / "domains/.linkmllint.yaml") == []
 

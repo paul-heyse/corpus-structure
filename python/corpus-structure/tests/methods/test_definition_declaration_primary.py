@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from typing import cast
 
 import pytest
-from semantic.test_formal_evidence import source
+from semantic.primary_formal_fixture import source
 
 from corpus_structure.ingest.annotations import AnnotationProduct
 from corpus_structure.methods.definition_declaration import (
@@ -23,8 +23,7 @@ from corpus_structure.semantic.constructions.retained_rules import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-
-from .primary_reading_fixture import prepared
+from methods.primary_reading_fixture import prepared
 
 # Each native UD/SRL fact is authored independently of the consumer's checks.
 _ROWS = (

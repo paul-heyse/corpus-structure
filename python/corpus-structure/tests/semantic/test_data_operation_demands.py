@@ -9,63 +9,15 @@ from typing import cast
 
 import pytest
 
-from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_demands import (
     DiscoverySelection,
     OperationSelection,
     RootSubject,
     freeze_demand,
 )
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.types import SourceArtifact
-
-
-def operation(name, **changes):
-    return {
-        "id": name,
-        "profile": "derivation",
-        "subject": "document",
-        "context": [],
-        "roles": [
-            {
-                "name": "result",
-                "kind": "integer",
-                "direction": "output",
-                "minimum": 1,
-                "maximum": 1,
-                "collection": "scalar",
-                "presence": "required",
-            }
-        ],
-        "applicability": ["declared"],
-        "invariants": ["integer"],
-        "coverage": "whole",
-        "outcomes": ["produced"],
-        "precision": "exact",
-        "dependencies": [],
-        "effects": [],
-        "capabilities": {
-            "forms": ["scalar"],
-            "preparation": "none",
-            "cancellation": "call-boundary",
-            "ownership": "immutable",
-        },
-        "behavior": "integer-one-v1",
-        "parameters": {},
-        "binding": {"operator": "all", "children": []},
-        **changes,
-    }
-
-
-def model(*operations):
-    return compile_data_operations(
-        declarations=(
-            SourceArtifact(
-                "ops", canonical_bytes({"version": MODEL_VERSION, "operations": operations})
-            ),
-        )
-    )
+from semantic.data_operation_declaration_support import model, operation
 
 
 def freeze(compiled, **changes):
@@ -197,29 +149,95 @@ def test_frozen_typed_parameters_survive_jsonb_display_loss():
 
 @pytest.mark.parametrize("state", ["committed", "known-uncommitted", "unavailable"])
 def test_resume_preserves_exact_completion_observation_separate_from_frontier(state):
-    from hashlib import sha256
-
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
     compiled = model(operation("op:result"))
+    from semantic.data_operation_binding_support import WireCheckedStorage
+
+    intent = freeze(compiled).record
+    base = {
+        "demand_id": "demand:one",
+        "operation_id": "op:result",
+        "subject": "document:one",
+        "original_source": "source:one",
+        "analyzed_scope": {"whole": True},
+        "parameters": {},
+        "fate": "attached",
+        "historical_fate": "attached",
+    }
     snapshot = {
-        "intent": {"model": sha256(compiled.content).hexdigest()},
+        "demand_id": "demand:one",
+        "project_id": "project:one",
+        "release_id": "release:one",
+        "runtime_id": "runtime:one",
+        "selection": intent,
+        "intent": intent,
+        "root": [
+            {
+                "subject": "document:one",
+                "original_source": "source:one",
+                "analyzed_scope": {"whole": True},
+            }
+        ],
+        "trust_snapshot": {},
+        "uses": [],
+        "populations": [],
+        "continuation": None,
+        "read_id": "read:one",
+        "read_snapshot": "1:2:",
+        "frontier_at": "2026-11-13T00:00:00Z",
+        "view": "frontier",
         "obligations": [
-            {"intent_id": "intent:old", "request_id": "request:one", "generation": 3},
-            {"intent_id": None},
+            {
+                **base,
+                "id": "obligation:one",
+                "obligation_id": "obligation:one",
+                "intent_id": "intent:old",
+                "request_id": "request:one",
+                "generation": 3,
+            },
+            {
+                **base,
+                "id": "obligation:two",
+                "obligation_id": "obligation:two",
+                "intent_id": None,
+                "request_id": None,
+                "generation": None,
+            },
         ],
     }
-    observation = {"state": state, "intent_retained": state != "unavailable"}
-    calls = []
-
-    class Storage:
-        def invoke(self, operation, payload):
-            calls.append((operation, payload))
-            return snapshot if operation == "read_demand_result" else observation
-
-    resumed = DemandPlanner(compiled, cast(DataOperationStorage, Storage())).resume("demand:one")
-    assert calls == [
+    observations = {
+        "committed": {
+            "state": "committed",
+            "intent_retained": True,
+            "receipt_id": "receipt:one",
+            "derivation_id": "derivation:one",
+            "producer_task_id": 1,
+            "producer_attempt": 3,
+            "runtime_id": "runtime:one",
+            "trust_snapshot": {},
+            "semantic_outcome": "produced",
+            "completion_state": "success",
+        },
+        "known-uncommitted": {
+            "state": "known-uncommitted",
+            "intent_retained": True,
+            "producer_task_id": 1,
+            "producer_attempt": 3,
+        },
+        "unavailable": {
+            "state": "unavailable",
+            "intent_retained": False,
+            "reason": "intent-request-binding-unavailable",
+        },
+    }
+    observation = observations[state]
+    storage = WireCheckedStorage(
+        {"read_demand_result": snapshot, "inspect_data_completion": observation}
+    )
+    resumed = DemandPlanner(compiled, cast(DataOperationStorage, storage)).resume("demand:one")
+    assert storage.calls == [
         ("read_demand_result", {"demand_id": "demand:one", "limit": 100}),
         (
             "inspect_data_completion",

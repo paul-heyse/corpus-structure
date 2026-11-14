@@ -1,7 +1,6 @@
 """Independent report categories, source locations and declared-change expectations."""
 
 from dataclasses import replace
-from functools import lru_cache
 from typing import Any, cast
 
 import psycopg
@@ -11,7 +10,6 @@ from jsonschema.exceptions import SchemaError
 from jsonschema.exceptions import ValidationError as JsonValidationError
 from pydantic import ValidationError
 
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.operation_reporting import (
     compare_semantic_releases,
     explain_operation,
@@ -24,39 +22,13 @@ from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.types import (
     Diagnostic,
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
 )
-
-
-@lru_cache(maxsize=1)
-def report_inputs():
-    source = SourceArtifact(
-        "m",
-        b"""id: https://example.org/report-test
-name: report_test
-prefixes: {ex: 'https://example.org/'}
-default_prefix: ex
-types:
- string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
-classes:
- Thing:
-  attributes:
-   label: {range: string, required: true}
-""",
-    )
-    return (
-        SourceBundle("m", (source,)),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
-    )
-
-
-@lru_cache(maxsize=1)
-def prepared():
-    return prepare_release(*report_inputs())
+from semantic.operation_reporting_support import (
+    prepared as prepared,
+)
+from semantic.operation_reporting_support import (
+    report_inputs as report_inputs,
+)
 
 
 def test_preparation_failure_retains_exact_model_location_and_unknown_coverage():

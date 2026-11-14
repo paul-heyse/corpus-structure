@@ -6,14 +6,11 @@ import os
 import time
 from dataclasses import replace
 from types import SimpleNamespace
-from typing import cast
 
 import pytest
 from pydantic import ValidationError
 
-from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.work import drive_prepared_work
-from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_ports import (
     PortRefusal,
@@ -23,17 +20,7 @@ from corpus_structure.semantic.data_operation_ports import (
 )
 from corpus_structure.semantic.identity import claim_source_item__data_operation__
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
-from corpus_structure.semantic.types import PreparedRelease
-
-from .test_data_operation_ports import fixture_source, kind
-
-
-def scope():
-    return CPUExecutionScope(
-        cast(PreparedRelease, SimpleNamespace(release_id="test:no-schema-capsule")),
-        CharacterizationExecutionPolicy(workers=1, max_submissions=1),
-        retain_schema=False,
-    )
+from semantic.data_operation_port_support import fixture_source, kind, scope
 
 
 def run(port, cpu, values):

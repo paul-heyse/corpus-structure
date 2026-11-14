@@ -20,9 +20,8 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import ClaimedTask
 from corpus_structure.semantic.operations import OperationConflict, end_source_run
 from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
-
-from .pdf_integration_support import IMAGE, integrated, make_native_source, prepare, publish
-from .pdf_integration_support import pdf13_db as pdf13_db
+from semantic.pdf_integration_support import IMAGE, integrated, make_native_source, prepare, publish
+from semantic.pdf_integration_support import pdf13_db as pdf13_db
 
 _HTML = '<div data-label="Formula" data-bbox="100 200 900 800">x^2</div>'
 _TRANSFORM = {
@@ -114,7 +113,7 @@ def test_visual_group_renders_compatible_page_once(monkeypatch, tmp_path):
 
 
 def test_diagnostics_and_retired_campaigns_cannot_start_chandra(
-    pdf13_db, semantic_reader_engine, tmp_path, monkeypatch
+    pdf13_db, commit_reader_engine, tmp_path, monkeypatch
 ):
     from contextlib import contextmanager
 
@@ -168,7 +167,7 @@ def test_diagnostics_and_retired_campaigns_cannot_start_chandra(
     @contextmanager
     def diagnostic_engine(settings, application_name, *, purpose):
         assert purpose == "read"
-        yield semantic_reader_engine
+        yield commit_reader_engine
 
     monkeypatch.setattr(visual_routing, "_page_signals", with_deficiency)
     monkeypatch.setattr(runtime, "open_runtime_engine", diagnostic_engine)
@@ -349,7 +348,7 @@ def test_visual_attempt_receipt_marks_an_interruption_without_response(tmp_path)
 
 def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     pdf13_db,
-    semantic_reader_engine,
+    commit_reader_engine,
     tmp_path,
     monkeypatch,
 ):
@@ -704,7 +703,7 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     @contextmanager
     def visual_resume_engine(settings, application_name="ci", *, purpose, **options):
         assert purpose in {"read", "write"}
-        yield semantic_reader_engine if purpose == "read" else db.writer
+        yield commit_reader_engine if purpose == "read" else db.writer
 
     import typer
 

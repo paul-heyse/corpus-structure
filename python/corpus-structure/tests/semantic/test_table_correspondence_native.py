@@ -32,15 +32,8 @@ from corpus_structure.semantic.operations import (
     seal_cut,
 )
 from corpus_structure.semantic.proposals import native_source_frame
-
-from .native_record_fixtures import private_source as private_source
-
-
-@pytest.fixture
-def private_source_options():
-    from corpus_structure.semantic.characterization import characterization_inputs
-
-    return dict(bundle_transform=characterization_inputs)
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
 
 
 def _wire(value):
@@ -119,9 +112,9 @@ def _band_fixture(conn):
 
 
 def test_native_ambiguous_correspondence_keeps_local_choices_and_counts_event_union_once(
-    semantic_db_engine,
+    commit_db_engine,
 ):
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         products, prepared = _band_fixture(conn)
 
     def execute(request=prepared, **kwargs):
@@ -185,13 +178,18 @@ def test_native_ambiguous_correspondence_keeps_local_choices_and_counts_event_un
         assert limited["alternatives"] == limited["marginals"] == []
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="characterization")],
+    indirect=True,
+    ids=("record-characterization",),
+)
 def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(private_source):
     from corpus_structure.methods.record_readings import _digest
-
-    from .test_observations import malform_source_fields
+    from semantic.observations_support import malform_source_fields
 
     case = private_source
-    from .primary_native_support import publish_primary_layers
+    from semantic.primary_native_support import publish_primary_layers
 
     with case.writer.begin() as conn:
         primary_pins = publish_primary_layers(conn, case.run, case.prepared, (case.view,))

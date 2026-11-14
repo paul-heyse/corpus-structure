@@ -8,9 +8,7 @@ from sqlalchemy import JSON, bindparam, func, literal_column, select
 
 from corpus_structure.semantic.data_operation_json import ContextJSONB, json_context_equal
 from corpus_structure.semantic.data_operation_storage import _binding_scope_parameter
-
-from .test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
-from .test_data_operation_storage import kernel as kernel
+from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.mark.db
@@ -52,40 +50,40 @@ def test_native_original_scope_predicate_selects_only_the_explicit_json_null_roo
         )
 
 
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
 @pytest.mark.db
-def test_native_demand_retains_json_null_scope_through_product_binding(kernel):
+def test_native_demand_retains_json_null_scope_through_product_binding(ddo_kernel):
     from corpus_structure.semantic.data_operation_demands import (
         DemandPlanner,
         RootSubject,
         freeze_demand,
     )
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-
-    from .test_data_operation_storage import claim, publish, retain
+    from semantic.data_operation_demand_support import claim, publish, retain
 
     intent = freeze_demand(
-        kernel["model"],
+        ddo_kernel["model"],
         roots=(RootSubject("null:subject", "source:test", b"null"),),
         targets=("urn:ddo-test:sample", "urn:ddo-test:consumer"),
         inference="inference:test",
         execution_profile="execution:test",
     )
-    with kernel["engine"].begin() as connection:
-        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         demand = planner.register(
             intent,
             project="ddo-test",
-            release=kernel["prepared"].release_id,
-            runtime=kernel["runtime"],
+            release=ddo_kernel["prepared"].release_id,
+            runtime=ddo_kernel["runtime"],
         )["demand_id"]
         ready = planner.ready(planner.resume(demand), authorization=b"{}")
         assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:sample"
-    sample = kernel["model"].operation("urn:ddo-test:sample")
-    sample_kernel = {**kernel, "kind": kernel["identities"][sample.roles[0].kind, "kind"]}
+    sample = ddo_kernel["model"].operation("urn:ddo-test:sample")
+    sample_kernel = {**ddo_kernel, "kind": ddo_kernel["identities"][sample.roles[0].kind, "kind"]}
     fence = claim(sample_kernel, json.loads(ready[0].native))
     publish(sample_kernel, fence, retain(sample_kernel, fence, outputs=({"value": 12},)))
-    with kernel["engine"].begin() as connection:
-        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         ready = planner.ready(planner.resume(demand), authorization=b"{}")
         assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:consumer"
         assert ready[0].resolved.subject_context.analyzed_scope == b"null"

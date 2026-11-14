@@ -44,19 +44,19 @@ def test_unsupported_authored_features_refuse(sql):
         _syntax(sql, declared())
 
 
-def test_literal_change_is_not_artifact_equivalence(semantic_reader_engine):
+def test_literal_change_is_not_artifact_equivalence(commit_reader_engine):
     md = declared()
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         a = admit_sql(conn, "SELECT 'one'::text", release_id="r", metadata=md, physical_id="p")
         b = admit_sql(conn, "SELECT 'two'::text", release_id="r", metadata=md, physical_id="p")
     assert a.digest != b.digest
     assert a.sql == "SELECT 'one'::text"
 
 
-def test_native_binding_unknown_column_and_real_role(semantic_db_engine, semantic_reader_engine):
+def test_native_binding_unknown_column_and_real_role(commit_db_engine, commit_reader_engine):
     from corpus_structure.semantic.metadata import metadata
 
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         artifact = admit_sql(
             conn,
             "SELECT entity_id FROM data.entity",
@@ -74,14 +74,14 @@ def test_native_binding_unknown_column_and_real_role(semantic_db_engine, semanti
                 physical_id="p",
             )
     with (
-        semantic_db_engine.connect() as owner,
+        commit_db_engine.connect() as owner,
         pytest.raises(SQLAdmissionError, match="actual restricted"),
     ):
         admit_sql(owner, "SELECT 1", release_id="r", metadata=metadata, physical_id="p")
 
 
-def test_side_effecting_function_never_reaches_planner(semantic_db_engine, semantic_reader_engine):
-    with semantic_db_engine.begin() as conn:
+def test_side_effecting_function_never_reaches_planner(commit_db_engine, commit_reader_engine):
+    with commit_db_engine.begin() as conn:
         conn.execute(text("CREATE TABLE public.side_effect (called boolean)"))
         conn.exec_driver_sql(
             "CREATE FUNCTION public.side_effect() RETURNS integer LANGUAGE plpgsql "
@@ -89,7 +89,7 @@ def test_side_effecting_function_never_reaches_planner(semantic_db_engine, seman
             "VALUES (true); RETURN 1; END $$"
         )
     with (
-        semantic_reader_engine.connect() as conn,
+        commit_reader_engine.connect() as conn,
         pytest.raises(SQLAdmissionError, match="unapproved function"),
     ):
         admit_sql(
@@ -99,5 +99,5 @@ def test_side_effecting_function_never_reaches_planner(semantic_db_engine, seman
             metadata=declared(),
             physical_id="p",
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM public.side_effect")).scalar_one() == 0

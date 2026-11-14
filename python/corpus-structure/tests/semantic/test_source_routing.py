@@ -7,20 +7,17 @@ from typer.testing import CliRunner
 
 
 def test_cli_finalization_returns_real_receipt_and_exact_replay(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    domain_default_case, tmp_path, monkeypatch
 ):
+    commit_writer_engine = domain_default_case.writer
     from corpus_structure.cli import orchestrate as cli
     from corpus_structure.cli.app import app
 
-    from .domain_scenarios import build_domain_case
-
-    _, run, _ = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
+    _, run, _ = domain_default_case.stage.result
 
     @contextmanager
     def engine(_, **kwargs):
-        yield semantic_writer_engine
+        yield commit_writer_engine
 
     monkeypatch.setattr(cli, "ENGINE", engine)
     runner = CliRunner()

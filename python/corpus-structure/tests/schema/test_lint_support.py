@@ -5,8 +5,7 @@ import shutil
 import subprocess
 
 import pytest
-
-from .lint_support import report_errors
+from schema_lint_support import report_errors
 
 
 @pytest.mark.parametrize("report", ["[]", '[{"level":"warning","message":"warning"}]'])

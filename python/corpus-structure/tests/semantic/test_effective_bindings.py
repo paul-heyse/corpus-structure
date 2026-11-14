@@ -17,8 +17,7 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.statement_types import effective_bindings, statement_definition
 from corpus_structure.semantic.types import ResolvedDependencies
-
-from .test_conditional_rules import bundle, schema
+from semantic.conditional_rules_support import bundle, schema
 
 
 def statement_schema() -> dict[str, Any]:

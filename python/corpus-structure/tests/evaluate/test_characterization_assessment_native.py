@@ -7,14 +7,14 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from evaluate.test_operation_assessment_native import freeze
-from semantic.conftest import semantic_db_engine as semantic_db_engine
-from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
-from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from evaluation_characterization_assessment_native_support import (
+    characterization_references as characterization_references,
+)
+from evaluation_operation_assessment_native_support import freeze
+from semantic.characterization_native_support import make_task
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.reference_scenarios import private_source_options as private_source_options
 from semantic.reference_scenarios import reference_source as reference_source
-from semantic.test_characterization_native import make_task
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -27,10 +27,8 @@ from corpus_structure.evaluate.operation_assessment import (
     record_pass,
     reference_evaluate,
 )
-from corpus_structure.evaluate.record_references import reference_inputs
 from corpus_structure.evaluate.semantic import ReferenceError
 from corpus_structure.semantic.characterization import (
-    characterization_inputs,
     occurrence_id,
     validate_layer,
     validate_view,
@@ -39,10 +37,6 @@ from corpus_structure.semantic.characterization_store import compose_view, publi
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.product_reference import ProductReference
-
-
-def characterization_references(bundle):
-    return reference_inputs(characterization_inputs(bundle))
 
 
 def submit_abc(conn, unit, frame, payload, *, actor):
@@ -73,12 +67,16 @@ def submit_abc(conn, unit, frame, payload, *, actor):
 
 @pytest.mark.parametrize(
     "private_source",
-    [dict(bundle_transform=characterization_references, additional_methods=("native-binding",))],
+    [
+        RecordSourceRecipe(
+            composition="reference-characterization", additional_methods=("native-binding",)
+        )
+    ],
     indirect=True,
 )
 def test_native_v3_grading_preserves_source_output_and_empty_population(
     reference_source,
-    semantic_evaluator_engine,
+    record_source_evaluator,
 ):
     case = reference_source
     row = case.view_row
@@ -323,7 +321,7 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
             holder="characterization-fixture",
             view=view,
         )
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(conn, case, frame_version=3, label="v3-actual-grade")
         assert isinstance(frame, OperationEvaluationFrameV3)
         independent = OperationCase(
@@ -595,7 +593,7 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
     with case.writer.begin() as conn:
         final = seal_cut(conn, case.run, "characterization-assessment-final", final=True)
     consolidate_cut(case.writer, final, "characterization-assessment-output")
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         grade = reference_evaluate(
             conn,
             project_id="private-records",

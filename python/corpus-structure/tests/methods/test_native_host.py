@@ -386,7 +386,7 @@ def test_selected_domain_profile_freezes_once_and_none_preserves_old_config_shap
     from types import SimpleNamespace
 
     from corpus_structure.methods.characterization_resources import freeze_analytical_profile
-    from methods.test_m1_source_profile import config
+    from methods.m1_source_profile_support import config
 
     value = config(tmp_path)
     parameters = value.model_dump(mode="json")

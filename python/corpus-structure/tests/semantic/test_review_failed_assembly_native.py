@@ -42,11 +42,9 @@ from corpus_structure.serve.review_bundle import (
     export_review_bundle,
     verify_review_bundle,
 )
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import candidate
-from .native_record_fixtures import private_source as private_source
-from .test_companion_export_native import read_settings
+from semantic.companion_export_native_support import read_settings
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate
+from semantic.native_record_fixtures import private_source as private_source
 
 
 def detached_rows(root, name):
@@ -54,9 +52,12 @@ def detached_rows(root, name):
         yield json.loads(json.loads(line)["payload_json"])
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_failed_assembly_keeps_exact_source_and_rejected_nomination(
     private_source,
-    semantic_db_engine,
+    record_source_admin,
     native_settings,
     tmp_path,
 ):
@@ -223,7 +224,7 @@ def test_native_failed_assembly_keeps_exact_source_and_rejected_nomination(
     export_review_bundle(
         ReviewSelection(selections=(ContributionRequest(run_id=case.run),)),
         root,
-        read_settings(native_settings, semantic_db_engine),
+        read_settings(native_settings, record_source_admin),
     )
     verify_review_bundle(root)
     report = next(

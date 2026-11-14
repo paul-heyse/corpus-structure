@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from semantic.test_model_characterization import builder, d1_reply, scope
-from semantic.test_model_characterization import prepared as prepared
+from semantic.model_characterization_support import builder, d1_reply, scope
+from semantic.model_characterization_support import prepared as prepared
 
 from corpus_structure.core.method import MethodContext, MethodSettings, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
@@ -227,7 +227,7 @@ def test_direct_method_rejects_frozen_gliner_policy_before_native_startup(
 ):
     from dataclasses import replace
 
-    from semantic.test_model_characterization import gliner_profile
+    from semantic.model_characterization_support import gliner_profile
 
     from corpus_structure.methods.gliner import GlinerRefused
 
@@ -254,7 +254,7 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
     from dataclasses import asdict, replace
     from hashlib import sha256
 
-    from semantic.test_model_characterization import gliner_profile, gliner_report
+    from semantic.model_characterization_support import gliner_profile, gliner_report
 
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.method import drive_prepared_work

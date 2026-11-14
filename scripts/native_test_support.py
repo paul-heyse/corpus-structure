@@ -5,15 +5,18 @@ Importing this module acquires no settings, database, process or provider resour
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+import sys
+import threading
 import time
 from collections.abc import Callable, Generator, Mapping
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
+from uuid import uuid4
 
 from sqlalchemy import Connection, Engine, create_engine, event, text
 from sqlalchemy.engine import URL, make_url
@@ -42,23 +45,187 @@ PROVISION = (
     "run `just db-provision` (the dedicated cluster 18/corpus with cs_template, D3 §13), "
     "or point CORPUS_DATABASE__URL at a server that has it"
 )
-TEST_DB = re.compile(r"(ci_test_\d+)(?:_\d+)?")
-TEMPLATE_PREFIX = "cs_tpl_"
-TEMPLATE_RETENTION = timedelta(days=1)
 LEASE_SPACE = 0x63735450
-STAMP = re.compile(r"corpus-structure test template, last used (\S+)")
 _DEPLOYMENTS: dict[tuple[str, str, str, int], dict[str, object]] = {}
 
 
+@dataclass(frozen=True)
+class DatabaseName:
+    name: str
+    lease_key: str
+    sweep_rule: Literal["unleased", "retained"]
+
+
+@dataclass(frozen=True)
+class _NameRule:
+    prefix: str
+    fields: tuple[str, ...]
+    sweep_rule: Literal["unleased", "retained"] = "unleased"
+
+    def recognize(self, name: str) -> DatabaseName | None:
+        suffix = "_".join(_NAME_FIELDS[field] for field in self.fields)
+        if re.fullmatch(re.escape(self.prefix) + suffix, name):
+            return DatabaseName(name, name, self.sweep_rule)
+        return None
+
+
+_NAME_FIELDS = {
+    "pid": r"[1-9][0-9]*",
+    "token": r"[0-9a-f]{12}",
+    "key": r"[0-9a-f]{16}",
+    "run": r"[0-9a-f]{8}",
+}
+_NAME_RULES = {
+    "session": _NameRule("ci_test_", ("pid",)),
+    **{
+        kind: _NameRule(f"cs_sem_{kind}_", ("pid", "token"))
+        for kind in (
+            "infra",
+            "infra_case",
+            "test",
+            "bare",
+            "revision",
+            "init",
+            "build",
+            "stale",
+            "seed",
+        )
+    },
+    "reusable_head": _NameRule("cs_sem_head_", ("key",), "retained"),
+    "run_private_head": _NameRule("cs_sem_head_", ("key", "run")),
+}
+
+
+def database_name(
+    kind: str,
+    *,
+    pid: int | None = None,
+    token: str | None = None,
+    key: str | None = None,
+    run: str | None = None,
+) -> DatabaseName:
+    """Produce a test database identity and its lifecycle rule from one declaration."""
+    rule = _NAME_RULES[kind]
+    values = {
+        "pid": str(os.getpid() if pid is None else pid),
+        "token": uuid4().hex[:12] if token is None else token,
+        "key": key[:16] if key is not None else "",
+        "run": run[:8] if run is not None else "",
+    }
+    name = rule.prefix + "_".join(values[field] for field in rule.fields)
+    identity = rule.recognize(name)
+    if identity is None or len(name) > 63:
+        raise ValueError(f"invalid parameters for database kind {kind!r}")
+    return identity
+
+
+def recognize_database_name(name: str) -> DatabaseName | None:
+    for rule in _NAME_RULES.values():
+        if identity := rule.recognize(name):
+            return identity
+    return None
+
+
+@dataclass(frozen=True)
+class SweepResult:
+    dropped: tuple[str, ...]
+    skipped: tuple[str, ...]
+
+
 @contextmanager
-def rollback_connection(engine: Engine) -> Generator[Connection]:
+def rollback_connection(
+    engine: Engine,
+    *,
+    readonly: bool = False,
+    isolation_level: str | None = None,
+    enforce: bool = True,
+) -> Generator[Connection]:
     """Lend one connection whose outer transaction rolls back on every exit."""
     with engine.connect() as conn:
+        if isolation_level is not None:
+            conn = conn.execution_options(isolation_level=isolation_level)
+        if readonly:
+            conn = conn.execution_options(postgresql_readonly=True)
         outer = conn.begin()
+        primary: BaseException | None = None
         try:
             yield conn
+        except BaseException as error:
+            primary = error
+            raise
         finally:
-            outer.rollback()
+            inactive = not outer.is_active
+            if not inactive:
+                outer.rollback()
+            if inactive and enforce:
+                violation = RuntimeError(
+                    "borrowed outer transaction was committed or rolled back by its consumer"
+                )
+                if primary is not None:
+                    raise BaseExceptionGroup(
+                        "rollback case transaction contract failed", [primary, violation]
+                    ) from None
+                raise violation
+
+
+class RollbackCase:
+    """Connections belong to one rollback-only case; the reader sees committed state only."""
+
+    def __init__(
+        self,
+        connection: Connection,
+        reader: Engine,
+        settings: Settings,
+        database: str,
+        *,
+        scenario_seed: Mapping[str, str] | None = None,
+        stage: object = None,
+    ):
+        self.connection = connection
+        self.reader = reader
+        self._settings = settings
+        self._database = database
+        self.origin = scenario_seed
+        self.stage = stage
+
+    @contextmanager
+    def principal(
+        self, purpose: Purpose, isolation_level: str | None = None
+    ) -> Generator[Connection]:
+        engine = principal_engine(
+            self._settings, purpose, self._database, scenario_seed=self.origin
+        )
+        try:
+            with rollback_connection(engine, isolation_level=isolation_level) as connection:
+                yield connection
+        finally:
+            engine.dispose()
+
+
+@contextmanager
+def rollback_case(
+    server: PgAdmin,
+    settings: Settings,
+    database: str,
+    *,
+    scenario_seed: Mapping[str, str] | None = None,
+    stage: object = None,
+    reader_purpose: Purpose = "read",
+) -> Generator[RollbackCase]:
+    """One case implementation over either the semantic session or a seeded family clone."""
+    engine = create_engine(server.url_of(database), poolclass=NullPool)
+    observe_engine(engine, purpose="maintenance", scenario_seed=scenario_seed)
+    reader = principal_engine(
+        settings, reader_purpose, database, readonly=True, scenario_seed=scenario_seed
+    )
+    try:
+        with rollback_connection(engine) as connection:
+            yield RollbackCase(
+                connection, reader, settings, database, scenario_seed=scenario_seed, stage=stage
+            )
+    finally:
+        reader.dispose()
+        engine.dispose()
 
 
 def server_url(settings: Settings | None = None) -> str:
@@ -111,10 +278,120 @@ class DatabasePolicy:
     settings: tuple[DatabaseSetting, ...]
 
 
-@dataclass(frozen=True)
-class SemanticTemplate:
-    name: str
-    policy: DatabasePolicy
+class SemanticDeployment:
+    """Hold a sealed head and expose only clones that crossed its verification boundary."""
+
+    def __init__(
+        self, server: PgAdmin, key: str, run_id: str, run_scope: str, private: bool
+    ) -> None:
+        self.server = server
+        self.key = key
+        self.run_id = run_id
+        self.run_scope = run_scope
+        self._usage = ExitStack()
+        self._lock = threading.RLock()
+        self._recorded = False
+        self._closed = False
+        self.gap: dict[str, object] | None = None
+        self._acquire(private)
+
+    def _acquire(self, private: bool) -> None:
+        identity = database_name(
+            "run_private_head" if private else "reusable_head", key=self.key, run=self.run_id
+        )
+        usage = ExitStack()
+        try:
+            usage.enter_context(self.server.lease(identity.lease_key))
+            with self.server.lease(identity.lease_key + ":build", exclusive=True):
+                policy, built = self.server._publish_deployment(identity.name)
+            self.name, self.policy, self.built = identity.name, policy, built
+            self.verification = "fresh" if built or private else "pending"
+            if not private:
+                self.server._retain_deployments()
+            self._usage = usage.pop_all()
+        finally:
+            usage.close()
+
+    def _record(self) -> None:
+        if self._recorded or not native_context_active():
+            return
+        from qualification_plugin import record_native_context
+
+        record_native_context(
+            {
+                "native_test_deployment": {
+                    "head": self.name,
+                    "key": self.key,
+                    "run_scope": self.run_scope,
+                    "acquisition": "built" if self.built else "reused",
+                    "verification": self.verification,
+                    "deployment_key_gap": self.gap,
+                }
+            },
+            scope="session",
+        )
+        self._recorded = True
+
+    def _replace(self, error: Exception) -> None:
+        stale = self.name
+        with self.server.lease(stale + ":build", exclusive=True):
+            self._usage.close()
+            retirement = self.server._retire_deployment(stale)
+            self.gap = {
+                "stale_head": stale,
+                "reason": str(error).splitlines()[0],
+                "retirement": retirement,
+            }
+            print(
+                f"Native deployment key gap: {stale}; replacing with a fresh run-private head",
+                file=sys.stderr,
+            )
+            self._acquire(True)
+
+    @contextmanager
+    def clone(self, name: str) -> Generator[Engine]:
+        from corpus_structure.semantic.execution_admission import (
+            ExecutionAdmissionError,
+            verify_deployment_catalog,
+        )
+        from corpus_structure.semantic.migrations import current_revision, head_revision
+
+        with ExitStack() as owned_clone:
+            with self._lock:
+                if self._closed:
+                    raise RuntimeError("native deployment acquisition is closed")
+                engine = owned_clone.enter_context(
+                    self.server.database(name, self.name, policy=self.policy)
+                )
+                if self.verification == "pending":
+                    self.verification = "in_progress"
+                    try:
+                        with rollback_connection(engine) as connection:
+                            expected = head_revision()
+                            if expected is None or current_revision(connection) != expected:
+                                raise ExecutionAdmissionError(
+                                    "native deployment revision differs from the current head"
+                                )
+                            verify_deployment_catalog(connection, revision=expected)
+                    except ExecutionAdmissionError as error:
+                        self.verification = "failed"
+                        owned_clone.close()
+                        self._replace(error)
+                        engine = owned_clone.enter_context(
+                            self.server.database(name, self.name, policy=self.policy)
+                        )
+                    else:
+                        self.verification = "verified"
+                self._record()
+            # Consumer exceptions cannot enter stale-head replacement.
+            yield engine
+
+    def close(self) -> None:
+        try:
+            self._record()
+        finally:
+            self._closed = True
+            self._usage.close()
 
 
 def semantic_principals() -> dict[str, str]:
@@ -142,17 +419,12 @@ class PgAdmin:
         self.url = url
         self.template = template
         self.expected = dict(expected_extensions() if expected is None else expected)
+        self._deployment_key: str | None = None
+        self._semantic_ready = False
         # Resolve only the existing purpose credentials, once against the original endpoint.
         # Role-self replay later changes the database to postgres, never the authentication.
-        self._purpose_urls: tuple[URL, ...] = ()
-        if settings is not None:
-            from corpus_structure.semantic.runtime import connection_settings
-
-            purposes: tuple[Purpose, ...] = ("write", "read", "evaluate", "admit")
-            self._purpose_urls = tuple(
-                make_url(connection_settings(settings, purpose).database.sqlalchemy_url)
-                for purpose in purposes
-            )
+        self._purpose_settings = settings
+        self._purpose_urls: tuple[URL, ...] | None = None
 
     def url_of(self, name: str) -> str:
         return make_url(self.url).set(database=name).render_as_string(hide_password=False)
@@ -210,44 +482,55 @@ class PgAdmin:
     def drop(self, name: str) -> None:
         self._drop(name)
 
-    def _drop(self, name: str, *, owned: OwnedDatabase | None = None) -> None:
-        # libpq close can precede the backend's final exit. Never terminate other logins.
+    @staticmethod
+    def _wait_for_backend_exit(name: str, operation: Callable[[], bool]) -> None:
+        # libpq close can precede the backend's final exit. One bounded owner serves
+        # publication and cleanup; it never terminates a backend or grants disposal authority.
         deadline = time.monotonic() + 2.0
         while True:
+            pending: DBAPIError | None = None
             try:
-                with self.connect() as conn:
-                    row = conn.execute(
-                        text(
-                            "SELECT oid,pg_get_userbyid(datdba),"
-                            " shobj_description(oid,'pg_database'), "
-                            "current_user FROM pg_database WHERE datname=:name"
-                        ),
-                        {"name": name},
-                    ).one_or_none()
-                    if row is None:
-                        return
-                    oid, owner, comment, user = row
-                    authenticated = (
-                        oid == owned.oid and owner == owned.owner
-                        if owned is not None
-                        else self.owned_comment(comment, oid)
-                    )
-                    if owner != user or not authenticated:
-                        raise RuntimeError(f"refusing to drop unauthenticated database {name!r}")
-                    conn.execute(text(f"DROP DATABASE {quote(name)}"))
-                return
-            except DBAPIError as exc:
-                if getattr(exc.orig, "sqlstate", None) != "55006" or time.monotonic() >= deadline:
+                if operation():
+                    return
+            except DBAPIError as error:
+                if getattr(error.orig, "sqlstate", None) != "55006":
                     raise
-                time.sleep(0.05)
+                pending = error
+            if time.monotonic() >= deadline:
+                if pending is not None:
+                    raise pending
+                raise RuntimeError(f"database {name!r} still has connected backends")
+            time.sleep(0.05)
+
+    def _drop(self, name: str, *, owned: OwnedDatabase | None = None) -> None:
+        def attempt() -> bool:
+            with self.connect() as conn:
+                row = conn.execute(
+                    text(
+                        "SELECT oid,pg_get_userbyid(datdba),"
+                        " shobj_description(oid,'pg_database'), "
+                        "current_user FROM pg_database WHERE datname=:name"
+                    ),
+                    {"name": name},
+                ).one_or_none()
+                if row is None:
+                    return True
+                oid, owner, comment, user = row
+                authenticated = (
+                    oid == owned.oid and owner == owned.owner
+                    if owned is not None
+                    else self.owned_comment(comment, oid)
+                )
+                if owner != user or not authenticated:
+                    raise RuntimeError(f"refusing to drop unauthenticated database {name!r}")
+                conn.execute(text(f"DROP DATABASE {quote(name)}"))
+            return True
+
+        self._wait_for_backend_exit(name, attempt)
 
     @staticmethod
     def owned_comment(comment: str | None, oid: int) -> bool:
-        return (
-            comment == "corpus-structure owned test database"
-            or bool(STAMP.fullmatch(comment or ""))
-            or is_owned_stamp(comment, oid)
-        )
+        return is_owned_stamp(comment, oid)
 
     def check_roles(self, principals: Mapping[str, str]) -> None:
         with self.connect() as conn:
@@ -389,6 +672,20 @@ class PgAdmin:
     def _replay_role_self(
         self, name: str, role: str, settings: tuple[DatabaseSetting, ...]
     ) -> None:
+        if self._purpose_urls is None:
+            from corpus_structure.semantic.runtime import connection_settings
+
+            purposes: tuple[Purpose, ...] = ("write", "read", "evaluate", "admit")
+            self._purpose_urls = (
+                tuple(
+                    make_url(
+                        connection_settings(self._purpose_settings, purpose).database.sqlalchemy_url
+                    )
+                    for purpose in purposes
+                )
+                if self._purpose_settings is not None
+                else ()
+            )
         candidates = [url for url in self._purpose_urls if url.username == role]
         if not candidates:
             raise RuntimeError(
@@ -447,6 +744,7 @@ class PgAdmin:
         source: str,
         *,
         policy: DatabasePolicy | None = None,
+        scenario_seed: Mapping[str, str] | None = None,
     ) -> Generator[Engine]:
         """Lease an absent name before CREATE and protect every acquisition/cleanup step."""
         with self.lease(name):
@@ -460,7 +758,11 @@ class PgAdmin:
                 engine = create_engine(self.url_of(name), poolclass=NullPool)
                 if policy is not None:
                     self.replay_policy(name, policy)
-                observe_engine(engine, purpose="maintenance", policy=policy)
+                    if self.policy(name) != policy:
+                        raise RuntimeError("cloned database policy differs after replay")
+                observe_engine(
+                    engine, purpose="maintenance", policy=policy, scenario_seed=scenario_seed
+                )
                 # A real consumer needs deployment observations before restricted acquisitions.
                 # Ordinary fixture use has no reason to perform this otherwise-unused checkout.
                 if native_context_active():
@@ -541,63 +843,45 @@ class PgAdmin:
         with self.connect() as conn:
             for name in names:
                 function = "pg_advisory_lock" if exclusive else "pg_advisory_lock_shared"
-                conn.execute(text(lock_sql(function)), {"name": name})
+                identity = recognize_database_name(name)
+                conn.execute(
+                    text(lock_sql(function)), {"name": identity.lease_key if identity else name}
+                )
             yield conn
 
-    def stamp(self, name: str, at: datetime | None = None) -> None:
-        """Record when a template was last used, in its database comment."""
-        when = (at or datetime.now(UTC)).isoformat()
-        comment = f"corpus-structure test template, last used {when}"
-        with self.connect() as conn:
-            conn.execute(text(f"COMMENT ON DATABASE {quote(name)} IS '{comment}'"))
-
-    def sweep(self, now: datetime | None = None) -> list[str]:
-        """Drop each `ci_test_*` no session holds, and each other `cs_tpl_*` no session holds that
-        has gone unused for `TEMPLATE_RETENTION`. Names, owner and fixture comment must match;
-        untagged historical residue is never adopted.
-
-        Each candidate's lock is taken exclusively with `pg_try_advisory_lock` around its drop, and
-        a name whose lock is held is skipped. Authenticated session-only semantic names share
-        this owner; the server may hold other projects' databases.
-        """
-        cutoff = (now or datetime.now(UTC)) - TEMPLATE_RETENTION
+    def sweep(self) -> SweepResult:
+        """Drop authenticated unleased names; report leased or still-connected residue."""
         dropped = []
+        skipped = []
         with self.connect() as conn:
             rows = conn.execute(
                 text(
                     "SELECT datname, shobj_description(oid, 'pg_database'),oid, "
                     "datdba=current_user::regrole FROM pg_database"
-                    " WHERE starts_with(datname, 'ci_test_') OR starts_with(datname, :tpl)"
+                    " WHERE starts_with(datname, 'ci_test_')"
                     " OR starts_with(datname, 'cs_sem_')"
                     " ORDER BY datname"
                 ),
-                {"tpl": TEMPLATE_PREFIX},
             ).all()
             failures: list[BaseException] = []
             for name, comment, oid, owned in rows:
                 if not owned or not self.owned_comment(comment, oid):
                     continue
-                if name.startswith(TEMPLATE_PREFIX):
-                    if not re.fullmatch(r"cs_tpl_[0-9a-f]{16}(?:_build)?", name):
-                        continue
-                    key = name
-                    stamp = STAMP.fullmatch(comment or "")
-                    if stamp and datetime.fromisoformat(stamp.group(1)) > cutoff:
-                        continue
-                elif re.fullmatch(
-                    r"cs_sem_(?:head|test|bare|revision|init)_\d+_[0-9a-f]{12}", name
-                ):
-                    key = name
-                else:
-                    match = TEST_DB.fullmatch(name)
-                    if match is None:
-                        continue
-                    key = match.group(1)
+                identity = recognize_database_name(name)
+                if identity is None or identity.sweep_rule == "retained":
+                    continue
+                key = identity.lease_key
                 if not conn.execute(text(lock_sql("pg_try_advisory_lock")), {"name": key}).scalar():
+                    skipped.append(name)
                     continue
                 try:
                     self.drop(name)
                     dropped.append(name)
+                except DBAPIError as exc:
+                    if getattr(exc.orig, "sqlstate", None) == "55006":
+                        skipped.append(name)
+                    else:
+                        failures.append(exc)
                 except BaseException as exc:
                     failures.append(exc)
                 finally:
@@ -607,27 +891,229 @@ class PgAdmin:
                         failures.append(exc)
         if failures:
             raise BaseExceptionGroup("database sweep failures", failures)
-        return dropped
+        return SweepResult(tuple(dropped), tuple(skipped))
+
+    def deployment_key(self, repository: Path = REPO) -> str:
+        """Acquire the server identity and compute the declared key once per server owner."""
+        if self._deployment_key is None:
+            from native_deployment_key import deployment_key
+
+            principals = tuple(semantic_principals().values())
+            with self.connect() as conn:
+                version, cluster = conn.exec_driver_sql(
+                    "SELECT current_setting('server_version_num'),system_identifier::text FROM pg_control_system()"
+                ).one()
+                template_oid = conn.execute(
+                    text("SELECT oid FROM pg_database WHERE datname=:name"), {"name": self.template}
+                ).scalar_one()
+                roles = conn.execute(
+                    text(
+                        "SELECT rolname,oid FROM pg_roles WHERE rolname=ANY(:names) ORDER BY rolname"
+                    ),
+                    {"names": list(principals)},
+                ).all()
+            key, _ = deployment_key(
+                repository=repository,
+                chain=repository / "python/corpus-structure/semantic_alembic",
+                package=repository / "python/corpus-structure/src/corpus_structure",
+                construction=repository / "scripts/native_deployment_build.py",
+                lockfile=repository / "uv.lock",
+                server={
+                    "server_version": version,
+                    "cluster": cluster,
+                    "template_oid": template_oid,
+                    "extensions": self.installed(),
+                    "principals": [tuple(row) for row in roles],
+                },
+            )
+            self._deployment_key = key
+        return self._deployment_key
+
+    def semantic_ready(self) -> None:
+        if not self._semantic_ready:
+            self.check_roles(semantic_principals())
+            self._semantic_ready = True
 
     @contextmanager
-    def semantic_template(self, name: str) -> Generator[SemanticTemplate]:
-        """Bootstrap and seal a current frozen deployment for owned consumer clones."""
-        from corpus_structure.semantic.migrations import upgrade
+    def deployment(
+        self,
+        *,
+        key: str | None = None,
+        run_id: str | None = None,
+        run_private: bool | None = None,
+    ) -> Generator[SemanticDeployment]:
+        scope = os.environ.get("CORPUS_CI_RUN_SCOPE", "narrowed")
+        if scope not in {"narrowed", "qualification"}:
+            raise ValueError("unexpected native test run scope")
+        self.semantic_ready()
+        receipt = os.environ.get("CORPUS_CI_RECEIPT_DIR")
+        run_id = (
+            run_id
+            or (Path(receipt).parent.name if receipt else os.environ.get("PYTEST_XDIST_TESTRUNUID"))
+            or uuid4().hex
+        )
+        handle = SemanticDeployment(
+            self,
+            key or self.deployment_key(),
+            run_id,
+            scope,
+            scope == "qualification" if run_private is None else run_private,
+        )
+        try:
+            yield handle
+        finally:
+            handle.close()
 
-        with self.database(name, self.template) as engine:
-            with engine.begin() as conn:
-                extensions.check(conn.execute(text(extensions.FOUND)).all())
-                assert not conn.execute(
-                    text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
-                ).first()
-                upgrade(conn)
-            engine.dispose()
-            policy = self.policy(name)
-            with self.connect() as conn:
-                conn.exec_driver_sql(
-                    f"ALTER DATABASE {quote(name)} ALLOW_CONNECTIONS false IS_TEMPLATE false"
-                )
-            yield SemanticTemplate(name, policy)
+    def _deployment_record(self, name: str):
+        with self.connect() as conn:
+            return conn.execute(
+                text(
+                    "SELECT oid,pg_get_userbyid(datdba),shobj_description(oid,'pg_database'),"
+                    "datdba=current_user::regrole,datallowconn,datistemplate "
+                    "FROM pg_database WHERE datname=:name"
+                ),
+                {"name": name},
+            ).one_or_none()
+
+    def seal_database(self, name: str) -> None:
+        record = self._deployment_record(name)
+        if record is None or not record[3] or not self.owned_comment(record[2], record[0]):
+            raise RuntimeError("cannot seal an unauthenticated database")
+        with self.connect() as connection:
+            connection.exec_driver_sql(
+                f"ALTER DATABASE {quote(name)} ALLOW_CONNECTIONS false IS_TEMPLATE false"
+            )
+
+            def drained() -> bool:
+                return not connection.execute(
+                    text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
+                    {"name": name},
+                ).scalar_one()
+
+            self._wait_for_backend_exit(name, drained)
+
+    def _publish_deployment(self, name: str) -> tuple[DatabasePolicy, bool]:
+        existing = self._deployment_record(name)
+        if existing is not None:
+            oid, _, comment, owner, allowed, template = existing
+            if not owner or not self.owned_comment(comment, oid) or allowed or template:
+                raise RuntimeError(f"refusing unowned or unsealed deployment {name!r}")
+            return self.policy(name), False
+        from native_deployment_build import construct_deployment
+
+        build = database_name("build").name
+        creation = DatabaseCreation(DatabaseReservation.new(build))
+        engine = None
+        with self.lease(build):
+            try:
+                self.create(build, self.template, creation=creation)
+                engine = create_engine(self.url_of(build), poolclass=NullPool)
+                observe_engine(engine, purpose="maintenance")
+                with engine.begin() as connection:
+                    construct_deployment(connection)
+                engine.dispose()
+                engine = None
+                policy = self.policy(build)
+                self.seal_database(build)
+                with self.connect() as conn:
+                    conn.exec_driver_sql(f"ALTER DATABASE {quote(build)} RENAME TO {quote(name)}")
+                published = self._deployment_record(name)
+                owned = creation.owned
+                if (
+                    owned is None
+                    or published is None
+                    or (
+                        published[0] != owned.oid
+                        or published[1] != owned.owner
+                        or published[2] != owned.comment
+                        or published[4]
+                        or published[5]
+                    )
+                ):
+                    raise RuntimeError(
+                        "native deployment publication lost its acknowledged identity"
+                    )
+                return policy, True
+            except BaseException as primary:
+                failures = [primary]
+                if engine is not None:
+                    try:
+                        engine.dispose()
+                    except BaseException as error:
+                        failures.append(error)
+                if creation.owned is not None:
+                    try:
+                        self._dispose_deployment_creation(build, creation.owned)
+                    except BaseException as error:
+                        failures.append(error)
+                else:
+                    primary.add_note(
+                        "Unacknowledged native build outcome preserved without disposal authority"
+                    )
+                if len(failures) > 1:
+                    raise BaseExceptionGroup(
+                        "native deployment construction cleanup failures", failures
+                    ) from None
+                raise
+
+    def _dispose_deployment_creation(self, build: str, owned: OwnedDatabase) -> None:
+        with self.connect() as conn:
+            found = conn.execute(
+                text(
+                    "SELECT datname,pg_get_userbyid(datdba),shobj_description(oid,'pg_database') "
+                    "FROM pg_database WHERE oid=:oid"
+                ),
+                {"oid": owned.oid},
+            ).one_or_none()
+        if found is None:
+            return
+        actual, owner, comment = found
+        if owner != owned.owner or (actual != build and comment != owned.comment):
+            raise RuntimeError("native deployment cleanup lacks acknowledged ownership")
+        self._drop(actual, owned=owned)
+
+    def _retire_deployment(self, name: str) -> str:
+        with self.connect() as conn:
+            if not conn.execute(text(lock_sql("pg_try_advisory_lock")), {"name": name}).scalar():
+                return "still_leased"
+            row = self._deployment_record(name)
+            if row is None:
+                return "already_absent"
+            if not row[3] or not self.owned_comment(row[2], row[0]):
+                raise RuntimeError("stale deployment retirement lost ownership")
+            retired = database_name("stale").name
+            conn.exec_driver_sql(f"ALTER DATABASE {quote(name)} RENAME TO {quote(retired)}")
+            return retired
+
+    def _retain_deployments(self) -> None:
+        with self.connect() as conn:
+            rows = conn.exec_driver_sql(
+                "SELECT datname,oid,shobj_description(oid,'pg_database') FROM pg_database "
+                "WHERE datdba=current_user::regrole ORDER BY oid DESC"
+            ).all()
+            heads = [
+                name
+                for name, oid, comment in rows
+                if (identity := recognize_database_name(name)) is not None
+                and identity.sweep_rule == "retained"
+                and self.owned_comment(comment, oid)
+            ]
+            for name in heads[3:]:
+                if not conn.execute(
+                    text(lock_sql("pg_try_advisory_lock")), {"name": name}
+                ).scalar():
+                    continue
+                try:
+                    self.drop(name)
+                except DBAPIError as error:
+                    if getattr(error.orig, "sqlstate", None) != "55006":
+                        raise
+                    print(
+                        f"Native deployment retention skipped connected database: {name}",
+                        file=sys.stderr,
+                    )
+                finally:
+                    conn.execute(text(lock_sql("pg_advisory_unlock")), {"name": name})
 
 
 def principal_engine(
@@ -636,6 +1122,7 @@ def principal_engine(
     database: str | None,
     *,
     scenario_seed: Mapping[str, str] | None = None,
+    readonly: bool = False,
 ) -> Engine:
     # Resolve credentials against the original endpoint before substituting the owned clone.
     # In particular no restricted login inherits a maintenance password.
@@ -644,7 +1131,10 @@ def principal_engine(
     assert database is not None, "an owned clone must have a database name"
     resolved = connection_settings(settings, purpose)
     url = make_url(resolved.database.sqlalchemy_url).set(database=database)
-    engine = create_engine(url, poolclass=NullPool)
+    options = str(url.query.get("options", "")) + " -c default_transaction_read_only=on"
+    engine = create_engine(
+        url, poolclass=NullPool, **({"connect_args": {"options": options}} if readonly else {})
+    )
     observe_engine(engine, purpose=purpose, scenario_seed=scenario_seed)
     return engine
 
@@ -755,7 +1245,9 @@ def observe_connection(
     )
 
 
-def record_server_context(settings: Settings, server: PgAdmin) -> None:
+def record_server_context(
+    settings: Settings, server: PgAdmin, *, sweep: SweepResult | None = None
+) -> None:
     """Report an already-acquired server for either native fixture family."""
     if not native_context_active():
         return
@@ -771,12 +1263,18 @@ def record_server_context(settings: Settings, server: PgAdmin) -> None:
         ).one()
     from qualification_plugin import record_native_context
 
+    sweep_context = (
+        {"database_sweep": {"dropped": list(sweep.dropped), "skipped": list(sweep.skipped)}}
+        if sweep is not None
+        else {}
+    )
     record_native_context(
         {
             "settings": settings_report(settings, os.environ).model_dump(mode="json"),
             "server_version": server_version,
             "current_user": principal,
             "driver": "psycopg " + psycopg.__version__,
+            **sweep_context,
         },
         scope="session",
     )

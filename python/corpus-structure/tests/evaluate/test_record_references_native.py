@@ -11,28 +11,14 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from native_refusals import native_refusal
 from pydantic import create_model
-from semantic.conftest import (
-    semantic_db_engine as semantic_db_engine,
-)
-from semantic.conftest import (
-    semantic_evaluator_engine as semantic_evaluator_engine,
-)
-from semantic.conftest import (
-    semantic_reader_engine as semantic_reader_engine,
-)
-from semantic.conftest import (
-    semantic_writer_engine as semantic_writer_engine,
-)
+from semantic.native_record_fixtures import RecordSourceRecipe, qualified_view_draft
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import qualified_view_draft
 from semantic.reference_scenarios import (
     create_case,
     expected_reading,
     native_pass,
-)
-from semantic.reference_scenarios import (
-    private_source_options as private_source_options,
 )
 from semantic.reference_scenarios import (
     reference_source as reference_source,
@@ -58,11 +44,17 @@ from corpus_structure.semantic.record_contracts import (
 from native_test_support import principal_engine
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_native_early_source_cut_keeps_independent_bytes_and_rejects_forged_scope(
-    reference_source, semantic_evaluator_engine, semantic_reader_engine
+    reference_source, record_source_evaluator, record_source_reader
 ):
     case = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         _, unit, row, frame = create_case(conn, case, "development")
         packet = author_packet(conn, unit["id"])
         assert set(packet) == {
@@ -92,20 +84,101 @@ def test_native_early_source_cut_keeps_independent_bytes_and_rejects_forged_scop
             )
         )
         assert bytes(stored).find(b'"lexical":"12"') >= 0
+
+        def retained_reference_state():
+            return tuple(
+                conn.execute(
+                    text(
+                        "SELECT (SELECT count(*) FROM eval.reference_pass),"
+                        "(SELECT count(*) FROM eval.reference_frame),"
+                        "(SELECT count(*) FROM eval.reference_item),"
+                        "(SELECT count(*) FROM eval.reference_origin_source)"
+                    )
+                ).one()
+            )
+
+        retained = retained_reference_state()
+        assert retained[:3] == (3, 3, 3)
         bad = deepcopy(row)
         bad["anchors"][0]["source_piece"] = "13"
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            native_pass(conn, unit, bad, frame, "A", "independent-A")
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            native_pass(conn, unit, row, frame, "B", "independent-A")
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            native_pass(conn, unit, row, frame, "C", "independent-C", (b, a))
+        refusals = [
+            (
+                "persisted source spelling",
+                bad,
+                "A",
+                "independent-A",
+                (),
+                "private record anchor does not reconstruct actual persisted source text",
+            ),
+            (
+                "independent B author",
+                row,
+                "B",
+                "independent-A",
+                (),
+                "record A and B authors must be independent",
+            ),
+            (
+                "C parent order",
+                row,
+                "C",
+                "independent-C",
+                (b, a),
+                "record C requires independent retained A/B and explicit adjudication linkage",
+            ),
+        ]
+        for label, reading, kind, actor, parents, message in refusals:
+            # Same unit/frame, with only the corrupted dimension restored.
+            with conn.begin_nested() as reach:
+                accepted = native_pass(
+                    conn,
+                    unit,
+                    row,
+                    frame,
+                    kind,
+                    "independent-" + kind,
+                    (a, b) if kind == "C" else (),
+                )
+                assert accepted > c, label
+                assert retained_reference_state()[:3] == (4, 4, 4), label
+                reach.rollback()
+            assert retained_reference_state() == retained, label
+            try:
+                with native_refusal("23514", message=message), conn.begin_nested():
+                    native_pass(conn, unit, reading, frame, kind, actor, parents)
+            except AssertionError as error:
+                raise AssertionError(f"{label}: {error}") from error
+            assert retained_reference_state() == retained, label
+
         provenance = conn.scalar(
             select(table("eval.reference_origin_group").c.provenance).where(
                 table("eval.reference_origin_group").c.project_id == "private-records"
             )
         )
-        with pytest.raises(DBAPIError), conn.begin_nested():
+        with conn.begin_nested() as reach:
+            assign_origin(
+                conn,
+                project_id="private-records",
+                origin_group="one-original-fixture",
+                partition="development",
+                source_uris=("another-copy.pdf",),
+                provenance=provenance,
+            )
+            assert (
+                conn.scalar(
+                    text(
+                        "SELECT count(*) FROM eval.reference_origin_source "
+                        "WHERE project_id='private-records' AND source_uri='another-copy.pdf'"
+                    )
+                )
+                == 1
+            )
+            reach.rollback()
+        assert retained_reference_state() == retained
+        with (
+            native_refusal("23514", message="immutable source-origin assignment differs"),
+            conn.begin_nested(),
+        ):
             assign_origin(
                 conn,
                 project_id="private-records",
@@ -114,21 +187,30 @@ def test_native_early_source_cut_keeps_independent_bytes_and_rejects_forged_scop
                 source_uris=("another-copy.pdf",),
                 provenance=provenance,
             )
-        for engine in (case.writer, semantic_reader_engine):
-            with engine.connect() as source_conn:
-                with pytest.raises(DBAPIError) as refusal, source_conn.begin_nested():
-                    author_packet(source_conn, unit["id"])
-                assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
+        assert retained_reference_state() == retained
+        for engine in (case.writer, record_source_reader):
+            with (
+                engine.connect() as source_conn,
+                native_refusal("42501", message="permission denied for schema eval"),
+                source_conn.begin_nested(),
+            ):
+                author_packet(source_conn, unit["id"])
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 @pytest.mark.parametrize(
     "partition", ["development", "feature_fit", "final_event_calibration", "final_assessment"]
 )
 def test_actual_fitting_capability_has_only_fit_labels(
-    reference_source, semantic_evaluator_engine, native_settings, semantic_db_engine, partition
+    reference_source, record_source_evaluator, native_settings, record_source_admin, partition
 ):
     case = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, row, frame = create_case(conn, case, partition)
         a = native_pass(conn, unit, row, frame, "A", "independent-A")
         b = native_pass(conn, unit, row, frame, "B", "independent-B")
@@ -137,7 +219,7 @@ def test_actual_fitting_capability_has_only_fit_labels(
             conn.execute(
                 text("SELECT eval.read_record_fitting_references(:s)"), dict(s=created["set_id"])
             )
-    fitter = principal_engine(native_settings, "fit", semantic_db_engine.url.database)
+    fitter = principal_engine(native_settings, "fit", record_source_admin.url.database)
     try:
         with fitter.connect() as conn:
             conn.execute(text("SELECT eval.require_record_fitting_principal()"))
@@ -163,11 +245,17 @@ def test_actual_fitting_capability_has_only_fit_labels(
 
 
 @pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
+@pytest.mark.parametrize(
     ("changed_producer_alias", "failed_without_report"),
     [(False, False), (True, False), (False, True)],
 )
 def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses(
-    reference_source, semantic_evaluator_engine, changed_producer_alias, failed_without_report
+    reference_source, record_source_evaluator, changed_producer_alias, failed_without_report
 ):
     from corpus_structure.core.method import UnitRef, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
@@ -182,7 +270,7 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
     )
 
     case = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, row, frame = create_case(
             conn, case, "development", include_empty_secondary=True
         )
@@ -276,7 +364,7 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
                 )
         cut = seal_cut(conn, target, "completed-target", final=True)
     output = consolidate_cut(case.writer, cut, "empty-reference-target")
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         snapshot = conn.scalar(
             text("SELECT eval.native_reference_snapshot(:s)"), dict(s=created["set_id"])
         )
@@ -485,8 +573,14 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_unused_captured_coordinate_refuses_out_of_view_before_product_lookup(
-    reference_source, semantic_evaluator_engine
+    reference_source, record_source_evaluator
 ):
     """Selected-view isolation is unconditional, independent of recognition authenticity.
 
@@ -494,7 +588,7 @@ def test_unused_captured_coordinate_refuses_out_of_view_before_product_lookup(
     the separate attributed-source native suite owns genuine captured-product controls.
     """
     case = reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         logical = source_binding(
             conn, source_run_id=case.run, source_view_id=case.view, source_cut_id=case.cut
         )
@@ -532,11 +626,17 @@ def compatible_reference_source(reference_source):
     return reference_source
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 @pytest.mark.parametrize("candidate_output", [False, True])
 def test_native_compatible_successor_keeps_original_reference_custody_and_fitter_sidecar(
     compatible_reference_source,
-    semantic_db_engine,
-    semantic_evaluator_engine,
+    record_source_admin,
+    record_source_evaluator,
     native_settings,
     candidate_output,
 ):
@@ -565,7 +665,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
     from corpus_structure.semantic.source_views import store_source_view
 
     case = compatible_reference_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, row, frame = create_case(conn, case, "feature_fit", anchor_ids_only=True)
         a = native_pass(conn, unit, row, frame, "A", "independent-A")
         b = native_pass(conn, unit, row, frame, "B", "independent-B")
@@ -588,7 +688,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
     bundle = replace(bundle, sources=tuple(sources))
     successor = prepare_release(bundle, dependencies, profile)
     assert successor.release_id != case.prepared.release_id
-    with semantic_db_engine.begin() as conn:
+    with record_source_admin.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, successor)
         conn.execute(
             insert(table("data.realization")).values(
@@ -757,7 +857,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             )
         cut = seal_cut(conn, run, "successor-source-ready", final=True)
     output = consolidate_cut(case.writer, cut, "compatible-empty-successor")
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         snapshot = conn.scalar(
             text("SELECT eval.native_reference_snapshot(:s)"), dict(s=created["set_id"])
         )
@@ -791,7 +891,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
         )
         foreign = dict(actual_anchor, pointer=case.table + "/data/table_cells/1")
         foreign["anchor_id"] = anchor_identity(foreign)
-        with semantic_db_engine.connect() as maintenance:
+        with record_source_admin.connect() as maintenance:
             assert maintenance.scalar(statement, allowed_args) is True
             assert (
                 maintenance.scalar(
@@ -831,7 +931,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             reports = policy_frame["units"][0]["reports"]
             assert len(reports) == 1
             assert canonical_bytes(reports[0]["records"]) == canonical_bytes([prediction])
-            with semantic_db_engine.connect() as maintenance:
+            with record_source_admin.connect() as maintenance:
                 assert (
                     maintenance.scalar(
                         text(
@@ -934,7 +1034,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             .one()
         )
         assert current_pass == original_pass
-    fitter = principal_engine(native_settings, "fit", semantic_db_engine.url.database)
+    fitter = principal_engine(native_settings, "fit", record_source_admin.url.database)
     try:
         with fitter.connect() as conn:
             rows = conn.scalar(
@@ -965,7 +1065,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
         changed_cut = seal_cut(conn, changed_run, "changed-physical-source", final=True)
     consolidate_cut(case.writer, changed_cut, "changed-physical-source-result")
     with (
-        semantic_evaluator_engine.begin() as conn,
+        record_source_evaluator.begin() as conn,
         pytest.raises(DBAPIError, match="correspondence missing or ambiguous"),
         conn.begin_nested(),
     ):

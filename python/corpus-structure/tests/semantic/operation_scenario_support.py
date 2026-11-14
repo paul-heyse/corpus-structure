@@ -112,8 +112,7 @@ classes:
         bundle, dependencies = analytical_inputs(bundle, dependencies)
     if composed or evaluation:
         from corpus_structure.semantic.composed import composed_dependencies
-
-        from .method_dimensions_support import fixture_execution_inputs
+        from semantic.method_dimensions_support import fixture_execution_inputs
 
         dependencies = composed_dependencies(
             dependencies,

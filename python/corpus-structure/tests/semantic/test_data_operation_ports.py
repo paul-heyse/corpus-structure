@@ -23,6 +23,7 @@ from corpus_structure.semantic.data_operation_ports import (
 )
 from corpus_structure.semantic.identity import claim_source_item__data_operation__
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
+from semantic.data_operation_port_support import fixture_source, kind
 
 
 def actual():
@@ -31,37 +32,6 @@ def actual():
         (PythonSource("corpus_structure.semantic.identity", path.read_bytes(), str(path)),)
     )
     return compile_data_operations(python_sources=sources), sources
-
-
-def kind(model, role):
-    name = next(r.kind for r in model.operations[0].roles if r.name == role)
-    return next(i.key for i in model.identities if i.owner == name and i.domain == "kind")
-
-
-def fixture_source(
-    tmp_path,
-    monkeypatch,
-    signature="index: int = 2",
-    body="return str(index)",
-    *,
-    metadata=None,
-    header="",
-    returns="str",
-    profiles=(),
-):
-    declaration = copy.deepcopy(metadata or claim_source_item__data_operation__)
-    name = "ddo_port_" + tmp_path.name.replace("-", "_")
-    source = (
-        f"{header}\ndef derive({signature}) -> {returns}:\n    {body}\n"
-        f"derive__data_operation__ = {declaration!r}\n"
-    )
-    path = tmp_path / (name + ".py")
-    path.write_text(source)
-    monkeypatch.syspath_prepend(str(tmp_path))
-    inputs = PythonSourceCollection(
-        (PythonSource(name, source.encode(), str(path)),), generated_interfaces=profiles
-    )
-    return compile_data_operations(python_sources=inputs), inputs
 
 
 def test_actual_direct_function_uses_exact_roles_and_original_callable():

@@ -4,9 +4,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from .agent_scenarios import build_resubmission_case
+from semantic.agent_scenarios import ResubmissionRecipe
 
 
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
 @pytest.mark.parametrize(
     "change,expected",
     [
@@ -16,12 +17,12 @@ from .agent_scenarios import build_resubmission_case
     ],
 )
 def test_source_frame_deployment_drift_refuses_composed_admission(
-    semantic_db_engine, semantic_writer_engine, tmp_path, change, expected
+    resubmission_case, tmp_path, change, expected
 ):
-    prepared, _, task, _ = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
-    with semantic_writer_engine.begin() as conn:
+    commit_db_engine = resubmission_case.admin
+    commit_writer_engine = resubmission_case.writer
+    prepared, _, task, _ = resubmission_case.stage.result
+    with commit_writer_engine.begin() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.native_source_frame WHERE task_id=:task"),
@@ -33,7 +34,7 @@ def test_source_frame_deployment_drift_refuses_composed_admission(
             text("SELECT data.require_execution_release(:release)"),
             {"release": prepared.release_id},
         )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         if change == "acl":
             conn.exec_driver_sql("GRANT INSERT ON ops.native_source_frame TO corpus_sem_writer")
@@ -50,7 +51,7 @@ def test_source_frame_deployment_drift_refuses_composed_admission(
                 "AS $body$ BEGIN RETURN 'tampered'; END $body$"
             )
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match=expected),
         conn.begin_nested(),
     ):

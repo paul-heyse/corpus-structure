@@ -17,8 +17,7 @@ from corpus_structure.semantic.query_compatibility import (
     open_query_registry,
     prepare_query_bindings,
 )
-
-from .test_releases import source_bundle
+from semantic.releases_support import source_bundle
 
 PLUGIN = """from pydantic import BaseModel
 from corpus_structure.serve.protocol import Positioned, Scope

@@ -1,11 +1,13 @@
 """Real restricted native private record custody, not accepted knowledge publication."""
 
 from copy import deepcopy
+from dataclasses import replace
 from importlib.resources import files
 
 import psycopg
 import pytest
 import yaml
+from native_refusals import native_refusal
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -17,7 +19,6 @@ from corpus_structure.semantic import (
     prepare_release,
 )
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.invariant_failures import InvariantViolation
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
@@ -31,29 +32,54 @@ from corpus_structure.semantic.publication import (
     PublicationBatch,
     RoleRow,
     ValueRow,
-    publish_batch,
+    publish_on_connection,
 )
 from corpus_structure.semantic.records import authenticated_coordinate_texts
 from corpus_structure.semantic.releases import persist_release
-
-from .native_record_fixtures import (
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
     bypass,
     candidate,
+    claim_record_source_on_connection,
     complete,
     complete_absent_and_empty_reports,
     refresh_record_identities,
 )
-from .native_record_fixtures import (
-    private_preparation as private_preparation,
-)
-from .native_record_fixtures import (
-    private_source as private_source,
-)
-from .native_record_fixtures import (
-    private_source_options as private_source_options,
-)
+from semantic.native_record_fixtures import private_preparation as private_preparation
+from semantic.native_record_fixtures import private_source as private_source
 
 
+@pytest.fixture
+def record_custody_case(scenario_seeds):
+    with (
+        scenario_seeds.rollback_family(RecordSourceRecipe()) as family,
+        family.principal("write") as connection,
+    ):
+        yield claim_record_source_on_connection(family.stage, connection), connection
+
+
+@pytest.fixture
+def record_identity_case(scenario_seeds):
+    with (
+        scenario_seeds.rollback_family(RecordSourceRecipe()) as family,
+        family.principal("write") as writer,
+    ):
+        case = claim_record_source_on_connection(family.stage, writer)
+        yield case, family.connection
+
+
+@pytest.fixture
+def record_graph_case(scenario_seeds):
+    with (
+        scenario_seeds.rollback_family(RecordSourceRecipe()) as family,
+        family.principal("write", isolation_level="SERIALIZABLE") as connection,
+    ):
+        yield family.stage, connection
+
+
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_private_record_round_trip_repeated_cells_coarse_precision_and_replay(private_source):
     case = private_source
     records = (candidate(case), candidate(case, 1, projected=True), candidate(case, coarse=True))
@@ -129,13 +155,13 @@ def test_private_record_round_trip_repeated_cells_coarse_precision_and_replay(pr
     ],
 )
 def test_native_completion_independently_refuses_forged_private_source_custody(
-    private_source, change, expected_message
+    record_custody_case, change, expected_message
 ):
-    case = private_source
+    case, conn = record_custody_case
     record = deepcopy(candidate(case))
     change(case, record)
     refresh_record_identities(case, record)
-    with case.writer.begin() as conn:
+    with conn.begin_nested():
         with conn.begin_nested() as positive:
             bypass(case, conn, (candidate(case),))
             assert (
@@ -147,17 +173,8 @@ def test_native_completion_independently_refuses_forged_private_source_custody(
                 == case.task
             )
             positive.rollback()
-        with pytest.raises((DBAPIError, InvariantViolation)) as caught, conn.begin_nested():
+        with native_refusal("23514", message=expected_message), conn.begin_nested():
             bypass(case, conn, (record,))
-        native = (
-            caught.value.__cause__ if isinstance(caught.value, InvariantViolation) else caught.value
-        )
-        assert isinstance(native, DBAPIError)
-        assert isinstance(native.orig, psycopg.Error)
-        assert (native.orig.sqlstate, native.orig.diag.message_primary) == (
-            "23514",
-            expected_message,
-        )
         assert (
             conn.execute(
                 select(table("ops.task_result")).where(
@@ -176,6 +193,9 @@ def test_native_completion_independently_refuses_forged_private_source_custody(
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_projection_refuses_synthetic_separator_even_with_caller_forged_text(private_source):
     case = private_source
     record = candidate(case, projected=True)
@@ -186,19 +206,38 @@ def test_native_projection_refuses_synthetic_separator_even_with_caller_forged_t
             authenticated_coordinate_texts(
                 conn, case.prepared, case.task_row, "private-unit", (record,)
             )
-        with pytest.raises((DBAPIError, InvariantViolation)) as caught, conn.begin_nested():
+        with conn.begin_nested() as accepted:
+            bypass(case, conn, (candidate(case, projected=True),))
+            assert (
+                conn.scalar(
+                    select(table("ops.task_result").c.task_id).where(
+                        table("ops.task_result").c.task_id == case.task
+                    )
+                )
+                == case.task
+            )
+            accepted.rollback()
+        with (
+            native_refusal(
+                "23514",
+                message="private projection anchor crosses synthetic or different source pieces",
+            ),
+            conn.begin_nested(),
+        ):
             bypass(case, conn, (record,))
-        native = (
-            caught.value.__cause__ if isinstance(caught.value, InvariantViolation) else caught.value
-        )
-        assert isinstance(native, DBAPIError)
-        assert isinstance(native.orig, psycopg.Error)
-        assert (native.orig.sqlstate, native.orig.diag.message_primary) == (
-            "23514",
-            "private projection anchor crosses synthetic or different source pieces",
+        assert (
+            conn.scalar(
+                select(table("ops.task_result").c.task_id).where(
+                    table("ops.task_result").c.task_id == case.task
+                )
+            )
+            is None
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_predecessor_absence_and_explicit_empty_private_report_remain_distinct(private_source):
     case = private_source
     task = complete_absent_and_empty_reports(case)
@@ -208,6 +247,9 @@ def test_predecessor_absence_and_explicit_empty_private_report_remain_distinct(p
         assert reader.source_record_report(task).records == ()
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_untrusted_private_candidate_grouping_is_not_promoted_and_reader_refuses_it(private_source):
     case = private_source
     record = candidate(case)
@@ -223,9 +265,9 @@ def test_untrusted_private_candidate_grouping_is_not_promoted_and_reader_refuses
 @pytest.mark.parametrize("form", ["empty", "disconnected", "nested", "membership"])
 @pytest.mark.parametrize("datatype_name", ["RecordSourcePin", "SourceContribution"])
 def test_private_product_types_are_independently_refused_by_protected_knowledge_graph(
-    private_source, form, datatype_name
+    record_graph_case, form, datatype_name
 ):
-    case = private_source
+    case, conn = record_graph_case
     datatype = case.prepared.index.definitions[datatype_name].iri
     values = (ValueRow("private-product", "record", datatype=datatype),)
     roles = ()
@@ -252,9 +294,36 @@ def test_private_product_types_are_independently_refused_by_protected_knowledge_
         evidence=evidence,
         membership_support=support,
     )
-    with pytest.raises(DBAPIError, match="private record product cannot be a knowledge graph"):
-        publish_batch(case.writer, batch)
-    with case.writer.connect() as conn:
+    clean = replace(
+        batch,
+        typed_value=tuple(
+            ValueRow(value.value_id, "string", text_value="ordinary control")
+            if value.kind == "record"
+            else value
+            for value in batch.typed_value
+        ),
+        membership=(),
+        membership_support=(),
+    )
+    with conn.begin_nested() as accepted:
+        publish_on_connection(conn, clean)
+        assert (
+            conn.scalar(
+                select(table("data.batch").c.batch_id).where(
+                    table("data.batch").c.batch_id == clean.batch_id
+                )
+            )
+            == clean.batch_id
+        )
+        accepted.rollback()
+    with (
+        native_refusal(
+            "23514", message="private record product cannot be a knowledge graph class or datatype"
+        ),
+        conn.begin_nested(),
+    ):
+        publish_on_connection(conn, batch)
+    with conn.begin_nested():
         assert (
             conn.execute(
                 select(table("data.batch")).where(table("data.batch").c.batch_id == batch.batch_id)
@@ -317,7 +386,7 @@ def test_graph_properties_cannot_range_into_private_products(inlined):
         prepare_release(bundle)
 
 
-def test_ordinary_graph_regex_admission_remains_refused(semantic_db_engine):
+def test_ordinary_graph_regex_admission_remains_refused(commit_db_engine):
     schema = dict(
         id="https://example/graph-regex",
         name="graph_regex",
@@ -331,14 +400,14 @@ def test_ordinary_graph_regex_admission_remains_refused(semantic_db_engine):
     prepared = prepare_release(bundle, dependencies, profile)
     with (
         pytest.raises(DBAPIError, match="unsupported required native constraint scope or pattern"),
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
     ):
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
 
 
 def test_native_projection_still_refuses_missing_ordinary_graph_roles(
-    semantic_db_engine, monkeypatch
+    commit_db_engine, monkeypatch
 ):
     from corpus_structure.semantic import releases
 
@@ -371,7 +440,7 @@ def test_native_projection_still_refuses_missing_ordinary_graph_roles(
         pytest.raises(
             releases.ReleaseConflict, match="archived operation_property_role projection differs"
         ) as refused,
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
     ):
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(
@@ -395,12 +464,12 @@ def test_native_projection_still_refuses_missing_ordinary_graph_roles(
     ],
 )
 def test_native_structure_rejects_deliberately_corrupt_derived_identity(
-    private_source, semantic_db_engine, field, message
+    record_identity_case, field, message
 ):
     from sqlalchemy import bindparam
     from sqlalchemy.dialects.postgresql import JSONB
 
-    case = private_source
+    case, conn = record_identity_case
     valid = candidate(case)
     invalid = deepcopy(valid)
     if field == "anchor":
@@ -412,13 +481,10 @@ def test_native_structure_rejects_deliberately_corrupt_derived_identity(
     statement = text("SELECT data.validate_source_record_structure(:r,:record)").bindparams(
         bindparam("record", type_=JSONB)
     )
-    with semantic_db_engine.begin() as conn:
+    with conn.begin_nested():
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
-        conn.execute(statement, dict(r=case.prepared.release_id, record=valid))
-        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+        with conn.begin_nested() as positive:
+            conn.execute(statement, dict(r=case.prepared.release_id, record=valid))
+            positive.rollback()
+        with native_refusal("23514", message=message), conn.begin_nested():
             conn.execute(statement, dict(r=case.prepared.release_id, record=invalid))
-        assert isinstance(caught.value.orig, psycopg.Error)
-        assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
-            "23514",
-            message,
-        )

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pdf_acceptance_support import inventory as inventory
 from pydantic import ValidationError, create_model
 
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -17,8 +18,7 @@ from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_page_payloads,
 )
 from corpus_structure.semantic.pdf_payloads import PayloadContractError, prepare_payload_family
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 @pytest.mark.parametrize("declaration", ["scoped", "health"])
@@ -76,63 +76,6 @@ def test_complete_cell_scope_requires_resolved_assessment(declaration, failure):
     else:
         value["health"]["cell_membership"] = "direct"
     validate_pdf_cell_coverage(value)
-
-
-def inventory():
-    words = []
-    for index, (spelling, start, left, right) in enumerate(
-        (("x", 0, 3, 12), ("=", 2, 15, 24), ("2", 4, 27, 36))
-    ):
-        words.append(
-            dict(
-                word_index=index,
-                text=spelling,
-                confidence=0.9,
-                start=start,
-                end=start + 1,
-                raster_left=left,
-                raster_top=6,
-                raster_right=right,
-                raster_bottom=21,
-                left=26 + left / 3,
-                top=42,
-                right=26 + right / 3,
-                bottom=47,
-            )
-        )
-    region = dict(
-        region_index=0,
-        engine="rapidocr",
-        raster_width=120,
-        raster_height=60,
-        scale=3.0,
-        orientation=0,
-        left=26,
-        top=40,
-        right=66,
-        bottom=60,
-        outcome="complete",
-        lines=[dict(line_index=0, text="x = 2", words=words)],
-    )
-    word = words[0]
-    candidate = {key: word[key] for key in ("text", "left", "top", "right", "bottom")}
-    candidate.update(
-        page_no=1,
-        origin="TOPLEFT",
-        basis="ocr-word-token-v1",
-        ocr_region_index=0,
-        ocr_line_index=0,
-        ocr_word_index=0,
-    )
-    return dict(
-        page_no=1,
-        has_words=False,
-        has_chars=False,
-        has_vectors=True,
-        native_text_quality="broken",
-        ocr_regions=[region],
-        candidates=[candidate],
-    )
 
 
 def example():
@@ -371,8 +314,8 @@ def test_word_shape_does_not_admit_rotation_or_unbounded_confidence():
 
 
 def test_public_native_writer_checks_word_custody_and_retains_partial(
-    semantic_db_engine,
-    semantic_writer_engine,
+    commit_db_engine,
+    commit_writer_engine,
     tmp_path,
 ):
     from docling_core.types.doc import (
@@ -400,7 +343,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         store_pdf_original,
     )
 
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True, composed=True)
     original = b"%PDF-1.7\nindependent OCR custody fixture"
     recipe = b'{"fixture":"estimated-word"}'
     schema = (
@@ -444,7 +387,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
     product = prepare_pdf_product(payload, original, schema, recipe)
     path = tmp_path / "source.pdf"
     path.write_bytes(original)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -498,11 +441,10 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         )
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.product_reference import ProductReference
-
-    from .native_record_fixtures import publish_native_record_fixture
+    from semantic.native_record_fixtures import publish_native_record_fixture
 
     published = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "native-records",
         task_id=task,
         attempt=claim.attempt,
@@ -526,7 +468,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         with pytest.raises(ValueError, match=diagnostic):
             malformed = prepare_pdf_product(bad, original, schema, recipe)
             publish_native_record_fixture(
-                semantic_writer_engine,
+                commit_writer_engine,
                 tmp_path / ("bad-" + mutation),
                 task_id=task,
                 attempt=claim.attempt,
@@ -541,7 +483,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
     partial["recognition_coverage"][0]["outcome"] = "partial"
     kept = prepare_pdf_product(partial, original, schema, recipe)
     partial_pin = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "partial-records",
         task_id=task,
         attempt=claim.attempt,
@@ -549,7 +491,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         product=kept,
         document=doc,
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         for key, retained, expected in (
             ("native", published, payload),
             ("partial", partial_pin, partial),

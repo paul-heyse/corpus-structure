@@ -1,66 +1,48 @@
 """Independent native field/span authentication with admitted source-record custody."""
 
 import json
-from pathlib import Path
 
 import pytest
 import yaml
+from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle
+from corpus_structure.semantic import SourceBundle
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.interpretations import metadata_binding
 from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.query import read_snapshot
+from semantic.native_admission_scenarios import InterpretationSourceRecipe
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate, complete
 from semantic.native_record_fixtures import private_source as private_source
-
-from .native_record_fixtures import candidate, complete
 
 
 @pytest.fixture
-def private_source_options():
-    def transform(bundle):
-        path = Path(__file__).parents[4] / "domains/statistics/terminology.yaml"
-        body = yaml.safe_load(path.read_bytes())
-        body["imports"] = ["core"]
-        sources = []
-        for source in bundle.sources:
-            if source.name == bundle.root:
-                root = yaml.safe_load(source.content)
-                root["imports"].append(body["name"])
-                source = SourceArtifact(source.name, yaml.safe_dump(root).encode())
-            sources.append(source)
-        return SourceBundle(
-            bundle.root, (*sources, SourceArtifact(body["name"], yaml.safe_dump(body).encode()))
-        )
-
-    def captured_dependencies(dependencies):
-        from dataclasses import replace
-
-        from corpus_structure.semantic.terminology import acquire_terminology
-
-        _, artifacts, ontology_names = acquire_terminology(
-            Path(__file__).parents[4] / "domains/statistics"
-        )
-        return replace(
-            dependencies,
-            artifacts=(*dependencies.artifacts, *artifacts),
-            ontology_sources=(*dependencies.ontology_sources, *ontology_names),
-        )
-
-    return {"bundle_transform": transform, "dependencies_transform": captured_dependencies}
+def interpretation_source_case(scenario_seeds):
+    with scenario_seeds.rollback_family(InterpretationSourceRecipe()) as family:
+        case, _, cut = family.stage.bind(family.reader)
+        yield case, cut, family.stage.result, family.stage.data_revision, family.connection
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "cut",
+        "field",
+        "span",
+        "metadata",
+        "candidate",
+        "selection",
+        "direction",
+        "matching_predicate",
+    ),
+)
 def test_native_interpretation_source_field_span_and_vocabulary_closure(
-    private_source, semantic_db_engine
+    interpretation_source_case, mutation
 ):
-    case = private_source
+    case, cut, result, revision, conn = interpretation_source_case
     record = candidate(case)
-    with case.writer.begin() as conn:
-        complete(case, conn, (record,))
-        cut = seal_cut(conn, case.run, "source-final", final=True)
-    result = consolidate_cut(case.writer, cut, "interpretation-source-result")
     anchor = record["anchors"][0]
     digest, _ = metadata_binding(case.prepared)
     payload = dict(
@@ -115,61 +97,64 @@ def test_native_interpretation_source_field_span_and_vocabulary_closure(
         "SELECT ops.require_source_interpretation(:task,"
         "CAST(:contribution AS jsonb),CAST(:payload AS jsonb))"
     )
-    with semantic_db_engine.begin() as conn:
-        from sqlalchemy import select
-
-        from corpus_structure.semantic.metadata import table
-
-        revision = conn.scalar(
-            select(table("data.realization").c.data_revision).where(
-                table("data.realization").c.realization_id == result.realization_id
-            )
-        )
-        payload["source_record"]["data_revision"] = revision
+    payload["source_record"]["data_revision"] = revision
+    with conn.begin_nested() as positive:
         conn.execute(
             statement,
             dict(
                 task=case.task, contribution=json.dumps(contribution), payload=json.dumps(payload)
             ),
         )
-        for mutation in (
-            "cut",
-            "field",
-            "span",
-            "metadata",
-            "candidate",
-            "selection",
-            "direction",
-            "matching_predicate",
-        ):
-            changed = json.loads(json.dumps(payload))
-            if mutation == "cut":
-                changed["source_record"]["cut_id"] += 10000
-            elif mutation == "field":
-                changed["decisions"][0]["focus"]["role"] = "location"
-            elif mutation == "span":
-                changed["decisions"][0]["focus"]["source_piece"] = "13"
-            elif mutation == "metadata":
-                changed["metadata_digest"] = "0" * 64
-            elif mutation == "candidate":
-                changed["decisions"][0]["candidates"][0]["meaning"] = "STATO:wrong"
-            elif mutation == "selection":
-                changed["decisions"][0]["selected_value"] = "poisson"
-            elif mutation == "direction":
-                changed["decisions"][0]["mapping_direction"] = "term_to_source"
-            else:
-                changed["decisions"][0]["candidates"][0]["matching_predicate"] = "invented"
-            with pytest.raises(DBAPIError), conn.begin_nested():
-                conn.execute(
-                    statement,
-                    dict(
-                        task=case.task,
-                        contribution=json.dumps(contribution),
-                        payload=json.dumps(changed),
-                    ),
-                )
+        positive.rollback()
+    changed = json.loads(json.dumps(payload))
+    if mutation == "cut":
+        changed["source_record"]["cut_id"] += 10000
+    elif mutation == "field":
+        changed["decisions"][0]["focus"]["role"] = "location"
+    elif mutation == "span":
+        changed["decisions"][0]["focus"]["source_piece"] = "13"
+    elif mutation == "metadata":
+        changed["metadata_digest"] = "0" * 64
+    elif mutation == "candidate":
+        changed["decisions"][0]["candidates"][0]["meaning"] = "STATO:wrong"
+    elif mutation == "selection":
+        changed["decisions"][0]["selected_value"] = "poisson"
+    elif mutation == "direction":
+        changed["decisions"][0]["mapping_direction"] = "term_to_source"
+    else:
+        changed["decisions"][0]["candidates"][0]["matching_predicate"] = "invented"
+    expected = {
+        "cut": "interpretation source record differs from completed pinned result",
+        "field": "interpretation focus does not authenticate record field source span",
+        "span": "interpretation focus does not authenticate record field source span",
+        "metadata": "interpretation vocabulary metadata pins differ",
+        "candidate": "candidate differs from released vocabulary",
+        "selection": "selected terminology mapping lacks examined candidate or predicate",
+        "direction": "selected terminology mapping lacks examined candidate or predicate",
+        "matching_predicate": "candidate matching field or predicate differs from source metadata",
+    }[mutation]
+    with native_refusal("23514", message=expected), conn.begin_nested():
+        conn.execute(
+            statement,
+            dict(
+                task=case.task, contribution=json.dumps(contribution), payload=json.dumps(changed)
+            ),
+        )
+    # This validation-only boundary must preserve the completed source receipt.
+    assert (
+        conn.scalar(
+            text("SELECT count(*) FROM ops.task_result WHERE task_id=:task"), {"task": case.task}
+        )
+        == 1
+    )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="interpretations")],
+    indirect=True,
+    ids=("record-interpretations",),
+)
 def test_authored_review_completion_filter_and_selected_root_ambiguity(
     private_source, tmp_path, cli
 ):

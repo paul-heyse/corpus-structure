@@ -13,11 +13,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.prepared_sql import prepare_sql
-
-from .test_data_operation_binding_native import (
+from semantic.data_operation_binding_support import (
     binding_native_connection as binding_native_connection,
 )
-from .test_data_operation_binding_native import (
+from semantic.data_operation_binding_support import (
     context,
     evaluate,
     field,

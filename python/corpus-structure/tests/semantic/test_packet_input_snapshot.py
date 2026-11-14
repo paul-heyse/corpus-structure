@@ -16,15 +16,14 @@ from corpus_structure.semantic.publication import (
     publish_batch,
     publish_on_connection,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 def test_native_packet_read_blocks_input_publication_then_rejects_stale_run(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine)
-    engine = semantic_writer_engine
+    prepared = prepare_operation_scenario(commit_db_engine)
+    engine = commit_writer_engine
     with engine.begin() as conn:
         run = create_run(
             conn,
@@ -52,7 +51,7 @@ def test_native_packet_read_blocks_input_publication_then_rejects_stale_run(
 
 
 def test_native_task_configuration_matches_frozen_params_and_version(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     from hashlib import sha256
     from types import SimpleNamespace
@@ -61,8 +60,8 @@ def test_native_task_configuration_matches_frozen_params_and_version(
 
     from corpus_structure.semantic.operations import create_task, record_method
 
-    prepared = prepare_operation_scenario(semantic_db_engine)
-    engine = semantic_writer_engine
+    prepared = prepare_operation_scenario(commit_db_engine)
+    engine = commit_writer_engine
 
     def operation(name="read", version="1", agent=False):
         return SimpleNamespace(

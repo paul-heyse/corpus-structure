@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from methods.test_m1_producer import view
+from methods.m1_producer_support import view
 
 from corpus_structure.semantic import releases, source_views
 from corpus_structure.semantic.identity import canonical_bytes

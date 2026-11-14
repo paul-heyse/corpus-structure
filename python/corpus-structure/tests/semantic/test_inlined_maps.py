@@ -77,14 +77,14 @@ def test_keyed_member_shape_rejects_mismatched_identifier():
 
 
 def test_map_order_does_not_split_facts_and_native_keys_cannot_be_forged(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     p = prepare_release(
         inputs(),
         composed_dependencies(ResolvedDependencies()),
         PreparationProfile(version="semantic-2"),
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             inputs(),
@@ -125,8 +125,8 @@ def test_map_order_does_not_split_facts_and_native_keys_cannot_be_forged(
     batch = assemble(p, "z", "maps", (item, other))
     assert len(batch.fact) == 1
     assert len(batch.occurrence) == 2
-    publish_batch(semantic_writer_engine, batch)
-    with semantic_writer_engine.connect() as conn:
+    publish_batch(commit_writer_engine, batch)
+    with commit_writer_engine.connect() as conn:
         assert (
             conn.execute(select(table("data.fact").c.fact_id)).scalar_one() == batch.fact[0].fact_id
         )
@@ -163,4 +163,4 @@ def test_map_order_does_not_split_facts_and_native_keys_cannot_be_forged(
         ),
     )
     with pytest.raises(DBAPIError, match="inlined map key"):
-        publish_batch(semantic_writer_engine, forged)
+        publish_batch(commit_writer_engine, forged)

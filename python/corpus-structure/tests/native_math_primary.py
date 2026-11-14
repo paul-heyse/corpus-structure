@@ -1,6 +1,6 @@
 """Stage actual primary owners over the native math tests' independently authored views."""
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 from functools import cache
 from hashlib import sha256
 
@@ -8,12 +8,6 @@ from corpus_structure.core.evidence import MacroDef
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
-from corpus_structure.methods.native_evidence import native_run
-from corpus_structure.methods.native_evidence_layers import (
-    SPACY_COLUMNS,
-    SPACY_FAMILIES,
-    NativeEvidenceBuilder,
-)
 from corpus_structure.semantic.constructions.layers import ConstructionLayer
 from corpus_structure.semantic.constructions.math_scope import FAMILY, populate_math_scope
 from corpus_structure.semantic.formal_evidence import build_formal_layer, grammar_identity
@@ -81,9 +75,6 @@ def primary_layers(view, prepared, *, binders=None, rules=(), macros=None, task_
         input=view.ref.projection_digest,
         context="whole-view-native-math-fixture",
     )
-    native = NativeEvidenceBuilder(
-        base, scope, operation, profile="spacy_only", families=SPACY_FAMILIES
-    )
     profile = AnnotationProfile()
     nlp = pipeline(profile.configuration)
     if view.text.strip():
@@ -103,29 +94,23 @@ def primary_layers(view, prepared, *, binders=None, rules=(), macros=None, task_
             tuple(ProjectedPiece(**piece) for piece in view.pieces),
         )
         (product,) = annotate((request,), profile)
-        native.spacy(view, product, "spacy")
-        run = native_run(
-            "spacy",
-            "spacy_only",
-            nlp.config.to_str(),
-            model=product.model,
-            version=product.model_version,
-            runtime_version=product.spacy_version,
-            layout=[],
-            text=[],
-            components=[asdict(c) for c in product.components],
-        )
-        run["configuration_digest"] = product.pipeline_config_digest
-        run["availability"] = [
-            dict(family=SPACY_COLUMNS[row.attribute], attribute=row.attribute, status=row.status)
-            for row in product.availability
-        ]
-        native.native_runs.append(run)
+        products = ((view, product),)
     else:
-        for family in SPACY_FAMILIES:
-            native.record(family, [selector])
-    native_layer = native.finish(prepared)
-    layers = {native_layer.reference(task_start): native_layer}
+        products = ()
+    from methods.primary_native_fixture import primary_native_layer
+
+    native_layer, native_pin = primary_native_layer(
+        base,
+        scope,
+        operation,
+        prepared,
+        products,
+        configuration=nlp.config.to_str(),
+        digest="pipeline",
+        reference=task_start,
+        empty_selectors=(selector,),
+    )
+    layers = {native_pin: native_layer}
     formal = build_formal_layer(
         view,
         prepared,

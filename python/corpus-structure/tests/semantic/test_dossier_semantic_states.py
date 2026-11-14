@@ -16,9 +16,8 @@ from corpus_structure.semantic.structural_products import (
     StructuralProductReport,
     definition_component,
 )
-
-from .test_structural_admission import definition
-from .test_structural_products import inputs
+from semantic.dossier_semantic_states_support import applicability as applicability
+from semantic.structural_products_support import inputs
 
 
 def components():
@@ -43,70 +42,6 @@ def components():
             ),
             stages=(),
         ),
-    )
-
-
-def applicability():
-    original = definition()
-    assert original.definition is not None
-    template = original.definition.readings[0]
-    readings = []
-    for i, outcome in enumerate(
-        (
-            "applicable_definition",
-            "applicable_explanation",
-            "mention",
-            "example",
-            "incompatible",
-            "unresolved",
-        )
-    ):
-        meaning = template.component.model_dump(exclude={"component_id"})
-        meaning["interpretation"] = (
-            "explanation" if outcome == "applicable_explanation" else "definition"
-        )
-        component = definition_component(**meaning)
-        premises = tuple(
-            p.model_copy(
-                update=dict(
-                    state=(
-                        "incompatible"
-                        if outcome == "incompatible" and p.dimension == "sense"
-                        else "unknown"
-                        if outcome == "unresolved" and p.dimension == "sense"
-                        else "compatible"
-                    )
-                )
-            )
-            for p in template.premises
-        )
-        readings.append(
-            template.model_copy(
-                update=dict(
-                    outcome=outcome,
-                    component=component,
-                    target_id=component.component_id,
-                    premises=premises,
-                    component_ref=template.component_ref.model_copy(
-                        update=dict(
-                            component_id=component.component_id,
-                            selected_task_id=i + 1,
-                            origin_task_id=i + 1,
-                        )
-                    ),
-                )
-            )
-        )
-    targets = tuple(dict.fromkeys(r.target_id for r in readings))
-    return StructuralProductReport.model_validate(
-        {
-            **original.model_dump(),
-            "definition": original.definition.model_copy(
-                update=dict(
-                    readings=tuple(readings), eligible_targets=targets, candidate_targets=targets
-                )
-            ),
-        }
     )
 
 
@@ -220,7 +155,7 @@ def test_same_report_same_content_preserves_every_applicability_outcome_and_face
 
 @pytest.mark.parametrize("predecessor", [components, applicability])
 def test_native_dossier_and_public_projection_preserve_literal_semantic_states(
-    semantic_db_engine, predecessor
+    commit_db_engine, predecessor
 ):
     """Native replay after authenticated reader boundary; no producer-custody claim."""
     upstream = predecessor()
@@ -234,7 +169,7 @@ def test_native_dossier_and_public_projection_preserve_literal_semantic_states(
         )
     roles, outcomes = set(), set()
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         for name in (
             "dossier_contributions.sql",
             "structural_products.sql",

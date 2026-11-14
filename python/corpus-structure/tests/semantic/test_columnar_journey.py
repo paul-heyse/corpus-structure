@@ -40,7 +40,7 @@ from corpus_structure.settings import Settings
 
 
 def test_native_snapshot_kernel_refuses_unmodeled_publication(
-    semantic_db_engine, semantic_reader_engine, semantic_writer_engine
+    commit_db_engine, commit_reader_engine, commit_writer_engine
 ):
     bundle, deps = analytical_inputs(
         SourceBundle(
@@ -69,7 +69,7 @@ classes:
     profile = PreparationProfile(version="semantic-2")
     release = prepare_release(bundle, deps, profile)
     rid, z, p = release.release_id, "z", "https://example.org/label"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, release)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
@@ -102,11 +102,11 @@ classes:
         evidence=(EvidenceRow("ev", "urn:source", "line:1", "fixture", "1"),),
         membership_support=(MembershipSupportRow("e", "https://example.org/Thing", "ev"),),
     )
-    publish_batch(semantic_writer_engine, source)
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    publish_batch(commit_writer_engine, source)
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
-    with read_session(semantic_reader_engine, z) as session:
+    with read_session(commit_reader_engine, z) as session:
         cls = session.class_handle("Thing")
         counted = session.query(
             QuerySpec(cls, session.property_handle(cls, "counter"), projection="fact")
@@ -141,10 +141,10 @@ classes:
             operation_id="columnar_analysis",
             projection_id=packet.projection_id,
         )
-    with read_session(semantic_reader_engine, z) as session:
+    with read_session(commit_reader_engine, z) as session:
         cls = session.class_handle("Thing")
         prop = session.property_handle(cls, "label")
         assert session.query(QuerySpec(cls, prop, projection="accepted")).rows == ()
         assert session.binding.data_revision == 1
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert len(conn.execute(select(table("data.occurrence"))).all()) == 2

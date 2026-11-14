@@ -9,8 +9,7 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.semantic.identity import fact_key, occurrence_key
-
-from .inventory_reading import inventory_evidence, inventory_supports
+from semantic.inventory_reading import inventory_evidence, inventory_supports
 
 
 @pytest.mark.parametrize(
@@ -183,7 +182,7 @@ def test_support_and_assessment_fields_are_not_fact_qualification(support_field)
 
 
 def test_assembled_identity_survives_native_publication_and_read_route(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     from dataclasses import replace
 
@@ -243,7 +242,7 @@ classes:
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     realization = "realization:identity-vector"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="identity-vector"))
         conn.execute(
@@ -308,9 +307,9 @@ classes:
     assert batch.fact[0].fact_id == expected_fact
     assert batch.occurrence[0].occurrence_id == expected_occurrence
     batch = replace(batch, selection=(SelectionRow(expected_fact),)).bind_preparation(prepared)
-    publish_batch(semantic_writer_engine, batch)
+    publish_batch(commit_writer_engine, batch)
 
-    with read_session(semantic_reader_engine, realization) as session:
+    with read_session(commit_reader_engine, realization) as session:
         cls = session.class_handle("Thing")
         query = QuerySpec(cls, session.property_handle(cls, "label"), "occurrence")
         result = session.query(query)

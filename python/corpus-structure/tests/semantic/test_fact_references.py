@@ -65,9 +65,9 @@ def fixture(admin):
 
 
 def test_declared_fact_reference_resolves_in_same_publication(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared, premise = fixture(semantic_db_engine)
+    prepared, premise = fixture(commit_db_engine)
     premise_id = assemble(prepared, "z", "identity", (premise,)).fact[0].fact_id
     dependent = replace(
         premise,
@@ -84,13 +84,13 @@ def test_declared_fact_reference_resolves_in_same_publication(
         "valid",
         (replace(premise, property_name="id", object="thing", item="id"), premise, dependent),
     )
-    receipt = publish_batch(semantic_writer_engine, batch)
+    receipt = publish_batch(commit_writer_engine, batch)
     assert receipt.data_revision == 1
-    assert publish_batch(semantic_writer_engine, batch) == receipt
+    assert publish_batch(commit_writer_engine, batch) == receipt
 
 
-def test_native_writer_refuses_missing_fact_reference(semantic_db_engine, semantic_writer_engine):
-    prepared, item = fixture(semantic_db_engine)
+def test_native_writer_refuses_missing_fact_reference(commit_db_engine, commit_writer_engine):
+    prepared, item = fixture(commit_db_engine)
     dependent = replace(
         item,
         qualification={
@@ -108,11 +108,11 @@ def test_native_writer_refuses_missing_fact_reference(semantic_db_engine, semant
         (replace(item, property_name="id", object="thing", item="id"), dependent),
     )
     with pytest.raises(DBAPIError, match="fact reference is outside its bound"):
-        publish_batch(semantic_writer_engine, batch)
+        publish_batch(commit_writer_engine, batch)
 
 
 def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     from sqlalchemy import select, text
 
@@ -124,7 +124,7 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
         publish_on_connection,
     )
 
-    prepared, premise = fixture(semantic_db_engine)
+    prepared, premise = fixture(commit_db_engine)
     identity = replace(premise, property_name="id", object="thing", item="id")
     premise_id = assemble(prepared, "z", "premise", (premise,)).fact[0].fact_id
     label = replace(
@@ -141,8 +141,8 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
     original = replace(
         original, selection=tuple(SelectionRow(f.fact_id) for f in original.fact)
     ).bind_preparation(prepared)
-    publish_batch(semantic_writer_engine, original)
-    with semantic_writer_engine.begin() as conn:
+    publish_batch(commit_writer_engine, original)
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -167,7 +167,7 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
         ),
     ).bind_preparation(prepared)
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -199,9 +199,9 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
     from corpus_structure.semantic.publication import PublicationBatch
 
     publish_batch(
-        semantic_writer_engine, PublicationBatch(prepared.release_id, "z", "advance-original")
+        commit_writer_engine, PublicationBatch(prepared.release_id, "z", "advance-original")
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         second_run = create_run(
             conn,
             project_id="p",
@@ -227,7 +227,7 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
         ),
     ).bind_preparation(prepared)
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(

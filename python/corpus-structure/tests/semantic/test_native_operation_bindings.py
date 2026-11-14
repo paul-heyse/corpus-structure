@@ -20,8 +20,7 @@ from corpus_structure.semantic.operations import (
     create_task,
     record_method,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 class Config(BaseModel):
@@ -29,10 +28,10 @@ class Config(BaseModel):
 
 
 def test_native_claim_abi_result_and_observable_trigger_fence(
-    semantic_db_engine,
-    semantic_writer_engine,
+    commit_db_engine,
+    commit_writer_engine,
 ):
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(commit_db_engine, composed=True)
     model = bound_execution_model(prepared)
     call = model.operation("claim").call
     assert call is not None
@@ -44,7 +43,7 @@ def test_native_claim_abi_result_and_observable_trigger_fence(
         ("p_agent", "boolean"),
     ]
     assert [f.native_parameter for f in call.parameters] == [name for name, _ in expected]
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         actual = conn.execute(
             text("""SELECT p.proargnames[a.ordinality],
 format_type(a.typ,NULL) FROM pg_proc p
@@ -67,7 +66,7 @@ WHERE attrelid='ops.task'::regclass AND attnum>0 AND NOT attisdropped""")
             )
         )
         assert all(f.source.removeprefix("physical:ops.task.") in names for f in call.result_fields)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -116,7 +115,7 @@ WHERE attrelid='ops.task'::regclass AND attnum>0 AND NOT attisdropped""")
         claimed.holder,
     ) == (task, run, prepared.release_id, config, 1, "worker")
     assert claimed.deadline is not None and claimed.held_progress is None
-    with pytest.raises(DBAPIError) as guarded, semantic_db_engine.begin() as conn:
+    with pytest.raises(DBAPIError) as guarded, commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
             table("ops.task")
@@ -141,7 +140,7 @@ WHERE attrelid='ops.task'::regclass AND attnum>0 AND NOT attisdropped""")
         "attempt_fence",
         "claim",
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert tuple(
             conn.execute(
                 select(table("ops.task").c.attempt, table("ops.task").c.claimed_by).where(

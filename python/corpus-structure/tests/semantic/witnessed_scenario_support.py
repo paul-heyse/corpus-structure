@@ -55,11 +55,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralPassage,
     StructuralProductReport,
 )
-
-from .native_record_fixtures import (
-    complete_contributions,
-    contribution_drafts,
-)
+from semantic.native_record_fixtures import complete_contributions, contribution_drafts
 
 
 def completed_metadata(case, run):

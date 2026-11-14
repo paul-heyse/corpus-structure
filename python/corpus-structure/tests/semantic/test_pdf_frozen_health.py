@@ -3,9 +3,9 @@
 import json
 
 import pytest
+from pdf_acceptance_support import inventory
 
-from .test_pdf_ocr_contracts import inventory
-from .test_pdf_payload_validation import captured
+from semantic.pdf_payload_validation_support import captured
 
 
 def replace_health(store, health):

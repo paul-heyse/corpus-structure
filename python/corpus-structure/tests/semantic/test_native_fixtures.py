@@ -6,18 +6,17 @@ import io
 import threading
 from contextlib import contextmanager
 from dataclasses import replace
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 
-from native_test_support import principal_engine
+from native_test_support import database_name, principal_engine
 from test_prerequisites import PrerequisiteUnavailable
 
 
 def name(kind="test"):
-    return f"cs_sem_{kind}_999999999_{uuid4().hex[:12]}"
+    return database_name(kind, pid=999999999).name
 
 
 def test_head_is_sealed_and_has_no_migration_backend(native_server, semantic_head_template):
@@ -49,12 +48,8 @@ def test_fresh_committed_clones_are_isolated(native_server, semantic_head_templa
     monkeypatch.setattr(migrations, "upgrade", forbidden)
     left, right = name(), name()
     with (
-        native_server.database(
-            left, semantic_head_template.name, policy=semantic_head_template.policy
-        ) as a,
-        native_server.database(
-            right, semantic_head_template.name, policy=semantic_head_template.policy
-        ) as b,
+        semantic_head_template.clone(left) as a,
+        semantic_head_template.clone(right) as b,
     ):
         with a.begin() as conn:
             conn.exec_driver_sql("CREATE TABLE public.isolation_probe(value int)")
@@ -155,10 +150,10 @@ def test_missing_roles_are_one_typed_preflight(native_server, db_support):
 @pytest.mark.parametrize("purpose", ["write", "read", "evaluate", "admit"])
 def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(request, purpose):
     engines = {
-        "write": "semantic_writer_engine",
-        "read": "semantic_reader_engine",
-        "evaluate": "semantic_evaluator_engine",
-        "admit": "semantic_admitter_engine",
+        "write": "commit_writer_engine",
+        "read": "commit_reader_engine",
+        "evaluate": "commit_evaluator_engine",
+        "admit": "commit_admitter_engine",
     }
     principals = {
         "write": "corpus_sem_writer",
@@ -203,12 +198,12 @@ def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(req
 def test_owned_lease_blocks_sweep_and_untagged_residue_survives(native_server):
     owned, historical = name(), name()
     with native_server.database(owned, native_server.template):
-        assert owned not in native_server.sweep()
+        assert owned not in native_server.sweep().dropped
         assert native_server.exists(owned)
         with native_server.connect() as conn:
             conn.exec_driver_sql(f'CREATE DATABASE "{historical}" TEMPLATE template0')
         try:
-            assert historical not in native_server.sweep()
+            assert historical not in native_server.sweep().dropped
             with pytest.raises(RuntimeError, match="unauthenticated"):
                 native_server.drop(historical)
         finally:
@@ -550,10 +545,10 @@ def test_native_capture_restores_inactive_consumer_after_failure(monkeypatch):
 @pytest.fixture
 def captured_semantic_engines(native_context_capture, request):
     # Dynamic requests deliberately happen after capture activation, including cold preparation.
-    server = request.getfixturevalue("native_server")
+    request.getfixturevalue("native_server")
     template = request.getfixturevalue("semantic_head_template")
     settings = request.getfixturevalue("native_settings")
-    with server.database(name(), template.name, policy=template.policy) as engine:
+    with template.clone(name()) as engine:
         reader = principal_engine(settings, "read", engine.url.database)
         try:
             yield engine, reader
@@ -624,10 +619,11 @@ def test_inactive_native_clone_preserves_real_policy_lifecycle_without_eager_che
         patch.setattr(qualification_plugin, "_stream", None)
         patch.setattr(native_test_support, "observe_engine", counted)
         deployments = dict(native_test_support._DEPLOYMENTS)
-        with native_server.database(
-            database, semantic_head_template.name, policy=semantic_head_template.policy
-        ) as engine:
-            assert checkouts == [], "inactive observation must not check out the clone"
+        expected_verification = int(semantic_head_template.verification == "pending")
+        with semantic_head_template.clone(database) as engine:
+            assert len(checkouts) == expected_verification, (
+                "only first-use verification may check out an unobserved clone"
+            )
             assert native_server.policy(database) == semantic_head_template.policy
             with engine.begin() as conn:
                 assert current_revision(conn) == head_revision()
@@ -640,7 +636,7 @@ def test_inactive_native_clone_preserves_real_policy_lifecycle_without_eager_che
                     ).scalar_one()
                     == 91
                 )
-            assert len(checkouts) == 2
+            assert len(checkouts) == expected_verification + 2
         assert not native_server.exists(database)
         assert deployments == native_test_support._DEPLOYMENTS
 
@@ -655,9 +651,7 @@ def test_late_capture_cannot_fabricate_unobserved_deployment_policy(
         assert conn.exec_driver_sql("SELECT 1").scalar_one() == 1
     with monkeypatch.context() as patch:
         patch.setattr(qualification_plugin, "_stream", None)
-        with native_server.database(
-            database, semantic_head_template.name, policy=semantic_head_template.policy
-        ):
+        with semantic_head_template.clone(database):
             reader = principal_engine(native_settings, "read", database)
             try:
                 with capture_native_context() as observed, reader.connect() as conn:

@@ -18,8 +18,7 @@ from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.pdf_record_model import record_arrow_schema, record_write_profile
 from corpus_structure.semantic.query import SnapshotBinding
 from corpus_structure.semantic.typed_generation import generated_source
-
-from .test_analytics import prepared_inputs
+from semantic.analytics_support import prepared_inputs
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -112,7 +111,7 @@ def test_actual_static_consumer_refuses_wrong_column_and_incompatible_type(tmp_p
 
 
 def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
     from sqlalchemy import insert
 
@@ -125,7 +124,7 @@ def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
     bundle, dependencies, cached = prepared_inputs()
     prepared = replace(cached)
     pins = ("first", "second%_o'")
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
         )
@@ -140,7 +139,7 @@ def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
             )
     for realization in pins:
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(
                 prepared.release_id,
                 realization,
@@ -161,7 +160,7 @@ def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
             prepared, SnapshotBinding(prepared.release_id, realization, 1, "capture:" + realization)
         )
         statement = next(row.statement for row in projection.relations if row.name == "entity")
-        with semantic_db_engine.connect() as conn:
+        with commit_db_engine.connect() as conn:
             assert [row["entity_id"] for row in conn.execute(statement).mappings()] == [
                 "entity:" + realization
             ]

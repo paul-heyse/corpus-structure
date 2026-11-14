@@ -5,7 +5,7 @@ from dataclasses import asdict
 from hashlib import sha256
 
 import pytest
-from methods.test_contextual_query import TEXT, anchor, frame_layer, source
+from methods.contextual_query_support import TEXT, anchor, frame_layer, source
 
 from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import SourceViewRef

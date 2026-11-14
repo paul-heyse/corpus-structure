@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -16,22 +15,8 @@ from corpus_structure.semantic.types import (
     SourceArtifact,
     SourceBundle,
 )
-
-_FIXTURE = Path(__file__).parents[1] / "fixtures/semantic/reader-v10.json"
-
-
-def archived(path: Path = _FIXTURE):
-    data = json.loads(path.read_bytes())
-    bundle = SourceBundle(
-        data["root"],
-        tuple(
-            SourceArtifact(item["name"], bytes.fromhex(item["content"])) for item in data["sources"]
-        ),
-    )
-    artifacts = tuple(
-        PreparedArtifact(item["kind"], bytes.fromhex(item["content"])) for item in data["artifacts"]
-    )
-    return data, bundle, artifacts
+from semantic.archive_reader_support import _FIXTURE as _FIXTURE
+from semantic.archive_reader_support import archived as archived
 
 
 @pytest.mark.parametrize("compiler", ["10", "11", "12", "13"])
@@ -118,7 +103,7 @@ def test_historical_analysis_archive_refuses_without_rewriting_evidence():
 
 
 def test_current_snapshot_reads_without_compiler_then_explicit_analytical_capture(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, monkeypatch, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, monkeypatch, tmp_path
 ):
     """Admitted reads need no producer; explicit capture prepares its own runtime manifest."""
     from decimal import Decimal
@@ -158,7 +143,7 @@ def test_current_snapshot_reads_without_compiler_then_explicit_analytical_captur
     # historical reconstruction vectors above remain independently unchanged.
     prepared = prepare_release(bundle, dependencies, profile)
     r, z = prepared.release_id, "realization:current-reader"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="current-reader"))
         conn.execute(
@@ -180,7 +165,7 @@ def test_current_snapshot_reads_without_compiler_then_explicit_analytical_captur
         )
     )
     publish_batch(
-        semantic_writer_engine,
+        commit_writer_engine,
         PublicationBatch(
             r,
             z,
@@ -205,7 +190,7 @@ def test_current_snapshot_reads_without_compiler_then_explicit_analytical_captur
     def unavailable(*args, **kwargs):
         raise AssertionError("admitted public reads must not compile")
 
-    with read_session(semantic_reader_engine, z) as session:
+    with read_session(commit_reader_engine, z) as session:
         with monkeypatch.context() as read_only_boundary:
             read_only_boundary.setattr(compiler, "prepare_release", unavailable)
             circle = session.class_handle("Circle")
@@ -220,7 +205,7 @@ def test_current_snapshot_reads_without_compiler_then_explicit_analytical_captur
         # boundary may prepare cold. The producing release and snapshot stay pinned.
         from corpus_structure.semantic.analytics import load_packet
 
-        uri = semantic_reader_engine.url.render_as_string(hide_password=False).replace(
+        uri = commit_reader_engine.url.render_as_string(hide_password=False).replace(
             "postgresql+psycopg:", "postgresql:"
         )
         packet = load_packet(session, uri)

@@ -27,10 +27,9 @@ from corpus_structure.semantic.operations import (
     create_run,
     create_task,
 )
-
-from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
-from .witnessed_scenario_support import completed_metadata, completed_relationship_case
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.witnessed_scenario_support import completed_metadata, completed_relationship_case
 
 
 @pytest.fixture
@@ -169,6 +168,9 @@ assert {parameter.values[0] for parameter in APPLICABILITY_CORRUPTIONS} == {
 assert len(APPLICABILITY_CORRUPTIONS) == 6
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize("corruption,message", APPLICABILITY_CORRUPTIONS)
 def test_native_applicability_rejects_forged_semantics(applicable, request, corruption, message):
     a = applicable
@@ -280,15 +282,18 @@ def test_native_applicability_rejects_forged_semantics(applicable, request, corr
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_applicability_projection_and_dossier_component_resolution(
-    applicable, semantic_db_engine
+    applicable, record_source_admin
 ):
     a = applicable
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
     report = StructuralProductReport.model_validate(a.body["structural_product"])
-    with semantic_db_engine.connect() as conn:
+    with record_source_admin.connect() as conn:
         actual = conn.scalar(
             text("SELECT data.structural_public_statement(CAST(:report AS jsonb),NULL)"),
             dict(report=canonical_bytes(a.body["structural_product"]).decode()),

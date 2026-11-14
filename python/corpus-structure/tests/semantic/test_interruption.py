@@ -20,7 +20,7 @@ from corpus_structure.semantic.releases import activate_release, persist_release
 
 
 def test_native_disconnect_before_outer_commit_discards_receipt(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     bundle = SourceBundle(
         "interrupt",
@@ -39,7 +39,7 @@ classes: {Thing: {}}
     dependencies = composed_dependencies(ResolvedDependencies())
     profile = PreparationProfile(version="semantic-2")
     release = prepare_release(bundle, dependencies, profile)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, release)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         activate_release(conn, "p", release.release_id, expected_parent=None, expected_generation=0)
@@ -50,7 +50,7 @@ classes: {Thing: {}}
         )
     with (
         pytest.raises(DBAPIError),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         receipt = publish_on_connection(
@@ -60,6 +60,6 @@ classes: {Thing: {}}
         driver = conn.connection.driver_connection
         assert driver is not None
         driver.close()
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.execute(select(table("data.batch"))).all() == []
         assert conn.execute(select(table("data.realization").c.data_revision)).scalar_one() == 0

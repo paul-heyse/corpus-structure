@@ -7,7 +7,7 @@ values below are independent controls, not derived from the assessment projectio
 from types import SimpleNamespace
 
 import pytest
-from evaluate.test_characterization_assessment import EXTENT, PIN, VIEW, case, frame
+from evaluation_characterization_assessment_support import EXTENT, PIN, VIEW, case, frame
 
 from corpus_structure.evaluate import operation_assessment
 from corpus_structure.evaluate.characterization_assessment import evaluate_characterization

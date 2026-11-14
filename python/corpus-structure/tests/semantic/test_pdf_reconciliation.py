@@ -10,44 +10,13 @@ from corpus_structure.ingest.pdf_reconciliation import (
     map_pdf_observation,
     select_pdf_integration,
 )
+from semantic.pdf_integration_support import pin
+from semantic.pdf_reconciliation_support import recognized as recognized
 
 from . import pdf_integration_support as integration_fixtures
-from .pdf_integration_support import observation, pin
 
 native_source = integration_fixtures.native_source
 pdf13_db = integration_fixtures.pdf13_db
-
-
-def recognized(source, raw, *, role="A", page=1):
-    value = observation(source, pass_role=role)
-    value["observation"]["raw_response_digest"] = sha256(raw).hexdigest()
-    value["observation"]["image"].update(page_no=page, width=200, height=300)
-    value["observation"]["image"]["transform"] = {
-        "status": "coarse",
-        "normalization": "none",
-        "source_space": "pdf_points",
-        "target_space": "submitted_pixels",
-        "page_width": 200.0,
-        "page_height": 300.0,
-        "page_rotation": 0,
-        "crop_left": 0.0,
-        "crop_top": 0.0,
-        "crop_right": 200.0,
-        "crop_bottom": 300.0,
-        "affine": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-    }
-    value["occurrences"] = [
-        {
-            "occurrence_id": f"block-{i}",
-            "kind": "text",
-            "address_space": "recognized_text",
-            "precision": "block",
-            "page_no": page,
-        }
-        for i in range(raw.count(b"<class_"))
-    ]
-    value["coverage"][0].update(scope=f"page:{page}", family="nemotron-pass-" + role)
-    return value
 
 
 def integrate(source, raw, *, policy=None):
@@ -353,7 +322,7 @@ def test_failed_observation_without_raw_bytes_is_evidence_only(native_source):
 
 
 def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
-    pdf13_db, semantic_reader_engine
+    pdf13_db, commit_reader_engine
 ):
     from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
     from corpus_structure.semantic.pdf_storage import read_pdf_product, trace_pdf_occurrence
@@ -398,7 +367,7 @@ def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
     formula = next(
         o for o in values["occurrences"] if o["kind"] == "formula" and o["text"] == "y+2"
     )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         for occurrence in (chart_cell, formula):
             read = read_pdf_product(
                 conn,

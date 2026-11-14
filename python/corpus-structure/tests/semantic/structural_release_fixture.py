@@ -3,8 +3,7 @@
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.observations import bind_result
-
-from .primary_formal_fixture import release
+from semantic.primary_formal_fixture import release
 
 
 def released_report(report, *, method, version):

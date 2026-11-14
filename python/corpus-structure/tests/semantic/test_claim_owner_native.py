@@ -23,8 +23,7 @@ from corpus_structure.semantic.operations import (
     create_task,
     record_method,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 class Config(BaseModel):
@@ -80,9 +79,9 @@ def completion(prepared, claim):
 
 @pytest.mark.parametrize("release_lock", [True, False])
 def test_run_row_contention_retries_only_once_with_current_lease(
-    semantic_db_engine, semantic_writer_engine, monkeypatch, release_lock
+    commit_db_engine, commit_writer_engine, monkeypatch, release_lock
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     started, timed_out, proceed, renewed = Event(), Event(), Event(), Event()
     borrowers = []
     actual = claim_lifetime.renew_claim
@@ -107,15 +106,15 @@ def test_run_row_contention_retries_only_once_with_current_lease(
     expected = nullcontext() if release_lock else pytest.raises(DBAPIError)
     with (
         expected as failure,
-        semantic_db_engine.connect() as blocker,
-        semantic_db_engine.connect() as observer,
+        commit_db_engine.connect() as blocker,
+        commit_db_engine.connect() as observer,
     ):
         blocker_pid = blocker.scalar(text("SELECT pg_backend_pid()"))
         blocker.execute(
             text("SELECT id FROM ops.run WHERE id=:id FOR UPDATE"), {"id": claim.run_id}
         )
         with claim_lifetime.maintained_claims(
-            semantic_writer_engine, (claim,), "owner", interval=0.01, database=settings
+            commit_writer_engine, (claim,), "owner", interval=0.01, database=settings
         ) as owner:
             try:
                 assert started.wait(5)
@@ -149,10 +148,10 @@ def test_run_row_contention_retries_only_once_with_current_lease(
 
 
 def test_renewal_refuses_expired_owner_before_and_after_reassignment(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    _, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
-    with semantic_db_engine.begin() as conn:
+    _, (claim,) = claims(commit_db_engine, commit_writer_engine)
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
             text(
@@ -166,30 +165,30 @@ def test_renewal_refuses_expired_owner_before_and_after_reassignment(
             conn, task_id=owner.task_id, attempt=owner.attempt, holder=owner.holder
         )
 
-    with pytest.raises(OperationConflict), semantic_writer_engine.begin() as conn:
+    with pytest.raises(OperationConflict), commit_writer_engine.begin() as conn:
         renew(conn, claim)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         (new_owner,) = claim_tasks(
             conn, run_id=claim.run_id, config_id=claim.method_config_id, holder="new-owner"
         )
         assert new_owner.attempt > claim.attempt
         renew(conn, new_owner)
-    with pytest.raises(OperationConflict), semantic_writer_engine.begin() as conn:
+    with pytest.raises(OperationConflict), commit_writer_engine.begin() as conn:
         renew(conn, claim)
 
 
 @pytest.mark.parametrize("completion_seconds", [1.0, 0.05])
 def test_completion_owns_its_finite_deadline_instead_of_renewal_budget(
-    semantic_db_engine, semantic_writer_engine, completion_seconds
+    commit_db_engine, commit_writer_engine, completion_seconds
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     database = claim_lifetime.DatabaseSettings(
         renewal_statement_timeout_seconds=0.03,
         renewal_lock_timeout_seconds=0.01,
         completion_statement_timeout_seconds=completion_seconds,
     )
     owner = claim_lifetime.ClaimOwner(
-        semantic_writer_engine, (claim,), "owner", database, lambda: None
+        commit_writer_engine, (claim,), "owner", database, lambda: None
     )
     seen = []
 
@@ -214,7 +213,7 @@ def test_completion_owns_its_finite_deadline_instead_of_renewal_budget(
             owner.settle(claim, delayed_completion)
         assert getattr(caught.value.orig, "sqlstate", None) == "57014"
         assert (claim.task_id, claim.attempt, "owner") in owner.active
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             assert (
                 conn.scalar(
                     text("SELECT status FROM ops.task WHERE id=:id"), dict(id=claim.task_id)
@@ -226,9 +225,9 @@ def test_completion_owns_its_finite_deadline_instead_of_renewal_budget(
 
 
 def test_renewal_is_serialized_through_terminal_commit_and_retirement(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     entered, release, completed = Event(), Event(), Event()
     renewals = []
     actual = claim_lifetime.renew_claim
@@ -242,7 +241,7 @@ def test_renewal_is_serialized_through_terminal_commit_and_retirement(
 
     monkeypatch.setattr(claim_lifetime, "renew_claim", delayed)
     with claim_lifetime.maintained_claims(
-        semantic_writer_engine, [claim], "owner", interval=0.01
+        commit_writer_engine, [claim], "owner", interval=0.01
     ) as owner:
         assert entered.wait(5)
         with ThreadPoolExecutor(1) as pool:
@@ -255,20 +254,20 @@ def test_renewal_is_serialized_through_terminal_commit_and_retirement(
         assert result.transaction == "applied" and result.receipt.attempt == claim.attempt
         assert not owner.active
     assert len(renewals) == 1
-    with semantic_writer_engine.begin() as conn, pytest.raises(OperationConflict):
+    with commit_writer_engine.begin() as conn, pytest.raises(OperationConflict):
         actual(conn, task_id=claim.task_id, attempt=claim.attempt, holder="owner")
 
 
 def test_lost_commit_response_replays_exact_completion_before_retirement(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     lost = []
 
     class ResponseLost:
         @contextmanager
         def connect(self):
-            with semantic_writer_engine.connect() as conn:
+            with commit_writer_engine.connect() as conn:
 
                 class Connection:
                     @contextmanager
@@ -291,7 +290,7 @@ def test_lost_commit_response_replays_exact_completion_before_retirement(
     assert isinstance(result, CompletionResult)
     assert result.transaction == "replay" and result.receipt.attempt == claim.attempt
     assert not owner.active
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": claim.task_id})
             == "empty"
@@ -304,14 +303,12 @@ def test_lost_commit_response_replays_exact_completion_before_retirement(
         )
 
 
-def test_later_failure_preserves_earlier_durable_completion(
-    semantic_db_engine, semantic_writer_engine
-):
-    prepared, owned = claims(semantic_db_engine, semantic_writer_engine, 2)
+def test_later_failure_preserves_earlier_durable_completion(commit_db_engine, commit_writer_engine):
+    prepared, owned = claims(commit_db_engine, commit_writer_engine, 2)
     first, second = owned
     with (
         pytest.raises(OperationConflict, match="later task failed"),
-        claim_lifetime.maintained_claims(semantic_writer_engine, owned, "owner") as owner,
+        claim_lifetime.maintained_claims(commit_writer_engine, owned, "owner") as owner,
     ):
         owner.settle(first, completion(prepared, first))
 
@@ -319,7 +316,7 @@ def test_later_failure_preserves_earlier_durable_completion(
             raise OperationConflict("later task failed")
 
         owner.settle(second, fail)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": first.task_id})
             == "empty"
@@ -331,7 +328,7 @@ def test_later_failure_preserves_earlier_durable_completion(
 
 
 def test_owned_reader_selection_snapshot_and_references_survive_closure(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     from sqlalchemy import select
     from sqlalchemy.exc import DBAPIError
@@ -340,10 +337,10 @@ def test_owned_reader_selection_snapshot_and_references_survive_closure(
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import BoundReader, register_document
 
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     path = tmp_path / "original.pdf"
     path.write_bytes(b"retained controlled original")
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         doc = register_document(
             conn,
             project_id="p",
@@ -372,7 +369,7 @@ def test_owned_reader_selection_snapshot_and_references_survive_closure(
             code_commit="test",
         )
         bound = BoundReader(conn, run, prepared)
-    reader = ScopedSourceReader(semantic_writer_engine, bound)
+    reader = ScopedSourceReader(commit_writer_engine, bound)
     selected = reader.documents(("selected.pdf", "excluded.pdf"))
     assert [(ref.unit_id, ref.unit_key) for ref in selected] == [(doc, key)]
     assert reader.documents(("excluded.pdf",)) == ()
@@ -411,25 +408,25 @@ def test_owned_reader_selection_snapshot_and_references_survive_closure(
 
 
 def test_uncertain_intent_cannot_be_suppressed_on_normal_owner_exit(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     del prepared
     with (
         pytest.raises(claim_lifetime.ClaimSettlementUncertain),
-        claim_lifetime.maintained_claims(semantic_writer_engine, [claim], "owner") as owner,
+        claim_lifetime.maintained_claims(commit_writer_engine, [claim], "owner") as owner,
     ):
         intent = claim_lifetime.ClaimSettlementUncertain(claim, "owner", lambda conn: None)
         owner.uncertain[(claim.task_id, claim.attempt, "owner")] = intent
 
 
 def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.orchestrate.semantic import _retain_source_originals
     from corpus_structure.semantic import operations
 
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True)
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True)
     method = SimpleNamespace(
         name="owned",
         version="custody-control",
@@ -440,7 +437,7 @@ def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
         Config=Config,
         original_recipe=lambda config: b'{"recipe":"owned-custody-control"}',
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -494,15 +491,15 @@ def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
     monkeypatch.setattr(operations, "read_original", slow_read)
     monkeypatch.setattr(claim_lifetime, "renew_claim", observed_renewal)
     with claim_lifetime.maintained_claims(
-        semantic_writer_engine, owned, "owner", interval=0.01
+        commit_writer_engine, owned, "owner", interval=0.01
     ) as owner:
         _retain_source_originals(
-            semantic_writer_engine, owned, method, Config(), "owner", prepared, owner
+            commit_writer_engine, owned, method, Config(), "owner", prepared, owner
         )
         assert renewed_first.is_set()
         for claim in owned:
             owner.settle(claim, completion(prepared, claim))
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.source_build WHERE task_id = ANY(:ids)"),
@@ -520,9 +517,9 @@ def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
 
 
 def test_uncertain_member_keeps_sibling_renewal_and_settlement(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
-    prepared, (first, second) = claims(semantic_db_engine, semantic_writer_engine, 2)
+    prepared, (first, second) = claims(commit_db_engine, commit_writer_engine, 2)
     renewed = Event()
     actual = claim_lifetime.renew_claim
     seen = []
@@ -536,7 +533,7 @@ def test_uncertain_member_keeps_sibling_renewal_and_settlement(
     with (
         pytest.raises(claim_lifetime.ClaimSettlementUncertain),
         claim_lifetime.maintained_claims(
-            semantic_writer_engine, (first, second), "owner", interval=0.05
+            commit_writer_engine, (first, second), "owner", interval=0.05
         ) as owner,
     ):
         with owner.lock:
@@ -555,7 +552,7 @@ def test_uncertain_member_keeps_sibling_renewal_and_settlement(
         assert result.transaction == "applied"
         with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
             owner.settle(first, completion(prepared, first))
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": second.task_id})
             == "empty"
@@ -563,15 +560,15 @@ def test_uncertain_member_keeps_sibling_renewal_and_settlement(
 
 
 def test_retained_uncertain_completion_can_reconcile_through_same_owner(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     attempts = []
 
     class ResponsesLost:
         @contextmanager
         def connect(self):
-            with semantic_writer_engine.connect() as conn:
+            with commit_writer_engine.connect() as conn:
 
                 class Connection:
                     @contextmanager
@@ -600,14 +597,12 @@ def test_retained_uncertain_completion_can_reconcile_through_same_owner(
     owner.check_settled()
 
 
-def test_exceptional_exit_reports_every_uncertain_sibling(
-    semantic_db_engine, semantic_writer_engine
-):
-    _, owned = claims(semantic_db_engine, semantic_writer_engine, 2)
+def test_exceptional_exit_reports_every_uncertain_sibling(commit_db_engine, commit_writer_engine):
+    _, owned = claims(commit_db_engine, commit_writer_engine, 2)
     primary = OperationConflict("independent sibling failed")
     with (
         pytest.raises(OperationConflict) as caught,
-        claim_lifetime.maintained_claims(semantic_writer_engine, owned, "owner") as owner,
+        claim_lifetime.maintained_claims(commit_writer_engine, owned, "owner") as owner,
     ):
         for claim in owned:
             owner.uncertain[(claim.task_id, claim.attempt, "owner")] = (
@@ -623,9 +618,9 @@ def test_exceptional_exit_reports_every_uncertain_sibling(
 
 
 def test_dynamic_owner_renews_injected_fences_and_retain_does_not_retire(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     renewed = Event()
 
     def renew(conn, owned):
@@ -636,7 +631,7 @@ def test_dynamic_owner_renews_injected_fences_and_retain_does_not_retire(
         renewed.set()
 
     with claim_lifetime.maintained_claims(
-        semantic_writer_engine,
+        commit_writer_engine,
         (),
         "owner",
         interval=0.01,
@@ -653,15 +648,15 @@ def test_dynamic_owner_renews_injected_fences_and_retain_does_not_retire(
 
 
 def test_uncertain_retention_requires_exact_stage_and_does_not_retire_claim(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    prepared, (claim,) = claims(commit_db_engine, commit_writer_engine)
     attempts = []
 
     class ResponsesLost:
         @contextmanager
         def connect(self):
-            with semantic_writer_engine.connect() as conn:
+            with commit_writer_engine.connect() as conn:
 
                 class Connection:
                     @contextmanager

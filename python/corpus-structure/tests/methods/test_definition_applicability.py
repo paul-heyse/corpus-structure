@@ -821,8 +821,7 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
     from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
     from corpus_structure.methods.definition_applicability import retained_annotation_components
     from corpus_structure.schema.pack import DOMAINS
-
-    from .test_predicate_frames import _PREFIX, retained
+    from methods.predicate_frames_support import _PREFIX, retained
 
     restriction = (
         "the set of points (x, y) in the xy-plane such that fX,Y (x, y) = C for some constant C."
@@ -851,7 +850,7 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
     config = DefinitionComponentsConfig(
         annotation_rules=rules["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"],
     )
-    from .primary_reading_fixture import primary_product
+    from methods.primary_reading_fixture import primary_product
 
     product = primary_product(
         source_text, product, AnnotationProfile(), rules=config.annotation_rules
@@ -964,9 +963,8 @@ def test_current_named_definition_primary_witness_crosses_released_batch():
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.definition_applicability import retained_annotation_components
     from corpus_structure.schema.pack import DOMAINS
-
-    from .primary_reading_fixture import primary_product
-    from .test_predicate_frames import _PREFIX, retained
+    from methods.predicate_frames_support import _PREFIX, retained
+    from methods.primary_reading_fixture import primary_product
 
     profile = AnnotationProfile()
     text, product = retained("The expected squared deviation is called variance.", profile)

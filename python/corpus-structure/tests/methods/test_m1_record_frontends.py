@@ -25,9 +25,9 @@ from corpus_structure.semantic.source_contexts import (
     SourceSlice,
     SyntheticText,
 )
-from methods.test_m1_source_preparation import source as view_source
-from methods.test_m1_source_profile import config
-from methods.test_record_assembly import context, fields, release, report, span
+from methods.m1_source_preparation_support import source as view_source
+from methods.m1_source_profile_support import config
+from methods.record_assembly_support import context, fields, release, report, span
 
 ROOT = Path(__file__).resolve().parents[4]
 

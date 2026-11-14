@@ -12,6 +12,7 @@ from typing import Any
 import psycopg
 import pytest
 import yaml
+from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -29,8 +30,7 @@ from corpus_structure.semantic.publication import (
     publish_batch,
     publish_on_connection,
 )
-
-from .domain_scenarios import batch, fixture_model, seed
+from semantic.domain_scenarios import batch, fixture_model, seed
 
 Z = "realization:test"
 C = "https://example/Thing"
@@ -59,18 +59,16 @@ def test_batch_is_immutable_and_numeric_receipt_encoding():
         PublicationBatch(R, Z, "b", entity=invalid_rows)
 
 
-def test_native_copy_atomic_idempotent_distinct_occurrences(
-    semantic_db_engine, semantic_writer_engine
-):
+def test_native_copy_atomic_idempotent_distinct_occurrences(commit_db_engine, commit_writer_engine):
     from sqlalchemy import select
 
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
-    first = publish_batch(semantic_writer_engine, candidate)
+    first = publish_batch(commit_writer_engine, candidate)
     assert first.data_revision == 1
-    assert publish_batch(semantic_writer_engine, candidate) == first
-    with semantic_db_engine.connect() as conn:
+    assert publish_batch(commit_writer_engine, candidate) == first
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
         assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.support")) == 2
@@ -91,7 +89,7 @@ def test_native_copy_atomic_idempotent_distinct_occurrences(
             "membership_support",
             "batch",
         )
-        with semantic_db_engine.connect() as conn:
+        with commit_db_engine.connect() as conn:
             rows = {}
             for name in names:
                 relation = table(f"data.{name}")
@@ -109,7 +107,7 @@ def test_native_copy_atomic_idempotent_distinct_occurrences(
     committed = committed_state()
     with pytest.raises(DBAPIError) as refused:
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             replace(
                 candidate,
                 batch_id="bad-membership",
@@ -124,9 +122,9 @@ def test_native_copy_atomic_idempotent_distinct_occurrences(
 
 
 def test_native_rejects_bad_identity_and_leaves_no_partial_state(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
     bad = replace(
@@ -137,19 +135,19 @@ def test_native_rejects_bad_identity_and_leaves_no_partial_state(
         ),
     )
     with pytest.raises(DBAPIError) as refused:
-        publish_batch(semantic_writer_engine, bad)
+        publish_batch(commit_writer_engine, bad)
     assert isinstance(refused.value.orig, psycopg.Error)
     assert refused.value.orig.diag.message_primary == "invalid occurrence identity"
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for name in ("entity", "typed_value", "fact", "occurrence", "batch"):
             assert conn.scalar(text(f"SELECT count(*) FROM data.{name}")) == 0
         assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
 
 
 def test_native_rejects_bad_fact_identity_without_partial_state(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     candidate = partial(make_batch, release_id=R)()
     forged_id = "fact:forged"
     bad = replace(
@@ -160,17 +158,17 @@ def test_native_rejects_bad_fact_identity_without_partial_state(
         selection=tuple(replace(row, fact_id=forged_id) for row in candidate.selection),
     )
     with pytest.raises(DBAPIError) as refused:
-        publish_batch(semantic_writer_engine, bad)
+        publish_batch(commit_writer_engine, bad)
     assert isinstance(refused.value.orig, psycopg.Error)
     assert refused.value.orig.diag.message_primary == "invalid fact identity"
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for name in ("entity", "membership", "typed_value", "fact", "occurrence", "batch"):
             assert conn.scalar(text(f"SELECT count(*) FROM data.{name}")) == 0
         assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
 
 
-def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, semantic_writer_engine):
-    R = seed(semantic_db_engine).release_id
+def test_native_null_missing_range_and_nested_scope_fk(commit_db_engine, commit_writer_engine):
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
     for value, sqlstate, primary, constraint in (
@@ -190,7 +188,7 @@ def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, seman
     ):
         with pytest.raises(DBAPIError) as refused:
             publish_batch(
-                semantic_writer_engine,
+                commit_writer_engine,
                 replace(
                     candidate,
                     typed_value=(value,),
@@ -205,7 +203,7 @@ def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, seman
             assert refused.value.orig.diag.constraint_name == constraint
     with pytest.raises(DBAPIError) as refused:
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             replace(candidate, value_role=(RoleRow("vb", "item", 0, "foreign-value"),)),
         )
     assert isinstance(refused.value.orig, psycopg.Error)
@@ -214,58 +212,56 @@ def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, seman
         refused.value.orig.diag.constraint_name
         == "fk_value_role_realization_id_release_id_child_value_id"
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         for name in ("entity", "typed_value", "fact", "occurrence", "batch"):
             assert conn.scalar(text(f"SELECT count(*) FROM data.{name}")) == 0
         assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
 
 
-def test_restricted_role_cannot_bypass_or_replace_stage(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
-):
-    seed(semantic_db_engine)
-    for engine, statement in (
-        (semantic_writer_engine, "INSERT INTO data.entity VALUES ('x','y','z')"),
-        (semantic_reader_engine, "SELECT data.begin_stage()"),
+def test_restricted_role_cannot_bypass_or_replace_stage(native_rollback):
+    for purpose, statement in (
+        ("write", "INSERT INTO data.entity VALUES ('x','y','z')"),
+        ("read", "SELECT data.begin_stage()"),
     ):
-        with pytest.raises(DBAPIError), engine.begin() as conn:
+        with (
+            native_rollback.principal(purpose) as conn,
+            native_refusal("42501"),
+            conn.begin_nested(),
+        ):
             conn.execute(text(statement))
-    # Writers obtain fixed protected workspaces; generic TEMP is deliberately unavailable.
-    with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
-        conn.execute(text("CREATE TEMP TABLE sp_entity(entity_id text) ON COMMIT DROP"))
-    with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-    ):
+    # Writers obtain protected workspaces; ordinary TEMP remains unavailable.
+    with native_rollback.principal("write", isolation_level="SERIALIZABLE") as conn:
+        with native_refusal("42501"), conn.begin_nested():
+            conn.execute(text("CREATE TEMP TABLE sp_entity(entity_id text) ON COMMIT DROP"))
+        assert conn.scalar(text("SELECT to_regclass('pg_temp.sp_entity')")) is None
         conn.execute(text("SELECT data.begin_stage()"))
+        assert conn.scalar(text("SELECT to_regclass('pg_temp.sp_entity')")) is not None
         for statement in (
             "DROP TABLE pg_temp.sp_entity",
             "ALTER TABLE pg_temp.sp_entity ADD COLUMN hidden text",
             "CREATE TRIGGER malicious BEFORE INSERT ON pg_temp.sp_entity "
             "EXECUTE FUNCTION pg_catalog.suppress_redundant_updates_trigger()",
-            "SELECT data.begin_stage()",
         ):
-            with pytest.raises(DBAPIError), conn.begin_nested():
+            with native_refusal("42501"), conn.begin_nested():
                 conn.execute(text(statement))
-    with (
-        semantic_db_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-    ):
+        with native_refusal("P0001", message="preexisting staging relation"), conn.begin_nested():
+            conn.execute(text("SELECT data.begin_stage()"))
+    with native_rollback.principal("maintenance", isolation_level="SERIALIZABLE") as conn:
         conn.execute(text("CREATE TEMP TABLE sp_entity(entity_id text)"))
-        with pytest.raises(DBAPIError), conn.begin_nested():
+        with native_refusal("P0001", message="preexisting staging relation"), conn.begin_nested():
             conn.execute(text("SELECT data.begin_stage()"))
 
 
 def test_selected_value_cardinality_retains_unselected_conflicts(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
-    publish_batch(semantic_writer_engine, batch())
-    publish_batch(semantic_writer_engine, batch("conflict", label="Other", selected=False))
+    publish_batch(commit_writer_engine, batch())
+    publish_batch(commit_writer_engine, batch("conflict", label="Other", selected=False))
     with pytest.raises(DBAPIError):
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(
                 R,
                 Z,
@@ -273,23 +269,23 @@ def test_selected_value_cardinality_retains_unselected_conflicts(
                 selection=(SelectionRow(fact_key(R, Z, "e", P, "Other", {})),),
             ),
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 2
         assert conn.scalar(text("SELECT count(*) FROM data.selection")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 4
 
 
 def test_concurrent_casefold_unique_candidates_have_independent_expected_state(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine, unique=True).release_id
+    R = seed(commit_db_engine, unique=True).release_id
     batch = partial(make_batch, release_id=R)
     barrier = Barrier(2)
 
     def attempt(candidate):
         barrier.wait(timeout=10)
         try:
-            return publish_batch(semantic_writer_engine, candidate)
+            return publish_batch(commit_writer_engine, candidate)
         except DBAPIError:
             return None
 
@@ -300,42 +296,42 @@ def test_concurrent_casefold_unique_candidates_have_independent_expected_state(
         ]
         results = [f.result(timeout=30) for f in futures]
     assert sum(result is not None for result in results) == 1
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
 
 
 def test_connection_api_never_commits_and_requires_serializable(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     with (
-        semantic_writer_engine.connect() as conn,
+        commit_writer_engine.connect() as conn,
         conn.begin(),
         pytest.raises(DBAPIError),
         conn.begin_nested(),
     ):
         publish_on_connection(conn, batch())
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         assert publish_on_connection(conn, batch()).data_revision == 1
         conn.rollback()
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
 
 
 def test_serialization_retry_restages_same_immutable_batches(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
     from sqlalchemy import event
 
     from corpus_structure.semantic import publication
 
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     barrier = Barrier(2)
     original = publication.stage_batch
@@ -352,11 +348,11 @@ def test_serialization_retry_restages_same_immutable_batches(
         states.append(getattr(context.original_exception, "sqlstate", None))
 
     monkeypatch.setattr(publication, "stage_batch", staged)
-    event.listen(semantic_writer_engine, "handle_error", failed)
+    event.listen(commit_writer_engine, "handle_error", failed)
     candidates = (batch("a", entity="a"), batch("b", entity="b"))
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(
-            pool.map(lambda candidate: publish_batch(semantic_writer_engine, candidate), candidates)
+            pool.map(lambda candidate: publish_batch(commit_writer_engine, candidate), candidates)
         )
     assert {receipt.data_revision for receipt in results} == {1, 2}
     assert "40001" in states
@@ -367,19 +363,19 @@ def test_serialization_retry_restages_same_immutable_batches(
             for item in seen
             if item[1] == candidate.batch_id
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 2
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 4
 
 
 def test_ambiguous_committed_connection_loss_resolves_exact_receipt(
-    semantic_db_engine, semantic_writer_engine, monkeypatch
+    commit_db_engine, commit_writer_engine, monkeypatch
 ):
     import psycopg
 
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
-    original = semantic_writer_engine.dialect.do_commit
+    original = commit_writer_engine.dialect.do_commit
     commits = []
 
     def committed_then_lost(driver):
@@ -388,19 +384,17 @@ def test_ambiguous_committed_connection_loss_resolves_exact_receipt(
         if len(commits) == 1:
             raise psycopg.OperationalError("injected connection loss after server commit")
 
-    monkeypatch.setattr(semantic_writer_engine.dialect, "do_commit", committed_then_lost)
+    monkeypatch.setattr(commit_writer_engine.dialect, "do_commit", committed_then_lost)
     candidate = batch()
-    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    assert publish_batch(commit_writer_engine, candidate).data_revision == 1
     assert len(commits) == 1
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
 
 
-def test_native_recursive_record_shape_and_entity_reference(
-    semantic_db_engine, semantic_writer_engine
-):
-    R = seed(semantic_db_engine, label_range="Record", inlined=True, record_target=True).release_id
+def test_native_recursive_record_shape_and_entity_reference(commit_db_engine, commit_writer_engine):
+    R = seed(commit_db_engine, label_range="Record", inlined=True, record_target=True).release_id
     batch = partial(make_batch, release_id=R)
     record = "https://example/Record"
     candidate = batch()
@@ -417,7 +411,7 @@ def test_native_recursive_record_shape_and_entity_reference(
         support=(),
         selection=(SelectionRow(key),),
     )
-    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    assert publish_batch(commit_writer_engine, candidate).data_revision == 1
     for value in (
         ValueRow("bad", "string", text_value="e", datatype=record),
         ValueRow("bad", "record", datatype=record),
@@ -431,18 +425,18 @@ def test_native_recursive_record_shape_and_entity_reference(
             selection=(),
         )
         with pytest.raises(DBAPIError):
-            publish_batch(semantic_writer_engine, bad)
+            publish_batch(commit_writer_engine, bad)
 
 
 def test_native_identity_vectors_scalars_unicode_and_exact_decimals(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     import json
     from datetime import UTC, date, datetime
 
     from corpus_structure.semantic.identity import _meaning, canonical_bytes
 
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     values = (
         ("unicode", ValueRow("unicode", "string", text_value='é𝄞\n\t\\"\u2028'), 'é𝄞\n\t\\"\u2028'),
         ("integer", ValueRow("integer", "integer", text_value="9" * 4000), int("9" * 4000)),
@@ -469,8 +463,8 @@ def test_native_identity_vectors_scalars_unicode_and_exact_decimals(
         ("boolean", ValueRow("boolean", "boolean", boolean_value=False), False),
     )
     candidate = PublicationBatch(R, Z, "vectors", typed_value=tuple(row for _, row, _ in values))
-    publish_batch(semantic_writer_engine, candidate)
-    with semantic_db_engine.begin() as conn:
+    publish_batch(commit_writer_engine, candidate)
+    with commit_db_engine.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         for value_id, _, semantic in values:
             actual = conn.scalar(
@@ -487,16 +481,14 @@ def test_native_identity_vectors_scalars_unicode_and_exact_decimals(
         ValueRow("bad", "decimal", decimal_lexical="NaN"),
     ):
         with pytest.raises(DBAPIError):
-            publish_batch(
-                semantic_writer_engine, PublicationBatch(R, Z, "bad", typed_value=(value,))
-            )
+            publish_batch(commit_writer_engine, PublicationBatch(R, Z, "bad", typed_value=(value,)))
 
 
 def test_native_bound_comparison_is_lossless_beyond_numeric_capacity(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     huge = "9" * 150000
-    R = seed(semantic_db_engine, label_range="decimal", minimum=huge, maximum=huge).release_id
+    R = seed(commit_db_engine, label_range="decimal", minimum=huge, maximum=huge).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
     fact = fact_key(R, Z, "e", P, Decimal(huge), {})
@@ -508,8 +500,8 @@ def test_native_bound_comparison_is_lossless_beyond_numeric_capacity(
         support=(),
         selection=(SelectionRow(fact),),
     )
-    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
-    with semantic_db_engine.begin() as conn:
+    assert publish_batch(commit_writer_engine, candidate).data_revision == 1
+    with commit_db_engine.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         assert (
             conn.scalar(text("SELECT data.compare_decimal(:a,:b)"), {"a": huge, "b": "1" + huge})
@@ -552,17 +544,17 @@ def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
 
 
 def test_independent_value_encodings_merge_fact_and_preserve_reports(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     first = batch("one")
     second = batch("two")
     assert first.fact[0].fact_id == second.fact[0].fact_id
     assert first.fact[0].object_value_id != second.fact[0].object_value_id
-    publish_batch(semantic_writer_engine, first)
-    publish_batch(semantic_writer_engine, second)
-    with semantic_db_engine.connect() as conn:
+    publish_batch(commit_writer_engine, first)
+    publish_batch(commit_writer_engine, second)
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 4
         assert set(conn.scalars(text("SELECT report_object_value_id FROM data.occurrence"))) == {
@@ -572,14 +564,14 @@ def test_independent_value_encodings_merge_fact_and_preserve_reports(
 
 
 def test_replacing_selection_preserves_occurrences_and_identity_uses_selected_scope(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine, unique=True).release_id
+    R = seed(commit_db_engine, unique=True).release_id
     batch = partial(make_batch, release_id=R)
     first = batch("one")
     second = batch("two", label="Other", selected=False)
-    publish_batch(semantic_writer_engine, first)
-    publish_batch(semantic_writer_engine, second)
+    publish_batch(commit_writer_engine, first)
+    publish_batch(commit_writer_engine, second)
     replace_selection = PublicationBatch(
         R,
         Z,
@@ -589,17 +581,17 @@ def test_replacing_selection_preserves_occurrences_and_identity_uses_selected_sc
             SelectionRow(second.fact[0].fact_id),
         ),
     )
-    assert publish_batch(semantic_writer_engine, replace_selection).data_revision == 3
-    with semantic_db_engine.connect() as conn:
+    assert publish_batch(commit_writer_engine, replace_selection).data_revision == 3
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 4
         assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 2
         assert conn.scalar(text("SELECT fact_id FROM data.selection")) == second.fact[0].fact_id
 
 
 def test_existing_value_tree_cannot_be_extended_by_a_later_batch(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     first = PublicationBatch(
         R,
         Z,
@@ -607,7 +599,7 @@ def test_existing_value_tree_cannot_be_extended_by_a_later_batch(
         typed_value=(ValueRow("tree", "mapping"), ValueRow("child", "string", text_value="first")),
         value_role=(RoleRow("tree", "a", 0, "child"),),
     )
-    publish_batch(semantic_writer_engine, first)
+    publish_batch(commit_writer_engine, first)
     extend = PublicationBatch(
         R,
         Z,
@@ -616,13 +608,13 @@ def test_existing_value_tree_cannot_be_extended_by_a_later_batch(
         value_role=(RoleRow("tree", "b", 0, "other"),),
     )
     with pytest.raises(DBAPIError):
-        publish_batch(semantic_writer_engine, extend)
-    with semantic_db_engine.connect() as conn:
+        publish_batch(commit_writer_engine, extend)
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.value_role")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
 
 
-def test_constraint_capability_refusal_and_optional_ontology_metadata(semantic_db_engine):
+def test_constraint_capability_refusal_and_optional_ontology_metadata(commit_db_engine):
     from dataclasses import replace
 
     from corpus_structure.semantic.publication import admit_release
@@ -637,16 +629,16 @@ def test_constraint_capability_refusal_and_optional_ontology_metadata(semantic_d
     )
     definition = ClassDefinition("Thing", C, (), (prop,), ())
     # Admission checks native deployment before checking the independently invalid definition.
-    prepared = replace(seed(semantic_db_engine), definitions=(definition,))
+    prepared = replace(seed(commit_db_engine), definitions=(definition,))
     with (
-        semantic_db_engine.connect() as connection,
+        commit_db_engine.connect() as connection,
         pytest.raises(ValueError, match="float bounds"),
     ):
         admit_release(prepared, connection=connection)
     unconstrained = replace(
         prepared, definitions=(replace(definition, properties=(replace(prop, minimum=None),)),)
     )
-    with semantic_db_engine.connect() as connection:
+    with commit_db_engine.connect() as connection:
         admit_release(
             replace(
                 unconstrained,
@@ -656,7 +648,7 @@ def test_constraint_capability_refusal_and_optional_ontology_metadata(semantic_d
             ),
             connection=connection,
         )
-    with semantic_db_engine.connect() as connection, pytest.raises(ValueError, match="unchecked"):
+    with commit_db_engine.connect() as connection, pytest.raises(ValueError, match="unchecked"):
         admit_release(
             replace(
                 unconstrained,
@@ -707,17 +699,17 @@ def _qualified(candidate, qclass, *, attribution="reporter", score=None):
 
 
 def test_equal_fact_keeps_each_occurrence_full_provenance_qualification(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine, qualification=True).release_id
+    R = seed(commit_db_engine, qualification=True).release_id
     batch = partial(make_batch, release_id=R)
-    qclass = _qualification_schema(semantic_db_engine)
+    qclass = _qualification_schema(commit_db_engine)
     first = _qualified(batch("one"), qclass, attribution="Alice")
     second = _qualified(batch("two"), qclass, attribution="Bob")
     assert first.fact[0].fact_id == second.fact[0].fact_id
-    publish_batch(semantic_writer_engine, first)
-    publish_batch(semantic_writer_engine, second)
-    with semantic_db_engine.connect() as conn:
+    publish_batch(commit_writer_engine, first)
+    publish_batch(commit_writer_engine, second)
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 4
         assert set(
@@ -735,27 +727,27 @@ def test_equal_fact_keeps_each_occurrence_full_provenance_qualification(
 
 
 def test_selected_qualification_closure_enforces_accepted_bounds(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine, qualification=True).release_id
+    R = seed(commit_db_engine, qualification=True).release_id
     batch = partial(make_batch, release_id=R)
-    qclass = _qualification_schema(semantic_db_engine, score=True)
+    qclass = _qualification_schema(commit_db_engine, score=True)
     candidate = _qualified(batch("one", selected=False), qclass, score="-1")
-    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    assert publish_batch(commit_writer_engine, candidate).data_revision == 1
     with pytest.raises(DBAPIError):
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(R, Z, "select", selection=(SelectionRow(candidate.fact[0].fact_id),)),
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.selection")) == 0
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
 
 
 def test_raw_decimal_and_integer_lexicals_keep_exact_receipt_but_share_meaning(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     candidate = PublicationBatch(
         R,
         Z,
@@ -768,8 +760,8 @@ def test_raw_decimal_and_integer_lexicals_keep_exact_receipt_but_share_meaning(
             ValueRow("zero", "decimal", decimal_lexical="-0.000e200000"),
         ),
     )
-    publish_batch(semantic_writer_engine, candidate)
-    with semantic_db_engine.begin() as conn:
+    publish_batch(commit_writer_engine, candidate)
+    with commit_db_engine.begin() as conn:
         assert bytes(conn.scalar(text("SELECT content FROM data.batch"))) == candidate.content
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         assert conn.scalar(
@@ -784,9 +776,9 @@ def test_raw_decimal_and_integer_lexicals_keep_exact_receipt_but_share_meaning(
 
 
 def test_report_entity_reference_cannot_masquerade_as_equal_string(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine, label_range="Thing").release_id
+    R = seed(commit_db_engine, label_range="Thing").release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch("entity")
     fact = fact_key(R, Z, "e", P, "e", {})
@@ -805,7 +797,7 @@ def test_report_entity_reference_cannot_masquerade_as_equal_string(
         support=tuple(replace(s, fact_id=fact) for s in candidate.support),
         selection=(SelectionRow(fact),),
     )
-    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    assert publish_batch(commit_writer_engine, candidate).data_revision == 1
     forged_occurrence = OccurrenceRow(
         occurrence_key(R, Z, "source", "forged-reference"),
         fact,
@@ -815,18 +807,18 @@ def test_report_entity_reference_cannot_masquerade_as_equal_string(
     )
     with pytest.raises(DBAPIError, match="declared range"):
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(R, Z, "forged-reference", occurrence=(forged_occurrence,)),
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
 
 
 def test_report_record_class_must_match_even_when_field_meaning_is_equal(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine, label_range="ExpectedRecord", inlined=True).release_id
+    R = seed(commit_db_engine, label_range="ExpectedRecord", inlined=True).release_id
     batch = partial(make_batch, release_id=R)
     expected_class = "https://example/ExpectedRecord"
     other_class = "https://example/OtherRecord"
@@ -847,7 +839,7 @@ def test_report_record_class_must_match_even_when_field_meaning_is_equal(
         support=tuple(replace(s, fact_id=fact) for s in candidate.support),
         selection=(SelectionRow(fact),),
     )
-    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    assert publish_batch(commit_writer_engine, candidate).data_revision == 1
     forged_occurrence = OccurrenceRow(
         occurrence_key(R, Z, "source", "forged-class"),
         fact,
@@ -857,17 +849,17 @@ def test_report_record_class_must_match_even_when_field_meaning_is_equal(
     )
     with pytest.raises(DBAPIError, match="declared range"):
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(R, Z, "forged-class", occurrence=(forged_occurrence,)),
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
 
 
 def test_unused_alias_payloads_and_scalar_datatypes_are_refused(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    R = seed(semantic_db_engine).release_id
+    R = seed(commit_db_engine).release_id
     record = "https://example/Record"
     for value in (
         ValueRow("v", "interval", datatype=record),
@@ -876,7 +868,7 @@ def test_unused_alias_payloads_and_scalar_datatypes_are_refused(
     ):
         with pytest.raises(DBAPIError, match="unsupported physical value alias"):
             publish_batch(
-                semantic_writer_engine,
+                commit_writer_engine,
                 PublicationBatch(R, Z, "alias-" + value.kind, typed_value=(value,)),
             )
     for value in (
@@ -886,18 +878,18 @@ def test_unused_alias_payloads_and_scalar_datatypes_are_refused(
     ):
         with pytest.raises(DBAPIError, match="datatype is supported only"):
             publish_batch(
-                semantic_writer_engine,
+                commit_writer_engine,
                 PublicationBatch(R, Z, "datatype-" + value.kind, typed_value=(value,)),
             )
     assert (
         publish_batch(
-            semantic_writer_engine,
+            commit_writer_engine,
             PublicationBatch(
                 R, Z, "typed-record", typed_value=(ValueRow("v", "record", datatype=record),)
             ),
         ).data_revision
         == 1
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert conn.scalar(text("SELECT kind FROM data.typed_value")) == "record"

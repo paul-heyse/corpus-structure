@@ -15,6 +15,10 @@ from corpus_structure.serve.review_bundle import (
     verify_review_bundle,
     write_review_bundle,
 )
+from semantic.review_bundle_doubles import (
+    synthetic_source_projection as synthetic_source_projection,
+)
+from semantic.review_bundle_support import source_row as source_row
 
 
 def selection(**values):
@@ -167,45 +171,6 @@ def test_invalid_relation_path_is_refused(tmp_path):
     with pytest.raises(ValueError, match="relation name"):
         write_review_bundle(selection(), tmp_path / "review", iter([("../escape", {"a": 1})]))
     assert list(tmp_path.iterdir()) == []
-
-
-def source_row(text="qq"):
-    from hashlib import sha256
-
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    projection = {
-        "text": text,
-        "pieces": [{"start": 0, "end": len(text), "item_ref": "#/texts/0"}],
-        "items": ["#/texts/0"],
-        "ancestors": [],
-        "health": {"state": "unknown"},
-    }
-    return {
-        "source_view_id": 1,
-        "ref": {
-            "id": 1,
-            "key": "known",
-            "document_id": 1,
-            "native_product": {"task_id": 1, "product_key": "native", "content_digest": "a" * 64},
-            "section_pointer": "#/texts/0",
-            "membership": "direct",
-            "projection_digest": sha256(canonical_bytes(projection)).hexdigest(),
-            "recipe_digest": "b" * 64,
-            "analysis_eligible": True,
-        },
-        "text": projection["text"],
-        "context": {**projection, "items": [{"self_ref": "#/texts/0", "text": text}]},
-    }
-
-
-@pytest.fixture
-def synthetic_source_projection(monkeypatch):
-    # These controls use hand-written structural scopes and opaque product IDs.
-    # The native fold and its mandatory bundle boundary are exercised separately.
-    from corpus_structure.serve import review_bundle
-
-    monkeypatch.setattr(review_bundle, "_verify_source_projections", lambda *_: set())
 
 
 def test_source_projection_and_membership_closure(tmp_path, synthetic_source_projection):
@@ -671,32 +636,95 @@ def test_cross_cut_dossier_authenticates_declared_reused_predecessor(
 
 
 @pytest.mark.parametrize(
-    "corruption",
+    ("corruption", "message"),
     [
-        "project",
-        "run",
-        "cut",
-        "release",
-        "revision",
-        "selected_task",
-        "origin_task",
-        "runtime",
-        "producer_run",
-        "producer_project",
-        "producer_runtime",
-        "raw_report",
-        "missing_predecessor",
-        "same_product_wrong_cut",
-        "member_role",
-        "borrowed_support",
+        pytest.param(
+            "project",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="project",
+        ),
+        pytest.param(
+            "run", "dossier predecessor closure missing; exact selected custody differs", id="run"
+        ),
+        pytest.param(
+            "cut", "dossier predecessor closure missing; exact selected custody differs", id="cut"
+        ),
+        pytest.param(
+            "release",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="release",
+        ),
+        pytest.param(
+            "revision",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="revision",
+        ),
+        pytest.param(
+            "selected_task",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="selected_task",
+        ),
+        pytest.param(
+            "origin_task",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="origin_task",
+        ),
+        pytest.param(
+            "runtime",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="runtime",
+        ),
+        pytest.param(
+            "producer_run",
+            "dossier predecessor differs from original producer custody",
+            id="producer_run",
+        ),
+        pytest.param(
+            "producer_project",
+            "dossier predecessor differs from original producer custody",
+            id="producer_project",
+        ),
+        pytest.param(
+            "producer_runtime",
+            "dossier predecessor differs from original producer custody",
+            id="producer_runtime",
+        ),
+        pytest.param(
+            "raw_report",
+            "dossier predecessor differs from original producer custody",
+            id="raw_report",
+        ),
+        pytest.param(
+            "missing_predecessor",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="missing_predecessor",
+        ),
+        pytest.param(
+            "same_product_wrong_cut",
+            "dossier predecessor closure missing; exact selected custody differs",
+            id="same_product_wrong_cut",
+        ),
+        pytest.param(
+            "member_role",
+            "dossier structural membership differs from declared predecessor evidence",
+            id="member_role",
+        ),
+        pytest.param(
+            "borrowed_support",
+            "dossier structural membership differs from declared predecessor evidence",
+            id="borrowed_support",
+        ),
     ],
 )
 def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(
-    tmp_path, corruption, synthetic_source_projection
+    tmp_path, corruption, message, synthetic_source_projection
 ):
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
     selection, rows = cross_cut_dossier_rows()
+    valid = tmp_path / "valid"
+    manifest = write_review_bundle(selection, valid, iter(rows))
+    assert verify_review_bundle(valid) == manifest
     scope = next(
         v for name, v in rows if name == "structural_selections" and v["selection_index"] == 0
     )
@@ -735,10 +763,29 @@ def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(
     elif corruption == "producer_runtime":
         raw["runtime_fingerprint"] = "runtime:other"
     elif corruption == "raw_report":
-        raw["body"]["structural_product"] = rows[1][1]["report"].copy()
-        raw["body"]["structural_product"]["inputs"] = {}
+        # Keep a well-formed producer report so this reaches custody comparison,
+        # rather than being accepted as a generic model-validation refusal.
+        original = StructuralProductReport.model_validate(product["report"])
+        changed = original.model_copy(
+            update=dict(
+                inputs=original.inputs.model_copy(
+                    update=dict(dependencies=(*original.inputs.dependencies, "foreign-predecessor"))
+                )
+            )
+        )
+        raw["body"]["structural_product"] = changed.model_dump(mode="json")
     elif corruption == "missing_predecessor":
         rows.remove(("structural_products", product))
+        # Remove the product's standalone witness as well: a dangling public
+        # witness would mask the dossier's own predecessor-closure guard.
+        rows[:] = [
+            (name, value)
+            for name, value in rows
+            if not (
+                name == "structural_public_assertions"
+                and value["product_id"] == product["product_id"]
+            )
+        ]
     elif corruption == "same_product_wrong_cut":
         product["selection_index"] = 1
     elif corruption == "borrowed_support":
@@ -758,6 +805,8 @@ def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(
         changed = select_dossier(
             original.inputs,
             root_id=original.dossier.root_id,
+            root_component=original.dossier.root_component,
+            comparison_selections=original.dossier.comparison_selections,
             members=members,
             supported_facets=original.dossier.supported_facets,
             predecessors=original.dossier.predecessors,
@@ -768,8 +817,10 @@ def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(
         next(v for name, v in rows if name == "reports" and v["origin_task_id"] == 400)["body"][
             "structural_product"
         ] = changed.model_dump(mode="json")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as refusal:
         write_review_bundle(selection, tmp_path / corruption, iter(rows))
+    assert str(refusal.value) == message
+    assert valid.is_dir()
     assert not (tmp_path / corruption).exists()
 
 
@@ -1148,8 +1199,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
 
     from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.characterization import characterization_inputs
-
-    from .test_characterization_replay import contract_data
+    from semantic.characterization_replay_support import contract_data
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = characterization_inputs(
@@ -1508,11 +1558,11 @@ def test_detached_native_neighborhood_requires_the_exact_mutual_intersection():
         verify_detached_neighborhood(report, native_ranks=True)
 
 
-def test_native_neighborhood_retains_all_directed_ranks_at_the_cutoff(semantic_db_engine):
+def test_native_neighborhood_retains_all_directed_ranks_at_the_cutoff(commit_db_engine):
     from sqlalchemy import text
 
     report = _equal_vector_neighborhood()
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         actual = conn.scalar(
             text(
                 "SELECT ops.contextual_mutual_neighbors("

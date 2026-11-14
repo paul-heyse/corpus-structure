@@ -103,8 +103,7 @@ def evaluated_reading():
     )
     from corpus_structure.semantic.record_policy_products import record_policy_inputs
     from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-
-    from .test_record_assertions import inputs, record, report
+    from semantic.record_assertions_support import inputs, record, report
 
     prepared = prepare_release(
         record_policy_inputs(inputs()[1]),

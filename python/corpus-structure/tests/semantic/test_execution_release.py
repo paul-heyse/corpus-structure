@@ -23,36 +23,16 @@ from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-
-from .archive_faults import administrative_archive_edit
-
-
-def _bundle() -> SourceBundle:
-    return SourceBundle(
-        "domain",
-        (
-            SourceArtifact(
-                "domain",
-                b"""# Domain extraction remains a separate namespace.
-id: https://example.org/execution-archive
-name: domain
-prefixes:
-  ex: https://example.org/
-default_prefix: ex
-types:
-  string:
-    base: str
-    uri: xsd:string
-classes:
-  Item:
-    attributes:
-      id:
-        identifier: true
-        range: string
-""",
-            ),
-        ),
-    )
+from semantic.archive_faults import administrative_archive_edit
+from semantic.execution_release_support import (
+    bundle as _bundle,
+)
+from semantic.execution_release_support import (
+    project as _project,
+)
+from semantic.execution_release_support import (
+    stage_authored_sql as _stage_authored_sql,
+)
 
 
 def _stage(conn):
@@ -64,23 +44,13 @@ def _stage(conn):
     return bundle, dependencies, profile, prepared
 
 
-def _project(conn, release_id: str | None = None) -> str:
-    project_id = str(uuid4())
-    conn.execute(
-        insert(table("data.project")).values(
-            project_id=project_id, active_release_id=release_id, generation=0
-        )
-    )
-    return project_id
-
-
 def test_execution_inputs_and_products_reload_exactly_offline(
-    semantic_db_engine: Engine, monkeypatch
+    commit_db_engine: Engine, monkeypatch
 ):
     from corpus_structure.semantic import contracts, metadata
     from corpus_structure.semantic.prepare import _prepare_release_cached
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = _stage(conn)
         assert prepared.execution_model_id is not None
         archived = conn.execute(
@@ -129,9 +99,9 @@ def test_execution_inputs_and_products_reload_exactly_offline(
 
 @pytest.mark.parametrize("relation", ["input", "artifact", "registry_row", "release"])
 def test_corrupt_execution_archive_refuses_even_with_recomputed_digest(
-    semantic_db_engine: Engine, relation: str
+    commit_db_engine: Engine, relation: str
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, dependencies, _, prepared = _stage(conn)
         target = table("sem." + relation)
         predicate = [target.c.release_id == prepared.release_id]
@@ -165,8 +135,8 @@ def test_corrupt_execution_archive_refuses_even_with_recomputed_digest(
             releases.load_release(conn, prepared.release_id)
 
 
-def test_execution_manifest_identity_is_derived_from_inputs(semantic_db_engine: Engine):
-    with semantic_db_engine.begin() as conn:
+def test_execution_manifest_identity_is_derived_from_inputs(commit_db_engine: Engine):
+    with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = _stage(conn)
         manifest = json.loads(prepared.manifest)
         manifest["execution_model_id"] = "execution:forged"
@@ -190,9 +160,9 @@ def test_execution_manifest_identity_is_derived_from_inputs(semantic_db_engine: 
 
 
 def test_execution_activation_refuses_missing_native_enforcement_and_preserves_pointer(
-    semantic_db_engine: Engine,
+    commit_db_engine: Engine,
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         bundle = _bundle()
         bundle = replace(
             bundle,
@@ -226,11 +196,11 @@ def test_execution_activation_refuses_missing_native_enforcement_and_preserves_p
 
 
 def test_comment_only_trusted_input_change_preserves_archived_execution_binding(
-    semantic_db_engine: Engine,
+    commit_db_engine: Engine,
 ):
     from corpus_structure.semantic import contracts
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project_id = _project(conn)
         current = contracts.trusted_execution_inputs()
@@ -256,16 +226,16 @@ def test_comment_only_trusted_input_change_preserves_archived_execution_binding(
 
 @pytest.mark.parametrize("route", ["owner_insert", "writer_initialize"])
 def test_native_writer_cannot_bypass_execution_admission(
-    semantic_db_engine: Engine, semantic_writer_engine: Engine, route: str
+    commit_db_engine: Engine, commit_writer_engine: Engine, route: str
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project_id = _project(conn)
         conn.execute(
             text("ALTER FUNCTION ops.execution_edge(text,text,text) OWNER TO corpus_sem_publisher")
         )
     realization_id = str(uuid4())
-    engine = semantic_db_engine if route == "owner_insert" else semantic_writer_engine
+    engine = commit_db_engine if route == "owner_insert" else commit_writer_engine
     with (
         pytest.raises(DBAPIError, match=r"semantic-2|execution") as error,
         engine.begin() as conn,
@@ -288,7 +258,7 @@ def test_native_writer_cannot_bypass_execution_admission(
                 },
             )
     assert getattr(error.value.orig, "sqlstate", None) == "23514"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         assert not conn.execute(
             select(table("data.realization").c.realization_id).where(
                 table("data.realization").c.realization_id == realization_id
@@ -297,14 +267,14 @@ def test_native_writer_cannot_bypass_execution_admission(
         assert releases.activation_token(conn, project_id) == releases.ActivationToken(None, 0)
 
 
-def test_composed_archive_requires_enabled_native_fence(semantic_db_engine):
+def test_composed_archive_requires_enabled_native_fence(commit_db_engine):
     from sqlalchemy import text
 
     bundle = _bundle()
     dependencies = composed_dependencies(ResolvedDependencies())
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(text("ALTER TABLE data.realization DISABLE TRIGGER guard_execution_admission"))
         with pytest.raises(ExecutionAdmissionError, match="fence is not deployed"):
             releases.persist_release(conn, bundle, dependencies, profile, prepared)
@@ -319,10 +289,10 @@ def test_composed_archive_requires_enabled_native_fence(semantic_db_engine):
         conn.execute(text("ALTER TABLE data.realization ENABLE TRIGGER guard_execution_admission"))
 
 
-def test_composed_activation_requires_actual_verified_deployment(semantic_db_engine):
+def test_composed_activation_requires_actual_verified_deployment(commit_db_engine):
     from corpus_structure.semantic.publication import admit_release
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         with pytest.raises(ExecutionAdmissionError, match="requires verified native deployment"):
@@ -339,12 +309,12 @@ def test_composed_activation_requires_actual_verified_deployment(semantic_db_eng
 
 
 def test_composed_legacy_analysis_abi_refuses_without_intent(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="explicit derived intent"),
     ):
         conn.execute(
@@ -354,8 +324,8 @@ def test_composed_legacy_analysis_abi_refuses_without_intent(
 
 
 @pytest.mark.parametrize("tamper", ["body", "attachment", "column_grant"])
-def test_composed_activation_refuses_actual_kernel_and_privilege_drift(semantic_db_engine, tamper):
-    with semantic_db_engine.begin() as conn:
+def test_composed_activation_refuses_actual_kernel_and_privilege_drift(commit_db_engine, tamper):
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         if tamper == "body":
@@ -385,9 +355,9 @@ def test_composed_activation_refuses_actual_kernel_and_privilege_drift(semantic_
 
 @pytest.mark.parametrize("scope", ["occurrence", "context"])
 def test_native_constructor_refuses_unimplemented_required_scope(
-    semantic_db_engine, semantic_writer_engine, scope
+    commit_db_engine, commit_writer_engine, scope
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         bundle = _bundle()
         dependencies = composed_dependencies(ResolvedDependencies())
         profile = PreparationProfile(version="semantic-2", constraint_scope=scope)
@@ -395,7 +365,7 @@ def test_native_constructor_refuses_unimplemented_required_scope(
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
         project = _project(conn)
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="unsupported required native constraint"),
     ):
         conn.execute(
@@ -404,8 +374,8 @@ def test_native_constructor_refuses_unimplemented_required_scope(
         )
 
 
-def test_native_project_generation_cannot_reset_or_skip(semantic_db_engine):
-    with semantic_db_engine.begin() as conn:
+def test_native_project_generation_cannot_reset_or_skip(commit_db_engine):
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         releases.activate_release(
@@ -434,7 +404,7 @@ def test_native_project_generation_cannot_reset_or_skip(semantic_db_engine):
 
 @pytest.mark.parametrize("flag", ["transitive", "symmetric"])
 def test_native_constructor_refuses_scalar_inference_relation(
-    semantic_db_engine, semantic_writer_engine, flag
+    commit_db_engine, commit_writer_engine, flag
 ):
     import yaml
 
@@ -449,11 +419,11 @@ def test_native_constructor_refuses_scalar_inference_relation(
     prepared = prepare_release(bundle, dependencies, profile)
     with pytest.raises(ValueError, match="binary entity relations"):
         _admit_inference(prepared)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
         project = _project(conn)
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="native binary inference profile") as failure,
     ):
         conn.execute(
@@ -464,10 +434,8 @@ def test_native_constructor_refuses_scalar_inference_relation(
 
 
 @pytest.mark.parametrize("capability", ["execute", "select"])
-def test_native_readiness_requires_positive_application_capabilities(
-    semantic_db_engine, capability
-):
-    with semantic_db_engine.begin() as conn:
+def test_native_readiness_requires_positive_application_capabilities(commit_db_engine, capability):
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         owner = conn.dialect.identifier_preparer.quote(conn.scalar(text("SELECT current_user")))
@@ -490,8 +458,8 @@ def test_native_readiness_requires_positive_application_capabilities(
         assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
 
 
-def test_native_empty_realization_cannot_rebind_interpretation(semantic_db_engine):
-    with semantic_db_engine.begin() as conn:
+def test_native_empty_realization_cannot_rebind_interpretation(commit_db_engine):
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         realization = str(uuid4())
@@ -510,7 +478,7 @@ def test_native_empty_realization_cannot_rebind_interpretation(semantic_db_engin
 
 
 def test_native_constructor_admits_binary_rules_with_subtyped_range(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     import yaml
 
@@ -530,12 +498,12 @@ def test_native_constructor_admits_binary_rules_with_subtyped_range(
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     _admit_inference(prepared)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
         project = _project(conn)
     realization = str(uuid4())
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert (
             conn.scalar(
                 text("SELECT data.initialize_source_project(:p,:r,:z)"),
@@ -545,26 +513,13 @@ def test_native_constructor_admits_binary_rules_with_subtyped_range(
         )
 
 
-def _stage_authored_sql(conn):
-    bundle = _bundle()
-    dependencies = composed_dependencies(
-        ResolvedDependencies(
-            (SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),)
-        )
-    )
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
-    releases.persist_release(conn, bundle, dependencies, profile, prepared)
-    return prepared
-
-
 def test_native_constructor_requires_existing_authored_sql_admission(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         prepared = _stage_authored_sql(conn)
         project = _project(conn)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         with pytest.raises(DBAPIError, match="required authored SQL"), conn.begin_nested():
             conn.execute(
                 text("SELECT data.initialize_source_project(:p,:r,:z)"),
@@ -582,14 +537,14 @@ def test_native_constructor_requires_existing_authored_sql_admission(
 
 
 def test_composed_activation_establishes_exact_restricted_sql_admission(
-    semantic_db_engine, semantic_reader_engine, semantic_writer_engine
+    commit_db_engine, commit_reader_engine, commit_writer_engine
 ):
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         prepared = _stage_authored_sql(conn)
         project = _project(conn)
-        with semantic_reader_engine.connect() as reader:
+        with commit_reader_engine.connect() as reader:
             token = releases.activate_release(
                 conn,
                 project,
@@ -611,7 +566,7 @@ def test_composed_activation_establishes_exact_restricted_sql_admission(
         assert sha256(bytes(artifact["content"])).hexdigest() == artifact["content_digest"]
         assert artifact["physical_id"] == PHYSICAL_MODEL_ID
         assert json.loads(bytes(artifact["content"]))["sql"] == "SELECT entity_id FROM data.entity"
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         realization = str(uuid4())
         assert (
             conn.scalar(
@@ -632,14 +587,14 @@ def test_composed_activation_establishes_exact_restricted_sql_admission(
     ],
 )
 def test_native_constructor_requires_exact_sql_artifact_binding(
-    semantic_db_engine, semantic_reader_engine, semantic_writer_engine, field, value
+    commit_db_engine, commit_reader_engine, commit_writer_engine, field, value
 ):
     from corpus_structure.semantic.authored_sql import admit_archived_sql
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         prepared = _stage_authored_sql(conn)
         project = _project(conn)
-        with semantic_reader_engine.connect() as reader:
+        with commit_reader_engine.connect() as reader:
             (artifact,) = admit_archived_sql(conn, prepared.release_id, reader_conn=reader)
         body = json.loads(artifact.content)
         if field == "content_digest":
@@ -656,7 +611,7 @@ def test_native_constructor_requires_exact_sql_artifact_binding(
                 .values(**values)
             )
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="required authored SQL"),
     ):
         conn.execute(
@@ -676,10 +631,10 @@ def test_native_constructor_requires_exact_sql_artifact_binding(
     ],
 )
 def test_native_constructor_obeys_archived_diagnostic_policy(
-    semantic_db_engine, semantic_writer_engine, outcome, code, message, refused
+    commit_db_engine, commit_writer_engine, outcome, code, message, refused
 ):
     # Independent archive data exercises the native predicate, including its exact exception.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         archive = json.loads(
@@ -707,7 +662,7 @@ def test_native_constructor_obeys_archived_diagnostic_policy(
             conn.execute(
                 text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id}
             )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         statement = text("SELECT data.initialize_source_project(:p,:r,:z)")
         parameters = {"p": project, "r": prepared.release_id, "z": str(uuid4())}
         if refused:

@@ -15,7 +15,6 @@ from corpus_structure.semantic.data_operation_identity import (
     ProfileField,
     SemanticGraph,
     SemanticRequestKey,
-    body_identity,
     canonical_identity,
     contextual_product_identity,
     definition_fingerprint,

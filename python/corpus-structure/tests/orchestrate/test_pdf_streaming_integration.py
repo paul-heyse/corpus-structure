@@ -8,7 +8,6 @@ from hashlib import file_digest, sha256
 from types import SimpleNamespace
 
 import pytest
-from semantic import conftest as semantic_fixtures
 from semantic import pdf_staging_support as staging_fixtures
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
@@ -23,9 +22,6 @@ from corpus_structure.semantic.operations import claim_tasks, create_task, regis
 from corpus_structure.semantic.pdf_contracts import store_pdf_original
 from corpus_structure.semantic.pdf_staging import inspect_pdf_progress
 
-semantic_db_engine = semantic_fixtures.semantic_db_engine
-semantic_writer_engine = semantic_fixtures.semantic_writer_engine
-semantic_reader_engine = semantic_fixtures.semantic_reader_engine
 private_build = staging_fixtures.private_build
 
 
@@ -108,8 +104,8 @@ def _controlled_native_child(connection, recipe, assets):
 
 def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     private_build,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
     monkeypatch,
 ):
@@ -117,7 +113,7 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     original_path = tmp_path / "controlled.pdf"
     original_path.write_bytes(original)
     recipe = PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-stream-v1")
-    with semantic_writer_engine.begin() as connection:
+    with commit_writer_engine.begin() as connection:
         task = table("ops.task")
         baseline = (
             connection.execute(select(task).where(task.c.id == private_build.task_id))
@@ -181,7 +177,7 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     adopted = []
     directory = tmp_path / "run"
     build = run_private_native_pdf_build(
-        semantic_writer_engine,
+        commit_writer_engine,
         claim,
         "stream-control",
         original=original_path,
@@ -203,7 +199,7 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     )
     assert len(replies) == 1 and adopted
     assert not list(directory.glob("pdf-source-*")), "source ends after child settlement"
-    with semantic_writer_engine.begin() as connection:
+    with commit_writer_engine.begin() as connection:
         receipts = inspect_pdf_progress(connection, build)
     callback_receipts = {receipt.replay_key: receipt for receipt in adopted}
     persisted_receipts = {receipt.replay_key: receipt for receipt in receipts}
@@ -221,6 +217,6 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     assert any(receipt.replay_key.startswith("ipc:native:") for receipt in receipts)
     assert any(receipt.replay_key.startswith("ipc:artifact_stream:") for receipt in receipts)
     for relation in ("ops.pdf_stage_native", "ops.pdf_stage_artifact_part"):
-        with semantic_reader_engine.begin() as connection, pytest.raises(DBAPIError):
+        with commit_reader_engine.begin() as connection, pytest.raises(DBAPIError):
             connection.execute(text(f"SELECT * FROM {relation}"))
     assert not hasattr(build, "content_digest"), "private receipt is not a published product"

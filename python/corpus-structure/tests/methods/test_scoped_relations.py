@@ -13,9 +13,6 @@ from corpus_structure.methods.scoped_relations import (
     ScopedRelationsMethod,
     SourceWorkBinding,
 )
-from corpus_structure.methods.scoped_relations import (
-    discover_relations as _discover_relations,
-)
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import (
@@ -23,47 +20,16 @@ from corpus_structure.semantic.structural_products import (
     StructuralInput,
     StructuralPassage,
 )
-
-from .test_m1_source_preparation import native_table_source, source, table_cell
-
-
-def discover_relations(frame, **kwargs):
-    from dataclasses import fields
-
-    from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
-    from corpus_structure.methods.source_preparation import prepare_source
-
-    from .navigation_fixture import primary_navigation, view_from_frame
-
-    view = view_from_frame(frame)
-    native_profile = kwargs.pop("annotation_native_profile", None)
-    if "annotations" in kwargs:
-        products = tuple(kwargs["annotations"])
-    else:
-        from corpus_structure.ingest.annotations import AnnotationProfile
-        from corpus_structure.ingest.sentences import pipeline
-
-        profile = AnnotationProfile()
-        nlp: Any = pipeline(profile.configuration)
-        native_profile = nlp.selection().native
-        products = prepare_source(view, profile=profile, annotations_only=True).annotations
-    layers = dict(kwargs.pop("primary_layers", {}))
-    layers.update(
-        primary_navigation(view, products, formal=not layers, native_profile=native_profile)
-    )
-    kwargs["annotations"] = tuple(
-        PrimaryAnnotationProduct(
-            primary_layers=layers,
-            **{field.name: getattr(product, field.name) for field in fields(product)},
-        )
-        for product in products
-    )
-    kwargs.pop("predicate_version", None)
-    kwargs.pop("named_link_version", None)
-    output = _discover_relations(
-        frame, primary_layers=layers, predicate_version="6", named_link_version="4", **kwargs
-    )
-    return dict(output, _primary_layers=layers)
+from methods.m1_source_preparation_support import native_table_source, source, table_cell
+from methods.scoped_relations_support import (
+    complete_native_fields as complete_native_fields,
+)
+from methods.scoped_relations_support import (
+    discover_relations as discover_relations,
+)
+from methods.scoped_relations_support import (
+    original_inputs as original_inputs,
+)
 
 
 def _direct_profile():
@@ -72,14 +38,6 @@ def _direct_profile():
 
     nlp: Any = pipeline(AnnotationProfile().configuration)
     return nlp.selection().native
-
-
-def complete_native_fields(view):
-    nodes = {node["self_ref"]: dict(node) for node in view.items}
-    for piece in view.pieces:
-        if piece.get("kind") == "native_text" and piece.get("cell_index") is None:
-            nodes[piece["item_ref"]]["text"] = view.text[piece["start"] : piece["end"]]
-    return replace(view, items=tuple(nodes.values()))
 
 
 @pytest.mark.parametrize("explicit_scope", [True, False])
@@ -161,7 +119,7 @@ def test_source_without_authenticated_parent_binding_retains_no_artifact_identit
 @pytest.fixture(scope="module", params=("declared", "missing", "incompatible"))
 def qualifier_release(request):
     import yaml
-    from semantic.test_record_contracts import release_inputs
+    from semantic.record_contracts_support import release_inputs
 
     from corpus_structure.semantic import prepare_release
 
@@ -447,8 +405,7 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
 
 def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     from corpus_structure.semantic.source_contexts import NativeSourcePin
-
-    from .test_structural_roles import annotation
+    from methods.structural_roles_support import annotation
 
     text = "Table 5.1 must be reviewed by Manager."
     view = complete_native_fields(source(text, labels=("text",)))
@@ -553,48 +510,11 @@ def test_missing_native_roles_keeps_lexical_contributions_and_failed_stage():
     assert output["extra_operations"][0]["emitted_count"] == 0
 
 
-def original_inputs(view):
-    ref = view.ref
-    original = ExternalSourceRef(
-        project_id="original",
-        run_id=10,
-        cut_id=11,
-        release_id="r",
-        result_revision=1,
-        source_view_id=ref.id,
-        native_task_id=ref.native_product.task_id,
-        native_product_key=ref.native_product.product_key,
-        native_content_digest=ref.native_product.content_digest,
-        projection_digest=ref.projection_digest,
-        recipe_digest=ref.recipe_digest,
-        coordinate_version=3,
-    )
-    return StructuralInput(
-        question="Retain original annotations",
-        scope="s",
-        inventory_id="i",
-        policy_id="p",
-        sources=(original,),
-        passages=(
-            StructuralPassage(
-                passage_id="original",
-                source_ref=original.identity,
-                start=0,
-                end=len(view.text),
-                text=view.text,
-                scope="s",
-            ),
-        ),
-        dependencies=("annotation:original",),
-    )
-
-
 def run_scoped(view, cfg, reader):
     from dataclasses import fields
 
     from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
-
-    from .navigation_fixture import primary_navigation
+    from methods.navigation_fixture import primary_navigation
 
     class SelectedReader:
         def __getattr__(self, name):
@@ -633,8 +553,7 @@ def run_scoped(view, cfg, reader):
 @pytest.mark.parametrize("errors", ((), ("retained block failed",)))
 def test_original_annotation_port_keeps_roles_when_new_run_has_no_annotation_task(errors):
     from corpus_structure.ingest.annotations import AnnotationProfile
-
-    from .test_structural_roles import annotation
+    from methods.structural_roles_support import annotation
 
     text = "Manager reviews Table 5.1."
     view = complete_native_fields(source(text, labels=("text",)))

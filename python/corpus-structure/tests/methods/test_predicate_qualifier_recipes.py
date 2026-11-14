@@ -6,8 +6,7 @@ from spacy.lang.en import English
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.methods.predicate_frames import predicate_frame_result
-
-from .test_predicate_frames import retained, strings
+from methods.predicate_frames_support import retained, strings
 
 EVENT = (
     "Definition 6.2 If F is any event and X is a random variable "

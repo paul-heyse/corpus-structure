@@ -8,8 +8,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import PublicationBatch, RoleRow, ValueRow, publish_batch
-
-from .domain_scenarios import C, Z, batch, seed
+from semantic.domain_scenarios import C, Z, batch, seed
 
 
 class NativeTestConfig(BaseModel):
@@ -29,9 +28,9 @@ class NativeTestConfig(BaseModel):
     ],
 )
 def test_conditional_kernel_reaches_protected_publication(
-    semantic_db_engine, semantic_writer_engine, kind, scope, value, selected, valid
+    commit_db_engine, commit_writer_engine, kind, scope, value, selected, valid
 ):
-    prepared = seed(semantic_db_engine, scope=scope, conditional=True)
+    prepared = seed(commit_db_engine, scope=scope, conditional=True)
     release_id = prepared.release_id
     candidate = batch(label=value, selected=selected, release_id=release_id)
     if kind == "record":
@@ -46,17 +45,17 @@ def test_conditional_kernel_reaches_protected_publication(
             value_role=(RoleRow("r", "label", 0, "s"),),
         )
     if valid:
-        assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+        assert publish_batch(commit_writer_engine, candidate).data_revision == 1
     else:
         with pytest.raises(DBAPIError, match="conditional rule violation"):
-            publish_batch(semantic_writer_engine, candidate)
-        with semantic_db_engine.connect() as conn:
+            publish_batch(commit_writer_engine, candidate)
+        with commit_db_engine.connect() as conn:
             assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
             assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
 
 
-def test_frozen_native_edges_are_not_status_membership(semantic_writer_engine):
-    with semantic_writer_engine.connect() as conn:
+def test_frozen_native_edges_are_not_status_membership(commit_writer_engine):
+    with commit_writer_engine.connect() as conn:
         for before, after, valid in [
             ("pending", "running", True),
             ("pending", "done", False),
@@ -74,9 +73,7 @@ def test_frozen_native_edges_are_not_status_membership(semantic_writer_engine):
             )
 
 
-def test_native_attempt_and_nonterminal_transition_fences(
-    semantic_db_engine, semantic_writer_engine
-):
+def test_native_attempt_and_nonterminal_transition_fences(commit_db_engine, commit_writer_engine):
     from types import SimpleNamespace
 
     from corpus_structure.semantic.operations import (
@@ -86,11 +83,10 @@ def test_native_attempt_and_nonterminal_transition_fences(
         create_task,
         record_method,
     )
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    from .operation_scenario_support import prepare_operation_scenario
-
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine, composed=True)
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -122,7 +118,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
         dict(status="awaiting_agent"),
         dict(status="running", attempt=2, claimed_by="worker"),
     ]:
-        with pytest.raises(DBAPIError) as denied, semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError) as denied, commit_writer_engine.begin() as conn:
             conn.execute(
                 table("ops.task").update().where(table("ops.task").c.id == task).values(**mutation)
             )
@@ -135,7 +131,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
         )
         with (
             pytest.raises(DBAPIError, match=message) as guarded,
-            semantic_db_engine.begin() as conn,
+            commit_db_engine.begin() as conn,
         ):
             conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
             conn.execute(
@@ -143,7 +139,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
             )
         assert isinstance(guarded.value.orig, psycopg.Error)
         assert guarded.value.orig.sqlstate == "23514"
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             assert tuple(
                 conn.execute(
                     select(
@@ -153,12 +149,12 @@ def test_native_attempt_and_nonterminal_transition_fences(
                     ).where(table("ops.task").c.id == task)
                 ).one()
             ) == ("pending", 0, None)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         claimed = claim_tasks(conn, run_id=run, config_id=config, holder="worker")[0]
         assert claimed.attempt == 1
     with (
         pytest.raises(DBAPIError, match="claim or reclaim"),
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
     ):
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
@@ -170,7 +166,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
 
 
 def test_protected_release_and_reclaim_preserve_held_progress(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     from types import SimpleNamespace
 
@@ -186,11 +182,10 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         release_claim,
         renew_claim,
     )
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    from .operation_scenario_support import prepare_operation_scenario
-
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine, composed=True)
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -225,7 +220,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
             packet_hash="packet",
             agent=True,
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         first = claim_tasks(conn, run_id=run, config_id=config, holder="first", agent=True)[0]
         assert (
             hold_agent_result(
@@ -271,7 +266,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         assert replay.transaction == "replay" and replay.receipt == completed.receipt
         retained = conn.scalar(text("SELECT error FROM ops.task WHERE id=:task"), dict(task=task))
         assert retained["semantic_proposal_first_result"]["attempt"] == 1
-    with pytest.raises(OperationConflict), semantic_writer_engine.begin() as conn:
+    with pytest.raises(OperationConflict), commit_writer_engine.begin() as conn:
         renew_claim(conn, task_id=task, attempt=first.attempt, holder="first")
     # Long private inference must learn that its recorded attempt lost authority while
     # still inside the operation, rather than discovering it only on publication/exit.
@@ -281,7 +276,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
 
     with (
         pytest.raises(OperationConflict, match="ownership changed"),
-        maintained_claims(semantic_writer_engine, (first,), "first", interval=0.01) as check_active,
+        maintained_claims(commit_writer_engine, (first,), "first", interval=0.01) as check_active,
     ):
         deadline = monotonic() + 5
         while monotonic() < deadline:
@@ -290,9 +285,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         pytest.fail("lease loss was not exposed to in-flight private computation")
 
 
-def test_method_version_binds_unit_and_configuration_schema(
-    semantic_db_engine, semantic_writer_engine
-):
+def test_method_version_binds_unit_and_configuration_schema(commit_db_engine, commit_writer_engine):
     from types import SimpleNamespace
 
     from pydantic import BaseModel
@@ -311,13 +304,13 @@ def test_method_version_binds_unit_and_configuration_schema(
         unit_type="span",
         Config=Config,
     )
-    from .operation_scenario_support import prepare_operation_scenario
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    prepared = prepare_operation_scenario(semantic_db_engine)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine)
+    with commit_writer_engine.begin() as conn:
         record_method(conn, method, "default", {}, "method-config", prepared=prepared)
     method.unit_type = "segment"
-    with semantic_writer_engine.begin() as conn, pytest.raises(OperationConflict):
+    with commit_writer_engine.begin() as conn, pytest.raises(OperationConflict):
         record_method(conn, method, "default", {}, "method-config", prepared=prepared)
 
 
@@ -327,7 +320,7 @@ def test_method_version_binds_unit_and_configuration_schema(
     [None, {"message": "source failed", "semantic_proposal_first_result": {"forged": True}}],
 )
 def test_held_progress_survives_cancel_and_fail(
-    semantic_db_engine, semantic_writer_engine, release_before_end, failure
+    commit_db_engine, commit_writer_engine, release_before_end, failure
 ):
     from types import SimpleNamespace
 
@@ -341,11 +334,10 @@ def test_held_progress_survives_cancel_and_fail(
         record_method,
         release_claim,
     )
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    from .operation_scenario_support import prepare_operation_scenario
-
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine, composed=True)
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -380,7 +372,7 @@ def test_held_progress_survives_cancel_and_fail(
             packet_hash="packet",
             agent=True,
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         claim = claim_tasks(conn, run_id=run, config_id=config, holder="agent", agent=True)[0]
         assert (
             hold_agent_result(
@@ -413,7 +405,7 @@ def test_held_progress_survives_cancel_and_fail(
         ) == ("cancelled" if failure is None else "failed")
 
 
-def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic_writer_engine):
+def test_writer_cannot_bypass_terminal_effect_owner(commit_db_engine, commit_writer_engine):
     from types import SimpleNamespace
 
     from corpus_structure.semantic.operations import (
@@ -424,11 +416,10 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         end_source_run,
         record_method,
     )
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    from .operation_scenario_support import prepare_operation_scenario
-
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine, composed=True)
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -456,12 +447,12 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         claim_tasks(conn, run_id=run, config_id=config, holder="worker")
     for status in ("failed", "cancelled"):
         with (
             pytest.raises(DBAPIError) as denied,
-            semantic_writer_engine.begin() as conn,
+            commit_writer_engine.begin() as conn,
         ):
             conn.execute(
                 table("ops.task")
@@ -471,7 +462,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
             )
         assert isinstance(denied.value.orig, psycopg.Error)
         assert denied.value.orig.sqlstate == "42501"
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             assert tuple(
                 conn.execute(
                     select(
@@ -481,14 +472,14 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
             ) == ("running", True)
         with (
             pytest.raises(DBAPIError) as denied,
-            semantic_writer_engine.begin() as conn,
+            commit_writer_engine.begin() as conn,
         ):
             conn.execute(
                 table("ops.run").update().where(table("ops.run").c.id == run).values(status=status)
             )
         assert isinstance(denied.value.orig, psycopg.Error)
         assert denied.value.orig.sqlstate == "42501"
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             assert (
                 conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run))
                 == "created"
@@ -497,7 +488,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         pytest.raises(
             DBAPIError, match="completed task requires an immutable result receipt"
         ) as guarded,
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
     ):
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
@@ -512,7 +503,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         pytest.raises(
             DBAPIError, match="terminal run requires all source tasks to be terminal"
         ) as guarded,
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
     ):
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
@@ -522,7 +513,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
     assert guarded.value.orig.sqlstate == "23514"
     with (
         pytest.raises(DBAPIError, match="permission denied"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         conn.execute(
             table("ops.task")
@@ -530,7 +521,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
             .where(table("ops.task").c.id == task)
             .values(result_digest="forged")
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert end_source_run(conn, run) == 1
         assert (
             conn.scalar(select(table("ops.task").c.status).where(table("ops.task").c.id == task))
@@ -548,7 +539,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
     ],
 )
 def test_invocation_effect_enforces_agent_packet_disposition(
-    semantic_db_engine, semantic_writer_engine, packet, reason, valid
+    commit_db_engine, commit_writer_engine, packet, reason, valid
 ):
     from types import SimpleNamespace
 
@@ -558,11 +549,10 @@ def test_invocation_effect_enforces_agent_packet_disposition(
         create_task,
         record_method,
     )
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    from .operation_scenario_support import prepare_operation_scenario
-
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
-    with semantic_writer_engine.begin() as conn:
+    prepared = prepare_operation_scenario(commit_db_engine, composed=True)
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",

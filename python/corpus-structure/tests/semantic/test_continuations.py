@@ -69,7 +69,7 @@ def test_named_token_revision_is_an_integer_not_coercible(replacement):
 
 
 def test_real_released_continuation_contract_is_consumed():
-    from .test_proposals import prepared
+    from semantic.proposals_support import prepared
 
     release = prepared(composed=True)
     validate_continuation(release, {"release": "r"}, {"release": "r"})

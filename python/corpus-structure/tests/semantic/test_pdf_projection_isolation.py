@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -11,18 +12,16 @@ from corpus_structure.semantic.pdf_publication import (
     prepare_pdf_build,
     validate_pdf_build,
 )
-
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_publication import stage_complete_native
+from semantic.pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize("isolation", ["REPEATABLE READ", "READ COMMITTED"])
 def test_projection_write_requires_fresh_validation_snapshot(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path, isolation
+    private_build, commit_writer_engine, commit_db_engine, tmp_path, isolation
 ):
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     params = dict(
@@ -40,13 +39,13 @@ def test_projection_write_requires_fresh_validation_snapshot(
         "CAST(:body AS jsonb))"
     )
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level=isolation) as conn,
+        commit_writer_engine.connect().execution_options(isolation_level=isolation) as conn,
         conn.begin(),
     ):
         # Establish the reader snapshot before the independent validator commits.
         assert conn.execute(lookup, params).scalar_one() == 0
-        validate_pdf_build(semantic_writer_engine, frozen)
-        with semantic_db_engine.begin() as owner:
+        validate_pdf_build(commit_writer_engine, frozen)
+        with commit_db_engine.begin() as owner:
             owner.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
             body = owner.execute(
                 text(
@@ -60,7 +59,7 @@ def test_projection_write_requires_fresh_validation_snapshot(
             # The original race precondition is real: a finalized witness is
             # committed, while this transaction continues to miss that row.
             assert conn.execute(lookup, params).scalar_one() == 0
-            with semantic_db_engine.begin() as blocker:
+            with commit_db_engine.begin() as blocker:
                 blocker.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
                 blocker.execute(
                     text(

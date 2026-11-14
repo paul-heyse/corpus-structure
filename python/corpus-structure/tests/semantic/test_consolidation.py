@@ -108,7 +108,7 @@ def test_different_semantic_scope_does_not_fuse_facts():
 
 
 def test_assembly_publishes_with_native_identity_and_scoped_source_support(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     from sqlalchemy import insert, select
 
@@ -118,7 +118,7 @@ def test_assembly_publishes_with_native_identity_and_scoped_source_support(
     from corpus_structure.semantic.releases import persist_release
 
     release = prepared()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             inputs(),
@@ -147,9 +147,9 @@ def test_assembly_publishes_with_native_identity_and_scoped_source_support(
     batch = assemble(
         release, "realization", "batch", (identity, item, replace(item, item="item:1"))
     )
-    receipt = publish_batch(semantic_writer_engine, batch)
-    assert publish_batch(semantic_writer_engine, batch) == receipt
-    with semantic_writer_engine.connect() as conn:
+    receipt = publish_batch(commit_writer_engine, batch)
+    assert publish_batch(commit_writer_engine, batch) == receipt
+    with commit_writer_engine.connect() as conn:
         assert len(conn.execute(select(table("data.occurrence"))).all()) == 3
         assert len(conn.execute(select(table("data.fact"))).all()) == 2
         assert len(conn.execute(select(table("data.occurrence_establishment"))).all()) == 3
@@ -157,7 +157,7 @@ def test_assembly_publishes_with_native_identity_and_scoped_source_support(
 
 @pytest.mark.parametrize("confidence", (Decimal("0.9500"), Decimal("-0.0000")))
 def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(
-    semantic_db_engine, semantic_writer_engine, confidence
+    commit_db_engine, commit_writer_engine, confidence
 ):
     from sqlalchemy import insert, select
 
@@ -168,7 +168,7 @@ def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(
     from corpus_structure.semantic.releases import persist_release
 
     release = prepared()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             inputs(),
@@ -194,7 +194,7 @@ def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(
         (EvidenceRow("evidence", "source", "page#p", "parser", "1"),),
     )
     source = assemble(release, "realization", "source", (item,))
-    publish_batch(semantic_writer_engine, source)
+    publish_batch(commit_writer_engine, source)
     assessment = PublicationBatch(
         release.release_id,
         "realization",
@@ -213,18 +213,16 @@ def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(
     )
     arrow = ArrowPublicationBatch.from_rows(assessment)
     assert arrow.content == assessment.content
-    assert publish_arrow(semantic_writer_engine, arrow) == publish_batch(
-        semantic_writer_engine, assessment
+    assert publish_arrow(commit_writer_engine, arrow) == publish_batch(
+        commit_writer_engine, assessment
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert (
             conn.execute(select(table("data.assessment").c.confidence)).scalar_one() == confidence
         )
 
 
-def test_non_utc_instants_publish_with_equivalent_identity(
-    semantic_db_engine, semantic_writer_engine
-):
+def test_non_utc_instants_publish_with_equivalent_identity(commit_db_engine, commit_writer_engine):
     from datetime import UTC, datetime, timedelta, timezone
 
     from sqlalchemy import insert, select
@@ -245,7 +243,7 @@ def test_non_utc_instants_publish_with_equivalent_identity(
         ),
     )
     release = prepared(bundle)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             bundle,
@@ -279,8 +277,8 @@ def test_non_utc_instants_publish_with_equivalent_identity(
         (identity, item, replace(item, item="utc", object=local.astimezone(UTC))),
     )
     assert len([f for f in batch.fact if f.property_id.endswith("/when")]) == 1
-    publish_batch(semantic_writer_engine, batch)
-    with semantic_writer_engine.connect() as conn:
+    publish_batch(commit_writer_engine, batch)
+    with commit_writer_engine.connect() as conn:
         values = table("data.typed_value")
         assert (
             conn.execute(select(values.c.text_value).where(values.c.kind == "datetime"))
@@ -290,9 +288,7 @@ def test_non_utc_instants_publish_with_equivalent_identity(
         )
 
 
-def test_report_decimal_representations_survive_fact_fusion(
-    semantic_db_engine, semantic_writer_engine
-):
+def test_report_decimal_representations_survive_fact_fusion(commit_db_engine, commit_writer_engine):
     from sqlalchemy import insert, text
 
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
@@ -311,7 +307,7 @@ def test_report_decimal_representations_survive_fact_fusion(
         ),
     )
     release = prepared(bundle)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             bundle,
@@ -344,8 +340,8 @@ def test_report_decimal_representations_survive_fact_fusion(
         == assemble(release, "z", "representations", (second, identity, first)).content
     )
     assert len(batch.fact) == 2  # amount plus declared identity, not one fact per representation
-    publish_batch(semantic_writer_engine, batch)
-    with semantic_writer_engine.connect() as conn:
+    publish_batch(commit_writer_engine, batch)
+    with commit_writer_engine.connect() as conn:
         found = (
             conn.execute(
                 text(

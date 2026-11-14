@@ -1,20 +1,14 @@
 """Math language cues are retained before domain binding; controlled native columns."""
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
-from ingest.test_annotations import ControlledPipeline, item
+from annotation_support import ControlledPipeline, item
 
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import annotate
 from corpus_structure.ingest.sentences import Block
-from corpus_structure.methods.native_evidence import native_run
-from corpus_structure.methods.native_evidence_layers import (
-    SPACY_COLUMNS,
-    SPACY_FAMILIES,
-    NativeEvidenceBuilder,
-)
 from corpus_structure.semantic.constructions.layers import ConstructionLayer
 from corpus_structure.semantic.constructions.math_scope import (
     FAMILY,
@@ -23,8 +17,7 @@ from corpus_structure.semantic.constructions.math_scope import (
     populate_math_scope,
     retained_math_scope,
 )
-
-from .primary_reading_fixture import prepared
+from methods.primary_reading_fixture import prepared
 
 
 def produce(
@@ -79,35 +72,19 @@ def produce(
         input="input",
         context="source",
     )
-    native = NativeEvidenceBuilder(
+    from methods.primary_native_fixture import primary_native_layer
+
+    raw, pin = primary_native_layer(
         source.native_product.values(),
         scope,
         operation,
-        profile="spacy_only",
-        families=SPACY_FAMILIES,
+        prepared(),
+        ((view, product),),
+        configuration=nlp.config.to_str(),
+        digest="derived",
+        reference=101,
+        execution=nlp.selection().native,
     )
-    native.spacy(view, product, "spacy")
-    run = native_run(
-        "spacy",
-        "spacy_only",
-        nlp.config.to_str(),
-        model=product.model,
-        version=product.model_version,
-        runtime_version=product.spacy_version,
-        layout=[],
-        text=[],
-        components=[asdict(c) for c in product.components],
-    )
-    from corpus_structure.semantic.observations import source_value
-
-    run["execution_profile"] = source_value(nlp.selection().native.wire)
-    run["availability"] = [
-        dict(family=SPACY_COLUMNS[c.attribute], attribute=c.attribute, status=c.status)
-        for c in product.availability
-    ]
-    native.native_runs.append(run)
-    raw = native.finish(prepared())
-    pin = raw.reference(101)
     builder = ConstructionLayer(
         source.native_product.values(),
         scope,

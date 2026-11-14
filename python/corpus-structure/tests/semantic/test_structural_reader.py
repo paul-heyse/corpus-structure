@@ -42,7 +42,7 @@ def test_large_report_refuses_before_payload_hydration(monkeypatch):
 def test_file_export_budget_preserves_interactive_cap_and_exact_selection(monkeypatch):
     from pydantic import ValidationError
 
-    from semantic.test_structural_admission import definition
+    from semantic.structural_admission_support import definition
 
     bind(monkeypatch)
     conn = MagicMock(spec=Connection)

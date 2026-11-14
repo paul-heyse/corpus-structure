@@ -8,23 +8,20 @@ import pytest
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationProfile
 from corpus_structure.methods.m1_annotations import consume_annotations
-from corpus_structure.methods.native_evidence import _availability, native_run
 from corpus_structure.methods.native_evidence_layers import (
-    SPACY_FAMILIES,
-    NativeEvidenceBuilder,
     PrimaryAnnotationProduct,
 )
 from corpus_structure.methods.predicate_frames import predicate_frames
 from corpus_structure.semantic.characterization import select_primary_layers
 from corpus_structure.semantic.constructions.layers import ConstructionLayer
 from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
-from methods.test_native_evidence import native_source as native_source
-from methods.test_native_evidence import prepared as prepared
+from methods.native_evidence_support import native_source as native_source
+from methods.native_evidence_support import prepared as prepared
 
 
 def primary_fixture(source, prepared, monkeypatch, *, heading=None):
     controlled, _, _, original, base, scope, operation = source
-    from ingest.test_annotations import item
+    from annotation_support import item
 
     body = "Ada must check valves." if heading is not None else "Ada checks valves."
     request = item(controlled, body, start=0 if heading is None else len(heading) + 1)
@@ -59,7 +56,7 @@ def primary_fixture(source, prepared, monkeypatch, *, heading=None):
     product = replace(product, tokens=tokens)
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import NativeSourcePin
-    from methods.test_pm2_source import source_context
+    from methods.pm2_source_support import source_context
 
     source_fields = [("#/texts/1", "text", request.block.text, request.block.text)]
     if heading is not None:
@@ -113,9 +110,7 @@ def primary_fixture(source, prepared, monkeypatch, *, heading=None):
         ],
         "selectors": [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))],
     }
-    native = NativeEvidenceBuilder(
-        base, scope, operation, profile="spacy_only", families=SPACY_FAMILIES
-    )
+    native_products = []
     if heading is not None:
         from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 
@@ -137,25 +132,25 @@ def primary_fixture(source, prepared, monkeypatch, *, heading=None):
                 for token in header.tokens
             ),
         )
-        native.spacy(view, header, "spacy")
-    native.spacy(view, product, "spacy")
-    run = native_run(
-        "spacy",
-        "spacy_only",
-        controlled.config.to_str(),
+        native_products.append((view, header))
+    native_products.append((view, product))
+    from methods.primary_native_fixture import primary_native_layer
+
+    native_layer, native_pin = primary_native_layer(
+        base,
+        scope,
+        operation,
+        prepared,
+        native_products,
+        configuration=controlled.config.to_str(),
+        digest="derived",
+        reference=100,
+        execution=controlled.selection().native,
         model="en_core_web_sm",
         version="3.8.0",
         runtime_version="3.8.18",
-        layout=[],
-        text=[],
+        components=(),
     )
-    from corpus_structure.semantic.observations import source_value
-
-    run["execution_profile"] = source_value(controlled.selection().native.wire)
-    run["availability"] = _availability(native, "spacy")
-    native.native_runs.append(run)
-    native_layer = native.finish(prepared)
-    native_pin = native_layer.reference(100)
     monkeypatch.setattr(
         annotations,
         "pipeline",
@@ -307,7 +302,7 @@ def test_version6_contribution_projection_cites_actual_primary_nodes(
 
 
 def test_numeric_condition_uses_exact_retained_formal_parts(prepared):
-    from semantic.test_formal_evidence import operation, source
+    from semantic.primary_formal_fixture import operation, source
 
     from corpus_structure.methods.predicate_contributions import _condition
     from corpus_structure.semantic.formal_evidence import build_formal_layer
@@ -358,7 +353,7 @@ def test_numeric_condition_uses_exact_retained_formal_parts(prepared):
 
 
 def test_formula_symbols_consume_canonical_inventory_and_preserve_coordinate_space(prepared):
-    from semantic.test_formal_evidence import operation, source
+    from semantic.primary_formal_fixture import operation, source
 
     from corpus_structure.methods.structural_roles import captured_formula_symbols
     from corpus_structure.semantic.formal_evidence import build_formal_layer

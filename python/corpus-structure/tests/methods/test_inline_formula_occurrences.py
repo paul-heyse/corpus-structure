@@ -17,17 +17,10 @@ from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.serve.inline_formula_replay import verify_inline_formula_report
-
-from .primary_reading_fixture import prepared
-from .test_m1_source_preparation import source
-from .test_scoped_relations import complete_native_fields, discover_relations
-
-_FROZEN_TEXT = (
-    "We have seen above that it is possible to simulate a standard normal random variable Z. "
-    "If we wish to simulate a normal random variable X with parameters µ and \u03c3, "
-    "then we need only "
-    "transform the simulated values for Z using the equation X = \u03c3Z + µ."
-)
+from methods.inline_formula_support import _FROZEN_TEXT as _FROZEN_TEXT
+from methods.m1_source_preparation_support import source
+from methods.primary_reading_fixture import prepared
+from methods.scoped_relations_support import complete_native_fields, discover_relations
 
 
 def discovery(text, **kwargs):

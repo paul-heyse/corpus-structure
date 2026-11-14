@@ -5,7 +5,7 @@ from rapidfuzz.fuzz import ratio
 from sqlalchemy import text
 
 
-def test_native_indel_replay_matches_actual_rapidfuzz(semantic_db_engine):
+def test_native_indel_replay_matches_actual_rapidfuzz(commit_db_engine):
     cases = [
         ("Moments", "Moment"),
         ("Table αβ", "Table βα"),
@@ -16,7 +16,7 @@ def test_native_indel_replay_matches_actual_rapidfuzz(semantic_db_engine):
         ("🧪 \u03b1", "\u03b1 🧪"),
         ("Straße", "STRASSE"),
     ]
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         for left, right in cases:
             value = conn.scalar(
                 text("SELECT ops.artifact_lexical_score(:a,:b)"), dict(a=left, b=right)
@@ -25,8 +25,8 @@ def test_native_indel_replay_matches_actual_rapidfuzz(semantic_db_engine):
             assert value == expected
 
 
-def test_native_artifact_source_replay_plans_its_cohort_aggregation(semantic_db_engine):
-    with semantic_db_engine.connect() as conn, conn.begin():
+def test_native_artifact_source_replay_plans_its_cohort_aggregation(commit_db_engine):
+    with commit_db_engine.connect() as conn, conn.begin():
         assert (
             conn.scalar(
                 text(
@@ -55,17 +55,15 @@ def test_native_artifact_source_replay_plans_its_cohort_aggregation(semantic_db_
         ),
     ],
 )
-def test_native_exact_source_numbering_and_revision_cues(
-    semantic_db_engine, suffix, states, labels
-):
-    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
+def test_native_exact_source_numbering_and_revision_cues(commit_db_engine, suffix, states, labels):
+    from semantic.named_link_coverage_native_support import native_navigation_call, primary_fixture
 
     literal = "Table 5.9" + suffix
     layers, index, physical = primary_fixture(literal, label="caption")
     record = next(
         row for row in index.select("artifact_mention") if row.text("subject") == "Table 5.9"
     )
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         native = native_navigation_call(
             conn,
             "artifact_source_labels",
@@ -98,9 +96,9 @@ def test_native_exact_source_numbering_and_revision_cues(
     ],
 )
 def test_native_explicit_reference_cue_matches_source_replay(
-    semantic_db_engine, literal, prefix, target
+    commit_db_engine, literal, prefix, target
 ):
-    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
+    from semantic.named_link_coverage_native_support import native_navigation_call, primary_fixture
 
     layers, index, physical = primary_fixture(literal)
     references = index.select("artifact_explicit_reference")
@@ -108,7 +106,7 @@ def test_native_explicit_reference_cue_matches_source_replay(
         assert references == ()
         return
     (record,) = references
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         native = native_navigation_call(
             conn,
             "artifact_explicit_reference",
@@ -123,12 +121,11 @@ def test_native_explicit_reference_cue_matches_source_replay(
 
 
 @pytest.mark.parametrize("mutation", (None, "label_text", "target_text", "foreign_source"))
-def test_native_artifact_fields_require_literal_primary_operands(semantic_db_engine, mutation):
+def test_native_artifact_fields_require_literal_primary_operands(commit_db_engine, mutation):
     from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.semantic.identity import canonical_bytes
-
-    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
+    from semantic.named_link_coverage_native_support import native_navigation_call, primary_fixture
 
     literal = "See Table 5.9 (hereafter Table 6.1 in numbering namespace Chapter6)."
     layers, index, physical = primary_fixture(literal)
@@ -142,7 +139,7 @@ def test_native_artifact_fields_require_literal_primary_operands(semantic_db_eng
         node["navigation"]["designator"] = "9.9"
     elif mutation == "foreign_source":
         physical["id"] += 1
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         if mutation is None:
             native = native_navigation_call(
                 conn, "artifact_explicit_reference", layers, ref, physical, field_start=0
@@ -165,14 +162,14 @@ def test_native_artifact_fields_require_literal_primary_operands(semantic_db_eng
     ),
 )
 def test_native_artifact_aliases_project_retained_literal_occurrences(
-    semantic_db_engine, suffix, state, aliases
+    commit_db_engine, suffix, state, aliases
 ):
-    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
+    from semantic.named_link_coverage_native_support import native_navigation_call, primary_fixture
 
     literal = "Table 5.9" + suffix
     layers, index, physical = primary_fixture(literal, label="caption")
     (record,) = index.select("artifact_mention")
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         native = native_navigation_call(
             conn,
             "artifact_alias_fields",
@@ -190,7 +187,7 @@ def test_native_artifact_aliases_project_retained_literal_occurrences(
         assert native["alias_absence"]["text"] == "aliases: none"
 
 
-def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_engine):
+def test_native_frozen_likelihood_and_routes_after_source_boundary(commit_db_engine):
     """Source is controlled here; actual source replay is a separate provider journey."""
     import json
     from copy import deepcopy
@@ -205,8 +202,7 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         pair_candidates,
         score_pairs,
     )
-
-    from .test_artifact_identity import nomination, record
+    from semantic.artifact_identity_support import nomination, record
 
     reference = record("i", code="5.9", role="reference")
     from corpus_structure.semantic.constructions.navigation import explicit_artifact_reference
@@ -291,7 +287,7 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         route_counts=artifact_route_counts(pairs),
     ).model_dump(mode="json", exclude_none=True)
     inputs = {"sources": []}
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         literal = json.dumps(
             [r.model_dump(mode="json", exclude_none=True) for r in records]
         ).replace("'", "''")

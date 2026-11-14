@@ -33,7 +33,7 @@ from corpus_structure.semantic.releases import activate_release, load_release, p
 
 
 def test_compiled_pinned_ontology_membership_enforces_native_reports(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     bundle = SourceBundle(
         "native",
@@ -65,7 +65,7 @@ classes:
     dependencies = composed_dependencies(dependencies)
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         activate_release(
@@ -101,10 +101,10 @@ classes:
             membership_support=(MembershipSupportRow(entity, cls.iri, entity),),
         )
 
-    assert publish_batch(semantic_writer_engine, candidate("known", "EX:1")).data_revision == 1
+    assert publish_batch(commit_writer_engine, candidate("known", "EX:1")).data_revision == 1
     with pytest.raises(DBAPIError, match="declared range"):
-        publish_batch(semantic_writer_engine, candidate("unknown", "EX:2"))
-    with semantic_db_engine.connect() as conn:
+        publish_batch(commit_writer_engine, candidate("unknown", "EX:2"))
+    with commit_db_engine.connect() as conn:
         assert conn.execute(select(table("data.entity").c.entity_id)).scalars().all() == ["known"]
         assert conn.execute(select(table("data.typed_value").c.text_value)).scalars().all() == [
             "EX:1"

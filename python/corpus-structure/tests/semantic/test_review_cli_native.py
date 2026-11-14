@@ -5,12 +5,13 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
 import yaml
-from evaluate.test_operation_assessment_native import freeze
+from evaluation_operation_assessment_native_support import freeze
 from sqlalchemy import text
 
 from corpus_structure.evaluate.operation_assessment import record_pass
@@ -22,15 +23,16 @@ from corpus_structure.semantic.migrations import current_revision
 from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task, seal_cut
 from corpus_structure.semantic.regeneration import prepare_packs
 from corpus_structure.semantic.releases import persist_release
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
+    complete_contributions,
+    contribution_drafts,
+)
+from semantic.native_record_fixtures import private_source as private_source
 
-from .native_record_fixtures import complete_contributions, contribution_drafts
-from .native_record_fixtures import private_source as private_source
-from .reference_scenarios import private_source_options as private_source_options
 
-
-@pytest.fixture
-def installed_ci(semantic_application_settings, tmp_path):
-    database = semantic_application_settings.database
+def _installed_ci(settings, tmp_path):
+    database = settings.database
     environment = {
         **os.environ,
         "CORPUS_DATABASE__URL": database.url,
@@ -79,6 +81,16 @@ def installed_ci(semantic_application_settings, tmp_path):
     return invoke
 
 
+@pytest.fixture
+def installed_ci(commit_application_settings, tmp_path):
+    return _installed_ci(commit_application_settings, tmp_path)
+
+
+@pytest.fixture
+def source_installed_ci(record_source_settings, tmp_path):
+    return _installed_ci(record_source_settings, tmp_path)
+
+
 def _seal(case, *, missing_report=False):
     with case.writer.begin() as conn:
         complete_contributions(case, conn, contribution_drafts(case))
@@ -111,10 +123,12 @@ def _seal(case, *, missing_report=False):
             )
         else:
             task = None
-        case.cut = seal_cut(conn, case.run, "installed-review-source-cut", final=missing_report)
+        case = replace(
+            case, cut=seal_cut(conn, case.run, "installed-review-source-cut", final=missing_report)
+        )
     if missing_report:
         consolidate_cut(case.writer, case.cut, "installed-review-result")
-    return task
+    return case, task
 
 
 def _selection(case, *, completeness="selected_source_closure"):
@@ -128,12 +142,17 @@ def _rows(export, relation):
     return [json.loads(json.loads(line)["payload_json"]) for line in path.read_text().splitlines()]
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_installed_ordinary_stdin_replay_preserves_selected_report_omission(
-    private_source, installed_ci
+    private_source, source_installed_ci
 ):
-    case = private_source
-    omitted_task = _seal(case, missing_report=True)
-    inventory = installed_ci(
+    case, omitted_task = _seal(private_source, missing_report=True)
+    inventory = source_installed_ci(
         "review", "export", "-", body=_selection(case, completeness="inventory")
     )
     assert inventory["original_source_completeness"] == "not_established"
@@ -141,7 +160,7 @@ def test_installed_ordinary_stdin_replay_preserves_selected_report_omission(
     assert "omissions" not in inventory["relations"]
     assert "sources" not in inventory["relations"]
 
-    original = installed_ci("review", "export", "-", body=_selection(case))
+    original = source_installed_ci("review", "export", "-", body=_selection(case))
     original_id = original["invocation_id"]
     assert original["completeness"] == "selected_source_closure"
     assert original["original_source_completeness"] == "not_established"
@@ -154,7 +173,7 @@ def test_installed_ordinary_stdin_replay_preserves_selected_report_omission(
     assert case.view in {row["source_view_id"] for row in _rows(original, "sources")}
     assert "assessment_history" not in original["relations"]
 
-    replay = installed_ci("review", "retry", original_id)
+    replay = source_installed_ci("review", "retry", original_id)
     assert replay["invocation_id"] != original_id
     assert replay["selection_digest"] == original["selection_digest"]
     assert replay["relations"].keys() == original["relations"].keys()
@@ -173,27 +192,32 @@ def test_installed_ordinary_stdin_replay_preserves_selected_report_omission(
         "capture_id"
     )
     assert replayed_selection == original_selection
-    managed = installed_ci("review", "inspect", "--result", replay["invocation_id"])
-    detached = installed_ci("review", "inspect", replay["destination"])
+    managed = source_installed_ci("review", "inspect", "--result", replay["invocation_id"])
+    detached = source_installed_ci("review", "inspect", replay["destination"])
     assert managed.pop("result_id") == replay["invocation_id"]
     assert managed == detached
-    human = installed_ci(
+    human = source_installed_ci(
         "review", "inspect", "--result", replay["invocation_id"], json_output=False
     )
     assert f"run {case.run}" in human.lower() and f"cut {case.cut}" in human.lower()
     assert "Omission rows" in human
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_installed_evaluated_stdin_records_exposure_before_export(
     private_source,
-    installed_ci,
-    semantic_evaluator_engine,
-    semantic_db_engine,
-    semantic_application_settings,
+    source_installed_ci,
+    record_source_evaluator,
+    record_source_admin,
+    record_source_settings,
 ):
-    case = private_source
-    _seal(case)
-    with semantic_evaluator_engine.begin() as conn:
+    case, _ = _seal(private_source)
+    with record_source_evaluator.begin() as conn:
         created, unit, frame, payload = freeze(conn, case)
         authored = json.dumps(payload).encode()
         pass_id = record_pass(
@@ -222,22 +246,22 @@ def test_installed_evaluated_stdin_records_exposure_before_export(
         "SELECT id, pass_snapshot, purpose, recipient_class FROM eval.review_exposure "
         "WHERE project_id = 'private-records' AND set_id = :set"
     )
-    denied = installed_ci(
+    denied = source_installed_ci(
         *args,
         body=_selection(case),
-        evaluator=semantic_application_settings.database.reader_url,
+        evaluator=record_source_settings.database.reader_url,
         expected_exit=1,
     )
     assert denied["error"]["failure"]["sqlstate"] == "42501"
-    malformed = installed_ci(*args, body="{", expected_exit=1)
+    malformed = source_installed_ci(*args, body="{", expected_exit=1)
     assert malformed["error"]["code"] == "ValidationError"
-    oversized = installed_ci(*args, body=" " * (8 * 1024 * 1024 + 1), expected_exit=1)
+    oversized = source_installed_ci(*args, body=" " * (8 * 1024 * 1024 + 1), expected_exit=1)
     assert "8 MiB limit" in oversized["error"]["message"]
-    with semantic_db_engine.connect() as conn:
+    with record_source_admin.connect() as conn:
         assert conn.execute(exposure_rows, {"set": set_id}).all() == []
 
-    export = installed_ci(*args, body=_selection(case))
-    with semantic_db_engine.connect() as conn:
+    export = source_installed_ci(*args, body=_selection(case))
+    with record_source_admin.connect() as conn:
         exposure = conn.execute(exposure_rows, {"set": set_id}).mappings().one()
     assert exposure["purpose"] == "portable_review"
     assert exposure["recipient_class"] == "external_reviewer"
@@ -252,17 +276,17 @@ def test_installed_evaluated_stdin_records_exposure_before_export(
     ]
     assert passed["id"] == pass_id and passed["content_digest"] == digest
     assert base64.b64decode(passed["authored_base64"]) == authored
-    inspected = installed_ci("review", "inspect", "--result", export["invocation_id"])
+    inspected = source_installed_ci("review", "inspect", "--result", export["invocation_id"])
     assert inspected["relations"]["assessment_authority"] == 1
     assert inspected["relations"]["assessment_history"] > 0
-    human = installed_ci(
+    human = source_installed_ci(
         "review", "inspect", "--result", export["invocation_id"], json_output=False
     )
     assert "Evaluator authority rows" in human and "Assessment history rows" in human
 
 
 def test_installed_model_preview_binds_real_physical_diff_and_archived_comparison(
-    installed_ci, semantic_db_engine
+    installed_ci, commit_db_engine
 ):
     root = Path(__file__).resolve().parents[4]
     relative = MODEL_PATH / "semantic" / "physical.yaml"
@@ -275,7 +299,7 @@ def test_installed_model_preview_binds_real_physical_diff_and_archived_compariso
     bundle, dependencies, profile, archived = prepare_packs(
         (root / "domains" / "statistics",), execution=execution
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         predecessor = current_revision(conn)
         persist_release(conn, bundle, dependencies, profile, archived)
     assert predecessor is not None
@@ -305,7 +329,7 @@ def test_installed_model_preview_binds_real_physical_diff_and_archived_compariso
     )
     result = preview["result_id"]
     assert relative.as_posix() in preview["changed"]
-    assert preview["acquired_target"]["database"] == semantic_db_engine.url.database
+    assert preview["acquired_target"]["database"] == commit_db_engine.url.database
     patch = installed_ci("model", "change", "inspect", result, "--view", "patch")
     assert patch["preview_id"] == result
     assert patch["target_profile"] == "development"
@@ -321,5 +345,5 @@ def test_installed_model_preview_binds_real_physical_diff_and_archived_compariso
     assert effects["comparison"]["after_release"] == preview["release"]
     assert preview["release"] != archived.release_id
     assert path.read_bytes() == before
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert current_revision(conn) == predecessor

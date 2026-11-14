@@ -19,20 +19,20 @@ from corpus_structure.semantic.publication import (
     ScientificRepresentativeRow,
     publish_on_connection,
 )
-
-from .domain_scenarios import build_domain_case
+from semantic.domain_scenarios import build_domain_case, domain_case_recipe, finish_domain_case
 
 
 def test_native_attribute_cannot_borrow_another_claims_evidence(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
+    # This consumer authors its own attribute_assertions variant beyond the shared default/prefix.
     _, _, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.pdf",
         attribute_assertions=True,
     )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    inputs = _cut_input(commit_writer_engine, cut, "hostile")
     occurrence = next(row for row in inputs.batch.occurrence if row.item.startswith("entities/"))
     claim = next(row for row in inputs.batch.occurrence if row.item == "claims/0")
     borrowed = next(
@@ -68,7 +68,7 @@ def test_native_attribute_cannot_borrow_another_claims_evidence(
     ).bind_preparation(inputs.prepared)
     with (
         pytest.raises(DBAPIError, match=r"attribute support differs|outside bound source"),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -78,12 +78,11 @@ def test_native_attribute_cannot_borrow_another_claims_evidence(
 
 
 def test_native_source_derived_assertion_is_refused_before_receipt_commit(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    domain_default_case, tmp_path
 ):
-    _, _, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.pdf"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    commit_writer_engine = domain_default_case.writer
+    _, _, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "hostile")
     batch = replace(
         inputs.batch,
         occurrence_establishment=tuple(
@@ -92,7 +91,7 @@ def test_native_source_derived_assertion_is_refused_before_receipt_commit(
     ).bind_preparation(inputs.prepared)
     with (
         pytest.raises(DBAPIError, match="source-admissible"),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -102,11 +101,10 @@ def test_native_source_derived_assertion_is_refused_before_receipt_commit(
 
 
 def test_native_representatives_cannot_invent_an_equivalence_component(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    domain_default_case, tmp_path
 ):
-    prepared, _, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.pdf"
-    )
+    commit_writer_engine = domain_default_case.writer
+    prepared, _, cut = domain_default_case.stage.result
 
     class FabricatedComponent:
         release_id = prepared.release_id
@@ -126,22 +124,23 @@ def test_native_representatives_cannot_invent_an_equivalence_component(
             )
 
     with pytest.raises(DBAPIError, match="component differs from admitted equivalence"):
-        consolidate_cut(semantic_writer_engine, cut, "hostile", policy=FabricatedComponent())
+        consolidate_cut(commit_writer_engine, cut, "hostile", policy=FabricatedComponent())
 
 
 def test_incomplete_key_keeps_a_usable_published_structural_identity(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     from sqlalchemy import select
 
     from corpus_structure.semantic.metadata import table
 
+    # This consumer authors its own incomplete_key variant beyond the shared default/prefix.
     _, _, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.pdf", incomplete_key=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.pdf", incomplete_key=True
     )
-    result = consolidate_cut(semantic_writer_engine, cut, "provisional")
+    result = consolidate_cut(commit_writer_engine, cut, "provisional")
     assert result.realization_id == "provisional"
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         decision = (
             conn.execute(
                 select(table("data.entity_resolution")).where(
@@ -170,9 +169,8 @@ def test_incomplete_key_keeps_a_usable_published_structural_identity(
 
 
 @pytest.mark.parametrize("change", ["shape", "binding"])
-def test_native_assessment_reason_refuses_untrusted_json(
-    change, semantic_db_engine, semantic_writer_engine, tmp_path
-):
+def test_native_assessment_reason_refuses_untrusted_json(domain_default_case, change, tmp_path):
+    commit_writer_engine = domain_default_case.writer
     import json
 
     import pyarrow as pa
@@ -184,10 +182,8 @@ def test_native_assessment_reason_refuses_untrusted_json(
     from corpus_structure.semantic.publication import AssessmentRow
     from corpus_structure.semantic.refusals import SemanticReason
 
-    prepared, _, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.pdf"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile-reason")
+    prepared, _, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "hostile-reason")
     reason = SemanticReason(
         "unsupported_interpretation",
         "evaluate",
@@ -221,7 +217,7 @@ def test_native_assessment_reason_refuses_untrusted_json(
     )
     with (
         pytest.raises(DBAPIError, match="assessment semantic reason differs"),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -230,20 +226,22 @@ def test_native_assessment_reason_refuses_untrusted_json(
         publish_arrow_on_connection(conn, frozen)
 
 
-def test_native_actual_reading_reason_roundtrip(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
+def test_native_actual_reading_reason_roundtrip(domain_formula_source, tmp_path):
+    commit_writer_engine = domain_formula_source.writer
     from sqlalchemy import select
 
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.refusals import decode_semantic_reason
 
-    _, _, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.pdf", formulas=(r"\frac{",)
-    )
-    consolidate_cut(semantic_writer_engine, cut, "reading-reason")
+    _, _, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(formulas=("\\frac{",)),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "reading-reason")
     assessments = table("data.assessment")
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         row = (
             conn.execute(
                 select(assessments).where(assessments.c.operation_id == "operation.not_checkable")

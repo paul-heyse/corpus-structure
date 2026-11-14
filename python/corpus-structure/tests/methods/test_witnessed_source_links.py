@@ -22,10 +22,9 @@ from corpus_structure.serve.inline_formula_replay import (
     verify_inline_formula_report as _verify_inline_formula_report,
 )
 from corpus_structure.serve.witnessed_source_link_replay import verify_witnessed_links
-
-from .test_inline_formula_occurrences import _FROZEN_TEXT
-from .test_m1_source_preparation import source
-from .test_scoped_relations import complete_native_fields, discover_relations
+from methods.inline_formula_support import _FROZEN_TEXT
+from methods.m1_source_preparation_support import source
+from methods.scoped_relations_support import complete_native_fields, discover_relations
 
 
 def verify_inline_formula_report(report, source):
@@ -511,7 +510,7 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
     items = {i["self_ref"]: dict(i, content_layer="body") for i in view.items}
     view = replace(view, items=tuple(items.values()))
     passage = SimpleNamespace(start=0, end=len(view.text), scope="work", passage_id="chapter")
-    from .navigation_fixture import primary_navigation
+    from methods.navigation_fixture import primary_navigation
 
     layers = primary_navigation(view)
     links = tuple(

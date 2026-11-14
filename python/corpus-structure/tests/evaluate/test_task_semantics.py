@@ -575,7 +575,7 @@ def test_output_first_witnesses_do_not_authorize_unselected_context_claims():
 def test_semantic_case_wire_is_v3_only_and_excludes_other_expectation_kinds():
     import json
 
-    from evaluate.test_characterization_assessment import case, frame, payload
+    from evaluation_characterization_assessment_support import case, frame, payload
 
     from corpus_structure.evaluate.operation_assessment import decode_authored
     from corpus_structure.evaluate.semantic import ReferenceError
@@ -900,7 +900,7 @@ def test_multi_root_population_shares_exact_witness_nodes_without_merging_roots(
 
 
 def test_scalar_capture_does_not_build_graphs_it_cannot_consume(monkeypatch):
-    from evaluate.test_characterization_assessment import captured_assessment, case
+    from evaluation_characterization_assessment_support import captured_assessment, case
 
     def forbidden(*args, **kwargs):
         raise AssertionError("scalar case must not build a graph")
@@ -1242,7 +1242,7 @@ def test_witness_result_declares_existential_scope_and_actual_support_conditions
 
 
 def test_unknown_positive_support_remains_unassessed_in_case_grading():
-    from evaluate.test_characterization_assessment import case, coverage, frame
+    from evaluation_characterization_assessment_support import case, coverage, frame
 
     from corpus_structure.evaluate.characterization_assessment import score_characterization
 

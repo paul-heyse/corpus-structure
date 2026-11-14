@@ -13,8 +13,12 @@ from corpus_structure.semantic.data_operation_support import (
     read_support_references,
 )
 from corpus_structure.semantic.types import PreparationError
-
-from .test_data_operation_compilation import contract, declarations, identity, resolved_binding
+from semantic.data_operation_declaration_support import (
+    contract,
+    declarations,
+    identity,
+    resolved_binding,
+)
 
 
 def governed(*, origins=None, exact=False):

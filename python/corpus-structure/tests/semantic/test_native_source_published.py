@@ -401,8 +401,7 @@ def test_native_cell_detail_decodes_only_its_exact_retained_record(monkeypatch, 
     from docling_core.types.doc import DoclingDocument
 
     from corpus_structure.semantic.pdf_storage import _record_occurrence_value
-
-    from .test_pdf_record_reader import NativeRows
+    from semantic.pdf_record_reader_support import NativeRows
 
     document = DoclingDocument.model_validate(native_source.payload["document"]).model_dump(
         mode="json", by_alias=True, exclude_computed_fields=True

@@ -21,19 +21,15 @@ from corpus_structure.semantic.structural_products import (
     LocatedDefinitionSpan,
 )
 from corpus_structure.serve.structural_products import dossier_representation_page
-
-from .primary_formal_fixture import formal_layers
-from .structural_release_fixture import released_report
-from .test_structural_products import inputs
-
-
-def threshold_inputs(left, right, scope="scope"):
-    value = inputs()
-    passages = tuple(
-        p.model_copy(update=dict(text=t, start=0, end=len(t), scope=scope))
-        for p, t in zip(value.passages, (left, right), strict=True)
-    )
-    return value.model_copy(update=dict(passages=passages))
+from semantic.primary_formal_fixture import formal_layers
+from semantic.structural_products_support import inputs
+from semantic.structural_release_fixture import released_report
+from semantic.typed_structural_composition_support import (
+    revision_inputs as revision_inputs,
+)
+from semantic.typed_structural_composition_support import (
+    threshold_inputs as threshold_inputs,
+)
 
 
 def compare_clauses(value, **kwargs):
@@ -75,22 +71,6 @@ def read_clause(passage, *, source_inputs, **expected_roles):
     if len(thresholds) == 1:
         fields.extend(thresholds)
     return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
-
-
-def revision_inputs(left, right, *, same_source=True):
-    inputs = threshold_inputs(left, right)
-    older, newer = inputs.passages
-    older = older.model_copy(update={"parent": "rule", "effective_version": "R1"})
-    newer = newer.model_copy(
-        update={
-            "parent": "rule",
-            "effective_version": "R2",
-            "source_ref": older.source_ref if same_source else newer.source_ref,
-            "start": older.end + 1,
-            "end": older.end + 1 + len(newer.text),
-        }
-    )
-    return inputs.model_copy(update={"passages": (newer, older)})
 
 
 @pytest.mark.parametrize(

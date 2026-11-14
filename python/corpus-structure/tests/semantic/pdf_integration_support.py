@@ -30,8 +30,7 @@ from corpus_structure.semantic.pdf_integrated import (
     prepare_integrated_pdf_product,
     store_pdf_observation,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 HOLDER = "pdf13-fixture"
 
@@ -323,13 +322,13 @@ def independent_integrated(native_source):
 
 
 @pytest.fixture
-def pdf13_db(semantic_db_engine, semantic_writer_engine, native_source, tmp_path):
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
+def pdf13_db(commit_db_engine, commit_writer_engine, native_source, tmp_path):
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True, composed=True)
     source = native_source
 
     def create(*, project="p", original=None, name="source"):
         original = source.original if original is None else original
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             run = create_run(
                 conn,
                 project_id=project,
@@ -397,8 +396,8 @@ def pdf13_db(semantic_db_engine, semantic_writer_engine, native_source, tmp_path
         job=job,
         native=native,
         create=create,
-        writer=semantic_writer_engine,
-        admin=semantic_db_engine,
+        writer=commit_writer_engine,
+        admin=commit_db_engine,
         directory=tmp_path / "records",
         published={},
     )

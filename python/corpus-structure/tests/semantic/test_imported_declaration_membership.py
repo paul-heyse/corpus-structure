@@ -1,197 +1,22 @@
 """An admitted declaration-only class survives supported known-reference import."""
 
-from contextlib import nullcontext
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import select, text
-from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.orchestrate.semantic import agent_packet, queue_agent
-from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import (
-    OperationBinding,
-    claim_tasks,
-    complete_task,
-    create_run,
-    register_document,
-    seal_cut,
-)
-from corpus_structure.semantic.proposals import locate_proposal
-from corpus_structure.semantic.types import PreparedRelease
-
-from .domain_scenarios import build_domain_case
-
-
-@dataclass(frozen=True)
-class ImportedDeclarationCase:
-    prepared: PreparedRelease
-    run: RunId
-    cut: CutId
-    prior_run: RunId
-    prior_realization: str
-    prior_revision: int
-    subject: str
-    endpoint: str
-
-
-def imported_declaration_case(admin, writer, tmp_path):
-    """Use the public packet's own eligible reference universe, never injected classes."""
-    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
-
-    prepared, prior_run, prior_cut = build_domain_case(
-        admin,
-        writer,
-        tmp_path / "prior.pdf",
-        graph=True,
-        global_person_identity=True,
-        membership_subtype=True,
-        characterization=True,
-    )
-    prior = consolidate_cut(writer, prior_cut, "prior-result")
-    with writer.connect() as conn:
-        declarations = {
-            row["local_id"]: row["entity_id"]
-            for row in conn.execute(select(table("data.entity_source"))).mappings()
-        }
-        subject, endpoint = declarations["person"], declarations["other"]
-        fact, value, selected = map(table, ("data.fact", "data.typed_value", "data.selection"))
-        assert conn.execute(
-            select(fact.c.fact_id)
-            .join(value, value.c.value_id == fact.c.object_value_id)
-            .join(selected, selected.c.fact_id == fact.c.fact_id)
-            .where(
-                fact.c.realization_id == prior.realization_id,
-                fact.c.subject_id == subject,
-                fact.c.property_id == "https://example.org/parent",
-                value.c.entity_id == endpoint,
-            )
-        ).first()
-        assert not conn.execute(
-            select(table("data.membership_support")).where(
-                table("data.membership_support").c.entity_id == endpoint
-            )
-        ).first()
-    # Same logical document URI preserves legitimate reference eligibility; different
-    # bytes/key avoid silently reusing the first producer's completed task.
-    path = tmp_path / "next.pdf"
-    original = write_controlled_pdf(path, ("Alice is here.", "Next source revision."))
-    configuration = {
-        "model": "controlled-known-reference-agent",
-        "mode": "extract",
-        "max_units": 1,
-        "packet_cap_chars": 18000,
-        "sentences": SentenceConfig().model_dump(mode="json"),
-    }
-    with writer.begin() as conn:
-        document = register_document(
-            conn,
-            project_id="p",
-            source_uri="page.html",
-            original_path=str(path),
-            original=original,
-            metadata={"page": "next"},
-            mime="application/pdf",
-        )
-        run = create_run(
-            conn,
-            project_id="p",
-            binding=OperationBinding(
-                prepared.release_id, prior.realization_id, prior.data_revision, b"{}"
-            ),
-            kind="full",
-            options={"agent_configs": {"agent.general/extract": configuration}},
-            code_commit="import-declared-membership",
-        )
-    (view,) = publish_controlled_pdf_views(
-        writer,
-        prepared=prepared,
-        run_id=run,
-        document_id=document,
-        original=original,
-        paragraphs=("Alice is here.",),
-    )
-    from .primary_native_support import bind_primary_agent_run
-
-    with writer.begin() as conn:
-        run, configuration = bind_primary_agent_run(
-            conn, run, prepared, (view.ref.id,), configuration, method="agent.general"
-        )
-        (task,) = queue_agent(
-            conn,
-            run_id=run,
-            prepared=prepared,
-            configuration=configuration,
-            method_name="agent.general",
-            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key),),
-        )
-        packet = agent_packet(conn, run, task, prepared)
-        known_classes = dict(packet.known_classes)
-        assert known_classes[subject] == ("https://example.org/Person",)
-        assert known_classes[endpoint] == ("https://example.org/Person",)
-        sentence = next(s for s in packet.frame.sentences if s.end - s.start == 14)
-        raw = {
-            "unit_ref": view.ref.key,
-            "entities": [],
-            "statements": [],
-            "claims": [
-                {
-                    "id": "relation",
-                    "subject": subject,
-                    "predicate": "https://example.org/parent",
-                    "object": {"kind": "entity", "target": endpoint},
-                    "qualification": {"modality": "asserted", "polarity": True},
-                    "establishment": "stated",
-                    "evidence": [
-                        {"sentence": sentence.id, "quote": "Alice is here.", "role": "primary"}
-                    ],
-                }
-            ],
-            "alternatives": [],
-            "unsupported": [],
-        }
-        stored = locate_proposal(
-            prepared, raw, packet.frame, known_classes=known_classes
-        ).stored.model_dump(mode="python")
-        config_id = conn.execute(
-            select(table("ops.task").c.method_config_id).where(table("ops.task").c.id == task)
-        ).scalar_one()
-        (lease,) = claim_tasks(
-            conn, run_id=run, config_id=config_id, holder="import-worker", agent=True
-        )
-        complete_task(
-            conn,
-            task_id=task,
-            attempt=lease.attempt,
-            holder="import-worker",
-            prepared=prepared,
-            observations=[
-                {
-                    "payload_definition": "AgentStoredBatch",
-                    "item_key": "proposal",
-                    "kind": "claim_proposal",
-                    "payload": stored,
-                    "source_view_id": view.ref.id,
-                }
-            ],
-        )
-        cut = seal_cut(conn, run, "final", final=True)
-    return ImportedDeclarationCase(
-        prepared, run, cut, prior_run, prior.realization_id, prior.data_revision, subject, endpoint
-    )
 
 
 def test_declared_membership_survives_known_object_import_without_new_declaration(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    imported_declaration_case,
 ):
-    case = imported_declaration_case(semantic_db_engine, semantic_writer_engine, tmp_path)
-    result = consolidate_cut(semantic_writer_engine, case.cut, "imported-result")
-    with semantic_writer_engine.connect() as conn:
+    case = imported_declaration_case.stage
+    commit_writer_engine = imported_declaration_case.writer
+    result = consolidate_cut(commit_writer_engine, case.cut, "imported-result")
+    with commit_writer_engine.connect() as conn:
         membership = table("data.membership")
         assert conn.execute(
             select(membership.c.class_id, membership.c.establishment).where(
@@ -222,15 +47,13 @@ def test_declared_membership_survives_known_object_import_without_new_declaratio
         assert lineage["input_data_revision"] == case.prior_revision
         assert lineage["input_entity_id"] == case.endpoint and lineage["run_id"] == case.run
     # Finished runs retain the same receipt without republishing their imported graph.
-    assert consolidate_cut(semantic_writer_engine, case.cut, "imported-result") == result
+    assert consolidate_cut(commit_writer_engine, case.cut, "imported-result") == result
 
 
 @pytest.mark.parametrize(
     "forgery", ["valid", "revision", "run", "entity", "class", "establishment"]
 )
-def test_native_imported_membership_requires_exact_bound_lineage(
-    semantic_db_engine, semantic_writer_engine, tmp_path, forgery
-):
+def test_native_imported_membership_requires_exact_bound_lineage(imported_membership_case, forgery):
     from corpus_structure.semantic.analytics import compile_projection
     from corpus_structure.semantic.arrow_publication import (
         SnapshotDerivedPublication,
@@ -239,9 +62,10 @@ def test_native_imported_membership_requires_exact_bound_lineage(
     from corpus_structure.semantic.domain_operations import NativeEvidenceLink, _cut_input
     from corpus_structure.semantic.publication import EvidenceSourceRow
 
-    case = imported_declaration_case(semantic_db_engine, semantic_writer_engine, tmp_path)
-    inputs = _cut_input(semantic_writer_engine, case.cut, "hostile")
+    case = imported_membership_case.stage
+    inputs = _cut_input(imported_membership_case.reader, case.cut, "hostile")
     batch = inputs.batch
+    original = batch
     assert not any(row.entity_id == case.endpoint for row in batch.entity_source)
     assert not any(row.entity_id == case.endpoint for row in batch.membership_support)
     if forgery in {"revision", "run", "entity"}:
@@ -304,30 +128,77 @@ def test_native_imported_membership_requires_exact_bound_lineage(
         cut_id=case.cut,
         profile_digest=compiled.profile.digest,
     )
-    with (
-        pytest.raises(
-            DBAPIError,
-            match="entity input differs from bound evaluation input"
-            if forgery in {"revision", "run"}
-            else "membership requires establishment and support",
-        )
-        if forgery != "valid"
-        else nullcontext(),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-    ):
+    valid_sources = {row.evidence_id: row for row in original.evidence_source}
+    for row in evidence_sources.values():
+        valid_sources[row.evidence_id] = row
+    original = replace(original, evidence_source=tuple(valid_sources.values())).bind_preparation(
+        case.prepared
+    )
+    valid = SnapshotDerivedPublication.from_rows(
+        original,
+        source=inputs.source_binding,
+        operation_id="evaluate",
+        projection_id=compiled.projection_id,
+        contract_id="candidate",
+        cut_id=case.cut,
+        profile_digest=compiled.profile.digest,
+    )
+
+    def publish(conn, actual, rows):
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": case.cut, "out": "hostile"}
         )
-        publish_arrow_on_connection(conn, publication)
+        publish_arrow_on_connection(conn, actual)
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
-            {"cut": case.cut, "out": "hostile", "batch": batch.batch_id},
+            {"cut": case.cut, "out": "hostile", "batch": rows.batch_id},
         )
-    with semantic_writer_engine.connect() as conn:
-        persisted = conn.execute(
-            select(table("data.realization")).where(
-                table("data.realization").c.realization_id == "hostile"
+
+    if forgery == "valid":
+        with (
+            imported_membership_case.writer.connect().execution_options(
+                isolation_level="SERIALIZABLE"
+            ) as conn,
+            conn.begin(),
+        ):
+            publish(conn, publication, batch)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.realization WHERE realization_id='hostile'")
+                )
+                == 1
             )
-        ).first()
-        assert (persisted is not None) == (forgery == "valid")
+    else:
+        with imported_membership_case.principal("write", isolation_level="SERIALIZABLE") as conn:
+            positive = conn.begin_nested()
+            publish(conn, valid, original)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.realization WHERE realization_id='hostile'")
+                )
+                == 1
+            )
+            positive.rollback()
+            message = (
+                "entity input differs from bound evaluation input"
+                if forgery in {"revision", "run"}
+                else "membership requires establishment and support"
+            )
+            with (
+                native_refusal(
+                    "P0001" if forgery in {"revision", "run"} else "23514",
+                    message=message,
+                    context="data.check_entity_input()"
+                    if forgery in {"revision", "run"}
+                    else "data.validate_pre_inference_state(text,text)",
+                ),
+                conn.begin_nested(),
+            ):
+                publish(conn, publication, batch)
+            for relation in ("realization", "membership", "entity_input"):
+                assert (
+                    conn.scalar(
+                        text(f"SELECT count(*) FROM data.{relation} WHERE realization_id='hostile'")
+                    )
+                    == 0
+                )

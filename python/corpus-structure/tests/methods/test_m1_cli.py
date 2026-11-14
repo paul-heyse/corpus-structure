@@ -6,23 +6,44 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    "arguments",
+    "arguments, message",
     [
-        ["--extraction-policy", "m1-candidate"],
-        ["--m1-configuration", "described"],
-        ["--extraction-policy", "m1-candidate", "--m1-configuration", "unknown"],
-        ["--integrated-product-task", "23"],
-        [
-            "--integrated-product-task",
-            "23",
-            "--integrated-product-key",
-            "integrated",
-            "--integrated-product-digest",
-            "bad",
-        ],
+        (
+            ["--extraction-policy", "m1-candidate"],
+            (
+                "M1 requires one exact retained integrated PDF product pin; "
+                "conversion and fallback are disabled"
+            ),
+        ),
+        (
+            ["--m1-configuration", "described"],
+            "nondefault M1 configuration requires the m1-candidate policy",
+        ),
+        (
+            ["--extraction-policy", "m1-candidate", "--m1-configuration", "unknown"],
+            (
+                "Invalid value for '--m1-configuration': 'unknown' is not one of "
+                "'default', 'described', 'readings', 'contextual', 'source-only'."
+            ),
+        ),
+        (
+            ["--integrated-product-task", "23"],
+            "integrated product task, key and digest must be supplied together",
+        ),
+        (
+            [
+                "--integrated-product-task",
+                "23",
+                "--integrated-product-key",
+                "integrated",
+                "--integrated-product-digest",
+                "bad",
+            ],
+            "product reference requires its SHA-256 content digest",
+        ),
     ],
 )
-def test_refused_pin_never_opens_database(cli, monkeypatch, arguments):
+def test_refused_pin_never_opens_database(cli, monkeypatch, arguments, message):
     from corpus_structure.cli import orchestrate
 
     def forbidden(*args, **kwargs):
@@ -31,7 +52,7 @@ def test_refused_pin_never_opens_database(cli, monkeypatch, arguments):
     monkeypatch.setattr(orchestrate, "ENGINE", forbidden)
     result = cli("run", *arguments)
     assert result.exit_code == 2
-    assert any(word in result.output for word in ("pin", "together", "SHA-256", "configuration"))
+    assert message in " ".join(result.output.replace("│", "").split())
 
 
 def test_contextual_policy_resolves_real_registry_and_keeps_reading_resolution():

@@ -18,9 +18,8 @@ from corpus_structure.semantic.structural_sources import (
 )
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
 from corpus_structure.settings import Settings
+from semantic.native_record_fixtures import complete_contributions
 from semantic.native_record_fixtures import private_source as private_source
-
-from .native_record_fixtures import complete_contributions
 
 ROOT = Path(__file__).resolve().parents[4]
 EVIDENCE = ROOT / "docs/design_review/evidence"
@@ -34,22 +33,15 @@ def parser_samples():
     return panel[0]["text"], panel[2]["text"], panel[4]["text"]
 
 
-@pytest.fixture
-def private_source_options(parser_samples):
-    return {"sibling_references": parser_samples}
-
-
-@pytest.mark.skipif(
-    not os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS"), reason="locked native assets are opt-in"
-)
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
 def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
-    private_source, parser_samples, tmp_path, monkeypatch
+    parser_source, parser_samples, tmp_path, monkeypatch
 ):
     from corpus_structure.methods import native_profiles
+    from semantic.native_provider_support import actual_provider_population
 
-    from .native_provider_support import actual_provider_population
-
-    case = private_source
+    case = parser_source
     with case.writer.begin() as conn:
         complete_contributions(
             case,
@@ -159,7 +151,7 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
 
 
 def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions(
-    private_source, parser_samples, tmp_path, semantic_reader_engine
+    parser_source, parser_samples, tmp_path, commit_reader_engine
 ):
     from copy import deepcopy
     from hashlib import sha256
@@ -174,7 +166,7 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
         write_review_bundle,
     )
 
-    case = private_source
+    case = parser_source
     with case.writer.begin() as conn:
         complete_contributions(
             case,
@@ -226,7 +218,7 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
         )
         inspection = serve_contributions(conn, selection)
     review = ReviewSelection(selections=(selection,))
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         captured = list(capture_review_relations(conn, review, OperationCancellation()))
     assert progress is not None
     assert progress.pm2_scope_coverage == reader_coverage == report.scope_coverage
@@ -269,7 +261,7 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
 
 
 def test_pm2_cli_refuses_invalid_extent_before_run_admission(
-    private_source, parser_samples, semantic_application_settings, tmp_path, monkeypatch
+    parser_source, parser_samples, commit_application_settings, tmp_path, monkeypatch
 ):
     from sqlalchemy import func, select
     from typer.testing import CliRunner
@@ -280,7 +272,7 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
     from corpus_structure.orchestrate import pm2_stage
     from corpus_structure.semantic.metadata import table
 
-    case = private_source
+    case = parser_source
     with case.writer.begin() as conn:
         complete_contributions(
             case,
@@ -386,7 +378,7 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
         result = runner.invoke(
             app,
             ["run", command, "--request", str(request_path), "--json"],
-            obj=CliState(lambda: semantic_application_settings),
+            obj=CliState(lambda: commit_application_settings),
         )
         assert result.exit_code == 1, (result.output, result.exception)
         error = json.loads(result.stdout)["error"]
@@ -396,7 +388,7 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
     assert checked_providers == ["hanlp", "d1", "hanlp", "hanlp"]
 
 
-def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):
+def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
     from hashlib import sha256
 
     from corpus_structure.orchestrate.commands import bound_status, cancel_bound_run
@@ -405,7 +397,7 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):
     from corpus_structure.semantic.operations import binding_of, create_run, create_task, start_run
     from corpus_structure.semantic.pm2_coverage import scope_coverage
 
-    case = private_source
+    case = parser_source
     with case.writer.begin() as conn:
         complete_contributions(
             case,
@@ -479,3 +471,15 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):
     assert entry.task_id == task
     assert entry.outcome == "cancelled"
     assert entry.origin_task_id is entry.inspected_count is entry.emitted_count is None
+
+
+@pytest.fixture
+def parser_source(parser_samples, commit_db_engine, commit_writer_engine, tmp_path):
+    from semantic.native_record_fixtures import RecordSourceRecipe, record_source_for
+
+    return record_source_for(
+        RecordSourceRecipe(sibling_references=parser_samples),
+        commit_db_engine,
+        commit_writer_engine,
+        tmp_path,
+    )

@@ -14,10 +14,10 @@ def test_array_scalar_change_is_not_lost_by_dialect_tokenizer():
     assert compare_type(None, None, None, Text(), Text()) is None
 
 
-def test_preserving_postgresql_array_cast(semantic_db_engine):
+def test_preserving_postgresql_array_cast(commit_db_engine):
     """Exercise the actual forward USING conversion, including quoted elements."""
     expected = ["comma,value", 'quoted"alias', "slash\\alias", "日本語", "NULL", ""]
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("CREATE TEMP TABLE alias_array_conversion (forms text) ON COMMIT DROP")
         conn.exec_driver_sql(
             "INSERT INTO alias_array_conversion(forms) VALUES (%s::text[]::text)", (expected,)

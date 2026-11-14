@@ -11,22 +11,21 @@ from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.types import SourceArtifact
 from corpus_structure.settings import Settings
-
-from .test_operation_reporting import prepared, report_inputs
+from semantic.operation_reporting_support import prepared, report_inputs
 
 
 def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
-    semantic_db_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_reader_engine,
     cli,
 ):
     release = prepared()
     bundle, deps, profile = report_inputs()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, release)
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -91,7 +90,7 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
     )
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(semantic_reader_engine, "reports"))
+        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "reports"))
         async with Client(server) as client:
             answer = await client.call_tool(
                 "explain_operation",
@@ -123,9 +122,9 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
 
 
 def test_live_preflight_never_authorizes_stale_native_publication(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
 ):
     import pytest
     from sqlalchemy import insert
@@ -136,13 +135,12 @@ def test_live_preflight_never_authorizes_stale_native_publication(
     from corpus_structure.semantic.operation_reporting import explain_operation
     from corpus_structure.semantic.publication import PublicationBatch, publish_batch
     from corpus_structure.semantic.query import SnapshotBinding, read_snapshot
-
-    from .test_inference import _inference_publication_state
+    from semantic.inference_support import _inference_publication_state
 
     release = prepared()
     bundle, deps, profile = report_inputs()
     realization = "report-stale-realization"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, release)
         conn.execute(insert(table("data.project")).values(project_id="report-stale"))
         conn.execute(
@@ -153,38 +151,36 @@ def test_live_preflight_never_authorizes_stale_native_publication(
             )
         )
     binding = SnapshotBinding(release.release_id, realization, 0, "report-preflight")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         observed = explain_operation(
             release, "derive", subject=binding, connection=conn
         ).model_dump(mode="json")
     check = next(item for item in observed["checks"] if item["contract_ref"] == "SnapshotBinding")
     assert check["status"] == "applicable"
     with (
-        semantic_writer_engine.connect().execution_options(
-            isolation_level="REPEATABLE READ"
-        ) as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
         conn.begin(),
     ):
         result = derive(conn, binding)
     publish_batch(
-        semantic_writer_engine,
+        commit_writer_engine,
         PublicationBatch(release.release_id, realization, "advance-after-preflight"),
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         before = _inference_publication_state(conn, release.release_id, realization)
     assert len(before["data.batch"]) == 1
     assert before["data.batch"][0]["batch_id"] == "advance-after-preflight"
     assert before["data.realization"][0]["data_revision"] == 1
     with pytest.raises(StaleAnalysisError, match="revision changed"):
-        publish_inference(semantic_writer_engine, result)
-    with semantic_db_engine.connect() as conn:
+        publish_inference(commit_writer_engine, result)
+    with commit_db_engine.connect() as conn:
         after = _inference_publication_state(conn, release.release_id, realization)
     assert {name: len(rows) for name, rows in after.items()} == {
         name: len(rows) for name, rows in before.items()
     }
     assert after == before
     assert result.batch.batch_id not in {row["batch_id"] for row in after["data.batch"]}
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         stale = explain_operation(release, "derive", subject=binding, connection=conn).model_dump(
             mode="json"
         )
@@ -193,8 +189,8 @@ def test_live_preflight_never_authorizes_stale_native_publication(
 
 
 def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unknowns(
-    semantic_db_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_reader_engine,
     cli,
 ):
     """Change retained recipe inputs, rather than fabricating an analysis result."""
@@ -229,12 +225,12 @@ def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unkn
     )
     before = prepare_release(bundle, deps, profile)
     after = prepare_release(changed_bundle, changed, profile)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, before)
         persist_release(conn, changed_bundle, changed, profile, after)
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -279,7 +275,7 @@ def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unkn
     assert any("helper body not analyzed" in value for value in report["unknowns"])
 
     async def journey():
-        server = build_semantic_server(SemanticProjectSession(semantic_reader_engine, "impact"))
+        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "impact"))
         async with Client(server) as client:
             answer = await client.call_tool(
                 "compare_semantic_releases",
@@ -291,7 +287,7 @@ def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unkn
 
 
 def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
-    semantic_db_engine, semantic_reader_engine, cli
+    commit_db_engine, commit_reader_engine, cli
 ):
     import yaml
 
@@ -326,13 +322,13 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
             ),
         )
         release = prepare_release(bundle, dependencies, profile)
-        with semantic_db_engine.begin() as conn:
+        with commit_db_engine.begin() as conn:
             persist_release(conn, bundle, dependencies, profile, release)
         releases.append(release)
     before, after = releases
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -355,9 +351,7 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
     assert alias["members"][0]["model_path"].endswith("/classes/rewrites")
 
     async def journey():
-        server = build_semantic_server(
-            SemanticProjectSession(semantic_reader_engine, "alias-impact")
-        )
+        server = build_semantic_server(SemanticProjectSession(commit_reader_engine, "alias-impact"))
         async with Client(server) as client:
             answer = await client.call_tool(
                 "compare_semantic_releases",

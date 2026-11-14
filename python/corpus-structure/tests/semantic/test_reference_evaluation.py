@@ -23,8 +23,7 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_views import load_source_view
-
-from .agent_scenarios import build_resubmission_case, lease_and_read
+from semantic.agent_scenarios import ResubmissionRecipe, build_resubmission_case, lease_and_read
 
 
 def independent_native_frame(conn, run, unit_key, sentence_id):
@@ -40,13 +39,15 @@ def independent_native_frame(conn, run, unit_key, sentence_id):
     return native_source_frame(view, ((sentence_id, 0, 14),))
 
 
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
 def test_independent_reference_grade_retains_exact_pass_and_qualification(
-    semantic_db_engine, semantic_writer_engine, tmp_path, cli, semantic_evaluator_engine
+    resubmission_case, tmp_path, cli
 ):
-    _prepared, run, task, locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
-    source_session = SemanticAgentSession(semantic_writer_engine, run)
+    commit_db_engine = resubmission_case.admin
+    commit_writer_engine = resubmission_case.writer
+    commit_evaluator_engine = resubmission_case.evaluator
+    _prepared, run, task, locator = resubmission_case.stage.result
+    source_session = SemanticAgentSession(commit_writer_engine, run)
 
     async def source():
         async with Client(build_semantic_server(source_session)) as client:
@@ -88,7 +89,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
             assert response.structured_content["submission_disposition"] == "completed_accepted"
 
     anyio.run(source)
-    finalize_bound_run(semantic_writer_engine, run, "reference-result")
+    finalize_bound_run(commit_writer_engine, run, "reference-result")
     # Independent expected authoring: different local names, explicit qualifier and source text.
     authored = {
         "unit_ref": locator,
@@ -109,7 +110,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
             }
         ],
     }
-    evaluator = semantic_evaluator_engine
+    evaluator = commit_evaluator_engine
     with evaluator.begin() as conn:
         frame = independent_native_frame(conn, run, locator, "reference_sentence")
         split_documents(conn, "resubmit")
@@ -162,6 +163,49 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
                 "f1": 1.0,
             }
         assert report.reference_snapshot[0]["pass_id"] == c
+        # A separate authored adjudication deliberately leaves one extra prediction
+        # and one missing reference. Perfect-only examples cannot distinguish a
+        # matcher that accepts every submitted claim.
+        imperfect = copy.deepcopy(authored)
+        imperfect["claims"][0]["id"] = "reference_missing"
+        imperfect["claims"][0]["object"]["text"] = "Carol"
+        imperfect_set = create_reference_set(
+            conn,
+            project_id="resubmit",
+            source_run_id=run,
+            label="independent-imperfect",
+            split="dev",
+            size=1,
+        )
+        imperfect_unit = next(iter(imperfect_set["units"].values()))
+        for pass_kind in ("A", "B", "C"):
+            record_pass(
+                conn,
+                unit_id=imperfect_unit,
+                pass_kind=pass_kind,
+                actor="imperfect-reference-" + pass_kind,
+                authored=json.dumps(imperfect).encode(),
+                frame=frame,
+            )
+        imperfect_report = reference_evaluate(
+            conn, project_id="resubmit", run_id=run, set_id=imperfect_set["set_id"]
+        )
+        for tier in ("core", "full", "evidence"):
+            assert imperfect_report.result["tiers"][tier] == {
+                "reference": 1,
+                "prediction": 1,
+                "matched": 0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+            }
+        # This API exposes matched pairs; empty pairs plus exact population counts
+        # establish that the independently named reference/prediction are unmatched.
+        assert imperfect_report.result["units"][0]["matches"] == {
+            "core": [],
+            "full": [],
+            "evidence": [],
+        }
         # Exercise the protected SQL consumer with an independently changed report, bypassing
         # Python construction deliberately. Nested comparisons must reach the same policy rows.
         nested = copy.deepcopy(report.result)
@@ -215,11 +259,11 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
         # The restricted persistence operation must reject it even without reactivation.
         from hashlib import sha256
 
-        from .archive_faults import administrative_archive_edit
+        from semantic.archive_faults import administrative_archive_edit
 
         for layout in ("empty", "partial", "moved"):
             with (
-                semantic_db_engine.begin() as admin,
+                commit_db_engine.begin() as admin,
                 administrative_archive_edit(admin, table("sem.artifact")),
             ):
                 original = bytes(
@@ -259,7 +303,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
                     record_native(nested)
             finally:
                 with (
-                    semantic_db_engine.begin() as admin,
+                    commit_db_engine.begin() as admin,
                     administrative_archive_edit(admin, table("sem.artifact")),
                 ):
                     admin.execute(
@@ -337,7 +381,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
                     "snap": json.dumps(report.reference_snapshot),
                 },
             )
-    with semantic_writer_engine.connect() as conn, pytest.raises(DBAPIError):
+    with commit_writer_engine.connect() as conn, pytest.raises(DBAPIError):
         conn.execute(select(table("eval.reference_pass")))
     # Actual Typer dispatch uses the evaluator credential purpose and persistent native APIs.
     from dataclasses import asdict
@@ -347,10 +391,10 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
     def settings():
         return Settings(
             database={
-                "url": semantic_writer_engine.url.set(drivername="postgresql").render_as_string(
+                "url": commit_writer_engine.url.set(drivername="postgresql").render_as_string(
                     hide_password=False
                 ),
-                "maintenance_url": semantic_db_engine.url.set(
+                "maintenance_url": commit_db_engine.url.set(
                     drivername="postgresql"
                 ).render_as_string(hide_password=False),
                 "evaluator_url": evaluator.url.set(drivername="postgresql").render_as_string(
@@ -432,7 +476,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
 
 
 def test_archived_split_policy_preserves_reserved_forced_and_chapter_partitions(
-    semantic_db_engine, semantic_writer_engine, tmp_path, semantic_evaluator_engine
+    commit_db_engine, commit_writer_engine, tmp_path, commit_evaluator_engine
 ):
     from corpus_structure.evaluate.semantic import evaluation_config
 
@@ -446,14 +490,15 @@ def test_archived_split_policy_preserves_reserved_forced_and_chapter_partitions(
 golden:
   sizes: {dev: 2, test: 1}
 """
+    # This consumer authors its own composed, evaluation_policy variant beyond the shared default/prefix.
     prepared, _, _, _ = build_resubmission_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         composed=True,
         evaluation_policy=policy,
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         for chapter in ("ch1", "ch2"):
             for i in range(5):
                 conn.execute(
@@ -478,7 +523,7 @@ golden:
                 meta={"chapter": "ch1"},
             )
         )
-    evaluator = semantic_evaluator_engine
+    evaluator = commit_evaluator_engine
     with evaluator.begin() as conn:
         assert evaluation_config(conn, prepared.release_id).golden.sizes == {
             "dev": 2,
@@ -500,16 +545,15 @@ golden:
         } == rows
 
 
-def test_duplicate_premise_fact_preserves_later_local_claim_references(
-    semantic_db_engine, semantic_writer_engine, tmp_path, semantic_evaluator_engine
-):
-    _prepared, run, task, locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
+def test_duplicate_premise_fact_preserves_later_local_claim_references(resubmission_case, tmp_path):
+    commit_writer_engine = resubmission_case.writer
+    commit_evaluator_engine = resubmission_case.evaluator
+    _prepared, run, task, locator = resubmission_case.stage.result
 
     async def source():
         async with Client(
-            build_semantic_server(SemanticAgentSession(semantic_writer_engine, run))
+            build_semantic_server(SemanticAgentSession(commit_writer_engine, run))
         ) as client:
             unit = await lease_and_read(client, run, task)
             evidence = [
@@ -559,7 +603,7 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(
             assert response.structured_content["submission_disposition"] == "completed_accepted"
 
     anyio.run(source)
-    finalize_bound_run(semantic_writer_engine, run, "duplicate-premise-result")
+    finalize_bound_run(commit_writer_engine, run, "duplicate-premise-result")
     # The independent expected claims have one premise and refer to that retained fact.
     citation = [{"sentence": "independent_sentence", "quote": "Alice is here.", "role": "primary"}]
     reference = {
@@ -592,7 +636,7 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(
             },
         ],
     }
-    evaluator = semantic_evaluator_engine
+    evaluator = commit_evaluator_engine
     with evaluator.begin() as conn:
         made = create_reference_set(
             conn, project_id="resubmit", source_run_id=run, label="premise-alias", size=1
@@ -616,20 +660,17 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(
         }
 
 
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
 @pytest.mark.parametrize("empty_observations", [False, True])
 def test_empty_producer_keeps_frozen_source_in_reference_pool(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
-    tmp_path,
-    empty_observations,
+    resubmission_case, tmp_path, empty_observations
 ):
+    commit_writer_engine = resubmission_case.writer
+    commit_evaluator_engine = resubmission_case.evaluator
     from corpus_structure.evaluate.semantic import _source_units
 
-    _prepared, run, task, locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
-    session = SemanticAgentSession(semantic_writer_engine, run)
+    _prepared, run, task, locator = resubmission_case.stage.result
+    session = SemanticAgentSession(commit_writer_engine, run)
 
     async def empty_source():
         async with Client(build_semantic_server(session)) as client:
@@ -638,7 +679,7 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
                 from corpus_structure.semantic.operations import complete_task
 
                 active = session.active(task)
-                with semantic_writer_engine.begin() as conn:
+                with commit_writer_engine.begin() as conn:
                     complete_task(
                         conn,
                         task_id=task,
@@ -657,8 +698,8 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
                 assert response.structured_content["submission_disposition"] == "completed_accepted"
 
     anyio.run(empty_source)
-    finalize_bound_run(semantic_writer_engine, run, "empty-reference-result")
-    with semantic_evaluator_engine.begin() as conn:
+    finalize_bound_run(commit_writer_engine, run, "empty-reference-result")
+    with commit_evaluator_engine.begin() as conn:
         # The completed native cut and immutable source frame retain this unit even though
         # the producer supplied no knowledge assertions. Reference recall must expose that.
         source = _source_units(conn, run)
@@ -718,15 +759,17 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
             assert grade.result["tiers"][tier]["matched"] == 0
 
 
+@pytest.mark.parametrize(
+    "resubmission_historical_source", [ResubmissionRecipe(composed=True)], indirect=True
+)
 @pytest.mark.parametrize("reuse_origin", [False, True])
 def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
-    tmp_path,
-    monkeypatch,
-    reuse_origin,
+    resubmission_historical_source, tmp_path, monkeypatch, reuse_origin
 ):
+    commit_writer_engine = resubmission_historical_source.writer
+    from semantic.agent_scenarios import queue_resubmission_agent
+
+    commit_evaluator_engine = resubmission_historical_source.evaluator
     from corpus_structure.semantic import source_frames
     from corpus_structure.semantic.operations import (
         binding_of,
@@ -744,10 +787,10 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
         # Construct a retained result from the earlier consolidator, which allowed absent
         # frames. Current consolidation refuses this state before evaluation can begin.
         earlier.setattr(source_frames, "load_source_frames", lambda conn, task_ids: {})
-        prepared, origin_run, task, locator = build_resubmission_case(
-            semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-        )
-        with semantic_writer_engine.begin() as conn:
+        prepared, origin_run, task, locator = queue_resubmission_agent(
+            resubmission_historical_source.stage, commit_writer_engine
+        ).result
+        with commit_writer_engine.begin() as conn:
             source = (
                 conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
                 .mappings()
@@ -770,10 +813,10 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
                 outcome="empty",
             )
             packet_hash = source["packet_hash"]
-        finalize_bound_run(semantic_writer_engine, origin_run, "missing-source-frame-origin")
+        finalize_bound_run(commit_writer_engine, origin_run, "missing-source-frame-origin")
         run = origin_run
         if reuse_origin:
-            with semantic_writer_engine.begin() as conn:
+            with commit_writer_engine.begin() as conn:
                 original = (
                     conn.execute(
                         select(table("ops.run")).where(table("ops.run").c.id == origin_run)
@@ -840,25 +883,25 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
                         )
 
                         select_reused_source_views(conn, run_id=run, task_id=reused)
-            finalize_bound_run(semantic_writer_engine, run, "missing-source-frame-reused")
+            finalize_bound_run(commit_writer_engine, run, "missing-source-frame-reused")
 
     from corpus_structure.semantic.operations import OperationConflict
 
     with (
-        semantic_writer_engine.connect() as conn,
+        commit_writer_engine.connect() as conn,
         pytest.raises(OperationConflict, match="lack their immutable PDF packet frames"),
     ):
         source_frames.load_source_frames(conn, [task])
     with (
         pytest.raises(OperationConflict, match="lack their immutable PDF packet frames"),
-        semantic_evaluator_engine.begin() as conn,
+        commit_evaluator_engine.begin() as conn,
     ):
         create_reference_set(
             conn, project_id="resubmit", source_run_id=run, label="missing-frame", size=1
         )
-    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 1
-    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 0
-    with semantic_writer_engine.connect() as conn:
+    assert source_frames.backfill_source_frames(commit_writer_engine, run) == 1
+    assert source_frames.backfill_source_frames(commit_writer_engine, run) == 0
+    with commit_writer_engine.connect() as conn:
         frame = (
             conn.execute(
                 select(table("ops.native_source_frame")).where(
@@ -877,7 +920,7 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
             )
             is None
         )
-    with semantic_evaluator_engine.begin() as conn:
+    with commit_evaluator_engine.begin() as conn:
         made = create_reference_set(
             conn, project_id="resubmit", source_run_id=run, label="backfilled-frame", size=1
         )

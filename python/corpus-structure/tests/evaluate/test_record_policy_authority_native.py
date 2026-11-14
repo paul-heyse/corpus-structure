@@ -4,22 +4,17 @@ These controls establish evaluator custody, not model quality or origin independ
 """
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from importlib.resources import files
-from pathlib import Path
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
-import yaml
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 from semantic import native_record_fixtures as source_fixture
 from semantic import reference_scenarios as references
-from semantic.conftest import semantic_db_engine as semantic_db_engine
-from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
-from semantic.conftest import semantic_reader_engine as semantic_reader_engine
-from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
@@ -30,13 +25,11 @@ from corpus_structure.evaluate.record_policy import fit_record_policy
 from corpus_structure.evaluate.record_references import (
     PROTOCOL,
     reference_evaluate,
-    reference_inputs,
 )
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import complete_unit_result, seal_cut
-from corpus_structure.semantic.record_assertions import source_reading_inputs
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
@@ -49,7 +42,6 @@ from corpus_structure.semantic.record_policy import (
     RecordAcceptanceInstance,
     RecordAlgorithm,
 )
-from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 ALGORITHM = RecordAlgorithm(features=(FEATURES[0],), minimum_origin_groups=1)
 
@@ -131,43 +123,6 @@ def _four_candidates(case, source="private-unit"):
 
 
 @pytest.fixture
-def private_source_options():
-    def inputs(bundle):
-        # Alignment owns a five-family contract. Reuse its actual other four families,
-        # preserving the deliberately small two-cell table fixture as the fifth.
-        document = yaml.safe_load(
-            (Path(__file__).resolve().parents[4] / "domains/statistics/semantic.yaml").read_bytes()
-        )
-        document["classes"].pop("TableRecordFields")
-        document["imports"] = ["core"]
-        document["name"] = "statistics_policy_fixture"
-        module = SourceArtifact("statistics_policy_fixture", yaml.safe_dump(document).encode())
-        root = SourceArtifact(
-            "policy-fixture-root",
-            canonical_bytes(
-                dict(
-                    id="https://example/policy-fixture-root",
-                    name="policy_fixture_root",
-                    imports=[bundle.root, module.name],
-                )
-            ),
-        )
-        complete = SourceBundle(root.name, (*bundle.sources, module, root))
-        return reference_inputs(source_reading_inputs(complete))
-
-    method = SimpleNamespace(
-        name="extract.m1_candidates",
-        version="3",
-        family="extract",
-        tier="encoder",
-        confidence_source=None,
-        unit_type=TaskUnitType.SOURCE_VIEW,
-        Config=create_model("PrivatePolicyConfig"),
-    )
-    return dict(bundle_transform=inputs, record_method=method)
-
-
-@pytest.fixture
 def policy_source(private_source):
     case = private_source
     records = _four_candidates(case)
@@ -188,7 +143,7 @@ def policy_source(private_source):
             ),
             records=tuple(records),
         )
-        case.cut = seal_cut(conn, case.run, "policy-feature-frame", final=True)
+        case = replace(case, cut=seal_cut(conn, case.run, "policy-feature-frame", final=True))
     consolidate_cut(case.writer, case.cut, "policy-feature-result")
     return case
 
@@ -229,11 +184,17 @@ def create_policy_case(conn, case, partition):
     )
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="policy-authority", record_method="policy-candidates")],
+    indirect=True,
+    ids=("record-policy-authority",),
+)
 def test_feature_fit_is_protected_complete_frame_and_preserves_exact_parameters(
-    policy_source, semantic_evaluator_engine
+    policy_source, record_source_evaluator
 ):
     case = policy_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, row, frame = create_policy_case(conn, case, "feature_fit")
         refs = [row, _second_reference(case, row)]
         a = _pass(conn, unit, refs, frame, "A")
@@ -468,18 +429,32 @@ def _heldout_source(case, directory):
             .mappings()
             .one()
         )
-    return SimpleNamespace(
+    return HeldoutPolicySource(
         prepared=case.prepared,
         writer=case.writer,
         run=run,
         view=view,
         source_task=task,
-        view_row=row,
+        view_row=MappingProxyType(row),
         table=native_table.self_ref,
         method=case.method,
         source=draft.key,
         cut=None,
     )
+
+
+@dataclass(frozen=True)
+class HeldoutPolicySource:
+    prepared: Any
+    writer: Any
+    run: Any
+    view: Any
+    source_task: Any
+    view_row: Any
+    table: str
+    method: Any
+    source: str
+    cut: Any = None
 
 
 def _resolved_cut(case, feature, *, binding=None, forged_score=False):
@@ -499,7 +474,7 @@ def _resolved_cut(case, feature, *, binding=None, forged_score=False):
     if binding is not None:
         original_run = case.run
         with case.writer.begin() as conn:
-            case.run = create_run(
+            run = create_run(
                 conn,
                 project_id="private-records",
                 binding=OperationBinding(
@@ -512,6 +487,7 @@ def _resolved_cut(case, feature, *, binding=None, forged_score=False):
                 options={},
                 code_commit="controlled-final-policy-consumer",
             )
+            case = replace(case, run=run)
             conn.execute(
                 text("SELECT ops.select_source_view(:r,:s,:v)"),
                 dict(r=case.run, s=original_run, v=case.view),
@@ -602,8 +578,8 @@ def _resolved_cut(case, feature, *, binding=None, forged_score=False):
             result=result,
             records=result.records,
         )
-        case.cut = seal_cut(conn, case.run, "controlled-resolved-cut", final=True)
-    return consolidate_cut(case.writer, case.cut, "controlled-result:" + str(case.run))
+        case = replace(case, cut=seal_cut(conn, case.run, "controlled-resolved-cut", final=True))
+    return case, consolidate_cut(case.writer, case.cut, "controlled-result:" + str(case.run))
 
 
 def _adjudicated_case(conn, case, partition):
@@ -615,11 +591,17 @@ def _adjudicated_case(conn, case, partition):
     return created
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="policy-authority", record_method="policy-candidates")],
+    indirect=True,
+    ids=("record-policy-authority",),
+)
 def test_heldout_calibration_binding_and_native_whole_reading_admission(
-    policy_source, semantic_evaluator_engine, tmp_path, semantic_db_engine, semantic_reader_engine
+    policy_source, record_source_evaluator, tmp_path, record_source_admin, record_source_reader
 ):
     training = policy_source
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created = _adjudicated_case(conn, training, "feature_fit")
         fitted = fit_record_policy(
             conn,
@@ -637,8 +619,8 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
         )
         feature_evaluation = fitted.report.id
     heldout = _heldout_source(training, tmp_path / "heldout")
-    _resolved_cut(heldout, feature)
-    with semantic_evaluator_engine.begin() as conn:
+    heldout, _ = _resolved_cut(heldout, feature)
+    with record_source_evaluator.begin() as conn:
         calibration_set = _adjudicated_case(conn, heldout, "final_event_calibration")
         calibrated = fit_record_policy(
             conn,
@@ -670,7 +652,7 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
             evaluation_id=calibrated.report.id,
             evaluation_digest=evaluation_digest,
         )
-    with semantic_db_engine.connect() as conn:
+    with record_source_admin.connect() as conn:
         conn.execute(
             text("SELECT sem.require_record_policy_binding(:r,CAST(:b AS jsonb),true)"),
             dict(r=training.prepared.release_id, b=canonical_bytes(binding).decode()),
@@ -694,7 +676,7 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
                 dict(r=training.prepared.release_id, b=canonical_bytes(altered).decode()),
             )
         assert getattr(parameter_refusal.value.orig, "sqlstate", None) == "23514"
-    result = _resolved_cut(heldout, feature, binding=binding)
+    heldout, result = _resolved_cut(heldout, feature, binding=binding)
     with heldout.writer.connect() as conn:
         admission = table("data.record_admission")
         rows = (
@@ -730,7 +712,7 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
     from corpus_structure.serve.record_results import RecordRequest
     from corpus_structure.serve.record_support import serve_record_support
 
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         ledger = serve_record_support(
             conn, RecordRequest(run_id=heldout.run, family="table", limit=10)
         )
@@ -771,7 +753,7 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
         if entry.admission != "accepted"
         for field in entry.fields
     )
-    forged = _resolved_cut(heldout, feature, binding=binding, forged_score=True)
+    heldout, forged = _resolved_cut(heldout, feature, binding=binding, forged_score=True)
     with heldout.writer.connect() as conn:
         decisions = list(
             conn.scalars(
@@ -788,28 +770,36 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
 def mismatched_prediction_policy_source(monkeypatch, request):
     """Seal a structurally valid actual candidate with a different policy and ID."""
     original = _four_candidates
+    captured = []
 
     def changed(case, source="private-unit"):
         records = original(case, source=source)
         records[0]["policy_version"] = "different-sealed-prediction-policy"
         records[0]["interpretation_id"] = interpretation_identity(records[0])
-        case.different_policy_candidate = deepcopy(records[0])
+        captured.append(deepcopy(records[0]))
         return records
 
     monkeypatch.setitem(globals(), "_four_candidates", changed)
-    return request.getfixturevalue("policy_source")
+    case = request.getfixturevalue("policy_source")
+    return case, captured[0]
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="policy-authority", record_method="policy-candidates")],
+    indirect=True,
+    ids=("record-policy-authority",),
+)
+@pytest.mark.usefixtures("private_source")
 def test_native_gap_and_complete_fit_frame_refuse_actual_different_prediction_policy(
-    mismatched_prediction_policy_source, semantic_evaluator_engine, semantic_db_engine
+    mismatched_prediction_policy_source, record_source_evaluator, record_source_admin
 ):
-    case = mismatched_prediction_policy_source
-    candidate = case.different_policy_candidate
+    case, candidate = mismatched_prediction_policy_source
     # Ordinary producer sealing and publication succeeded with a truthful private
     # candidate. Its policy does not match this independent evaluation's frozen frame.
     assert candidate["policy_version"] != ALGORITHM.version
     assert candidate["interpretation_id"] == interpretation_identity(candidate)
-    with semantic_db_engine.connect() as conn:
+    with record_source_admin.connect() as conn:
         conn.execute(
             text("SELECT data.validate_source_record_structure(:r,CAST(:v AS jsonb))"),
             dict(r=case.prepared.release_id, v=canonical_bytes(candidate).decode()),
@@ -824,7 +814,7 @@ def test_native_gap_and_complete_fit_frame_refuse_actual_different_prediction_po
             and record["policy_version"] == candidate["policy_version"]
             for record in sealed["records"]
         )
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         created, unit, row, frame = create_policy_case(conn, case, "feature_fit")
         refs = [row, _second_reference(case, row)]
         a = _pass(conn, unit, refs, frame, "A")

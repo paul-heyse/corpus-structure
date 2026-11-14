@@ -21,9 +21,8 @@ from corpus_structure.serve.structural_gaps import (
     _read_payload,
     gap_page,
 )
-
-from .test_dossier_comparison_bindings import fixture
-from .test_dossier_semantic_states import applicability
+from semantic.dossier_comparison_bindings_support import fixture
+from semantic.dossier_semantic_states_support import applicability
 
 
 def producer(report, **changes):

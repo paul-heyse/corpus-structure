@@ -12,9 +12,11 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.test_data_operation_binding_native import (
+from semantic.data_operation_binding_support import (
     binding_native_connection as binding_native_connection,
 )
+from semantic.data_operation_declaration_support import PARAMETER
+from semantic.data_operation_declaration_support import declaration as build_declaration
 
 
 @pytest.fixture(scope="module")
@@ -59,11 +61,9 @@ classes:
         ),
     )
     prepared = prepare_release(schema)
-    operation = dict(
-        id="urn:parameter-test:operation",
-        profile="derivation",
-        subject="source",
-        context=[],
+    operation = build_declaration(
+        "urn:parameter-test:operation",
+        vocabulary=PARAMETER,
         roles=[
             dict(
                 name="result",
@@ -75,19 +75,6 @@ classes:
                 presence="required",
             )
         ],
-        applicability=[],
-        invariants=[],
-        coverage="selected",
-        outcomes=["success"],
-        precision="exact",
-        dependencies=[],
-        effects=[],
-        capabilities=dict(
-            forms=["scalar"],
-            preparation="none",
-            cancellation="call-boundary",
-            ownership="immutable",
-        ),
         behavior="parameter-control",
         parameters=dict(
             spans=dict(kind="Span", collection="sequence", default=[]),

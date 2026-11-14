@@ -12,7 +12,7 @@ from corpus_structure.methods.m1_source import M1Candidates, M1Config
 from corpus_structure.orchestrate.m1 import registry, source_graph
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_policy import PolicyApplicability
-from methods.test_m1_producer import ROOT, ControlledDecoder, owned_reader, view
+from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
 
 
 def retained_fixture(monkeypatch, *, mode="definition"):
@@ -176,10 +176,29 @@ def test_finite_feature_instance_scores_final_reading_without_repeating_extracti
     import json
     from hashlib import sha256
 
-    from semantic.test_record_policy import fitted
+    from semantic.record_policy_support import algorithm, applicability, training
+
+    from corpus_structure.evaluate.record_fitting import fit_whole_reading_features
 
     unit, ctx, _upstream, worker = retained_fixture(monkeypatch)
-    instance = fitted().model_copy(
+    observations, frame = training()
+    # A nonzero center makes omitting centering change the final event score.
+    shifted = []
+    for row in observations:
+        value = row.features.values[0]
+        assert value is not None
+        shifted.append(
+            row.model_copy(
+                update={"features": row.features.model_copy(update={"values": (value + 5.0,)})}
+            )
+        )
+    observations = tuple(shifted)
+    fit = fit_whole_reading_features(
+        observations, algorithm=algorithm(), applicability=applicability(), frame=frame
+    )
+    assert fit.instance is not None
+    assert fit.instance.parameters.center == (5.0,)
+    instance = fit.instance.model_copy(
         update={
             "applicability": PolicyApplicability(
                 release_id=ctx.reader.prepared.release_id,
@@ -228,7 +247,7 @@ def test_reading_fit_is_not_applied_outside_exact_release_family_and_subset(
 ):
     import json
 
-    from semantic.test_record_policy import fitted
+    from semantic.record_policy_support import fitted
 
     unit, ctx, _upstream, _worker = retained_fixture(monkeypatch)
     base = PolicyApplicability(

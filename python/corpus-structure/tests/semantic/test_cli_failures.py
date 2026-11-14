@@ -226,18 +226,23 @@ def test_schema_derive_existing_directory_refuses_before_prepare(cli, tmp_path):
 
 
 def test_actual_database_check_preserves_native_admission_diagnostic(
-    cli, semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    cli, commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     from corpus_structure.settings import Settings
-
-    from .agent_scenarios import build_resubmission_case
-
-    prepared, _, _, _ = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
+    from semantic.agent_scenarios import (
+        ResubmissionPreparationRecipe,
+        persist_resubmission_release,
+        prepare_resubmission_case,
     )
+
+    preparation = prepare_resubmission_case(ResubmissionPreparationRecipe())
+    persisted = persist_resubmission_release(
+        commit_db_engine, commit_writer_engine, preparation, composed=True
+    )
+    prepared = persisted.prepared
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -249,7 +254,7 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
     # Deliberately change an actual owned clone's posture; the native diagnostic must survive
     # the complete CLI route instead of becoming a generic SQLAlchemy or ValueError refusal.
     try:
-        with semantic_db_engine.begin() as conn:
+        with commit_db_engine.begin() as conn:
             conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
             conn.exec_driver_sql(
                 "GRANT EXECUTE ON FUNCTION data.require_execution_release(text) TO PUBLIC"
@@ -260,7 +265,7 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
         assert error["code"] == "ExecutionAdmissionError"
         assert "native execution deployment differs" in error["message"]
     finally:
-        with semantic_db_engine.begin() as conn:
+        with commit_db_engine.begin() as conn:
             conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
             conn.exec_driver_sql(
                 "REVOKE EXECUTE ON FUNCTION data.require_execution_release(text) FROM PUBLIC"
@@ -270,20 +275,19 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
 @pytest.mark.parametrize("route", ["schema", "db_check"])
 @pytest.mark.parametrize("kind", ["serialization", "fencing", "unknown", "bug"])
 def test_actual_archive_query_failure_reaches_cli_unchanged(
-    cli, semantic_db_engine, semantic_reader_engine, route, kind
+    cli, commit_db_engine, commit_reader_engine, route, kind
 ):
     from sqlalchemy import Engine, event
 
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
     from corpus_structure.settings import Settings
+    from semantic.releases_support import stage
 
-    from .test_releases import stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, _, _, prepared = stage(conn)
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }

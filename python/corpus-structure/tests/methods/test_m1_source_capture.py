@@ -10,8 +10,7 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.m1_source import M1Candidates
 from corpus_structure.methods.m1_source_capture import RecordCaptureRule
 from corpus_structure.orchestrate.m1 import registry
-
-from .test_m1_producer import ROOT, ControlledDecoder, owned_reader, view
+from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
 
 
 @pytest.fixture(scope="module")

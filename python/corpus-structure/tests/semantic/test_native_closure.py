@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from native_refusals import native_refusal
 from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 
@@ -17,18 +18,7 @@ from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import ReleaseConflict, persist_release
 from corpus_structure.semantic.types import PreparedArtifact
-
-from .test_releases import source_bundle
-
-
-def archive(engine):
-    bundle = source_bundle()
-    dependencies = composed_dependencies(ResolvedDependencies())
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
-    with engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-    return bundle, dependencies, profile, prepared
+from semantic.native_closure_support import archive as archive
 
 
 def realization(engine, release):
@@ -43,9 +33,11 @@ def realization(engine, release):
     return key
 
 
-def test_restricted_complete_archive_replay_and_immutable_closure(semantic_db_engine, admitter):
-    bundle, deps, profile, prepared = archive(admitter)
-    with admitter.begin() as conn:
+def test_restricted_complete_archive_replay_and_immutable_closure(
+    commit_db_engine, commit_admitter_engine
+):
+    bundle, deps, profile, prepared = archive(commit_admitter_engine)
+    with commit_admitter_engine.begin() as conn:
         conn.execute(text("SELECT data.require_runtime_principal('admit')"))
         assert persist_release(conn, bundle, deps, profile, prepared) == prepared.release_id
         with (
@@ -71,10 +63,10 @@ def test_restricted_complete_archive_replay_and_immutable_closure(semantic_db_en
         "INSERT INTO sem.input SELECT * FROM sem.input LIMIT 1",
         "SELECT * FROM eval.reference_set",
     ):
-        with admitter.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
+        with commit_admitter_engine.begin() as conn, native_refusal("42501"), conn.begin_nested():
             conn.execute(text(sql))
     # Even the protected publisher's payload authority cannot extend finalized meaning.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         for sql in (
             "UPDATE sem.release SET profile=profile",
             "DELETE FROM sem.artifact",
@@ -91,15 +83,13 @@ def test_restricted_complete_archive_replay_and_immutable_closure(semantic_db_en
 
 
 def test_protected_workspace_and_no_writer_temp(
-    semantic_db_engine, semantic_writer_engine, admitter
+    commit_db_engine, commit_writer_engine, commit_admitter_engine
 ):
-    *_, prepared = archive(admitter)
-    z = realization(semantic_db_engine, prepared.release_id)
+    *_, prepared = archive(commit_admitter_engine)
+    z = realization(commit_db_engine, prepared.release_id)
     params = {"r": prepared.release_id, "z": z, "revision": 0, "snapshot": "independent-snapshot"}
     with (
-        semantic_writer_engine.connect().execution_options(
-            isolation_level="REPEATABLE READ"
-        ) as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
         conn.begin(),
     ):
         conn.execute(text("SELECT data.require_runtime_principal('write')"))
@@ -147,11 +137,11 @@ def test_protected_workspace_and_no_writer_temp(
         )
 
 
-def test_restricted_activation_cas_and_deployment_record(semantic_db_engine, admitter, monkeypatch):
-    from corpus_structure.semantic.composed import composed_dependencies
+def test_restricted_activation_cas_and_deployment_record(
+    commit_db_engine, commit_admitter_engine, monkeypatch
+):
     from corpus_structure.semantic.releases import ActivationConflict, activate_release
-
-    from .test_execution_release import _bundle
+    from semantic.execution_release_support import bundle as _bundle
 
     bundle, deps, profile = (
         _bundle(),
@@ -160,9 +150,9 @@ def test_restricted_activation_cas_and_deployment_record(semantic_db_engine, adm
     )
     prepared = prepare_release(bundle, deps, profile)
     project = str(uuid4())
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(insert(table("data.project")).values(project_id=project))
-    with admitter.begin() as conn:
+    with commit_admitter_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
         assert (
             activate_release(
@@ -191,13 +181,13 @@ def test_restricted_activation_cas_and_deployment_record(semantic_db_engine, adm
 
     monkeypatch.setenv(
         "CORPUS_DATABASE__URL",
-        semantic_db_engine.url.set(
+        commit_db_engine.url.set(
             drivername="postgresql", username="corpus_sem_writer"
         ).render_as_string(hide_password=False),
     )
     report = CliRunner().invoke(app, ["db", "check", "--release", prepared.release_id, "--json"])
     assert report.exit_code == 0, (report.output, report.exception)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.execute(
                 text("SELECT generation FROM data.project WHERE project_id=:p"), {"p": project}
@@ -224,8 +214,8 @@ def test_restricted_activation_cas_and_deployment_record(semantic_db_engine, adm
         for item in task.constraints
         if hasattr(item, "sqltext") and "invocation_key" in str(item.sqltext)
     )
-    quote = semantic_db_engine.dialect.identifier_preparer.quote
-    with semantic_db_engine.begin() as conn:
+    quote = commit_db_engine.dialect.identifier_preparer.quote
+    with commit_db_engine.begin() as conn:
         owner = conn.execute(
             text("SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid='ops.task'::regclass")
         ).scalar_one()
@@ -235,19 +225,19 @@ def test_restricted_activation_cas_and_deployment_record(semantic_db_engine, adm
             "ALTER TABLE ops.task ADD CONSTRAINT " + quote(check.name) + " CHECK(true)"
         )
     with (
-        admitter.begin() as conn,
+        commit_admitter_engine.begin() as conn,
         pytest.raises(ExecutionAdmissionError, match="physical CHECK expression differs"),
     ):
         admit_execution_release(prepared, connection=conn)
 
 
-def test_bulk_exact_native_codec_vectors(semantic_db_engine, admitter):
+def test_bulk_exact_native_codec_vectors(commit_db_engine, commit_admitter_engine):
     from decimal import Decimal
 
     from corpus_structure.semantic.value_codec import value_meaning as meaning
 
-    *_, prepared = archive(admitter)
-    z = realization(semantic_db_engine, prepared.release_id)
+    *_, prepared = archive(commit_admitter_engine)
+    z = realization(commit_db_engine, prepared.release_id)
     samples = [
         ("decimal", "1.2300", Decimal("1.23")),
         ("decimal", "-0.000", Decimal("0")),
@@ -263,7 +253,7 @@ def test_bulk_exact_native_codec_vectors(semantic_db_engine, admitter):
             float.fromhex("0x0.0000000000001p-1022"),
         ),
     ]
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         rows = [
             {
                 "realization_id": z,
@@ -306,13 +296,13 @@ def test_bulk_exact_native_codec_vectors(semantic_db_engine, admitter):
                 )
 
 
-def test_selected_view_drift_refuses_admission(semantic_db_engine, admitter):
+def test_selected_view_drift_refuses_admission(commit_db_engine, commit_admitter_engine):
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
         _verify_deployment_functions,
     )
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _verify_deployment_functions(conn)
         conn.execute(
             text("CREATE OR REPLACE VIEW data.selected_fact AS SELECT f.* FROM data.fact f")
@@ -321,7 +311,7 @@ def test_selected_view_drift_refuses_admission(semantic_db_engine, admitter):
             _verify_deployment_functions(conn)
 
 
-def test_model_products_match_frozen_current_native_state(semantic_db_engine, monkeypatch):
+def test_model_products_match_frozen_current_native_state(commit_db_engine, monkeypatch):
     from sqlalchemy.dialects.postgresql import dialect
     from sqlalchemy.schema import CreateTable
 
@@ -343,7 +333,7 @@ def test_model_products_match_frozen_current_native_state(semantic_db_engine, mo
     monkeypatch.setattr(
         source_view_native, "recorded_authoring_provenance", refuse_recorded_provenance
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         frozen = current_native_state(conn)
         assert frozen is not None
         script, authoring = prepare_series_candidate(conn, owned_authoring=True)
@@ -476,25 +466,25 @@ def test_current_physical_constraint_changes_admission_identity(relation_name, e
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
 
 
-def test_alembic_current_physical_comparison(semantic_db_engine):
+def test_alembic_current_physical_comparison(commit_db_engine):
     from alembic import command
 
     from corpus_structure.semantic.migrations import alembic_config
     from corpus_structure.semantic.native_objects import NativeAuthoring
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         config = alembic_config(conn)
         config.attributes["native_authoring"] = NativeAuthoring(())
         command.check(config)
 
 
 def test_live_cross_purpose_privilege_drift_refuses(
-    semantic_db_engine, semantic_reader_engine, admitter
+    commit_db_engine, commit_reader_engine, commit_admitter_engine
 ):
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.settings import Settings
 
-    owner_url = semantic_db_engine.url.set(drivername="postgresql").render_as_string(
+    owner_url = commit_db_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
     with (
@@ -502,18 +492,18 @@ def test_live_cross_purpose_privilege_drift_refuses(
         restricted.connect() as read,
     ):
         assert read.execute(text("SELECT session_user")).scalar_one() == "corpus_sem_reader"
-    bundle, deps, profile, prepared = archive(admitter)
-    with semantic_reader_engine.connect() as reader:
+    bundle, deps, profile, prepared = archive(commit_admitter_engine)
+    with commit_reader_engine.connect() as reader:
         reader.execute(text("SELECT data.require_runtime_principal('read')"))
-    with admitter.connect() as admission:
+    with commit_admitter_engine.connect() as admission:
         admission.execute(text("SELECT data.require_runtime_principal('admit')"))
         admission.commit()
-        with semantic_db_engine.begin() as admin:
+        with commit_db_engine.begin() as admin:
             admin.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
             admin.execute(text("GRANT EXECUTE ON FUNCTION data.begin_stage() TO corpus_sem_reader"))
             admin.execute(text("GRANT SELECT ON eval.reference_set TO corpus_sem_admitter"))
         with (
-            semantic_reader_engine.begin() as reader,
+            commit_reader_engine.begin() as reader,
             pytest.raises(DBAPIError, match="purpose contract"),
         ):
             reader.execute(text("SELECT data.require_runtime_principal('read')"))
@@ -522,9 +512,9 @@ def test_live_cross_purpose_privilege_drift_refuses(
 
 
 @pytest.fixture
-def codec_binding(semantic_db_engine, admitter):
-    *_, prepared = archive(admitter)
-    return prepared.release_id, realization(semantic_db_engine, prepared.release_id)
+def codec_binding(commit_db_engine, commit_admitter_engine):
+    *_, prepared = archive(commit_admitter_engine)
+    return prepared.release_id, realization(commit_db_engine, prepared.release_id)
 
 
 @settings(
@@ -547,7 +537,7 @@ def codec_binding(semantic_db_engine, admitter):
         max_size=16,
     )
 )
-def test_generated_codec_batch(semantic_db_engine, codec_binding, values):
+def test_generated_codec_batch(commit_db_engine, codec_binding, values):
     """One native DB, rolled-back examples, and one typed batch per example."""
     from corpus_structure.semantic.value_codec import value_meaning
 
@@ -572,7 +562,7 @@ def test_generated_codec_batch(semantic_db_engine, codec_binding, values):
                 "decimal_lexical": lexical if kind == "decimal" else None,
             }
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         try:
             conn.execute(insert(table("data.typed_value")), rows)
             conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))

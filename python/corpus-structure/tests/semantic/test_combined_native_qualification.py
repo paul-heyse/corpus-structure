@@ -33,9 +33,8 @@ from corpus_structure.settings import Settings
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(
-    not os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS"), reason="locked native assets are opt-in"
-)
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_six_provider_host_preserves_population_streams_and_sources(request):
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
     selections = {}

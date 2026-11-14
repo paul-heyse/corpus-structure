@@ -706,7 +706,7 @@ def test_pm2_coalescing_admits_exact_merged_utf8_wire_frame(runtime, provider, f
 def test_gliner_frozen_thread_mismatch_refuses_shared_admission_before_startup(
     runtime, monkeypatch, threads, interop, route
 ):
-    from semantic.test_model_characterization import gliner_profile
+    from semantic.model_characterization_support import gliner_profile
 
     from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerRefused
 

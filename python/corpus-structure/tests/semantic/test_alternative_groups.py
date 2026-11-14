@@ -19,9 +19,12 @@ from corpus_structure.semantic.publication import (
     publish_batch,
 )
 from corpus_structure.semantic.query import read_session
-
-from .inventory_reading import inventory_alternatives, inventory_assessments, inventory_supports
-from .test_query import Z, candidate, seed
+from semantic.inventory_reading import (
+    inventory_alternatives,
+    inventory_assessments,
+    inventory_supports,
+)
+from semantic.query_support import Z, candidate, seed
 
 
 def grouped(prepared):
@@ -95,13 +98,13 @@ def grouped(prepared):
 
 
 def test_native_group_and_assessments_explain_all_source_occurrences(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
-    prepared = seed(semantic_db_engine)
+    prepared = seed(commit_db_engine)
     batch = grouped(prepared)
-    assert publish_batch(semantic_writer_engine, batch).data_revision == 1
-    assert publish_batch(semantic_writer_engine, batch).data_revision == 1
-    with read_session(semantic_reader_engine, Z) as session:
+    assert publish_batch(commit_writer_engine, batch).data_revision == 1
+    assert publish_batch(commit_writer_engine, batch).data_revision == 1
+    with read_session(commit_reader_engine, Z) as session:
         explanation = session.explain(batch.fact[0].fact_id)
         assert explanation.binding == session.binding
         assert len(inventory_alternatives(session, batch.fact[0].fact_id)) == 1
@@ -135,7 +138,7 @@ def test_native_group_and_assessments_explain_all_source_occurrences(
             session, batch.fact[0].fact_id
         )
         assert inventory_alternatives(session, batch.fact[2].fact_id) == ()
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert len(conn.execute(select(table("data.alternative_group"))).all()) == 1
         assert len(conn.execute(select(table("data.alternative_member"))).all()) == 2
         assert len(conn.execute(select(table("data.occurrence"))).all()) == 2
@@ -153,9 +156,9 @@ def test_native_group_and_assessments_explain_all_source_occurrences(
     ],
 )
 def test_native_refuses_invalid_group_structure(
-    semantic_db_engine, semantic_writer_engine, damage, message
+    commit_db_engine, commit_writer_engine, damage, message
 ):
-    batch = grouped(seed(semantic_db_engine))
+    batch = grouped(seed(commit_db_engine))
     if damage == "single":
         batch = replace(batch, alternative_member=batch.alternative_member[:1])
     elif damage == "omitted":
@@ -184,16 +187,14 @@ def test_native_refuses_invalid_group_structure(
     else:
         batch = replace(batch, alternative_group=())
     with pytest.raises(DBAPIError, match=message):
-        publish_batch(semantic_writer_engine, batch)
-    with semantic_writer_engine.connect() as conn:
+        publish_batch(commit_writer_engine, batch)
+    with commit_writer_engine.connect() as conn:
         assert conn.execute(select(table("data.alternative_group"))).all() == []
         assert conn.execute(select(table("data.fact"))).all() == []
 
 
-def test_arrow_group_transport_and_duplicate_fact_collapse(
-    semantic_db_engine, semantic_writer_engine
-):
-    prepared = seed(semantic_db_engine)
+def test_arrow_group_transport_and_duplicate_fact_collapse(commit_db_engine, commit_writer_engine):
+    prepared = seed(commit_db_engine)
     batch = grouped(prepared)
     members = tuple(member.fact_id for member in batch.alternative_member)
     assert (
@@ -205,4 +206,4 @@ def test_arrow_group_transport_and_duplicate_fact_collapse(
     arrow = ArrowPublicationBatch.from_rows(batch)
     assert arrow.content == batch.content
     assert len(arrow.relations["alternative_member"]) == 2
-    assert publish_arrow(semantic_writer_engine, arrow).data_revision == 1
+    assert publish_arrow(commit_writer_engine, arrow).data_revision == 1

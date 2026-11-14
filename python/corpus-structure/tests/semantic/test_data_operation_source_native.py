@@ -21,9 +21,8 @@ from corpus_structure.semantic.data_operation_source_native import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
-
-from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
 
 
 @pytest.fixture(scope="module")
@@ -35,16 +34,12 @@ def source_prepared():
 
 
 @pytest.fixture
-def source_builder_connection(semantic_db_engine):
+def source_builder_connection(native_rollback):
     parsed = prepare_sql(source_native_sql(), source="original-source-helper-test")
-    with semantic_db_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            # Install only the pure builder; no source admission or persistent effect.
-            connection.exec_driver_sql(parsed.excerpt(0), execution_options={"no_parameters": True})
-            yield connection
-        finally:
-            transaction.rollback()
+    connection = native_rollback.connection
+    # Install only the pure builder; no source admission or persistent effect.
+    connection.exec_driver_sql(parsed.excerpt(0), execution_options={"no_parameters": True})
+    yield connection
 
 
 def inputs() -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
@@ -154,15 +149,18 @@ def test_native_source_builder_refuses_non_original_coordinates(source_builder_c
         build(source_builder_connection, projection, [atom], selectors)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_authenticated_original_source_read_matches_original_published_custody(
-    private_source, source_prepared, semantic_db_engine
+    private_source, source_prepared, record_source_admin
 ):
     from corpus_structure.semantic.source_admission import acquire_original_source_selection
 
     from .original_source_fixture import completed_original_source_reference
 
     reference, selectors = completed_original_source_reference(private_source)
-    with semantic_db_engine.connect() as connection:
+    with record_source_admin.connect() as connection:
         transaction = connection.begin()
         try:
             for statement in prepare_sql(

@@ -5,6 +5,7 @@ from hashlib import sha256
 
 import pyarrow as pa
 import pytest
+from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -12,9 +13,7 @@ from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 from corpus_structure.ingest.pdf_streaming import iter_replay_artifact_batches
 from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
-
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_publication import stage_complete_native
+from semantic.pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize(
@@ -22,10 +21,10 @@ from .test_pdf_publication import stage_complete_native
     ["inline", "inline_stream", "stream_inline", "stream_stream", "graph", "ambiguous", "explicit"],
 )
 def test_prepared_reference_resolves_exact_target_or_refuses_ambiguity(
-    private_build, semantic_db_engine, semantic_writer_engine, tmp_path, case
+    private_build, commit_db_engine, commit_writer_engine, tmp_path, case
 ):
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    stage_complete_native(commit_writer_engine, build, tmp_path)
     common = dict(product_id=build.product_id, revision_id=build.revision_id)
     pointer = "#/texts/synthetic"
     target_stream = case in {"inline_stream", "stream_stream"}
@@ -43,7 +42,7 @@ def test_prepared_reference_resolves_exact_target_or_refuses_ambiguity(
             stream_id=stream,
             encoding_profile="pdf-record-scalar-v1:s",
         ):
-            with semantic_writer_engine.begin() as conn:
+            with commit_writer_engine.begin() as conn:
                 adopt_pdf_batch(conn, build, "reference-" + family, {family: [batch]})
 
     def node(record_id, address, stream=None, *, kind="TextItem", scalars=None):
@@ -86,7 +85,7 @@ def test_prepared_reference_resolves_exact_target_or_refuses_ambiguity(
         native_pointer_stream_id="reference-address" if pointer_stream else None,
         target_id="reference-source" if case == "explicit" else None,
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         adopt_pdf_batch(
             conn,
             build,
@@ -107,13 +106,13 @@ def test_prepared_reference_resolves_exact_target_or_refuses_ambiguity(
     if case == "ambiguous":
         with (
             pytest.raises(DBAPIError, match="more than one row returned"),
-            semantic_writer_engine.begin() as conn,
+            commit_writer_engine.begin() as conn,
         ):
             prepare_pdf_build(conn, frozen)
         return
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepare_pdf_build(conn, frozen)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         target = conn.execute(
             text(

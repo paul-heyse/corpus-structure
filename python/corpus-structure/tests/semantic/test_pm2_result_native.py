@@ -46,14 +46,16 @@ from corpus_structure.semantic.source_contexts import (
 from corpus_structure.semantic.types import SourceArtifact
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
 from corpus_structure.settings import Settings
-from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_provider_support import actual_provider
-from .native_record_fixtures import (
+from semantic.native_provider_support import actual_provider
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
     build_record_source,
     complete_contributions,
     prepare_record_source,
+)
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import (
+    private_source_with_originals as private_source_with_originals,
 )
 
 SOURCE_PATH = "/source"
@@ -78,7 +80,7 @@ def _claim(case, digest, *, view_id=None, unit_key="private-unit"):
 
 
 @pytest.fixture
-def literal_question_source(semantic_db_engine, semantic_writer_engine, tmp_path):
+def literal_question_source(commit_db_engine, commit_writer_engine, tmp_path):
     declaration = {
         "family": "literal_completion_v1",
         "questions": [
@@ -94,7 +96,7 @@ def literal_question_source(semantic_db_engine, semantic_writer_engine, tmp_path
         dependencies=dependencies,
         prepared=prepare_release(base.bundle, dependencies, base.profile),
     )
-    return build_record_source(semantic_db_engine, semantic_writer_engine, tmp_path, preparation)
+    return build_record_source(commit_db_engine, commit_writer_engine, tmp_path, preparation)
 
 
 def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question(
@@ -276,13 +278,42 @@ def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question
 
 @pytest.mark.parametrize(
     "private_source",
-    [{"sibling_references": ("The sensor records each request. It writes a receipt.",)}],
+    [
+        RecordSourceRecipe(
+            sibling_references=("The sensor records each request. It writes a receipt.",)
+        )
+    ],
     indirect=True,
 )
-def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
-    private_source, tmp_path, semantic_db_engine
+def test_controlled_mapped_answer_and_limited_operation_survive_a_retained_read(private_source):
+    """Controlled retained mapping and custody; provider reassignment has separate evidence."""
+    _mapped_answer_and_limited_operation(private_source)
+
+
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
+@pytest.mark.parametrize(
+    "private_source",
+    [
+        RecordSourceRecipe(
+            sibling_references=("The sensor records each request. It writes a receipt.",)
+        )
+    ],
+    indirect=True,
+)
+def test_provider_mapped_answer_and_limited_operation_survive_a_retained_read(
+    private_source, tmp_path, record_source_admin
 ):
-    case = private_source
+    """Actual D1/DIPO workers establish settlement, lease reassignment and retained reads."""
+    _mapped_answer_and_limited_operation(
+        private_source,
+        provider_assets=os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"],
+        tmp_path=tmp_path,
+        admin=record_source_admin,
+    )
+
+
+def _mapped_answer_and_limited_operation(case, *, provider_assets=None, tmp_path=None, admin=None):
     with case.writer.connect() as conn:
         view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
     source = native_source_frame(view, ())
@@ -320,7 +351,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
         "state": request["state"],
         "questions": {f"read_{index}": request["questions"]["value"] for index in range(17)},
     }
-    assets = os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS")
+    assets = provider_assets
     if assets:
         # Opt-in native pass uses the same PostgreSQL fixture and public read as the
         # deterministic case. CUDA takes the configured shared device handoff.
@@ -349,7 +380,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
                         configuration_hash="private-config",
                         **options,
                     )
-        _settle_reassigned_dipo(case, tmp_path, semantic_db_engine, assets)
+        _settle_reassigned_dipo(case, tmp_path, admin, assets)
     else:
         profile = {"provider": "d1", "checkpoint": "controlled-test", "dtype": "bfloat16"}
         rendered = '{"source":"12"}'
@@ -626,12 +657,15 @@ def _complete(case, conn, held, result):
 
 
 @pytest.mark.parametrize(
-    "private_source",
-    [{"sibling_references": ("x+y",), "sibling_originals": ("x + y",)}],
+    "private_source_with_originals",
+    [(("x+y",), ("x + y",))],
     indirect=True,
+    ids=("authored-original-policy",),
 )
-def test_exact_original_projection_does_not_mint_a_physical_occurrence(private_source):
-    case = private_source
+def test_exact_original_projection_does_not_mint_a_physical_occurrence(
+    private_source_with_originals,
+):
+    case = private_source_with_originals
     with case.writer.connect() as conn:
         view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(
             case.other_view

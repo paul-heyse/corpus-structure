@@ -1,6 +1,5 @@
 """Independent ontology, occurrence and conformance expectations."""
 
-from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -22,6 +21,7 @@ from corpus_structure.semantic.ontology import (
     validate_enum_meanings,
     validate_graph,
 )
+from semantic.ontology_support import _bound_projection as _bound_projection
 
 
 def view(**kwargs):
@@ -753,39 +753,6 @@ def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
         replace(projection, identity_exclusions=({**first, "left": "urn:entity:a"},)).graph()
     with pytest.raises(OntologyError, match="typed evidence"):
         replace(projection, identity_exclusions=({**first, "evidence": ()},)).graph()
-
-
-def _bound_projection(*args, **kwargs):
-    """Explicit trusted contract fixture; each test supplies its independent node universe."""
-    from corpus_structure.semantic.ontology import GraphProjectionBinding, QualifiedGraphProjection
-
-    model = _graph_model()
-    contract = next(p for p in model.projections if p.id == "graph_validation")
-    roots = tuple(str(row["id"]) for row in args[4])
-    if len(args) > 7:
-        roots += tuple(str(row["id"]) for row in args[7])
-    return QualifiedGraphProjection(
-        *args,
-        contract_binding=GraphProjectionBinding(
-            args[0],
-            model.model_id,
-            contract,
-            next(op.outcomes for op in model.operations if op.id == "graph_validate"),
-        ),
-        source_universe=roots,
-        snapshot_guard=lambda: True,
-        **kwargs,
-    )
-
-
-@lru_cache(maxsize=1)
-def _graph_model():
-    from corpus_structure.semantic.contracts import (
-        compile_execution_model,
-        trusted_execution_inputs,
-    )
-
-    return compile_execution_model(trusted_execution_inputs())
 
 
 def test_graph_contract_and_snapshot_are_enforced():

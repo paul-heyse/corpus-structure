@@ -11,15 +11,14 @@ from corpus_structure.semantic.analytics import AnalysisScope, capture_packet
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.serve.export import export_packet
-
-from .test_analytics import prepared_inputs
+from semantic.analytics_support import prepared_inputs
 
 
 def test_native_spooled_capture_exceeds_resident_bound_and_exports(
-    semantic_db_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_reader_engine, tmp_path
 ):
     bundle, dependencies, prepared = prepared_inputs()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
         )
@@ -46,15 +45,15 @@ def test_native_spooled_capture_exceeds_resident_bound_and_exports(
                 for i in reversed(range(1024))
             ],
         )
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
     options = dict(batch_size=64, resident_limit_bytes=1024 * 1024, scratch_path=tmp_path)
     with pytest.raises(ValueError, match="select spooled"):
-        capture_packet(semantic_reader_engine, "capacity", uri, mode="resident", **options)
+        capture_packet(commit_reader_engine, "capacity", uri, mode="resident", **options)
     started = time.perf_counter()
     with capture_packet(
-        semantic_reader_engine, "capacity", uri, mode="spooled", **options
+        commit_reader_engine, "capacity", uri, mode="spooled", **options
     ) as spooled:
         capture_seconds = time.perf_counter() - started
         with AnalysisScope(spooled) as scope:
@@ -68,7 +67,7 @@ def test_native_spooled_capture_exceeds_resident_bound_and_exports(
         exported = export_packet(spooled, tmp_path / "export")
         assert exported["relations"]["evidence"]["rows"] == 1024
         with capture_packet(
-            semantic_reader_engine,
+            commit_reader_engine,
             "capacity",
             uri,
             mode="resident",

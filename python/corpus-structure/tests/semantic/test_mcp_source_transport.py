@@ -251,14 +251,14 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
 
 
 def test_native_queue_ack_refusal_rolls_back_claim_cache_and_events(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
-    from .test_pdf_native_consumer_journey import native_build_resubmission_case
+    from semantic.agent_scenarios import native_build_resubmission_case
 
     _, run, task, _, _ = native_build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path
+        commit_db_engine, commit_writer_engine, tmp_path
     )
-    session = SemanticAgentSession(semantic_writer_engine, run)
+    session = SemanticAgentSession(commit_writer_engine, run)
     events = []
     monkeypatch.setattr(
         semantic_server, "_invocation_event", lambda *args, **kwargs: events.append(args)
@@ -266,7 +266,7 @@ def test_native_queue_ack_refusal_rolls_back_claim_cache_and_events(
     monkeypatch.setattr(semantic_server, "QUEUE_ACK_MAX_BYTES", 64)
 
     def task_state():
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             return dict(
                 conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
                 .mappings()

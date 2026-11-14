@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from methods.test_record_assembly import context, release, report, span
+from methods.record_assembly_support import context, release, report, span
 
 from corpus_structure.methods.contribution_adapter import adapt_report
 from corpus_structure.methods.record_packs import family_pack
@@ -83,8 +83,7 @@ def test_item_level_or_captured_mapping_is_not_exact_native_proof():
 def test_contribution_only_cut_publishes_local_quote_without_record_projection(monkeypatch):
     from corpus_structure.semantic import record_assertions
     from corpus_structure.semantic.domain_operations import _project_cut
-
-    from .test_semantic_reason_producers import release as composed_release
+    from semantic.semantic_reason_producers_support import release as composed_release
 
     _, report = source_report()
     prepared = composed_release()

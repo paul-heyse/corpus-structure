@@ -14,9 +14,8 @@ from corpus_structure.semantic.proposals import (
 )
 from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.source_projection import statement_identity
-
-from .domain_scenarios import build_domain_case
-from .test_proposals import batch, prepared
+from semantic.domain_scenarios import build_domain_case
+from semantic.proposals_support import batch, prepared
 
 
 def test_local_statement_anchor_is_normalized_without_rewriting_authored_report():
@@ -54,11 +53,12 @@ def test_same_local_handle_has_distinct_source_identity_across_frames():
 
 @pytest.mark.parametrize("packets,expected", [("different", 2), ("same", 1)])
 def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, packets, expected
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, packets, expected
 ):
+    # This consumer authors its own report_count, global_person_identity, statement_packets variant beyond the shared default/prefix.
     _prepared, run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         report_count=2,
         global_person_identity=True,
@@ -68,14 +68,14 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
 
     from corpus_structure.semantic.source_views import selected_source_views
 
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         views = selected_source_views(conn, run)
         assert len(views) == expected
         expected_locations = {
             independent_pdf_address(conn, run, view.key, start=0, end=14) for view in views
         }
     observations = table("kb.observation")
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         before = conn.execute(
             select(observations.c.observation_key, observations.c.payload)
             .where(
@@ -86,16 +86,14 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
             .order_by(observations.c.id)
         ).all()
     assert all(row.payload["statements"][0]["anchor"] == "s1" for row in before)
-    result = consolidate_cut(semantic_writer_engine, cut, "statement-output")
-    assert (
-        consolidate_cut(semantic_writer_engine, cut, "statement-output").receipt == result.receipt
-    )
-    with read_session(semantic_reader_engine, "statement-output") as reader:
+    result = consolidate_cut(commit_writer_engine, cut, "statement-output")
+    assert consolidate_cut(commit_writer_engine, cut, "statement-output").receipt == result.receipt
+    with read_session(commit_reader_engine, "statement-output") as reader:
         cls = reader.class_handle("SourceStatement")
         locations = reader.query(QuerySpec(cls, reader.property_handle(cls, "locator"), "fact"))
         assert len({row.subject.entity_id for row in locations.rows}) == expected
         assert {row.object for row in locations.rows} == expected_locations
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         after = conn.execute(
             select(observations.c.observation_key, observations.c.payload)
             .where(
@@ -109,8 +107,9 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
 
 
 def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    resubmission_historical_source, tmp_path, monkeypatch
 ):
+    commit_writer_engine = resubmission_historical_source.writer
     import anyio
     from fastmcp import Client
 
@@ -120,17 +119,16 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
     )
     from corpus_structure.semantic import source_frames
     from corpus_structure.semantic.operations import seal_cut
-
-    from .agent_scenarios import build_resubmission_case, lease_and_read
+    from semantic.agent_scenarios import lease_and_read, queue_resubmission_agent
 
     # Model a task completed by the earlier server, before source-frame capture existed.
     # The real packet builder, native task/hash custody and submission transaction remain active.
     with monkeypatch.context() as earlier:
         earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
-        _, run, task, locator = build_resubmission_case(
-            semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-        )
-        session = SemanticAgentSession(semantic_writer_engine, run)
+        _, run, task, locator = queue_resubmission_agent(
+            resubmission_historical_source.stage, commit_writer_engine
+        ).result
+        session = SemanticAgentSession(commit_writer_engine, run)
 
         async def complete():
             async with Client(build_semantic_server(session)) as client:
@@ -169,7 +167,7 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
                 assert result is not None and result["status"] == "done"
 
         anyio.run(complete)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         seal_cut(conn, run, "evaluation", final=True)
         before = conn.execute(
             select(
@@ -179,9 +177,9 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
         packet_hash = conn.execute(
             select(table("ops.task").c.packet_hash).where(table("ops.task").c.id == task)
         ).scalar_one()
-    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 1
-    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 0
-    with semantic_writer_engine.connect() as conn:
+    assert source_frames.backfill_source_frames(commit_writer_engine, run) == 1
+    assert source_frames.backfill_source_frames(commit_writer_engine, run) == 0
+    with commit_writer_engine.connect() as conn:
         captured = (
             conn.execute(
                 select(table("ops.native_source_frame")).where(
@@ -201,20 +199,17 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
 
 
 def test_bulk_frames_deduplicate_origins_and_preserve_exact_coordinates(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    resubmission_case, tmp_path
 ):
+    commit_writer_engine = resubmission_case.writer
     from sqlalchemy import event
 
     from corpus_structure.semantic.source_frames import load_source_frames
 
-    from .agent_scenarios import build_resubmission_case
-
-    prepared, run, task, _ = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "frame.html"
-    )
+    prepared, run, task, _ = resubmission_case.stage.result
     from corpus_structure.orchestrate.semantic import agent_packet
 
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         packet = agent_packet(conn, run, task, prepared)
         statements = []
 

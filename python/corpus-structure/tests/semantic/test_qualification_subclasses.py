@@ -108,14 +108,14 @@ def test_explicit_subtype_boundary_and_identity_policy():
     assert len(assemble(release, "z", "different", (items()[1], changed)).fact) == 2
 
 
-def test_native_subtype_shape_and_key_roles(semantic_db_engine, semantic_writer_engine):
+def test_native_subtype_shape_and_key_roles(commit_db_engine, commit_writer_engine):
     bundle = inputs()
     release = prepare_release(
         bundle,
         composed_dependencies(ResolvedDependencies()),
         PreparationProfile(version="semantic-2"),
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             bundle,
@@ -130,15 +130,15 @@ def test_native_subtype_shape_and_key_roles(semantic_db_engine, semantic_writer_
             )
         )
     batch = assemble(release, "z", "b", items())
-    receipt = publish_batch(semantic_writer_engine, batch)
-    assert publish_batch(semantic_writer_engine, batch) == receipt
-    with semantic_writer_engine.connect() as conn:
+    receipt = publish_batch(commit_writer_engine, batch)
+    assert publish_batch(commit_writer_engine, batch) == receipt
+    with commit_writer_engine.connect() as conn:
         assert len(conn.execute(select(table("data.fact"))).all()) == 2
         assert len(conn.execute(select(table("data.occurrence"))).all()) == 3
 
 
 def test_native_unrelated_record_cannot_pose_as_qualification(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     bundle = inputs()
     release = prepare_release(
@@ -146,7 +146,7 @@ def test_native_unrelated_record_cannot_pose_as_qualification(
         composed_dependencies(ResolvedDependencies()),
         PreparationProfile(version="semantic-2"),
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn,
             bundle,
@@ -170,4 +170,4 @@ def test_native_unrelated_record_cannot_pose_as_qualification(
         ),
     ).bind_preparation(release)
     with pytest.raises(DBAPIError, match="typed qualification"):
-        publish_batch(semantic_writer_engine, forged)
+        publish_batch(commit_writer_engine, forged)

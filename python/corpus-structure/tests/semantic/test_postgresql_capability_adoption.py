@@ -150,17 +150,17 @@ def test_frozen_bytes_refuse_before_database_effects(tmp_path, monkeypatch):
         revision.upgrade()
 
 
-def test_fresh_head_admits_exact_native_properties(semantic_db_engine, semantic_admitter_engine):
+def test_fresh_head_admits_exact_native_properties(commit_db_engine, commit_admitter_engine):
     from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
     from corpus_structure.semantic.native_candidate import current_native_state
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert current_revision(conn) == head_revision()
         desired = current_native_state(conn)
         assert desired is not None
         admit_native(conn, desired)
         execution_admission._verify_deployment_functions(conn)
-        with semantic_admitter_engine.connect() as admitted:
+        with commit_admitter_engine.connect() as admitted:
             descriptor = admitted.scalar(text("SELECT data.execution_contract_descriptor()"))
         assert descriptor["execution_abi"] == EXECUTION_COMPILER_VERSION
         for signature in PROJECTIONS:
@@ -251,7 +251,7 @@ def test_wrong_native_predecessor_refuses_fresh_forward_construction(semantic_ba
 
 
 def test_regenerated_current_release_activates_and_writes(
-    semantic_db_engine, semantic_writer_engine, semantic_admitter_engine
+    commit_db_engine, commit_writer_engine, commit_admitter_engine
 ):
     from corpus_structure.semantic.contracts import (
         EXECUTION_COMPILER_VERSION,
@@ -260,23 +260,22 @@ def test_regenerated_current_release_activates_and_writes(
     )
     from corpus_structure.semantic.publication import publish_batch
     from corpus_structure.semantic.releases import activate_release
+    from semantic.domain_scenarios import batch, seed
 
-    from .domain_scenarios import batch, seed
-
-    prepared = seed(semantic_db_engine, composed=True)
+    prepared = seed(commit_db_engine, composed=True)
     model = bound_execution_model(prepared)
     payload = execution_payload(prepared)
     assert payload is not None
     assert json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
     model.require_operation("publish_arrow")
-    with semantic_admitter_engine.begin() as conn:
+    with commit_admitter_engine.begin() as conn:
         token = activate_release(
             conn, "p", prepared.release_id, expected_parent=None, expected_generation=0
         )
         assert token.release_id == prepared.release_id and token.generation == 1
-    receipt = publish_batch(semantic_writer_engine, batch(release_id=prepared.release_id))
+    receipt = publish_batch(commit_writer_engine, batch(release_id=prepared.release_id))
     assert receipt.data_revision == 1
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert conn.execute(
             text("SELECT text_value FROM data.typed_value WHERE kind='string'")
         ).scalars().all() == ["Straße"]
@@ -285,7 +284,7 @@ def test_regenerated_current_release_activates_and_writes(
 
 
 def test_current_head_reauthoring_is_stable_and_tracks_controlled_change(
-    semantic_db_engine, monkeypatch
+    commit_db_engine, monkeypatch
 ):
     from dataclasses import replace
 
@@ -295,7 +294,7 @@ def test_current_head_reauthoring_is_stable_and_tracks_controlled_change(
     from corpus_structure.semantic import native_candidate
     from corpus_structure.semantic.alembic_native import NativeTransitionOp
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         script, authoring = native_candidate.prepare_series_candidate(conn, owned_authoring=True)
         assert script.upgrade_ops is not None
         assert script.upgrade_ops.is_empty()

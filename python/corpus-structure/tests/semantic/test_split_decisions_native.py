@@ -11,15 +11,18 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.evaluate.semantic import split_documents, split_provenance_summary
 from corpus_structure.evaluate.split import SplitConfig
 from corpus_structure.semantic.metadata import table
+from semantic.agent_scenarios import ResubmissionRecipe
 
-from .agent_scenarios import build_resubmission_case
+_composed_case = pytest.mark.parametrize(
+    "resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True
+)
 
 
-def prepare(admin, writer, tmp_path):
+def prepare(resubmission_case):
     # The shared fixture installs the actual selected head. Functional consumers do not
     # author or replace native definitions in setup; I04 checks that route separately.
-    prepared, *_ = build_resubmission_case(admin, writer, tmp_path / "source.html", composed=True)
-    with admin.connect() as conn:
+    prepared, *_ = resubmission_case.stage.result
+    with resubmission_case.admin.connect() as conn:
         uri = conn.scalar(select(table("kb.document").c.source_uri))
     return prepared, uri
 
@@ -31,19 +34,20 @@ def invoke(conn, release, intent):
     )
 
 
+@_composed_case
 def test_nontext_chapter_has_explicit_python_and_native_refusal(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
+    resubmission_case,
     tmp_path,
 ):
     from corpus_structure.semantic.operations import register_document
     from corpus_structure.semantic.refusals import SemanticOperationRefusal
 
-    release, _ = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+    commit_writer_engine = resubmission_case.writer
+    commit_evaluator_engine = resubmission_case.evaluator
+    release, _ = prepare(resubmission_case)
     source = tmp_path / "chapter.txt"
     source.write_bytes(b"a separately registered chapter")
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         register_document(
             conn,
             project_id="resubmit",
@@ -54,7 +58,7 @@ def test_nontext_chapter_has_explicit_python_and_native_refusal(
             metadata={"chapter": True},
             prepared=release,
         )
-    with semantic_evaluator_engine.begin() as conn:
+    with commit_evaluator_engine.begin() as conn:
         with pytest.raises(SemanticOperationRefusal, match="unsupported split chapter"):
             split_documents(conn, "resubmit", SplitConfig(), release_id=release.release_id)
         forged = dict(
@@ -75,14 +79,14 @@ def test_nontext_chapter_has_explicit_python_and_native_refusal(
         assert conn.scalar(text("SELECT count(*) FROM eval.document_split")) == 0
 
 
+@_composed_case
 def test_actual_override_reason_replay_and_immutable_provenance(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
+    resubmission_case,
     tmp_path,
 ):
-    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
-    with semantic_evaluator_engine.begin() as conn:
+    commit_evaluator_engine = resubmission_case.evaluator
+    release, uri = prepare(resubmission_case)
+    with commit_evaluator_engine.begin() as conn:
         result = split_documents(
             conn,
             "resubmit",
@@ -116,17 +120,17 @@ def test_actual_override_reason_replay_and_immutable_provenance(
         assert conn.scalar(select(decisions.c.decision_id)) == result["decision_id"]
 
 
+@_composed_case
 def test_changed_outputs_refuse_without_orphan_decision(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
+    resubmission_case,
     tmp_path,
 ):
     from corpus_structure.evaluate.split import SplitDocument
     from corpus_structure.evaluate.split_decisions import prepare_split_decision
 
-    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
-    with semantic_evaluator_engine.begin() as conn:
+    commit_evaluator_engine = resubmission_case.evaluator
+    release, uri = prepare(resubmission_case)
+    with commit_evaluator_engine.begin() as conn:
         d = conn.execute(select(table("kb.document"))).mappings().one()
         intent = json.loads(
             prepare_split_decision(
@@ -144,14 +148,14 @@ def test_changed_outputs_refuse_without_orphan_decision(
         assert conn.scalar(text("SELECT count(*) FROM eval.document_split")) == 0
 
 
+@_composed_case
 def test_existing_policy_conflict_and_malformed_policy_refuse(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
+    resubmission_case,
     tmp_path,
 ):
-    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
-    with semantic_evaluator_engine.begin() as conn:
+    commit_evaluator_engine = resubmission_case.evaluator
+    release, uri = prepare(resubmission_case)
+    with commit_evaluator_engine.begin() as conn:
         first = split_documents(
             conn,
             "resubmit",
@@ -188,15 +192,16 @@ def test_existing_policy_conflict_and_malformed_policy_refuse(
         )
 
 
+@_composed_case
 def test_new_noop_decision_does_not_relabel_legacy_assignments(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
+    resubmission_case,
     tmp_path,
 ):
-    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+    commit_db_engine = resubmission_case.admin
+    commit_evaluator_engine = resubmission_case.evaluator
+    release, uri = prepare(resubmission_case)
     # Trusted fixture represents a retained predecessor row with unavailable provenance.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
             text(
@@ -205,7 +210,7 @@ def test_new_noop_decision_does_not_relabel_legacy_assignments(
             ),
             {"u": uri},
         )
-    with semantic_evaluator_engine.begin() as conn:
+    with commit_evaluator_engine.begin() as conn:
         result = split_documents(
             conn, "resubmit", SplitConfig(seed=42), release_id=release.release_id
         )
@@ -217,10 +222,9 @@ def test_new_noop_decision_does_not_relabel_legacy_assignments(
 
 
 @pytest.mark.parametrize("same_intent", [True, False])
+@_composed_case
 def test_concurrent_intentions_replay_or_refuse_changed_basis(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_evaluator_engine,
+    resubmission_case,
     tmp_path,
     same_intent,
 ):
@@ -230,8 +234,10 @@ def test_concurrent_intentions_replay_or_refuse_changed_basis(
     from corpus_structure.evaluate.split import SplitDocument
     from corpus_structure.evaluate.split_decisions import prepare_split_decision
 
-    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
-    with semantic_db_engine.connect() as conn:
+    commit_db_engine = resubmission_case.admin
+    commit_evaluator_engine = resubmission_case.evaluator
+    release, uri = prepare(resubmission_case)
+    with commit_db_engine.connect() as conn:
         d = conn.execute(select(table("kb.document"))).mappings().one()
     document = SplitDocument(d["id"], uri, d["meta"].get("chapter"))
     policy = SplitConfig(forced_dev={uri: "dev"})
@@ -247,7 +253,7 @@ def test_concurrent_intentions_replay_or_refuse_changed_basis(
 
     def apply(intent):
         try:
-            with semantic_evaluator_engine.begin() as conn:
+            with commit_evaluator_engine.begin() as conn:
                 barrier.wait(timeout=15)
                 return invoke(conn, release.release_id, intent)["outcome"]
         except DBAPIError as error:
@@ -260,7 +266,7 @@ def test_concurrent_intentions_replay_or_refuse_changed_basis(
     assert sorted(outcomes) == (
         ["committed", "exact_replay"] if same_intent else ["changed_basis", "committed"]
     )
-    with semantic_evaluator_engine.connect() as conn:
+    with commit_evaluator_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM eval.split_decision")) == 1
         assert conn.scalar(text("SELECT count(*) FROM eval.document_split")) == 1
 

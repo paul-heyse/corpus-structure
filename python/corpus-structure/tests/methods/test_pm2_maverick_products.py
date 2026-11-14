@@ -1,6 +1,6 @@
 """Maverick detection, membership and participant alternatives have distinct populations."""
 
-from semantic.test_record_contracts import release_inputs
+from semantic.record_contracts_support import release_inputs
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
@@ -13,8 +13,7 @@ from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import PM2TokenMap, ProviderToken, SourceMapRefused
 from corpus_structure.orchestrate.pm2_stage import _partition
-
-from .test_pm2_source import identity_map
+from methods.pm2_source_support import identity_map
 
 
 def test_maverick_retains_nested_and_unassigned_detection_independently_of_clusters():

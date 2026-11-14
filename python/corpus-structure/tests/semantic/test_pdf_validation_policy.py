@@ -1,24 +1,23 @@
 """Unfinished validation witnesses from a stale policy cannot become publications."""
 
 import pytest
+from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build
-
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_publication import stage_complete_native
+from semantic.pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize(
     "operation", ["lookup_pdf_validation", "validate_pdf_build", "seal_pdf_build"]
 )
 def test_stale_final_validation_requires_fresh_derivation(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path, operation
+    private_build, commit_writer_engine, commit_db_engine, tmp_path, operation
 ):
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     params = dict(
@@ -33,7 +32,7 @@ def test_stale_final_validation_requires_fresh_derivation(
     )
     # Install an independently invalid receipt using trusted fixture authority.
     # Application roles cannot manufacture or update these protected witnesses.
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         owner.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         assert (
             owner.execute(
@@ -61,13 +60,13 @@ def test_stale_final_validation_requires_fresh_derivation(
     suffix = ", 'native'" if operation == "seal_pdf_build" else ""
     with (
         pytest.raises(DBAPIError, match=r"fresh.*rebuild|rebuild.*fresh"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         conn.execute(
             text(f"SELECT * FROM ops.{operation}(:build,:task,:attempt,:holder,:frozen{suffix})"),
             params,
         ).all()
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         owner.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         witness = owner.execute(
             text(

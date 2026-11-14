@@ -8,8 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_record_identity import byte_root, emit_parts
-
-from .test_pdf_record_reader import NativeRows, native
+from semantic.pdf_record_reader_support import NativeRows, native
 
 
 @pytest.fixture

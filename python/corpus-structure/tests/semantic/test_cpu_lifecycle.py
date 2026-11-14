@@ -12,9 +12,8 @@ import pytest
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic import cpu_execution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, CPURequestCancelled
-from semantic.test_cpu_execution import packet
-from semantic.test_formal_evidence import prepared as prepared
-
+from semantic.cpu_execution_support import packet
+from semantic.primary_formal_fixture import prepared as prepared
 
 # One second permits real spawned-worker scheduling while bounding failure cleanup.
 _CLOSE_GRACE = 1.0
@@ -28,24 +27,31 @@ def _short_graces(monkeypatch):
 
 
 def _close_bound():
-    return (cpu_execution._COOPERATIVE_CLOSE_SECONDS
-            + cpu_execution._WORKER_EXIT_SECONDS + _SCHEDULING_SLACK)
+    return (
+        cpu_execution._COOPERATIVE_CLOSE_SECONDS
+        + cpu_execution._WORKER_EXIT_SECONDS
+        + _SCHEDULING_SLACK
+    )
 
 
 def _executor_with_event(monkeypatch, event):
     native_executor = cpu_execution.ProcessPoolExecutor
 
     def executor(**kwargs):
-        kwargs.update(initializer=_initialize_with_event,
-                      initargs=(kwargs["initializer"], kwargs["initargs"], event))
+        kwargs.update(
+            initializer=_initialize_with_event,
+            initargs=(kwargs["initializer"], kwargs["initargs"], event),
+        )
         return native_executor(**kwargs)
 
     monkeypatch.setattr(cpu_execution, "ProcessPoolExecutor", executor)
 
 
 def test_cpu_close_policy_graces_are_five_seconds():
-    assert (cpu_execution._COOPERATIVE_CLOSE_SECONDS,
-            cpu_execution._WORKER_EXIT_SECONDS) == (5.0, 5.0)
+    assert (cpu_execution._COOPERATIVE_CLOSE_SECONDS, cpu_execution._WORKER_EXIT_SECONDS) == (
+        5.0,
+        5.0,
+    )
 
 
 def _blocked_initializer(started):
@@ -311,7 +317,9 @@ def test_close_unblocks_third_submission_behind_broken_pool_lock(prepared, monke
             monkeypatch.setattr(process, "kill", observe_kill)
         before = time.monotonic()
         closer.start()
-        assert close_finished.wait(_close_bound()), "normal close waited indefinitely behind native submit"
+        assert close_finished.wait(_close_bound()), (
+            "normal close waited indefinitely behind native submit"
+        )
         assert time.monotonic() - before < _close_bound()
         assert not close_errors
         assert third_finished.wait(1)
@@ -405,9 +413,11 @@ def test_close_bounds_abandoned_ipc_lock(prepared, monkeypatch, abandoned):
         else:
             with pytest.raises(ExceptionGroup, match="CPU cleanup failed") as failure:
                 execution.close()
-            assert (cpu_execution._COOPERATIVE_CLOSE_SECONDS
-                    + cpu_execution._WORKER_EXIT_SECONDS - 0.1
-                    <= time.monotonic() - before < _close_bound())
+            assert (
+                cpu_execution._COOPERATIVE_CLOSE_SECONDS + cpu_execution._WORKER_EXIT_SECONDS - 0.1
+                <= time.monotonic() - before
+                < _close_bound()
+            )
             inner = failure.value.exceptions[0]
             assert isinstance(inner, ExceptionGroup)
             assert "physical retirement" in str(inner.exceptions[0])

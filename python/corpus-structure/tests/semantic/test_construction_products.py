@@ -20,8 +20,7 @@ from corpus_structure.semantic.formal_products import (
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-
-from .test_formal_products import selected
+from semantic.formal_products_support import selected
 
 
 @pytest.fixture(scope="module")

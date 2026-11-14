@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from corpus_structure.schema.rulelang import RuleError, Vocabulary
+from corpus_structure.schema.rulelang import RuleError
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.rule_views import RULE_VIEW_INPUT, ValueView, build_rule_language
@@ -21,28 +21,7 @@ from corpus_structure.semantic.scientific_evidence import (
     scientific_assessment_reason,
 )
 from corpus_structure.semantic.types import PreparedArtifact, RegistryRow
-
-
-def language():
-    raw = (
-        b"id: https://example.org/test\nname: test\n"
-        b"prefixes: {ex: 'https://example.org/'}\ndefault_prefix: ex\n"
-        b"types: {string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}}\n"
-        b"classes: {Thing: {attributes: {id: {identifier: true}}}}"
-    )
-    prepared = prepare_release(SourceBundle("test", (SourceArtifact("test", raw),)))
-    view = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/rule-view.yaml"
-    prepared = replace(
-        prepared,
-        artifacts=(*prepared.artifacts, PreparedArtifact(RULE_VIEW_INPUT, view.read_bytes())),
-    )
-    return build_rule_language(
-        prepared,
-        qprops={},
-        builtins={},
-        values={("Value", "t"): Vocabulary("kinds", frozenset({"text", "number"}))},
-        arguments={},
-    )
+from semantic.scientific_rule_views_support import language as language
 
 
 def test_numeric_agreement_is_evidence_with_two_preserved_consumer_policies():

@@ -1,266 +1,39 @@
 """Real preparation/assembly with controlled decoder readings; no GLiNER provider claim."""
 
 import json
-from functools import cache
 from hashlib import sha256
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from pydantic import JsonValue
 
-from corpus_structure.core.method import SourceViewRef, UnitRef
+from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import GlinerWorkerError
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.observations import observation_inputs
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
-
-ROOT = Path(__file__).resolve().parents[4]
-
-
-def detail_object(value: JsonValue) -> dict[str, JsonValue]:
-    assert isinstance(value, dict)
-    return value
-
-
-def detail_objects(value: JsonValue) -> tuple[dict[str, JsonValue], ...]:
-    assert isinstance(value, list)
-    return tuple(detail_object(item) for item in value)
-
-
-@cache
-def release():
-    model = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
-    return prepare_release(
-        characterization_inputs(
-            observation_inputs(
-                SourceBundle(
-                    "statistics_semantic",
-                    (
-                        SourceArtifact(
-                            "statistics_semantic",
-                            (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                        ),
-                        SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
-                        SourceArtifact(
-                            "statistics_terminology",
-                            (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                        ),
-                    ),
-                )
-            )
-        )
-    )
-
-
-def view(text="Mean is average.", *, heading=None):
-    nodes = (
-        dict(self_ref="#/groups/1", label="section"),
-        dict(self_ref="#/texts/1", label="text", text=text),
-    )
-    pieces = (dict(kind="native_text", item_ref="#/texts/1", start=0, end=len(text)),)
-    if heading is not None:
-        offset = len(heading) + 1
-        text = heading + "\n" + text
-        nodes = (
-            nodes[0],
-            dict(self_ref="#/texts/0", label="section_header", text=heading),
-            nodes[1],
-        )
-        pieces = (
-            dict(kind="native_text", item_ref="#/texts/0", start=0, end=len(heading)),
-            dict(kind="synthetic_separator", start=len(heading), end=offset),
-            dict(pieces[0], start=offset, end=len(text)),
-        )
-    projection = dict(
-        text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
-    )
-    ref = SourceViewRef(
-        7,
-        "source:7",
-        1,
-        ProductReference(23, "integrated", "a" * 64),
-        "#/groups/1",
-        "descendants",
-        sha256(canonical_bytes(projection)).hexdigest(),
-        "c" * 64,
-    )
-    return PreparedSourceView(ref, text, pieces, nodes, (), {})
-
-
-class ControlledDecoder:
-    """A unit-fixture report source, not actual model inference."""
-
-    def __init__(self, mode):
-        self.mode = mode
-        self.calls = []
-
-    def extract(self, pack, inputs, *, threshold, check_active):
-        check_active()
-        self.calls.append((pack, inputs))
-        if self.mode == "failed":
-            raise GlinerWorkerError("controlled worker failure")
-        family = next(iter(json.loads(pack.declaration_json)["structures"]))
-        raw = {family: []}
-        if self.mode == "definition" and family == "definition":
-            raw[family] = [
-                dict(
-                    term=dict(start=0, end=4, text="Mean"),
-                    defining_text=dict(start=8, end=15, text="average"),
-                )
-            ]
-        (item,) = inputs
-        return (
-            GlinerReport(
-                item.context_id,
-                item.context_digest,
-                "controlled-computation",
-                "controlled-profile",
-                pack.fingerprint,
-                GlinerPreparation(item.text, "", 4, 6, len(item.text.encode())),
-                json.dumps(raw),
-                "{}",
-                0,
-                False,
-            ),
-        )
-
-
-def owned_reader(source, *, annotation_rules=None):
-    """Persisted-operation-shaped fixture with actual local linguistic columns."""
-    from dataclasses import asdict
-
-    from corpus_structure.ingest.annotations import AnnotationProfile, annotate
-    from corpus_structure.ingest.sentences import pipeline
-    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
-    from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
-    from corpus_structure.methods.native_evidence import native_run
-    from corpus_structure.methods.native_evidence_layers import (
-        SPACY_COLUMNS,
-        SPACY_FAMILIES,
-        NativeEvidenceBuilder,
-    )
-    from corpus_structure.methods.source_preparation import annotation_inputs
-    from corpus_structure.orchestrate.m1 import registry
-    from corpus_structure.semantic.constructions.layers import ConstructionLayer
-    from corpus_structure.semantic.constructions.named import NAMED_FAMILY, populate_named
-    from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
-    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
-
-    source_registry = registry(ROOT / "domains/statistics")
-    cfg = source_registry.overlay(M1Annotations.name, "default")
-    assert isinstance(cfg, M1AnnotationConfig)
-    profile = AnnotationProfile(cfg.sentences)
-    nlp = pipeline(profile.configuration)
-    original_execution = nlp.selection().native
-    products = tuple(annotate(annotation_inputs(source, profile=profile), profile))
-    selected = dict(
-        source_view_ids=[source.ref.id],
-        source_views=[
-            dict(
-                source_view_id=source.ref.id,
-                key=source.ref.key,
-                base_document=source.ref.native_product.values(),
-                section_pointer=source.ref.section_pointer,
-                membership=source.ref.membership,
-                projection_digest=source.ref.projection_digest,
-                recipe_digest=source.ref.recipe_digest,
-            )
-        ],
-        profile="actual-local-test-columns",
-        selectors=[dict(projection=source.ref.projection_digest, start=0, end=len(source.text))],
-    )
-    operation = dict(
-        key="text.native_evidence",
-        version="1",
-        runtime="local-spacy-fixture",
-        model="local-spacy-fixture",
-        grammar="none",
-        configuration="fixture",
-        input="fixture",
-        context="source",
-    )
-    native = NativeEvidenceBuilder(
-        source.ref.native_product.values(),
-        selected,
-        operation,
-        profile="spacy_only",
-        families=SPACY_FAMILIES,
-    )
-    for product in products:
-        native.spacy(source, product, "spacy")
-    first = products[0]
-    run = native_run(
-        "spacy",
-        "spacy_only",
-        nlp.config.to_str(),
-        model=first.model,
-        version=first.model_version,
-        runtime_version=first.spacy_version,
-        layout=[],
-        text=[],
-        components=[asdict(component) for component in first.components],
-    )
-    from corpus_structure.semantic.observations import source_value
-
-    run["execution_profile"] = source_value(original_execution.wire)
-    run["availability"] = [
-        dict(family=SPACY_COLUMNS[row.attribute], attribute=row.attribute, status=row.status)
-        for row in first.availability
-    ]
-    native.native_runs.append(run)
-    reader = SimpleNamespace(prepared=release(), source_view=lambda _: source)
-    retained_native = native.finish(reader.prepared)
-    native_pin = retained_native.reference(101)
-    named_cfg = source_registry.overlay(m1_source.M1Candidates.name, "witnessed")
-    assert isinstance(named_cfg, m1_source.M1Config)
-    rules = named_cfg.annotation_rules if annotation_rules is None else annotation_rules
-    construction = ConstructionLayer(
-        source.ref.native_product.values(),
-        selected,
-        dict(operation, key="text.constructions"),
-        families=(PRIMARY_RULE_FAMILY, NAMED_FAMILY),
-    )
-    populate(construction, source, native_pin, retained_native)
-    populate_named(
-        construction,
-        source,
-        native_pin,
-        retained_native,
-        PreparedAnnotationRules(nlp.vocab, rules=rules),
-    )
-    retained_construction = construction.finish(
-        reader.prepared, dependencies={native_pin: retained_native}
-    )
-    primary = {
-        native_pin: retained_native,
-        retained_construction.reference(102): retained_construction,
-    }
-    reader.primary_characterization = lambda *_args, **_kwargs: primary
-    producer = M1Annotations()
-    cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
-    (product,) = producer.run(
-        (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
-    )
-    reader.source_result = lambda *_: dict(
-        method=producer.name,
-        input_hash="controlled-upstream-input",
-        configuration_hash="controlled-upstream-configuration",
-        outcome=product.outcome.value,
-        parse_detail=product.parse_detail,
-    )
-    reader.context_sources = lambda *_args, **_kwargs: SourceContextRead(
-        (), (), "a" * 64, RetrievalOutcome.NO_MATCH, "controlled empty related-source universe"
-    )
-    reader.source_context_membership = lambda _: "a" * 64
-    return reader
+from methods.m1_producer_support import (
+    ROOT as ROOT,
+)
+from methods.m1_producer_support import (
+    ControlledDecoder as ControlledDecoder,
+)
+from methods.m1_producer_support import (
+    detail_object as detail_object,
+)
+from methods.m1_producer_support import (
+    detail_objects as detail_objects,
+)
+from methods.m1_producer_support import (
+    owned_reader as owned_reader,
+)
+from methods.m1_producer_support import (
+    release as release,
+)
+from methods.m1_producer_support import (
+    view as view,
+)
 
 
 def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outputs(monkeypatch):
@@ -339,7 +112,7 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
         ),
     )
     assert [(a["start"], a["end"], a["source_piece"]) for a in role["anchors"]] == [(5, 7, "is")]
-    from methods.test_record_assembly import release
+    from methods.record_assembly_support import release
 
     release().validate_python("SourceContribution", role)
     assert role["component"]["interpretation"] == "unassessed"
@@ -357,7 +130,7 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
 def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_precedence():
     from corpus_structure.methods.m1_source import configured_packs
     from corpus_structure.orchestrate.m1 import registry
-    from methods.test_record_assembly import release
+    from methods.record_assembly_support import release
 
     method = m1_source.M1Candidates()
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
@@ -841,8 +614,7 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
 
 def test_dense_native_structure_emits_only_the_explicit_context_target_cells(monkeypatch):
     from corpus_structure.methods import source_preparation
-
-    from .test_m1_source_preparation import dense_table_source
+    from methods.m1_source_preparation_support import dense_table_source
 
     source = dense_table_source()
     prepared = source_preparation.prepare_source(

@@ -17,19 +17,8 @@ from corpus_structure.semantic.domain_operations import (
     DomainOperationRefused,
     ReleasedRulesPolicy,
 )
-from corpus_structure.semantic.regeneration import prepare_packs
 
 REPO = Path(__file__).resolve().parents[4]
-
-
-@pytest.fixture(scope="module")
-def prepared():
-    return prepare_packs((REPO / "domains/statistics",))[3]
-
-
-@pytest.fixture(scope="module")
-def policy(prepared):
-    return ReleasedRulesPolicy(prepared)
 
 
 def refused(language, expression):
@@ -53,8 +42,10 @@ GUIDELINE = {
 }
 
 
-def test_current_pack_policy_retains_independently_named_domain_and_guideline_rules(policy):
-    assert {raw["id"] for raw, _, _ in policy.rules} == {
+def test_current_pack_policy_retains_independently_named_domain_and_guideline_rules(
+    statistics_rules_policy,
+):
+    assert {raw["id"] for raw, _, _ in statistics_rules_policy.rules} == {
         "core.value_kind_matches_slot",
         "stat.param_keys_known",
         "stat.one_distribution_per_statement",
@@ -77,22 +68,28 @@ CASES = {
 
 
 @pytest.mark.parametrize("code,expression", CASES.items(), ids=str)
-def test_each_current_compile_time_error_names_the_rule(policy, code, expression):
-    error = refused(policy.language, expression)
+def test_each_current_compile_time_error_names_the_rule(statistics_rules_policy, code, expression):
+    error = refused(statistics_rules_policy.language, expression)
     assert error.codes == {code}
     assert all(problem.rule == "t.case" for problem in error.problems)
 
 
-def test_a_literal_refusal_names_the_symbol_and_nearest_member(policy):
-    (problem,) = refused(policy.language, CASES[RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY]).problems
+def test_a_literal_refusal_names_the_symbol_and_nearest_member(statistics_rules_policy):
+    (problem,) = refused(
+        statistics_rules_policy.language, CASES[RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY]
+    ).problems
     assert problem.rule == "t.case"
     assert "claim.qualifiers.modality" in problem.message
     assert "'suposed'" in problem.message and "'supposed'" in problem.message
 
 
 @pytest.mark.parametrize("expression", ["$now != null", "$today != null", "$random() < 2"])
-def test_nondeterministic_builtins_refuse_current_rule_construction(policy, expression):
-    assert refused(policy.language, expression).codes == {RuleErrorCode.NONDETERMINISTIC_BUILTIN}
+def test_nondeterministic_builtins_refuse_current_rule_construction(
+    statistics_rules_policy, expression
+):
+    assert refused(statistics_rules_policy.language, expression).codes == {
+        RuleErrorCode.NONDETERMINISTIC_BUILTIN
+    }
 
 
 LITERALS = {
@@ -109,17 +106,19 @@ LITERALS = {
 
 
 @pytest.mark.parametrize("expression", LITERALS.values(), ids=LITERALS.keys())
-def test_current_rule_walk_preserves_literal_checks(policy, expression):
-    assert refused(policy.language, expression).codes == {RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY}
+def test_current_rule_walk_preserves_literal_checks(statistics_rules_policy, expression):
+    assert refused(statistics_rules_policy.language, expression).codes == {
+        RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY
+    }
 
 
-def test_members_and_coalesce_defaults_compile(policy):
+def test_members_and_coalesce_defaults_compile(statistics_rules_policy):
     for expression in (
         "(claim.statement_role ?? 'none') == 'none'",
         "claim.qualifiers.modality in ['asserted', 'supposed']",
         "'definition' in $roles_by_kind",
     ):
-        policy.language.compile("t.case", expression)
+        statistics_rules_policy.language.compile("t.case", expression)
 
 
 def test_a_policy_language_shares_literal_discipline():
@@ -134,15 +133,19 @@ def test_a_policy_language_shares_literal_discipline():
     }
 
 
-def test_current_policy_refuses_duplicate_ids(prepared, policy):
-    source = {**policy.source, "rules": [policy.source["rules"][0]] * 2, "guideline": []}
+def test_current_policy_refuses_duplicate_ids(statistics_pack_prepared, statistics_rules_policy):
+    source = {
+        **statistics_rules_policy.source,
+        "rules": [statistics_rules_policy.source["rules"][0]] * 2,
+        "guideline": [],
+    }
     changed = replace(
-        prepared,
+        statistics_pack_prepared,
         artifacts=tuple(
             replace(artifact, content=yaml.safe_dump(source).encode())
             if artifact.kind == RULE_INPUT
             else artifact
-            for artifact in prepared.artifacts
+            for artifact in statistics_pack_prepared.artifacts
         ),
     )
     with pytest.raises(DomainOperationRefused, match="duplicate released rule id"):
@@ -285,7 +288,7 @@ def _rule_cases():
     ids=lambda value: value if isinstance(value, str) else None,
 )
 def test_each_current_rule_retains_independent_positive_and_negative_meaning(
-    policy, rule_id, passing, violating
+    statistics_rules_policy, rule_id, passing, violating
 ):
     from types import SimpleNamespace
 
@@ -304,7 +307,9 @@ def test_each_current_rule_retains_independent_positive_and_negative_meaning(
         same_slot=(),
         alternative_of=(),
     )
-    raw, when, check = next(item for item in policy.rules if item[0]["id"] == rule_id)
+    raw, when, check = next(
+        item for item in statistics_rules_policy.rules if item[0]["id"] == rule_id
+    )
     accepted = SimpleNamespace(**(base | passing))
     refused = SimpleNamespace(**(base | passing | violating))
     assert when.evaluate({"claim": accepted}) is True, raw["id"]

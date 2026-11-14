@@ -15,8 +15,7 @@ from typer.testing import CliRunner
 from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.analytics import AnalysisScope, BorrowedRows
 from corpus_structure.settings import AnalyticsSettings
-
-from .test_analytics import empty_packet, prepared_inputs
+from semantic.analytics_support import empty_packet, prepared_inputs
 
 
 @pytest.fixture(scope="module")

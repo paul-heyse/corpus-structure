@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
-from pathlib import Path
-from typing import Any
 
 import pglast
 import pytest
@@ -18,6 +16,16 @@ from corpus_structure.semantic.data_operation_binding_native import (
     binding_native_sql,
 )
 from corpus_structure.semantic.prepared_sql import prepare_sql
+from semantic.data_operation_binding_support import (
+    binding_native_connection as binding_native_connection,
+)
+from semantic.data_operation_binding_support import (
+    context,
+    evaluate,
+    field,
+    literal,
+    row,
+)
 
 
 def test_native_binding_source_closure_and_helper_syntax():
@@ -37,154 +45,6 @@ def test_native_binding_source_closure_and_helper_syntax():
             pglast.parse_plpgsql(prepared.excerpt(index))
     assert "ddo_require_binding" in names
     assert {"ddo_binding_test", "ddo_binding_values", "ddo_binding_population_refs"} <= set(names)
-
-
-@pytest.fixture
-def binding_native_connection(semantic_db_engine):
-    with semantic_db_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            kernel_path = (
-                Path(__file__).resolve().parents[2]
-                / "src/corpus_structure/semantic/sql/data_operations.sql"
-            )
-            kernel = prepare_sql(kernel_path.read_text(), source="binding-codecs")
-            for index, raw in enumerate(kernel.statements):
-                if isinstance(raw.stmt, ast.CreateFunctionStmt) and (raw.stmt.funcname or ())[
-                    -1
-                ].sval in {
-                    "ddo_normalize",
-                    "ddo_field",
-                    "ddo_json",
-                }:
-                    connection.exec_driver_sql(
-                        kernel.excerpt(index), execution_options={"no_parameters": True}
-                    )
-            helpers = prepare_sql(binding_native_sql(), source="binding-helpers")
-            for index, raw in enumerate(helpers.statements):
-                assert isinstance(raw.stmt, ast.CreateFunctionStmt)
-                if (raw.stmt.funcname or ())[-1].sval != "ddo_require_binding":
-                    connection.exec_driver_sql(
-                        helpers.excerpt(index), execution_options={"no_parameters": True}
-                    )
-            yield connection
-        finally:
-            transaction.rollback()
-
-
-def row(value: Any, *, product=None, member=None, kind="integer") -> dict[str, Any]:
-    value_tag = [kind, str(value)] if kind != "string" else [kind, value]
-    return {
-        "product": product or f"p{value}",
-        "member": member or f"m{value}",
-        "kind_contract": "kind:item",
-        "subject": "doc",
-        "original_source": "source",
-        "position": value if isinstance(value, int) else 0,
-        "multiplicity": 1,
-        "body": {"value": value, "base": "b", "member": member or f"m{value}"},
-        "meaning_body": [
-            "mapping",
-            [
-                ["base", ["string", "b"]],
-                ["member", ["string", member or f"m{value}"]],
-                ["value", value_tag],
-            ],
-        ],
-    }
-
-
-def context(*values: Any) -> dict[str, Any]:
-    members = [row(value) for value in values]
-    population = {
-        "identity": "population:fixed",
-        "complete": True,
-        "members": [item["member"] for item in members],
-        "evidence": {"authentic": True},
-    }
-    return {
-        "model": {
-            "kinds": [
-                {
-                    "semantic_id": "primitive:integer",
-                    "name": "integer",
-                    "category": "primitive",
-                    "facts": {"json": {"primitive": "integer"}},
-                },
-                {
-                    "semantic_id": "primitive:string",
-                    "name": "string",
-                    "category": "primitive",
-                    "facts": {"json": {"primitive": "string"}},
-                },
-                {
-                    "semantic_id": "primitive:float",
-                    "name": "float",
-                    "category": "primitive",
-                    "facts": {"json": {"primitive": "float"}},
-                },
-                {
-                    "semantic_id": "urn:item",
-                    "name": "Item",
-                    "category": "class",
-                    "facts": {"json": {}},
-                },
-                {
-                    "semantic_id": "urn:item/property/value",
-                    "category": "property",
-                    "facts": {"json": {"range": "primitive:integer"}},
-                },
-                {
-                    "semantic_id": "urn:item/property/base",
-                    "category": "property",
-                    "facts": {"json": {"range": "primitive:string"}},
-                },
-                {
-                    "semantic_id": "urn:item/property/member",
-                    "category": "property",
-                    "facts": {"json": {"range": "primitive:string"}},
-                },
-            ]
-        },
-        "roledefs": [
-            {
-                "name": name,
-                "kind": "urn:item",
-                "kind_contract": "kind:item",
-                "accepted_kind_contracts": ["kind:item"],
-                "collection": "set",
-            }
-            for name in ("items", "left", "right", "shared")
-        ],
-        "roles": {"items": members, "left": [], "right": [], "shared": []},
-        "universe": members,
-        "populations": {"retained": population},
-        "witnesses": {"items": population},
-        "parameters": {"allowed": [2, 3]},
-        "parameterdefs": {},
-        "choices": {},
-        "subject": "doc",
-        "original_source": "source",
-    }
-
-
-def field(role="items", name="value", value_type="integer"):
-    return {
-        "kind": "field",
-        "value_type": value_type,
-        "field": {"role": role, "projection": "urn:item", "field": name},
-    }
-
-
-def literal(value):
-    return {"kind": "literal", "value_type": "integer", "value": {"json": ["integer", str(value)]}}
-
-
-def evaluate(connection, node, facts):
-    return connection.scalar(
-        text("SELECT ops.ddo_binding_test(CAST(:node AS jsonb),CAST(:facts AS jsonb))"),
-        {"node": json.dumps(node), "facts": json.dumps(facts)},
-    )
 
 
 @pytest.mark.db

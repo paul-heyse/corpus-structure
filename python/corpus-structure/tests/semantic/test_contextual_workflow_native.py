@@ -8,8 +8,8 @@ this test makes no model/provider or semantic-quality claim.
 import json
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import select, text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import Stage
@@ -20,10 +20,9 @@ from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.operations import OperationBinding
-
-from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
-from .witnessed_scenario_support import completed_metadata, completed_relationship_case
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.witnessed_scenario_support import completed_metadata, completed_relationship_case
 
 
 @pytest.mark.parametrize(
@@ -85,12 +84,12 @@ from .witnessed_scenario_support import completed_metadata, completed_relationsh
         ),
     ),
 )
-def test_named_source_dispatch_ignores_non_named_evidence(semantic_db_engine, carrier):
+def test_named_source_dispatch_ignores_non_named_evidence(native_read, carrier):
     # No run or source view exists: unrelated products must return before accessing
     # primary layers, and semantic proposals do not have a producer-value wrapper.
-    with semantic_db_engine.connect() as conn:
+    with native_read.begin_nested():
         assert (
-            conn.scalar(
+            native_read.scalar(
                 text(
                     "SELECT ops.contextual_primary_named_cue("
                     "NULL,NULL::kb.source_view,'[]'::jsonb,CAST(:carrier AS jsonb))"
@@ -133,22 +132,24 @@ def test_named_source_dispatch_ignores_non_named_evidence(semantic_db_engine, ca
         ),
     ),
 )
-def test_named_source_dispatch_rejects_malformed_named_carriers(semantic_db_engine, value, error):
+def test_named_source_dispatch_rejects_malformed_named_carriers(native_read, value, error):
     carrier = {"semantic_type": "contextual.located_mention", "value": value}
     with (
-        semantic_db_engine.connect() as conn,
-        pytest.raises(DBAPIError, match=error) as caught,
+        native_refusal("23514", message=error),
+        native_read.begin_nested(),
     ):
-        conn.scalar(
+        native_read.scalar(
             text(
                 "SELECT ops.contextual_primary_named_cue("
                 "NULL,NULL::kb.source_view,'[]'::jsonb,CAST(:carrier AS jsonb))"
             ),
             {"carrier": json.dumps(carrier)},
         )
-    assert getattr(caught.value.orig, "sqlstate", None) == "23514"
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize(
     "mode,expected",
     [
@@ -182,11 +183,12 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         page = serve_contributions(
             conn,
             ContributionRequest(
-                run_id=outcome.run_id, method="retrieve.contextual", include_details=True
+                run_id=outcome.run_id,
+                method="retrieve.contextual",
+                include_details=True,
+                include_interpretation=True,
             ),
         )
-        rendered = page.model_dump_json()
-        assert "contextual-enrichment-2" in rendered and "compared-with" in rendered
         assert page.standing == "retained_private"
         exported = export_contribution_selection(
             conn,
@@ -196,16 +198,77 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
             tmp_path / "current-links",
         )
         assert exported
-    exported_text = "\n".join(
-        path.read_text() for path in (tmp_path / "current-links").rglob("*.jsonl")
+    from corpus_structure.semantic.observations import source_python
+    from semantic.native_record_fixtures import contribution_drafts
+
+    # Independently authored meaning of the controlled located definition. Dynamic
+    # custody dimensions come from the source supplied to the component producer,
+    # rather than the relationship selection or its retained projection.
+    source_pin = {
+        key: getattr(completed.source, key)
+        for key in (
+            "project_id",
+            "native_product_key",
+            "native_content_digest",
+            "projection_digest",
+            "recipe_digest",
+            "coordinate_version",
+        )
+    }
+    citation = {
+        "start": 0,
+        "end": 2,
+        "text": "12",
+        "scope": "controlled-source",
+        "source": source_pin,
+    }
+    target = {
+        "term": citation,
+        "content": citation,
+        "interpretation": "definition",
+        "scope": "controlled-source",
+    }
+    supplied = contribution_drafts(case).contributions
+    assert supplied is not None
+    occurrence = supplied[0]["occurrence_id"]
+    expected_edges = sorted(
+        (occurrence, relation, json.dumps(target, sort_keys=True), "controlled-source", None)
+        for relation in ("denotes", "compared-with", "defined-by")
     )
-    assert "compared-with" in exported_text and "denotes" in exported_text
+
+    def retained_edges(items):
+        edges = []
+        for item in items:
+            row = item["row"]
+            if (
+                item["population"] != "interpretation"
+                or row.get("semantic_type") != "contextual.relationship"
+            ):
+                continue
+            meaning = source_python(row["value"])
+            edges.append(
+                (
+                    row["occurrence_id"],
+                    meaning["relation"],
+                    json.dumps(meaning["target"], sort_keys=True),
+                    meaning["scope"],
+                    meaning["effective_version"],
+                )
+            )
+        return sorted(edges)
+
+    assert retained_edges(page.items) == expected_edges
+    exported_items = [
+        json.loads(line)
+        for path in (tmp_path / "current-links").rglob("*.jsonl")
+        for line in path.read_text().splitlines()
+    ]
+    assert retained_edges(exported_items) == expected_edges
     from corpus_structure.methods.definition_applicability import (
         DefinitionApplicabilityConfig,
         DefinitionApplicabilityMethod,
     )
     from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
-    from corpus_structure.semantic.observations import source_python
 
     linked_result, linked_revision, linked_runtime = completed_metadata(case, outcome.run_id)
     with case.writer.connect() as conn:
@@ -290,6 +353,9 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
     )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize(
     "reverse",
     (

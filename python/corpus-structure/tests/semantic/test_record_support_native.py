@@ -11,15 +11,15 @@ from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.record_queries import RecordReadLimit
 from corpus_structure.serve.record_results import RecordRequest
 from corpus_structure.serve.record_support import serve_record_support
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .conftest import semantic_reader_engine as semantic_reader_engine
-from .native_record_fixtures import candidate, unit
-from .native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate, unit
+from semantic.native_record_fixtures import private_source as private_source
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_candidate_support_omits_large_diagnostics_but_retains_available_task_locator(
-    private_source, semantic_reader_engine
+    private_source, record_source_reader
 ):
     case = private_source
     with case.writer.begin() as conn:
@@ -48,7 +48,7 @@ def test_native_candidate_support_omits_large_diagnostics_but_retains_available_
         )
         cut = seal_cut(conn, case.run, "candidate-support-final", final=True)
     result = consolidate_cut(case.writer, cut, "candidate-support-result")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         ledger = serve_record_support(conn, RecordRequest(run_id=case.run))
         with pytest.raises(RecordReadLimit):
             serve_record_support(

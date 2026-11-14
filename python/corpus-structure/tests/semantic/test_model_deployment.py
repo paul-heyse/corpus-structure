@@ -35,8 +35,7 @@ from corpus_structure.semantic.runtime import connection_settings, open_runtime_
 from corpus_structure.semantic.storage_target import StorageTargetError, acquired_target
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 from corpus_structure.settings import DeploymentDatabaseSettings
-
-from .archive_faults import administrative_archive_edit
+from semantic.archive_faults import administrative_archive_edit
 
 
 @pytest.mark.parametrize("pending_base", [False, True])

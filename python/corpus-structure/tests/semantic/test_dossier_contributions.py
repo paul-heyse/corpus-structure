@@ -5,103 +5,19 @@ import json
 from pathlib import Path
 
 import pytest
-from methods.test_m1_source_preparation import native_table_source, table_cell
-from methods.test_scoped_relations import complete_native_fields, discover_relations
+from methods.m1_source_preparation_support import native_table_source, table_cell
+from methods.scoped_relations_support import complete_native_fields
 from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.methods.dossier_contributions import derive_contribution_members
 from corpus_structure.methods.structural_products import StructuralDossierConfig, select_dossier
-from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-from corpus_structure.semantic.source_contexts import record_source_pin
-from corpus_structure.semantic.structural_products import (
-    ExternalSourceRef,
-    StructuralInput,
-    StructuralPassage,
+from semantic.dossier_contributions_support import source_fixture as source_fixture
+from semantic.review_bundle_doubles import (
+    synthetic_source_projection as synthetic_source_projection,
 )
-
-from .test_review_bundle import synthetic_source_projection as synthetic_source_projection
-
-
-def source_fixture():
-    frame = native_source_frame(
-        complete_native_fields(
-            native_table_source(
-                (
-                    table_cell("Probability %", 0, 1, column_header=True),
-                    table_cell("50", 1, 1),
-                )
-            )
-        ),
-        (),
-    )
-    rows = discover_relations(frame)["contributions"]
-    relation = next(
-        r
-        for r in rows
-        if r["kind"] == "relation" and source_python(r["value"])["relation"] == "unit"
-    )
-    ids = set(relation["members"]) | {relation["contribution_id"]}
-    closure = [r for r in rows if r["contribution_id"] in ids]
-    pin = record_source_pin(frame)
-    source = ExternalSourceRef(
-        project_id="p",
-        run_id=1,
-        cut_id=1,
-        release_id="r",
-        result_revision=1,
-        source_view_id=pin["source_view_id"],
-        native_task_id=pin["native_product_task_id"],
-        native_product_key=pin["product_key"],
-        native_content_digest=pin["product_digest"],
-        projection_digest=pin["projection_digest"],
-        recipe_digest=pin["recipe_digest"],
-        coordinate_version=3,
-    )
-    inputs = StructuralInput(
-        question="Structure corpus",
-        scope="corpus",
-        inventory_id="i",
-        policy_id="p",
-        sources=(source,),
-        passages=(
-            StructuralPassage(
-                passage_id="table",
-                source_ref=source.identity,
-                start=0,
-                end=len(frame.text),
-                text=frame.text,
-                scope="table",
-            ),
-        ),
-        dependencies=(relation["contribution_id"],),
-    )
-    ref = RetainedContributionRef(
-        contribution_id=relation["contribution_id"],
-        project_id="p",
-        run_id=1,
-        cut_id=1,
-        release_id="r",
-        result_revision=1,
-        selected_task_id=1,
-        origin_task_id=1,
-        runtime_fingerprint="runtime",
-    )
-    native = json.loads(frame.native_context)
-    payload = dict(
-        contributions=closure,
-        sources=[
-            dict(
-                source_view_id=frame.source_view_id,
-                pin=pin,
-                projection=dict(text=frame.text, pieces=native["pieces"]),
-            )
-        ],
-    )
-    return inputs, ref, payload
 
 
 def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed_support():
@@ -276,12 +192,12 @@ def test_public_source_membership_identity_excludes_execution_custody_aliases():
     assert structural_claim_id(structural_statement(different)) != structural_claim_id(before)
 
 
-def test_native_source_member_replay_preserves_all_endpoint_citations(semantic_db_engine):
+def test_native_source_member_replay_preserves_all_endpoint_citations(commit_db_engine):
     """Composition parity after owned-reader boundary; no claim of custody qualification."""
     inputs, ref, payload = source_fixture()
     expected = derive_contribution_members(inputs, ref, payload)[0]
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         conn.exec_driver_sql(
             (sql / "dossier_contributions.sql").read_text(),
             execution_options={"no_parameters": True},
@@ -636,13 +552,13 @@ def test_detached_dossier_refuses_missing_or_forged_contribution_closure(
     ],
 )
 def test_batch_and_single_resolver_reject_same_malformed_reference(
-    semantic_db_engine, field, replacement
+    commit_db_engine, field, replacement
 ):
     """Both entry points exercise one real native owner; no substituted resolver."""
     _, reference, _ = source_fixture()
     reference = {**reference.model_dump(mode="json"), field: replacement}
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/dossier_contributions.sql"
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
         for call, payload in (
             ("ops.resolve_retained_source_contribution", reference),
@@ -656,11 +572,11 @@ def test_batch_and_single_resolver_reject_same_malformed_reference(
             assert getattr(error.value.orig, "sqlstate", None) == "23514"
 
 
-def test_batch_projection_keeps_endpoint_meaning_and_private_authority(semantic_db_engine):
+def test_batch_projection_keeps_endpoint_meaning_and_private_authority(commit_db_engine):
     """Projection-only parity is separate from custody and actual completion qualification."""
     inputs, reference, payload = source_fixture()
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/dossier_contributions.sql"
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
         # The private projection cannot be called by application roles with fabricated rows.
         for role in ("corpus_sem_reader", "corpus_sem_writer"):

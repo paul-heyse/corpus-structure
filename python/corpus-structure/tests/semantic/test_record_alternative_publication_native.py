@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+import pytest
 from sqlalchemy import select
 
 from corpus_structure.semantic.domain_operations import consolidate_cut
@@ -12,12 +13,13 @@ from corpus_structure.semantic.record_contracts import (
     interpretation_identity,
 )
 from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, reconstruct_record
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import candidate, complete
-from .native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate, complete
+from semantic.native_record_fixtures import private_source as private_source
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_unresolved_value_alternative_keeps_own_evidence_through_publication(private_source):
     case = private_source
     original = deepcopy(candidate(case))

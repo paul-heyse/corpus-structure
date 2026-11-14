@@ -20,23 +20,22 @@ from corpus_structure.semantic.characterization_store import (
     read_view,
 )
 from corpus_structure.semantic.observations import source_value
-from corpus_structure.semantic.operations import claim_tasks, create_task, record_method
 from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_views import store_source_view
-
-from .pdf_staging_support import private_build as private_build
-from .test_selected_source_native import publish_selected
+from semantic.characterization_native_support import make_task as make_task
+from semantic.pdf_staging_support import private_build as private_build
+from semantic.selected_source_native_support import publish_selected
 
 
 @pytest.fixture
-def characterization_source(private_build, semantic_writer_engine, tmp_path):
+def characterization_source(private_build, commit_writer_engine, tmp_path):
     publication = publish_selected(
-        semantic_writer_engine, private_build, tmp_path / "source", characterization_pages=True
+        commit_writer_engine, private_build, tmp_path / "source", characterization_pages=True
     )
     base = ProductReference(private_build.task_id, "selected", publication.logical_digest)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepared = open_release(conn, private_build.release_id)
         task = (
             conn.execute(
@@ -90,54 +89,6 @@ def characterization_source(private_build, semantic_writer_engine, tmp_path):
             selectors=[dict(projection=source["projection_digest"], start=0, end=7)],
         )
     return SimpleNamespace(base=base, prepared=prepared, task=dict(task), scope=scope)
-
-
-def make_task(conn, source, *, compose=False, layers=()):
-    name = "text.compose_view" if compose else "native-binding"
-    if compose:
-        from corpus_structure.methods.characterization import ComposeViewMethod
-
-        method = ComposeViewMethod()
-    else:
-        method = SimpleNamespace(
-            name=name,
-            version="1",
-            family="ingest",
-            tier="deterministic",
-            confidence_source=None,
-            unit_type="document",
-            Config=create_model("CharacterizationNativeFixture"),
-        )
-    params = dict(
-        characterization_base_document=source.base.values(),
-        characterization_source_scope=source.scope,
-        characterization_layers=[p.values() for p in layers],
-    )
-    if compose:
-        params["characterization_profile"] = "selected_layers" if layers else "source_only"
-    else:
-        params.update(
-            model=getattr(source, "model", "native-retained"),
-            grammar=getattr(source, "grammar", "no-grammar"),
-            context="exact-source",
-        )
-    config_hash = sha256(str(params).encode()).hexdigest()
-    config = record_method(conn, method, "default", params, config_hash, prepared=source.prepared)
-    task = create_task(
-        conn,
-        run_id=source.task["run_id"],
-        config_id=config,
-        stage="ingest",
-        unit_type="document",
-        unit_id=source.task["unit_id"],
-        unit_key=name,
-        input_hash="fixture-input",
-        fresh=True,
-    )
-    claim = claim_tasks(
-        conn, run_id=source.task["run_id"], config_id=config, holder="characterization-fixture"
-    )[0]
-    return task, claim, config_hash
 
 
 def layer_payload(source, config_hash) -> dict[str, Any]:
@@ -266,10 +217,10 @@ def layer_payload(source, config_hash) -> dict[str, Any]:
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_publication_replay_partial_family_and_pin_read(
-    characterization_source, semantic_writer_engine, semantic_reader_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_reader_engine, commit_db_engine
 ):
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         wire = layer_payload(source, config_hash)
         wire["outcome"] = "partial"
@@ -332,7 +283,7 @@ def test_native_publication_replay_partial_family_and_pin_read(
             )
             != "finished"
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM kb.characterization_membership WHERE task_id=:id"),
@@ -340,14 +291,14 @@ def test_native_publication_replay_partial_family_and_pin_read(
             )
             == 2
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert read_layer(conn, pin, run_id=source.task["run_id"]).content == report.content
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_layer(conn, pin, max_bytes=len(report.content) - 1)
         with pytest.raises(DBAPIError):
             read_view(conn, pin)
     # Conflicting retries and canceled holders cannot change the immutable seal.
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
         altered = deepcopy(report.payload)
         altered["operation"]["context"] = "different"
         from corpus_structure.semantic._operation_calls import publish_characterization
@@ -365,10 +316,10 @@ def test_native_publication_replay_partial_family_and_pin_read(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
-    characterization_source, semantic_writer_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_db_engine
 ):
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         wire = validate_layer(source.prepared, layer_payload(source, config_hash)).payload
         failed = deepcopy(wire)
@@ -461,7 +412,7 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
                 view=None,
             )
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.characterization_product WHERE task_id=:id"),
@@ -473,10 +424,10 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_composition_source_only_and_indexed_keyset_pages(
-    characterization_source, semantic_writer_engine, semantic_reader_engine
+    characterization_source, commit_writer_engine, commit_reader_engine
 ):
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         layer = validate_layer(source.prepared, layer_payload(source, config_hash))
         layer_pin = publish_layer(
@@ -543,7 +494,7 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
             holder="characterization-fixture",
             view=weak,
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert read_view(conn, weak_pin).payload["layers"] == []
         # Full canonical layers and views share the finite 64 MiB bound.
         assert read_view(conn, view_pin, max_bytes=64 * 1024**2).content == view.content
@@ -615,11 +566,11 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_document_view_combines_large_metadata_with_independent_read_budget(
-    characterization_source, semantic_writer_engine, semantic_reader_engine
+    characterization_source, commit_writer_engine, commit_reader_engine
 ):
     source = characterization_source
     layers = {}
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         for index in range(2):
             selected = SimpleNamespace(**{**vars(source), "model": f"capacity-{index}"})
             task, claim, config_hash = make_task(conn, selected)
@@ -657,7 +608,7 @@ def test_document_view_combines_large_metadata_with_independent_read_budget(
             holder="characterization-fixture",
             view=view,
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert read_view(conn, pin).content == view.content
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_view(conn, pin, max_bytes=8 * 1024**2)
@@ -666,8 +617,8 @@ def test_document_view_combines_large_metadata_with_independent_read_budget(
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_capture_detached_characterization_closure_while_run_unfinished(
     characterization_source,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
 ):
     """Real reader snapshot capture; public detached verify/inspect dispatch, no NLP."""
@@ -682,7 +633,7 @@ def test_native_capture_detached_characterization_closure_while_run_unfinished(
     from corpus_structure.serve.review_bundle import inspect_review_bundle, verify_review_bundle
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         layer = validate_layer(source.prepared, layer_payload(source, config_hash))
         layer_pin = publish_layer(
@@ -723,7 +674,7 @@ def test_native_capture_detached_characterization_closure_while_run_unfinished(
     destination = tmp_path / "detached-review"
     destination.mkdir()
     cancellation = OperationCancellation()
-    with read_snapshot(semantic_reader_engine, cancellation=cancellation.postgresql) as conn:
+    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
         captured = capture_characterization_review(conn, selection, destination, cancellation)
     assert verify_review_bundle(destination) == captured
     assert inspect_review_bundle(destination)["layers"] == 1
@@ -762,14 +713,14 @@ def test_native_capture_detached_characterization_closure_while_run_unfinished(
             annotation_id="a0" if mode == "membership" else None,
             limit=1,
         )
-        with read_snapshot(semantic_reader_engine) as conn:
+        with read_snapshot(commit_reader_engine) as conn:
             live = inspect_characterization(conn, request)
         detached = inspect_characterization_review(destination, request)
         assert detached.model_dump(mode="json") == live.model_dump(mode="json")
         assert detached.source_items
         assert detached.continuation is not None
         following = request.model_copy(update={"cursor": detached.continuation})
-        with read_snapshot(semantic_reader_engine) as conn:
+        with read_snapshot(commit_reader_engine) as conn:
             live_following = inspect_characterization(conn, following)
         assert inspect_characterization_review(destination, following).model_dump(
             mode="json"
@@ -778,11 +729,11 @@ def test_native_capture_detached_characterization_closure_while_run_unfinished(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_factorized_diamond_dag_and_real_cycle_refusal(
-    characterization_source, semantic_writer_engine, semantic_reader_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_reader_engine, commit_db_engine
 ):
     source = characterization_source
     stages = 24
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         wire = layer_payload(source, config_hash)
         # The expected graph is authored directly. It has shared joins rather than
@@ -850,9 +801,9 @@ def test_native_factorized_diamond_dag_and_real_cycle_refusal(
                 layer=cyclic,
                 view=None,
             )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert len(read_layer(conn, pin).payload["terms"]) == 3 * stages + 3
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM kb.characterization_term_edge WHERE task_id=:id"),
@@ -872,9 +823,9 @@ def test_native_factorized_diamond_dag_and_real_cycle_refusal(
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
 def test_native_new_rule_release_reuses_original_native_layer_and_detached_contract(
     characterization_source,
-    semantic_writer_engine,
-    semantic_reader_engine,
-    semantic_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
+    commit_db_engine,
     tmp_path,
 ):
     import json
@@ -887,11 +838,10 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     from corpus_structure.semantic._operation_ids import RunId, SourceViewId
     from corpus_structure.semantic.operations import OperationBinding, complete_task, create_run
     from corpus_structure.semantic.source_views import load_source_view
-
-    from .operation_scenario_support import prepare_operation_scenario
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
     old = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         # This controlled consumer exercises the complete-primary read boundary;
         # unlike the shared fixture's seven-character slice, its declared coverage
         # must include the full retained native source population.
@@ -962,7 +912,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
             outcome="empty",
             error=None,
         )
-    finalize_bound_run(semantic_writer_engine, old.task["run_id"], "characterization-old-source")
+    finalize_bound_run(commit_writer_engine, old.task["run_id"], "characterization-old-source")
 
     model_path = (
         Path(__file__).parents[2] / "src/corpus_structure/model/semantic/characterization.yaml"
@@ -982,14 +932,14 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         ),
     )
     current = prepare_operation_scenario(
-        semantic_db_engine,
+        commit_db_engine,
         observations=True,
         characterization=True,
         characterization_model=yaml.safe_dump(declaration).encode(),
         realization_id="z-new-rule",
     )
     assert current.release_id != old.prepared.release_id
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -1204,7 +1154,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     cancellation = OperationCancellation()
     destination = tmp_path / "cross-release-review"
     destination.mkdir()
-    with read_snapshot(semantic_reader_engine, cancellation=cancellation.postgresql) as conn:
+    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
         capture_characterization_review(
             conn,
             CharacterizationReviewSelection(run_id=run, **view_pin.values()),
@@ -1223,7 +1173,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         ),
     )
     assert response.items[0]["roles"][0]["basis"]["rule_id"] == "toy:retained-native-v1"
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert read_layer(conn, original_pin).content == original.content
 
     from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitResult
@@ -1297,10 +1247,10 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     pack.mkdir(parents=True)
     (pack / "guideline.md").write_text("Consume the exact selected retained source.\n")
     (pack / "semantic.yaml").write_text("name: m\n")
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         before_views = conn.scalar(text("SELECT count(*) FROM kb.source_view"))
     result = start_bound_run(
-        semantic_writer_engine,
+        commit_writer_engine,
         release_id=current.release_id,
         realization_id="z-new-rule",
         project_id="p",
@@ -1333,7 +1283,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     )
     assert result.status == "source_ready"
     assert calls == old.scope["source_view_ids"]
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == before_views
         producer_run = (
             conn.execute(
@@ -1368,7 +1318,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     # original sources but has not been finalized. Custody comes from its frozen
     # dependency manifest, not a fictitious completed result for that run.
     rebound = start_bound_run(
-        semantic_writer_engine,
+        commit_writer_engine,
         release_id=current.release_id,
         realization_id="z-new-rule",
         project_id="p",
@@ -1393,7 +1343,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     # must not accumulate those bodies across its full reference population.
     assert len(selection_readers) == 2
     assert all(not getattr(reader, "_native_views", {}) for reader in selection_readers)
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == before_views
         rebound_manifest = json.loads(
             conn.scalar(
@@ -1412,7 +1362,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_joint_layer_and_view_completion_uses_producing_layer(
-    characterization_source, semantic_writer_engine, semantic_reader_engine
+    characterization_source, commit_writer_engine, commit_reader_engine
 ):
     from pydantic import create_model
 
@@ -1421,7 +1371,7 @@ def test_native_joint_layer_and_view_completion_uses_producing_layer(
     from corpus_structure.semantic.operations import OperationDescriptor, complete_unit_result
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         layer = validate_layer(source.prepared, layer_payload(source, config_hash))
         layer_pin = layer.reference(task)
@@ -1461,21 +1411,24 @@ def test_native_joint_layer_and_view_completion_uses_producing_layer(
             configuration_hash=config_hash,
             source="native-fixture",
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert read_layer(conn, layer_pin).content == layer.content
         assert read_view(conn, view.reference(task)).content == view.content
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_evidence_mutations_refuse_without_sealing(
-    characterization_source, semantic_writer_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_db_engine
 ):
     from corpus_structure.semantic._operation_calls import publish_characterization
-
-    from .test_characterization_evidence import EVIDENCE_MUTATIONS, evidence_rows, mutate_evidence
+    from semantic.characterization_evidence_support import (
+        EVIDENCE_MUTATIONS,
+        evidence_rows,
+        mutate_evidence,
+    )
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         body = layer_payload(source, config_hash)
         evidence = evidence_rows(body["occurrences"])
@@ -1486,7 +1439,7 @@ def test_native_evidence_mutations_refuse_without_sealing(
         body["annotations"].extend(evidence["annotations"])
         valid = validate_layer(source.prepared, body)
     for mutation in EVIDENCE_MUTATIONS:
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             invalid = deepcopy(valid.payload)
             mutate_evidence(invalid, mutation)
             with pytest.raises(DBAPIError), conn.begin_nested():
@@ -1503,7 +1456,7 @@ def test_native_evidence_mutations_refuse_without_sealing(
                 conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": task})
                 == "running"
             )
-        with semantic_db_engine.connect() as owner:
+        with commit_db_engine.connect() as owner:
             assert (
                 owner.scalar(
                     text("SELECT count(*) FROM ops.characterization_product WHERE task_id=:id"),
@@ -1511,7 +1464,7 @@ def test_native_evidence_mutations_refuse_without_sealing(
                 )
                 == 0
             )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         pin = publish_layer(
             conn,
             task_id=task,
@@ -1524,14 +1477,17 @@ def test_native_evidence_mutations_refuse_without_sealing(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_witness_source_and_choice_conservation(
-    characterization_source, semantic_writer_engine
+    characterization_source, commit_writer_engine
 ):
     from corpus_structure.semantic._operation_calls import publish_characterization
-
-    from .test_characterization_evidence import SUPPORT_MUTATIONS, mutate_witness, witness_rows
+    from semantic.characterization_evidence_support import (
+        SUPPORT_MUTATIONS,
+        mutate_witness,
+        witness_rows,
+    )
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         body = witness_rows(layer_payload(source, config_hash))
         for annotation in body["annotations"]:
@@ -1567,14 +1523,13 @@ def test_native_witness_source_and_choice_conservation(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_structural_token_span_preserves_retained_population(
-    characterization_source, semantic_writer_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_db_engine
 ):
     from corpus_structure.semantic.identity import canonical_bytes
-
-    from .test_characterization_evidence import evidence_rows
+    from semantic.characterization_evidence_support import evidence_rows
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         body = layer_payload(source, config_hash)
         evidence = evidence_rows(body["occurrences"])
@@ -1599,7 +1554,7 @@ def test_native_structural_token_span_preserves_retained_population(
             holder="characterization-fixture",
             layer=report,
         )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         retained = conn.scalar(
             text("SELECT payload FROM ops.characterization_product WHERE task_id=:task"),
             {"task": task},
@@ -1628,7 +1583,7 @@ def test_native_structural_token_span_preserves_retained_population(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_characterization_completion_retains_exact_cost_and_fences_replay(
-    characterization_source, semantic_writer_engine
+    characterization_source, commit_writer_engine
 ):
     import json
 
@@ -1640,7 +1595,7 @@ def test_characterization_completion_retains_exact_cost_and_fences_replay(
     from corpus_structure.semantic.operations import prepare_unit_completion
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, configuration = make_task(conn, source)
         report = validate_layer(source.prepared, layer_payload(source, configuration))
         cost = Cost(wall_ms=17, tokens_in=13, tokens_out=5, model="retained-provider")
@@ -1704,8 +1659,10 @@ def test_characterization_completion_retains_exact_cost_and_fences_replay(
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
 def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
-    characterization_source, semantic_writer_engine, tmp_path
+    characterization_source, commit_writer_engine, tmp_path
 ):
     """Opt-in actual providers through ordinary task publication, with no mocked provider."""
     import os
@@ -1724,11 +1681,9 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
         prepare_structural_sources,
     )
 
-    assets = os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS")
-    if not assets:
-        pytest.skip("locked native provider assets require CORPUS_PM2_NATIVE_TEST_ASSETS")
+    assets = os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"]
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         complete_task(
             conn,
             task_id=source.task["id"],
@@ -1739,9 +1694,9 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
             outcome="empty",
             error=None,
         )
-    finalize_bound_run(semantic_writer_engine, source.task["run_id"], "primary-demand-source")
+    finalize_bound_run(commit_writer_engine, source.task["run_id"], "primary-demand-source")
     (external,) = prepare_structural_sources(
-        semantic_writer_engine,
+        commit_writer_engine,
         (
             StructuralPassageSelection(
                 run_id=source.task["run_id"],
@@ -1762,8 +1717,8 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
         selected_sources=(external,),
     )
     settings = MethodSettings(data_dir=tmp_path, model_cache=Path(assets).resolve().parent)
-    result = execute_characterization_demand(semantic_writer_engine, request, settings)
-    with semantic_writer_engine.connect() as conn:
+    result = execute_characterization_demand(commit_writer_engine, request, settings)
+    with commit_writer_engine.connect() as conn:
         view = read_view(conn, result.view).payload
         layers = {pin: read_layer(conn, pin) for pin in result.layers}
     operations = {layer.payload["operation"]["key"]: layer for layer in layers.values()}
@@ -1824,7 +1779,7 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
         update={"execution_policy": replace(settings.execution_policy, workers=1, max_regions=1)}
     )
     (recovered,) = resume_characterization(
-        semantic_writer_engine, result.runs[-1], capacity_settings, on_created=created.append
+        commit_writer_engine, result.runs[-1], capacity_settings, on_created=created.append
     )
     assert recovered.view == result.view
     assert set(recovered.layers) == set(result.layers)
@@ -1833,7 +1788,7 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
 
     # Ordinary repeated demand selects exact settled pins without new inference runs.
     repeated = execute_characterization_demand(
-        semantic_writer_engine,
+        commit_writer_engine,
         request.model_copy(
             update={
                 "selected_layers": result.layers,
@@ -1850,11 +1805,11 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_retained_characterization_does_not_require_unrelated_producer_readiness(
-    characterization_source, semantic_writer_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_db_engine
 ):
     """Original finalized data stays readable when a current execution prerequisite is absent."""
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         report = validate_layer(source.prepared, layer_payload(source, config_hash))
         pin = publish_layer(
@@ -1866,7 +1821,7 @@ def test_retained_characterization_does_not_require_unrelated_producer_readiness
         )
     # This test owns an isolated database. Remove one nonunique execution index,
     # leaving immutable published data and its archived schema/read contract intact.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         row = (
             conn.execute(
                 text("""
@@ -1885,7 +1840,7 @@ def test_retained_characterization_does_not_require_unrelated_producer_readiness
         conn.exec_driver_sql("DROP INDEX " + qualified)
     try:
         with (
-            semantic_db_engine.begin() as conn,
+            commit_db_engine.begin() as conn,
             pytest.raises(DBAPIError, match="index"),
             conn.begin_nested(),
         ):
@@ -1893,16 +1848,16 @@ def test_retained_characterization_does_not_require_unrelated_producer_readiness
                 text("SELECT data.require_execution_release(:release)"),
                 {"release": source.prepared.release_id},
             )
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             assert read_layer(conn, pin).content == report.content
     finally:
-        with semantic_db_engine.begin() as conn:
+        with commit_db_engine.begin() as conn:
             conn.exec_driver_sql(row["definition"])
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
 def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
-    private_build, semantic_writer_engine, tmp_path, monkeypatch
+    private_build, commit_writer_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.core.method import MethodSettings
     from corpus_structure.methods import native_evidence, pm2_worker, source_preparation
@@ -1915,14 +1870,14 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
     from corpus_structure.semantic.source_views import load_source_view
 
     publication = publish_selected(
-        semantic_writer_engine,
+        commit_writer_engine,
         private_build,
         tmp_path / "empty-capture",
         characterization_pages=True,
         empty_sections=True,
     )
     base = ProductReference(private_build.task_id, "selected", publication.logical_digest)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepared = open_release(conn, private_build.release_id)
         task = (
             conn.execute(text("SELECT * FROM ops.task WHERE id=:id"), {"id": private_build.task_id})
@@ -1988,7 +1943,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
     monkeypatch.setattr(releases, "load_release", verified_load)
     settings = MethodSettings(data_dir=tmp_path, model_cache=tmp_path)
     result = characterize_captured_run(
-        semantic_writer_engine,
+        commit_writer_engine,
         SimpleNamespace(run_id=task["run_id"]),
         project_id="p",
         release_id=prepared.release_id,
@@ -1999,7 +1954,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
     )
     assert len(full_loads) == 1
     assert len(result) == 1
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         view = read_view(conn, result[0].view).payload
         layers = [read_layer(conn, pin).payload for pin in result[0].layers]
     assert view["base_document"] == base.values()
@@ -2018,7 +1973,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         )
 
     refreshed = characterize_captured_run(
-        semantic_writer_engine,
+        commit_writer_engine,
         SimpleNamespace(run_id=task["run_id"]),
         project_id="p",
         release_id=prepared.release_id,
@@ -2029,7 +1984,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         fresh_methods=("text.formal_evidence",),
     )
     assert len(full_loads) == 2
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
 
         def producer_pins(result, method):
             return {
@@ -2055,14 +2010,14 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
     from corpus_structure.semantic.operations import OperationConflict
 
     terminal_child = refreshed[0].runs[-1]
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         original_anchor, frozen = resolve_characterization_anchor(conn, terminal_child)
     assert original_anchor == refreshed[0].anchor_run_id
     assert frozen.freshness_seed
     assert all(request.fresh_methods == ("text.formal_evidence",) for request in frozen.requests)
     created, restored = [], []
     (recovered,) = resume_characterization(
-        semantic_writer_engine,
+        commit_writer_engine,
         terminal_child,
         settings.model_copy(
             update={
@@ -2077,11 +2032,11 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
     assert recovered.anchor_run_id == original_anchor
     assert restored == [(original_anchor, frozen)]
     assert not created
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert resolve_characterization_anchor(conn, terminal_child) == (original_anchor, frozen)
     with pytest.raises(OperationConflict, match="native thread profile changed"):
         resume_characterization(
-            semantic_writer_engine,
+            commit_writer_engine,
             terminal_child,
             settings.model_copy(
                 update={
@@ -2097,8 +2052,10 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
 def test_two_language_regions_complete_captured_characterization_with_actual_providers(
-    private_build, semantic_writer_engine, tmp_path
+    private_build, commit_writer_engine, tmp_path
 ):
     """The book entry point retains both real language regions and exact settled closure."""
     import os
@@ -2109,11 +2066,9 @@ def test_two_language_regions_complete_captured_characterization_with_actual_pro
     from corpus_structure.semantic.operations import complete_task
     from corpus_structure.semantic.source_views import load_source_view
 
-    assets = os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS")
-    if not assets:
-        pytest.skip("locked native provider assets require CORPUS_PM2_NATIVE_TEST_ASSETS")
+    assets = os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"]
     publication = publish_selected(
-        semantic_writer_engine,
+        commit_writer_engine,
         private_build,
         tmp_path / "language-capture",
         characterization_pages=True,
@@ -2124,7 +2079,7 @@ def test_two_language_regions_complete_captured_characterization_with_actual_pro
         "A random variable has an expected value. Its variance measures dispersion.",
         "Independent observations form a sample. The sample mean estimates the population mean.",
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepared = open_release(conn, private_build.release_id)
         task = (
             conn.execute(text("SELECT * FROM ops.task WHERE id=:id"), {"id": private_build.task_id})
@@ -2168,7 +2123,7 @@ def test_two_language_regions_complete_captured_characterization_with_actual_pro
         )
 
     (result,) = characterize_captured_run(
-        semantic_writer_engine,
+        commit_writer_engine,
         SimpleNamespace(run_id=task["run_id"]),
         project_id="p",
         release_id=prepared.release_id,
@@ -2179,7 +2134,7 @@ def test_two_language_regions_complete_captured_characterization_with_actual_pro
         ),
         method_options={},
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         view = read_view(conn, result.view).payload
         layers = {pin: read_layer(conn, pin).payload for pin in result.layers}
         cuts = (
@@ -2267,7 +2222,7 @@ def test_two_language_regions_complete_captured_characterization_with_actual_pro
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
 def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
-    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+    private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.core.method import MethodSettings
@@ -2288,18 +2243,17 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
         capture_characterization_review,
     )
     from corpus_structure.serve.review_bundle import verify_review_bundle
-
-    from .witnessed_scenario_support import completed_metadata
+    from semantic.witnessed_scenario_support import completed_metadata
 
     publication = publish_selected(
-        semantic_writer_engine,
+        commit_writer_engine,
         private_build,
         tmp_path / "unprojected-capture",
         characterization_pages=True,
         unprojected_formula=True,
     )
     base = ProductReference(private_build.task_id, "selected", publication.logical_digest)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepared = open_release(conn, private_build.release_id)
         task = (
             conn.execute(text("SELECT * FROM ops.task WHERE id=:id"), {"id": private_build.task_id})
@@ -2342,9 +2296,9 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
             outcome="empty",
             error=None,
         )
-    finalize_bound_run(semantic_writer_engine, task["run_id"], "unprojected-formula-capture")
+    finalize_bound_run(commit_writer_engine, task["run_id"], "unprojected-formula-capture")
     metadata, revision, _ = completed_metadata(
-        SimpleNamespace(writer=semantic_writer_engine), task["run_id"]
+        SimpleNamespace(writer=commit_writer_engine), task["run_id"]
     )
     external = ExternalSourceRef(
         project_id="p",
@@ -2379,7 +2333,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
 
     def run(method, cfg):
         result = run_source_methods(
-            semantic_writer_engine,
+            commit_writer_engine,
             project_id="p",
             prepared=prepared,
             binding=OperationBinding(
@@ -2391,13 +2345,13 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
             selected_sources=(external,),
         )
         assert result.status == "source_ready"
-        with semantic_writer_engine.connect() as conn:
+        with commit_writer_engine.connect() as conn:
             (product,) = read_inventory(conn, result.run_id)["products"]
         return result, ProductReference(**product["reference"])
 
     config = dict(characterization_base_document=base.values(), characterization_source_scope=scope)
     _, layer_pin = run(FormalEvidenceMethod(), config)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         layer = read_layer(conn, layer_pin).payload
     inputs = {
         row["formal_input"]["representation"]: row["formal_input"]
@@ -2429,7 +2383,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     cancellation = OperationCancellation()
     destination = tmp_path / "unprojected-formula-review"
     destination.mkdir()
-    with read_snapshot(semantic_reader_engine, cancellation=cancellation.postgresql) as conn:
+    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
         captured = capture_characterization_review(
             conn,
             CharacterizationReviewSelection(run_id=composed.run_id, **view_pin.values()),
@@ -2442,13 +2396,13 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_layer_manifest_is_bounded_sealed_metadata(
     characterization_source,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_writer_engine,
+    commit_reader_engine,
 ):
     from corpus_structure.semantic.characterization_store import read_layer_manifest
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         report = validate_layer(source.prepared, layer_payload(source, config_hash))
         pin = report.reference(task)
@@ -2462,7 +2416,7 @@ def test_native_layer_manifest_is_bounded_sealed_metadata(
             layer=report,
         )
         assert published == pin
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         manifest = read_layer_manifest(conn, pin, run_id=source.task["run_id"])
         assert manifest.reference(task) == pin
         assert manifest.base_document == source.base
@@ -2490,9 +2444,9 @@ def test_native_layer_manifest_is_bounded_sealed_metadata(
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
     characterization_source,
-    semantic_writer_engine,
-    semantic_reader_engine,
-    semantic_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
+    commit_db_engine,
     tmp_path,
 ):
     """Multibyte payload exceeds the old cap; independent SQL size and pins agree."""
@@ -2500,7 +2454,7 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
     from corpus_structure.semantic.identity import canonical_bytes
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         wire = layer_payload(source, config_hash)
         wire["annotations"][0]["vocabulary"] = "界" * (3 * 1024**2)
@@ -2554,7 +2508,7 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
             holder="characterization-fixture",
             view=view,
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         size, digest = conn.execute(
             text(
                 "SELECT octet_length(data.canonical_json(payload)),content_digest "
@@ -2571,7 +2525,7 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
             )
             == 2
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert read_layer(conn, pin).content == report.content
         assert (
             read_primary_layers(
@@ -2628,7 +2582,7 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
     cancellation = OperationCancellation()
     destination = tmp_path / "large-layer-review"
     destination.mkdir()
-    with read_snapshot(semantic_reader_engine, cancellation=cancellation.postgresql) as conn:
+    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
         captured = capture_characterization_review(
             conn,
             CharacterizationReviewSelection(run_id=source.task["run_id"], **view_pin.values()),
@@ -2641,13 +2595,13 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_layer_above_64_mib_refuses_before_atomic_publication(
-    characterization_source, semantic_writer_engine, semantic_db_engine
+    characterization_source, commit_writer_engine, commit_db_engine
 ):
     from corpus_structure.semantic.characterization import LayerReport
     from corpus_structure.semantic.identity import canonical_bytes
 
     source = characterization_source
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         wire = layer_payload(source, config_hash)
         wire["annotations"][0]["vocabulary"] = "x" * (64 * 1024**2)
@@ -2665,7 +2619,7 @@ def test_layer_above_64_mib_refuses_before_atomic_publication(
 
         assert isinstance(failure.value.orig, PsycopgError)
         assert failure.value.orig.sqlstate == "54000"
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(text("SELECT status FROM ops.task WHERE id=:task"), {"task": task})
             == "running"
@@ -2685,7 +2639,7 @@ def test_layer_above_64_mib_refuses_before_atomic_publication(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_protected_inventory_summarizes_exact_native_provenance_without_annotation_payload(
-    characterization_source, semantic_writer_engine, semantic_reader_engine
+    characterization_source, commit_writer_engine, commit_reader_engine
 ):
     """Controlled retained metadata exercises the native reader, not a model provider."""
     from corpus_structure.semantic.characterization_store import (
@@ -2695,7 +2649,7 @@ def test_protected_inventory_summarizes_exact_native_provenance_without_annotati
 
     source = characterization_source
     configuration = "historical private configuration; never a summary field"
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task, claim, config_hash = make_task(conn, source)
         body = layer_payload(source, config_hash)
         body["native_runs"] = [
@@ -2722,7 +2676,7 @@ def test_protected_inventory_summarizes_exact_native_provenance_without_annotati
             holder="characterization-fixture",
             layer=validate_layer(source.prepared, body),
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         rows = read_inventory(conn, source.task["run_id"], after=(task - 1, ""), limit=1)
     (selected,) = rows["products"]
     assert selected["reference"] == pin.values()

@@ -3,21 +3,15 @@
 import json
 from copy import deepcopy
 from dataclasses import replace
-from pathlib import Path
 from types import SimpleNamespace
-from uuid import uuid4
 
 import pytest
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.invariant_failures import InvariantViolation
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.migrations import current_revision
-from corpus_structure.semantic.native_objects import NativeObject, admit_native, native_owner
+from corpus_structure.semantic.native_objects import native_owner
 from corpus_structure.semantic.operations import (
     BoundReader,
     OperationBinding,
@@ -31,42 +25,17 @@ from corpus_structure.semantic.records import (
     authenticated_source_record_coordinates,
     read_private_record_reports,
 )
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import bypass, candidate, complete, identities
-from .native_record_fixtures import private_source as private_source
-from .pdf_integration_support import CELL, integrated, prepare, publish
-from .pdf_integration_support import native_source as native_source
-from .pdf_integration_support import pdf13_db as pdf13_db
-
-ROOT = Path(__file__).resolve().parents[4]
-CANDIDATE = (
-    ROOT
-    / "docs/design_review/evidence/2026-11-03_m1-attributed-evidence"
-    / "candidate-attempt-6/candidate/native_operations.json"
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
+    bypass,
+    candidate,
+    complete,
+    identities,
 )
-
-
-@pytest.fixture
-def semantic_db_engine(native_server, semantic_head_template):
-    with native_server.database(
-        "cs_sem_m1_attributed_" + uuid4().hex[:12],
-        semantic_head_template.name,
-        policy=semantic_head_template.policy,
-    ) as engine:
-        with engine.begin() as conn:
-            if current_revision(conn) == "semantic_m1_private_20261103":
-                # Development candidate only. Once a forward migration owns these
-                # objects, exercise that deployed head and its exact admission fence.
-                state = json.loads(CANDIDATE.read_text())
-                assert state["predecessor"] == "semantic_m1_private_20261103"
-                operations = Operations(MigrationContext.configure(conn))
-                for payload in state["operations"]:
-                    operations.invoke(NativeTransitionOp.from_payload(payload))
-                admit_native(
-                    conn, tuple(NativeObject.from_payload(item) for item in state["desired"])
-                )
-        yield engine
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.pdf_integration_support import CELL, integrated, prepare, publish
+from semantic.pdf_integration_support import native_source as native_source
+from semantic.pdf_integration_support import pdf13_db as pdf13_db
 
 
 def related(case, conn):
@@ -109,6 +78,9 @@ def related(case, conn):
     return identities(case, record)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_related_context_round_trip_and_helper_acl(private_source):
     case = private_source
     with case.writer.begin() as conn:
@@ -138,6 +110,9 @@ def test_native_related_context_round_trip_and_helper_acl(private_source):
         ).scalar_one()
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize(
     "change", ["stale", "unselected", "fabricated_relation", "primary_occurrence", "wrong_spelling"]
 )
@@ -311,8 +286,11 @@ def test_native_selected_decision_alternative_is_readable_without_promoting_disp
     assert address["endpoint_role"] == "alternative"
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_completed_report_shared_guard_requires_exact_body_and_internal_acl(
-    private_source, semantic_db_engine
+    private_source, record_source_admin
 ):
     case = private_source
     with case.writer.begin() as conn:
@@ -329,7 +307,7 @@ def test_completed_report_shared_guard_requires_exact_body_and_internal_acl(
                 "'ops.validate_source_record_report(bigint,jsonb)','EXECUTE')"
             )
         ).scalar_one()
-    with semantic_db_engine.begin() as conn, native_owner(conn, "corpus_sem_publisher"):
+    with record_source_admin.begin() as conn, native_owner(conn, "corpus_sem_publisher"):
         conn.execute(
             text("SELECT ops.validate_source_record_report(:task,CAST(:body AS jsonb))"),
             dict(task=case.task, body=json.dumps(body)),
@@ -343,6 +321,9 @@ def test_completed_report_shared_guard_requires_exact_body_and_internal_acl(
             )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_bulk_reports_preserve_order_origin_and_reuse_one_product_hydration(
     private_source, monkeypatch
 ):
@@ -401,10 +382,11 @@ def test_bulk_reports_preserve_order_origin_and_reuse_one_product_hydration(
             read_private_record_reports(wrong_cut, (case.task,))
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_bulk_report_absence_and_explicit_empty_remain_distinct(private_source):
-    from .native_record_fixtures import (
-        complete_absent_and_empty_reports,
-    )
+    from semantic.native_record_fixtures import complete_absent_and_empty_reports
 
     case = private_source
     complete_absent_and_empty_reports(case)
@@ -423,8 +405,11 @@ def test_bulk_report_absence_and_explicit_empty_remain_distinct(private_source):
         assert tuple(report.records for report in reports) == (None, ())
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_source_coordinates_are_standing_neutral_without_weakening_private_fence(
-    private_source, semantic_db_engine
+    private_source, record_source_admin
 ):
     case = private_source
     record = candidate(case)
@@ -468,7 +453,7 @@ def test_source_coordinates_are_standing_neutral_without_weakening_private_fence
             ).first()
             is None
         )
-    with semantic_db_engine.begin() as conn, native_owner(conn, "corpus_sem_publisher"):
+    with record_source_admin.begin() as conn, native_owner(conn, "corpus_sem_publisher"):
         statement = text(
             "SELECT ops.validate_source_record_coordinates("
             ":run,:view,:source,CAST(:records AS jsonb))"

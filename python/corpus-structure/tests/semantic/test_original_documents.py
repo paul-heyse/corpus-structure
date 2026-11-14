@@ -13,9 +13,7 @@ from corpus_structure.semantic.data_operation_support import (
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import OriginalDocumentAcquisition
-
-from .test_data_operation_original_native import original_target as original_target
-from .test_data_operation_wire import captured
+from semantic.data_operation_port_support import captured
 
 
 def reference():

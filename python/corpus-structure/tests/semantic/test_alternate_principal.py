@@ -7,8 +7,8 @@ from corpus_structure.settings import Settings
 from native_test_support import observe_engine
 
 
-def test_alternate_reader_login_and_owner_base(semantic_db_engine, native_server):
-    endpoint = semantic_db_engine.url
+def test_alternate_reader_login_and_owner_base(commit_db_engine, native_server):
+    endpoint = commit_db_engine.url
     database = endpoint.database
     assert database is not None
     base = endpoint.set(drivername="postgresql").render_as_string(hide_password=False)

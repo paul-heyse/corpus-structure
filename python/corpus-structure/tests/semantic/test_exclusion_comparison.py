@@ -104,22 +104,99 @@ def test_oversized_row_is_not_hydrated():
     assert len(calls) == 1
 
 
-def test_real_completed_binding_comparison(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
-):
+def test_real_completed_binding_comparison(exclusion_case, tmp_path):
+    from sqlalchemy import select
+
+    from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.query import read_snapshot
+    from semantic.agent_scenarios import (
+        ResubmissionPreparationRecipe,
+        prepare_resubmission_case,
+        publish_resubmission_source,
+        queue_resubmission_agent,
+        submit_exclusion_case,
+    )
 
-    from .test_identity_exclusions import exclusion_result
-
-    _, run, cut, _ = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path)
-    with read_snapshot(semantic_reader_engine) as conn:
-        answer = compare_pinned_exclusions(conn, run, run)
-        assert answer.before.cut == cut == answer.after.cut
-        assert answer.before.binding.release_id == answer.after.binding.release_id
-        assert answer.complete and answer.changes == []
+    prepared, run, cut, _ = exclusion_case.stage.result
+    preparation = prepare_resubmission_case(ResubmissionPreparationRecipe())
+    assert preparation.prepared.release_id == prepared.release_id
+    source = publish_resubmission_source(
+        preparation, exclusion_case.writer, tmp_path / "amended.pdf", fresh=True
+    )
+    queued = queue_resubmission_agent(source, exclusion_case.writer)
+    _, after_run, after_cut, _ = submit_exclusion_case(
+        queued,
+        exclusion_case.writer,
+        reason="source amendment keeps these identities separate",
+        output_realization_id="amended-exclusions",
+    )
+    assert after_run != run and after_cut != cut
+    with read_snapshot(exclusion_case.reader) as conn:
+        # Minted report identities come from each actual source task; semantic expectations
+        # below remain literal and independent of the comparison implementation.
+        observations, tasks = table("kb.observation"), table("ops.task")
+        identities = dict(
+            conn.execute(
+                select(tasks.c.run_id, observations.c.observation_key)
+                .join(observations, observations.c.task_id == tasks.c.id)
+                .where(
+                    tasks.c.run_id.in_((run, after_run)),
+                    observations.c.payload_definition == "AgentStoredBatch",
+                )
+            ).all()
+        )
+        answer = compare_pinned_exclusions(conn, run, after_run)
+        assert answer.before.run == run and answer.after.run == after_run
+        assert answer.before.cut == cut and answer.after.cut == after_cut
+        assert (
+            answer.before.binding.release_id
+            == answer.after.binding.release_id
+            == prepared.release_id
+        )
+        assert answer.before.binding.realization_id == "excluded-result"
+        assert answer.after.binding.realization_id == "amended-exclusions"
+        declaration = dict(left_kind="local", left_ref="p", right_kind="local", right_ref="q")
+        expected = [
+            (
+                "removed",
+                (identities[run], "different"),
+                [],
+                dict(declaration, reason="separate source identities"),
+                None,
+            ),
+            (
+                "added",
+                (identities[after_run], "different"),
+                [],
+                None,
+                dict(declaration, reason="source amendment keeps these identities separate"),
+            ),
+        ]
+        expected.sort(key=lambda row: row[1])
+        assert [
+            (
+                change.kind,
+                change.identity,
+                change.facets,
+                change.before.declaration.model_dump() if change.before else None,
+                change.after.declaration.model_dump() if change.after else None,
+            )
+            for change in answer.changes
+        ] == expected
+        assert answer.complete and not answer.unknowns
         assert answer.examined_before == answer.examined_after == 1
+        for change in answer.changes:
+            retained = change.before if change.before else change.after
+            assert retained is not None
+            assert retained.operation_id == "resolve_identity"
+            assert retained.operation_version == "semantic-domain-3"
+            assert retained.resolution.left_entity_id != retained.resolution.right_entity_id
+            assert len(retained.evidence) == 1
+            assert retained.evidence[0].source_uri == "source.html"
+            assert retained.evidence[0].source_view_id is not None
+            assert retained.evidence[0].native_address is not None
         with pytest.raises(ReadLimit, match="byte limit"):
-            compare_pinned_exclusions(conn, run, run, max_bytes=64)
+            compare_pinned_exclusions(conn, run, after_run, max_bytes=64)
 
 
 def test_managed_retention_keeps_exact_comparison_bytes(tmp_path, monkeypatch):

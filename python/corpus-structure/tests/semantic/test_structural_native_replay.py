@@ -9,9 +9,9 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.methods.structural_products import compare_clauses
 from corpus_structure.semantic.structural_admission import structural_statement
-
-from .native_record_fixtures import private_source as private_source
-from .test_typed_structural_composition import revision_inputs, threshold_inputs
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.typed_structural_composition_support import revision_inputs, threshold_inputs
 
 _COMPARISON_LITERALS = (
     ("Date: 2024-02-29", {"kind": "date", "value": "2024-02-29"}),
@@ -54,22 +54,6 @@ _COMPARISON_LITERALS = (
 )
 
 
-@pytest.fixture
-def private_source_options(request):
-    params = getattr(request.node, "callspec", None)
-    params = params.params if params is not None else {}
-    if "left" in params:
-        text = (params["left"], params["right"])
-    elif "connector" in params:
-        text = (
-            f"Clerk must file Form {params['connector']} Form if X > 5 kg. No exceptions.",
-            "Reviewer may file Form and Report if X > 7 kg.",
-        )
-    else:
-        text = tuple(spelling for spelling, _expected in _COMPARISON_LITERALS)
-    return dict(sibling_references=text)
-
-
 def _captured_comparison_inputs(case, inputs):
     from corpus_structure.semantic.source_views import load_source_view
 
@@ -103,8 +87,7 @@ def _captured_comparison_inputs(case, inputs):
 
 def _captured_formal_layers(view):
     from corpus_structure.semantic.formal_evidence import build_formal_layer, grammar_identity
-
-    from .primary_formal_fixture import release
+    from semantic.primary_formal_fixture import release
 
     layer = build_formal_layer(
         view,
@@ -145,41 +128,45 @@ def _captured_clause(passage, source, layers):
 
 
 @pytest.mark.parametrize(
-    "left,right",
+    "left,right,private_source",
     [
-        ("revenue > 25000 USD", "revenue > 50000 USD"),
-        (
-            "revenue > 25000 USD\nComparison basis: annual gross revenue.",
-            "revenue > 50000 USD\nComparison basis: annual gross revenue.",
-        ),
-        ("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1."),
-        (
-            "Clause rule.\nRevision R1.\nx > 2 kg",
-            "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
-        ),
-        ("revenue >= 25000 USD", "revenue > 25000 USD"),
-        ("revenue < 50000 USD", "revenue <= 25000 USD"),
-        ("x > 2", "x > 5"),
-        ("x > 2 kg and y > 3 kg", "x > 5 kg"),
-        ("prefix. x ≥ +2.00e2 kg", "x >= 200 kg"),
-        ("x > 2. kg", "x > 2 kg"),
-        (
-            "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed.",
-            "Manager must approve Table 5.1 if revenue > 50000 USD unless account is closed.",
-        ),
-        (
-            "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
-            "Table 5.1 must be approved by Analyst if revenue > 25000 USD.",
-        ),
-        (
-            "If revenue > 25000 USD, Manager must approve Table 5.1 before signing.",
-            "Nothing is prescribed.",
-        ),
-        ("Manager must approve Table; Analyst may reject Form.", "Manager may review Table."),
+        (*pair, RecordSourceRecipe(sibling_references=pair))
+        for pair in [
+            ("revenue > 25000 USD", "revenue > 50000 USD"),
+            (
+                "revenue > 25000 USD\nComparison basis: annual gross revenue.",
+                "revenue > 50000 USD\nComparison basis: annual gross revenue.",
+            ),
+            ("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1."),
+            (
+                "Clause rule.\nRevision R1.\nx > 2 kg",
+                "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
+            ),
+            ("revenue >= 25000 USD", "revenue > 25000 USD"),
+            ("revenue < 50000 USD", "revenue <= 25000 USD"),
+            ("x > 2", "x > 5"),
+            ("x > 2 kg and y > 3 kg", "x > 5 kg"),
+            ("prefix. x ≥ +2.00e2 kg", "x >= 200 kg"),
+            ("x > 2. kg", "x > 2 kg"),
+            (
+                "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed.",
+                "Manager must approve Table 5.1 if revenue > 50000 USD unless account is closed.",
+            ),
+            (
+                "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
+                "Table 5.1 must be approved by Analyst if revenue > 25000 USD.",
+            ),
+            (
+                "If revenue > 25000 USD, Manager must approve Table 5.1 before signing.",
+                "Nothing is prescribed.",
+            ),
+            ("Manager must approve Table; Analyst may reject Form.", "Manager may review Table."),
+        ]
     ],
+    indirect=("private_source",),
 )
 def test_native_comparison_replays_same_source_route(
-    semantic_db_engine, private_source, left, right
+    record_source_admin, private_source, left, right
 ):
     inputs = threshold_inputs(left, right)
     if "supersedes" in right:
@@ -189,7 +176,7 @@ def test_native_comparison_replays_same_source_route(
     source = inputs.sources[0]
     a, b = (_captured_clause(passage, source, primary) for passage in inputs.passages)
     expected = compare_clauses(inputs, left=a, right=b, primary_layers=primary)
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with record_source_admin.connect() as conn, conn.begin():
         actual = conn.scalar(
             text("""SELECT ops.structural_compare_lexical(
                 CAST(:inputs AS jsonb),:left,:right,
@@ -217,7 +204,7 @@ def test_native_comparison_replays_same_source_route(
         assert public == structural_statement(expected)
 
 
-def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_engine):
+def test_native_dossier_replays_membership_after_reader_boundary(commit_db_engine):
     """Isolate composition after the reader; this is not reader/provider qualification."""
     from corpus_structure.methods.structural_products import derive_dossier_members, select_dossier
     from corpus_structure.semantic.structural_products import (
@@ -307,7 +294,7 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
         policy="supported-facet-greedy-1",
     )
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         for file in (
             "dossier_contributions.sql",
             "structural_products.sql",
@@ -348,7 +335,7 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
         assert len(actual["members"]) == 2 and {m["passage_id"] for m in actual["members"]} == {"a"}
 
 
-def test_native_representation_projects_only_selected_member_closure(semantic_db_engine):
+def test_native_representation_projects_only_selected_member_closure(commit_db_engine):
     from corpus_structure.methods.structural_products import select_dossier
     from corpus_structure.semantic.structural_products import DossierMember, LocatedDefinitionSpan
     from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
@@ -373,7 +360,7 @@ def test_native_representation_projects_only_selected_member_closure(semantic_db
         "SELECT body->'structural_product' report FROM ops.task_result WHERE task_id=:origin_id",
         "SELECT CAST(:report AS jsonb) report",
     ).replace("{projection}", "body")
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         result = conn.scalar(
             text(sql),
             dict(report=report.model_dump_json(exclude_none=True), offset=1, end_offset=2),
@@ -387,9 +374,9 @@ def test_native_representation_projects_only_selected_member_closure(semantic_db
     assert result["supported_facets"] == []
 
 
-def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
-    from methods.test_m1_source_preparation import native_table_source, table_cell
-    from methods.test_scoped_relations import complete_native_fields, discover_relations
+def test_native_note_scope_checks_the_whole_original_note(commit_db_engine):
+    from methods.m1_source_preparation_support import native_table_source, table_cell
+    from methods.scoped_relations_support import complete_native_fields, discover_relations
 
     from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.proposals import native_source_frame
@@ -439,7 +426,7 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
         "jsonb_populate_record(NULL::kb.source_view,CAST(:physical AS jsonb)),"
         "CAST(:rows AS jsonb),CAST(:layers AS jsonb))"
     )
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         # Isolate the installed scope guard after the owned raw-item boundary.
         conn.exec_driver_sql("""
             CREATE OR REPLACE FUNCTION ops.read_pdf_published_items(
@@ -484,15 +471,27 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
 
 
 @pytest.mark.parametrize(
-    "connector, expected_group, expected_typed",
+    "connector,expected_group,expected_typed,private_source",
     [
-        ("and", "conjunction", "unknown"),
-        ("or", "disjunction", "unknown"),
-        ("as well as", "unresolved", "ambiguous"),
+        (
+            *case,
+            RecordSourceRecipe(
+                sibling_references=(
+                    f"Clerk must file Form {case[0]} Form if X > 5 kg. No exceptions.",
+                    "Reviewer may file Form and Report if X > 7 kg.",
+                )
+            ),
+        )
+        for case in [
+            ("and", "conjunction", "unknown"),
+            ("or", "disjunction", "unknown"),
+            ("as well as", "unresolved", "ambiguous"),
+        ]
     ],
+    indirect=("private_source",),
 )
 def test_retained_comparison_groups_exact_occurrences(
-    semantic_db_engine, private_source, connector, expected_group, expected_typed
+    record_source_admin, private_source, connector, expected_group, expected_typed
 ):
     from corpus_structure.methods.structural_products import read_retained_clause
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
@@ -655,7 +654,7 @@ def test_retained_comparison_groups_exact_occurrences(
     assert empty_fact["kind"] == "formal.exception_empty" and empty_fact["native_label"] == "empty"
     assert exception.right_group is not None and exception.right_group.state == "absent"
 
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with record_source_admin.connect() as conn, conn.begin():
         actual = conn.scalar(
             text("""SELECT ops.comparison_groups(
                 CAST(:passage AS jsonb),CAST(:source AS jsonb),
@@ -677,7 +676,17 @@ def test_retained_comparison_groups_exact_occurrences(
         assert public == structural_statement(report)
 
 
-def test_comparison_literals_are_bounded_and_agree_with_native(semantic_db_engine, private_source):
+@pytest.mark.parametrize(
+    "private_source",
+    [
+        RecordSourceRecipe(
+            sibling_references=tuple(spelling for spelling, _expected in _COMPARISON_LITERALS)
+        )
+    ],
+    indirect=True,
+    ids=("comparison-literals",),
+)
+def test_comparison_literals_are_bounded_and_agree_with_native(record_source_admin, private_source):
     from corpus_structure.methods.structural_products import _literal_reading
 
     value = threshold_inputs(_COMPARISON_LITERALS[0][0], _COMPARISON_LITERALS[0][0])
@@ -685,7 +694,7 @@ def test_comparison_literals_are_bounded_and_agree_with_native(semantic_db_engin
     inputs, view = _captured_comparison_inputs(private_source, value)
     primary = _captured_formal_layers(view)
     source = inputs.sources[0]
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with record_source_admin.connect() as conn, conn.begin():
         for spelling, expected in _COMPARISON_LITERALS:
             start = view.text.index(spelling)
             passage = inputs.passages[0].model_copy(

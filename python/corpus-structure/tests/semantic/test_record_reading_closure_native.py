@@ -16,17 +16,11 @@ from corpus_structure.semantic.domain_operations import _cut_input, consolidate_
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.record_assertions import (
     lower_record_assertions,
-    source_reading_inputs,
 )
 from corpus_structure.semantic.record_projection import project_record_reports
-
-from .native_record_fixtures import private_source as private_source
-from .test_record_publication_native import record_cut
-
-
-@pytest.fixture
-def private_source_options():
-    return dict(bundle_transform=source_reading_inputs)
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.record_publication_native_support import record_cut
 
 
 @pytest.fixture
@@ -34,6 +28,12 @@ def reading_source(private_source):
     return private_source
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="source-reading")],
+    indirect=True,
+    ids=("record-source-reading",),
+)
 def test_plain_graph_append_cannot_bypass_record_admission(reading_source):
     case = reading_source
     cut = record_cut(case)
@@ -74,13 +74,19 @@ def test_plain_graph_append_cannot_bypass_record_admission(reading_source):
         transaction.rollback()
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="source-reading")],
+    indirect=True,
+    ids=("record-source-reading",),
+)
 def test_bound_reading_uses_exact_direct_support_without_agent_observation(
-    reading_source, semantic_db_engine
+    reading_source, record_source_admin
 ):
     case = reading_source
     result = consolidate_cut(case.writer, record_cut(case), "bound-reading-result")
     relation = table("data.record_assertion_support")
-    with semantic_db_engine.connect() as conn:
+    with record_source_admin.connect() as conn:
         rows = (
             conn.execute(
                 select(relation).where(
@@ -176,9 +182,9 @@ def score_statement():
     )
 
 
-def test_native_predictor_independently_uses_all_eight_structural_signals(semantic_db_engine):
+def test_native_predictor_independently_uses_all_eight_structural_signals(commit_db_engine):
     sample = predictor_input()
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         # Independent vector: [.5, 1, .5, .5, .5, .5, 3, 2].
         assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(48.75, abs=1e-12)
         sample.feature["parameters"]["center"][0] = 0.25
@@ -194,7 +200,7 @@ def test_native_predictor_independently_uses_all_eight_structural_signals(semant
 
 
 @pytest.mark.parametrize("kind", ["unavailable", "unknown", "misordered", "zero_scale"])
-def test_native_predictor_refuses_unavailable_or_unreleased_inputs(semantic_db_engine, kind):
+def test_native_predictor_refuses_unavailable_or_unreleased_inputs(commit_db_engine, kind):
     sample = predictor_input()
     if kind == "unavailable":
         sample.diagnostics = None
@@ -205,5 +211,5 @@ def test_native_predictor_refuses_unavailable_or_unreleased_inputs(semantic_db_e
         sample.feature["parameters"]["names"].reverse()
     else:
         sample.feature["parameters"]["scale"][0] = 0.0
-    with semantic_db_engine.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
+    with commit_db_engine.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
         conn.scalar(score_statement(), vars(sample))

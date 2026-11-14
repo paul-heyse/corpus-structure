@@ -11,20 +11,22 @@ from corpus_structure.semantic.domain_operations import (
     consolidate_cut,
 )
 from corpus_structure.semantic.metadata import table
+from semantic.domain_scenarios import (
+    DomainPreparationRecipe,
+    DomainSourceRecipe,
+    build_domain_case,
+    domain_case_recipe,
+    finish_domain_case,
+)
+from semantic.inventory_reading import inventory_alternatives, inventory_assessments
 
-from .domain_scenarios import build_domain_case
-from .inventory_reading import inventory_alternatives, inventory_assessments
 
-
-def test_actual_cut_publishes_fresh_result_and_preserves_reports(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
-    prepared, run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
+def test_actual_cut_publishes_fresh_result_and_preserves_reports(domain_default_case, tmp_path):
+    commit_writer_engine = domain_default_case.writer
+    prepared, run, cut = domain_default_case.stage.result
+    result = consolidate_cut(commit_writer_engine, cut, "evaluated")
     assert result.run_id == run and result.realization_id == "evaluated" and result.reports == 1
-    assert consolidate_cut(semantic_writer_engine, cut, "evaluated").receipt == result.receipt
+    assert consolidate_cut(commit_writer_engine, cut, "evaluated").receipt == result.receipt
 
     class OtherVersion:
         release_id = prepared.release_id
@@ -34,8 +36,8 @@ def test_actual_cut_publishes_fresh_result_and_preserves_reports(
             raise AssertionError("unadmitted policy must not evaluate")
 
     with pytest.raises(DomainOperationRefused, match="policy version"):
-        consolidate_cut(semantic_writer_engine, cut, "evaluated", policy=OtherVersion())
-    with semantic_writer_engine.connect() as conn:
+        consolidate_cut(commit_writer_engine, cut, "evaluated", policy=OtherVersion())
+    with commit_writer_engine.connect() as conn:
         job = (
             conn.execute(select(table("ops.run")).where(table("ops.run").c.id == run))
             .mappings()
@@ -65,7 +67,7 @@ def test_actual_cut_publishes_fresh_result_and_preserves_reports(
 
 
 def test_released_rule_rejects_scientific_claim_without_erasing_source(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     rules = b"""rules:
 - id: test.reject
@@ -74,11 +76,12 @@ def test_released_rule_rejects_scientific_claim_without_erasing_source(
   severity: error
   check: "claim.value&.v == 'Bob'"
 """
+    # This consumer authors its own rules variant beyond the shared default/prefix.
     prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", rules=rules
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", rules=rules
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         outcomes = conn.execute(select(table("data.assessment").c.outcome)).scalars().all()
         assert "rejected" in outcomes and "refuted" in outcomes
         assert len(conn.execute(select(table("data.occurrence"))).all()) >= 2
@@ -100,17 +103,18 @@ def test_released_rule_rejects_scientific_claim_without_erasing_source(
 
 
 def test_atomic_cut_inference_has_distinct_exact_receipts(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
+    # This consumer authors its own graph variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", graph=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", graph=True
     )
-    result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    result = consolidate_cut(commit_writer_engine, cut, "evaluated")
     assert result.receipt.data_revision == 1
     assert result.data_revision == 2
     assert len(result.derivation_receipts) == 1 and result.derivation_receipts[0].data_revision == 2
-    assert consolidate_cut(semantic_writer_engine, cut, "evaluated") == result
-    with semantic_writer_engine.connect() as conn:
+    assert consolidate_cut(commit_writer_engine, cut, "evaluated") == result
+    with commit_writer_engine.connect() as conn:
         rows = conn.execute(
             text(
                 "SELECT f.subject_id,f.property_id,v.entity_id FROM data.fact f JOIN "
@@ -127,18 +131,15 @@ def test_atomic_cut_inference_has_distinct_exact_receipts(
 
 
 def test_native_candidate_publication_binds_operation_profile_cut_and_target(
-    semantic_db_engine,
-    semantic_writer_engine,
-    tmp_path,
+    domain_default_case, tmp_path
 ):
+    commit_writer_engine = domain_default_case.writer
     from corpus_structure.semantic.analytics import compile_projection
     from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
     from corpus_structure.semantic.domain_operations import _cut_input
 
-    prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "candidate-output")
+    prepared, _run, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "candidate-output")
     compiled = compile_projection(prepared, inputs.source_binding, kind="candidate")
     transport = AppendPublication.from_rows(inputs.batch)
     bound = dict(
@@ -164,7 +165,7 @@ def test_native_candidate_publication_binds_operation_profile_cut_and_target(
         ({"operation": "append"}, "does not permit derived projection"),
     ]
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin() as transaction,
     ):
         conn.execute(
@@ -192,8 +193,9 @@ def test_native_candidate_publication_binds_operation_profile_cut_and_target(
 
 
 def test_native_finish_refuses_source_occurrence_without_cut_evidence(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    domain_default_case, tmp_path
 ):
+    commit_writer_engine = domain_default_case.writer
     from corpus_structure.semantic.analytics import compile_projection
     from corpus_structure.semantic.arrow_publication import (
         SnapshotDerivedPublication,
@@ -201,10 +203,8 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
     )
     from corpus_structure.semantic.domain_operations import _cut_input
 
-    _prepared, run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    _prepared, run, cut = domain_default_case.stage.result
+    inputs = _cut_input(commit_writer_engine, cut, "hostile")
     batch = replace(inputs.batch, evidence_source=()).bind_preparation(inputs.prepared)
     compiled = compile_projection(inputs.prepared, inputs.source_binding, kind="candidate")
     publication = SnapshotDerivedPublication.from_rows(
@@ -218,7 +218,7 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
     )
     with (
         pytest.raises(DBAPIError, match="source occurrence has no located evidence"),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -229,7 +229,7 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
             {"cut": cut, "out": "hostile", "batch": batch.batch_id},
         )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert not conn.execute(
             select(table("data.realization")).where(
                 table("data.realization").c.realization_id == "hostile"
@@ -243,45 +243,50 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
         )
 
 
-def test_writer_cannot_create_untrusted_stage_relations(semantic_writer_engine):
+def test_writer_cannot_create_untrusted_stage_relations(native_rollback):
+    from native_refusals import native_refusal
+
     with (
-        pytest.raises(DBAPIError, match="permission denied to create temporary tables"),
-        semantic_writer_engine.begin() as conn,
+        native_refusal("42501"),
+        native_rollback.principal("write") as conn,
     ):
         conn.exec_driver_sql("CREATE TEMP TABLE sp_entity(entity_id text)")
 
 
-def test_stage_disposal_refuses_writer_owned_imitation(semantic_db_engine, semantic_writer_engine):
+def test_stage_disposal_refuses_writer_owned_imitation(commit_db_engine, commit_writer_engine):
+    from native_refusals import native_refusal
+
     # Deliberately widen only this disposable test database to exercise the disposal
     # guard independently of the normal principal's earlier TEMP privilege refusal.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         database = conn.scalar(text("SELECT current_database()"))
         quoted = conn.dialect.identifier_preparer.quote(database)
         conn.exec_driver_sql(f"GRANT TEMP ON DATABASE {quoted} TO corpus_sem_writer")
     with (
-        pytest.raises(DBAPIError, match="untrusted staging relation sp_record_report"),
-        semantic_writer_engine.begin() as conn,
+        native_refusal("P0001", message="untrusted staging relation sp_record_report"),
+        commit_writer_engine.begin() as conn,
     ):
         conn.exec_driver_sql("CREATE TEMP TABLE sp_record_report(task_id bigint)")
         conn.exec_driver_sql("SELECT data.end_stage()")
 
 
 def test_same_fact_reports_keep_statement_specific_rule_decisions(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     rules = (
         b"rules:\n- id: test.statement\n  applies_to: ex:name\n  at: [finalize]\n  "
         b"severity: error\n  check: \"claim.statement_kind == 'theorem'\"\n"
     )
+    # This consumer authors its own rules, duplicate variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         rules=rules,
         duplicate=True,
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         o, f, a = table("data.occurrence"), table("data.fact"), table("data.assessment")
         decisions = conn.execute(
             select(o.c.fact_id, a.c.outcome)
@@ -311,13 +316,17 @@ def test_same_fact_reports_keep_statement_specific_rule_decisions(
     ],
 )
 def test_native_scientific_comparison_preserves_facts_and_uncertainty(
-    semantic_db_engine, semantic_writer_engine, tmp_path, formulas, outcome, selected
+    domain_formula_source, tmp_path, formulas, outcome, selected
 ):
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", formulas=formulas
-    )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    commit_writer_engine = domain_formula_source.writer
+    _prepared, _run, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(formulas=formulas),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         a, f, s = table("data.assessment"), table("data.fact"), table("data.selection")
         rows = (
             conn.execute(select(a).where(a.c.operation_id == "scientific.value_equivalence"))
@@ -369,17 +378,18 @@ def test_native_scientific_comparison_preserves_facts_and_uncertainty(
 
 @pytest.mark.parametrize("local_known", [False, True])
 def test_known_input_reference_and_declared_key_converge_with_lineage(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, local_known
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, local_known
 ):
+    # This consumer authors its own known, local_known variant beyond the shared default/prefix.
     _prepared, run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         known=True,
         local_known=local_known,
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         lineage = conn.execute(select(table("data.entity_input"))).mappings().one()
         assert lineage["entity_id"] == "known:alice" and lineage["input_entity_id"] == "known:alice"
         assert (
@@ -407,10 +417,10 @@ def test_known_input_reference_and_declared_key_converge_with_lineage(
         from corpus_structure.semantic.analytics import load_packet
         from corpus_structure.semantic.query import read_session
 
-        uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+        uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
             hide_password=False
         )
-        with read_session(semantic_reader_engine, "evaluated") as session:
+        with read_session(commit_reader_engine, "evaluated") as session:
             packet = load_packet(session, uri)
         assert packet.to_table("entity_input").to_pylist()[0]["input_data_revision"] == 1
         assert len(packet.to_table("fact_input").to_pylist()) == 2
@@ -420,15 +430,16 @@ def test_known_input_reference_and_declared_key_converge_with_lineage(
 
 
 def test_actual_cut_nested_references_preserve_literal_fields_and_unresolved_source(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.semantic.query import QuerySpec, read_session
 
+    # This consumer authors its own nary variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", nary=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", nary=True
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with read_session(semantic_reader_engine, "evaluated") as session:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with read_session(commit_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")
         result = session.query(QuerySpec(cls, session.property_handle(cls, "relation")))
         obj = result.rows[0].object
@@ -436,7 +447,7 @@ def test_actual_cut_nested_references_preserve_literal_fields_and_unresolved_sou
         assert obj.roles["r"].ref == "other" and obj.roles["r"].target == obj.endpoint
         refs = session._entities({obj.endpoint})
         assert refs[obj.endpoint].memberships[0].class_iri == "https://example.org/Person"
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assessments = (
             conn.execute(
                 select(table("data.assessment").c.outcome).where(
@@ -447,18 +458,19 @@ def test_actual_cut_nested_references_preserve_literal_fields_and_unresolved_sou
             .all()
         )
         assert assessments == ["candidate"]
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert conn.execute(select(table("data.entity_source"))).all()
 
 
 def test_required_endpoint_identity_is_not_fabricated(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
+    # This consumer authors its own nary, broken variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", nary=True, broken=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", nary=True, broken=True
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         assert not conn.execute(select(table("data.fact"))).first()
         coverage = conn.execute(
             select(table("data.coverage").c.outcome, table("data.coverage").c.reason)
@@ -476,14 +488,15 @@ def test_required_endpoint_identity_is_not_fabricated(
 
 
 def test_claim_references_use_canonical_premise_fact_and_separate_source_view_ids(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     from corpus_structure.semantic.domain_operations import _cut_input
 
+    # This consumer authors its own claim_chain variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", claim_chain=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", claim_chain=True
     )
-    inputs = _cut_input(semantic_writer_engine, cut, "evaluated")
+    inputs = _cut_input(commit_writer_engine, cut, "evaluated")
     by_ref = {c.local_id: c for c in inputs.candidates}
     assert by_ref["p1"].fact_id == by_ref["p2"].fact_id
     assert by_ref["d1"].fact_id == by_ref["d2"].fact_id
@@ -492,17 +505,18 @@ def test_claim_references_use_canonical_premise_fact_and_separate_source_view_id
     assert first is not None and second is not None
     assert first["condition"]["ref"] == by_ref["p1"].occurrence_id
     assert second["condition"]["ref"] == by_ref["p2"].occurrence_id
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
 
 
 def test_cyclic_claim_reference_stays_explicit_unresolved_report(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
+    # This consumer authors its own cycle variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", cycle=True
+        commit_db_engine, commit_writer_engine, tmp_path / "source.html", cycle=True
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         assert not conn.execute(select(table("data.fact"))).first()
         assert (
             "cyclic source claim reference"
@@ -512,8 +526,9 @@ def test_cyclic_claim_reference_stays_explicit_unresolved_report(
 
 @pytest.mark.parametrize("operator", ["compare", "not"])
 def test_scientific_restriction_profile_never_drops_uninterpreted_domain(
-    semantic_db_engine, semantic_writer_engine, tmp_path, operator
+    domain_formula_source, tmp_path, operator
 ):
+    commit_writer_engine = domain_formula_source.writer
     comparison = {
         "kind": "compare",
         "relation": ">",
@@ -521,15 +536,14 @@ def test_scientific_restriction_profile_never_drops_uninterpreted_domain(
         "rhs": {"kind": "formula", "language": "latex", "expression": "0"},
     }
     condition = comparison if operator == "compare" else {"kind": "not", "term": comparison}
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        formulas=(r"\sqrt{x^2}", "x"),
-        condition=condition,
-    )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    _prepared, _run, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(formulas=("\\sqrt{x^2}", "x"), condition=condition),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         rows = conn.execute(
             select(
                 table("data.assessment").c.outcome, table("data.assessment").c.uncertainty
@@ -543,21 +557,26 @@ def test_scientific_restriction_profile_never_drops_uninterpreted_domain(
             assert all(row.uncertainty for row in rows)
 
 
+@pytest.mark.parametrize(
+    "domain_formula_source",
+    [DomainSourceRecipe(DomainPreparationRecipe(formula_values=True, global_person_identity=True))],
+    indirect=True,
+)
 def test_independent_source_binding_disagreement_persists_one_compact_group(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    domain_formula_source, tmp_path
 ):
+    commit_writer_engine = domain_formula_source.writer
+    commit_reader_engine = domain_formula_source.reader
     from corpus_structure.semantic.query import QuerySpec, read_session
 
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        formulas=("x",),
-        report_count=2,
-        global_person_identity=True,
-    )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with read_session(semantic_reader_engine, "evaluated") as session:
+    _prepared, _run, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(formulas=("x",), report_count=2, global_person_identity=True),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with read_session(commit_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")
         prop = session.property_handle(cls, "name")
         result = session.query(QuerySpec(cls, prop))
@@ -576,26 +595,27 @@ def test_independent_source_binding_disagreement_persists_one_compact_group(
             if row.operation_id == "consolidate.status"
         } == {"ambiguous"}
         assert not session.query(QuerySpec(cls, prop, "accepted")).rows
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert len(conn.execute(select(table("data.alternative_member"))).all()) == 2
 
 
 @pytest.mark.parametrize("duplicate", [False, True])
 def test_authored_alternatives_retain_source_reason_without_duplicate_fact_groups(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, duplicate
+    domain_formula_source, tmp_path, duplicate
 ):
+    commit_writer_engine = domain_formula_source.writer
+    commit_reader_engine = domain_formula_source.reader
     from corpus_structure.semantic.query import QuerySpec, read_session
 
     formulas = ("x", "x") if duplicate else ("x+1", "x+2")
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        formulas=formulas,
-        authored_alternative=True,
-    )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with read_session(semantic_reader_engine, "evaluated") as session:
+    _prepared, _run, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(formulas=formulas, authored_alternative=True),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with read_session(commit_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")
         prop = session.property_handle(cls, "name")
         rows = session.query(QuerySpec(cls, prop)).rows
@@ -617,21 +637,22 @@ def test_authored_alternatives_retain_source_reason_without_duplicate_fact_group
 
 
 def test_primitive_alias_rule_view_keeps_source_value_kind(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
     rules = (
         b"rules:\n- id: count.literal\n  applies_to: ex:name\n  severity: error\n  at: "
         b"[finalize]\n  check: \"claim.value&.t == 'number' and claim.value&.v == '4'\"\n"
     )
+    # This consumer authors its own integer_alias, rules variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         integer_alias=True,
         rules=rules,
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         statuses = (
             conn.execute(
                 select(table("data.assessment").c.outcome).where(
@@ -646,27 +667,23 @@ def test_primitive_alias_rule_view_keeps_source_value_kind(
 
 @pytest.mark.parametrize("operand", ["fallback", "constant"])
 def test_recorded_math_fallbacks_and_constants_drive_native_science(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
-    tmp_path,
-    operand,
+    domain_formula_source, tmp_path, operand
 ):
+    commit_writer_engine = domain_formula_source.writer
+    commit_reader_engine = domain_formula_source.reader
     from corpus_structure.semantic.query import QuerySpec, read_session
 
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        # The declared Euler constant discharges the denominator's nonzero premise.
-        formulas=(r"\A", "x") if operand == "fallback" else (r"\frac{1}{e}", "e^{-1}"),
-        math={
-            "macros": {r"\A": "x", "unused": "z"},
-            "constants": ["e", r"\pi"],
-        },
-    )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with read_session(semantic_reader_engine, "evaluated") as session:
+    _prepared, _run, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(
+            formulas=("\\A", "x") if operand == "fallback" else ("\\frac{1}{e}", "e^{-1}"),
+            math={"macros": {"\\A": "x", "unused": "z"}, "constants": ["e", "\\pi"]},
+        ),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with read_session(commit_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")
         prop = session.property_handle(cls, "name")
         rows = session.query(QuerySpec(cls, prop)).rows
@@ -699,19 +716,20 @@ def test_recorded_math_fallbacks_and_constants_drive_native_science(
 
 
 def test_unqualified_log_domain_is_not_cancelled_into_accepted_equivalence(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    domain_formula_source, tmp_path
 ):
+    commit_writer_engine = domain_formula_source.writer
+    commit_reader_engine = domain_formula_source.reader
     from corpus_structure.semantic.query import QuerySpec, read_session
 
-    _, _, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        formulas=(r"e^{\ln x}", "x"),
-        math={"constants": ["e"]},
-    )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with read_session(semantic_reader_engine, "evaluated") as session:
+    _, _, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(formulas=("e^{\\ln x}", "x"), math={"constants": ["e"]}),
+    ).result
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with read_session(commit_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")
         prop = session.property_handle(cls, "name")
         rows = session.query(QuerySpec(cls, prop)).rows
@@ -724,24 +742,30 @@ def test_unqualified_log_domain_is_not_cancelled_into_accepted_equivalence(
         } == {"undecided"}
 
 
-def test_conflicting_recorded_constant_profiles_refuse_cut(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
-    _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        formulas=("x",),
-        report_count=2,
-        global_person_identity=True,
-        math={"constants": ["e"]},
-        second_math={"constants": []},
-    )
+@pytest.mark.parametrize(
+    "domain_formula_source",
+    [DomainSourceRecipe(DomainPreparationRecipe(formula_values=True, global_person_identity=True))],
+    indirect=True,
+)
+def test_conflicting_recorded_constant_profiles_refuse_cut(domain_formula_source, tmp_path):
+    commit_writer_engine = domain_formula_source.writer
+    _prepared, _run, cut = finish_domain_case(
+        domain_formula_source.stage,
+        domain_formula_source.writer,
+        tmp_path / "source.pdf",
+        domain_case_recipe(
+            formulas=("x",),
+            report_count=2,
+            global_person_identity=True,
+            math={"constants": ["e"]},
+            second_math={"constants": []},
+        ),
+    ).result
     with pytest.raises(
         DomainOperationRefused, match="incompatible recorded mathematical constant profiles"
     ):
-        consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+        consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         assert not conn.execute(
             select(table("data.realization")).where(
                 table("data.realization").c.realization_id == "evaluated"
@@ -750,18 +774,19 @@ def test_conflicting_recorded_constant_profiles_refuse_cut(
 
 
 def test_known_input_roles_filter_before_value_hydration(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.semantic.query import ReadSession
 
+    # This consumer authors its own known, input_noise variant beyond the shared default/prefix.
     _prepared, run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         known=True,
         input_noise=True,
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         facts = (
             conn.execute(
                 select(table("data.fact")).where(table("data.fact").c.realization_id == "source")
@@ -787,10 +812,10 @@ def test_known_input_roles_filter_before_value_hydration(
         return original(self, value_ids, *args, **kwargs)
 
     monkeypatch.setattr(ReadSession, "load_values", observe)
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
     assert expected_ids <= loaded
     assert not noise_ids & loaded
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 select(table("data.entity_input").c.input_entity_id).where(
@@ -811,17 +836,18 @@ def test_known_input_roles_filter_before_value_hydration(
 
 
 def test_declared_endpoint_and_isolate_publish_without_invented_properties(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
+    # This consumer authors its own graph, isolated_entity variant beyond the shared default/prefix.
     _prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path / "source.html",
         graph=True,
         isolated_entity=True,
     )
-    consolidate_cut(semantic_writer_engine, cut, "evaluated")
-    with semantic_writer_engine.connect() as conn:
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as conn:
         sources = conn.execute(select(table("data.entity_source"))).mappings().all()
         declared = {row["local_id"]: row["entity_id"] for row in sources}
         assert {"other", "isolated"} <= declared.keys()
@@ -864,10 +890,8 @@ def test_declared_endpoint_and_isolate_publish_without_invented_properties(
 @pytest.mark.parametrize(
     "forgery", ["valid", "class", "declaration", "resolution", "cut", "source_cut"]
 )
-def test_native_declared_membership_refuses_forged_lineage(
-    semantic_db_engine, semantic_writer_engine, tmp_path, forgery
-):
-    from contextlib import nullcontext
+def test_native_declared_membership_refuses_forged_lineage(declared_membership_case, forgery):
+    from native_refusals import native_refusal
 
     from corpus_structure.semantic.analytics import compile_projection
     from corpus_structure.semantic.arrow_publication import (
@@ -877,16 +901,10 @@ def test_native_declared_membership_refuses_forged_lineage(
     from corpus_structure.semantic.domain_operations import NativeEvidenceLink, _cut_input
     from corpus_structure.semantic.publication import EvidenceSourceRow
 
-    prepared, _run, cut = build_domain_case(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path / "source.html",
-        graph=True,
-        membership_subtype=True,
-        unselected_report=forgery == "source_cut",
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    prepared, _run, cut = declared_membership_case.stage.result
+    inputs = _cut_input(declared_membership_case.reader, cut, "hostile")
     batch = inputs.batch
+    original = batch
     endpoint = next(row for row in batch.entity_source if row.local_id == "other")
     if forgery == "class":
         other_class = next(d.iri for d in prepared.definitions if d.name == "PersonSubtype")
@@ -906,7 +924,7 @@ def test_native_declared_membership_refuses_forged_lineage(
             ),
         )
     elif forgery == "source_cut":
-        with semantic_writer_engine.connect() as conn:
+        with declared_membership_case.reader.connect() as conn:
             observation = table("kb.observation")
             task = table("ops.task")
             foreign_observation = conn.execute(
@@ -959,34 +977,68 @@ def test_native_declared_membership_refuses_forged_lineage(
         cut_id=int(cut) + 1000 if forgery == "cut" else cut,
         profile_digest=compiled.profile.digest,
     )
-    with (
-        pytest.raises(
-            DBAPIError,
-            match=(
-                "membership requires establishment and support"
-                if forgery == "class"
-                else "entity source is outside the bound final observation cut"
-                if forgery == "source_cut"
-                else None
-            ),
-        )
-        if forgery != "valid"
-        else nullcontext(),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-    ):
+    original = replace(original, evidence_source=tuple(evidence_sources)).bind_preparation(prepared)
+    valid = SnapshotDerivedPublication.from_rows(
+        original,
+        source=inputs.source_binding,
+        operation_id="evaluate",
+        projection_id=compiled.projection_id,
+        contract_id="candidate",
+        cut_id=cut,
+        profile_digest=compiled.profile.digest,
+    )
+
+    def publish(conn, actual, rows):
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
         )
-        publish_arrow_on_connection(conn, publication)
+        publish_arrow_on_connection(conn, actual)
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
-            {"cut": cut, "out": "hostile", "batch": batch.batch_id},
+            {"cut": cut, "out": "hostile", "batch": rows.batch_id},
         )
-    with semantic_writer_engine.connect() as conn:
-        persisted = conn.execute(
-            select(table("data.realization")).where(
-                table("data.realization").c.realization_id == "hostile"
+
+    if forgery == "valid":
+        with (
+            declared_membership_case.writer.connect().execution_options(
+                isolation_level="SERIALIZABLE"
+            ) as conn,
+            conn.begin(),
+        ):
+            publish(conn, publication, batch)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.realization WHERE realization_id='hostile'")
+                )
+                == 1
             )
-        ).first()
-        assert (persisted is not None) == (forgery == "valid")
+    else:
+        with declared_membership_case.principal("write", isolation_level="SERIALIZABLE") as conn:
+            positive = conn.begin_nested()
+            publish(conn, valid, original)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.realization WHERE realization_id='hostile'")
+                )
+                == 1
+            )
+            positive.rollback()
+            reason = {
+                "class": "membership requires establishment and support",
+                "declaration": "membership requires establishment and support",
+                "source_cut": "entity source is outside the bound final observation cut",
+                "resolution": "entity source lacks its typed resolution decision",
+                "cut": "query returned no rows",
+            }[forgery]
+            with (
+                native_refusal("P0002" if forgery == "cut" else "23514", message=reason),
+                conn.begin_nested(),
+            ):
+                publish(conn, publication, batch)
+            for relation in ("realization", "membership", "entity_source", "entity_resolution"):
+                assert (
+                    conn.scalar(
+                        text(f"SELECT count(*) FROM data.{relation} WHERE realization_id='hostile'")
+                    )
+                    == 0
+                )

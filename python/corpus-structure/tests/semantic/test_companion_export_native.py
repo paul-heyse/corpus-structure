@@ -5,6 +5,7 @@ import json
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from pdf_acceptance_support import stage_complete_native
 from psycopg.errors import CheckViolation
 from pydantic import ValidationError
 from sqlalchemy import Text, literal_column, select, text, union_all
@@ -28,9 +29,8 @@ from corpus_structure.serve.companion_export import (
     export_companion_parquet,
     inventory_companion_export,
 )
-
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_publication import stage_complete_native
+from semantic.companion_export_native_support import read_settings as read_settings
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def publish(engine, build, key, directory, *, coverage=(), rejected_coverage=()):
@@ -66,39 +66,11 @@ def publish(engine, build, key, directory, *, coverage=(), rejected_coverage=())
         return seal_pdf_build(conn, frozen, key)
 
 
-def read_settings(native_settings, engine):
-    from sqlalchemy.engine import make_url
-
-    from corpus_structure.semantic.runtime import connection_settings
-
-    database = engine.url.database
-    writer = (
-        make_url(native_settings.database.url)
-        .set(database=database)
-        .render_as_string(hide_password=False)
-    )
-    reader = (
-        make_url(connection_settings(native_settings, "read").database.url)
-        .set(database=database)
-        .render_as_string(hide_password=False)
-    )
-    return native_settings.model_copy(
-        update={
-            "database": native_settings.database.model_copy(
-                update={
-                    "url": writer,
-                    "reader_url": reader,
-                }
-            )
-        }
-    )
-
-
 def test_published_json_direction_preserves_declared_values_and_transport_nulls(
     private_build,
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     native_settings,
     tmp_path,
 ):
@@ -120,7 +92,7 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
         trusted_pdf_context().boundary.validate_python("PdfProductCoverage", nullable)
     assert invalid.value.errors()[0]["loc"] == ("supports",)
     published = publish(
-        semantic_writer_engine,
+        commit_writer_engine,
         private_build,
         "native",
         tmp_path / "native",
@@ -138,7 +110,7 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
         ],
         rejected_coverage=[nullable],
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         run = conn.scalar(
             text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": private_build.task_id}
         )
@@ -151,13 +123,13 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
         content_digest=published.logical_digest,
     )
     spec = projection("coverage")
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         rows = conn.execute(spec.statement, pin.model_dump()).mappings().all()
     assert [row["supports_json"] for row in rows] == [None, "[]"]
     target = tmp_path / "export"
     export_companion_parquet(
         CompanionExportRequest(pin=pin, destination=target, families=("coverage",)),
-        read_settings(native_settings, semantic_db_engine).model_copy(
+        read_settings(native_settings, commit_db_engine).model_copy(
             update={
                 "analytics": native_settings.analytics.model_copy(
                     update={
@@ -186,10 +158,10 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
         )
     ).subquery()
     python_statement = select(literals.c.value.cast(Text())).order_by(literals.c.ordinal)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert list(conn.scalars(python_statement)) == [None, "null", "[]", "{}"]
     native_statement = select(literals.c.value).order_by(literals.c.ordinal)
-    settings = connection_settings(read_settings(native_settings, semantic_db_engine), "read")
+    settings = connection_settings(read_settings(native_settings, commit_db_engine), "read")
     with (
         owned_adbc_read(
             open_adbc_connection(
@@ -213,19 +185,19 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
 
 def test_all_typed_families_capture_from_actual_published_rows(
     private_build,
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     native_settings,
     tmp_path,
     cli,
 ):
-    original = publish(semantic_writer_engine, private_build, "native", tmp_path / "original")
-    with semantic_db_engine.connect() as conn:
+    original = publish(commit_writer_engine, private_build, "native", tmp_path / "original")
+    with commit_db_engine.connect() as conn:
         run = conn.scalar(
             text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": private_build.task_id}
         )
-    settings = read_settings(native_settings, semantic_db_engine)
+    settings = read_settings(native_settings, commit_db_engine)
     original_pin = PublishedSourcePin(
         project_id="p",
         run_id=run,
@@ -245,7 +217,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
             pq.read_schema(tmp_path / "empty" / (family + ".parquet")).names
             == projection(family).arrow_schema.names
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         for family in FAMILIES:
             with pytest.raises(DBAPIError, match="unavailable or staged"):
                 conn.execute(
@@ -261,7 +233,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
                     ),
                 ).all()
             conn.rollback()
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         build = begin_pdf_build(
             conn,
             task_id=private_build.task_id,
@@ -272,8 +244,8 @@ def test_all_typed_families_capture_from_actual_published_rows(
             schema_digest=private_build.schema_digest,
             replay_key="second",
         )
-    stage_complete_native(semantic_writer_engine, build, tmp_path / "selected")
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path / "selected")
+    with commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -357,10 +329,10 @@ def test_all_typed_families_capture_from_actual_published_rows(
         )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    validate_pdf_build(semantic_writer_engine, frozen)
-    with semantic_writer_engine.begin() as conn:
+    validate_pdf_build(commit_writer_engine, frozen)
+    with commit_writer_engine.begin() as conn:
         published = seal_pdf_build(conn, frozen, "selected")
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         run = conn.scalar(
             text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": build.task_id}
         )
@@ -372,7 +344,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
         product_key="selected",
         content_digest=published.logical_digest,
     )
-    settings = read_settings(native_settings, semantic_db_engine)
+    settings = read_settings(native_settings, commit_db_engine)
     manifest = export_companion_parquet(
         CompanionExportRequest(pin=pin, destination=tmp_path / "export"), settings
     )
@@ -496,7 +468,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
         not difference["added"] and not difference["removed"]
         for difference in comparison["differences"].values()
     )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         for family in FAMILIES:
             function = projection(family).function_name
             with pytest.raises(DBAPIError, match=r"pin|project"):
@@ -516,7 +488,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
 
 @pytest.mark.parametrize("phase", ["metadata", "handoff", "bulk"])
 def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
-    semantic_db_engine, semantic_reader_engine, native_settings, tmp_path, monkeypatch, phase
+    commit_db_engine, commit_reader_engine, native_settings, tmp_path, monkeypatch, phase
 ):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -531,7 +503,7 @@ def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
     from corpus_structure.serve import native_source
 
     owner = OperationCancellation(timeout=2)
-    settings = read_settings(native_settings, semantic_db_engine)
+    settings = read_settings(native_settings, commit_db_engine)
     name = "um-export-cancel-" + uuid4().hex
     base_url = make_url(settings.database.url).update_query_dict({"application_name": name})
     settings = settings.model_copy(
@@ -608,7 +580,7 @@ def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
             assert entered.wait(timeout=10)
             deadline = monotonic() + 10
             while True:
-                with semantic_reader_engine.connect() as control:
+                with commit_reader_engine.connect() as control:
                     active = control.scalar(
                         text(
                             "SELECT count(*) FROM pg_stat_activity WHERE state='active' "
@@ -632,7 +604,7 @@ def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
     assert not list(tmp_path.glob(".companion-*"))
     assert owner.cleanup_failures == []
     owner.request_cancel()
-    with semantic_reader_engine.connect() as control:
+    with commit_reader_engine.connect() as control:
         assert (
             control.scalar(
                 text(

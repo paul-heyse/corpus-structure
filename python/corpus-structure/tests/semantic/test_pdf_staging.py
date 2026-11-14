@@ -7,12 +7,14 @@ from typing import Any
 import psycopg
 import pyarrow as pa
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.operations import (
     claim_tasks,
 )
+from corpus_structure.semantic.pdf_contracts import store_pdf_original
 from corpus_structure.semantic.pdf_staging import (
     abandon_pdf_build,
     adopt_pdf_batch,
@@ -21,31 +23,98 @@ from corpus_structure.semantic.pdf_staging import (
     resume_pdf_build,
     stage_schema,
 )
+from semantic.pdf_staging_support import native_batch
+from semantic.pdf_staging_support import private_build as private_build
 
-from .pdf_staging_support import native_batch
-from .pdf_staging_support import private_build as private_build
 
-
-def test_private_typed_copy_exact_replay_and_changed_duplicate(
-    private_build, semantic_writer_engine
+def test_original_pdf_retention_replays_exact_recipe_and_refuses_changed_recipe(
+    private_build, commit_writer_engine
 ):
+    """An authenticated source build retains exactly one original/recipe pair."""
     build = private_build
-    with semantic_writer_engine.begin() as conn:
+    original = b"%PDF-1.7 private staging fixture"
+    recipe = b'{"recipe":"stage-test"}'
+    changed_recipe = b'{"recipe":"changed-stage-test"}'
+    changed_digest = sha256(changed_recipe).hexdigest()
+    params = dict(task=build.task_id)
+    with commit_writer_engine.begin() as conn:
+        # The fixture's first call establishes the source build on this exact task.
+        before = conn.execute(
+            text(
+                "SELECT release_id,artifact_digest,recipe_digest FROM ops.source_build "
+                "WHERE task_id=:task"
+            ),
+            params,
+        ).one()
+        assert tuple(before) == (
+            build.release_id,
+            sha256(original).hexdigest(),
+            sha256(recipe).hexdigest(),
+        )
+        assert (
+            store_pdf_original(
+                conn,
+                task_id=build.task_id,
+                attempt=build.attempt,
+                holder=build.holder,
+                original=original,
+                recipe_bytes=recipe,
+            )
+            == build.source_digest
+        )
+        with (
+            native_refusal(
+                "23514",
+                message="original PDF source build replay differs",
+                context="ops.retain_pdf_original",
+            ),
+            conn.begin_nested(),
+        ):
+            store_pdf_original(
+                conn,
+                task_id=build.task_id,
+                attempt=build.attempt,
+                holder=build.holder,
+                original=original,
+                recipe_bytes=changed_recipe,
+            )
+        assert (
+            conn.execute(
+                text(
+                    "SELECT release_id,artifact_digest,recipe_digest FROM ops.source_build "
+                    "WHERE task_id=:task"
+                ),
+                params,
+            ).one()
+            == before
+        )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM kb.source_artifact WHERE artifact_digest=:digest"),
+                {"digest": changed_digest},
+            )
+            == 0
+        )
+
+
+def test_private_typed_copy_exact_replay_and_changed_duplicate(private_build, commit_writer_engine):
+    build = private_build
+    with commit_writer_engine.begin() as conn:
         first = adopt_pdf_batch(conn, build, "batch-1", {"native": [native_batch(build)]})
         assert first.row_count == 1
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert adopt_pdf_batch(conn, build, "batch-1", {"native": [native_batch(build)]}) == first
         assert inspect_pdf_progress(conn, build) == (first,)
     for key in ("batch-1", "different-batch"):
         with (
-            semantic_writer_engine.begin() as conn,
+            commit_writer_engine.begin() as conn,
             pytest.raises(DBAPIError, match=r"replay differs|changed private record"),
         ):
             adopt_pdf_batch(conn, build, key, {"native": [native_batch(build, "changed")]})
 
 
 def test_private_forward_references_are_rows_before_their_targets(
-    private_build, semantic_writer_engine
+    private_build, commit_writer_engine
 ):
     build = private_build
     row = dict(
@@ -58,7 +127,7 @@ def test_private_forward_references_are_rows_before_their_targets(
         native_pointer_stream_id=None,
         target_id=None,
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         receipt = adopt_pdf_batch(
             conn,
             build,
@@ -66,24 +135,24 @@ def test_private_forward_references_are_rows_before_their_targets(
             {"reference": [pa.RecordBatch.from_pylist([row], schema=stage_schema("reference"))]},
         )
         assert receipt.row_count == 1
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert len(inspect_pdf_progress(conn, build)) == 1
 
 
 def test_private_stage_denies_read_and_stale_holder(
-    private_build, semantic_writer_engine, semantic_reader_engine
+    private_build, commit_writer_engine, commit_reader_engine
 ):
-    with semantic_reader_engine.begin() as conn, pytest.raises(DBAPIError):
+    with commit_reader_engine.begin() as conn, pytest.raises(DBAPIError):
         conn.execute(text("SELECT * FROM ops.pdf_stage_native"))
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
         adopt_pdf_batch(conn, replace(private_build, holder="wrong-holder"), "stale", {})
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         abandon_pdf_build(conn, private_build)
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="not owned/open"):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="not owned/open"):
         adopt_pdf_batch(conn, private_build, "after-abandon", {})
 
 
-def test_malformed_wire_rolls_back_then_retry(private_build, semantic_writer_engine):
+def test_malformed_wire_rolls_back_then_retry(private_build, commit_writer_engine):
     build = private_build
     row: dict[str, Any] = dict(
         product_id=build.product_id,
@@ -95,7 +164,7 @@ def test_malformed_wire_rolls_back_then_retry(private_build, semantic_writer_eng
         body=b"abc",
         sha256_digest="0" * 64,
     )
-    with semantic_writer_engine.begin() as conn, pytest.raises(psycopg.errors.CheckViolation):
+    with commit_writer_engine.begin() as conn, pytest.raises(psycopg.errors.CheckViolation):
         adopt_pdf_batch(
             conn,
             build,
@@ -107,7 +176,7 @@ def test_malformed_wire_rolls_back_then_retry(private_build, semantic_writer_eng
             },
         )
     row["sha256_digest"] = sha256(b"abc").hexdigest()
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         receipt = adopt_pdf_batch(
             conn,
             build,
@@ -121,15 +190,13 @@ def test_malformed_wire_rolls_back_then_retry(private_build, semantic_writer_eng
         assert receipt.row_count == 1
 
 
-def test_native_batch_limit_cannot_be_bypassed_by_raw_scratch(
-    private_build, semantic_writer_engine
-):
+def test_native_batch_limit_cannot_be_bypassed_by_raw_scratch(private_build, commit_writer_engine):
     build = private_build
     params = dict(
         build=build.build_id, task=build.task_id, attempt=build.attempt, holder=build.holder
     )
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="upload profile exceeded"),
     ):
         conn.execute(text("SELECT ops.prepare_pdf_stage(:build,:task,:attempt,:holder)"), params)
@@ -145,11 +212,11 @@ def test_native_batch_limit_cannot_be_bypassed_by_raw_scratch(
             text("SELECT * FROM ops.adopt_pdf_batch(:build,:task,:attempt,:holder,'oversized')"),
             params,
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert inspect_pdf_progress(conn, build) == ()
 
 
-def test_wrong_schema_and_immutable_begin_replay(private_build, semantic_writer_engine):
+def test_wrong_schema_and_immutable_begin_replay(private_build, commit_writer_engine):
     build = private_build
     args = dict(
         task_id=build.task_id,
@@ -161,23 +228,23 @@ def test_wrong_schema_and_immutable_begin_replay(private_build, semantic_writer_
         schema_digest=build.schema_digest,
         replay_key="build-1",
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert begin_pdf_build(conn, **args) == build
     args["schema_digest"] = "0" * 64
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="source custody differs"),
     ):
         begin_pdf_build(conn, **args)
 
 
 def test_reclaimed_attempt_requires_explicit_resume_and_preserves_progress(
-    private_build, semantic_db_engine, semantic_writer_engine
+    private_build, commit_db_engine, commit_writer_engine
 ):
     build = private_build
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         receipt = adopt_pdf_batch(conn, build, "before-expiry", {"native": [native_batch(build)]})
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         task = conn.execute(
             text("SELECT run_id,method_config_id FROM ops.task WHERE id=:task"),
@@ -190,14 +257,14 @@ def test_reclaimed_attempt_requires_explicit_resume_and_preserves_progress(
             ),
             {"task": build.task_id},
         )
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
         inspect_pdf_progress(conn, build)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         claim = claim_tasks(
             conn, run_id=task.run_id, config_id=task.method_config_id, holder="next-owner"
         )[0]
         assert claim.attempt == build.attempt + 1
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="explicit resume"):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="explicit resume"):
         begin_pdf_build(
             conn,
             task_id=build.task_id,
@@ -208,14 +275,14 @@ def test_reclaimed_attempt_requires_explicit_resume_and_preserves_progress(
             schema_digest=build.schema_digest,
             replay_key="build-1",
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         resumed = resume_pdf_build(conn, build, attempt=claim.attempt, holder="next-owner")
         assert inspect_pdf_progress(conn, resumed) == (receipt,)
         assert (
             adopt_pdf_batch(conn, resumed, "before-expiry", {"native": [native_batch(resumed)]})
             == receipt
         )
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
         adopt_pdf_batch(conn, build, "late-old-owner", {})
 
 
@@ -223,13 +290,13 @@ def test_reclaimed_attempt_requires_explicit_resume_and_preserves_progress(
 def test_caller_scratch_cannot_execute_as_publisher_or_bypass_prepare(
     private_build, writer_with_temp_capability, entry
 ):
-    semantic_writer_engine = writer_with_temp_capability
+    commit_writer_engine = writer_with_temp_capability
     build = private_build
     parameters = dict(
         build=build.build_id, task=build.task_id, attempt=build.attempt, holder=build.holder
     )
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="untrusted private PDF scratch"),
     ):
         conn.execute(text("CREATE TEMP TABLE ps_pdf_stage_artifact_part (forged text)"))
@@ -253,23 +320,23 @@ def test_caller_scratch_cannot_execute_as_publisher_or_bypass_prepare(
                 text("SELECT * FROM ops.adopt_pdf_batch(:build,:task,:attempt,:holder,'forged')"),
                 parameters,
             )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert inspect_pdf_progress(conn, build) == ()
 
 
 @pytest.fixture
-def writer_with_temp_capability(semantic_db_engine, semantic_writer_engine):
+def writer_with_temp_capability(commit_db_engine, commit_writer_engine):
     # Normal workers lack TEMP. Exercise custody even if that separate privilege
     # is granted later; keep the adversary an actual restricted database role.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(
             text("""DO $$ BEGIN EXECUTE format(
             'GRANT TEMPORARY ON DATABASE %I TO corpus_sem_writer',current_database()); END $$""")
         )
     try:
-        yield semantic_writer_engine
+        yield commit_writer_engine
     finally:
-        with semantic_db_engine.begin() as conn:
+        with commit_db_engine.begin() as conn:
             conn.execute(
                 text("""DO $$ BEGIN EXECUTE format(
                 'REVOKE TEMPORARY ON DATABASE %I FROM corpus_sem_writer',current_database());
@@ -280,13 +347,13 @@ def writer_with_temp_capability(semantic_db_engine, semantic_writer_engine):
 @pytest.mark.parametrize("entry", ["prepare", "adopt"])
 @pytest.mark.parametrize("missing", ["attempt", "holder"])
 def test_direct_sql_null_identity_cannot_bypass_private_fence(
-    private_build, semantic_writer_engine, entry, missing
+    private_build, commit_writer_engine, entry, missing
 ):
     build = private_build
     parameters: dict[str, Any] = dict(
         build=build.build_id, task=build.task_id, attempt=build.attempt, holder=build.holder
     )
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
+    with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
         if entry == "prepare":
             parameters[missing] = None
             conn.execute(
@@ -303,12 +370,12 @@ def test_direct_sql_null_identity_cannot_bypass_private_fence(
                 ),
                 parameters,
             )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert inspect_pdf_progress(conn, build) == ()
 
 
 def test_private_encoder_failure_discards_state_and_fresh_replay_is_atomic(
-    private_build, semantic_db_engine, semantic_writer_engine, monkeypatch
+    private_build, commit_db_engine, commit_writer_engine, monkeypatch
 ):
     from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
 
@@ -337,13 +404,13 @@ def test_private_encoder_failure_discards_state_and_fresh_replay_is_atomic(
         )
         with (
             pytest.raises(ValueError, match="forced private encoder failure"),
-            semantic_writer_engine.begin() as conn,
+            commit_writer_engine.begin() as conn,
         ):
             adopt_pdf_batch(conn, build, "encoder-replay", {"native": [native_batch(build)]})
     assert finished == []
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert inspect_pdf_progress(conn, build) == ()
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.pdf_stage_native WHERE product_id=:p"),
@@ -351,6 +418,6 @@ def test_private_encoder_failure_discards_state_and_fresh_replay_is_atomic(
             )
             == 0
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         receipt = adopt_pdf_batch(conn, build, "encoder-replay", {"native": [native_batch(build)]})
         assert receipt.row_count == 1

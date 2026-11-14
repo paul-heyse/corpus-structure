@@ -7,13 +7,12 @@ import pytest
 from docling.models.inference_engines.vlm import VlmEngineOutput
 from docling.models.stages.vlm_convert.vlm_convert_model import VlmConvertModel
 from docling_core.types.doc import DoclingDocument, SectionHeaderItem
+from pdf_region_support import landmark_pdf
 from PIL import Image
 
 from corpus_structure.ingest import pdf_chandra
 from corpus_structure.ingest.pdf_chandra_document import ChandraDocumentRuntime
 from corpus_structure.ingest.pdf_recognition import transform_point
-
-from .test_pdf_recognition import landmark_pdf
 
 
 @pytest.fixture

@@ -13,7 +13,7 @@ from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.native_annotations import annotation_work
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_contexts import NativeSourcePin
-from semantic.test_formal_evidence import prepared as prepared
+from semantic.primary_formal_fixture import prepared as prepared
 
 
 def _plan(work):

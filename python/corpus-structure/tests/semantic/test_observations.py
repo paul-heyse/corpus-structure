@@ -5,7 +5,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
@@ -15,6 +15,12 @@ from corpus_structure.semantic.observations import (
     observation_inputs,
     source_python,
     source_value,
+)
+from semantic.observations_support import (
+    malform_source_fields as malform_source_fields,
+)
+from semantic.observations_support import (
+    nested_source_detail as nested_source_detail,
 )
 
 
@@ -60,20 +66,6 @@ def test_source_tree_rejects_nonfinite_numbers_nonstring_fields_and_duplicate_na
                 ],
             }
         )
-
-
-def nested_source_detail() -> Mapping[str, JsonValue]:
-    return {"nested": [{"Name": None, "name": False, "é": 1, "e\u0301": 2}]}
-
-
-def malform_source_fields(fields, case):
-    if case == "gap":
-        fields[1]["position"] = len(fields)
-    elif case == "order":
-        fields[0], fields[1] = fields[1], fields[0]
-    elif case == "repeat":
-        # A duplicate with identical meaning would silently collapse in JSON aggregation.
-        fields.append(dict(fields[0], position=len(fields)))
 
 
 def test_source_tree_keeps_exact_field_names_and_explicit_null_false():
@@ -209,8 +201,7 @@ def test_bind_grouped_comparison_preserves_encoded_condition_fields():
         ClauseFieldGroup,
         ClauseReading,
     )
-
-    from .test_typed_structural_composition import threshold_inputs
+    from semantic.typed_structural_composition_support import threshold_inputs
 
     inputs = threshold_inputs("If x > 2.", "If x > 5.")
     left, right = inputs.passages
@@ -280,8 +271,7 @@ def test_structural_subtree_extension_uses_each_release_without_new_traversal():
 
     from corpus_structure.methods.structural_products import compare_clauses
     from corpus_structure.semantic.structural_products import ClauseReading
-
-    from .test_structural_products import inputs
+    from semantic.structural_products_support import inputs
 
     model_path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic"
 

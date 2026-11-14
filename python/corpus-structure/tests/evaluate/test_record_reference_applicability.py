@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import replace
 
 import pytest
+from evaluation_record_references_support import fixture, prepared
 from pglast import parse_sql
 
 from corpus_structure.evaluate.record_alignment import RecordSide, align_records, reference_contract
@@ -16,8 +17,6 @@ from corpus_structure.semantic.record_contracts import (
     interpretation_identity,
     record_identity,
 )
-
-from .test_record_references import fixture, prepared
 
 
 def successor_reading(reference, contexts, binding):

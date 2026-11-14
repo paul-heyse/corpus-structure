@@ -13,78 +13,8 @@ from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_inline_reports,
     validate_pdf_page_payloads,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
-
-
-def example():
-    return dict(
-        document={"pages": {"1": {"size": {"width": 200, "height": 300}}}},
-        parent_task_id=2,
-        parent_product_key="native",
-        parent_digest="a" * 64,
-        health={},
-        inline_candidate_pages=[
-            dict(
-                page_no=1,
-                has_words=True,
-                has_chars=True,
-                has_vectors=True,
-                candidates=[
-                    dict(
-                        page_no=1,
-                        text="",
-                        left=27,
-                        top=42,
-                        right=30,
-                        bottom=47,
-                        origin="TOPLEFT",
-                        basis="native-vector-gap-v1",
-                    )
-                ],
-            )
-        ],
-        items=[
-            dict(pointer="#/groups/0", label="section", content_layer="body"),
-            dict(
-                pointer="#/texts/0",
-                label="text",
-                content_layer="body",
-                parent_pointer="#/groups/0",
-                section_pointer="#/groups/0",
-            ),
-        ],
-        regions=[
-            dict(
-                pointer="#/texts/0",
-                page_no=1,
-                left=26,
-                top=40,
-                right=66,
-                bottom=60,
-                origin="top_left",
-            )
-        ],
-        recognition_coverage=[
-            dict(
-                section_pointer="#/groups/0",
-                membership="direct",
-                universe="inline",
-                outcome="partial",
-                policy="native-font-token-vector-ocr-word-v3",
-            )
-        ],
-        inline_alignment_reports=[
-            dict(
-                page_no=1,
-                candidate_index=0,
-                item_pointers=["#/texts/0"],
-                outcome="unresolved",
-                basis="unmatched-native-text",
-                detail="Native punctuation leaves correspondence unresolved.",
-            )
-        ],
-    )
+from semantic.operation_scenario_support import prepare_operation_scenario
+from semantic.pdf_inline_reports_support import example as example
 
 
 def test_unresolved_report_has_no_fabricated_range_and_does_not_mutate_native():
@@ -161,9 +91,9 @@ def test_known_unresolved_candidate_cannot_close_affected_inline_scope(membershi
 
 
 def test_publication_and_item_inspection_use_fixed_report_relations(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
     monkeypatch,
 ):
@@ -193,7 +123,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     )
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True, composed=True)
     original = b"%PDF-1.7\nindependent inline correspondence fixture"
     recipe = b'{"fixture":"unresolved-inline"}'
     schema = (
@@ -228,7 +158,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     raw = prepare_pdf_product(payload, original, schema, recipe)
     path = tmp_path / "source.pdf"
     path.write_bytes(original)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -280,10 +210,10 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
             original=original,
             recipe_bytes=recipe,
         )
-    from .native_record_fixtures import publish_native_record_fixture
+    from semantic.native_record_fixtures import publish_native_record_fixture
 
     original_pin = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "original-records",
         task_id=task,
         attempt=claim.attempt,
@@ -316,7 +246,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
         with pytest.raises(ValueError, match=diagnostic):
             malformed = prepare_pdf_product(bad, original, schema, recipe)
             publish_native_record_fixture(
-                semantic_writer_engine,
+                commit_writer_engine,
                 tmp_path / ("bad-" + mutation),
                 task_id=task,
                 attempt=claim.attempt,
@@ -325,7 +255,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
                 document=document,
             )
     selected_pin = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "partial-records",
         task_id=task,
         attempt=claim.attempt,
@@ -350,9 +280,9 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     def capture(conn, cursor, statement, parameters, context, executemany):
         statements.append(statement)
 
-    event.listen(semantic_reader_engine, "before_cursor_execute", capture)
+    event.listen(commit_reader_engine, "before_cursor_execute", capture)
     try:
-        with semantic_reader_engine.connect() as conn:
+        with commit_reader_engine.connect() as conn:
             response = inspect_native_source(
                 conn,
                 NativeSourceRequest(
@@ -388,7 +318,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
             assert legacy.rows[0]["inline_alignment_reports"] is None
             assert legacy.health["inline_coverage"] == "unknown"
     finally:
-        event.remove(semantic_reader_engine, "before_cursor_execute", capture)
+        event.remove(commit_reader_engine, "before_cursor_execute", capture)
     assert any(
         (read["task_id"], read["product_key"], read["content_digest"], read["pointer"])
         == (task, "partial", selected_pin.logical_digest, paragraph.self_ref)

@@ -13,7 +13,7 @@ from corpus_structure.serve.export import export_packet
 
 
 def packet():
-    from .test_analytics import prepared_inputs
+    from semantic.analytics_support import prepared_inputs
 
     prepared = prepared_inputs()[2]
     binding = SnapshotBinding(prepared.release_id, "z", 1, "capture:test")

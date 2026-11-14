@@ -12,18 +12,16 @@ from corpus_structure.semantic.operations import (
     hold_agent_result,
     release_claim,
 )
-
-from .agent_scenarios import build_resubmission_case, lease_and_read
+from semantic.agent_scenarios import lease_and_read
 
 
 @pytest.mark.parametrize("refused", (False, True))
 def test_uncertain_first_hold_survives_session_restart_and_terminal_second_report(
-    semantic_db_engine, semantic_writer_engine, tmp_path, refused
+    resubmission_case, tmp_path, refused
 ):
-    _prepared, run, task, locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
-    )
-    engine = semantic_writer_engine
+    commit_writer_engine = resubmission_case.writer
+    _prepared, run, task, locator = resubmission_case.stage.result
+    engine = commit_writer_engine
     first = SemanticAgentSession(engine, run)
     fabricated = "Zyxwvu qrst nop invented quotation."
 

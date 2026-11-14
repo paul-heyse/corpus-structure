@@ -6,324 +6,40 @@ from typing import Any
 
 import psycopg
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.evaluate.operation_assessment import (
-    PROTOCOL,
-    OperationCase,
-    OperationEvaluationFrameV2,
-    OperationSourceOpportunity,
-    create_reference_set,
-    record_pass,
-    reference_evaluate,
-)
-from corpus_structure.evaluate.record_references import (
-    assign_origin,
-    reference_inputs,
-    source_binding,
-)
-from corpus_structure.evaluate.semantic import split_documents
-from corpus_structure.evaluate.split import SplitConfig
+from corpus_structure.evaluate.operation_assessment import record_pass
 from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.local_semantic_admission import (
-    CONTEXT_POLICY,
-    QUESTION,
-    RUBRIC,
-    semantic_assertion_identity,
-)
+from corpus_structure.semantic.local_semantic_admission import semantic_assertion_identity
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.observations import source_value
-from corpus_structure.semantic.operations import OperationBinding, create_run, create_task, seal_cut
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
-from semantic.reference_scenarios import expected_reading
-
-from .native_record_fixtures import private_source as private_source
-from .witnessed_scenario_support import completed_relationship_case
-
-
-@pytest.fixture
-def private_source_options():
-    return dict(bundle_transform=reference_inputs)
+from semantic.local_admission_scenarios import JudgedSourceRecipe
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import private_source as private_source
 
 
 @pytest.fixture
-def judged_source(private_source, request, semantic_evaluator_engine, monkeypatch, tmp_path):
-    selected = getattr(request, "param", {})
-    partition = selected.get("partition", "development")
-    original_case = private_source
-    linked = completed_relationship_case(original_case, monkeypatch, tmp_path)
-    from types import SimpleNamespace
-
-    from corpus_structure.orchestrate.commands import finalize_bound_run
-
-    finalize_bound_run(original_case.writer, linked.outcome.run_id, "semantic-source-private")
-    case = SimpleNamespace(**vars(original_case))
-    case.run = linked.outcome.run_id
-    with case.writer.connect() as conn:
-        tasks, configs, methods = (
-            table(n) for n in ("ops.task", "ops.method_config", "ops.method")
-        )
-        case.task_row = dict(
-            conn.execute(
-                select(tasks)
-                .join(configs, configs.c.id == tasks.c.method_config_id)
-                .join(methods, methods.c.id == configs.c.method_id)
-                .where(tasks.c.run_id == case.run, methods.c.name == "retrieve.contextual")
-            )
-            .mappings()
-            .one()
-        )
-        case.task = case.task_row["id"]
-        cut = conn.scalar(
-            select(table("ops.completed_result").c.cut_id).where(
-                table("ops.completed_result").c.run_id == case.run
-            )
-        )
-    source = linked.completed.source
-    citation = dict(
-        source=dict(
-            project_id="private-records",
-            native_product_key=source.native_product_key,
-            native_content_digest=source.native_content_digest,
-            projection_digest=source.projection_digest,
-            recipe_digest=source.recipe_digest,
-            coordinate_version=2,
-        ),
-        start=0,
-        end=2,
-        text="12",
-        scope="controlled-source",
-    )
-    target_meaning = dict(
-        term=citation, content=citation, interpretation="definition", scope="controlled-source"
-    )
-    with semantic_evaluator_engine.begin() as conn:
-        uri = conn.scalar(
-            select(table("kb.document").c.source_uri).where(
-                table("kb.document").c.id == case.view_row["document_id"]
-            )
-        )
-        assign_origin(
-            conn,
-            project_id="private-records",
-            origin_group="relationship-control",
-            partition=partition,
-            source_uris=(uri,),
-            provenance={"source": "controlled native12"},
-        )
-        split_documents(
-            conn,
-            "private-records",
-            SplitConfig(forced_dev={uri: "controlled source"}),
-            release_id=case.prepared.release_id,
-        )
-        logical = source_binding(
-            conn, source_run_id=case.run, source_view_id=case.view, source_cut_id=cut
-        )
-        reading, old_frame = expected_reading(case, logical)
-        anchor = reading["anchors"][0]
-        frame = OperationEvaluationFrameV2(
-            source_group="relationship-control",
-            partition=partition,
-            inspected_scope=case.table + "/data/table_cells/0",
-            opportunities=(
-                OperationSourceOpportunity(
-                    "relationship", case.view, 0, 2, "relationship", "stated"
-                ),
-            ),
-            unit=old_frame.unit,
-            release_id=case.prepared.release_id,
-            guideline_version="relationship-control-2",
-            rubric_version=RUBRIC,
-            context_policy=CONTEXT_POLICY,
-            operation_question=QUESTION,
-            operation_version="2",
-            domain="scientific-source",
-            direction="source_first",
-            pin=old_frame.pin,
-            anchor_ids=(anchor["anchor_id"],),
-            anchor_scopes=old_frame.anchor_scopes,
-        )
-        created = create_reference_set(
-            conn,
-            project_id="private-records",
-            source_run_id=case.run,
-            source_cut_id=cut,
-            label="controlled-relationship",
-            legacy_split="dev",
-            guideline=frame.guideline_version,
-            guideline_text="Resolve only numeral12 to declared target12.",
-            partition=partition,
-            frames={frame.unit: frame},
-            sampling=dict(
-                seed=1,
-                strata={frame.unit: "controlled"},
-                inclusion_probabilities={frame.unit: 1},
-                provenance={"selection": "controlled native12"},
-                cohort="native-relationship-control",
-            ),
-        )
-        unit = conn.scalar(
-            select(table("eval.reference_unit").c.id).where(
-                table("eval.reference_unit").c.set_id == created["set_id"]
-            )
-        )
-        expected = OperationCase(
-            case_id="numeral12-denotation",
-            facet="relationship",
-            anchor_ids=(anchor["anchor_id"],),
-            inspected_scope=case.table + "/data/table_cells/0",
-            source_state="stated",
-            judgment="supported",
-            alternatives=(
-                dict(
-                    semantic_type="contextual.relationship",
-                    value=source_value(
-                        json.loads(
-                            canonical_bytes(
-                                dict(
-                                    relation="denotes",
-                                    scope="controlled-source",
-                                    effective_version=None,
-                                    target=target_meaning,
-                                )
-                            )
-                        )
-                    ),
-                ),
-            ),
-            explanation=(
-                "Controlled source cell12 denotes the independently "
-                "specified source-backed numeral attachment."
-            ),
-            assessor_provenance={"assistance": "none; independent fixed expectation"},
-        )
-        if "judgment" in selected:
-            expected = replace(expected, judgment=selected["judgment"])
-        if selected.get("partial"):
-            expected = replace(
-                expected, alternatives=({"semantic_type": "contextual.relationship"},)
-            )
-        payload = dict(
-            protocol=PROTOCOL,
-            release_id=frame.release_id,
-            unit_ref=frame.unit,
-            guideline=frame.guideline_version,
-            rubric_version=RUBRIC,
-            context_policy=CONTEXT_POLICY,
-            operation_question=QUESTION,
-            operation_version="2",
-            domain=frame.domain,
-            direction="source_first",
-            reason="Independent controlled source expectation",
-            cases=[
-                asdict(replace(expected, case_id=f"numeral12-denotation-{index}"))
-                if selected.get("cases", 1) > 1
-                else asdict(expected)
-                for index in range(selected.get("cases", 1))
-            ],
-            adjudication_passes=[],
-        )
-        a = record_pass(
-            conn,
-            unit_id=unit,
-            pass_kind="A",
-            actor="denotation-A",
-            authored=json.dumps(payload).encode(),
-            frame=frame,
-        )
-        b = record_pass(
-            conn,
-            unit_id=unit,
-            pass_kind="B",
-            actor="denotation-B",
-            authored=json.dumps(payload).encode(),
-            frame=frame,
-        )
-        payload["adjudication_passes"] = [a, b]
-        record_pass(
-            conn,
-            unit_id=unit,
-            pass_kind="C",
-            actor="denotation-C",
-            authored=json.dumps(payload).encode(),
-            frame=frame,
-        )
-        grade = reference_evaluate(
-            conn, project_id="private-records", run_id=case.run, set_id=created["set_id"]
-        )
-        digest = conn.scalar(
-            select(table("eval.reference_evaluation").c.content_digest).where(
-                table("eval.reference_evaluation").c.id == grade.id
-            )
-        )
-        case.semantic_reference = (unit, frame, payload)
-        case.semantic_grade = (grade.id, digest)
-        case.semantic_grades = [case.semantic_grade]
-        for _ in range(selected.get("grades", 1) - 1):
-            additional = reference_evaluate(
-                conn, project_id="private-records", run_id=case.run, set_id=created["set_id"]
-            )
-            additional_digest = conn.scalar(
-                select(table("eval.reference_evaluation").c.content_digest).where(
-                    table("eval.reference_evaluation").c.id == additional.id
-                )
-            )
-            case.semantic_grades.append((additional.id, additional_digest))
-    with case.writer.begin() as conn:
-        origin_run = (
-            conn.execute(select(table("ops.run")).where(table("ops.run").c.id == case.run))
-            .mappings()
-            .one()
-        )
-        manifest = json.loads(bytes(origin_run["dependencies"])) | {
-            "local_semantic_admission": [
-                dict(evaluation_id=identity, evaluation_digest=content)
-                for identity, content in case.semantic_grades
-            ]
-        }
-        run = create_run(
-            conn,
-            project_id="private-records",
-            binding=OperationBinding(
-                case.prepared.release_id,
-                origin_run["input_realization_id"],
-                origin_run["input_revision"],
-                canonical_bytes(manifest),
-            ),
-            kind="full",
-            options={},
-            code_commit="semantic-publication-followup",
-        )
-        conn.execute(
-            text("SELECT ops.select_source_view(:r,:old,:v)"),
-            dict(r=run, old=case.run, v=case.view),
-        )
-        selected = create_task(
-            conn,
-            run_id=run,
-            config_id=case.task_row["method_config_id"],
-            stage="record",
-            unit_type="source_view",
-            unit_id=case.view,
-            unit_key=case.task_row["unit_key"],
-            input_hash=case.task_row["input_hash"],
-        )
-        assert conn.execute(
-            select(table("ops.task").c.status, table("ops.task").c.reused_task_id).where(
-                table("ops.task").c.id == selected
-            )
-        ).one() == ("reused", case.task)
-        final = seal_cut(conn, run, "judged-publication-final", final=True)
-    return case, run, final
+def judged_source(request, scenario_seeds):
+    recipe = JudgedSourceRecipe(**getattr(request, "param", {}))
+    with scenario_seeds.commit_clone(recipe) as clone:
+        yield clone.stage.bind(clone.writer, clone=clone)
 
 
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
+@pytest.fixture
+def judged_semantic_case(scenario_seeds):
+    with scenario_seeds.rollback_family(
+        JudgedSourceRecipe(cases=2, grades=2), reader_purpose="write"
+    ) as family:
+        with family.reader.connect() as connection:
+            assert connection.exec_driver_sql(
+                "SELECT current_user,session_user,current_setting('transaction_read_only')"
+            ).one() == (family.reader.url.username, family.reader.url.username, "on")
+        yield family.stage.bind(family.reader), family
+
+
 @pytest.mark.parametrize(
     "judged_source",
     [{"judgment": "ambiguous"}, {"judgment": "unassessed"}, {"partial": True}],
@@ -338,9 +54,6 @@ def test_nonqualifying_case_preserves_private_outputs(judged_source):
         assert page.inventory_counts["contributions"] > 0
 
 
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
 def test_common_v3_facets_select_exact_products_and_public_assessment_only(judged_source):
     case, run, cut = judged_source
     consolidate_cut(case.writer, cut, "v3-public-assessment")
@@ -420,15 +133,10 @@ def test_common_v3_facets_select_exact_products_and_public_assessment_only(judge
         )
 
 
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
-def test_superseding_adjudication_makes_prior_grade_inapplicable(
-    judged_source, semantic_evaluator_engine
-):
+def test_superseding_adjudication_makes_prior_grade_inapplicable(judged_source):
     case, _, cut = judged_source
     unit, frame, payload = case.semantic_reference
-    with semantic_evaluator_engine.begin() as conn:
+    with case.clone.evaluator.begin() as conn:
         record_pass(
             conn,
             unit_id=unit,
@@ -441,9 +149,6 @@ def test_superseding_adjudication_makes_prior_grade_inapplicable(
         _cut_input(case.writer, cut, "stale-denotation-publication")
 
 
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
 def test_writer_cannot_read_raw_adjudication_helper(judged_source):
     case, _, _ = judged_source
     evaluation_id, digest = case.semantic_grade
@@ -455,9 +160,6 @@ def test_writer_cannot_read_raw_adjudication_helper(judged_source):
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
-@pytest.mark.parametrize(
     "judged_source",
     [{"partition": "final_event_calibration"}, {"partition": "final_assessment"}],
     indirect=True,
@@ -468,9 +170,6 @@ def test_writer_cannot_obtain_heldout_admission_contents(judged_source):
         _cut_input(case.writer, cut, "heldout-denotation-publication")
 
 
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
 @pytest.mark.parametrize(
     "judged_source", [{"partition": "development"}, {"partition": "feature_fit"}], indirect=True
 )
@@ -499,18 +198,14 @@ def test_independent_denotation_uses_common_publication(judged_source):
 
 
 @pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
-@pytest.mark.parametrize("judged_source", [{"cases": 2, "grades": 2}], indirect=True)
-@pytest.mark.parametrize(
     "corruption",
     ["statement", "grade", "case", "rubric", "source", "unit", "pass", "frame", "cut", "selected"],
 )
-def test_native_rejects_forged_judged_semantic_rows(judged_source, corruption):
+def test_native_rejects_forged_judged_semantic_rows(judged_semantic_case, corruption):
     from corpus_structure.semantic.analytics import compile_projection
     from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
 
-    case, _, cut = judged_source
+    (case, _, cut), family = judged_semantic_case
     inputs = _cut_input(case.writer, cut, "semantic-forged")
     clean = replace(inputs.batch, _analysis_input=None)
     assert len(clean.local_semantic_assertion) == 2
@@ -536,10 +231,7 @@ def test_native_rejects_forged_judged_semantic_rows(judged_source, corruption):
     )
     batch = replace(clean, local_semantic_assertion=(changed, *clean.local_semantic_assertion[1:]))
     projection = compile_projection(inputs.prepared, inputs.source_binding, kind="candidate")
-    with (
-        case.writer.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin() as transaction,
-    ):
+    with family.principal("write", isolation_level="SERIALIZABLE") as conn:
         if corruption == "unit":
             # Deterministically exercise the cached-plan path across successful
             # publication rollback and recreated temporary staging row types.
@@ -609,31 +301,23 @@ def test_native_rejects_forged_judged_semantic_rows(judged_source, corruption):
             "cut": ("23503", "fk_local_semantic_assertion_cut_id"),
             "selected": ("P0002", "query returned no rows"),
         }[corruption]
-        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+        with (
+            native_refusal(
+                expected[0],
+                constraint=expected[1] if corruption in {"source", "cut"} else None,
+                message=None if corruption in {"source", "cut"} else expected[1],
+                context="validate_local_semantic_assertions" if corruption == "selected" else None,
+            ),
+            conn.begin_nested(),
+        ):
             publish(batch)
-        assert isinstance(caught.value.orig, psycopg.Error)
-        diagnostic = caught.value.orig.diag
-        assert (
-            caught.value.orig.sqlstate,
-            diagnostic.constraint_name
-            if corruption in {"source", "cut"}
-            else diagnostic.message_primary,
-        ) == expected
-        if corruption == "selected":
-            assert diagnostic.context is not None
-            assert "validate_local_semantic_assertions" in diagnostic.context
         if corruption == "unit":
             for _ in range(8):
                 with conn.begin_nested() as replay:
                     publish(clean)
                     replay.rollback()
-                with pytest.raises(DBAPIError) as retry, conn.begin_nested():
+                with native_refusal("23514", message=unique_witness), conn.begin_nested():
                     publish(batch)
-                assert isinstance(retry.value.orig, psycopg.Error)
-                assert (retry.value.orig.sqlstate, retry.value.orig.diag.message_primary) == (
-                    "23514",
-                    unique_witness,
-                )
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM data.batch WHERE realization_id=:z"),
@@ -648,7 +332,6 @@ def test_native_rejects_forged_judged_semantic_rows(judged_source, corruption):
             )
             == 0
         )
-        transaction.rollback()
     with case.writer.connect() as conn:
         assert (
             conn.scalar(
@@ -660,9 +343,6 @@ def test_native_rejects_forged_judged_semantic_rows(judged_source, corruption):
         )
 
 
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
 @pytest.mark.parametrize("judged_source", [{"cases": 2, "grades": 2}], indirect=True)
 def test_batch_keeps_grade_witnesses_and_excludes_uncaptured_case(judged_source):
     case, run, cut = judged_source
@@ -693,6 +373,12 @@ def test_batch_keeps_grade_witnesses_and_excludes_uncaptured_case(judged_source)
         assert page.inventory_counts["local_semantic_assertion_witnesses"] == 2
 
 
+@pytest.mark.parametrize(
+    "private_source",
+    [RecordSourceRecipe(composition="reference")],
+    indirect=True,
+    ids=("record-reference",),
+)
 def test_writer_cannot_prepare_consolidation_by_direct_run_status_update(private_source):
     case = private_source
     with case.writer.begin() as conn:

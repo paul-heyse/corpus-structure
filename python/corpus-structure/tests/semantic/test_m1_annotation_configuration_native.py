@@ -13,8 +13,7 @@ from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annota
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationConflict, record_method
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 # The original v1 class had no description in its JSON schema.
@@ -30,11 +29,11 @@ class UnversionedSelector(M1Annotations):
 
 
 def test_projection_selector_versions_contract_without_mutating_persisted_v1(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
     legacy_digest = sha256(canonical_bytes(LegacyAnnotationConfig.model_json_schema())).hexdigest()
     assert legacy_digest == "6ea6682a111c7097c3c26df64ed5f2a807289dc9843d20527d5e4f2e9f4e345e"
-    prepared = prepare_operation_scenario(semantic_db_engine)
+    prepared = prepare_operation_scenario(commit_db_engine)
     legacy_params = LegacyAnnotationConfig().model_dump(mode="json")
     legacy_method = SimpleNamespace(
         name=M1Annotations.name,
@@ -45,7 +44,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
         unit_type="source_view",
         Config=LegacyAnnotationConfig,
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         old_config = record_method(
             conn,
             legacy_method,
@@ -55,7 +54,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
             prepared=prepared,
         )
     methods, configs = map(table, ("ops.method", "ops.method_config"))
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         before = dict(
             conn.execute(
                 select(methods).where(
@@ -68,7 +67,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
     params = M1AnnotationConfig(source_projection_digest="a" * 64).model_dump(mode="json")
     with (
         pytest.raises(OperationConflict, match="another method contract"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         record_method(
             conn,
@@ -78,7 +77,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
             sha256(canonical_bytes(params)).hexdigest(),
             prepared=prepared,
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         new_config = record_method(
             conn,
             M1Annotations(),
@@ -87,7 +86,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
             sha256(canonical_bytes(params)).hexdigest(),
             prepared=prepared,
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         rows = [
             dict(row)
             for row in conn.execute(

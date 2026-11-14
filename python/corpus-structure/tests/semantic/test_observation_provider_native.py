@@ -21,16 +21,17 @@ from corpus_structure.cli.result_inspection import inspect_result
 from corpus_structure.intervene import automated
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.storage_target import acquired_target
+from semantic.agent_scenarios import ResubmissionRecipe
 
-from .agent_scenarios import build_resubmission_case
 
-
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
 def test_interrupted_provider_actual_stdio_native_receipt_and_read_purpose_join(
-    semantic_db_engine, semantic_writer_engine, semantic_application_settings, tmp_path, monkeypatch
+    resubmission_case, tmp_path, monkeypatch, resubmission_application_settings
 ):
-    prepared, run_id, task_id, _locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
+    commit_db_engine = resubmission_case.admin
+    commit_writer_engine = resubmission_case.writer
+    commit_application_settings = resubmission_application_settings
+    prepared, run_id, task_id, _locator = resubmission_case.stage.result
     script = tmp_path / "controlled-provider"
     ready = tmp_path / "concurrent-requests-ready"
     script.write_text(
@@ -65,9 +66,9 @@ def test_interrupted_provider_actual_stdio_native_receipt_and_read_purpose_join(
         "which",
         lambda command: str(script) if command == "claude" else original_which(command),
     )
-    settings = semantic_application_settings.model_copy(
+    settings = commit_application_settings.model_copy(
         update={
-            "paths": semantic_application_settings.paths.model_copy(
+            "paths": commit_application_settings.paths.model_copy(
                 update={"data_dir": tmp_path / "data"}
             )
         }
@@ -91,11 +92,11 @@ def test_interrupted_provider_actual_stdio_native_receipt_and_read_purpose_join(
             invocation.bind_observations(
                 run_id=run_id, release_id=prepared.release_id, project="resubmit"
             )
-            with semantic_writer_engine.connect() as conn:
+            with commit_writer_engine.connect() as conn:
                 target = acquired_target(conn, purpose="write")
             invocation.manifest.details["observation_target"] = target.model_dump(mode="json")
             invocation._write()
-            automated.extract_run(semantic_writer_engine, settings, run_id, timeout=60)
+            automated.extract_run(commit_writer_engine, settings, run_id, timeout=60)
     finally:
         stop_controller.set()
         controller.join(timeout=2)
@@ -139,7 +140,7 @@ def test_interrupted_provider_actual_stdio_native_receipt_and_read_purpose_join(
     assert finished.bindings.attempt is None
     assert finished.fields["process_outcome"] == "interrupted"
     assert finished.bindings.provider_invocation == row.bindings.provider_invocation
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         task = conn.execute(
             select(table("ops.task").c.attempt, table("ops.task").c.status).where(
                 table("ops.task").c.id == task_id

@@ -26,9 +26,8 @@ from corpus_structure.serve.record_support import (
     present_record_support,
     read_support_inventory,
 )
-
-from .test_record_consumers import prepared as prepared
-from .test_record_consumers import projection as projection
+from semantic.record_consumers_support import prepared as prepared
+from semantic.record_consumers_support import projection as projection
 
 
 def accepted_page(projection):

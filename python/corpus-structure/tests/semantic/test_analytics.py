@@ -20,13 +20,11 @@ from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.analytical_profile import AnalyticalProfile, analytical_inputs
 from corpus_structure.semantic.analytics import (
     AnalysisScope,
-    AnalyticalPacket,
     compile_projection,
     compile_sql,
     load_packet,
 )
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contracts import execution_payload
 from corpus_structure.semantic.identity import fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
@@ -43,44 +41,12 @@ from corpus_structure.semantic.publication import (
 )
 from corpus_structure.semantic.query import SnapshotBinding, read_session
 from corpus_structure.semantic.releases import persist_release
-
-
-def prepared_inputs():
-    source = b"""id: https://example/model
-name: example
-prefixes: {ex: 'https://example/'}
-default_prefix: ex
-types:
-  string: {base: str, uri: "http://www.w3.org/2001/XMLSchema#string"}
-classes:
-  Thing:
-    attributes:
-      label: {required: false, multivalued: true}
-"""
-    bundle, dependencies = analytical_inputs(
-        SourceBundle("example", (SourceArtifact("example", source),))
-    )
-    dependencies = composed_dependencies(dependencies)
-    return (
-        bundle,
-        dependencies,
-        prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2")),
-    )
-
-
-def empty_packet(prepared):
-    compiled = compile_projection(prepared, SnapshotBinding(prepared.release_id, "z", 0, "cap"))
-    return AnalyticalPacket(
-        compiled.binding,
-        compiled.projection_id,
-        compiled.profile.digest,
-        MappingProxyType(
-            {p.name: pa.Table.from_pylist([], schema=p.schema) for p in compiled.relations}
-        ),
-        scale=compiled.profile.scale,
-        execution_model_id=prepared.execution_model_id,
-        execution_contract=execution_payload(prepared),
-    )
+from semantic.analytics_support import (
+    empty_packet as empty_packet,
+)
+from semantic.analytics_support import (
+    prepared_inputs as prepared_inputs,
+)
 
 
 def with_rows(packet, name, rows):
@@ -251,11 +217,11 @@ def test_native_relation_kernels_keep_occurrences_qualifications_and_roles():
 
 @pytest.mark.parametrize("mode", ["resident", "spooled"])
 def test_native_exported_snapshot_and_decimal_boundary(
-    semantic_db_engine, semantic_reader_engine, semantic_writer_engine, mode
+    commit_db_engine, commit_reader_engine, commit_writer_engine, mode
 ):
     bundle, dependencies, prepared = prepared_inputs()
     rid, realization = prepared.release_id, "z"
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         persist_release(
             owner, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
         )
@@ -300,12 +266,12 @@ def test_native_exported_snapshot_and_decimal_boundary(
             membership_support=(MembershipSupportRow("e", "https://example/Thing", "ev" + label),),
         )
 
-    publish_batch(semantic_writer_engine, batch("100%quote'"))
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    publish_batch(commit_writer_engine, batch("100%quote'"))
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
-    with read_session(semantic_reader_engine, realization) as session:
-        publish_batch(semantic_writer_engine, batch("later"))
+    with read_session(commit_reader_engine, realization) as session:
+        publish_batch(commit_writer_engine, batch("later"))
         packet = load_packet(session, uri, mode=mode, batch_size=2)
         assert packet.binding.data_revision == 1
     assert packet.relations["fact"].num_rows == 1
@@ -597,7 +563,7 @@ def test_disagreement_slots_use_qualification_meaning_not_row_id():
 
 
 def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_values(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
+    commit_db_engine, commit_writer_engine, commit_reader_engine
 ):
     import yaml
 
@@ -618,7 +584,7 @@ def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_v
     deps = composed_dependencies(deps)
     prepared = prepare_release(bundle, deps, PreparationProfile(version="semantic-2"))
     r, z, p = prepared.release_id, "z", "https://example/label"
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         persist_release(owner, bundle, deps, PreparationProfile(version="semantic-2"), prepared)
         owner.execute(insert(table("data.project")).values(project_id="p"))
         owner.execute(
@@ -657,11 +623,11 @@ def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_v
         evidence=(EvidenceRow("ev", "urn:s", "line:1", "test", "1"),),
         membership_support=(MembershipSupportRow("e", "https://example/Thing", "ev"),),
     )
-    publish_batch(semantic_writer_engine, batch)
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    publish_batch(commit_writer_engine, batch)
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
-    with read_session(semantic_reader_engine, z) as session:
+    with read_session(commit_reader_engine, z) as session:
         packet = load_packet(session, uri)
     captured = packet.to_table("fact").to_pylist()
     assert len({f["qualification_value_id"] for f in captured}) == 2
@@ -982,12 +948,12 @@ def test_native_views_empty_inputs_and_duplicate_spec_refusal():
 
 
 def test_native_capture_preserves_body_failure_through_all_adbc_children(
-    semantic_db_engine, semantic_reader_engine, monkeypatch
+    commit_db_engine, commit_reader_engine, monkeypatch
 ):
     from corpus_structure.semantic import analytics
 
     bundle, dependencies, prepared = prepared_inputs()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(
             conn, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
         )
@@ -1051,11 +1017,11 @@ def test_native_capture_preserves_body_failure_through_all_adbc_children(
     monkeypatch.setattr(
         analytics, "open_adbc_connection", lambda *args, **kwargs: Bulk(acquire(*args, **kwargs))
     )
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
     with (
-        read_session(semantic_reader_engine, "cleanup-realization") as session,
+        read_session(commit_reader_engine, "cleanup-realization") as session,
         pytest.raises(RuntimeError) as caught,
     ):
         load_packet(session, uri)

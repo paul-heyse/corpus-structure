@@ -14,9 +14,8 @@ from corpus_structure.semantic.characterization import (
     validate_view,
 )
 from corpus_structure.semantic.product_reference import ProductReference
-
-from .test_characterization import layer_payload
-from .test_characterization import prepared as prepared
+from semantic.characterization_support import layer_payload
+from semantic.characterization_support import prepared as prepared
 
 
 def test_manifest_cannot_be_created_from_untrusted_caller_metadata(prepared):

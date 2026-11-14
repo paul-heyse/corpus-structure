@@ -8,51 +8,86 @@ import pytest
 from sqlalchemy import Connection
 
 from corpus_structure.semantic import data_operation_service as service
-
-from .test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
-from .test_data_operation_storage import kernel as kernel
+from semantic.data_operation_kernel_support import STORAGE
 
 
 def test_service_read_preserves_full_native_continuation(monkeypatch):
-    calls = []
+    from semantic.data_operation_binding_support import WireCheckedStorage
+
     connection = cast(Connection, object())
-
-    class Storage:
-        def __init__(self, connection):
-            pass
-
-        def invoke(self, operation, payload):
-            calls.append((operation, payload))
-            return {"demand_id": payload["demand_id"], "continuation": payload}
-
-    monkeypatch.setattr(service, "DataOperationStorage", Storage)
+    selection = {
+        "version": "data-demand-intent-v1",
+        "model": "a" * 64,
+        "roots": [
+            {"subject": "subject:one", "original_source": "source:one", "analyzed_scope": {}}
+        ],
+        "targets": ["urn:operation"],
+        "root_operations": ["urn:operation"],
+        "operations": [
+            {
+                "operation": "urn:operation",
+                "parameters": {},
+                "choices": {},
+                "replicate": None,
+                "dependencies": [],
+                "definition": "definition:one",
+                "recipe": "recipe:one",
+                "eligibility": "eligibility:one",
+                "parameter_meaning": ["mapping", []],
+            }
+        ],
+        "discovery": [],
+        "inference": "inference:one",
+        "execution_profile": "execution:one",
+    }
     pins = {
         "demand_id": "demand:one",
-        "selection": {"model": "frozen"},
+        "selection": selection,
         "read_id": "read:one",
         "read_snapshot": "1:2:",
-        "frontier_at": "now",
+        "frontier_at": "2026-11-13T00:00:00Z",
         "trust_snapshot": {"scope": 2},
         "after": "obligation:one",
         "limit": 7,
         "view": "products",
     }
+    reply = {
+        "demand_id": "demand:one",
+        "project_id": "project:one",
+        "release_id": "release:one",
+        "runtime_id": "runtime:one",
+        "selection": selection,
+        "intent": selection,
+        "root": selection["roots"],
+        "trust_snapshot": {"scope": 2},
+        "uses": [],
+        "obligations": [],
+        "populations": [],
+        "continuation": pins,
+        "read_id": "read:one",
+        "read_snapshot": "1:2:",
+        "frontier_at": "2026-11-13T00:00:00Z",
+        "view": "products",
+    }
+    storage = WireCheckedStorage({"read_demand_result": reply})
+    monkeypatch.setattr(service, "DataOperationStorage", lambda connection: storage)
     result = service.read_data_demand(connection, "demand:one", continuation=pins)
-    assert calls == [("read_demand_result", pins)]
+    assert storage.calls == [("read_demand_result", pins)]
     assert result["continuation"] == pins
     assert pins["limit"] == 7
     with pytest.raises(ValueError, match="another demand"):
         service.read_data_demand(connection, "demand:other", continuation=pins)
     with pytest.raises(ValueError, match="view differs"):
         service.read_data_demand(connection, "demand:one", continuation=pins, view="frontier")
-    assert len(calls) == 1
+    assert len(storage.calls) == 1
 
 
-def test_native_service_creation_read_and_cancellation_preserve_original_pins(kernel):
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_native_service_creation_read_and_cancellation_preserve_original_pins(ddo_kernel):
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
 
     intent = freeze_demand(
-        kernel["model"],
+        ddo_kernel["model"],
         roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
         targets=("urn:ddo-test:source",),
         inference="inference:test",
@@ -60,11 +95,11 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(ke
     )
     request = service.CreateDataDemand(
         project_id="ddo-test",
-        release_id=kernel["prepared"].release_id,
-        runtime_id=kernel["runtime"],
+        release_id=ddo_kernel["prepared"].release_id,
+        runtime_id=ddo_kernel["runtime"],
         intent=intent.record,
     )
-    with kernel["engine"].begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         created = service.create_data_demand(connection, request)
         assert created["release_id"] == request.release_id
         assert created["runtime_id"] == request.runtime_id

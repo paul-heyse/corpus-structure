@@ -11,8 +11,7 @@ from corpus_structure.core.method import SourceViewRef
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.serve import review_bundle
-
-from .test_review_bundle import source_row
+from semantic.review_bundle_support import source_row
 
 
 @pytest.mark.parametrize("integrated,expected_version", [(None, 2), ({"kind": "integrated"}, 3)])

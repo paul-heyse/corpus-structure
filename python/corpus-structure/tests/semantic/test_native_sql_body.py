@@ -206,7 +206,7 @@ def test_current_release_guards_separate_readable_archives_from_current_projecti
     assert "THEN RETURN;" not in projection
 
 
-def test_current_native_sources_own_release_guards_and_record_only_views(semantic_db_engine):
+def test_current_native_sources_own_release_guards_and_record_only_views(commit_db_engine):
     from corpus_structure.semantic.migrations import ALEMBIC_DIR
     from corpus_structure.semantic.native_candidate import (
         series_native_definitions,
@@ -216,7 +216,7 @@ def test_current_native_sources_own_release_guards_and_record_only_views(semanti
 
     # Candidate authoring resolves trigger ownership against current relations;
     # the migrated schema also exercises omission of physically retired tables.
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         desired = series_native_definitions(conn)
         predecessor = series_predecessor_definitions(conn)
     wanted = {(item.identity.schema, item.identity.name): item for item in desired}

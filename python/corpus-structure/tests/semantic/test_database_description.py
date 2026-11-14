@@ -16,13 +16,13 @@ def test_description_requires_query_binding():
 
 @pytest.mark.parametrize("configured", [False, True])
 def test_description_uses_server_type_resolution_with_configured_driver(
-    semantic_db_engine, native_settings, configured, monkeypatch
+    commit_db_engine, native_settings, configured, monkeypatch
 ):
     import adbc_driver_postgresql
 
     from corpus_structure.serve import database_description
 
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("CREATE SCHEMA describe_types")
         conn.exec_driver_sql("CREATE TYPE describe_types.color AS ENUM ('red', 'blue')")
         conn.exec_driver_sql("CREATE DOMAIN describe_types.positive AS numeric CHECK (VALUE > 0)")
@@ -32,7 +32,7 @@ def test_description_uses_server_type_resolution_with_configured_driver(
         )
         conn.exec_driver_sql("GRANT USAGE ON SCHEMA describe_types TO corpus_sem_reader")
         conn.exec_driver_sql("GRANT SELECT ON describe_types.sample TO corpus_sem_reader")
-    url = make_url(native_settings.database.url).set(database=semantic_db_engine.url.database)
+    url = make_url(native_settings.database.url).set(database=commit_db_engine.url.database)
     settings = native_settings.model_copy(
         update={
             "database": native_settings.database.model_copy(
@@ -98,8 +98,8 @@ def test_description_uses_server_type_resolution_with_configured_driver(
     assert result.snapshot == "separate_sessions"
 
 
-def test_literal_scoped_description(semantic_db_engine, native_settings):
-    with semantic_db_engine.begin() as conn:
+def test_literal_scoped_description(commit_db_engine, native_settings):
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("CREATE SCHEMA describe_scope")
         conn.exec_driver_sql(
             'CREATE TABLE describe_scope."literal_%" (key bigint NOT NULL, value text)',
@@ -110,7 +110,7 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
         conn.exec_driver_sql(
             "GRANT SELECT ON ALL TABLES IN SCHEMA describe_scope TO corpus_sem_reader"
         )
-    base = make_url(native_settings.database.url).set(database=semantic_db_engine.url.database)
+    base = make_url(native_settings.database.url).set(database=commit_db_engine.url.database)
     settings = native_settings.model_copy(
         update={
             "database": native_settings.database.model_copy(
@@ -136,7 +136,7 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
     assert relation_observation["interface"] == "adbc.GetObjects"
     assert relation_observation["session"] == "adbc"
     assert relation_observation["columns"] == "not_requested"
-    assert result.database == semantic_db_engine.url.database
+    assert result.database == commit_db_engine.url.database
     assert result.principal == "corpus_sem_reader"
     physical = [x for x in result.observations if x["kind"] == "physical"]
     table = next(x for x in physical if x.get("columns") and isinstance(x["columns"], list))
@@ -150,7 +150,7 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
     estimate = next(x for x in result.observations if x["kind"] == "estimate")
     assert all(x["table_name"] == "literal_%" for x in estimate.get("statistics", []))
     assert estimate["status"] == "unavailable"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql(
             """INSERT INTO describe_scope."literal_%" VALUES (1,'one'),(2,'two')""",
             execution_options={"no_parameters": True},
@@ -177,7 +177,7 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
 
 
 def test_query_schema_uses_actual_reader_and_refuses_effects(
-    semantic_db_engine, native_settings, cli
+    commit_db_engine, native_settings, cli
 ):
     from corpus_structure.semantic import (
         PreparationProfile,
@@ -208,9 +208,9 @@ classes: {}
         )
     )
     prepared = prepare_release(bundle, dependencies)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
-    url = make_url(native_settings.database.url).set(database=semantic_db_engine.url.database)
+    url = make_url(native_settings.database.url).set(database=commit_db_engine.url.database)
     settings = native_settings.model_copy(
         update={
             "database": native_settings.database.model_copy(
@@ -409,7 +409,7 @@ def test_description_child_cleanup_preserves_iteration_and_consumer_failure(
 
 
 def test_existing_inaccessible_relation_is_distinct_from_missing_in_native_json(
-    semantic_db_engine, semantic_reader_engine, semantic_application_settings, cli
+    commit_db_engine, commit_reader_engine, commit_application_settings, cli
 ):
     import json
 
@@ -417,7 +417,7 @@ def test_existing_inaccessible_relation_is_distinct_from_missing_in_native_json(
     from sqlalchemy.exc import DBAPIError
 
     relation = "public.semantic_alembic_version"
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert conn.scalar(text("SELECT current_user")) == "corpus_sem_reader"
         assert conn.scalar(text("SELECT to_regclass(:relation)::text"), {"relation": relation})
         assert (
@@ -427,13 +427,13 @@ def test_existing_inaccessible_relation_is_distinct_from_missing_in_native_json(
             )
             is False
         )
-    with semantic_reader_engine.connect() as conn, pytest.raises(DBAPIError) as caught:
+    with commit_reader_engine.connect() as conn, pytest.raises(DBAPIError) as caught:
         conn.exec_driver_sql("SELECT * FROM public.semantic_alembic_version")
     assert getattr(caught.value.orig, "sqlstate", None) == "42501"
     request = DatabaseDescriptionRequest(
         schemas=("public",), relations=("semantic_alembic_version", "ptd_known_missing_relation")
     )
-    direct = describe_database(request, semantic_application_settings)
+    direct = describe_database(request, commit_application_settings)
     shown = cli(
         "db",
         "describe",
@@ -444,7 +444,7 @@ def test_existing_inaccessible_relation_is_distinct_from_missing_in_native_json(
         "--relation",
         "ptd_known_missing_relation",
         "--json",
-        settings=lambda: semantic_application_settings,
+        settings=lambda: commit_application_settings,
     )
     assert shown.exit_code == 0, shown.output
     payload = json.loads(shown.stdout)

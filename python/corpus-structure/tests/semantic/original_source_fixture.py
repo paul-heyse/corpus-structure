@@ -3,8 +3,7 @@
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.operations import complete_task
 from corpus_structure.semantic.structural_products import ExternalSourceRef
-
-from .witnessed_scenario_support import completed_metadata
+from semantic.witnessed_scenario_support import completed_metadata
 
 
 def completed_original_source_reference(case):

@@ -1,60 +1,21 @@
 """Retained-source frame boundaries and qualifier ownership."""
 
 from dataclasses import replace
-from typing import Any, Literal
 
-import pytest
-
-from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
-from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
 from corpus_structure.methods.structural_roles import predicate_frames
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_contexts import NativeSourcePin
-
-_PREFIX = "outside the block: "
-
-
-@pytest.fixture(scope="module")
-def profile():
-    return AnnotationProfile()
-
-
-def retained(
-    text,
-    profile,
-    *,
-    block_id="paragraph:3",
-    kind: Literal["paragraph", "list_item", "table_cell", "caption"] = "paragraph",
-    pieces=None,
-):
-    block = Block(text, (), (), ())
-    nlp: Any = pipeline(profile.configuration)
-    native_profile = nlp.selection().native
-    layout = prepare_layout(nlp, block, start=len(_PREFIX))
-    source = NativeSourcePin(
-        7,
-        "source:7",
-        ProductReference(17, "integrated", "a" * 64),
-        "#/groups/7",
-        "descendants",
-        "b" * 64,
-        "c" * 64,
-        3,
-    )
-    if pieces is None:
-        pieces = (ProjectedPiece("#/texts/3", len(_PREFIX), len(_PREFIX + text), "native_text"),)
-    request = AnnotationInput(source, block_id, kind, block, layout, pieces)
-    (product,) = annotate((request,), profile)
-    from .primary_reading_fixture import primary_product
-
-    return _PREFIX + text, primary_product(
-        _PREFIX + text, product, profile, native_profile=native_profile
-    )
-
-
-def strings(text, span):
-    return tuple(text[a:b] for a, b in span.extents)
+from methods.predicate_frames_support import (
+    _PREFIX as _PREFIX,
+)
+from methods.predicate_frames_support import (
+    profile as profile,
+)
+from methods.predicate_frames_support import (
+    retained as retained,
+)
+from methods.predicate_frames_support import (
+    strings as strings,
+)
 
 
 def readings(text, result):
@@ -219,7 +180,7 @@ def test_noncontiguous_role_stays_separate_with_controlled_retained_heads(profil
             strict=True,
         )
     )
-    from .primary_reading_fixture import native_execution_for_product, primary_product
+    from methods.primary_reading_fixture import native_execution_for_product, primary_product
 
     original_execution = native_execution_for_product(product, profile)
     adjusted = primary_product(
@@ -307,8 +268,7 @@ def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
     from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
     from corpus_structure.semantic.characterization import validate_layer
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY
-
-    from .primary_reading_fixture import prepared
+    from methods.primary_reading_fixture import prepared
 
     text, product = retained("Manager reviews the report.", profile)
     native = {

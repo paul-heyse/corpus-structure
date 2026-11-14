@@ -13,21 +13,20 @@ from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_views import load_source_view, store_source_view
-
-from .native_record_fixtures import publish_native_record_fixture
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_inline_reports import example as inline_report_example
-from .test_selected_source_native import deploy_selected, publish_selected
+from semantic.native_record_fixtures import publish_native_record_fixture
+from semantic.pdf_inline_reports_support import example as inline_report_example
+from semantic.pdf_staging_support import private_build as private_build
+from semantic.selected_source_native_support import deploy_selected, publish_selected
 
 
 def test_selected_body_closure_qualifies_actual_furniture_without_selecting_it(
-    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+    private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     published = publish_selected(
-        semantic_writer_engine, private_build, tmp_path / "source", furniture=True
+        commit_writer_engine, private_build, tmp_path / "source", furniture=True
     )
     reference = ProductReference(private_build.task_id, "selected", published.logical_digest)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         reader = published_record_reader(
             conn, reference, projection_context=open_release(conn, private_build.release_id)
         )
@@ -59,11 +58,11 @@ def test_selected_body_closure_qualifies_actual_furniture_without_selecting_it(
 
 
 def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
-    private_build, semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
-    deploy_selected(semantic_db_engine)
-    published = publish_selected(semantic_writer_engine, private_build, tmp_path / "source")
-    with semantic_writer_engine.begin() as conn:
+    deploy_selected(commit_db_engine)
+    published = publish_selected(commit_writer_engine, private_build, tmp_path / "source")
+    with commit_writer_engine.begin() as conn:
         task = conn.execute(
             text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
             dict(task=private_build.task_id),
@@ -102,7 +101,7 @@ def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
                 dict(id=identity),
             ).one()
             assert tuple(placement) == (private_build.build_id, private_build.build_id)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         context = open_release(conn, private_build.release_id)
         reader = published_record_reader(
             conn,
@@ -124,7 +123,7 @@ def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
         assert reader.item_ancestors("#/missing") == []
         assert conn.scalar(text("SELECT to_regclass('kb.native_document_derivation')")) is None
         assert conn.scalar(text("SELECT to_regclass('ops.pdf_published_derivation')")) is None
-    with semantic_reader_engine.connect() as conn, pytest.raises(DBAPIError):
+    with commit_reader_engine.connect() as conn, pytest.raises(DBAPIError):
         conn.execute(
             text(
                 "SELECT * FROM ops.read_pdf_published_region_batch(:task,'selected',:digest,NULL)"
@@ -134,7 +133,7 @@ def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
 
 
 def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose_ancestry(
-    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path, monkeypatch
+    private_build, commit_writer_engine, commit_reader_engine, tmp_path, monkeypatch
 ):
     from docling_core.types.doc import (
         BoundingBox,
@@ -156,7 +155,7 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
         inspect_native_source,
     )
 
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         original = bytes(
             conn.scalar(
                 text("SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"),
@@ -216,7 +215,7 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
 
     raw = prepare_pdf_product(payload("raw"), original, schema, recipe, context=context)
     original_pin = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "original",
         task_id=private_build.task_id,
         attempt=private_build.attempt,
@@ -261,7 +260,7 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
     ]
     derived = prepare_pdf_product(values, original, schema, recipe, context=context)
     selected = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "derived",
         task_id=private_build.task_id,
         attempt=private_build.attempt,
@@ -269,7 +268,7 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
         product=derived,
         document=document,
     )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         reader = published_record_reader(
             conn,
             ProductReference(private_build.task_id, "derived", selected.logical_digest),
@@ -338,17 +337,17 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
 
 def test_default_residual_body_read_publish_and_refusal_controls(
     private_build,
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
 ):
     from dataclasses import replace
 
-    deploy_selected(semantic_db_engine)
-    published = publish_selected(semantic_writer_engine, private_build, tmp_path / "root-source")
+    deploy_selected(commit_db_engine)
+    published = publish_selected(commit_writer_engine, private_build, tmp_path / "root-source")
     reference = ProductReference(private_build.task_id, "selected", published.logical_digest)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         task = conn.execute(
             text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
             dict(task=private_build.task_id),
@@ -378,7 +377,7 @@ def test_default_residual_body_read_publish_and_refusal_controls(
             draft=body,
             position=0,
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         selected = load_source_view(conn, identity)
         assert selected.text == "omitted sibling body" and selected.ref.section_pointer == "#/body"
     for pointer, membership in (
@@ -387,7 +386,7 @@ def test_default_residual_body_read_publish_and_refusal_controls(
         ("#/missing", "direct"),
     ):
         with (
-            semantic_reader_engine.connect() as conn,
+            commit_reader_engine.connect() as conn,
             pytest.raises(DBAPIError, match="invalid published section selection"),
         ):
             reader = published_record_reader(
@@ -396,7 +395,7 @@ def test_default_residual_body_read_publish_and_refusal_controls(
             assert reader is not None
             reader.section_nodes(pointer, membership)
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="direct residual body scope"),
     ):
         store_source_view(

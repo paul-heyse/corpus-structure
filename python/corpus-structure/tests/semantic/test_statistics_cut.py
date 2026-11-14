@@ -27,19 +27,18 @@ from corpus_structure.semantic.proposals import (
 from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.source_frames import capture_source_frame
-
-from .inventory_reading import inventory_supports
-from .method_dimensions_support import prepare_fixture_pack
+from semantic.inventory_reading import inventory_supports
+from semantic.method_dimensions_support import prepare_fixture_pack
 
 
 def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targets(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     root = Path(__file__).resolve().parents[4]
     bundle, dependencies, profile, prepared = prepare_fixture_pack(
         root / "domains/statistics", "pdf.controlled-source"
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
@@ -59,7 +58,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
     class SourceConfig(BaseModel):
         pass
 
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         document = register_document(
             conn,
             project_id="p",
@@ -81,14 +80,14 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             code_commit="test",
         )
     (view,) = publish_controlled_pdf_views(
-        semantic_writer_engine,
+        commit_writer_engine,
         prepared=prepared,
         run_id=run,
         document_id=document,
         original=original,
         paragraphs=(source,),
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         unit_locator = view.ref.key
         frame = native_source_frame(view, (("s1", 0, len(source)),))
         packet = proposal_packet(prepared, frame, guideline="", configuration={})
@@ -186,7 +185,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         frame,
     )
     assert located.clean
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         complete_task(
             conn,
             task_id=task,
@@ -204,9 +203,9 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             ],
         )
         cut = seal_cut(conn, run, "final", final=True)
-    result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    result = consolidate_cut(commit_writer_engine, cut, "evaluated")
     assert result.run_id == run
-    with read_session(semantic_reader_engine, "evaluated") as session:
+    with read_session(commit_reader_engine, "evaluated") as session:
         cls = session.class_handle("DistributionFamily")
         densities = session.query(QuerySpec(cls, session.property_handle(cls, "pdf"), "accepted"))
         relations = session.query(

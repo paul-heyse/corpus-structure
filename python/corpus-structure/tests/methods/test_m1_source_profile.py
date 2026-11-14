@@ -20,28 +20,10 @@ from corpus_structure.semantic.source_contexts import (
     SourceSlice,
     SyntheticText,
 )
-from methods.test_m1_producer import detail_object, detail_objects
-from methods.test_m1_source_preparation import source
-from methods.test_record_assembly import context, fields, release, report, span
-
-
-def config(tmp_path, **changes):
-    return m1_source.M1Config(
-        snapshot=tmp_path,
-        checkpoint="fixture",
-        revision="immutable",
-        artifact_hashes=tuple(
-            (name, "a" * 64)
-            for name in (
-                "config.json",
-                "encoder_config/config.json",
-                "model.safetensors",
-                "tokenizer.json",
-                "tokenizer_config.json",
-            )
-        ),
-        **changes,
-    )
+from methods.m1_producer_support import detail_object, detail_objects
+from methods.m1_source_preparation_support import source
+from methods.m1_source_profile_support import config as config
+from methods.record_assembly_support import context, fields, release, report, span
 
 
 def test_explicit_profile_budgets_and_unchanged_whitespace_identity(tmp_path):

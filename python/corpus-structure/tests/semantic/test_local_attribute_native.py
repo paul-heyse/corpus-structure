@@ -3,6 +3,7 @@
 import json
 from dataclasses import replace
 
+import pytest
 from sqlalchemy import select
 
 from corpus_structure.core.method import UnitRef, UnitResult
@@ -13,12 +14,14 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import BoundReader
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import complete_contributions as complete
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import private_source as private_source
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_label_only_attribute_score_and_version_survive_actual_native_custody(private_source):
     case = private_source
     with case.writer.connect() as conn:

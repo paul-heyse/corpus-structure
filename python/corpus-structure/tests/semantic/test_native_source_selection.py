@@ -19,15 +19,14 @@ from corpus_structure.semantic.operations import (
     register_document,
     seal_cut,
 )
-
-from .operation_scenario_support import prepare_operation_scenario
+from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 def test_native_declared_corpus_and_final_open_task_guard(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    commit_db_engine, commit_writer_engine, tmp_path
 ):
-    p = prepare_operation_scenario(semantic_db_engine)
-    e = semantic_writer_engine
+    p = prepare_operation_scenario(commit_db_engine)
+    e = commit_writer_engine
     source = tmp_path / "source"
     source.write_text("source")
     with e.begin() as conn:
@@ -102,7 +101,7 @@ def test_native_declared_corpus_and_final_open_task_guard(
         ) == {"rule_key": "declared"}
     with (
         pytest.raises(DBAPIError, match="routing provenance") as guarded,
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
     ):
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(

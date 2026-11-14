@@ -19,8 +19,7 @@ from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_sql
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.types import SourceArtifact
-
-from .test_releases import source_bundle
+from semantic.releases_support import source_bundle
 
 
 @pytest.fixture(scope="module")

@@ -23,8 +23,7 @@ from corpus_structure.semantic.record_projection import (
     reconstruct_record,
 )
 from corpus_structure.semantic.releases import _products
-
-from .test_record_contracts import (
+from semantic.record_contracts_support import (
     PIN,
     bind,
     finish,

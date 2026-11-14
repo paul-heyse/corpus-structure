@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import text
 
 
-def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_engine):
+def test_located_request_binds_ordered_schema_and_exact_inference(commit_db_engine):
     policy = {
         "request_version": "located-model-request-1",
         "definition": {"bare": ['{"entities":[', {"field": "term_entity"}, "]}"]},
@@ -50,7 +50,7 @@ def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_en
     expected_key = sha256(
         json.dumps(expected, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         query = text(
             "SELECT ops.located_model_request('r','structure.definition_components/10',"
             "CAST(:policy AS jsonb),CAST(:config AS jsonb),'context','digest',:body)"
@@ -151,7 +151,7 @@ def _literal_current_observation():
 
 
 def test_located_v2_native_and_python_requests_match_independent_header_member_bytes(
-    semantic_db_engine,
+    commit_db_engine,
 ):
     from corpus_structure.methods.model_observation import batch_receipt, report_observation_digest
 
@@ -174,7 +174,7 @@ def test_located_v2_native_and_python_requests_match_independent_header_member_b
         "SELECT ops.located_model_request('r','structure.definition_components/10',"
         "CAST(:policy AS jsonb),CAST(:config AS jsonb),'context','digest',:body)"
     )
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         params = dict(policy=json.dumps(policy), config=json.dumps(config), body=" \u03b1\t\u03b2")
         assert conn.scalar(query, params) == receipt["digest"]
         # Every inference and normalized-profile field participates, including native policy.
@@ -196,10 +196,10 @@ def test_located_v2_native_and_python_requests_match_independent_header_member_b
         )
 
 
-def test_located_native_observation_checks_legacy_and_full_v2_commitments(semantic_db_engine):
+def test_located_native_observation_checks_legacy_and_full_v2_commitments(commit_db_engine):
     _, _, receipt, report = _literal_current_observation()
     query = text("SELECT ops.located_model_observation_matches(CAST(:report AS jsonb),:request)")
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
 
         def matches(candidate, key=report["request_digest"]):
             return conn.scalar(query, dict(report=json.dumps(candidate), request=key))
@@ -301,12 +301,11 @@ def test_located_native_observation_checks_legacy_and_full_v2_commitments(semant
             assert matches(altered, key) is False
 
 
-def test_current_definition_window_refuses_legacy_or_missing_batch_receipt(semantic_db_engine):
+def test_current_definition_window_refuses_legacy_or_missing_batch_receipt(commit_db_engine):
     from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.semantic.releases import persist_release
-
-    from .native_record_fixtures import prepare_record_source
+    from semantic.native_record_fixtures import prepare_record_source
 
     preparation = prepare_record_source()
     passage = dict(passage_id="p", start=0, end=4, text="term", scope="literal-source")
@@ -329,7 +328,7 @@ def test_current_definition_window_refuses_legacy_or_missing_batch_receipt(seman
         threshold=0.5,
     )
     digest = _literal_hash(passage)
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         persist_release(conn, *preparation.preparation_inputs, preparation.prepared)
         release = preparation.prepared.release_id
         policy = conn.scalar(
@@ -412,7 +411,7 @@ def test_current_definition_window_refuses_legacy_or_missing_batch_receipt(seman
                 )
 
 
-def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_db_engine):
+def test_native_model_report_preserves_exact_binary_profile_and_scores(commit_db_engine):
     values = (
         120.0,
         0.1,
@@ -422,7 +421,7 @@ def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_
         sys.float_info.min,
         sys.float_info.max,
     )
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         for value in values:
             actual = conn.scalar(
                 text("SELECT float8send(data.record_source_float(CAST(:value AS jsonb)))"),
@@ -431,7 +430,7 @@ def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_
             assert actual == struct.pack("!d", value)
 
 
-def test_native_model_components_need_directed_provider_attachment(semantic_db_engine):
+def test_native_model_components_need_directed_provider_attachment(commit_db_engine):
     passage = {
         "passage_id": "p",
         "text": "term means content",
@@ -482,7 +481,7 @@ def test_native_model_components_need_directed_provider_attachment(semantic_db_e
         "pack_fingerprint": "pack",
         "raw_reports": [entry],
     }
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
 
         def replay():
             return conn.execute(
@@ -514,7 +513,7 @@ def test_native_model_components_need_directed_provider_attachment(semantic_db_e
         assert replay() == (roles, [])
 
 
-def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
+def test_genuine_definition_spans_require_named_cue_custody(commit_db_engine):
     import pytest
     from sqlalchemy.exc import DBAPIError
 
@@ -522,7 +521,7 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
     content = dict(passage_id="p", start=11, end=18, text="content")
     named = dict(term=term, content=content, basis="matched_cue", interpretation="definition")
     weak = {**named, "basis": "unqualified", "interpretation": "unresolved"}
-    with semantic_db_engine.connect() as conn, conn.begin():
+    with commit_db_engine.connect() as conn, conn.begin():
         check = text("""
             SELECT ops.validate_definition_basis(
               CAST(:component AS jsonb),
@@ -539,11 +538,11 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
             conn.execute(check, {"component": json.dumps({**weak, "interpretation": "definition"})})
 
 
-def test_native_definition_scope_uses_retained_act_and_content_ownership(semantic_db_engine):
+def test_native_definition_scope_uses_retained_act_and_content_ownership(commit_db_engine):
     from dataclasses import replace
 
     import pytest
-    from ingest.test_annotations import ControlledPipeline, item
+    from annotation_support import ControlledPipeline, item
     from methods.primary_reading_fixture import primary_product
 
     from corpus_structure.ingest import annotations
@@ -553,7 +552,7 @@ def test_native_definition_scope_uses_retained_act_and_content_ownership(semanti
     from corpus_structure.methods.predicate_frames import predicate_frames
     from corpus_structure.semantic.identity import canonical_bytes
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
 
         def supported(words, heads, deps, pos, lemmas, act, *, bindings=None, indices=None):
             # Retain the independent token/head/POS/lemma fixture through the real

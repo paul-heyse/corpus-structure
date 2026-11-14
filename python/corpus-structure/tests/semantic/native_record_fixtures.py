@@ -1,11 +1,14 @@
 """Small controlled native publications for maintained source-consumer journeys."""
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from functools import cache
 from hashlib import sha256
 from importlib.resources import files
 from math import sqrt
-from types import SimpleNamespace
+from pathlib import Path
+from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pyarrow as pa
@@ -13,6 +16,7 @@ import pytest
 import yaml
 from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel, TableCell, TableData
 from pydantic import BaseModel, create_model
+from scenario_recipes import register_scenario_builder
 from sqlalchemy import insert, select
 
 from corpus_structure.core.method import ObservationDraft, SourceViewDraft, UnitRef, UnitResult
@@ -60,6 +64,7 @@ from corpus_structure.semantic.operations import (
     complete_unit_result,
     create_run,
     create_task,
+    read_original,
     record_method,
     register_document,
 )
@@ -205,9 +210,146 @@ class RawReport(BaseModel):
     source_text: str
 
 
-def prepare_record_source(
-    *, bundle_transform=None, dependencies_transform=None, additional_methods=()
-):
+@dataclass(frozen=True)
+class RecordSourceRecipe:
+    composition: str = "base"
+    additional_methods: tuple[str, ...] = ()
+    include_blank_cell: bool = False
+    record_method: str = "records"
+    record_configuration_hash: str = "private-config"
+    sibling_captions: tuple[str, ...] = ()
+    sibling_references: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        if self.composition not in {
+            "base",
+            "interpretations",
+            "characterization",
+            "source-reading",
+            "reference",
+            "policy-authority",
+            "characterization-reference",
+            "reference-characterization",
+        }:
+            raise ValueError(f"unknown record composition: {self.composition}")
+        if self.record_method not in {"records", "policy-candidates"}:
+            raise ValueError(f"unknown record method: {self.record_method}")
+        for name in ("additional_methods", "sibling_captions", "sibling_references"):
+            value = getattr(self, name)
+            if not isinstance(value, tuple) or not all(isinstance(item, str) for item in value):
+                raise TypeError(f"{name} must be a tuple of strings")
+
+    @property
+    def preparation_recipe(self):
+        return RecordPreparationRecipe(self.composition, self.additional_methods)
+
+
+@dataclass(frozen=True)
+class RecordPreparationRecipe:
+    composition: str = "base"
+    additional_methods: tuple[str, ...] = ()
+
+
+def _interpretation_bundle(bundle):
+    body = yaml.safe_load(
+        (Path(__file__).parents[4] / "domains/statistics/terminology.yaml").read_bytes()
+    )
+    body["imports"] = ["core"]
+    sources = []
+    for source in bundle.sources:
+        if source.name == bundle.root:
+            root = yaml.safe_load(source.content)
+            root["imports"].append(body["name"])
+            source = SourceArtifact(source.name, yaml.safe_dump(root).encode())
+        sources.append(source)
+    return SourceBundle(
+        bundle.root, (*sources, SourceArtifact(body["name"], yaml.safe_dump(body).encode()))
+    )
+
+
+def _interpretation_dependencies(dependencies):
+    from corpus_structure.semantic.terminology import acquire_terminology
+
+    _, artifacts, ontology_names = acquire_terminology(
+        Path(__file__).parents[4] / "domains/statistics"
+    )
+    return replace(
+        dependencies,
+        artifacts=(*dependencies.artifacts, *artifacts),
+        ontology_sources=(*dependencies.ontology_sources, *ontology_names),
+    )
+
+
+def _record_composition(name):
+    from corpus_structure.evaluate.record_references import reference_inputs
+    from corpus_structure.semantic.characterization import characterization_inputs
+    from corpus_structure.semantic.record_assertions import source_reading_inputs
+
+    if name == "base":
+        return None, None
+    if name == "interpretations":
+        return _interpretation_bundle, _interpretation_dependencies
+    if name == "characterization":
+        return characterization_inputs, None
+    if name == "source-reading":
+        return source_reading_inputs, None
+    if name == "reference":
+        return reference_inputs, None
+    if name == "characterization-reference":
+        return lambda bundle: characterization_inputs(reference_inputs(bundle)), None
+    if name == "reference-characterization":
+        return lambda bundle: reference_inputs(characterization_inputs(bundle)), None
+    if name == "policy-authority":
+        from evaluation_record_policy_authority_native_support import policy_inputs
+
+        return policy_inputs, None
+    raise ValueError(f"unknown record composition: {name}")
+
+
+def record_method_spec(name):
+    if name == "records":
+        return SimpleNamespace(
+            name="private.records",
+            version="1",
+            family="record",
+            tier="deterministic",
+            confidence_source=None,
+            unit_type=TaskUnitType.SOURCE_VIEW,
+            Config=create_model("PrivateRecordConfig"),
+        )
+    if name == "policy-candidates":
+        return SimpleNamespace(
+            name="extract.m1_candidates",
+            version="3",
+            family="extract",
+            tier="encoder",
+            confidence_source=None,
+            unit_type=TaskUnitType.SOURCE_VIEW,
+            Config=create_model("PrivatePolicyConfig"),
+        )
+    raise ValueError(f"unknown record method: {name}")
+
+
+DEFAULT_RECORD_PREPARATION = RecordPreparationRecipe()
+
+
+def prepare_record_source(recipe=DEFAULT_RECORD_PREPARATION):
+    """Reuse only ordinary pure preparation; scoped implementations bypass both memo operations."""
+    from corpus_structure.semantic import contracts
+
+    if contracts.implementation_overridden():
+        return _assemble_record_preparation(recipe)
+    return _record_preparation_cached(recipe)
+
+
+@cache
+def _record_preparation_cached(recipe):
+    return _assemble_record_preparation(recipe)
+
+
+def _assemble_record_preparation(recipe):
+    bundle_transform, dependencies_transform = _record_composition(recipe.composition)
+    additional_methods = recipe.additional_methods
     """Pure original inputs and prepared release; no database, PDF or task effects."""
     schema = dict(
         id="https://example/private-records",
@@ -260,7 +402,7 @@ def prepare_record_source(
         bundle = bundle_transform(bundle)
     dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
     bundle, dependencies = analytical_inputs(bundle, dependencies)
-    from .method_dimensions_support import fixture_execution_inputs
+    from semantic.method_dimensions_support import fixture_execution_inputs
 
     dependencies = composed_dependencies(
         dependencies,
@@ -289,27 +431,128 @@ class RecordPreparation:
         return self.bundle, self.dependencies, self.profile
 
 
-def build_record_source(
-    admin,
-    writer,
-    directory,
+@dataclass(frozen=True)
+class RecordReleaseSource:
+    project_id: str
+    realization: str
+    prepared: PreparedRelease
+    preparation_inputs: tuple
+
+
+@dataclass(frozen=True)
+class RecordSourceDraft:
+    preparation: RecordPreparation
+    original: bytes
+    recipe: bytes
+    document: Any
+    native_table: Any
+    section: Any
+    sibling: Any
+    sibling_items: tuple
+    originals: tuple
+    policy: bytes | None
+    has_originals: bool
+
+
+@dataclass(frozen=True)
+class PublishedRecordSource(RecordReleaseSource):
+    writer: Any
+    run: Any
+    document: Any
+    native_reference: ProductReference
+    view: Any
+    other_view: Any
+    source_task: Any
+    table: str
+    sibling: str
+
+
+@dataclass(frozen=True)
+class RecordTaskSource(PublishedRecordSource):
+    task: Any
+    method: Any
+    record_configuration_hash: str
+    record_config: Any
+    invocation_key: str
+
+    @property
+    def seed_files(self) -> tuple[Path, ...]:
+        # Publication retains the original in kb.source_artifact; the source.pdf
+        # and Arrow spool are completed builder outputs, not clone read inputs.
+        return ()
+
+    def validate_clone(self, admin) -> None:
+        if self.writer is not None:
+            raise ValueError("record seed stage retains a live writer resource")
+        documents, artifacts, tasks = (
+            table(name) for name in ("kb.document", "kb.source_artifact", "ops.task")
+        )
+        with admin.connect() as conn:
+            retained = conn.scalar(
+                select(artifacts.c.artifact_digest)
+                .select_from(
+                    documents.join(
+                        artifacts, artifacts.c.artifact_digest == documents.c.content_hash
+                    )
+                )
+                .where(documents.c.id == self.document)
+            )
+            if retained is None:
+                raise ValueError("record seed original artifact is missing")
+            # Require retained custody before invoking the owner: its valid file
+            # fallback must not conceal a missing artifact in this seed contract.
+            read_original(conn, self.document, prepared=self.prepared)
+            state = conn.execute(
+                select(
+                    tasks.c.status, tasks.c.attempt, tasks.c.claimed_by, tasks.c.invocation_key
+                ).where(tasks.c.id == self.task)
+            ).one_or_none()
+            if state != ("pending", 0, None, self.invocation_key):
+                raise ValueError("record seed task is claimed or differs")
+
+
+def persist_record_source(
+    admin, preparation, *, project_id="private-records", existing_project=False
+):
+    """Persist only the prepared release and input realization, without source publication."""
+    bundle, dependencies, profile = preparation.preparation_inputs
+    prepared = preparation.prepared
+    realization = "private-input" if project_id == "private-records" else f"{project_id}-input"
+    commit_db_engine = admin
+    with commit_db_engine.begin() as conn:
+        persist_release(conn, bundle, dependencies, profile, prepared)
+        if existing_project:
+            actual = conn.scalar(
+                select(table("data.realization").c.release_id).where(
+                    table("data.realization").c.project_id == project_id,
+                    table("data.realization").c.realization_id == realization,
+                )
+            )
+            assert actual == prepared.release_id
+        else:
+            conn.execute(insert(table("data.project")).values(project_id=project_id))
+            conn.execute(
+                insert(table("data.realization")).values(
+                    project_id=project_id,
+                    realization_id=realization,
+                    release_id=prepared.release_id,
+                )
+            )
+    return RecordReleaseSource(project_id, realization, prepared, preparation.preparation_inputs)
+
+
+def _record_source_draft(
     preparation,
     *,
+    project_id="private-records",
+    source_tag="",
     include_blank_cell=False,
-    record_method_spec=None,
-    record_configuration_hash="private-config",
     sibling_captions=(),
     sibling_references=(),
     sibling_originals=(),
     request=None,
-    project_id="private-records",
-    existing_project=False,
-    source_tag="",
 ):
-    """Publish the selected pure preparation and acquire one leased record task."""
     bundle, dependencies, profile = preparation.preparation_inputs
-    semantic_db_engine, semantic_writer_engine, tmp_path = admin, writer, directory
-    realization = "private-input" if project_id == "private-records" else f"{project_id}-input"
     original, recipe = b"%PDF-1.7\nprivate source record fixture", b'{"recipe":"private-records-1"}'
     if project_id != "private-records":
         original += b"\n" + project_id.encode()
@@ -401,25 +644,29 @@ def build_record_source(
         scope.__enter__()
         request.addfinalizer(lambda: scope.__exit__(None, None, None))
         prepared = prepare_release(bundle, dependencies, profile)
-    with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        if existing_project:
-            actual = conn.scalar(
-                select(table("data.realization").c.release_id).where(
-                    table("data.realization").c.project_id == project_id,
-                    table("data.realization").c.realization_id == realization,
-                )
-            )
-            assert actual == prepared.release_id
-        else:
-            conn.execute(insert(table("data.project")).values(project_id=project_id))
-            conn.execute(
-                insert(table("data.realization")).values(
-                    project_id=project_id,
-                    realization_id=realization,
-                    release_id=prepared.release_id,
-                )
-            )
+    return RecordSourceDraft(
+        RecordPreparation(bundle, dependencies, profile, prepared),
+        original,
+        recipe,
+        doc,
+        native_table,
+        section,
+        sibling,
+        sibling_items,
+        tuple(originals),
+        policy,
+        bool(sibling_originals),
+    )
+
+
+def publish_record_source(release, draft, writer, directory):
+    """Publish the native source and views, completing the internal source claim."""
+    project_id, realization, prepared = release.project_id, release.realization, release.prepared
+    original, recipe, doc = draft.original, draft.recipe, draft.document
+    native_table, section, sibling = draft.native_table, draft.section, draft.sibling
+    sibling_items, originals, policy = draft.sibling_items, draft.originals, draft.policy
+    sibling_originals = draft.has_originals
+    commit_writer_engine, tmp_path = writer, directory
     sibling_projection = "\n".join(originals)
     sibling_pieces = []
     offset = 0
@@ -460,7 +707,7 @@ def build_record_source(
         section_refs=frozenset((section.self_ref, sibling.self_ref)),
     )
     product = prepare_pdf_product(payload, original, native_schema, recipe)
-    writer = semantic_writer_engine
+    writer = commit_writer_engine
     with writer.begin() as conn:
         run = create_run(
             conn,
@@ -597,6 +844,26 @@ def build_record_source(
             observations=[],
             outcome="empty",
         )
+    return PublishedRecordSource(
+        **vars(release),
+        writer=writer,
+        run=run,
+        document=document,
+        native_reference=reference,
+        view=view,
+        other_view=other_view,
+        source_task=source_task,
+        table=native_table.self_ref,
+        sibling=sibling_items[0].self_ref,
+    )
+
+
+def create_record_source_task(
+    source, *, record_method_spec=None, record_configuration_hash="private-config"
+):
+    """Create one unclaimed record invocation: the reusable scenario seed boundary."""
+    writer, prepared, run, view = source.writer, source.prepared, source.run, source.view
+    with writer.begin() as conn:
         record_method_ = record_method_spec or SimpleNamespace(
             name="private.records",
             version="1",
@@ -619,37 +886,128 @@ def build_record_source(
             unit_key="private-unit",
             input_hash="private-input-hash",
         )
-        held = claim_tasks(conn, run_id=run, config_id=record_config, holder="records")[0]
-        view_row = dict(
+        invocation_key = conn.scalar(
+            select(table("ops.task").c.invocation_key).where(table("ops.task").c.id == task)
+        )
+    return RecordTaskSource(
+        **vars(source),
+        task=task,
+        method=record_method_,
+        record_configuration_hash=record_configuration_hash,
+        record_config=record_config,
+        invocation_key=invocation_key,
+    )
+
+
+def build_record_source(
+    admin,
+    writer,
+    directory,
+    preparation,
+    *,
+    include_blank_cell=False,
+    record_method_spec=None,
+    record_configuration_hash="private-config",
+    sibling_captions=(),
+    sibling_references=(),
+    sibling_originals=(),
+    request=None,
+    project_id="private-records",
+    existing_project=False,
+    source_tag="",
+    claim_record=True,
+):
+    """Compose preparation, persistence, source publication, task creation and optional claim."""
+    draft = _record_source_draft(
+        preparation,
+        project_id=project_id,
+        source_tag=source_tag,
+        include_blank_cell=include_blank_cell,
+        sibling_captions=sibling_captions,
+        sibling_references=sibling_references,
+        sibling_originals=sibling_originals,
+        request=request,
+    )
+    release = persist_record_source(
+        admin, draft.preparation, project_id=project_id, existing_project=existing_project
+    )
+    published = publish_record_source(release, draft, writer, directory)
+    source = create_record_source_task(
+        published,
+        record_method_spec=record_method_spec,
+        record_configuration_hash=record_configuration_hash,
+    )
+    return claim_record_source(source) if claim_record else source
+
+
+@dataclass(frozen=True)
+class ClaimedRecordSource(RecordTaskSource):
+    held: Any
+    view_row: Mapping
+    task_row: Mapping
+    cut: Any = None
+    clone: Any = None
+
+
+def claim_record_source(source, writer=None, *, clone=None):
+    """Acquire the formerly unclaimed record task in this case's writer/clone."""
+    writer = writer if writer is not None else source.writer
+    if writer is None:
+        raise ValueError("record claims require an explicit consumer writer")
+    with writer.begin() as conn:
+        return claim_record_source_on_connection(source, conn, writer=writer, clone=clone)
+
+
+def claim_record_source_on_connection(source, conn, *, writer=None, clone=None):
+    """Claim inside the caller's transaction; rollback families own that transaction."""
+    held = claim_tasks(conn, run_id=source.run, config_id=source.record_config, holder="records")[0]
+    assert held.task_id == source.task
+    view_row = MappingProxyType(
+        dict(
             conn.execute(
-                select(table("kb.source_view")).where(table("kb.source_view").c.id == view)
+                select(table("kb.source_view")).where(table("kb.source_view").c.id == source.view)
             )
             .mappings()
             .one()
         )
-        task_row = dict(
-            conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
+    )
+    task_row = MappingProxyType(
+        dict(
+            conn.execute(select(table("ops.task")).where(table("ops.task").c.id == source.task))
             .mappings()
             .one()
         )
-    return SimpleNamespace(
-        project_id=project_id,
-        prepared=prepared,
-        preparation_inputs=preparation.preparation_inputs,
-        writer=writer,
-        run=run,
-        task=task,
+    )
+    claimed_type = (
+        CuratedRecordSource if isinstance(source, CuratedTaskSource) else ClaimedRecordSource
+    )
+    return claimed_type(
+        **(vars(source) | dict(writer=conn if writer is None else writer)),
         held=held,
-        view=view,
-        other_view=other_view,
-        source_task=source_task,
         view_row=view_row,
         task_row=task_row,
-        method=record_method_,
-        record_configuration_hash=record_configuration_hash,
-        table=native_table.self_ref,
-        sibling=sibling_items[0].self_ref,
+        clone=clone,
     )
+
+
+def build_record_recipe(recipe, admin, writer, directory, *, purpose_engine=None):
+    """Generic seed builder: effects stop before the record task is claimed."""
+    source = build_record_source(
+        admin,
+        writer,
+        directory,
+        prepare_record_source(recipe.preparation_recipe),
+        include_blank_cell=recipe.include_blank_cell,
+        record_method_spec=record_method_spec(recipe.record_method),
+        record_configuration_hash=recipe.record_configuration_hash,
+        sibling_captions=recipe.sibling_captions,
+        sibling_references=recipe.sibling_references,
+        claim_record=False,
+    )
+    return replace(source, writer=None)
+
+
+register_scenario_builder(RecordSourceRecipe, build_record_recipe)
 
 
 def candidate(case, cell=0, *, projected=False, coarse=False):
@@ -785,41 +1143,44 @@ def bypass(case, conn, records):
 
 
 @pytest.fixture
-def private_source_options():
-    return {}
-
-
-@pytest.fixture
 def private_preparation():
     return prepare_record_source()
 
 
+def record_source_for(recipe, admin, writer, directory):
+    return claim_record_source(build_record_recipe(recipe, admin, writer, directory), writer=writer)
+
+
 @pytest.fixture
-def private_source(
-    semantic_db_engine,
-    semantic_writer_engine,
-    tmp_path,
-    request,
-    private_source_options,
-):
-    options = private_source_options | getattr(request, "param", {})
-    method = options.get("record_method")
-    preparation = prepare_record_source(
-        bundle_transform=options.get("bundle_transform"),
-        dependencies_transform=options.get("dependencies_transform"),
-        additional_methods=options.get("additional_methods", ()),
+def private_record_release(commit_db_engine, request):
+    if not hasattr(request, "param") or not isinstance(request.param, RecordSourceRecipe):
+        raise TypeError(
+            "private_record_release requires an explicit RecordSourceRecipe indirect parameter"
+        )
+    return persist_record_source(
+        commit_db_engine, prepare_record_source(request.param.preparation_recipe)
     )
+
+
+@pytest.fixture
+def private_source(scenario_seeds, request):
+    if not hasattr(request, "param") or not isinstance(request.param, RecordSourceRecipe):
+        raise TypeError("private_source requires an explicit RecordSourceRecipe indirect parameter")
+    with scenario_seeds.commit_clone(request.param) as clone:
+        yield claim_record_source(clone.stage, writer=clone.writer, clone=clone)
+
+
+@pytest.fixture
+def private_source_with_originals(commit_db_engine, commit_writer_engine, tmp_path, request):
+    """Per-test authored implementation override, deliberately outside recipe/seed dispatch."""
+    references, originals = request.param
     return build_record_source(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
-        preparation,
-        include_blank_cell=options.get("include_blank_cell", False),
-        record_method_spec=method,
-        record_configuration_hash=options.get("record_configuration_hash", "private-config"),
-        sibling_captions=options.get("sibling_captions", ()),
-        sibling_references=options.get("sibling_references", ()),
-        sibling_originals=options.get("sibling_originals", ()),
+        prepare_record_source(),
+        sibling_references=references,
+        sibling_originals=originals,
         request=request,
     )
 
@@ -925,7 +1286,10 @@ def bypass_contributions(case, conn, raw):
     )
 
 
-def curated_case(original, *, extra_targets=(), config_hash="private-config", target_version=None):
+def curated_task_source(
+    original, *, extra_targets=(), config_hash="private-config", target_version=None
+):
+    """Persist the curated configuration and task, leaving its claim to the consumer."""
     targets = (
         RegistryTarget(
             target_id="t1",
@@ -965,25 +1329,64 @@ def curated_case(original, *, extra_targets=(), config_hash="private-config", ta
             unit_key="private-unit",
             input_hash="private-input-hash",
         )
-        held = claim_tasks(conn, run_id=original.run, config_id=config, holder="records")[0]
         task_row = dict(
             conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
             .mappings()
             .one()
         )
-    return SimpleNamespace(
-        **(
-            vars(original)
-            | dict(
-                method=method,
-                task=task,
-                held=held,
-                task_row=task_row,
-                registry_targets=targets,
-                configuration_hash=config_hash,
-            )
-        )
+    return CuratedTaskSource(
+        project_id=original.project_id,
+        realization=original.realization,
+        prepared=original.prepared,
+        preparation_inputs=original.preparation_inputs,
+        writer=original.writer,
+        run=original.run,
+        document=original.document,
+        native_reference=original.native_reference,
+        view=original.view,
+        other_view=original.other_view,
+        source_task=original.source_task,
+        table=original.table,
+        sibling=original.sibling,
+        method=method,
+        task=task,
+        record_configuration_hash=original.record_configuration_hash,
+        record_config=config,
+        invocation_key=task_row["invocation_key"],
+        registry_targets=targets,
+        configuration_hash=config_hash,
     )
+
+
+def curated_case(original, **kwargs) -> CuratedRecordSource:
+    claimed = claim_record_source(curated_task_source(original, **kwargs), clone=original.clone)
+    assert isinstance(claimed, CuratedRecordSource)
+    return claimed
+
+
+@dataclass(frozen=True)
+class ContextualSourceRecipe:
+    source: RecordSourceRecipe = RecordSourceRecipe(additional_methods=("private.contextual",))
+
+
+@dataclass(frozen=True, kw_only=True)
+class CuratedTaskSource(RecordTaskSource):
+    registry_targets: tuple
+    configuration_hash: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class CuratedRecordSource(ClaimedRecordSource):
+    registry_targets: tuple
+    configuration_hash: str
+
+
+def build_contextual_recipe(recipe, admin, writer, directory, *, purpose_engine=None):
+    original = replace(build_record_recipe(recipe.source, admin, writer, directory), writer=writer)
+    return replace(curated_task_source(original), writer=None)
+
+
+register_scenario_builder(ContextualSourceRecipe, build_contextual_recipe)
 
 
 def contextual_result(case, *, cached=(), effective_version=None, competing=False):

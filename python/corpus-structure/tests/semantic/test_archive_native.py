@@ -5,8 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.archive_transport import archive_tables, scratch_name
-
-from .test_native_closure import archive
+from semantic.native_closure_support import archive
 
 
 def stage_exact_archive(connection, release):
@@ -22,9 +21,11 @@ def stage_exact_archive(connection, release):
         )
 
 
-def test_archive_scratch_is_publisher_owned_and_exact_binary_replay_is_atomic(admitter):
-    *_, prepared = archive(admitter)
-    with admitter.begin() as connection:
+def test_archive_scratch_is_publisher_owned_and_exact_binary_replay_is_atomic(
+    commit_admitter_engine,
+):
+    *_, prepared = archive(commit_admitter_engine)
+    with commit_admitter_engine.begin() as connection:
         stage_exact_archive(connection, prepared.release_id)
         assert (
             connection.scalar(
@@ -59,9 +60,11 @@ def test_archive_scratch_is_publisher_owned_and_exact_binary_replay_is_atomic(ad
 
 
 @pytest.mark.parametrize("damage", ["duplicate", "foreign", "binary"])
-def test_archive_staged_damage_refuses_without_changing_finalized_archive(admitter, damage):
-    *_, prepared = archive(admitter)
-    with admitter.begin() as connection:
+def test_archive_staged_damage_refuses_without_changing_finalized_archive(
+    commit_admitter_engine, damage
+):
+    *_, prepared = archive(commit_admitter_engine)
+    with commit_admitter_engine.begin() as connection:
         stage_exact_archive(connection, prepared.release_id)
         if damage == "duplicate":
             connection.execute(

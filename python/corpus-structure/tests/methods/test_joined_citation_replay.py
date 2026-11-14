@@ -27,9 +27,8 @@ from corpus_structure.serve.witnessed_source_link_replay import (
     archived_named_link_native_pieces,
     verify_annotated_named_links,
 )
-
-from .test_m1_source_preparation import source
-from .test_scoped_relations import discover_relations
+from methods.m1_source_preparation_support import source
+from methods.scoped_relations_support import discover_relations
 
 
 def _contract(policy: bytes):

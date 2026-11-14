@@ -34,7 +34,7 @@ from corpus_structure.semantic.releases import persist_release
 
 @pytest.mark.parametrize("producer_method", ["agent.opus", "agent.general"])
 def test_native_tool_queue_read_schema_and_fenced_rich_submission(
-    semantic_db_engine, semantic_writer_engine, tmp_path, producer_method, monkeypatch
+    commit_db_engine, commit_writer_engine, tmp_path, producer_method, monkeypatch
 ):
     invocation_events = []
     monkeypatch.setattr(
@@ -79,7 +79,7 @@ classes:
     from corpus_structure.semantic.composed import composed_dependencies
 
     bundle, dependencies = analytical_inputs(bundle, ResolvedDependencies())
-    from .method_dimensions_support import fixture_execution_inputs
+    from semantic.method_dimensions_support import fixture_execution_inputs
 
     dependencies = composed_dependencies(
         dependencies, fixture_execution_inputs("pdf.controlled-source")
@@ -89,7 +89,7 @@ classes:
 
     bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, dependencies, profile)
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="mcp"))
         conn.execute(
@@ -116,7 +116,7 @@ classes:
         "packet_cap_chars": cap,
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
-    engine = semantic_writer_engine
+    engine = commit_writer_engine
     with engine.begin() as conn:
         run = create_run(
             conn,
@@ -144,7 +144,7 @@ classes:
         original=original,
         paragraphs=(text,),
     )
-    from .primary_native_support import bind_primary_agent_run
+    from semantic.primary_native_support import bind_primary_agent_run
 
     with engine.begin() as conn:
         run, configuration = bind_primary_agent_run(

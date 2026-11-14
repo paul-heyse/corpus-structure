@@ -1,4 +1,4 @@
-"""Fresh committed native clones of one session-built frozen semantic deployment.
+"""Native fixture definitions registered once by the package conftest.
 
 The bare/revision/name routes retain actual bootstrap and historical upgrade obligations.
 All acquisition, leases, policy replay and disposal use the shared PgAdmin lifecycle.
@@ -6,10 +6,8 @@ All acquisition, leases, policy replay and disposal use the shared PgAdmin lifec
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable, Generator, Iterator
 from contextlib import AbstractContextManager, contextmanager
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import Engine, text
@@ -17,26 +15,21 @@ from sqlalchemy import Engine, text
 from corpus_structure.core.db import extensions
 from corpus_structure.semantic.migrations import upgrade
 from corpus_structure.settings import Settings
-from native_test_support import PgAdmin, SemanticTemplate, principal_engine
-
-
-def database_name(kind: str) -> str:
-    return f"cs_sem_{kind}_{os.getpid()}_{uuid4().hex[:12]}"
+from native_test_support import PgAdmin, SemanticDeployment, database_name, principal_engine
 
 
 @pytest.fixture
-def semantic_db_engine(
-    native_server: PgAdmin, semantic_head_template: SemanticTemplate
+def commit_db_engine(
+    native_server: PgAdmin, semantic_head_template: SemanticDeployment
 ) -> Iterator[Engine]:
-    with native_server.database(
-        database_name("test"), semantic_head_template.name, policy=semantic_head_template.policy
-    ) as engine:
+    with semantic_head_template.clone(database_name("test").name) as engine:
         yield engine
 
 
 @pytest.fixture
 def semantic_bare_engine(native_server: PgAdmin) -> Iterator[Engine]:
-    with native_server.database(database_name("bare"), native_server.template) as engine:
+    native_server.semantic_ready()
+    with native_server.database(database_name("bare").name, native_server.template) as engine:
         with engine.begin() as conn:
             extensions.check(conn.execute(text(extensions.FOUND)).all())
             assert not conn.execute(
@@ -47,9 +40,13 @@ def semantic_bare_engine(native_server: PgAdmin) -> Iterator[Engine]:
 
 @pytest.fixture
 def semantic_database_at(native_server: PgAdmin) -> Callable[[str], AbstractContextManager[Engine]]:
+    native_server.semantic_ready()
+
     @contextmanager
     def at(revision: str) -> Generator[Engine]:
-        with native_server.database(database_name("revision"), native_server.template) as engine:
+        with native_server.database(
+            database_name("revision").name, native_server.template
+        ) as engine:
             with engine.begin() as conn:
                 upgrade(conn, revision)
             yield engine
@@ -58,10 +55,8 @@ def semantic_database_at(native_server: PgAdmin) -> Callable[[str], AbstractCont
 
 
 @pytest.fixture
-def semantic_writer_engine(
-    native_settings: Settings, semantic_db_engine: Engine
-) -> Iterator[Engine]:
-    engine = principal_engine(native_settings, "write", semantic_db_engine.url.database)
+def commit_writer_engine(native_settings: Settings, commit_db_engine: Engine) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "write", commit_db_engine.url.database)
     try:
         yield engine
     finally:
@@ -69,10 +64,8 @@ def semantic_writer_engine(
 
 
 @pytest.fixture
-def semantic_reader_engine(
-    native_settings: Settings, semantic_db_engine: Engine
-) -> Iterator[Engine]:
-    engine = principal_engine(native_settings, "read", semantic_db_engine.url.database)
+def commit_reader_engine(native_settings: Settings, commit_db_engine: Engine) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "read", commit_db_engine.url.database)
     try:
         yield engine
     finally:
@@ -80,10 +73,10 @@ def semantic_reader_engine(
 
 
 @pytest.fixture
-def semantic_evaluator_engine(
-    native_settings: Settings, semantic_db_engine: Engine
+def commit_evaluator_engine(
+    native_settings: Settings, commit_db_engine: Engine
 ) -> Iterator[Engine]:
-    engine = principal_engine(native_settings, "evaluate", semantic_db_engine.url.database)
+    engine = principal_engine(native_settings, "evaluate", commit_db_engine.url.database)
     try:
         yield engine
     finally:
@@ -91,16 +84,9 @@ def semantic_evaluator_engine(
 
 
 @pytest.fixture
-def semantic_admitter_engine(
-    native_settings: Settings, semantic_db_engine: Engine
-) -> Iterator[Engine]:
-    engine = principal_engine(native_settings, "admit", semantic_db_engine.url.database)
+def commit_admitter_engine(native_settings: Settings, commit_db_engine: Engine) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "admit", commit_db_engine.url.database)
     try:
         yield engine
     finally:
         engine.dispose()
-
-
-@pytest.fixture
-def admitter(semantic_admitter_engine: Engine) -> Engine:
-    return semantic_admitter_engine

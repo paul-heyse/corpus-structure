@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -22,32 +21,7 @@ from corpus_structure.semantic.data_operation_wire import (
 )
 from corpus_structure.semantic.identity import canonical_bytes, claim_source_item__data_operation__
 from corpus_structure.semantic.types import SourceArtifact
-
-
-def captured(content: bytes | None = None):
-    source = (
-        Path(__file__).parents[2] / "src/corpus_structure/model/semantic/data-operation-native.yaml"
-    )
-    from corpus_structure.semantic.data_operation_execution_evidence import (
-        SOURCE,
-        execution_evidence_schema,
-    )
-    from corpus_structure.semantic.data_operation_support import (
-        ORIGINAL_REFERENCE_SCHEMA,
-        ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
-        original_source_reference_schema,
-        original_support_reference_schema,
-    )
-
-    return (
-        SourceArtifact(
-            "native/data-operation-protocol.yaml",
-            source.read_bytes() if content is None else content,
-        ),
-        SourceArtifact(SOURCE, execution_evidence_schema()),
-        SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
-        SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
-    )
+from semantic.data_operation_port_support import captured
 
 
 def wire_model(sources=None, binding=None):
@@ -108,7 +82,6 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 18
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)

@@ -12,25 +12,29 @@ from corpus_structure.cli.output import CliState
 from corpus_structure.semantic.authored_sql import SQLAdmissionError, analyze_archived_sql
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import ActivationToken, activate_release
-
-from .test_execution_release import _project, _stage_authored_sql
+from semantic.execution_release_support import (
+    project as _project,
+)
+from semantic.execution_release_support import (
+    stage_authored_sql as _stage_authored_sql,
+)
 
 
 def test_sequential_restricted_sql_analysis_and_activation(
-    semantic_db_engine,
-    semantic_reader_engine,
-    semantic_admitter_engine,
-    semantic_application_settings,
+    commit_db_engine,
+    commit_reader_engine,
+    commit_admitter_engine,
+    commit_application_settings,
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         prepared = _stage_authored_sql(conn)
         project = _project(conn)
         explicit_project = _project(conn)
-    with semantic_reader_engine.connect() as reader:
+    with commit_reader_engine.connect() as reader:
         products = analyze_archived_sql(reader, prepared.release_id)
     assert len(products) == 1
     assert next(iter(products.values())).sql == "SELECT entity_id FROM data.entity"
-    admission = semantic_admitter_engine
+    admission = commit_admitter_engine
     with admission.begin() as conn:
         corrupted = {name: replace(value, sql="SELECT 'wrong'") for name, value in products.items()}
         with pytest.raises(SQLAdmissionError, match="binding differs"):
@@ -74,11 +78,11 @@ def test_sequential_restricted_sql_analysis_and_activation(
             "0",
             "--json",
         ],
-        obj=CliState(settings_factory=lambda: semantic_application_settings),
+        obj=CliState(settings_factory=lambda: commit_application_settings),
     )
     assert invoked.exit_code == 0, invoked.output
     assert json.loads(invoked.stdout)["generation"] == 1
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         selected = table("data.project")
         assert conn.execute(
             select(selected.c.active_release_id, selected.c.selected_result_run_id).where(

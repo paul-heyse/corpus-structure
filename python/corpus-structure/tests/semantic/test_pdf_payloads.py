@@ -9,6 +9,7 @@ from hashlib import sha256
 import pyarrow as pa
 import pytest
 from jsonschema.exceptions import ValidationError
+from pdf_acceptance_support import inventory
 
 from corpus_structure.semantic.pdf_payloads import (
     PayloadContractError,
@@ -22,8 +23,6 @@ from corpus_structure.semantic.pdf_payloads import (
     schema_dump,
     schema_load,
 )
-
-from .test_pdf_ocr_contracts import inventory
 
 
 @pytest.fixture(scope="module")

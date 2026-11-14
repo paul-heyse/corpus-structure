@@ -5,6 +5,7 @@ from collections import Counter
 from hashlib import sha256
 
 import anyio
+import pytest
 from fastmcp import Client
 from sqlalchemy import select
 
@@ -12,18 +13,16 @@ from corpus_structure.intervene.semantic_server import SemanticAgentSession, bui
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import QuerySpec, read_session
+from semantic.agent_scenarios import ResubmissionRecipe, lease_and_read
+from semantic.inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 
-from .agent_scenarios import build_resubmission_case, lease_and_read
-from .inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 
-
-def test_composed_source_submission_final_cut_and_explanation(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
-):
-    prepared, run, task, locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
-    session = SemanticAgentSession(semantic_writer_engine, run)
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
+def test_composed_source_submission_final_cut_and_explanation(resubmission_case, tmp_path):
+    commit_writer_engine = resubmission_case.writer
+    commit_reader_engine = resubmission_case.reader
+    prepared, run, task, locator = resubmission_case.stage.result
+    session = SemanticAgentSession(commit_writer_engine, run)
 
     packet = {}
 
@@ -65,9 +64,9 @@ def test_composed_source_submission_final_cut_and_explanation(
             assert result is not None and result["submission_disposition"] == "completed_accepted"
 
     anyio.run(submit)
-    completed = finalize_bound_run(semantic_writer_engine, run, "composed-result")
+    completed = finalize_bound_run(commit_writer_engine, run, "composed-result")
     assert completed.realization_id == "composed-result"
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         result = (
             conn.execute(
                 select(table("ops.completed_result")).where(
@@ -78,7 +77,7 @@ def test_composed_source_submission_final_cut_and_explanation(
             .one()
         )
         assert result["release_id"] == prepared.release_id and result["source_receipts"]
-    with read_session(semantic_reader_engine, "composed-result") as reader:
+    with read_session(commit_reader_engine, "composed-result") as reader:
         cls = reader.class_handle("Person")
         facts = reader.query(QuerySpec(cls, reader.property_handle(cls, "name"), "accepted"))
         assert len(facts.rows) == 1 and facts.rows[0].object == "Alice"
@@ -88,7 +87,7 @@ def test_composed_source_submission_final_cut_and_explanation(
         reports = inventory_reports(reader, explanation.fact_id)
         # Acquire only the immutable input report identity; the semantic answers below
         # come from this hand-authored paragraph/proposal, not the consolidator.
-        with semantic_reader_engine.connect() as conn:
+        with commit_reader_engine.connect() as conn:
             observation = (
                 conn.execute(
                     select(table("kb.observation")).where(
@@ -197,22 +196,21 @@ def test_composed_source_submission_final_cut_and_explanation(
         )
 
 
-def test_composed_private_evaluation_cannot_commit_without_result(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
+def test_composed_private_evaluation_cannot_commit_without_result(resubmission_case, tmp_path):
+    commit_db_engine = resubmission_case.admin
+    commit_writer_engine = resubmission_case.writer
     import pytest
     from sqlalchemy import text
     from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.semantic.operations import seal_cut
 
-    prepared, run, task, _ = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
-    )
+    prepared, run, task, _ = resubmission_case.stage.result
     # Complete the otherwise idle agent task through its actual scoped claim/completion route.
     from corpus_structure.semantic.operations import claim_tasks, complete_task
 
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         config = conn.scalar(
             select(table("ops.task").c.method_config_id).where(table("ops.task").c.id == task)
         )
@@ -230,14 +228,14 @@ def test_composed_private_evaluation_cannot_commit_without_result(
         cut = seal_cut(conn, run, "final", final=True)
     with (
         pytest.raises(DBAPIError, match="completed EvaluationResult"),
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:output)"),
             dict(cut=cut, output="unfinished"),
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert not conn.scalar(
             select(table("data.realization").c.realization_id).where(
                 table("data.realization").c.realization_id == "unfinished"

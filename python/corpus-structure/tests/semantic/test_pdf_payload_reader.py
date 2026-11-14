@@ -4,13 +4,12 @@ import json
 from hashlib import sha256
 
 import pytest
+from pdf_acceptance_support import inventory
 
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_payloads import PROFILE, encode_page_payload
 from corpus_structure.semantic.pdf_record_identity import byte_root
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-
-from .test_pdf_ocr_contracts import inventory
 
 
 class PageReader(PublishedPdfReader):

@@ -5,13 +5,11 @@ from hashlib import sha256
 from threading import Event
 
 import psycopg
-import pyarrow as pa
 import pytest
-from docling_core.types.doc import BoundingBox, DocItemLabel, DoclingDocument, ProvenanceItem, Size
+from pdf_acceptance_support import stage_complete_native as stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.pdf_publication import (
     adopt_pdf_companion_batch,
     freeze_pdf_build,
@@ -20,77 +18,25 @@ from corpus_structure.semantic.pdf_publication import (
     seal_pdf_build,
     validate_pdf_build,
 )
-from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
-
-from .pdf_staging_support import create_private_build as create_private_build
-from .pdf_staging_support import private_build as private_build
-
-
-def stage_complete_native(engine, build, directory, *, cell_coverage="unknown", region=False):
-    document = DoclingDocument(name="frozen fixture")
-    document.add_page(page_no=1, size=Size(width=200, height=300))
-    expected = "independent expected text"
-    provenance = (
-        ProvenanceItem(
-            page_no=1, bbox=BoundingBox(l=1, t=10, r=100, b=20), charspan=(0, len(expected))
-        )
-        if region
-        else None
-    )
-    document.add_text(label=DocItemLabel.TEXT, text=expected, prov=provenance)
-    result = StreamingPdfResult(
-        document, PdfStreamSpool(directory / "pages"), "success", (), b"{}", ()
-    )
-    for replay in result.write_record_batches(
-        directory / "records",
-        build_id=build.build_id,
-        release_id=build.release_id,
-        source_digest=build.source_digest,
-    ):
-        with pa.memory_map(str(replay.path), "r") as source:
-            reader = pa.ipc.open_file(source)
-            for index in range(reader.num_record_batches):
-                with engine.begin() as conn:
-                    adopt_pdf_batch(
-                        conn,
-                        build,
-                        f"{replay.family}:{index}",
-                        {replay.family: (reader.get_batch(index),)},
-                    )
-    with engine.begin() as conn:
-        adopt_pdf_companion_batch(
-            conn,
-            build,
-            "health",
-            [
-                {
-                    "conversion": "success",
-                    "display_coverage": "unknown",
-                    "inline_coverage": "unknown",
-                    "cell_coverage": cell_coverage,
-                    "source_scope": "whole_document",
-                }
-            ],
-            "health",
-        )
-    return document
+from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_freeze_prepare_validate_seal_and_replay(
-    private_build, semantic_writer_engine, semantic_reader_engine, semantic_db_engine, tmp_path
+    private_build, commit_writer_engine, commit_reader_engine, commit_db_engine, tmp_path
 ):
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         assert len(frozen.frozen_digest) == 64
         assert freeze_pdf_build(conn, build, kind="native") == frozen
         prepare_pdf_build(conn, frozen)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert published_pdf_revision(conn, build.task_id, "native", "0" * 64) is None
-    outcome = validate_pdf_build(semantic_writer_engine, frozen)
+    outcome = validate_pdf_build(commit_writer_engine, frozen)
     assert len(outcome.logical_digest) == 64
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert set(
             conn.scalars(
                 text("SELECT check_name FROM ops.pdf_validation_check WHERE build_id=:build"),
@@ -111,10 +57,10 @@ def test_freeze_prepare_validate_seal_and_replay(
             )
             == outcome.contract_digest
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         published = seal_pdf_build(conn, frozen, "native")
         assert seal_pdf_build(conn, frozen, "native") == published
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert (
             published_pdf_revision(conn, build.task_id, "native", published.logical_digest)
             == published
@@ -139,7 +85,7 @@ def test_freeze_prepare_validate_seal_and_replay(
             ),
             dict(task=build.task_id),
         ).scalars().all() == ["independent expected text"]
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.pdf_build_validation WHERE build_id=:b"),
@@ -147,7 +93,7 @@ def test_freeze_prepare_validate_seal_and_replay(
             )
             == 1
         )
-    with pytest.raises(DBAPIError) as caught, semantic_writer_engine.begin() as conn:
+    with pytest.raises(DBAPIError) as caught, commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -168,7 +114,7 @@ def test_freeze_prepare_validate_seal_and_replay(
         "P0004",
         "private PDF build is not owned/open",
     )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert (
             published_pdf_revision(conn, build.task_id, "native", published.logical_digest)
             == published
@@ -176,7 +122,7 @@ def test_freeze_prepare_validate_seal_and_replay(
 
 
 def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
-    create_private_build, semantic_writer_engine, semantic_db_engine, monkeypatch, tmp_path
+    create_private_build, commit_writer_engine, commit_db_engine, monkeypatch, tmp_path
 ):
     from corpus_structure.semantic import _operation_calls as calls
     from corpus_structure.semantic._operation_ids import RunId, TaskAttempt, TaskId
@@ -185,19 +131,19 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
 
     def publish_fixture(build, directory, cell_coverage):
         stage_complete_native(
-            semantic_writer_engine, build, directory, cell_coverage=cell_coverage, region=True
+            commit_writer_engine, build, directory, cell_coverage=cell_coverage, region=True
         )
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             frozen = freeze_pdf_build(conn, build, kind="native")
             prepare_pdf_build(conn, frozen)
-        outcome = validate_pdf_build(semantic_writer_engine, frozen)
-        with semantic_writer_engine.begin() as conn:
+        outcome = validate_pdf_build(commit_writer_engine, frozen)
+        with commit_writer_engine.begin() as conn:
             seal_pdf_build(conn, frozen, "native")
         return outcome
 
     predecessor = create_private_build()
     before = publish_fixture(predecessor, tmp_path / "before", "unknown")
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = RunId(
             conn.execute(
                 text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": predecessor.task_id}
@@ -217,7 +163,7 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
     after = publish_fixture(current, tmp_path / "after", "partial")
     assert after.logical_digest != before.logical_digest
     assert after.contract_digest == before.contract_digest
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         reused = set(
             conn.scalars(
                 text(
@@ -249,7 +195,7 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
     lexical_delta = publish_fixture(respelled, tmp_path / "respelled", "partial")
     assert lexical_delta.logical_digest == after.logical_digest
     assert lexical_delta.contract_digest != after.contract_digest
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT ops.pdf_projection_contract(:build,:release)"),
@@ -260,13 +206,13 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
 
 
 def test_missing_validation_check_refuses_publication_and_can_retry(
-    private_build, semantic_writer_engine, monkeypatch, tmp_path
+    private_build, commit_writer_engine, monkeypatch, tmp_path
 ):
     from corpus_structure.semantic import _operation_calls as calls
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     check = calls.check_pdf_build
@@ -278,21 +224,21 @@ def test_missing_validation_check_refuses_publication_and_can_retry(
     with monkeypatch.context() as patch:
         patch.setattr(calls, "check_pdf_build", omit_access)
         with pytest.raises(DBAPIError, match="incomplete frozen PDF validation checks"):
-            validate_pdf_build(semantic_writer_engine, frozen)
-    outcome = validate_pdf_build(semantic_writer_engine, frozen)
-    with semantic_writer_engine.begin() as conn:
+            validate_pdf_build(commit_writer_engine, frozen)
+    outcome = validate_pdf_build(commit_writer_engine, frozen)
+    with commit_writer_engine.begin() as conn:
         assert seal_pdf_build(conn, frozen, "native").logical_digest == outcome.logical_digest
 
 
 def test_validation_cancellation_settles_live_check(
-    private_build, semantic_writer_engine, semantic_db_engine, monkeypatch, tmp_path
+    private_build, commit_writer_engine, commit_db_engine, monkeypatch, tmp_path
 ):
     from corpus_structure.core.db.lifetime import BorrowerCancellation, DatabaseOperationCancelled
     from corpus_structure.semantic import _operation_calls as calls
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     check = calls.check_pdf_build
@@ -309,7 +255,7 @@ def test_validation_cancellation_settles_live_check(
 
     def cancel_live_check():
         if live.is_set():
-            with semantic_db_engine.connect() as conn:
+            with commit_db_engine.connect() as conn:
                 sleeping = conn.scalar(
                     text("SELECT wait_event='PgSleep' FROM pg_stat_activity WHERE pid=:pid"),
                     {"pid": pids[0]},
@@ -321,9 +267,9 @@ def test_validation_cancellation_settles_live_check(
     monkeypatch.setattr(calls, "check_pdf_build", slow_access)
     with pytest.raises(DatabaseOperationCancelled):
         validate_pdf_build(
-            semantic_writer_engine, frozen, cancel_live_check, cancellation=cancellation
+            commit_writer_engine, frozen, cancel_live_check, cancellation=cancellation
         )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.pdf_build_validation WHERE build_id=:build"),
@@ -338,14 +284,14 @@ def test_validation_cancellation_settles_live_check(
 
 
 def test_seal_requires_validation_and_preserves_private_progress(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path
+    private_build, commit_writer_engine, commit_db_engine, tmp_path
 ):
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.pdf_build_validation WHERE build_id=:b"),
@@ -360,25 +306,26 @@ def test_seal_requires_validation_and_preserves_private_progress(
             )
             == "frozen"
         )
-    with pytest.raises(DBAPIError) as caught, semantic_writer_engine.begin() as conn:
+    with pytest.raises(DBAPIError) as caught, commit_writer_engine.begin() as conn:
         seal_pdf_build(conn, frozen, "native")
     assert isinstance(caught.value.orig, psycopg.Error)
     assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
         "P0002",
         "query returned no rows",
     )
-    with semantic_writer_engine.connect() as conn:
+    assert "PL/pgSQL function ops.seal_pdf_build(" in (caught.value.orig.diag.context or "")
+    with commit_writer_engine.connect() as conn:
         assert published_pdf_revision(conn, build.task_id, "native", "0" * 64) is None
 
 
 def test_large_metadata_field_preserves_bytes_and_typed_reader(
-    private_build, semantic_writer_engine, semantic_reader_engine, semantic_db_engine, tmp_path
+    private_build, commit_writer_engine, commit_reader_engine, commit_db_engine, tmp_path
 ):
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    stage_complete_native(commit_writer_engine, build, tmp_path)
     candidate = dict(
         page_no=1,
         text="\u03b1" * 100 + "\x00",
@@ -392,7 +339,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
     value = dict(page_no=1, has_words=True, has_chars=True, candidates=[candidate] * 1000)
     original = canonical_bytes(value)
     assert len(original) > 65536
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -410,10 +357,10 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
         )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    validate_pdf_build(semantic_writer_engine, frozen)
-    with semantic_writer_engine.begin() as conn:
+    validate_pdf_build(commit_writer_engine, frozen)
+    with commit_writer_engine.begin() as conn:
         published = seal_pdf_build(conn, frozen, "native")
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
         from corpus_structure.semantic.product_reference import ProductReference
 
@@ -423,7 +370,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
         assert list(reader.native_metadata("inline_candidate_pages")) == [value]
     from corpus_structure.semantic.pdf_record_identity import byte_root
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         body, stream, expected_length, expected_root = conn.execute(
             text("""
             SELECT c.body,f.stream_id,s.byte_length,s.byte_root FROM kb.pdf_record_companion c
@@ -450,11 +397,11 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
 
 
 def test_metadata_parts_do_not_replace_semantic_schema_validation(
-    private_build, semantic_writer_engine
+    private_build, commit_writer_engine
 ):
     from corpus_structure.semantic.pdf_payloads import PayloadContractError
 
-    with pytest.raises(PayloadContractError), semantic_writer_engine.begin() as conn:
+    with pytest.raises(PayloadContractError), commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             private_build,
@@ -465,14 +412,14 @@ def test_metadata_parts_do_not_replace_semantic_schema_validation(
 
 
 def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
-    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+    private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
     from corpus_structure.semantic.product_reference import ProductReference
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    stage_complete_native(commit_writer_engine, build, tmp_path)
     occurrences = [
         dict(
             occurrence_id=f"observed-overlap-occurrence:{index:04d}",
@@ -494,7 +441,7 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         ).decode(),
         endpoints=[dict(role="output", occurrence_id=row["occurrence_id"]) for row in occurrences],
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         assert (
             conn.scalar(
                 text("SELECT octet_length(CAST(:body AS jsonb)::text)"),
@@ -543,10 +490,10 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
                 )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    validate_pdf_build(semantic_writer_engine, frozen)
-    with semantic_writer_engine.begin() as conn:
+    validate_pdf_build(commit_writer_engine, frozen)
+    with commit_writer_engine.begin() as conn:
         published = seal_pdf_build(conn, frozen, "native")
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         reader = PublishedPdfReader(
             conn, ProductReference(build.task_id, "native", published.logical_digest)
         )
@@ -561,18 +508,18 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         ]
 
 
-def test_preparation_does_not_hold_task_lease_lock(private_build, semantic_writer_engine, tmp_path):
+def test_preparation_does_not_hold_task_lease_lock(private_build, commit_writer_engine, tmp_path):
     from corpus_structure.semantic.operations import renew_claim
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
-    with semantic_writer_engine.begin() as preparing:
+    with commit_writer_engine.begin() as preparing:
         prepare_pdf_build(preparing, frozen)
         # The preparation transaction is deliberately still open. A heartbeat
         # must proceed on its own connection rather than wait for publication.
-        with semantic_writer_engine.begin() as heartbeat:
+        with commit_writer_engine.begin() as heartbeat:
             heartbeat.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
             renew_claim(
                 heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
@@ -581,7 +528,7 @@ def test_preparation_does_not_hold_task_lease_lock(private_build, semantic_write
 
 @pytest.mark.parametrize("concurrent_append", [False, True])
 def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path, concurrent_append
+    private_build, commit_writer_engine, commit_db_engine, tmp_path, concurrent_append
 ):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -590,7 +537,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
     from corpus_structure.semantic.operations import renew_claim
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    stage_complete_native(commit_writer_engine, build, tmp_path)
     entered = Event()
     backend = []
     # The family list orders artifact parts first and references last. Blocking the
@@ -598,14 +545,14 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
     relation = "ops.pdf_stage_reference" if concurrent_append else "ops.pdf_stage_artifact_part"
 
     def freeze():
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             conn.exec_driver_sql("SET LOCAL statement_timeout='15s'")
             backend.append(conn.scalar(text("SELECT pg_backend_pid()")))
             entered.set()
             return freeze_pdf_build(conn, build, kind="native")
 
     with ThreadPoolExecutor(max_workers=1) as executor:
-        with semantic_db_engine.begin() as blocker:
+        with commit_db_engine.begin() as blocker:
             blocker.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
             blocker.exec_driver_sql("LOCK TABLE " + relation + " IN ACCESS EXCLUSIVE MODE")
             future = executor.submit(freeze)
@@ -615,7 +562,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                 if future.done():
                     future.result()
                     pytest.fail("freeze completed while its inventory table was locked")
-                with semantic_db_engine.connect() as observer:
+                with commit_db_engine.connect() as observer:
                     waiting = observer.scalar(
                         text(
                             "SELECT count(*) FROM pg_locks WHERE pid=:pid "
@@ -628,13 +575,13 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                     break
                 assert monotonic() < deadline, "freeze did not reach the inventory read"
                 sleep(0.01)
-            with semantic_writer_engine.begin() as heartbeat:
+            with commit_writer_engine.begin() as heartbeat:
                 heartbeat.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
                 renew_claim(
                     heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
                 )
             if concurrent_append:
-                with semantic_writer_engine.begin() as appender:
+                with commit_writer_engine.begin() as appender:
                     adopt_pdf_companion_batch(
                         appender,
                         build,
@@ -656,7 +603,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                 future.result(timeout=10)
             assert isinstance(caught.value.orig, psycopg.Error)
             assert caught.value.orig.sqlstate == "40001"
-            with semantic_db_engine.connect() as conn:
+            with commit_db_engine.connect() as conn:
                 conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
                 assert (
                     conn.scalar(
@@ -676,13 +623,9 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
             assert len(future.result(timeout=10).frozen_digest) == 64
 
 
-def test_freeze_refuses_stale_transaction_snapshots(
-    private_build, semantic_writer_engine, tmp_path
-):
-    stage_complete_native(semantic_writer_engine, private_build, tmp_path)
-    connection = semantic_writer_engine.connect().execution_options(
-        isolation_level="REPEATABLE READ"
-    )
+def test_freeze_refuses_stale_transaction_snapshots(private_build, commit_writer_engine, tmp_path):
+    stage_complete_native(commit_writer_engine, private_build, tmp_path)
+    connection = commit_writer_engine.connect().execution_options(isolation_level="REPEATABLE READ")
     with (
         connection as conn,
         conn.begin(),
@@ -694,7 +637,7 @@ def test_freeze_refuses_stale_transaction_snapshots(
 
 
 def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
-    private_build, semantic_writer_engine
+    private_build, commit_writer_engine
 ):
     # Independent expected inventory: ordinary writers cannot replace/delete rows
     # while the freeze candidate is being hashed without holding the task fence.
@@ -709,7 +652,7 @@ def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
         "ops.pdf_stage_endpoint",
         "ops.pdf_stage_companion_field",
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         for relation in relations:
             assert conn.execute(
                 text(
@@ -719,7 +662,7 @@ def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
                 {"relation": relation},
             ).one() == (False, False)
     with (
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
         pytest.raises(DBAPIError) as caught,
     ):
         conn.execute(
@@ -731,7 +674,7 @@ def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
 
 
 def test_encoded_page_adoption_retains_original_ipc_bytes(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path, monkeypatch
+    private_build, commit_writer_engine, commit_db_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.semantic.pdf_payloads import (
         EncodedPagePayload,
@@ -740,7 +683,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
     )
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    stage_complete_native(commit_writer_engine, build, tmp_path)
     codec = prepare_payload_family()
     value = dict(page_no=1, has_words=False, has_chars=False)
     payload = codec.encode(value, compression="zstd")
@@ -750,7 +693,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
         raise AssertionError("already encoded payload must retain its original bytes")
 
     monkeypatch.setattr(PreparedPayloadFamily, "encode", no_reencoding)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -760,7 +703,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
         )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         actual = (
             conn.execute(
                 text("""

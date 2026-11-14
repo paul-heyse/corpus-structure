@@ -1,15 +1,12 @@
 """Authenticate authored/native columns through the ordinary primary model in tests."""
 
-from dataclasses import asdict, fields
+from dataclasses import fields
 from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 
 from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
-from corpus_structure.methods.native_evidence import native_run
 from corpus_structure.methods.native_evidence_layers import (
-    SPACY_FAMILIES,
-    NativeEvidenceBuilder,
     PrimaryAnnotationProduct,
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
@@ -137,35 +134,19 @@ def primary_product(
         input="test-input",
         context="exact-authored-columns",
     )
-    native = NativeEvidenceBuilder(
-        pin.native_product.values(), scope, operation, profile="spacy_only", families=SPACY_FAMILIES
-    )
-    native.spacy(view, product, "spacy")
-    run = native_run(
-        "spacy",
-        "spacy_only",
-        configuration,
-        model=product.model,
-        version=product.model_version,
-        runtime_version=product.spacy_version,
-        layout=[],
-        text=[],
-        components=[asdict(c) for c in product.components],
-    )
-    run["configuration_digest"] = product.pipeline_config_digest
-    if execution is not None:
-        from corpus_structure.semantic.observations import source_value
+    from methods.primary_native_fixture import primary_native_layer
 
-        run["execution_profile"] = source_value(execution.wire)
-    from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS
-
-    run["availability"] = [
-        dict(family=SPACY_COLUMNS[row.attribute], attribute=row.attribute, status=row.status)
-        for row in product.availability
-    ]
-    native.native_runs.append(run)
-    native_layer = native.finish(prepared())
-    native_pin = native_layer.reference(101)
+    native_layer, native_pin = primary_native_layer(
+        pin.native_product.values(),
+        scope,
+        operation,
+        prepared(),
+        ((view, product),),
+        configuration=configuration,
+        digest="pipeline",
+        reference=101,
+        execution=execution,
+    )
     layer = ConstructionLayer(
         pin.native_product.values(),
         scope,

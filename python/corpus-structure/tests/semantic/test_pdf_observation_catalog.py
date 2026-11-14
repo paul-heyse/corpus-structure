@@ -15,20 +15,9 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import complete_task
 from corpus_structure.semantic.pdf_storage import PdfObservationListRequest, read_pdf_observations
 from corpus_structure.settings import Settings
-
-from .pdf_integration_support import (
-    HOLDER,
-    RESPONSE,
-    observation,
-    prepare,
-    publish,
-)
-from .pdf_integration_support import (
-    native_source as native_source,
-)
-from .pdf_integration_support import (
-    pdf13_db as pdf13_db,
-)
+from semantic.pdf_integration_support import HOLDER, RESPONSE, observation, prepare, publish
+from semantic.pdf_integration_support import native_source as native_source
+from semantic.pdf_integration_support import pdf13_db as pdf13_db
 
 
 @pytest.mark.parametrize(
@@ -46,11 +35,11 @@ def test_observation_catalog_requires_typed_bounded_scope(changes):
         PdfObservationListRequest.model_validate({"run_id": 1, "task_id": 2, **changes})
 
 
-def test_failed_task_observations_are_paged_and_inspectable(pdf13_db, semantic_reader_engine):
+def test_failed_task_observations_are_paged_and_inspectable(pdf13_db, commit_reader_engine):
     db = pdf13_db
     request = PdfObservationListRequest(run_id=db.job.run, task_id=db.job.task, limit=1)
     with (
-        semantic_reader_engine.connect() as conn,
+        commit_reader_engine.connect() as conn,
         pytest.raises(ValueError, match="finished source task"),
     ):
         read_pdf_observations(conn, request)
@@ -77,7 +66,7 @@ def test_failed_task_observations_are_paged_and_inspectable(pdf13_db, semantic_r
         "pass-b": db.observations[1].digest,
         "pass-c-failed": retained.digest,
     }
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         first = read_pdf_observations(conn, request)
         assert [pin.product_key for pin in first.products] == ["pass-a"]
         assert first.next_cursor is not None
@@ -114,7 +103,7 @@ def test_failed_task_observations_are_paged_and_inspectable(pdf13_db, semantic_r
             )
         )
     foreign = db.create(project="foreign", name="foreign-source")
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         for changes in (
             {"run_id": other.run},
             {"task_id": other.task},

@@ -15,9 +15,8 @@ from corpus_structure.semantic.record_queries import RecordReadLimit, _read_prod
 from corpus_structure.semantic.refusals import WrongBinding
 from corpus_structure.serve.record_export import write_record_relations
 from corpus_structure.serve.record_results import RecordRequest, present_record_projection
-
-from .test_record_consumers import prepared as prepared
-from .test_record_consumers import projection as projection
+from semantic.record_consumers_support import prepared as prepared
+from semantic.record_consumers_support import projection as projection
 
 
 def producer_row(diagnostics):

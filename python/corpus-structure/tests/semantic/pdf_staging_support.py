@@ -21,13 +21,12 @@ from corpus_structure.semantic.pdf_staging import (
     begin_pdf_build,
     stage_schema,
 )
+from semantic.operation_scenario_support import prepare_operation_scenario
 
-from .operation_scenario_support import prepare_operation_scenario
 
-
-def _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path, request):
+def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request):
     prepared = prepare_operation_scenario(
-        semantic_db_engine,
+        commit_db_engine,
         composed=True,
         observations=getattr(request, "param", None)
         in {"renderable_pdf", "characterization_pdf", "characterization_finalizable_pdf"},
@@ -72,7 +71,7 @@ def _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path,
         path.write_bytes(original)
 
     def create():
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             run = create_run(
                 conn,
                 project_id="p",
@@ -135,13 +134,13 @@ def _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path,
 
 
 @pytest.fixture
-def create_private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
-    return _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path, request)
+def create_private_build(commit_db_engine, commit_writer_engine, tmp_path, request):
+    return _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request)
 
 
 @pytest.fixture
-def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
-    return _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path, request)()
+def private_build(commit_db_engine, commit_writer_engine, tmp_path, request):
+    return _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request)()
 
 
 def native_batch(build, text_value="first"):

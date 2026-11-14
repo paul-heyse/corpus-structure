@@ -16,8 +16,7 @@ from corpus_structure.semantic.archive_transport import (
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.releases import _projection_rows
-
-from .test_releases import source_bundle
+from semantic.releases_support import source_bundle
 
 
 def test_archive_bytea_stays_binary_and_json_fields_lower_owned_tuples_without_mutation():

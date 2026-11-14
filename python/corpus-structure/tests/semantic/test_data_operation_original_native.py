@@ -3,85 +3,22 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_admission import (
-    admit_data_operation_release,
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
 from corpus_structure.semantic.data_operation_identity import semantic_value
-from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
-from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.releases import persist_release
-from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 from corpus_structure.semantic.source_admission import acquire_original_source_selection
-
-from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
-from .original_source_fixture import completed_original_source_reference
-from .test_data_operation_storage import _declaration
-
-
-@pytest.fixture
-def original_target(tmp_path, request):
-    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    (tmp_path / "core.yaml").write_bytes(core.read_bytes())
-    (tmp_path / "schema.yaml").write_text("""id: urn:original-fact-test
-name: target
-imports: [core]
-prefixes: {t: 'urn:original-fact-test:'}
-default_prefix: t
-classes: {Marker: {}}
-""")
-    operation = _declaration()
-    operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
-    operation["roles"][0].update(maximum=1, collection="scalar")
-    if getattr(request, "param", None) == "DdoOriginalDocument":
-        operation["capabilities"]["preparation"] = "pdf-native"
-    operation["roles"].insert(
-        0,
-        {
-            "name": "source",
-            "kind": getattr(request, "param", "DdoSelectedNativeSource"),
-            "direction": "input",
-            "minimum": 1,
-            "maximum": 1,
-            "collection": "scalar",
-            "presence": "required",
-            "support": {
-                "provenance": "value_substitution",
-                "source": "same-original",
-                "coverage": "selected-scope",
-                "identity_requirements": [],
-                "origins": ["original-source"],
-            },
-        },
-    )
-    (tmp_path / "operations.yaml").write_bytes(
-        canonical_bytes(
-            {
-                "version": "data-operation-model-v1",
-                "operations": [operation],
-            }
-        )
-    )
-    (tmp_path / "target.yaml").write_text("""version: data-operation-inputs-v1
-root: target
-schemas: [{name: target, path: schema.yaml}, {name: core, path: core.yaml}]
-declarations: [{name: operations, path: operations.yaml}]
-source_bindings: true
-""")
-    if getattr(request, "param", None) == "DdoOriginalDocument":
-        manifest = tmp_path / "target.yaml"
-        manifest.write_text(manifest.read_text() + "pdf_contracts: true\n")
-    return prepare_data_operation_inputs(tmp_path, "target.yaml")
+from semantic.data_operation_kernel_support import ORIGINAL_FACT, ORIGINAL_PDF
+from semantic.data_operation_original_support import OriginalSeedRecipe
+from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
+from semantic.original_source_fixture import completed_original_source_reference
 
 
 def test_original_fact_target_has_explicit_value_based_origin_policy(original_target):
@@ -95,19 +32,23 @@ def test_original_fact_target_has_explicit_value_based_origin_policy(original_ta
     assert role.support.identity_requirements == ()
 
 
-def test_authentic_original_fact_admission_publication_and_revocation(
-    private_source, original_target, semantic_db_engine
-):
-    reference, selectors = completed_original_source_reference(private_source)
-    bundle, dependencies, profile, prepared = original_target
-    model = bound_data_operation_model(prepared)
-    runtime = prepare_data_operation_runtime(
-        prepared, dependencies.artifacts, execution_profile="execution:original-fact", observed={}
+@pytest.mark.parametrize(
+    "ddo_original_source",
+    [OriginalSeedRecipe(RecordSourceRecipe(), ORIGINAL_FACT)],
+    indirect=True,
+    ids=("record-base",),
+)
+def test_authentic_original_fact_admission_publication_and_revocation(ddo_original_source):
+    source = claim_record_source(
+        ddo_original_source.source,
+        writer=ddo_original_source.writer,
+        clone=ddo_original_source.clone,
     )
-    with semantic_db_engine.begin() as connection:
-        persist_release(connection, bundle, dependencies, profile, prepared)
-        admit_data_operation_release(connection, prepared)
-        persist_runtime_binding(connection, prepared, runtime)
+    reference, selectors = completed_original_source_reference(source)
+    kernel = ddo_original_source.kernel
+    prepared, model = kernel.prepared, kernel.model
+    with ddo_original_source.admin.begin() as connection:
+        runtime = kernel.preparation.runtime
         acquired = acquire_original_source_selection(connection, prepared, reference, selectors)
         intent = freeze_demand(
             model,
@@ -120,7 +61,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(
         storage = DataOperationStorage(connection)
         demand = DemandPlanner(model, storage).register(
             intent,
-            project=private_source.project_id,
+            project=source.project_id,
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
@@ -241,7 +182,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(
         storage.invoke(
             "revoke_data_support",
             {
-                "project_id": private_source.project_id,
+                "project_id": source.project_id,
                 "original_source": acquired.root.original_source,
                 "selector_kind": "original-admission",
                 "selector": admission["admission_id"],
@@ -267,9 +208,14 @@ def test_authentic_original_fact_admission_publication_and_revocation(
             savepoint.rollback()
 
 
-@pytest.mark.parametrize("original_target", ["DdoOriginalDocument"], indirect=True)
+@pytest.mark.parametrize(
+    "ddo_original_source",
+    [OriginalSeedRecipe(RecordSourceRecipe(), ORIGINAL_PDF)],
+    indirect=True,
+    ids=("DdoOriginalDocument-record-base",),
+)
 def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_request_context(
-    private_source, original_target, semantic_db_engine
+    ddo_original_source,
 ):
     from hashlib import sha256
 
@@ -278,25 +224,21 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
     from corpus_structure.semantic.pdf_records import native_schema_bytes
     from corpus_structure.semantic.pdf_staging import begin_pdf_build
 
-    bundle, dependencies, profile, prepared = original_target
-    model = bound_data_operation_model(prepared)
-    runtime = prepare_data_operation_runtime(
-        prepared, dependencies.artifacts, execution_profile="execution:original-pdf", observed={}
-    )
-    with semantic_db_engine.begin() as connection:
-        persist_release(connection, bundle, dependencies, profile, prepared)
-        admit_data_operation_release(connection, prepared)
-        persist_runtime_binding(connection, prepared, runtime)
+    source = ddo_original_source.source
+    kernel = ddo_original_source.kernel
+    prepared, model = kernel.prepared, kernel.model
+    with ddo_original_source.admin.begin() as connection:
+        runtime = kernel.preparation.runtime
         document = connection.execute(
             text(
                 "SELECT d.id,d.key,d.content_hash FROM kb.source_view view "
                 "JOIN kb.document d ON d.id=view.document_id WHERE view.id=:view"
             ),
-            {"view": private_source.view},
+            {"view": source.view},
         ).one()
         acquired = acquire_original_document_selection(
             connection,
-            project_id=private_source.project_id,
+            project_id=source.project_id,
             document_key=document.key,
         )
         intent = freeze_demand(
@@ -311,7 +253,7 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         planner = DemandPlanner(model, storage)
         demand = planner.register(
             intent,
-            project=private_source.project_id,
+            project=source.project_id,
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )

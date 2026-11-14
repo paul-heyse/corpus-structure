@@ -15,23 +15,17 @@ from corpus_structure.semantic.invariant_failures import InvariantViolation
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.record_contracts import anchor_identity
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.native_record_fixtures import bypass_contributions as bypass
+from semantic.native_record_fixtures import complete_contributions as complete
+from semantic.native_record_fixtures import contribution_drafts as drafts
+from semantic.native_record_fixtures import contribution_envelope as envelope
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import (
-    bypass_contributions as bypass,
-)
-from .native_record_fixtures import (
-    complete_contributions as complete,
-)
-from .native_record_fixtures import (
-    contribution_drafts as drafts,
-)
-from .native_record_fixtures import (
-    contribution_envelope as envelope,
-)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_recordless_completion_reopen_and_zero_output_operations(private_source):
     case = private_source
     result = drafts(case)
@@ -61,13 +55,15 @@ def test_native_recordless_completion_reopen_and_zero_output_operations(private_
         assert len({row["occurrence_id"] for row in inventory.contributions}) == 1
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_completion_checks_nested_source_detail_before_retention(private_source):
     from copy import deepcopy
     from dataclasses import replace
 
     from corpus_structure.semantic.observations import source_python
-
-    from .test_observations import malform_source_fields, nested_source_detail
+    from semantic.observations_support import malform_source_fields, nested_source_detail
 
     case = private_source
     detail = nested_source_detail()
@@ -97,6 +93,9 @@ def test_native_completion_checks_nested_source_detail_before_retention(private_
         assert "absent" not in restored
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_parser_payload_uses_selected_release_contract(private_source):
     from copy import deepcopy
     from dataclasses import replace
@@ -156,6 +155,9 @@ def test_native_parser_payload_uses_selected_release_contract(private_source):
         bypass(case, conn, original)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_anchorless_occurrence_spoof_refuses_at_protected_completion(private_source):
     case = private_source
     raw = envelope(case, drafts(case))
@@ -177,6 +179,9 @@ def test_native_anchorless_occurrence_spoof_refuses_at_protected_completion(priv
         assert not conn.execute(select(table("kb.source_contribution"))).first()
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize(
     "change,reason",
     [
@@ -215,6 +220,9 @@ def test_native_contribution_source_and_closure_refusals(private_source, change,
     assert reason in str(error.value.__cause__ or error.value)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_detail_byte_budget_preflights_before_hydration(private_source):
     case = private_source
     with case.writer.begin() as conn:
@@ -244,6 +252,9 @@ def test_detail_byte_budget_preflights_before_hydration(private_source):
     )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_scope_and_endpoint_indexes_select_before_detail(private_source):
     from dataclasses import replace
 
@@ -315,6 +326,9 @@ def test_scope_and_endpoint_indexes_select_before_detail(private_source):
         ]
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_score_state_missing_is_not_zero(private_source):
     case = private_source
     result = drafts(case)
@@ -343,7 +357,9 @@ def test_native_score_state_missing_is_not_zero(private_source):
         }
 
 
-@pytest.mark.parametrize("private_source", [{"include_blank_cell": True}], indirect=True)
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe(include_blank_cell=True)], indirect=True
+)
 def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessment(private_source):
     from dataclasses import replace
 
@@ -461,6 +477,9 @@ def local_draft(case):
     return replace(result, contribution_operations=(*result.contribution_operations, local))
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_local_question_retains_not_run_beside_useful_cell(private_source):
     case = private_source
     with case.writer.begin() as conn:
@@ -477,6 +496,9 @@ def test_native_local_question_retains_not_run_beside_useful_cell(private_source
         assert conn.scalar(select(table("data.source_record").c.record_id).limit(1)) is None
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize("change", ["foreign_input", "forged_digest", "computed_not_run"])
 def test_native_local_question_refuses_forged_input_or_probability(private_source, change):
     import json
@@ -505,6 +527,9 @@ def test_native_local_question_refuses_forged_input_or_probability(private_sourc
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize("feasibility_control", [False, True])
 def test_native_local_question_seals_supplied_model_result_without_admission(
     private_source, feasibility_control
@@ -513,7 +538,7 @@ def test_native_local_question_seals_supplied_model_result_without_admission(
 
     from corpus_structure.methods.local_interpretation import local_question_operation
     from corpus_structure.semantic.record_interpretation import CandidateSelection, LogPotential
-    from semantic.test_local_interpretation import local_request
+    from semantic.local_interpretation_support import local_request
 
     case = private_source
     result = drafts(case)
@@ -553,6 +578,9 @@ def test_native_local_question_seals_supplied_model_result_without_admission(
         assert conn.scalar(select(table("data.source_record").c.record_id).limit(1)) is None
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_local_question_refuses_omitted_consumed_dependencies(private_source):
     from dataclasses import replace
 
@@ -590,6 +618,9 @@ def test_native_local_question_refuses_omitted_consumed_dependencies(private_sou
         )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_local_question_refuses_resealed_invalid_numerical_products(private_source):
     from copy import deepcopy
     from dataclasses import replace
@@ -598,7 +629,7 @@ def test_native_local_question_refuses_resealed_invalid_numerical_products(priva
     from corpus_structure.methods.record_readings import _digest
     from corpus_structure.semantic.observations import source_python, source_value
     from corpus_structure.semantic.record_interpretation import CandidateSelection
-    from semantic.test_local_interpretation import local_request
+    from semantic.local_interpretation_support import local_request
 
     case = private_source
     result = drafts(case)
@@ -647,6 +678,9 @@ def test_native_local_question_refuses_resealed_invalid_numerical_products(priva
                 bypass(case, conn, raw)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 @pytest.mark.parametrize("displayed", (2, 4))
 def test_native_joint_probabilities_require_consistency_with_displayed_support(
     private_source, displayed
@@ -658,13 +692,12 @@ def test_native_joint_probabilities_require_consistency_with_displayed_support(
     from corpus_structure.methods.record_readings import _digest
     from corpus_structure.semantic.observations import source_python, source_value
     from corpus_structure.semantic.record_interpretation import CandidateSelection, SearchLimits
-
-    from .test_local_interpretation import local_request
-    from .test_local_interpretation_reports import (
+    from semantic.local_interpretation_reports_support import (
         assert_joint_probabilities,
         forge_joint_probability,
         joint_events,
     )
+    from semantic.local_interpretation_support import local_request
 
     case = private_source
     result = drafts(case)
@@ -719,6 +752,9 @@ def test_native_joint_probabilities_require_consistency_with_displayed_support(
         assert_joint_probabilities(source_python(local["result"]), displayed)
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_located_component_custody_and_basis_refusal(private_source):
     from copy import deepcopy
     from dataclasses import replace

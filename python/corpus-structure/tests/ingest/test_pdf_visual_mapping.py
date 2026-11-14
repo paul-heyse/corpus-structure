@@ -1,13 +1,12 @@
 from io import BytesIO
 
 import pytest
+from pdf_region_support import landmark_pdf
 from PIL import Image
 
 from corpus_structure.ingest.pdf_chandra import parse_chandra_response
 from corpus_structure.ingest.pdf_recognition import transform_point
 from corpus_structure.semantic.pdf_visual_mapping import map_visual_result, render_visual_input
-
-from .test_pdf_recognition import landmark_pdf
 
 
 def test_visual_crop_rotation_preserves_original_landmark():

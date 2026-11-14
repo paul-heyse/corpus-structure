@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from semantic.test_characterization import layer_payload
+from semantic.characterization_support import layer_payload
 
 from corpus_structure.core.method import MethodContext, MethodSettings, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
@@ -126,7 +126,7 @@ def test_unbound_config_and_wrong_document_refuse(prepared):
 
 
 def test_composition_resolves_original_release_without_rewriting_retained_layer(prepared):
-    from semantic.test_characterization_replay import construction_release_inputs
+    from semantic.characterization_replay_support import construction_release_inputs
 
     from corpus_structure.semantic import prepare_release
 

@@ -2,15 +2,19 @@
 
 from dataclasses import replace
 
+import pytest
+
 from corpus_structure.semantic.contribution_queries import read_source_contributions
 from corpus_structure.semantic.contributions import contribution_identity
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import complete_contributions as complete
 from semantic.native_record_fixtures import contribution_drafts as drafts
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import private_source as private_source
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_occurrence_selector_excludes_anchorless_conditional_endpoint_product(private_source):
     case = private_source
     result = drafts(case)

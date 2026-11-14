@@ -2,16 +2,20 @@
 
 import json
 
+import pytest
 from sqlalchemy import text
 
-from .test_identity_exclusions import exclusion_result
+from semantic.agent_scenarios import ExclusionRecipe
 
 
+@pytest.mark.parametrize(
+    "exclusion_case", [ExclusionRecipe(finalize=True, citations=2)], indirect=True
+)
 def test_native_exclusion_primary_and_supporting_custody_use_exact_projection(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    exclusion_case, tmp_path
 ):
-    exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path, citations=2)
-    with semantic_writer_engine.connect() as conn:
+    commit_writer_engine = exclusion_case.writer
+    with commit_writer_engine.connect() as conn:
         evidence = (
             conn.execute(
                 text("""

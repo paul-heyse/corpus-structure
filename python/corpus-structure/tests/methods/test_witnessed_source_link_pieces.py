@@ -13,8 +13,7 @@ from corpus_structure.semantic.constructions.navigation import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-
-from .test_m1_source_preparation import source
+from methods.m1_source_preparation_support import source
 
 _WRAPPER = "#/texts/20"
 _INLINE = "#/groups/40"

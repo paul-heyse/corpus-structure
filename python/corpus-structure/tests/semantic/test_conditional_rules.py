@@ -4,10 +4,8 @@ import json
 from copy import deepcopy
 from datetime import date
 from decimal import Decimal
-from typing import Any
 
 import pytest
-import yaml
 from jsonschema import Draft202012Validator
 from pydantic import MISSING, ConfigDict, Field, ValidationError, create_model
 
@@ -15,8 +13,6 @@ from corpus_structure.semantic import (
     PreparationError,
     PreparationProfile,
     ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
     prepare_release,
 )
 from corpus_structure.semantic.composed import composed_dependencies
@@ -25,49 +21,9 @@ from corpus_structure.semantic.conditional_rules import (
     conditional_model_namespace,
 )
 from corpus_structure.semantic.prepare import _view, preview_schema
+from semantic.conditional_rules_support import bundle, rule, schema
 
 PROFILE = PreparationProfile(version="semantic-2")
-
-
-def rule():
-    return {
-        "preconditions": {"slot_conditions": {"status": {"equals_string": "ready"}}},
-        "postconditions": {"slot_conditions": {"label": {"required": True}}},
-        "elseconditions": {"slot_conditions": {"reason": {"required": True}}},
-    }
-
-
-def schema(rules=None) -> dict[str, Any]:
-    return {
-        "id": "https://example.org/conditional",
-        "name": "conditional",
-        "prefixes": {"ex": "https://example.org/", "xsd": "http://www.w3.org/2001/XMLSchema#"},
-        "default_prefix": "ex",
-        "types": {
-            "string": {"base": "str", "uri": "xsd:string"},
-            "decimal": {"base": "Decimal", "uri": "xsd:decimal"},
-            "date": {"base": "XSDDate", "uri": "xsd:date"},
-        },
-        "classes": {
-            "Thing": {
-                "attributes": {
-                    "id": {"identifier": True},
-                    "status": {"range": "string"},
-                    "label": {"range": "string"},
-                    "reason": {"range": "string"},
-                    "amount": {"range": "decimal"},
-                    "when": {"range": "date"},
-                },
-                "rules": [rule()] if rules is None else rules,
-            }
-        },
-    }
-
-
-def bundle(data):
-    return SourceBundle(
-        "conditional", (SourceArtifact("conditional", yaml.safe_dump(data).encode()),)
-    )
 
 
 def prepare(data=None):

@@ -171,24 +171,30 @@ ROUND_TRIPS: list[BaseModel | dict[str, Any]] = [
 
 
 @pytest.mark.parametrize("payload", ROUND_TRIPS)
-def test_payload_hash_agrees_on_write_and_jsonb_read_back(db: Connection, payload) -> None:
+def test_payload_hash_agrees_on_write_and_jsonb_read_back(
+    infrastructure_rollback: Connection, payload
+) -> None:
     """Written through SQLAlchemy's JSONB binding, read back as psycopg returns it from PG 18."""
     table = Table("payload_round_trip", MetaData(), Column("payload", JSONB, nullable=False),
                   prefixes=["TEMPORARY"])  # fmt: skip
-    table.create(db)
+    table.create(infrastructure_rollback)
     written = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
-    db.execute(table.insert(), {"payload": written})
-    read_back = db.execute(select(table.c.payload)).scalar_one()
-    table.drop(db)
+    infrastructure_rollback.execute(table.insert(), {"payload": written})
+    read_back = infrastructure_rollback.execute(select(table.c.payload)).scalar_one()
+    table.drop(infrastructure_rollback)
     assert payload_hash(payload) == payload_hash(read_back)
     assert payload_hash(written) == payload_hash(read_back)
 
 
-def test_the_jsonb_read_back_differs_from_what_was_written(db: Connection) -> None:
+def test_the_jsonb_read_back_differs_from_what_was_written(
+    infrastructure_rollback: Connection,
+) -> None:
     """The round trip changes what the hash must see through: an integral float comes back an
     integer, keys in JSONB's order, text unnormalized."""
     payload = {"score": 1e16, "ab": 1.0, "b": CAFE_NFD}
-    stored = db.execute(text("SELECT CAST(:p AS jsonb)"), {"p": json.dumps(payload)})
+    stored = infrastructure_rollback.execute(
+        text("SELECT CAST(:p AS jsonb)"), {"p": json.dumps(payload)}
+    )
     read_back = stored.scalar_one()
     assert read_back == {"b": CAFE_NFD, "ab": 1.0, "score": 10000000000000000}
     assert isinstance(read_back["score"], int) and list(read_back) == ["b", "ab", "score"]

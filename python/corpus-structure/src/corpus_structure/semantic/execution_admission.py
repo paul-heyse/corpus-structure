@@ -102,12 +102,10 @@ class NativeExpectation:
 
 
 def _revision_expectation(versions: Path, revision: str) -> NativeExpectation:
-    try:
-        return _expectations(versions)[revision]
-    except KeyError:
-        raise ExecutionAdmissionError(
-            f"native deployment lacks frozen expectations for {revision}"
-        ) from None
+    selected = _expectation_metadata(_revision_index(versions), revision)
+    if selected is None:
+        raise ExecutionAdmissionError(f"native deployment lacks frozen expectations for {revision}")
+    return _selected_expectation(selected)
 
 
 def require_frozen_native_revision(versions: Path, revision: str) -> str:
@@ -351,28 +349,56 @@ def _descriptor_sha256() -> str:
     head = head_revision()
     if head is None:
         raise ExecutionAdmissionError("authoring head is unavailable")
-    return _expectations(ALEMBIC_DIR / "versions")[head].functions[0]
+    return _revision_expectation(ALEMBIC_DIR / "versions", head).functions[0]
 
 
-def _expectations(versions: Path) -> dict[str, NativeExpectation]:
-    # Stat identities invalidate only the immutable artifact cache, never a live
-    # catalog observation. Registration adds new trusted inputs to this set.
-    stamps = tuple(
-        (path, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size)
-        for path in sorted(versions.iterdir())
-        if path.suffix == ".py" or path.name.endswith(("_admission.sql", "_native.json"))
-        for stat in (path.stat(),)
-    )
-    return _frozen_expectations(stamps)
+@dataclass(frozen=True)
+class _RevisionMetadata:
+    revision: str
+    predecessor: str | None
+    admission: tuple[Path, str] | None
+    state: tuple[Path, str] | None
+
+
+def _file_identity(path: Path) -> tuple[Path, int, int, int]:
+    stamp = path.stat()
+    return path, stamp.st_mtime_ns, stamp.st_ctime_ns, stamp.st_size
+
+
+def _revision_index(versions: Path) -> dict[str, _RevisionMetadata]:
+    try:
+        identities = tuple(
+            _file_identity(path)
+            for path in sorted(versions.glob("*.py"))
+            if path.name != "__init__.py"
+        )
+        return _cached_revision_index(identities)
+    except (OSError, SyntaxError, ValueError, KeyError, AttributeError, TypeError) as exc:
+        raise ExecutionAdmissionError(
+            f"frozen native revision metadata is unavailable: {exc}"
+        ) from exc
+
+
+def _artifact_metadata(path: Path, declared: dict[str, object], kind: str) -> tuple[Path, str]:
+    filename = declared[f"NATIVE_{kind}_FILE"]
+    digest = declared[f"NATIVE_{kind}_SHA256"]
+    if (
+        not isinstance(filename, str)
+        or not filename
+        or Path(filename).name != filename
+        or not isinstance(digest, str)
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        raise ValueError(f"{path.name}: unsafe frozen native artifact metadata")
+    target = path.with_name(filename)
+    if target.resolve().parent != path.parent.resolve():
+        raise ValueError(f"{path.name}: unsafe frozen native artifact path")
+    return target, digest
 
 
 @lru_cache(maxsize=4)
-def _frozen_expectations(stamps) -> dict[str, NativeExpectation]:
-    from pglast import ast as pgast
-    from pglast import parse_sql
-
-    from .native_products import function_bodies
-
+def _cached_revision_index(identities) -> dict[str, _RevisionMetadata]:
     fields = {
         "revision",
         "down_revision",
@@ -382,85 +408,152 @@ def _frozen_expectations(stamps) -> dict[str, NativeExpectation]:
         "NATIVE_STATE_SHA256",
     }
     revisions = {}
-    expectations = {}
+    for path, *_ in identities:
+        declared = {}
+        for node in ast.parse(path.read_bytes(), filename=path.name).body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            for target in node.targets if isinstance(node, ast.Assign) else (node.target,):
+                if isinstance(target, ast.Name) and target.id in fields:
+                    if target.id in declared or node.value is None:
+                        raise ValueError(f"{path.name}: duplicate or missing revision metadata")
+                    declared[target.id] = ast.literal_eval(node.value)
+        revision = declared["revision"]
+        predecessor = declared["down_revision"]
+        if not isinstance(revision, str) or not revision or revision in revisions:
+            raise ValueError(f"{path.name}: ambiguous revision")
+        if predecessor is not None and (not isinstance(predecessor, str) or not predecessor):
+            raise ValueError(f"{path.name}: invalid revision predecessor")
+        artifact_fields = fields - {"revision", "down_revision"}
+        present = artifact_fields & declared.keys()
+        if present and present != artifact_fields:
+            raise ValueError(f"{path.name}: incomplete frozen native metadata")
+
+        revisions[revision] = _RevisionMetadata(
+            revision,
+            predecessor,
+            _artifact_metadata(path, declared, "ADMISSION") if present else None,
+            _artifact_metadata(path, declared, "STATE") if present else None,
+        )
+    return revisions
+
+
+def _expectation_metadata(
+    revisions: dict[str, _RevisionMetadata], revision: str
+) -> _RevisionMetadata | None:
+    seen = set()
+    current = revision
+    while True:
+        if current in seen:
+            raise ExecutionAdmissionError(
+                f"frozen native revision inheritance has a cycle: {current}"
+            )
+        seen.add(current)
+        metadata = revisions.get(current)
+        if metadata is None:
+            raise ExecutionAdmissionError(
+                f"frozen native revision predecessor is unavailable: {current}"
+            )
+        if metadata.admission is not None:
+            return metadata
+        if metadata.predecessor is None:
+            return None
+        current = metadata.predecessor
+
+
+def _expectations(versions: Path) -> dict[str, NativeExpectation]:
+    """Full-history discovery for callers identifying a contract by native body fingerprints."""
+    revisions = _revision_index(versions)
     try:
-        for path, *_ in stamps:
-            if path.suffix != ".py" or path.name == "__init__.py":
-                continue
-            declared = {
-                target.id: ast.literal_eval(node.value)
-                for node in ast.parse(path.read_bytes(), filename=path.name).body
-                if isinstance(node, (ast.Assign, ast.AnnAssign))
-                for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
-                if isinstance(target, ast.Name) and target.id in fields and node.value is not None
-            }
-            revision = declared["revision"]
-            if not isinstance(revision, str) or revision in revisions:
-                raise ValueError("ambiguous revision")
-            revisions[revision] = declared.get("down_revision")
-            if "NATIVE_ADMISSION_FILE" not in declared:
-                continue
-            filename = declared["NATIVE_ADMISSION_FILE"]
-            state = declared["NATIVE_STATE_FILE"]
-            if Path(filename).name != filename or Path(state).name != state:
-                raise ValueError("unsafe frozen native artifact")
-            sql = path.with_name(filename).read_bytes()
-            if sha256(sql).hexdigest() != declared["NATIVE_ADMISSION_SHA256"]:
-                raise ValueError(f"{filename}: frozen native admission digest differs")
-            bodies = function_bodies(sql.decode())
-            body = bodies[_DESCRIPTOR]
-            # The frozen descriptor is a single literal JSON SELECT. Read the
-            # literal from the trusted SQL rather than execute it on a target.
-            (statement,) = parse_sql(body)
-            query = statement.stmt
-            if not isinstance(query, pgast.SelectStmt) or query.targetList is None:
-                raise ValueError("frozen native descriptor is not a SELECT")
-            (column,) = query.targetList
-            value = column.val if isinstance(column, pgast.ResTarget) else None
-            if (
-                not isinstance(value, pgast.TypeCast)
-                or not isinstance(value.arg, pgast.A_Const)
-                or not isinstance(value.arg.val, pgast.String)
-            ):
-                raise ValueError("frozen native descriptor is not a literal")
-            literal = value.arg.val.sval
-            if literal is None:
-                raise ValueError("frozen native descriptor lacks a literal value")
-            descriptor = json.loads(literal)
-            (view,) = (
-                item["query"]
-                for item in descriptor["views"]
-                if item["relation"] == "data.selected_fact"
-            )
-            (guard,) = (
-                item["body_sha256"]
-                for item in descriptor["functions"]
-                if item["signature"] == "data.guard_execution_admission()"
-            )
-            expectations[revision] = NativeExpectation(
-                (sha256(body.encode()).hexdigest(), sha256(bodies[_REQUIRED].encode()).hexdigest()),
-                descriptor["physical_id"],
-                guard,
-                view,
-                (path.with_name(state), declared["NATIVE_STATE_SHA256"]),
-                bodies[_REQUIRED],
-            )
-
-        def inherited(revision, visiting):
-            if revision in expectations:
-                return expectations[revision]
-            predecessor = revisions.get(revision)
-            if not isinstance(predecessor, str) or predecessor in visiting:
-                return None
-            return inherited(predecessor, visiting | {revision})
-
-        return {
-            revision: expectation
-            for revision in revisions
-            if (expectation := inherited(revision, set())) is not None
-        }
-    except (OSError, SyntaxError, ValueError, KeyError, AttributeError, TypeError) as exc:
+        identities = tuple(
+            (metadata, _file_identity(metadata.admission[0]), _file_identity(metadata.state[0]))
+            for metadata in revisions.values()
+            if metadata.admission is not None and metadata.state is not None
+        )
+        return _cached_all_expectations(tuple(revisions.items()), identities)
+    except OSError as exc:
         raise ExecutionAdmissionError(f"frozen native expectations are unavailable: {exc}") from exc
+
+
+@lru_cache(maxsize=4)
+def _cached_all_expectations(metadata_items, _artifact_identities) -> dict[str, NativeExpectation]:
+    revisions = dict(metadata_items)
+    return {
+        revision: _selected_expectation(metadata)
+        for revision in revisions
+        if (metadata := _expectation_metadata(revisions, revision)) is not None
+    }
+
+
+def _selected_expectation(metadata: _RevisionMetadata) -> NativeExpectation:
+    from pglast.error import Error as PostgreSQLParseError
+
+    assert metadata.admission is not None and metadata.state is not None
+    try:
+        return _cached_selected_expectation(
+            metadata, _file_identity(metadata.admission[0]), _file_identity(metadata.state[0])
+        )
+    except (
+        OSError,
+        SyntaxError,
+        ValueError,
+        KeyError,
+        AttributeError,
+        TypeError,
+        PostgreSQLParseError,
+    ) as exc:
+        raise ExecutionAdmissionError(f"frozen native expectations are unavailable: {exc}") from exc
+
+
+@lru_cache(maxsize=32)
+def _cached_selected_expectation(
+    metadata: _RevisionMetadata, _admission_identity, _state_identity
+) -> NativeExpectation:
+    from pglast import ast as pgast
+    from pglast import parse_sql
+
+    from .native_products import function_bodies
+
+    assert metadata.admission is not None and metadata.state is not None
+    path, digest = metadata.admission
+    sql = path.read_bytes()
+    if sha256(sql).hexdigest() != digest:
+        raise ValueError(f"{path.name}: frozen native admission digest differs")
+    bodies = function_bodies(sql.decode())
+    body = bodies[_DESCRIPTOR]
+    # The frozen descriptor is one literal JSON SELECT, read without executing target SQL.
+    (statement,) = parse_sql(body)
+    query = statement.stmt
+    if not isinstance(query, pgast.SelectStmt) or query.targetList is None:
+        raise ValueError("frozen native descriptor is not a SELECT")
+    (column,) = query.targetList
+    value = column.val if isinstance(column, pgast.ResTarget) else None
+    if (
+        not isinstance(value, pgast.TypeCast)
+        or not isinstance(value.arg, pgast.A_Const)
+        or not isinstance(value.arg.val, pgast.String)
+    ):
+        raise ValueError("frozen native descriptor is not a literal")
+    literal = value.arg.val.sval
+    if literal is None:
+        raise ValueError("frozen native descriptor lacks a literal value")
+    descriptor = json.loads(literal)
+    (view,) = (
+        item["query"] for item in descriptor["views"] if item["relation"] == "data.selected_fact"
+    )
+    (guard,) = (
+        item["body_sha256"]
+        for item in descriptor["functions"]
+        if item["signature"] == "data.guard_execution_admission()"
+    )
+    return NativeExpectation(
+        (sha256(body.encode()).hexdigest(), sha256(bodies[_REQUIRED].encode()).hexdigest()),
+        descriptor["physical_id"],
+        guard,
+        view,
+        metadata.state,
+        bodies[_REQUIRED],
+    )
 
 
 def _frozen_functions(path: Path, digest: str):

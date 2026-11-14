@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import text
 
 
-def test_execution_table_posture(semantic_db_engine, admitter):
-    with admitter.connect() as conn:
+def test_execution_table_posture(commit_db_engine, commit_admitter_engine):
+    with commit_admitter_engine.connect() as conn:
         columns = conn.execute(
             text("""
             SELECT attname,format_type(atttypid,atttypmod),attnotnull
@@ -182,7 +182,7 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
 
 
 def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
-    semantic_db_engine, semantic_writer_engine, admitter
+    commit_db_engine, commit_writer_engine, commit_admitter_engine
 ):
     from dataclasses import replace
 
@@ -194,8 +194,7 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
     from corpus_structure.semantic.contracts import trusted_execution_inputs
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.types import SourceArtifact
-
-    from .test_execution_release import _bundle
+    from semantic.execution_release_support import bundle as _bundle
 
     inputs = trusted_execution_inputs()
     catalog = yaml.safe_load(inputs.catalog.content)
@@ -207,7 +206,7 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
     deps = composed_dependencies(ResolvedDependencies(), candidate)
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(_bundle(), deps, profile)
-    with admitter.begin() as conn:
+    with commit_admitter_engine.begin() as conn:
         before = conn.scalar(
             text(
                 "SELECT prosrc FROM pg_proc WHERE "
@@ -216,7 +215,7 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
         )
         persist_release(conn, _bundle(), deps, profile, prepared)
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT ops.execution_edge(:r,'run','created','consolidating')"),
@@ -242,7 +241,7 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
         )
     # The unchanged complete start kernel cannot silently execute an edge removed by the model.
     with (
-        semantic_db_engine.begin() as conn,
+        commit_db_engine.begin() as conn,
         pytest.raises(DBAPIError, match="undeclared operation transition"),
         conn.begin_nested(),
     ):
@@ -276,7 +275,7 @@ def test_supported_predecessors_upgrade_to_relational_execution(semantic_databas
 
 
 @pytest.mark.parametrize("operation", ["configure_method", "register_document"])
-def test_actual_global_helper_requires_its_bound_operation(operation, semantic_writer_engine):
+def test_actual_global_helper_requires_its_bound_operation(operation, commit_writer_engine):
     import json
     from dataclasses import replace
     from pathlib import Path
@@ -297,7 +296,7 @@ def test_actual_global_helper_requires_its_bound_operation(operation, semantic_w
             for r in prepared.registry_rows
         ),
     )
-    with semantic_writer_engine.connect() as connection, pytest.raises(PreparationError) as refused:
+    with commit_writer_engine.connect() as connection, pytest.raises(PreparationError) as refused:
         if operation == "configure_method":
             from corpus_structure.semantic import operations
 
@@ -333,7 +332,7 @@ def test_explicit_transport_order_cannot_place_evidence_links_before_evidence():
 
 @pytest.mark.parametrize("change", ["empty", "partial", "moved", "optionalized"])
 def test_native_admission_rejects_unimplemented_scientific_layout(
-    semantic_db_engine, admitter, change
+    commit_db_engine, commit_admitter_engine, change
 ):
     import json
     from hashlib import sha256
@@ -348,12 +347,12 @@ def test_native_admission_rejects_unimplemented_scientific_layout(
     from .archive_faults import administrative_archive_edit
 
     bundle, dependencies, profile, prepared = prepare_packs((Path("domains/statistics"),))
-    with admitter.begin() as connection:
+    with commit_admitter_engine.begin() as connection:
         persist_release(connection, bundle, dependencies, profile, prepared)
     # Independently challenge native compatibility after the compiler has verified its source.
     # Only the authenticated administrator can inject this formerly admitted/corrupt recipe.
     with (
-        semantic_db_engine.begin() as admin,
+        commit_db_engine.begin() as admin,
         administrative_archive_edit(admin, table("sem.artifact")),
     ):
         original = bytes(
@@ -390,7 +389,7 @@ def test_native_admission_rejects_unimplemented_scientific_layout(
         )
     with (
         pytest.raises(DBAPIError, match="unsupported scientific report layout"),
-        admitter.begin() as connection,
+        commit_admitter_engine.begin() as connection,
     ):
         connection.execute(
             text("SELECT data.require_execution_release(:release)"),

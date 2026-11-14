@@ -9,10 +9,10 @@ from corpus_structure.ingest.pdf_stream_reconciliation import (
     ReconciliationJournal,
     reconcile_pdf_stream,
 )
+from semantic.pdf_integration_support import pin
+from semantic.pdf_reconciliation_support import recognized
 
 from . import pdf_integration_support as integration_fixtures
-from .pdf_integration_support import pin
-from .test_pdf_reconciliation import recognized
 
 native_source = integration_fixtures.native_source
 

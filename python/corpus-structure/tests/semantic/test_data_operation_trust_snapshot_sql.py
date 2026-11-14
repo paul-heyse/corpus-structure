@@ -7,8 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from .test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
-from .test_data_operation_storage import kernel as kernel
+from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.fixture
@@ -136,31 +135,31 @@ def test_native_attachment_checks_locked_positive_epochs_against_full_read_pins(
     assert actual is changed
 
 
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
 @pytest.mark.db
-def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materialize(kernel):
+def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materialize(ddo_kernel):
     from corpus_structure.semantic.data_operation_demands import (
         DemandPlanner,
         RootSubject,
         freeze_demand,
     )
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-
-    from .test_data_operation_storage import claim, publish, retain
+    from semantic.data_operation_demand_support import claim, publish, retain
 
     intent = freeze_demand(
-        kernel["model"],
+        ddo_kernel["model"],
         roots=(RootSubject("one", "source:one", b"{}"), RootSubject("two", "source:two", b"{}")),
         targets=("urn:ddo-test:source",),
         inference="exact",
         execution_profile="execution:test",
     )
-    with kernel["engine"].begin() as connection:
-        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         demand = planner.register(
             intent,
             project="ddo-test",
-            release=kernel["prepared"].release_id,
-            runtime=kernel["runtime"],
+            release=ddo_kernel["prepared"].release_id,
+            runtime=ddo_kernel["runtime"],
         )["demand_id"]
         pinned = planner.resume(demand)
         assert pinned["trust_snapshot"] == {}
@@ -186,11 +185,11 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
         for request in ready
         if request.resolved.subject_context.original_source == "source:one"
     )
-    fence = claim(kernel, json.loads(first.native))
-    receipt = publish(kernel, fence, retain(kernel, fence))
+    fence = claim(ddo_kernel, json.loads(first.native))
+    receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence))
     # Concrete support epochs remain in authentic publication attribution.
     assert list(receipt["trust_snapshot"].values()) == [0]
-    with kernel["engine"].begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         DataOperationStorage(connection).invoke(
             "revoke_data_support",
             {
@@ -202,9 +201,9 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
             },
         )
     with (
-        kernel["engine"].begin() as connection,
+        ddo_kernel["engine"].begin() as connection,
         pytest.raises(DBAPIError, match="pins or current trust differ"),
     ):
-        DemandPlanner(kernel["model"], DataOperationStorage(connection)).resume(
+        DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection)).resume(
             demand, read_id=pinned["read_id"]
         )

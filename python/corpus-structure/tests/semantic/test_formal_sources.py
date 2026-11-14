@@ -9,8 +9,8 @@ from corpus_structure.semantic.formal_sources import (
     mapped_formal_extents,
     normalize_inline_equation,
 )
-from semantic.test_formal_evidence import operation, source
-from semantic.test_formal_evidence import prepared as prepared
+from semantic.primary_formal_fixture import operation, source
+from semantic.primary_formal_fixture import prepared as prepared
 
 
 def case(prepared, text="Z using the equation X = σZ + µ.", **options):  # noqa: RUF001 - literal mathematical sigma

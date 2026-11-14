@@ -33,8 +33,7 @@ from corpus_structure.semantic.formal_products import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-
-from .test_formal_products import selected
+from semantic.formal_products_support import selected
 
 
 @pytest.fixture(scope="module")

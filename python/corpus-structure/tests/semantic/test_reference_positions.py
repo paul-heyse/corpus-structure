@@ -110,8 +110,7 @@ def test_proposal_and_domain_property_reference_use_declared_nonentity_carrier()
     from corpus_structure.semantic.domain_operations import _property_value
     from corpus_structure.semantic.proposals import locate_proposal, proposal_inputs
     from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-
-    from .test_proposals import batch, frame
+    from semantic.proposals_support import batch, frame
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     declaration = b"""id: https://example.org/reference_domain

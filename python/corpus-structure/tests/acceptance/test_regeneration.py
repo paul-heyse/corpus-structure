@@ -19,11 +19,11 @@ from corpus_structure.settings import Settings
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, scope_name):
+def retained_integrated_cli(commit_db_engine, tmp_path, monkeypatch, domain, scope_name):
     settings = Settings(
         ci_results=tmp_path / "cli-results",
         database={
-            "url": semantic_db_engine.url.set(
+            "url": commit_db_engine.url.set(
                 drivername="postgresql", username="corpus_sem_writer"
             ).render_as_string(hide_password=False)
         },
@@ -34,8 +34,7 @@ def retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, s
         retained_document,
         seed_retained_integrated_product,
     )
-
-    from ..semantic.pdf_integration_support import IMAGE, RESPONSE, observation
+    from semantic.pdf_integration_support import IMAGE, RESPONSE, observation
 
     builder = runpy.run_path(str(ROOT / "fixtures/toy/build_pdf.py"))
     domains = tmp_path / "domains"
@@ -107,9 +106,9 @@ def retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, s
     [("statistics", "acceptance-native"), ("toy", "transfer")],
 )
 def test_retained_integrated_cli_lifecycle(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch, domain, scope_name
+    commit_db_engine, commit_writer_engine, tmp_path, monkeypatch, domain, scope_name
 ):
-    case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, scope_name)
+    case = retained_integrated_cli(commit_db_engine, tmp_path, monkeypatch, domain, scope_name)
     settings, domains, pin = case.settings, case.domains, case.pin
     pin_path = case.pin_path
 
@@ -119,7 +118,7 @@ def test_retained_integrated_cli_lifecycle(
     monkeypatch.setattr(
         "corpus_structure.ingest.pdf_reconciliation.select_pdf_integration", forbidden_reselection
     )
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         before = conn.execute(
             text(
                 "SELECT table_schema,table_name FROM information_schema.tables "
@@ -136,7 +135,7 @@ def test_retained_integrated_cli_lifecycle(
     from corpus_structure.semantic.characterization_store import read_view
     from corpus_structure.semantic.product_reference import ProductReference
 
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         source_runs = {
             source.run_id
             for selected in report["characterization_views"]
@@ -146,7 +145,7 @@ def test_retained_integrated_cli_lifecycle(
             )
         }
     assert report["run_id"] not in source_runs
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         project = conn.execute(select(table("data.project"))).mappings().one()
         assert project["selected_result_run_id"] is None and project["active_release_id"] is None
         assert (
@@ -218,7 +217,7 @@ def test_retained_integrated_cli_lifecycle(
     assert resumed.exit_code == 0, (resumed.output, resumed.exception)
     assert json.loads(resumed.stdout)["run_id"] == report["run_id"]
 
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         tasks = table("ops.task")
         assert (
             conn.execute(
@@ -320,7 +319,7 @@ def test_retained_integrated_cli_lifecycle(
         assert selection["status"] == "complete" and selection["provider"] is None
         assert selection["release_id"] == report["release_id"]
         assert selection["output_realization_id"] == output
-        with semantic_db_engine.connect() as conn:
+        with commit_db_engine.connect() as conn:
             project = conn.execute(select(table("data.project"))).mappings().one()
             assert project["active_release_id"] == report["release_id"]
             assert project["selected_result_run_id"] == run_id
@@ -355,7 +354,7 @@ def test_retained_integrated_cli_lifecycle(
         assert restored_report["semantic_impact"]["before_release"] == alternate.release_id
         assert restored_report["semantic_impact"]["after_release"] == report["release_id"]
         assert any("Native admission" in item for item in restored_report["compatibility_advice"])
-        with semantic_db_engine.connect() as conn:
+        with commit_db_engine.connect() as conn:
             project = conn.execute(select(table("data.project"))).mappings().one()
             assert project["active_release_id"] == report["release_id"]
             assert project["selected_result_run_id"] == run_id
@@ -394,7 +393,7 @@ def test_retained_integrated_cli_lifecycle(
 
 @pytest.mark.parametrize("failure_kind", ["failure", "interruption"])
 def test_initial_source_failure_retains_committed_run(
-    semantic_db_engine, tmp_path, monkeypatch, failure_kind
+    commit_db_engine, tmp_path, monkeypatch, failure_kind
 ):
     from structlog.contextvars import get_contextvars
 
@@ -403,11 +402,11 @@ def test_initial_source_failure_retains_committed_run(
     from corpus_structure.orchestrate import semantic, source_operation
     from corpus_structure.orchestrate.liveness import observe_supervisor
 
-    case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, "toy", "transfer")
+    case = retained_integrated_cli(commit_db_engine, tmp_path, monkeypatch, "toy", "transfer")
     store = ResultStore(case.settings.ci_results)
     baseline_context = get_contextvars()
     runs = table("ops.run")
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         before = set(conn.scalars(select(runs.c.id)))
     created, selected, closed = [], [], []
     native_start = source_operation.run_source_operation
@@ -423,7 +422,7 @@ def test_initial_source_failure_retains_committed_run(
         callback = kwargs["on_created"]
 
         def acquired(identity):
-            with semantic_db_engine.connect() as conn:
+            with commit_db_engine.connect() as conn:
                 row = conn.execute(
                     select(runs.c.id, runs.c.project_id, runs.c.release_id).where(
                         runs.c.id == identity.run_id
@@ -470,7 +469,7 @@ def test_initial_source_failure_retains_committed_run(
         assert result.exception is primary
     assert get_contextvars() == baseline_context
     assert len(created) == 1 and "ingest.pdf_integrated" in closed
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         after = set(conn.scalars(select(runs.c.id))) - before
         assert after == {created[0].run_id}
         native = conn.execute(
@@ -509,14 +508,14 @@ def test_initial_source_failure_retains_committed_run(
 
 @pytest.mark.parametrize("source_fails", [False, True])
 def test_initial_source_diagnostic_binding_failure_preserves_native_outcome(
-    semantic_db_engine, tmp_path, monkeypatch, source_fails
+    commit_db_engine, tmp_path, monkeypatch, source_fails
 ):
     from structlog.contextvars import get_contextvars
 
     from corpus_structure.cli.managed import Invocation, ResultStore
     from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
 
-    case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, "toy", "transfer")
+    case = retained_integrated_cli(commit_db_engine, tmp_path, monkeypatch, "toy", "transfer")
     before_context = get_contextvars()
     binding_calls, calls = [], []
     primary = RuntimeError("controlled source failure after unavailable diagnostics")
@@ -552,7 +551,7 @@ def test_initial_source_diagnostic_binding_failure_preserves_native_outcome(
     assert item.details["observation_binding_unavailable"] == "OSError"
     assert "observation_bindings" not in item.details
     assert "Native run observation binding unavailable: OSError" in result.stderr
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         runs = table("ops.run")
         states = dict(
             conn.execute(
@@ -627,12 +626,12 @@ def test_source_pin_requires_the_typed_contract(tmp_path, option):
 
 
 def test_repeated_default_preparation_reuses_exact_primary_custody(
-    semantic_db_engine, tmp_path, monkeypatch
+    commit_db_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.orchestrate.phase0 import CHARACTERIZATION_METHODS
 
     case = retained_integrated_cli(
-        semantic_db_engine, tmp_path, monkeypatch, "statistics", "acceptance-native"
+        commit_db_engine, tmp_path, monkeypatch, "statistics", "acceptance-native"
     )
     runner = CliRunner()
     state = CliState(settings_factory=lambda: case.settings)

@@ -6,26 +6,19 @@ qualifies native selection/hydration, not PDF/NLP provider execution or linguist
 
 from __future__ import annotations
 
-import copy
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
-from sqlalchemy import insert
 
 from corpus_structure.semantic.data_operation_admission import (
     acquire_publication_port,
-    admit_data_operation_release,
-    bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_bindings import (
     PopulationBinding,
     compile_binding,
     execute_binding,
 )
-from corpus_structure.semantic.data_operation_consumers import consumer_selection_declarations
 from corpus_structure.semantic.data_operation_demands import (
     DiscoverySelection,
     OperationSelection,
@@ -39,36 +32,15 @@ from corpus_structure.semantic.data_operation_identity import (
     semantic_value,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
-from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
-from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
     admitted_data_projection,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.python_operation_sources import PythonSource
-from corpus_structure.semantic.releases import persist_release
-from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 from corpus_structure.semantic.structural_products import ExternalSourceRef
-
-from .test_data_operation_storage import _declaration, claim
-from .test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
-
-PREFIX = "https://corpus-structure.dev/semantic/data-operation-consumers/"
-KINDS = {
-    "views": "DdoSourceViewBinding",
-    "passages": "DdoPassageBinding",
-    "readings": "DdoReadingBinding",
-    "occurrences": "DdoOccurrenceBinding",
-}
-CASES = {
-    "document": ("text.native_evidence/selection", "document", ("views",)),
-    "projection": ("extract.m1_candidates/selection", "document", ("views",)),
-    "structural": ("structure.compare/selection", "input", ("passages", "readings")),
-    "occurrences": ("retrieve.contextual/selection", "view", ("views", "occurrences")),
-}
+from semantic.data_operation_demand_support import claim
+from semantic.data_operation_kernel_support import CASES, CONSUMERS, KINDS, PREFIX
 
 
 def _source_reference(index):
@@ -172,87 +144,7 @@ def _records(case: str) -> dict[str, list[tuple[str, str, dict[str, Any]]]]:
     return result
 
 
-def _prepare(tmp_path, case):
-    root = Path(__file__).resolve().parents[2] / "src/corpus_structure"
-    schema = yaml.safe_load((root / "model/semantic/data-operation-consumers.yaml").read_text())
-    schema["classes"]["ConsumerScope"] = {
-        "attributes": {
-            "page": {"range": "DdoBindingInteger"},
-        }
-    }
-    schema["classes"]["ConsumerContext"] = {
-        "attributes": {
-            "subject": {"required": True},
-            "original_source": {"required": True},
-            "analyzed_scope": {"range": "ConsumerScope", "required": True, "inlined": True},
-        }
-    }
-    operation_id, _, groups = CASES[case]
-    declarations: list[dict[str, Any]] = []
-    for group in groups:
-        kind = KINDS[group]
-        packet, population = "ConsumerPacket_" + group, "ConsumerPopulation_" + group
-        schema["classes"][packet] = {
-            "attributes": {
-                "member_id": {"required": True},
-                "kind_contract": {"required": True},
-                "context": {"range": "ConsumerContext", "required": True, "inlined": True},
-                "body": {"range": kind, "required": True, "inlined": True},
-            }
-        }
-        schema["classes"][population] = {
-            "attributes": {
-                "complete": {"range": "DdoBindingBoolean", "required": True},
-                "members": {
-                    "range": packet,
-                    "required": True,
-                    "multivalued": True,
-                    "inlined_as_list": True,
-                },
-            }
-        }
-        operation = _declaration()
-        operation.update(id="urn:consumer-native:" + group, profile="discovery")
-        operation["roles"][0].update(kind=population, collection="scalar", maximum=1)
-        declarations.append(operation)
-    sources = tuple(
-        PythonSource(name, (root / "methods" / (name + ".py")).read_bytes(), name + ".py")
-        for name in ("native_evidence", "m1_source", "structural_products", "contextual_candidates")
-    )
-    actual = next(
-        operation
-        for artifact in consumer_selection_declarations(sources)
-        for operation in json.loads(artifact.content)["operations"]
-        if operation["id"] == operation_id
-    )
-    actual = copy.deepcopy(actual)
-    # Explicit control producers close the actual consumer's input population.
-    # Its roles, predicates, source policy and selections remain the colocated contract.
-    actual["dependencies"] = [operation["id"] for operation in declarations]
-    declarations.append(actual)
-    (tmp_path / "schema.yaml").write_text(yaml.safe_dump(schema, sort_keys=False))
-    (tmp_path / "operations.yaml").write_bytes(
-        canonical_bytes(
-            {
-                "version": "data-operation-model-v2",
-                "operations": declarations,
-            }
-        )
-    )
-    (tmp_path / "target.yaml").write_text("""version: data-operation-inputs-v1
-root: target
-schemas: [{name: target, path: schema.yaml}]
-declarations: [{name: actual-consumer-and-controls, path: operations.yaml}]
-""")
-    bundle, dependencies, profile, prepared = prepare_data_operation_inputs(tmp_path, "target.yaml")
-    model = bound_data_operation_model(prepared)
-    runtime = prepare_data_operation_runtime(
-        prepared, dependencies.artifacts, execution_profile="execution:test", observed={}
-    )
-    return bundle, dependencies, profile, prepared, model, runtime
-
-
-def _publish(kernel, demand, root, group, body):
+def _publish(ddo_kernel, demand, root, group, body):
     operation = "urn:consumer-native:" + group
     context = SubjectContext(
         "ddo-test",
@@ -261,14 +153,14 @@ def _publish(kernel, demand, root, group, body):
         canonical_bytes(root["analyzed_scope"]),
     )
     request = SemanticRequestKey(
-        kernel["identities"][operation, "recipe"],
+        ddo_kernel["identities"][operation, "recipe"],
         root["subject"],
         {},
         {"parameters": {}, "replicate": None},
         "inference:test",
         subject_context=context,
     )
-    with kernel["engine"].begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         obligation = storage.invoke(
             "expand_data_obligation",
@@ -298,15 +190,15 @@ def _publish(kernel, demand, root, group, body):
                 },
             },
         )
-    fence = claim(kernel, attached)
-    contract = kernel["identities"][PREFIX + "ConsumerPopulation_" + group, "kind"]
+    fence = claim(ddo_kernel, attached)
+    contract = ddo_kernel["identities"][PREFIX + "ConsumerPopulation_" + group, "kind"]
     packets = [{**packet, "body": semantic_value(packet["body"])} for packet in body["members"]]
-    with kernel["engine"].begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         intent = DataOperationStorage(connection).invoke(
             "retain_data_completion_intent",
             {
                 **fence,
-                "runtime_id": kernel["runtime"],
+                "runtime_id": ddo_kernel["runtime"],
                 "completion": {
                     "outcome": "success",
                     "implementation_revision": "native-test-source-v1",
@@ -329,8 +221,8 @@ def _publish(kernel, demand, root, group, body):
         )
     from corpus_structure.semantic.data_operation_ports import RoleValue
 
-    with kernel["engine"].begin() as connection:
-        port = acquire_publication_port(connection, kernel["prepared"])
+    with ddo_kernel["engine"].begin() as connection:
+        port = acquire_publication_port(connection, ddo_kernel["prepared"])
         value = RoleValue(
             "request",
             port.request_kind,
@@ -345,7 +237,7 @@ def _publish(kernel, demand, root, group, body):
     product = contextual_product_identity(
         kind=contract, context=context, body=body_identity(body).key
     ).key
-    with kernel["engine"].begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         parent = DataOperationStorage(connection).invoke(
             "close_data_population",
             {
@@ -359,22 +251,16 @@ def _publish(kernel, demand, root, group, body):
     return product, parent
 
 
-@pytest.mark.parametrize("case", CASES)
-def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel_engine, tmp_path, case):
-    bundle, dependencies, profile, prepared, model, runtime = _prepare(tmp_path, case)
-    with ddo_kernel_engine.begin() as connection:
-        persist_release(connection, bundle, dependencies, profile, prepared)
-        admit_data_operation_release(connection, prepared)
-        persist_runtime_binding(connection, prepared, runtime)
-        connection.execute(insert(table("data.project")).values(project_id="ddo-test"))
-    ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
-    kernel = dict(
-        engine=ddo_kernel_engine,
-        prepared=prepared,
-        model=model,
-        runtime=runtime.runtime_id,
-        identities=ids,
-    )
+@pytest.mark.parametrize(
+    ("case", "ddo_kernel"),
+    [(case, CONSUMERS[case]) for case in CASES],
+    indirect=["ddo_kernel"],
+    ids=list(CASES),
+)
+def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel, case):
+    prepared, model = ddo_kernel["prepared"], ddo_kernel["model"]
+    runtime = ddo_kernel.preparation.runtime
+    ids = ddo_kernel["identities"]
     operation, subject, groups = CASES[case]
     scope = {"page": 1}
     root = dict(subject=subject, original_source="source:test", analyzed_scope=scope)
@@ -455,7 +341,7 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel_engine
         inference="inference:test",
         execution_profile="execution:test",
     ).record
-    with ddo_kernel_engine.begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         demand = DataOperationStorage(connection).invoke(
             "register_data_demand",
             {
@@ -469,8 +355,8 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel_engine
         )
     parents = {}
     for group in groups:
-        _, parents[group] = _publish(kernel, demand, root, group, bodies[group])
-    with ddo_kernel_engine.begin() as connection:
+        _, parents[group] = _publish(ddo_kernel, demand, root, group, bodies[group])
+    with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         obligation = storage.invoke(
             "expand_data_obligation",
@@ -518,7 +404,7 @@ def test_actual_consumer_selects_exact_native_hydrated_members(ddo_kernel_engine
                 },
             )
             selected.append(receipt)
-    with ddo_kernel_engine.begin() as connection:
+    with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         snapshot = storage.invoke("read_demand_result", {"demand_id": demand["demand_id"]})
         populations = tuple(

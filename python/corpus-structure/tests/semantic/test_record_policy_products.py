@@ -13,9 +13,8 @@ from corpus_structure.semantic.record_policy_products import (
     record_policy_inputs,
     validate_record_policy_binding,
 )
-
-from .test_record_contracts import release_inputs
-from .test_record_policy import calibrated, fitted
+from semantic.record_contracts_support import release_inputs
+from semantic.record_policy_support import calibrated, fitted
 
 
 @cache

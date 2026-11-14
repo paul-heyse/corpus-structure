@@ -256,7 +256,7 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
     candidate = {"semantic_type": "linguistic.constituent", "pin": PIN}
     contracts = ()
     if contract_mode != "legacy":
-        from .test_record_contracts import release_inputs
+        from semantic.record_contracts_support import release_inputs
 
         prepared = release_inputs()[2]
         contract = "PM2HanLPPhraseContributionV1"

@@ -11,8 +11,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import StructuralPassage
-
-from .test_scoped_relations import complete_native_fields, discover_relations, source
+from methods.m1_source_preparation_support import source
+from methods.scoped_relations_support import complete_native_fields, discover_relations
 
 
 @pytest.mark.parametrize("case", ["complete", "clipped", "wrong_group", "no_scope"])

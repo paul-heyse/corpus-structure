@@ -21,16 +21,18 @@ from corpus_structure.semantic.operations import (
     register_document,
 )
 from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
+from semantic.operation_scenario_support import prepare_operation_scenario
 
-from .operation_scenario_support import prepare_operation_scenario
 
-
-@pytest.mark.parametrize("captured_page", [False, pytest.param(True, marks=pytest.mark.corpus)])
+@pytest.mark.parametrize(
+    "captured_page",
+    [False, pytest.param(True, marks=pytest.mark.prerequisite("page85_native_capture"))],
+)
 def test_pdf_original_and_native_product_need_no_rendition(
     captured_page,
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
 ):
     from docling_core.types.doc import (
@@ -49,7 +51,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
         store_pdf_original,
     )
 
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(commit_db_engine, observations=True, composed=True)
     original, recipe = b"%PDF-1.7\nindependent source fixture", b'{"recipe":"native-test"}'
     schema = (
         files("corpus_structure")
@@ -89,13 +91,8 @@ def test_pdf_original_and_native_product_need_no_rendition(
                 str(repository / "docs/statistics_corpus/corpus/siegrist_random/Full_PDF/Full.pdf"),
             )
         )
-        if not source.exists() or not (evidence / "convert.payload.json").exists():
-            pytest.skip("actual page85 native capture and retained original are required")
         source_path = source
         with source.open("rb") as stream:
-            if stream.readline(128).strip() == b"version https://git-lfs.github.com/spec/v1":
-                pytest.skip("retained page85 PDF requires Git LFS hydration")
-            stream.seek(0)
             original = stream.read()
         recipe = (evidence / "convert.recipe.json").read_bytes()
         captured = json.loads((evidence / "convert.payload.json").read_bytes())
@@ -122,7 +119,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
         conversion, product_key="qualified", schema_digest=sha256(schema).hexdigest()
     )
     qualified = prepare_pdf_product(qualified_payload, original, schema, recipe)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -174,10 +171,10 @@ def test_pdf_original_and_native_product_need_no_rendition(
             == sha256(original).hexdigest()
         )
     # Record publication settles before fallible application preparation or terminal completion.
-    from .native_record_fixtures import publish_native_record_fixture
+    from semantic.native_record_fixtures import publish_native_record_fixture
 
     published = publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "native-records",
         task_id=task,
         attempt=claim.attempt,
@@ -186,7 +183,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
         document=doc,
     )
     publish_native_record_fixture(
-        semantic_writer_engine,
+        commit_writer_engine,
         tmp_path / "qualified-records",
         task_id=task,
         attempt=claim.attempt,
@@ -246,7 +243,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
         outcome=ObservationOutcome.FAILED,
         error=summary,
     )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         complete_unit_result(
             conn,
             task_id=task,
@@ -258,7 +255,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
             configuration_hash="pdf-fixture",
             source="file:pdf-fixture",
         )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         state = conn.execute(
             text("SELECT status,error FROM ops.task WHERE id=:task"), {"task": task}
         ).one()
@@ -300,7 +297,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
     if not captured_page:
         from corpus_structure.semantic.operations import end_source_run
 
-        with semantic_writer_engine.begin() as conn:
+        with commit_writer_engine.begin() as conn:
             late = create_task(
                 conn,
                 run_id=run,
@@ -323,7 +320,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
             assert end_source_run(conn, run) == 1
         from corpus_structure.semantic.pdf_staging import begin_pdf_build
 
-        with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError), commit_writer_engine.begin() as conn:
             begin_pdf_build(
                 conn,
                 task_id=late,
@@ -334,7 +331,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
                 schema_digest=sha256(schema).hexdigest(),
                 replay_key="late-publication",
             )
-        with semantic_reader_engine.connect() as conn:
+        with commit_reader_engine.connect() as conn:
             assert (
                 conn.execute(
                     text(

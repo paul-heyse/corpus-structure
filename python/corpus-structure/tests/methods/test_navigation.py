@@ -13,10 +13,9 @@ from corpus_structure.methods.witnessed_source_links import (
 from corpus_structure.semantic.characterization import LayerReport
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-
-from .navigation_fixture import primary_navigation
-from .test_m1_source_preparation import source
-from .test_scoped_relations import complete_native_fields
+from methods.m1_source_preparation_support import source
+from methods.navigation_fixture import primary_navigation
+from methods.scoped_relations_support import complete_native_fields
 
 
 def fixture():
@@ -101,8 +100,7 @@ def test_artifact_fields_and_targets_are_consumed_without_source_recognition(mon
     from corpus_structure.methods.artifact_identity import discover_identity_records
     from corpus_structure.semantic.constructions import navigation
     from corpus_structure.semantic.proposals import native_source_frame
-
-    from .test_scoped_relations import original_inputs
+    from methods.scoped_relations_support import original_inputs
 
     view = complete_native_fields(
         source(
@@ -149,8 +147,7 @@ def test_artifact_fields_and_targets_are_consumed_without_source_recognition(mon
 
 def test_table_header_geometry_uses_primary_cell_roles():
     from corpus_structure.methods.scoped_relations import _measure_table_geometry
-
-    from .test_m1_source_preparation import native_table_source, table_cell
+    from methods.m1_source_preparation_support import native_table_source, table_cell
 
     cells = [
         dict(table_cell("n=10", 0, 1), end_col_offset_idx=3),

@@ -4,6 +4,7 @@ import json
 from hashlib import sha256
 
 import pytest
+from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -14,9 +15,7 @@ from corpus_structure.semantic.pdf_publication import (
     validate_pdf_build,
 )
 from corpus_structure.semantic.pdf_record_identity import structured_payload_scalar
-
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_publication import stage_complete_native
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_payload_forward_state_retains_previous_managed_objects():
@@ -46,12 +45,12 @@ def test_payload_forward_state_retains_previous_managed_objects():
 
 
 def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path
+    private_build, commit_writer_engine, commit_db_engine, tmp_path
 ):
     from corpus_structure.semantic.pdf_payloads import PROFILE, prepare_payload_family
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    stage_complete_native(commit_writer_engine, build, tmp_path)
     value = {
         "page_no": 1,
         "has_words": True,
@@ -70,7 +69,7 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
         ],
     }
     logical = prepare_payload_family().logical_digest(value)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -110,7 +109,7 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
         )
         assert body["payload_logical_digest"] == logical
         assert body["page_no"] == 1
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         actual = conn.execute(
             text(
@@ -123,17 +122,17 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
 
 
 def test_final_validation_freezes_projection_membership(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path
+    private_build, commit_writer_engine, commit_db_engine, tmp_path
 ):
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    validate_pdf_build(semantic_writer_engine, frozen)
+    validate_pdf_build(commit_writer_engine, frozen)
     params = dict(
         build=build.build_id,
         task=build.task_id,
@@ -141,7 +140,7 @@ def test_final_validation_freezes_projection_membership(
         holder=build.holder,
         frozen=frozen.frozen_digest,
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         run_id = conn.execute(
             text("SELECT run_id FROM ops.task WHERE id=:task"), params
         ).scalar_one()
@@ -173,7 +172,7 @@ def test_final_validation_freezes_projection_membership(
         ).scalar_one_or_none()
         assert old_single_source is None
         assert recorded != sha256(single_source).hexdigest()
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         conn.execute(
             text(
                 "SELECT ops.adopt_pdf_access(:build,:task,:attempt,:holder,:frozen,'access',"
@@ -183,7 +182,7 @@ def test_final_validation_freezes_projection_membership(
         )
     with (
         pytest.raises(DBAPIError, match="projection membership is immutable"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         conn.execute(
             text(
@@ -195,13 +194,13 @@ def test_final_validation_freezes_projection_membership(
 
 
 def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
-    private_build, semantic_writer_engine, semantic_db_engine, tmp_path
+    private_build, commit_writer_engine, commit_db_engine, tmp_path
 ):
     from corpus_structure.semantic.operations import renew_claim
 
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     params = dict(
@@ -211,7 +210,7 @@ def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
         holder=build.holder,
         frozen=frozen.frozen_digest,
     )
-    with semantic_db_engine.begin() as owner:
+    with commit_db_engine.begin() as owner:
         owner.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         owner.execute(
             text("SELECT 1 FROM ops.pdf_stage_build WHERE build_id=:build FOR NO KEY UPDATE"),
@@ -227,11 +226,11 @@ def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
         ):
             with (
                 pytest.raises(DBAPIError, match="lock timeout"),
-                semantic_writer_engine.begin() as conn,
+                commit_writer_engine.begin() as conn,
             ):
                 conn.exec_driver_sql("SET LOCAL lock_timeout='100ms'")
                 conn.execute(text(statement), params)
-        with semantic_writer_engine.begin() as heartbeat:
+        with commit_writer_engine.begin() as heartbeat:
             heartbeat.exec_driver_sql("SET LOCAL lock_timeout='100ms'")
             renew_claim(
                 heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder

@@ -6,19 +6,18 @@ from sqlalchemy import text
 
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.serve.source_search import SourceSearchRequest, search_source
-
-from .test_pdf_native_consumer_journey import native_build_resubmission_case
+from semantic.agent_scenarios import native_build_resubmission_case
 
 
 def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_handles(
-    semantic_db_engine,
-    semantic_writer_engine,
+    commit_db_engine,
+    commit_writer_engine,
     tmp_path,
 ):
     _, run, _, view_id, _ = native_build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path
+        commit_db_engine, commit_writer_engine, tmp_path
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM ops.completed_result WHERE run_id=:run"), {"run": run}
@@ -34,7 +33,7 @@ def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_han
 
     async def journey():
         async with Client(
-            build_semantic_server(SemanticAgentSession(semantic_writer_engine, run))
+            build_semantic_server(SemanticAgentSession(commit_writer_engine, run))
         ) as client:
             found = await client.call_tool("find", {"request": {"run_id": run, "text": "Alice"}})
             assert not found.is_error
@@ -50,8 +49,8 @@ def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_han
 
 
 def test_artifact_pages_are_bound_to_the_exact_selected_product(
-    semantic_db_engine,
-    semantic_writer_engine,
+    commit_db_engine,
+    commit_writer_engine,
     tmp_path,
 ):
     import base64
@@ -63,14 +62,14 @@ def test_artifact_pages_are_bound_to_the_exact_selected_product(
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
     _, run, _, view_id, _ = native_build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path
+        commit_db_engine, commit_writer_engine, tmp_path
     )
     expected = (
         files("corpus_structure")
         .joinpath("model/semantic/docling-validation.schema.json")
         .read_bytes()
     )
-    with semantic_writer_engine.connect() as conn:
+    with commit_writer_engine.connect() as conn:
         (hit,) = search_source(conn, SourceSearchRequest(run_id=run, text="Alice")).rows
         assert hit.source_view_id == view_id
         request = NativeSourceRequest(

@@ -6,6 +6,7 @@ import pytest
 
 from corpus_structure.semantic.query import Coverage, CoverageRequirement
 from corpus_structure.semantic.refusals import SemanticRefusal, tool_refusals
+from semantic.agent_scenarios import ResubmissionRecipe
 
 
 def witness(
@@ -114,9 +115,10 @@ def test_cli_database_failure_is_not_semantic_refusal():
     assert json.loads(result.stdout)["error"]["code"] == "database_serialization"
 
 
-def test_native_cut_family_universe_and_document_lifting(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
-):
+@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
+def test_native_cut_family_universe_and_document_lifting(resubmission_case, tmp_path):
+    commit_writer_engine = resubmission_case.writer
+    commit_reader_engine = resubmission_case.reader
     from sqlalchemy import select
 
     from corpus_structure.orchestrate.commands import finalize_bound_run
@@ -124,12 +126,8 @@ def test_native_cut_family_universe_and_document_lifting(
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
     from corpus_structure.semantic.query import bind_completed_result, read_snapshot
 
-    from .agent_scenarios import build_resubmission_case
-
-    prepared, run, task, locator = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "coverage.html", composed=True
-    )
-    with semantic_writer_engine.begin() as conn:
+    prepared, run, task, locator = resubmission_case.stage.result
+    with commit_writer_engine.begin() as conn:
         tasks = table("ops.task")
         source = conn.execute(select(tasks).where(tasks.c.id == task)).mappings().one()
         create_task(
@@ -163,10 +161,10 @@ def test_native_cut_family_universe_and_document_lifting(
         document = conn.execute(
             select(views.c.document_id).where(views.c.id == source["unit_id"])
         ).scalar_one()
-    finalize_bound_run(semantic_writer_engine, run, "coverage-output")
+    finalize_bound_run(commit_writer_engine, run, "coverage-output")
     family = "https://example.org/name"
     a, b = witness(locator, family=family), witness("unit-B", family=family)
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         session = bind_completed_result(conn, run)
         requirement = session.required_coverage(run, family)
         assert requirement.members == frozenset({locator, "unit-B"})

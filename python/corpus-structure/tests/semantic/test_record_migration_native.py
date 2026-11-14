@@ -32,9 +32,9 @@ RELATIONS = (
 
 
 def test_record_migration_admits_table_posture_and_immutable_guards(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         descriptor = conn.exec_driver_sql(
             "SELECT data.execution_contract_descriptor()"
@@ -104,7 +104,7 @@ def test_record_migration_admits_table_posture_and_immutable_guards(
     # Disposal must complete inside the transaction, before inference can open a
     # fresh stage. ON COMMIT DROP alone cannot establish this lifecycle contract.
     with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        commit_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         begin_stage(conn)

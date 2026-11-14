@@ -21,12 +21,12 @@ from corpus_structure.semantic.operations import (
 
 
 def test_native_hold_fences_cancellation_and_refuses_forged_error_seed(
-    semantic_db_engine, semantic_writer_engine
+    commit_db_engine, commit_writer_engine
 ):
-    from .operation_scenario_support import prepare_operation_scenario
+    from semantic.operation_scenario_support import prepare_operation_scenario
 
-    prepared = prepare_operation_scenario(semantic_db_engine)
-    engine = semantic_writer_engine
+    prepared = prepare_operation_scenario(commit_db_engine)
+    engine = commit_writer_engine
     t = table("ops.task")
     with engine.begin() as conn:
         run = create_run(

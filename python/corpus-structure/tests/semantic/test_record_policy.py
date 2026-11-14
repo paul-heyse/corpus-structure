@@ -22,7 +22,6 @@ from corpus_structure.semantic.record_policy import (
     FeatureInstance,
     FinalEventCalibration,
     LinearParameters,
-    PolicyApplicability,
     RecordAcceptanceInstance,
     RecordAlgorithm,
     RecordFeatures,
@@ -30,96 +29,28 @@ from corpus_structure.semantic.record_policy import (
     derive_record_features,
     score_record,
 )
-
-from .test_record_contracts import bind, finish, release_inputs, table_record
-
-
-def algorithm(**changes):
-    return RecordAlgorithm(features=(FEATURES[0],), **changes)
-
-
-def applicability():
-    return PolicyApplicability(
-        release_id="release:test",
-        family="table",
-        subset="native-tables",
-        assumptions="fixed source cut",
-    )
-
-
-def vector(index, value, *, algo=None):
-    algo = algo or algorithm()
-    return RecordFeatures(
-        record_id=f"record:{index}",
-        interpretation_id=f"reading:{index}",
-        release_id="release:test",
-        family="table",
-        feature_signature=algo.feature_signature,
-        names=tuple(feature.name for feature in algo.features),
-        values=(float(value),),
-        input_digest="a" * 64,
-    )
-
-
-def frame(ids, *, calibration=False):
-    return FittingFrame(
-        frame_digest=("b" if calibration else "a") * 64,
-        reference_digest=("d" if calibration else "c") * 64,
-        coverage_digest="e" * 64,
-        event_ids=tuple(ids),
-        provenance="independent evaluator fixture",
-        assumptions="complete fixed eligible/scored frame; no-output source census separate",
-    )
-
-
-def training(*, algo=None, weights=None):
-    algo = algo or algorithm()
-    values = (-3.0, -2.0, -1.0, 1.0, 2.0, 3.0)
-    weights = weights or (1.0,) * len(values)
-    observations = tuple(
-        FeatureFitObservation(
-            features=vector(index, value, algo=algo),
-            label=WholeReadingLabel(
-                event_id=f"reading:{index}",
-                origin_group=f"source:{index % 3}",
-                correct=index >= 3,
-                sample_weight=weight,
-            ),
-        )
-        for index, (value, weight) in enumerate(zip(values, weights, strict=True))
-    )
-    return observations, frame(row.label.event_id for row in observations)
-
-
-def fitted():
-    rows, selected = training()
-    result = fit_whole_reading_features(
-        rows, algorithm=algorithm(), applicability=applicability(), frame=selected
-    )
-    assert result.instance is not None
-    return result.instance
-
-
-def calibrated(feature):
-    rows = tuple(
-        FinalEventObservation(
-            feature_instance_digest=feature.digest,
-            event_procedure="uncoupled-whole-reading-1",
-            final_event_score=float(score),
-            label=WholeReadingLabel(
-                event_id=f"cal:{index}", origin_group=f"source:{index % 3}", correct=index >= 3
-            ),
-        )
-        for index, score in enumerate((-4, -2, -1, 1, 2, 4))
-    )
-    result = fit_final_event_calibration(
-        rows,
-        feature=feature,
-        frame=frame((row.label.event_id for row in rows), calibration=True),
-        event_procedure="uncoupled-whole-reading-1",
-    )
-    assert result.calibration is not None
-    return result.calibration
+from semantic.record_contracts_support import bind, finish, release_inputs, table_record
+from semantic.record_policy_support import (
+    algorithm as algorithm,
+)
+from semantic.record_policy_support import (
+    applicability as applicability,
+)
+from semantic.record_policy_support import (
+    calibrated as calibrated,
+)
+from semantic.record_policy_support import (
+    fitted as fitted,
+)
+from semantic.record_policy_support import (
+    frame as frame,
+)
+from semantic.record_policy_support import (
+    training as training,
+)
+from semantic.record_policy_support import (
+    vector as vector,
+)
 
 
 def test_actual_record_features_preserve_missing_raw_inputs_and_role_universe():
@@ -429,7 +360,7 @@ def policy_for_reading(prepared, row):
 
 @pytest.mark.parametrize("state", ["unstated", "inapplicable"])
 def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowering(state):
-    from .test_record_assertions import inputs, lower, record, seal
+    from semantic.record_assertions_support import inputs, lower, record, seal
 
     overrides = {
         role: {
@@ -495,7 +426,7 @@ def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowerin
 
 
 def test_supplemental_transformed_role_requires_its_own_located_support():
-    from .test_record_assertions import inputs, record
+    from semantic.record_assertions_support import inputs, record
 
     overrides = {
         role: {

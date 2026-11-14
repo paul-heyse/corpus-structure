@@ -9,13 +9,12 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_identity_sql
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
+from semantic.pdf_staging_support import private_build as private_build
 
-from .pdf_staging_support import private_build as private_build
 
-
-def test_publication_inline_and_key_spelling(semantic_db_engine):
+def test_publication_inline_and_key_spelling(commit_db_engine):
     sql = pdf_record_logical_identity_sql()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
         for value in (
@@ -47,9 +46,9 @@ def test_publication_inline_and_key_spelling(semantic_db_engine):
         assert actual == canonical_scalar(-0.0)
 
 
-def test_publication_inline_refuses_non_scalar(semantic_db_engine):
+def test_publication_inline_refuses_non_scalar(commit_db_engine):
     sql = pdf_record_logical_identity_sql()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
         for value in (
@@ -70,7 +69,7 @@ def test_publication_inline_refuses_non_scalar(semantic_db_engine):
 
 @pytest.mark.parametrize("segmented", [False, True])
 def test_actual_record_cursor_matches_independent_logical_fields(
-    semantic_db_engine, private_build, segmented
+    commit_db_engine, private_build, segmented
 ):
     from hashlib import sha256
 
@@ -146,7 +145,7 @@ def test_actual_record_cursor_matches_independent_logical_fields(
         "publication", "root", (("kind", "native"), ("recipe_digest", private_build.recipe_digest))
     )
     sql = pdf_record_logical_identity_sql()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         # Before publication migration these two relations are not yet in the foundation.
         # Minimal identity-only tables let this independent protocol vector run against0064.
@@ -288,7 +287,7 @@ def test_actual_record_cursor_matches_independent_logical_fields(
     "defect", [None, "referenced-bytes", "unused-bytes", "unused-order", "unused-missing"]
 )
 def test_complete_identity_verifies_shared_and_unreferenced_streams(
-    semantic_db_engine, private_build, defect
+    commit_db_engine, private_build, defect
 ):
     from hashlib import sha256
 
@@ -322,7 +321,7 @@ def test_complete_identity_verifies_shared_and_unreferenced_streams(
     expected.add_record(
         "publication", "root", (("kind", "native"), ("recipe_digest", build.recipe_digest))
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(
             pdf_record_logical_identity_sql(), execution_options={"no_parameters": True}

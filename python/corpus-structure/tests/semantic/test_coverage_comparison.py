@@ -4,8 +4,8 @@ import pytest
 
 from corpus_structure.semantic.pm2_coverage import ScopeCoverage
 from corpus_structure.serve.coverage_comparison import compare_scope_rows
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import private_source_options as private_source_options
 
 
 def scope(outcome="succeeded", **changes):
@@ -62,8 +62,11 @@ def test_contexts_and_parallel_scopes_remain_distinct():
     )
 
 
+@pytest.mark.parametrize(
+    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_completed_scope_comparison_and_cli(
-    private_source, cli, native_settings, semantic_reader_engine
+    private_source, cli, native_settings, record_source_reader
 ):
     import json
 
@@ -269,7 +272,7 @@ def test_native_completed_scope_comparison_and_cli(
             )
         pins.append(dict(run_id=run, cut_id=cut, release_id=case.prepared.release_id))
     request = CoverageComparisonRequest.model_validate(dict(left=pins[0], right=pins[1], limit=1))
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(record_source_reader) as conn:
         first = compare_coverage(conn, request)
         assert first.selected_count == 3 and first.rows[0].standing == "matched"
         assert first.rows[0].left[0].outcome == "unscheduled"

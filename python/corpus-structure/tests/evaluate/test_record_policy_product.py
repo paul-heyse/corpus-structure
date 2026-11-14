@@ -3,10 +3,9 @@
 from copy import deepcopy
 
 import pytest
+from evaluation_record_alignment_support import finish, frame, prepared, reading, role
 
 from corpus_structure.evaluate.record_policy import _diagnostics, whole_reading_correct
-
-from .test_record_alignment import finish, frame, prepared, reading, role
 
 
 def test_candidate_correctness_does_not_require_or_grant_public_acceptance():

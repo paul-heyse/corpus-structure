@@ -1,30 +1,63 @@
 """Native full-reading label controls; these do not establish fitted model quality."""
 
+from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any
 
-from semantic.conftest import semantic_db_engine as semantic_db_engine
-from semantic.conftest import semantic_writer_engine as semantic_writer_engine
-from semantic.native_record_fixtures import candidate
-from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import private_source_options as private_source_options
+import pytest
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate
+from semantic.native_record_fixtures import private_record_release as private_record_release
 from sqlalchemy import text
 
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.types import PreparedRelease
 
 
+@dataclass(frozen=True)
+class PolicyCandidateSource:
+    prepared: PreparedRelease
+    view_row: Mapping[str, Any]
+    table: str
+
+
+@pytest.fixture
+def policy_record_source(private_record_release):
+    # eval.record_policy_full_correct consumes the release artifact and supplied
+    # candidate/reference values. Source custody is qualified by other native tests.
+    return PolicyCandidateSource(
+        private_record_release.prepared,
+        MappingProxyType(
+            dict(
+                native_task_id=11,
+                native_product_key="native",
+                native_content_digest="a" * 64,
+                projection_digest="b" * 64,
+                recipe_digest="c" * 64,
+                id=17,
+            )
+        ),
+        "#/tables/0",
+    )
+
+
+@pytest.mark.parametrize(
+    "private_record_release", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_whole_reading_labels_keep_meaning_and_source_occurrence(
-    private_source, semantic_db_engine
+    policy_record_source, commit_db_engine
 ):
-    record = candidate(private_source)
+    record = candidate(policy_record_source)
     different = deepcopy(record)
     different["fields"][0]["value"]["lexical"] = "13"
     different["fields"][0]["original"] = "13"
-    different_occurrence = candidate(private_source, cell=1)
+    different_occurrence = candidate(policy_record_source, cell=1)
     explanatory = deepcopy(record)
     explanatory["fields"][0]["reason"] = "independently inspected"
     evidence = deepcopy(record)
     evidence["fields"][0]["evidence_sets"] = ["another-set"]
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
 
         def correct(prediction):
             return conn.execute(
@@ -33,7 +66,7 @@ def test_native_whole_reading_labels_keep_meaning_and_source_occurrence(
                     ":release,CAST(:candidate AS jsonb),CAST(:refs AS jsonb))"
                 ),
                 dict(
-                    release=private_source.prepared.release_id,
+                    release=policy_record_source.prepared.release_id,
                     candidate=canonical_bytes(prediction).decode(),
                     refs=canonical_bytes([record]).decode(),
                 ),
@@ -46,8 +79,11 @@ def test_native_whole_reading_labels_keep_meaning_and_source_occurrence(
         assert correct(evidence) is False
 
 
+@pytest.mark.parametrize(
+    "private_record_release", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
+)
 def test_native_comparison_projection_preserves_original_ids_and_exact_coordinates(
-    private_source, semantic_db_engine
+    policy_record_source, commit_db_engine
 ):
     """Comparison mechanics only; the protected caller authenticates these pin pairs."""
     from corpus_structure.evaluate.record_alignment import comparison_record
@@ -58,7 +94,7 @@ def test_native_comparison_projection_preserves_original_ids_and_exact_coordinat
         record_identity,
     )
 
-    reference = candidate(private_source)
+    reference = candidate(policy_record_source)
     prediction = deepcopy(reference)
     original_bytes = canonical_bytes(reference)
     pin = dict(reference["pin"], source="actual-successor-alias", source_view_id=927)
@@ -82,9 +118,9 @@ def test_native_comparison_projection_preserves_original_ids_and_exact_coordinat
         {"reference_pin": reference["pin"], "prediction_pin": pin, "physical_digest": "d" * 64}
     ]
     assert reference["record_id"] != prediction["record_id"]
-    with semantic_db_engine.connect() as conn:
+    with commit_db_engine.connect() as conn:
         args = dict(
-            release=private_source.prepared.release_id,
+            release=policy_record_source.prepared.release_id,
             candidate=canonical_bytes(prediction).decode(),
             refs=canonical_bytes([reference]).decode(),
             views=canonical_bytes(views).decode(),

@@ -3,35 +3,35 @@
 from dataclasses import asdict, replace
 from typing import Any
 
-import psycopg
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import select, text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.analytics import compile_projection
 from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
 from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
 from corpus_structure.semantic.local_admission import assertion_identity
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
-from semantic.native_record_fixtures import complete_contributions as complete
-from semantic.native_record_fixtures import contribution_drafts as drafts
-from semantic.native_record_fixtures import private_source_options as private_source_options
-
-from .native_record_fixtures import private_source as private_source
+from semantic.local_admission_scenarios import LocalWitnessRecipe
+from semantic.native_record_fixtures import private_source as private_source
 
 
-def local_cut(case):
-    with case.writer.begin() as conn:
-        complete(case, conn, drafts(case))
-        return seal_cut(conn, case.run, "local-source-final", final=True)
+@pytest.fixture
+def local_source(scenario_seeds):
+    with scenario_seeds.commit_clone(LocalWitnessRecipe()) as clone:
+        yield clone.stage.bind(clone.writer, clone=clone)
 
 
-def test_exact_local_claims_publish_without_complete_record_or_unit_attachment(private_source):
-    case = private_source
-    cut = local_cut(case)
+@pytest.fixture
+def local_witness_case(scenario_seeds):
+    with scenario_seeds.rollback_family(LocalWitnessRecipe()) as family:
+        yield family.stage.bind(family.reader), family
+
+
+def test_exact_local_claims_publish_without_complete_record_or_unit_attachment(local_source):
+    case, _, cut = local_source
     result = consolidate_cut(case.writer, cut, "local-source-public")
     assert consolidate_cut(case.writer, cut, "local-source-public") == result
     with read_snapshot(case.writer) as conn:
@@ -73,9 +73,10 @@ def test_exact_local_claims_publish_without_complete_record_or_unit_attachment(p
 @pytest.mark.parametrize(
     "corruption", ["event", "event_swap", "basis", "cut", "literal", "contribution", "append"]
 )
-def test_native_local_witness_refusals_rollback_receipt_and_all_rows(private_source, corruption):
-    case = private_source
-    cut = local_cut(case)
+def test_native_local_witness_refusals_rollback_receipt_and_all_rows(
+    local_witness_case, corruption
+):
+    (case, _, cut), family = local_witness_case
     inputs = _cut_input(case.writer, cut, "local-source-forged")
     assert inputs.batch.local_assertion
     clean = replace(inputs.batch, _analysis_input=None)
@@ -109,10 +110,7 @@ def test_native_local_witness_refusals_rollback_receipt_and_all_rows(private_sou
         # satisfying the earlier source-record append refusal.
         batch = replace(batch, **project_record_reports(case.prepared, ()))
     compiled = compile_projection(case.prepared, inputs.source_binding, kind="candidate")
-    with (
-        case.writer.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin() as transaction,
-    ):
+    with family.principal("write", isolation_level="SERIALIZABLE") as conn:
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"),
             dict(cut=cut, out=inputs.output_realization_id),
@@ -162,30 +160,28 @@ def test_native_local_witness_refusals_rollback_receipt_and_all_rows(private_sou
                 == 2
             )
             positive.rollback()
-        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+        expected = {
+            "event": ("23514", None, "local assertion policy or event is inapplicable"),
+            "basis": ("23514", None, "local assertion policy or event is inapplicable"),
+            "event_swap": ("23514", None, "source witness does not authorize this local event"),
+            "literal": (
+                "23514",
+                None,
+                "local assertion content or intrinsic identity differs from its exact witness",
+            ),
+            "append": (
+                "23514",
+                None,
+                "local source assertions require sealed-cut derived publication",
+            ),
+            "cut": ("23503", "fk_local_assertion_cut_id", None),
+            "contribution": ("23503", "fk_local_assertion_origin_task_id_contribution_id", None),
+        }[corruption]
+        with (
+            native_refusal(expected[0], constraint=expected[1], message=expected[2]),
+            conn.begin_nested(),
+        ):
             publish(batch, append=corruption == "append")
-        assert isinstance(caught.value.orig, psycopg.Error)
-        diagnostic = caught.value.orig.diag
-        if corruption in {"cut", "contribution"}:
-            expected_constraint = {
-                "cut": "fk_local_assertion_cut_id",
-                "contribution": "fk_local_assertion_origin_task_id_contribution_id",
-            }[corruption]
-            assert (caught.value.orig.sqlstate, diagnostic.constraint_name) == (
-                "23503",
-                expected_constraint,
-            )
-        else:
-            message = {
-                "event": "local assertion policy or event is inapplicable",
-                "basis": "local assertion policy or event is inapplicable",
-                "event_swap": "source witness does not authorize this local event",
-                "literal": (
-                    "local assertion content or intrinsic identity differs from its exact witness"
-                ),
-                "append": "local source assertions require sealed-cut derived publication",
-            }[corruption]
-            assert (caught.value.orig.sqlstate, diagnostic.message_primary) == ("23514", message)
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM data.batch WHERE realization_id=:z"),
@@ -193,7 +189,6 @@ def test_native_local_witness_refusals_rollback_receipt_and_all_rows(private_sou
             )
             == 0
         )
-        transaction.rollback()
     with case.writer.connect() as conn:
         assert (
             conn.scalar(

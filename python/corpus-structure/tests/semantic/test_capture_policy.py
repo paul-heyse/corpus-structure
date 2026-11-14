@@ -24,8 +24,7 @@ def test_unknown_capture_storage_cannot_self_attest_support():
 def current_capture_inputs():
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import PreparationProfile
-
-    from .test_analytics import prepared_inputs
+    from semantic.analytics_support import prepared_inputs
 
     bundle, dependencies, _ = prepared_inputs()
     profile = PreparationProfile(version="semantic-2")
@@ -45,7 +44,7 @@ def test_current_execution_capture_uses_its_declared_recipe_and_policy():
 
 @pytest.mark.parametrize("mode", ["resident", "spooled"])
 def test_current_capture_exports_from_regenerated_inputs(
-    semantic_db_engine, semantic_reader_engine, tmp_path, mode
+    commit_db_engine, commit_reader_engine, tmp_path, mode
 ):
     import pyarrow.parquet as pq
     from sqlalchemy import insert
@@ -57,7 +56,7 @@ def test_current_capture_exports_from_regenerated_inputs(
     from corpus_structure.serve.export import export_packet
 
     bundle, dependencies, profile, prepared = current_capture_inputs()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="current-capture"))
         conn.execute(
@@ -79,10 +78,10 @@ def test_current_capture_exports_from_regenerated_inputs(
                 operation_version="1",
             )
         )
-    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+    uri = commit_reader_engine.url.set(drivername="postgresql").render_as_string(
         hide_password=False
     )
-    with read_session(semantic_reader_engine, "current-capture") as session:
+    with read_session(commit_reader_engine, "current-capture") as session:
         projection = compile_projection(session.prepared, session.binding)
         packet = load_packet(session, uri, mode=mode, batch_size=1, scratch_path=tmp_path)
     with packet:

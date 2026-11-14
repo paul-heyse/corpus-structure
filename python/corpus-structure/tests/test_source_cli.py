@@ -353,8 +353,21 @@ def test_current_inspection_preserves_exact_product_and_companion_selector(
     assert selected.content_digest == "a" * 64
     assert selected.view == "manifest" and selected.collection == "coverage"
     assert json.loads(result.stdout)["rows"] == [{"outcome": "unknown"}]
-    old = cli("source", "inspect", "17", "4")
-    assert old.exit_code != 0
+    old = cli(
+        "source",
+        "inspect",
+        "17",
+        "4",
+        "--producing-task",
+        "23",
+        "--product",
+        "integrated",
+        "--native-digest",
+        "a" * 64,
+    )
+    assert old.exit_code == 2
+    assert "Got unexpected extra argument(s) (4)" in old.output
+    assert read.call_count == 1, "refused positional form reached the source reader"
 
 
 def test_source_coverage_summary_keeps_page_counts_and_continuation(

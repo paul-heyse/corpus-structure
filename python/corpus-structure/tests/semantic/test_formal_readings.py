@@ -10,9 +10,8 @@ from corpus_structure.semantic.formal_readings import (
     lexical_fact_readings,
 )
 from corpus_structure.semantic.structural_products import LocatedDefinitionSpan
-
-from .primary_formal_fixture import formal_layers
-from .test_typed_structural_composition import threshold_inputs
+from semantic.primary_formal_fixture import formal_layers
+from semantic.typed_structural_composition_support import threshold_inputs
 
 
 def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(monkeypatch):

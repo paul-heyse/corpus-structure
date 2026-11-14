@@ -4,6 +4,8 @@ from dataclasses import replace
 
 import pytest
 import yaml
+from annotation_support import controlled as controlled
+from annotation_support import item, primary_product
 
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.ingest.annotations import annotate
@@ -16,9 +18,6 @@ from corpus_structure.methods.definition_applicability import (
 from corpus_structure.methods.predicate_frames import predicate_frame_result
 from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.structural_products import StructuralPassage
-
-from .test_annotations import controlled as controlled
-from .test_annotations import item, primary_product
 
 
 def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):

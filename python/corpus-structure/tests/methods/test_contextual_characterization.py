@@ -12,24 +12,24 @@ from corpus_structure.methods.contextual_characterization import (
     canonical_tokens,
     reuse_native,
 )
-from corpus_structure.methods.native_evidence import native_run
 from corpus_structure.semantic.characterization import decode_layer, encode_layer
 from corpus_structure.semantic.contextual_characterization import (
     ContextInput,
     ContextPart,
     ContextualLayer,
 )
-from methods.test_native_evidence import builder_for, metadata
-from methods.test_native_evidence import native_source as native_source
-from methods.test_native_evidence import prepared as prepared
-
-
-def context_builder(source):
-    view, base, scope, operation = source[3:]
-    context = ContextInput.build([ContextPart(view, 0, len(view.text))], scope["selectors"])
-    return ContextualLayer(
-        base, scope, dict(operation, key="text.contextual_characterization"), context
-    )
+from methods.contextual_characterization_support import (
+    add_metadata as add_metadata,
+)
+from methods.contextual_characterization_support import (
+    context_builder as context_builder,
+)
+from methods.contextual_characterization_support import (
+    dipo_reply as dipo_reply,
+)
+from methods.native_evidence_support import builder_for, metadata
+from methods.native_evidence_support import native_source as native_source
+from methods.native_evidence_support import prepared as prepared
 
 
 def token_population(source, builder, prepared):
@@ -41,22 +41,6 @@ def token_population(source, builder, prepared):
     return canonical_tokens(builder, {pin: layer}, pin.values()), pin, layer
 
 
-def add_metadata(builder, providers=("maverick", "dipo")):
-    for provider in providers:
-        row = native_run(
-            provider,
-            "fixture",
-            "{}",
-            model="fixture",
-            version="1",
-            runtime_version="fixture",
-            layout=[],
-            text=[],
-        )
-        row["configuration_codec"] = provider + "-config-json-v1"
-        builder.native_runs.append(row)
-
-
 def mention_reply(tokens):
     return dict(
         tokens=[t["text"] for t in tokens],
@@ -65,22 +49,6 @@ def mention_reply(tokens):
         mentions_subtokens=[[1, 1], [2, 2], [7, 8]],
         clusters_subtokens=[[[1, 1], [2, 2]]],
         unmapped_mentions=[dict(subtokens=[7, 8], reason="special_token_endpoint")],
-    )
-
-
-def dipo_reply():
-    return dict(
-        mode="learned",
-        post_tokenizer_tokens=6,
-        edus=[
-            dict(tokens=[0, 2], chars=[0, 4], text="X X"),
-            dict(tokens=[2, 6], chars=[4, 14], text="é x+y [3]."),
-        ],
-        spans=[dict(left=[0, 1], right=[1, 2], nuclearity="SN", relation="contingency-condition")],
-        boundaries=[
-            dict(token_end=2, learned=True, forced=False, disposition="retained"),
-            dict(token_end=6, learned=True, forced=False, disposition="retained"),
-        ],
     )
 
 

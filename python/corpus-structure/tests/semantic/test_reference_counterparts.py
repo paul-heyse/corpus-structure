@@ -11,9 +11,8 @@ from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.query_compatibility import open_query_registry
 from corpus_structure.serve.explain import explain
 from corpus_structure.serve.journey import bind_session, serve_query
-
-from .inventory_reading import inventory_evidence, inventory_reports, inventory_supports
-from .reference_scenarios import publish_reference_case
+from semantic.inventory_reading import inventory_evidence, inventory_reports, inventory_supports
+from semantic.reference_scenarios import publish_reference_case
 
 STAT = "https://corpus-structure.dev/domains/statistics/"
 TOY = "https://corpus-structure.dev/domains/toy/"
@@ -73,9 +72,9 @@ def rows(conn, registry, run, name="claims", **params):
 
 
 def test_statistics_aliases_consolidate_current_source_and_serve_one_family(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
 ):
     paragraph = (
@@ -111,8 +110,8 @@ def test_statistics_aliases_consolidate_current_source_and_serve_one_family(
     claims += [claim(f"gamma-{i}", f"g{i}", STAT + "mean_value", formula("k")) for i in (1, 2, 3)]
     claims.append(claim("standard-mean", "standard", STAT + "mean_value", formula("0")))
     prepared, run, _ = publish_reference_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
         "statistics",
         [(paragraph, batch(entities, claims))],
@@ -123,7 +122,7 @@ def test_statistics_aliases_consolidate_current_source_and_serve_one_family(
         "k": {"claims/3", "claims/4", "claims/5"},
         "0": {"claims/6"},
     }
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         found = rows(conn, registry, run, predicate="stat:mean_value")
         assert len(found) == 3
         facts = {r["fact"]["object"]["expression"]: r["fact"] for r in found}
@@ -202,9 +201,9 @@ def interval(year):
 
 
 def test_toy_current_attribution_provenance_ambiguity_and_temporal_answers(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
 ):
     paragraph = (
@@ -264,14 +263,14 @@ def test_toy_current_attribution_provenance_ambiguity_and_temporal_answers(
         claim(f"other-owner-{who}", who, TOY + "owns", "asset") for who in ("other", "lower")
     ]
     prepared, run, _ = publish_reference_case(
-        semantic_db_engine,
-        semantic_writer_engine,
+        commit_db_engine,
+        commit_writer_engine,
         tmp_path,
         "toy",
         [(paragraph, batch(entities, claims, kind="toy:clause"))],
     )
     registry = open_query_registry(prepared, DOMAINS / "toy")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         accepted = rows(conn, registry, run, predicate="toy:owns")
         candidates = rows(conn, registry, run, predicate="toy:owns", include_candidates=True)
         assert len(accepted) == 7
@@ -321,9 +320,9 @@ def test_toy_current_attribution_provenance_ambiguity_and_temporal_answers(
 
 
 def test_toy_original_inspection_quotes_preserve_nested_roles_and_source_decimal(
-    semantic_db_engine,
-    semantic_writer_engine,
-    semantic_reader_engine,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_reader_engine,
     tmp_path,
 ):
     reference = json.loads(
@@ -357,10 +356,10 @@ def test_toy_original_inspection_quotes_preserve_nested_roles_and_source_decimal
     for assertion in authored["claims"]:
         assertion.update(statement="s", statement_role="conclusion")
     prepared, run, _ = publish_reference_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path, "toy", [(paragraph, authored)]
+        commit_db_engine, commit_writer_engine, tmp_path, "toy", [(paragraph, authored)]
     )
     registry = open_query_registry(prepared, DOMAINS / "toy")
-    with read_snapshot(semantic_reader_engine) as conn:
+    with read_snapshot(commit_reader_engine) as conn:
         registry_rows = rows(conn, registry, run, predicate="toy:registry_id")
         endpoints = {r["fact"]["object"]: r["fact"]["subject"]["entity_id"] for r in registry_rows}
         assert set(endpoints) == {"ORG-101", "ORG-202"}

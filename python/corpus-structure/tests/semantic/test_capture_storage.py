@@ -14,8 +14,7 @@ from corpus_structure.semantic.capture_storage import (
     finish_manifest,
     store_relation,
 )
-
-from .test_analytics import empty_packet, prepared_inputs
+from semantic.analytics_support import empty_packet, prepared_inputs
 
 
 def test_logical_digest_preserves_float_sign_decimal_and_nanosecond_without_batch_identity():

@@ -346,7 +346,7 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
 def test_configured_descriptions_change_pack_conditioning_without_changing_released_roles():
     from corpus_structure.methods.m1_source import configured_packs
     from corpus_structure.orchestrate.m1 import registry
-    from methods.test_m1_producer import release
+    from methods.m1_producer_support import release
 
     cfg = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "described")
     assert isinstance(cfg, M1Config)
@@ -408,7 +408,7 @@ def test_description_policy_rejects_unknown_families_empty_instructions_and_unre
 ):
     from corpus_structure.methods.m1_source import configured_packs
     from corpus_structure.orchestrate.m1 import registry
-    from methods.test_m1_producer import release
+    from methods.m1_producer_support import release
 
     cfg = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "described")
     with pytest.raises(ValueError, match=match):

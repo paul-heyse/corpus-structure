@@ -7,8 +7,7 @@ import pytest
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
-
-from .test_data_operation_storage import _declaration
+from semantic.data_operation_declaration_support import source_declaration
 
 
 @pytest.mark.parametrize(
@@ -47,7 +46,7 @@ classes:
             ),
         ),
     )
-    declaration = _declaration()
+    declaration = source_declaration()
     output = declaration["roles"][0]
     output.update(kind="Product", maximum=1, collection="scalar")
     incoming = copy.deepcopy(output)

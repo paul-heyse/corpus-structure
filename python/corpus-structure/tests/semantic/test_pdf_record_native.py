@@ -26,8 +26,7 @@ def header_binding(engine):
     from hashlib import sha256
 
     from corpus_structure.semantic.metadata import table
-
-    from .test_native_closure import archive
+    from semantic.native_closure_support import archive
 
     prepared = archive(engine)[-1]
     source = b"%PDF-1.7 foundation source"
@@ -148,15 +147,15 @@ def test_current_publication_uses_record_products_without_legacy_bridges():
     assert "FROM ops.pdf_published_revision" in sql
 
 
-def test_private_native_foundations_and_constraints(semantic_db_engine):
+def test_private_native_foundations_and_constraints(commit_db_engine):
     from hashlib import sha256
 
     from corpus_structure.semantic.execution_admission import _verify_deployment_functions
     from corpus_structure.semantic.pdf_records import iter_native_records
 
     tables = record_tables()
-    binding = header_binding(semantic_db_engine)
-    with semantic_db_engine.begin() as conn:
+    binding = header_binding(commit_db_engine)
+    with commit_db_engine.begin() as conn:
         _verify_deployment_functions(conn)
         assert (
             conn.execute(text("SELECT version_num FROM semantic_alembic_version")).scalar_one()
@@ -324,16 +323,16 @@ def test_previous_execution_abi_requires_regeneration():
         )
 
 
-def test_artifact_native_verifier_reads_actual_parts(semantic_db_engine):
+def test_artifact_native_verifier_reads_actual_parts(commit_db_engine):
     from hashlib import sha256
 
     from corpus_structure.semantic.pdf_record_identity import byte_root
 
     tables = record_tables()
-    binding = header_binding(semantic_db_engine)
+    binding = header_binding(commit_db_engine)
     body = b"exact retained bytes\x00" * 5000
     root = byte_root((body,))[1].hex()
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         conn.execute(
             insert(tables["ops.pdf_record_document"]),
@@ -478,57 +477,56 @@ def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
     assert relation_descriptor(relation)["read_roles"] == ["corpus_sem_reader"]
 
 
-def test_actual_native_release_guard_after_activation(semantic_db_engine, admitter):
+def test_actual_native_release_guard_after_activation(commit_db_engine, commit_admitter_engine):
     from uuid import uuid4
 
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
     from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.releases import activate_release, persist_release
-
-    from .test_execution_release import _bundle
+    from semantic.execution_release_support import bundle as _bundle
 
     bundle = _bundle()
     dependencies = composed_dependencies(ResolvedDependencies())
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     project = str(uuid4())
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(insert(table("data.project")), dict(project_id=project))
-    with admitter.begin() as conn:
+    with commit_admitter_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         activate_release(
             conn, project, prepared.release_id, expected_parent=None, expected_generation=0
         )
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         conn.execute(text("GRANT SELECT ON kb.pdf_record_reference TO corpus_sem_reader"))
     with (
-        admitter.begin() as conn,
+        commit_admitter_engine.begin() as conn,
         pytest.raises(DBAPIError, match="native source frame projection differs"),
     ):
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         conn.execute(text("REVOKE SELECT ON kb.pdf_record_reference FROM corpus_sem_reader"))
         conn.execute(
             text("GRANT SELECT(native_pointer) ON kb.pdf_record_reference TO corpus_sem_reader")
         )
     with (
-        admitter.begin() as conn,
+        commit_admitter_engine.begin() as conn,
         pytest.raises(DBAPIError, match="native source frame projection differs"),
     ):
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
 
 
-def test_graph_cell_identifiers_survive_native_relational_lowering(semantic_db_engine):
+def test_graph_cell_identifiers_survive_native_relational_lowering(commit_db_engine):
     from hashlib import sha256
 
     from corpus_structure.semantic.pdf_records import iter_native_records
 
     tables = record_tables()
-    binding = header_binding(semantic_db_engine)
+    binding = header_binding(commit_db_engine)
 
     def refuse_external_scalar(stream_id: str, encoding_profile: str, chunks: object):
         raise AssertionError("unexpected external scalar")
@@ -545,7 +543,7 @@ def test_graph_cell_identifiers_survive_native_relational_lowering(semantic_db_e
             write_scalar=refuse_external_scalar,
         )
     )
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         conn.execute(
             insert(tables["ops.pdf_record_document"]),

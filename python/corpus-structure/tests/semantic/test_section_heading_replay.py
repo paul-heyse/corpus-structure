@@ -8,7 +8,7 @@ from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
-from methods.test_m1_producer import view
+from methods.m1_producer_support import view
 
 from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import UnitRef
@@ -32,8 +32,9 @@ from corpus_structure.serve.review_bundle import (
     verify_review_bundle,
     write_review_bundle,
 )
-
-from .test_review_bundle import synthetic_source_projection as synthetic_source_projection
+from semantic.review_bundle_doubles import (
+    synthetic_source_projection as synthetic_source_projection,
+)
 
 
 def _source(view_id, pointer, text, label, release):

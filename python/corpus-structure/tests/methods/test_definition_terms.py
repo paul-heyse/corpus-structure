@@ -15,7 +15,7 @@ from corpus_structure.semantic.structural_products import (
     RetainedDefinitionRoleRef,
     RetainedStructuralRef,
 )
-from methods.test_m1_producer import view
+from methods.m1_producer_support import view
 
 
 def test_projection_uses_retained_source_role_and_refuses_foreign_source():

@@ -8,12 +8,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
-
-from .pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_four_megabyte_binary_batch_uses_declared_native_extent(
-    private_build, semantic_writer_engine
+    private_build, commit_writer_engine
 ):
     build = private_build
     block = b"x" * 65536
@@ -32,7 +31,7 @@ def test_four_megabyte_binary_batch_uses_declared_native_extent(
     ]
     batch = pa.RecordBatch.from_pylist(rows, schema=stage_schema("artifact_part"))
     assert 4 * 1024**2 < batch.nbytes < 8 * 1024**2
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         receipt = adopt_pdf_batch(conn, build, "native-binary-budget", {"artifact_part": (batch,)})
         assert receipt.row_count == 64
         # The formerly used whole-row JSON size exceeds the unchanged8MiB native limit.
@@ -47,7 +46,7 @@ def test_four_megabyte_binary_batch_uses_declared_native_extent(
 
 
 def test_native_extent_limit_is_enforced_independently_of_arrow_preflight(
-    private_build, semantic_writer_engine
+    private_build, commit_writer_engine
 ):
     build = private_build
     block = b"x" * 65536
@@ -61,7 +60,7 @@ def test_native_extent_limit_is_enforced_independently_of_arrow_preflight(
     )
     with (
         pytest.raises(DBAPIError, match="private PDF upload profile exceeded"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         conn.execute(text("SELECT ops.prepare_pdf_stage(:build,:task,:attempt,:holder)"), params)
         conn.execute(

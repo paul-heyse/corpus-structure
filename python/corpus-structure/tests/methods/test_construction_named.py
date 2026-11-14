@@ -1,11 +1,10 @@
 """Named primary-rule execution and pure consumer projection, no model quality claim."""
 
-from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from ingest.test_annotations import ControlledPipeline, item
+from annotation_support import ControlledPipeline, item
 
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import annotate
@@ -13,12 +12,6 @@ from corpus_structure.methods.annotation_rules import (
     AnnotationRule,
     PreparedAnnotationRules,
     RoleBinding,
-)
-from corpus_structure.methods.native_evidence import native_run
-from corpus_structure.methods.native_evidence_layers import (
-    SPACY_COLUMNS,
-    SPACY_FAMILIES,
-    NativeEvidenceBuilder,
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import characterization_inputs
@@ -90,31 +83,19 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
         input="input",
         context="source",
     )
-    native = NativeEvidenceBuilder(
-        pin.native_product.values(), scope, operation, profile="spacy_only", families=SPACY_FAMILIES
-    )
-    native.spacy(view, product, "spacy")
-    run = native_run(
-        "spacy",
-        "spacy_only",
-        controlled.config.to_str(),
-        model=product.model,
-        version=product.model_version,
-        runtime_version=product.spacy_version,
-        layout=[],
-        text=[],
-        components=[asdict(c) for c in product.components],
-    )
-    from corpus_structure.semantic.observations import source_value
+    from methods.primary_native_fixture import primary_native_layer
 
-    run["execution_profile"] = source_value(controlled.selection().native.wire)
-    run["availability"] = [
-        dict(family=SPACY_COLUMNS[c.attribute], attribute=c.attribute, status=c.status)
-        for c in product.availability
-    ]
-    native.native_runs.append(run)
-    retained = native.finish(prepared)
-    npin = retained.reference(101)
+    retained, npin = primary_native_layer(
+        pin.native_product.values(),
+        scope,
+        operation,
+        prepared,
+        ((view, product),),
+        configuration=controlled.config.to_str(),
+        digest="derived",
+        reference=101,
+        execution=controlled.selection().native,
+    )
     rules = (
         AnnotationRule(
             rule="repeat",

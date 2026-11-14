@@ -2,10 +2,10 @@
 
 from types import SimpleNamespace
 
-from methods.test_contextual_characterization import add_metadata, context_builder, dipo_reply
-from methods.test_native_evidence import builder_for, metadata
-from methods.test_native_evidence import native_source as native_source
-from methods.test_native_evidence import prepared as prepared
+from methods.contextual_characterization_support import add_metadata, context_builder, dipo_reply
+from methods.native_evidence_support import builder_for, metadata
+from methods.native_evidence_support import native_source as native_source
+from methods.native_evidence_support import prepared as prepared
 
 from corpus_structure.semantic.characterization import validate_layer
 from corpus_structure.semantic.contextual_characterization import (

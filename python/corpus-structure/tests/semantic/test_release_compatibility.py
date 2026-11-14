@@ -48,16 +48,15 @@ def test_retired_or_unknown_boundary_compilers_refuse_even_with_current_versions
 
 
 def test_warm_cache_does_not_admit_changed_runtime_or_failed_source_verification(
-    semantic_db_engine, monkeypatch
+    commit_db_engine, monkeypatch
 ):
     from sqlalchemy import insert
 
     from corpus_structure.semantic import releases
     from corpus_structure.semantic.metadata import table
+    from semantic.releases_support import stage
 
-    from .test_releases import stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, _, _, prepared = stage(conn)
         conn.execute(insert(table("data.project")).values(project_id="cached"))
         opened = releases.open_release(conn, prepared.release_id)
@@ -90,19 +89,18 @@ def test_warm_cache_does_not_admit_changed_runtime_or_failed_source_verification
 
 
 def test_cache_is_database_scoped_and_rechecks_current_archive_digest(
-    semantic_db_engine, semantic_database_at
+    commit_db_engine, commit_clone
 ):
     from sqlalchemy import update
 
     from corpus_structure.semantic import releases
     from corpus_structure.semantic.metadata import table
-
-    from .archive_faults import administrative_archive_edit
-    from .test_releases import stage
+    from semantic.archive_faults import administrative_archive_edit
+    from semantic.releases_support import stage
 
     with (
-        semantic_database_at("head") as other,
-        semantic_db_engine.begin() as left,
+        commit_clone() as other,
+        commit_db_engine.begin() as left,
         other.begin() as right,
     ):
         _, _, _, first = stage(left)
@@ -124,29 +122,28 @@ def test_cache_is_database_scoped_and_rechecks_current_archive_digest(
         assert releases.open_release(right, second.release_id) is two
 
 
-def test_shared_snapshot_restores_connection_state_after_failure(semantic_reader_engine):
+def test_shared_snapshot_restores_connection_state_after_failure(commit_reader_engine):
     from corpus_structure.semantic.query import read_snapshot
 
     with (
         pytest.raises(RuntimeError, match="cancelled consumer"),
-        read_snapshot(semantic_reader_engine) as conn,
+        read_snapshot(commit_reader_engine) as conn,
     ):
         assert conn.get_isolation_level() == "REPEATABLE READ"
         assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "on"
         raise RuntimeError("cancelled consumer")
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         assert conn.get_isolation_level() == "READ COMMITTED"
         assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "off"
 
 
-def test_finalized_warm_open_selects_only_header_without_hashing(semantic_db_engine, monkeypatch):
+def test_finalized_warm_open_selects_only_header_without_hashing(commit_db_engine, monkeypatch):
     from sqlalchemy import event
 
     from corpus_structure.semantic import releases
+    from semantic.releases_support import stage
 
-    from .test_releases import stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, _, _, prepared = stage(conn)
         opened = releases.open_release(conn, prepared.release_id)
         statements = []
@@ -170,12 +167,11 @@ def test_finalized_warm_open_selects_only_header_without_hashing(semantic_db_eng
         assert "manifest_bytes" not in statements[0]
 
 
-def test_cold_open_changed_header_refuses_without_publishing_cache(semantic_db_engine, monkeypatch):
+def test_cold_open_changed_header_refuses_without_publishing_cache(commit_db_engine, monkeypatch):
     from corpus_structure.semantic import archive_reader, releases
+    from semantic.releases_support import stage
 
-    from .test_releases import stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, _, _, prepared = stage(conn)
         with archive_reader._CACHE_LOCK:
             archive_reader._OPEN_CACHE.pop(conn.engine, None)
@@ -199,16 +195,15 @@ def test_cold_open_changed_header_refuses_without_publishing_cache(semantic_db_e
         assert releases.open_release(conn, prepared.release_id).release_id == prepared.release_id
 
 
-def test_unfinalized_archive_keeps_full_checks_without_cache(semantic_db_engine, monkeypatch):
+def test_unfinalized_archive_keeps_full_checks_without_cache(commit_db_engine, monkeypatch):
     from sqlalchemy import delete
 
     from corpus_structure.semantic import archive_reader, releases
     from corpus_structure.semantic.metadata import table
+    from semantic.archive_faults import administrative_archive_edit
+    from semantic.releases_support import stage
 
-    from .archive_faults import administrative_archive_edit
-    from .test_releases import stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, _, _, prepared = stage(conn)
         finalized = table("sem.release_finalization")
         with administrative_archive_edit(conn, finalized):
@@ -231,18 +226,17 @@ def test_unfinalized_archive_keeps_full_checks_without_cache(semantic_db_engine,
             assert not archive_reader._OPEN_CACHE.get(conn.engine)
 
 
-def test_overlapping_cold_archive_opens_publish_one_owner(semantic_db_engine, monkeypatch):
+def test_overlapping_cold_archive_opens_publish_one_owner(commit_db_engine, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
 
     from corpus_structure.semantic import archive_reader, releases
+    from semantic.releases_support import stage
 
-    from .test_releases import stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         _, _, _, prepared = stage(conn)
     with archive_reader._CACHE_LOCK:
-        archive_reader._OPEN_CACHE.pop(semantic_db_engine, None)
+        archive_reader._OPEN_CACHE.pop(commit_db_engine, None)
     overlap = Barrier(2)
     original = archive_reader.reconstruct_release
 
@@ -253,7 +247,7 @@ def test_overlapping_cold_archive_opens_publish_one_owner(semantic_db_engine, mo
     monkeypatch.setattr(archive_reader, "reconstruct_release", reconstruct)
 
     def open_one():
-        with semantic_db_engine.connect() as conn:
+        with commit_db_engine.connect() as conn:
             return releases.open_release(conn, prepared.release_id)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -262,12 +256,11 @@ def test_overlapping_cold_archive_opens_publish_one_owner(semantic_db_engine, mo
     assert one is two
 
 
-def test_archive_cache_retains_only_eight_recent_products(semantic_db_engine):
+def test_archive_cache_retains_only_eight_recent_products(commit_db_engine):
     from corpus_structure.semantic import archive_reader, releases
+    from semantic.releases_support import source_bundle, stage
 
-    from .test_releases import source_bundle, stage
-
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         prepared = [stage(conn, source_bundle(f"\n# release {i}\n".encode()))[3] for i in range(9)]
         opened = [releases.open_release(conn, item.release_id) for item in prepared[:8]]
         # Touch the oldest product, so eviction must select the second product.

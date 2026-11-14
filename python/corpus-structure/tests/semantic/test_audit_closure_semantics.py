@@ -19,10 +19,9 @@ from corpus_structure.semantic.refusals import (
 )
 from corpus_structure.semantic.rule_views import project_rule_value
 from corpus_structure.semantic.unicode_identity import identity_casefold
-
-from .test_identity_resolution import release as identity_release
-from .test_identity_resolution import source
-from .test_proposals import batch, frame, prepared
+from semantic.identity_resolution_support import release as identity_release
+from semantic.identity_resolution_support import source
+from semantic.proposals_support import batch, frame, prepared
 
 
 def test_source_subset_is_narrower_than_storage_and_generated_boundary():
@@ -359,8 +358,7 @@ def test_unexpected_comparison_value_error_remains_a_failure(monkeypatch):
 
 def test_logical_reading_dimensions_are_owned_by_the_archived_rule_schema():
     from corpus_structure.semantic.rule_views import Reading, ValueView
-
-    from .test_scientific_rule_views import language
+    from semantic.scientific_rule_views_support import language
 
     lang = language()
     rule = lang.compile("reading", 'claim.value&.parse == "ok"')
@@ -423,7 +421,7 @@ def test_projection_keeps_missing_and_unsupported_reading_meaning_separate():
 
 
 def test_rule_scalar_enum_and_complete_qualification_projection_share_binding_meaning():
-    from .test_scientific_rule_views import language
+    from semantic.scientific_rule_views_support import language
 
     release = prepared()
     projected = project_rule_value(release, "StatementRole", "premise")

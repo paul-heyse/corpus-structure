@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 import pytest
+from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -19,9 +20,7 @@ from corpus_structure.semantic.pdf_staging import (
     adopt_pdf_batch,
     resume_pdf_build,
 )
-
-from .pdf_staging_support import private_build as private_build
-from .test_pdf_publication import stage_complete_native
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def snapshot(engine, build):
@@ -62,14 +61,14 @@ def snapshot(engine, build):
 
 
 def test_frozen_reclaim_changes_owner_only_and_can_finish_same_snapshot(
-    private_build, semantic_db_engine, semantic_writer_engine, tmp_path
+    private_build, commit_db_engine, commit_writer_engine, tmp_path
 ):
     build = private_build
-    stage_complete_native(semantic_writer_engine, build, tmp_path)
-    with semantic_writer_engine.begin() as conn:
+    stage_complete_native(commit_writer_engine, build, tmp_path)
+    with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
-    before = snapshot(semantic_db_engine, build)
-    with semantic_db_engine.begin() as conn:
+    before = snapshot(commit_db_engine, build)
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         task = conn.execute(
             text("SELECT run_id,method_config_id FROM ops.task WHERE id=:task"),
@@ -81,7 +80,7 @@ def test_frozen_reclaim_changes_owner_only_and_can_finish_same_snapshot(
         """),
             {"task": build.task_id},
         )
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         claim = claim_tasks(
             conn, run_id=task.run_id, config_id=task.method_config_id, holder="frozen-successor"
         )[0]
@@ -96,34 +95,34 @@ def test_frozen_reclaim_changes_owner_only_and_can_finish_same_snapshot(
         )
         assert actual is not None and actual.state == "frozen"
         assert actual.frozen == replace(frozen, build=resumed)
-    assert snapshot(semantic_db_engine, build) == before
+    assert snapshot(commit_db_engine, build) == before
     # Rebinding grants no append capability and cannot reactivate the stale owner.
-    with pytest.raises(DBAPIError, match="not owned/open"), semantic_writer_engine.begin() as conn:
+    with pytest.raises(DBAPIError, match="not owned/open"), commit_writer_engine.begin() as conn:
         adopt_pdf_batch(conn, resumed, "after-freeze", {})
-    with pytest.raises(DBAPIError, match="stale private"), semantic_writer_engine.begin() as conn:
+    with pytest.raises(DBAPIError, match="stale private"), commit_writer_engine.begin() as conn:
         resume_pdf_build(conn, build, attempt=build.attempt, holder=build.holder)
     resumed_frozen = replace(frozen, build=resumed)
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         prepare_pdf_build(conn, resumed_frozen)
-    outcome = validate_pdf_build(semantic_writer_engine, resumed_frozen)
-    with semantic_writer_engine.begin() as conn:
+    outcome = validate_pdf_build(commit_writer_engine, resumed_frozen)
+    with commit_writer_engine.begin() as conn:
         published = seal_pdf_build(conn, resumed_frozen, "native")
     assert published.build_id == build.build_id
     assert published.frozen_digest == frozen.frozen_digest
     assert published.logical_digest == outcome.logical_digest
     with (
         pytest.raises(DBAPIError, match="resume binding differs"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         resume_pdf_build(conn, resumed, attempt=claim.attempt, holder=claim.holder)
 
 
-def test_resume_cannot_rebind_an_abandoned_build(private_build, semantic_writer_engine):
+def test_resume_cannot_rebind_an_abandoned_build(private_build, commit_writer_engine):
     build = private_build
-    with semantic_writer_engine.begin() as conn:
+    with commit_writer_engine.begin() as conn:
         abandon_pdf_build(conn, build)
     with (
         pytest.raises(DBAPIError, match="resume binding differs"),
-        semantic_writer_engine.begin() as conn,
+        commit_writer_engine.begin() as conn,
     ):
         resume_pdf_build(conn, build, attempt=build.attempt, holder=build.holder)

@@ -56,7 +56,7 @@ def retained_named_product(monkeypatch, states):
     """Run the primary producer over independently missing dependency columns."""
     from dataclasses import replace
 
-    from ingest.test_annotations import ControlledPipeline, item
+    from annotation_support import ControlledPipeline, item
     from methods.primary_reading_fixture import primary_product
 
     from corpus_structure.ingest import annotations

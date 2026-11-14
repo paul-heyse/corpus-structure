@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from semantic.test_record_contracts import release_inputs
+from semantic.record_contracts_support import release_inputs
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
@@ -19,8 +19,7 @@ from corpus_structure.methods.pm2_source import (
 )
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
-
-from .test_pm2_source import identity_map, source_context
+from methods.pm2_source_support import identity_map, source_context
 
 
 def _row(tokens, chars, text):

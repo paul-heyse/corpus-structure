@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
-from sqlalchemy import JSON, Column, Integer, MetaData, String, Table, create_engine
+from sqlalchemy import Column, Integer, MetaData, String, Table
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.semantic.data_operation_bindings import (
+    BindingResult,
     PopulationBinding,
     ProjectionBinding,
     ProjectionField,
@@ -23,6 +25,7 @@ from corpus_structure.semantic.data_operation_model import (
     BindingExpression,
     BindingField,
     BindingOperand,
+    BoundRoleMember,
     EffectiveDataOperationModel,
     EffectiveIdentity,
     EffectiveKind,
@@ -31,12 +34,16 @@ from corpus_structure.semantic.data_operation_model import (
     InputSupport,
     OperationRole,
     RelationalBinding,
+    ResolvedRoleBinding,
     SemanticEdge,
     SubjectContext,
     read_effective_data_operations,
 )
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
+from semantic.data_operation_binding_support import BINDING_EVIDENCE_CASES
+from semantic.data_operation_declaration_support import binding_declaration as declaration
 
 
 def model(
@@ -102,7 +109,7 @@ def model(
 
 
 @pytest.fixture
-def storage():
+def storage(native_rollback):
     table = Table(
         "admitted",
         MetaData(),
@@ -119,7 +126,7 @@ def storage():
             )
         ),
         *(
-            Column(name, JSON)
+            Column(name, JSONB)
             for name in ("analyzed_scope", "coverage", "support_episodes", "support_evidence")
         ),
         Column("position", Integer),
@@ -127,42 +134,41 @@ def storage():
         Column("value", Integer),
         Column("base", String),
     )
-    engine = create_engine("sqlite://")
-    table.metadata.create_all(engine)
-    with engine.begin() as connection:
-        connection.execute(
-            table.insert(),
-            [
-                dict(
-                    product=f"p{value}",
-                    kind_contract="kind:fixed",
-                    subject="doc",
-                    original_source="source",
-                    member=f"m{value}",
-                    provider_identity=None,
-                    alternative_identity=None,
-                    analyzed_scope={"page": 1},
-                    coverage={"complete": True},
-                    support_episodes=[f"ep{value}"],
-                    support_evidence={"trust": "pinned"},
-                    position=3 - value,
-                    multiplicity=1,
-                    value=value,
-                    base="b",
-                )
-                for value in (1, 2, 3)
-            ],
-        )
-        projection = ProjectionBinding(
-            "urn:item",
-            table,
-            (
-                ProjectionField("value", "value", "integer"),
-                ProjectionField("base", "base", "string"),
-            ),
-            b'{"trust":"pinned"}',
-        )
-        yield connection, table, projection
+    connection = native_rollback.connection
+    table.metadata.create_all(connection)
+    connection.execute(
+        table.insert(),
+        [
+            dict(
+                product=f"p{value}",
+                kind_contract="kind:fixed",
+                subject="doc",
+                original_source="source",
+                member=f"m{value}",
+                provider_identity=None,
+                alternative_identity=None,
+                analyzed_scope={"page": 1},
+                coverage={"complete": True},
+                support_episodes=[f"ep{value}"],
+                support_evidence={"trust": "pinned"},
+                position=3 - value,
+                multiplicity=1,
+                value=value,
+                base="b",
+            )
+            for value in (1, 2, 3)
+        ],
+    )
+    projection = ProjectionBinding(
+        "urn:item",
+        table,
+        (
+            ProjectionField("value", "value", "integer"),
+            ProjectionField("base", "base", "string"),
+        ),
+        b'{"trust":"pinned"}',
+    )
+    yield connection, table, projection
 
 
 def field(name="value", role="items"):
@@ -252,6 +258,72 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
         execution_profile="native",
     )
     assert resolved.roles == result.roles
+
+
+@pytest.mark.parametrize(
+    "facet,value",
+    [
+        ("member", "selected-member"),
+        ("position", 17),
+        ("original_source", "second-original"),
+        ("analyzed_scope", {"page": 9}),
+        ("support_episodes", ["selected-episode"]),
+        ("support_evidence", {"witness": "selected-witness"}),
+    ],
+)
+def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet, value):
+    connection, relation, projection = storage
+    connection.execute(relation.update().where(relation.c.value == 2).values({facet: value}))
+    expression = BindingExpression(
+        "membership", operands=(field(), BindingOperand("parameter", "integer", name="allowed"))
+    )
+    actual = execute_binding(
+        connection,
+        compile_binding(
+            model(expression),
+            "urn:op",
+            (projection,),
+            subject="doc",
+            parameters={"allowed": [2]},
+        ),
+    )
+    # Complete independently authored output, including support references. Each
+    # perturbation keeps expression truth unchanged but must change the result.
+    expected_member = BoundRoleMember(
+        product="p2",
+        kind_contract="kind:fixed",
+        subject="doc",
+        original_source=value if facet == "original_source" else "source",
+        analyzed_scope=b'{"page":9}' if facet == "analyzed_scope" else b'{"page":1}',
+        coverage=b'{"complete":true}',
+        support_episodes=("selected-episode",) if facet == "support_episodes" else ("ep2",),
+        support_evidence=b'{"witness":"selected-witness"}'
+        if facet == "support_evidence"
+        else b'{"trust":"pinned"}',
+        position=17 if facet == "position" else 1,
+        multiplicity=1,
+        member="selected-member" if facet == "member" else "m2",
+        support_references=(
+            ComputationalSupportReference(
+                derivation_id="selected-episode" if facet == "support_episodes" else "ep2",
+            ),
+        ),
+    )
+    assert actual == BindingResult(
+        operation="urn:op",
+        subject="doc",
+        roles=(ResolvedRoleBinding("items", "present", (expected_member,)),),
+        status="ready",
+        reasons=(),
+        parameters=b'["mapping",[["allowed",["sequence",[["integer","2"]]]]]]',
+        choices=b"{}",
+        model_version="data-operation-model-v2",
+        definition="definition:fixed",
+        eligibility="eligibility:fixed",
+        admission_evidence=(b'{"trust":"pinned"}',),
+        source_sets=b"{}",
+        subject_context=None,
+    )
 
 
 def test_join_distinct_sequence_order_and_cardinality_are_sql(storage):
@@ -404,59 +476,6 @@ def test_archived_v1_shape_is_exact_and_current_defaults_never_enter():
     corrupt["bindings"][0]["expression"]["operands"] = []
     with pytest.raises(ValueError):
         read_effective_data_operations(canonical_bytes(corrupt))
-
-
-def declaration(identifier="urn:op", **changes):
-    return {
-        "id": identifier,
-        "profile": "derivation",
-        "subject": "document",
-        "context": [],
-        "roles": [
-            {
-                "name": "items",
-                "kind": "integer",
-                "direction": "input",
-                "minimum": 1,
-                "maximum": 1,
-                "collection": "scalar",
-                "presence": "required",
-                "parameter": "x",
-                "support": {
-                    "provenance": "exact",
-                    "source": "original",
-                    "coverage": "complete",
-                    "identity_requirements": ["episode"],
-                },
-            },
-            {
-                "name": "result",
-                "kind": "integer",
-                "direction": "output",
-                "minimum": 1,
-                "maximum": 1,
-                "collection": "scalar",
-                "presence": "required",
-            },
-        ],
-        "applicability": [],
-        "invariants": [],
-        "coverage": "complete",
-        "outcomes": ["produced"],
-        "precision": "exact",
-        "dependencies": [],
-        "effects": [],
-        "capabilities": {
-            "forms": ["scalar"],
-            "preparation": "none",
-            "cancellation": "boundary",
-            "ownership": "immutable",
-        },
-        "behavior": "revision-1",
-        "parameters": {},
-        "binding": {"operator": "scan", "roles": ["items"]},
-        **changes,
-    }
 
 
 def test_potential_producer_cycles_do_not_become_mandatory_prerequisites():
@@ -1253,3 +1272,152 @@ def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storag
             trust_evidence=b"{}",
             execution_profile="native",
         )
+
+
+@pytest.mark.parametrize("case", BINDING_EVIDENCE_CASES, ids=lambda case: case.name)
+def test_postgresql_authored_complete_binding_meanings(storage, case):
+    connection, relation, projection = storage
+    expression = BindingExpression("scan", roles=("items",))
+    options: dict[str, Any] = {}
+    arguments: dict[str, Any] = {}
+    populations: tuple[PopulationBinding, ...] = ()
+    if case.name in {"range-ready", "range-outside"}:
+        connection.execute(relation.delete().where(relation.c.product != "p2"))
+        connection.execute(relation.update().values(value=case.sample_value))
+        expression = BindingExpression(
+            "range",
+            operands=(
+                field(),
+                BindingOperand("literal", "integer", value=b'["integer","10"]'),
+                BindingOperand("literal", "integer", value=b'["integer","20"]'),
+            ),
+        )
+        options = dict(collection="scalar", maximum=1)
+    elif case.name in {"role-too-few", "role-too-many"}:
+        options = dict(minimum=2, maximum=2)
+        if case.name == "role-too-few":
+            connection.execute(relation.delete().where(relation.c.product != "p2"))
+    elif case.name in {"optional-unknown", "optional-present-empty"}:
+        options = dict(minimum=0, presence="optional")
+        if case.name == "optional-unknown":
+            expression = BindingExpression(
+                "literal",
+                fields=(BindingField("items", "urn:item", "value"),),
+                value=b'["integer","2"]',
+            )
+            connection.execute(relation.update().values(value=None))
+        else:
+            connection.execute(relation.delete())
+    elif case.name == "negative-incomplete":
+        options = dict(minimum=0, presence="optional")
+        expression = BindingExpression("absent", roles=("items",), population="retained")
+        populations = (
+            PopulationBinding(
+                "retained",
+                "population:missing-facts",
+                True,
+                ("not-materialized",),
+                b'{"closed":true}',
+            ),
+        )
+    elif case.name in {"member-added", "member-removed"}:
+        expression = BindingExpression(
+            "forall",
+            roles=("items",),
+            population="retained",
+            children=(BindingExpression("scan", roles=("items",)),),
+        )
+        populations = (
+            PopulationBinding(
+                "retained",
+                "population:selected",
+                True,
+                ("m1", "m2") if case.name == "member-added" else ("m2",),
+                b'{"closed":true}',
+            ),
+        )
+        if case.name == "member-removed":
+            connection.execute(relation.delete().where(relation.c.product == "p2"))
+    elif case.name == "unselected-alternative":
+        options = dict(names=("left", "right"), minimum=0, presence="optional")
+        expression = BindingExpression(
+            "choice",
+            choice_parameter="producer",
+            children=(
+                BindingExpression("scan", roles=("left",)),
+                BindingExpression(
+                    "literal",
+                    fields=(BindingField("right", "urn:item", "value"),),
+                    value=b'["integer","2"]',
+                ),
+            ),
+        )
+        arguments = dict(choices={"producer": "right"})
+    elif case.name in {"wrong-source-join", "distinct-same-text"}:
+        options = dict(names=("left", "right"))
+        # Both passages carry the same text. The selected identity must still bind
+        # its exact product, member, original source and support episode.
+        connection.execute(relation.update().values(base="identical passage text"))
+        expression = BindingExpression(
+            "all",
+            children=(
+                BindingExpression(
+                    "join",
+                    roles=("left", "right"),
+                    fields=(
+                        BindingField("left", "urn:item", "base"),
+                        BindingField("right", "urn:item", "base"),
+                    ),
+                ),
+                BindingExpression("distinct", roles=("left", "right")),
+                BindingExpression(
+                    "literal",
+                    fields=(BindingField("left", "urn:item", "value"),),
+                    value=b'["integer","1"]',
+                ),
+                BindingExpression(
+                    "literal",
+                    fields=(BindingField("right", "urn:item", "value"),),
+                    value=b'["integer","2"]',
+                ),
+            ),
+        )
+        if case.name == "wrong-source-join":
+            connection.execute(
+                relation.update()
+                .where(relation.c.product == "p2")
+                .values(original_source="other-original")
+            )
+            arguments = dict(original_source="source")
+        else:
+            connection.execute(
+                relation.update()
+                .where(relation.c.product == "p1")
+                .values(original_source="original:left")
+            )
+            connection.execute(
+                relation.update()
+                .where(relation.c.product == "p2")
+                .values(original_source="original:right")
+            )
+    actual = execute_binding(
+        connection,
+        compile_binding(
+            model(expression, **options),
+            "urn:op",
+            (projection,),
+            subject="doc",
+            populations=populations,
+            **arguments,
+        ),
+    )
+    # These cases declare set/scalar collections, whose member order is immaterial.
+    # Preserve every member field and every other result field for full equality.
+    actual = replace(
+        actual,
+        roles=tuple(
+            replace(role, members=tuple(sorted(role.members, key=lambda member: member.product)))
+            for role in actual.roles
+        ),
+    )
+    assert actual == case.expected

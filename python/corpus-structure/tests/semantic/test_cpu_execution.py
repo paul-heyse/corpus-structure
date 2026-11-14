@@ -4,12 +4,10 @@ import json
 import os
 from collections.abc import Callable
 from concurrent.futures import Future
-from dataclasses import asdict
 from typing import cast
-from uuid import uuid4
 
 import pytest
-from methods.test_formal_evidence import inputs
+from methods.formal_evidence_support import inputs
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic.cpu_execution import (
@@ -21,38 +19,8 @@ from corpus_structure.semantic.cpu_execution import (
     release_capsule,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.test_formal_evidence import prepared as prepared
-
-
-def packet(prepared):
-    unit, cfg, _ctx, operation = inputs(prepared)
-    view = unit.run.reader.source_view(11)
-    return canonical_bytes(
-        dict(
-            request_id=uuid4().hex,
-            run_id=None,
-            claims=[],
-            method="text.formal_evidence",
-            release_id=prepared.release_id,
-            configuration=cfg.model_dump(mode="json"),
-            operation=operation,
-            document_id=unit.ref.unit_id,
-            sources=[
-                dict(
-                    ref=asdict(view.ref),
-                    text=view.text,
-                    pieces=view.pieces,
-                    items=view.items,
-                    ancestors=view.ancestors,
-                    health=view.health,
-                    text_policy=None,
-                    analysis_enabled=True,
-                    integrated_context=None,
-                )
-            ],
-            dependencies=[],
-        )
-    )
+from semantic.cpu_execution_support import packet as packet
+from semantic.primary_formal_fixture import prepared as prepared
 
 
 def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
@@ -109,6 +77,7 @@ def test_finite_policy_and_encoded_capacity():
 
 def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prepared, monkeypatch):
     import multiprocessing
+
     policy = CharacterizationExecutionPolicy(max_packet_bytes=64)
     execution = CPUExecutionScope(prepared, policy)
     try:
@@ -122,7 +91,7 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
         with multiprocessing.get_context("spawn").Manager() as manager:
             started, release = manager.Event(), manager.Event()
             pool = execution._executor()
-            submit = pool.submit
+            submit = cast(Callable[..., Future[CPUReply]], pool.submit)
             submissions = 0
 
             def submit_gated(fn, *args):
@@ -141,7 +110,9 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
             try:
                 with (
                     pytest.raises(RuntimeError, match="lost exact claim"),
-                    execution.execute(_identified_packet(prepared, "slow"), {}, cancel_while_waiting),
+                    execution.execute(
+                        _identified_packet(prepared, "slow"), {}, cancel_while_waiting
+                    ),
                 ):
                     pytest.fail("cancelled claim returned a usable result")
                 assert started.is_set(), "cancellation did not reach the running child"

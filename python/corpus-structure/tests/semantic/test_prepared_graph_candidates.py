@@ -22,8 +22,7 @@ from corpus_structure.semantic.publication import (
     PublicationBatch,
 )
 from corpus_structure.semantic.query import SnapshotBinding
-
-from .test_analytics import prepared_inputs
+from semantic.analytics_support import prepared_inputs
 
 
 def test_cached_shapes_produce_isolated_graphs_and_prepare_once():
@@ -121,8 +120,7 @@ def test_admitted_builder_refuses_out_of_universe_links_and_duplicate_occurrence
 
 def test_external_validation_shapes_do_not_leak_into_next_validation():
     from corpus_structure.semantic.ontology import validate_projected_graph
-
-    from .test_ontology import _bound_projection
+    from semantic.ontology_support import _bound_projection
 
     projection = _bound_projection(
         "r",

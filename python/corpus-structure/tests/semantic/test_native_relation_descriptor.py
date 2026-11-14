@@ -53,10 +53,10 @@ def test_forward_admission_refreshes_existing_named_shapes_from_current_model():
         )
 
 
-def test_forward_descriptor_freezes_declared_visual_geometry_and_indexes(semantic_db_engine):
+def test_forward_descriptor_freezes_declared_visual_geometry_and_indexes(commit_db_engine):
     root = Path(__file__).resolve().parents[2]
     prior = root / "semantic_alembic/versions/semantic_dma_05_13_final_admission.sql"
-    with semantic_db_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         catalog = _declared_physical_catalog(conn, metadata)
         assert conn.scalar(text("SELECT to_regclass('pg_temp.semantic_candidate_catalog')")) is None
     current = _admission_descriptor(

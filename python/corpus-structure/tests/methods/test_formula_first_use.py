@@ -3,7 +3,7 @@
 import pytest
 
 from corpus_structure.methods.record_assembly import _first_exact_formula_use, _pin
-from methods.test_record_assembly import context
+from methods.record_assembly_support import context
 
 
 def pieces(text, ranges=None):
@@ -87,7 +87,7 @@ def test_actual_assembler_retains_tex_binding_with_exact_first_use(formula, symb
         RoleInput,
         assemble_native_records,
     )
-    from methods.test_record_assembly import fields, release
+    from methods.record_assembly_support import fields, release
 
     text = formula + " " + symbol + " means rate"
     ctx = context(text)

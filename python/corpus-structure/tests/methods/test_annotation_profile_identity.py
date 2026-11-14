@@ -7,8 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from ingest.test_annotations import controlled as controlled
-from ingest.test_annotations import item
+from annotation_support import controlled as controlled
+from annotation_support import item
 from pydantic import ValidationError
 
 from corpus_structure.ingest import annotations
@@ -122,7 +122,7 @@ def test_missing_snapshot_refuses_request_and_preserves_unprofiled_legacy():
 
 
 def test_direct_columns_roundtrip_through_retained_layer_with_same_dependency(controlled):
-    from .primary_reading_fixture import primary_product
+    from methods.primary_reading_fixture import primary_product
 
     request = item(controlled, "X X.")
     profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=2))
@@ -286,7 +286,7 @@ def test_prepared_annotation_refuses_other_provider_before_declaration(controlle
 
 
 def test_fixture_refuses_profiled_columns_without_their_snapshot(controlled):
-    from .primary_reading_fixture import primary_product
+    from methods.primary_reading_fixture import primary_product
 
     profile = AnnotationProfile()
     (product,) = annotations.annotate((item(controlled),), profile)

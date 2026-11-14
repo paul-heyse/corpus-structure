@@ -40,27 +40,16 @@ from corpus_structure.serve.structural_products import (
     StructuralExportRequest,
     read_structural_export_page,
 )
-
-from .native_record_fixtures import (
+from semantic.companion_export_native_support import read_settings
+from semantic.native_record_fixtures import (
+    RecordSourceRecipe,
     build_record_source,
     complete_contributions,
     contribution_drafts,
 )
-from .native_record_fixtures import (
-    private_source as private_source,
-)
-from .primary_native_support import publish_primary_layers
-from .test_companion_export_native import read_settings
-from .witnessed_scenario_support import completed_metadata
-
-
-@pytest.fixture
-def private_source_options():
-    from corpus_structure.evaluate.record_references import reference_inputs
-    from corpus_structure.semantic.characterization import characterization_inputs
-
-    return dict(bundle_transform=lambda bundle: characterization_inputs(reference_inputs(bundle)))
-
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.primary_native_support import publish_primary_layers
+from semantic.witnessed_scenario_support import completed_metadata
 
 EDITIONS = (
     "Table 5.1 (numbering namespace: Main) (revision: old) Counts",
@@ -95,12 +84,19 @@ def retained_source(case, completed, revision, view):
 
 @pytest.mark.parametrize(
     "private_source",
-    [{}, {"sibling_captions": EDITIONS, "sibling_references": (CROSS_WORK_REFERENCE,)}],
+    [
+        RecordSourceRecipe(composition="characterization-reference"),
+        RecordSourceRecipe(
+            composition="characterization-reference",
+            sibling_captions=EDITIONS,
+            sibling_references=(CROSS_WORK_REFERENCE,),
+        ),
+    ],
     indirect=True,
     ids=("canonical-config", "exact-revision"),
 )
 def test_registered_artifact_canonical_config_completes_and_policy_forgery_refuses(
-    private_source, semantic_db_engine, native_settings, tmp_path, monkeypatch
+    private_source, record_source_admin, native_settings, tmp_path, monkeypatch
 ):
     case = private_source
     with case.writer.begin() as conn:
@@ -123,7 +119,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
         other_path = tmp_path / "cross-work"
         other_path.mkdir()
         other = build_record_source(
-            semantic_db_engine,
+            record_source_admin,
             case.writer,
             other_path,
             case,
@@ -281,7 +277,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
         export_review_bundle(
             ReviewSelection(structural_selections=(selection,)),
             bundle,
-            read_settings(native_settings, semantic_db_engine),
+            read_settings(native_settings, record_source_admin),
             exact_closure=True,
         )
         verify_review_bundle(bundle)

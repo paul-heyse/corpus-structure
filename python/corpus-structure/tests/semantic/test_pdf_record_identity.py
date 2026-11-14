@@ -243,8 +243,8 @@ def test_artifact_retry_conflicts_and_corruption_refuse() -> None:
             )
 
 
-def test_postgresql_independent_primitive_and_record_parity(semantic_db_engine: Engine) -> None:
-    with semantic_db_engine.begin() as conn:
+def test_postgresql_independent_primitive_and_record_parity(commit_db_engine: Engine) -> None:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         for value, kind, payload, root in _VECTORS:
             native = conn.execute(
@@ -324,8 +324,8 @@ def test_retained_correspondence_accepts_short_reads():
         )
 
 
-def test_native_record_frame_rejects_fabricated_scalar_lengths(semantic_db_engine):
-    with semantic_db_engine.begin() as conn:
+def test_native_record_frame_rejects_fabricated_scalar_lengths(commit_db_engine):
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         for tag, length in [(b"a", 1), (b"n", 1), (b"b", 0), (b"f", 1)]:
             bad = tag + length.to_bytes(8, "big") + bytes(32)

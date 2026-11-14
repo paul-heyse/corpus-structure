@@ -12,12 +12,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+from schema_lint_support import lint_errors
 
 from corpus_structure.core import schemas, vocab
 from corpus_structure.core._model import names, qualifiers, revision, sql, validators
 from corpus_structure.schema import generate, model
-
-from .lint_support import lint_errors
 
 MODEL = model.MODEL_DIR
 

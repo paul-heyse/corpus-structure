@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
-import os
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from uuid import uuid4
 
 import anyio
 import pytest
 from fastmcp import Client
 from pydantic import BaseModel
-from sqlalchemy import insert, select, text
+from scenario_recipes import register_scenario_builder
+from sqlalchemy import insert, select
 from sqlalchemy.engine import Engine
 
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
@@ -24,13 +22,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import RunId, TaskId
 from corpus_structure.semantic.query_compatibility import acquire_query_inputs
 from corpus_structure.semantic.types import PreparedRelease
-from corpus_structure.settings import Settings
-from native_test_support import (
-    DatabasePolicy,
-    PgAdmin,
-    SemanticTemplate,
-    principal_engine,
-)
+from native_scenario_seeds import ScenarioSeed, SeedClone
 
 from .agent_scenarios import build_resubmission_case, lease_and_read
 
@@ -159,189 +151,74 @@ def build_completed_serving_case(
 
 
 @dataclass(frozen=True)
-class ServingScenarioSeed:
-    database: str
-    database_oid: int
-    policy: DatabasePolicy
-    recipe_id: str
-    source_manifest_digest: str
-    prepared: PreparedRelease
-    run: RunId
-    task: TaskId
-    locator: str
+class ServingRecipe:
+    complete_coverage: bool = False
 
     @property
-    def origin(self) -> dict[str, str]:
-        return {
-            "scenario": "serving.completed/default",
-            "recipe_id": self.recipe_id,
-            "source_database": self.database,
-            "source_database_oid": str(self.database_oid),
-            "release_id": self.prepared.release_id,
-            "manifest_digest": self.source_manifest_digest,
-        }
+    def label(self) -> str:
+        return (
+            "serving.completed/coverage" if self.complete_coverage else "serving.completed/default"
+        )
 
 
 @dataclass(frozen=True)
-class ServingReadScenario:
+class ServingStage:
     prepared: PreparedRelease
     run: RunId
     task: TaskId
     locator: str
-    reader: Engine
-    seed_origin: dict[str, str]
+    manifest_digest: str
+    seed_files: tuple[Path, ...]
 
+    @property
+    def seed_origin(self) -> dict[str, str]:
+        return {"release_id": self.prepared.release_id, "manifest_digest": self.manifest_digest}
 
-def _serving_recipe_id(prepared: PreparedRelease) -> tuple[str, str]:
-    manifest_digest = hashlib.sha256(prepared.manifest).hexdigest()
-    source = (
-        inspect.getsource(build_completed_serving_case)
-        + inspect.getsource(build_resubmission_case)
-        + inspect.getsource(lease_and_read)
-    ).encode()
-    recipe = hashlib.sha256(
-        b"serving.completed/default/v1\0" + manifest_digest.encode() + b"\0" + source
-    ).hexdigest()
-    return recipe, manifest_digest
-
-
-def _database_oid(server: PgAdmin, name: str) -> int:
-    with server.connect() as conn:
-        oid = conn.execute(
-            text("SELECT oid FROM pg_database WHERE datname=:name"), {"name": name}
-        ).scalar_one()
-    if not isinstance(oid, int) or oid <= 0:
-        raise AssertionError(f"database {name!r} has no positive observed OID")
-    return oid
-
-
-def _validate_serving_seed(server: PgAdmin, seed: ServingScenarioSeed) -> None:
-    actual_oid = _database_oid(server, seed.database)
-    if actual_oid != seed.database_oid:
-        raise AssertionError("serving seed database OID no longer matches its recorded origin")
-    if server.policy(seed.database) != seed.policy:
-        raise AssertionError("serving seed policy no longer matches its recorded origin")
-    recipe_id, manifest_digest = _serving_recipe_id(seed.prepared)
-    if (recipe_id, manifest_digest) != (seed.recipe_id, seed.source_manifest_digest):
-        raise AssertionError("serving seed recipe or prepared source identity changed")
-    with server.connect() as conn:
-        allowed, clients = conn.execute(
-            text(
-                "SELECT d.datallowconn, count(a.pid) "
-                "FROM pg_database AS d LEFT JOIN pg_stat_activity AS a "
-                "ON a.datid=d.oid AND a.pid<>pg_backend_pid() "
-                "WHERE d.datname=:name GROUP BY d.datallowconn"
-            ),
-            {"name": seed.database},
-        ).one()
-    if allowed or clients:
-        raise AssertionError("serving seed must be sealed against connections and client-free")
-
-
-def _serving_seed_lifecycle(
-    native_server: PgAdmin,
-    semantic_head_template: SemanticTemplate,
-    native_settings: Settings,
-    tmp_path_factory: pytest.TempPathFactory,
-    *,
-    scenario_builder: Callable[..., tuple[PreparedRelease, RunId, TaskId, str]] = (
-        build_completed_serving_case
-    ),
-) -> Iterator[ServingScenarioSeed]:
-    name = f"cs_sem_test_{os.getpid()}_{uuid4().hex[:12]}"
-    with native_server.database(
-        name, semantic_head_template.name, policy=semantic_head_template.policy
-    ) as admin:
-        writer = principal_engine(native_settings, "write", name)
-        try:
-            prepared, run, task, locator = scenario_builder(
-                admin, writer, tmp_path_factory.mktemp("serving-seed")
-            )
-        finally:
-            writer.dispose()
-            admin.dispose()
-
-        seed_policy = native_server.policy(name)
-        if seed_policy != semantic_head_template.policy:
-            raise AssertionError("serving seed changed the deployed database policy")
-        seed_oid = _database_oid(native_server, name)
-        recipe_id, manifest_digest = _serving_recipe_id(prepared)
-        seed = ServingScenarioSeed(
-            database=name,
-            database_oid=seed_oid,
-            policy=seed_policy,
-            recipe_id=recipe_id,
-            source_manifest_digest=manifest_digest,
-            prepared=prepared,
-            run=run,
-            task=task,
-            locator=locator,
-        )
-        admin.dispose()
-        with native_server.connect() as conn:
-            quoted = conn.dialect.identifier_preparer.quote(name)
-            conn.exec_driver_sql(f"ALTER DATABASE {quoted} ALLOW_CONNECTIONS false")
-        _validate_serving_seed(native_server, seed)
-        yield seed
-
-
-@pytest.fixture(scope="session")
-def serving_scenario_seed(
-    native_server: PgAdmin,
-    semantic_head_template: SemanticTemplate,
-    native_settings: Settings,
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Iterator[ServingScenarioSeed]:
-    yield from _serving_seed_lifecycle(
-        native_server, semantic_head_template, native_settings, tmp_path_factory
-    )
-
-
-@pytest.fixture
-def serving_read_scenario(
-    serving_scenario_seed: ServingScenarioSeed,
-    native_server: PgAdmin,
-    native_settings: Settings,
-) -> Iterator[ServingReadScenario]:
-    seed = serving_scenario_seed
-    _validate_serving_seed(native_server, seed)
-    name = f"cs_sem_test_{os.getpid()}_{uuid4().hex[:12]}"
-    with native_server.database(name, seed.database, policy=seed.policy) as admin:
-        if native_server.policy(name) != seed.policy:
-            raise AssertionError("scenario clone policy replay differs from its seed")
-        clone_oid = _database_oid(native_server, name)
-        if clone_oid == seed.database_oid:
-            raise AssertionError("scenario consumer must own a fresh clone OID")
+    def validate_clone(self, admin: Engine) -> None:
+        if hashlib.sha256(self.prepared.manifest).hexdigest() != self.manifest_digest:
+            raise RuntimeError("serving prepared source identity changed")
         release = table("data.realization")
-        with admin.connect() as conn:
-            actual_release = conn.execute(
+        with admin.connect() as connection:
+            actual = connection.execute(
                 select(release.c.release_id).where(
                     release.c.project_id == "resubmit",
                     release.c.realization_id == "served-result",
                 )
             ).scalar_one_or_none()
-        if actual_release != seed.prepared.release_id:
-            raise AssertionError("scenario clone does not contain the seeded serving realization")
+        if actual != self.prepared.release_id:
+            raise RuntimeError("scenario clone lacks the seeded serving realization")
 
-        reader = principal_engine(native_settings, "read", name, scenario_seed=seed.origin)
-        try:
-            with reader.connect() as conn:
-                database, observed_oid, current_user, session_user = conn.exec_driver_sql(
-                    "SELECT current_database(), "
-                    "(SELECT oid FROM pg_database WHERE datname=current_database()), "
-                    "current_user, session_user"
-                ).one()
-            if (database, observed_oid) != (name, clone_oid):
-                raise AssertionError("purpose connection did not acquire the owned scenario clone")
-            if current_user != reader.url.username or session_user != reader.url.username:
-                raise AssertionError(
-                    "scenario reader did not authenticate as its actual purpose login"
-                )
-            yield ServingReadScenario(
-                seed.prepared, seed.run, seed.task, seed.locator, reader, seed.origin
-            )
-        finally:
-            reader.dispose()
+
+def build_serving_recipe(
+    recipe: ServingRecipe, admin: Engine, writer: Engine, directory: Path, *, purpose_engine=None
+) -> ServingStage:
+    prepared, run, task, locator = build_completed_serving_case(
+        admin, writer, directory, complete_coverage=recipe.complete_coverage
+    )
+    return ServingStage(
+        prepared,
+        run,
+        task,
+        locator,
+        hashlib.sha256(prepared.manifest).hexdigest(),
+        (directory / "source.html",),
+    )
+
+
+register_scenario_builder(ServingRecipe, build_serving_recipe)
+
+
+@pytest.fixture(scope="session")
+def serving_scenario_seed(scenario_seeds) -> ScenarioSeed[ServingStage]:
+    return scenario_seeds.seed(ServingRecipe())
+
+
+@pytest.fixture
+def serving_read_scenario(
+    serving_scenario_seed, scenario_seeds
+) -> Iterator[SeedClone[ServingStage]]:
+    with scenario_seeds.commit_clone(serving_scenario_seed.recipe) as clone:
+        yield clone
 
 
 def install_pack_scenario(admin, writer, name, entries, *, contexts=False):

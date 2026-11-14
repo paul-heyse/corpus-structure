@@ -21,8 +21,7 @@ PRECISE = b'{"coordinate":0.12345678901234567890123456789,"page":1}'
 
 def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
-
-    from .test_data_operation_demands import model, operation
+    from semantic.data_operation_declaration_support import model, operation
 
     scope = SubjectContext("project", "subject", "original", PRECISE)
     assert scope.analyzed_scope == PRECISE
@@ -76,41 +75,37 @@ def test_exact_json_refuses_nonfinite_numbers(invalid):
 
 
 @pytest.mark.db
-def test_native_jsonb_preserves_fraction_and_context_key_meaning(semantic_db_engine):
+def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback):
     source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
     start = source.index("CREATE OR REPLACE FUNCTION data.ddo_json_meaning(")
     end = source.index("CREATE OR REPLACE FUNCTION data.ddo_identity(", start)
     helper = source[start:end].replace("data.ddo_json_meaning", "pg_temp.ddo_json_meaning")
-    with semantic_db_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            connection.exec_driver_sql(helper)
-            # The production DDO column binder/result type crosses actual JSONB.
-            result = connection.scalar(
-                select(
-                    cast(
-                        bindparam("scope", type_=ContextJSONB()),
-                        ContextJSONB(),
-                    )
-                ),
-                {"scope": json_loads(PRECISE)},
+    connection = native_rollback.connection
+    connection.exec_driver_sql(helper)
+    # The production DDO column binder/result type crosses actual JSONB.
+    result = connection.scalar(
+        select(
+            cast(
+                bindparam("scope", type_=ContextJSONB()),
+                ContextJSONB(),
             )
-            assert json_bytes(result) == PRECISE
-            expected = [
-                "mapping",
-                [
-                    ["coordinate", ["decimal", "0.12345678901234567890123456789"]],
-                    ["page", ["decimal", "1"]],
-                ],
-            ]
-            assert (
-                connection.scalar(
-                    text("SELECT pg_temp.ddo_json_meaning(CAST(:scope AS jsonb))"),
-                    {"scope": json_bytes(result).decode()},
-                )
-                == expected
-            )
-            context = SubjectContext("project", "subject", "original", json_bytes(result))
-            assert semantic_value(context.identity_record)[1][0] == ["analyzed_scope", expected]
-        finally:
-            transaction.rollback()
+        ),
+        {"scope": json_loads(PRECISE)},
+    )
+    assert json_bytes(result) == PRECISE
+    expected = [
+        "mapping",
+        [
+            ["coordinate", ["decimal", "0.12345678901234567890123456789"]],
+            ["page", ["decimal", "1"]],
+        ],
+    ]
+    assert (
+        connection.scalar(
+            text("SELECT pg_temp.ddo_json_meaning(CAST(:scope AS jsonb))"),
+            {"scope": json_bytes(result).decode()},
+        )
+        == expected
+    )
+    context = SubjectContext("project", "subject", "original", json_bytes(result))
+    assert semantic_value(context.identity_record)[1][0] == ["analyzed_scope", expected]

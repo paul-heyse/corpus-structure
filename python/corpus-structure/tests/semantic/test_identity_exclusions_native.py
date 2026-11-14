@@ -4,9 +4,9 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
+from native_refusals import native_refusal
 from pdf_acceptance_support import native_evidence_sources
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.analytics import compile_projection
 from corpus_structure.semantic.arrow_publication import (
@@ -14,8 +14,6 @@ from corpus_structure.semantic.arrow_publication import (
     publish_arrow_on_connection,
 )
 from corpus_structure.semantic.domain_operations import _cut_input
-
-from .test_identity_exclusions import exclusion_result
 
 
 @pytest.mark.parametrize(
@@ -41,35 +39,42 @@ from .test_identity_exclusions import exclusion_result
         "policy_version",
     ],
 )
-def test_native_exclusion_publication_refuses_tampering(
-    semantic_db_engine, semantic_writer_engine, tmp_path, attack
-):
-    _prepared, _run, cut, _ = exclusion_result(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path,
-        finalize=False,
-        citations=2,
-        local_ids=("p_", "q"),
-        attribute_assertions=attack.startswith("attribute_"),
-    )
-    inputs = _cut_input(semantic_writer_engine, cut, "excluded-result")
+def test_native_exclusion_publication_refuses_tampering(exclusion_refusal_family, attack):
+    _, _, cut, _ = exclusion_refusal_family.stage.result
+    inputs = _cut_input(exclusion_refusal_family.reader, cut, "excluded-result")
     batch = inputs.batch
     row = batch.identity_exclusion[0]
+    compiled = compile_projection(inputs.prepared, inputs.source_binding, kind="candidate")
+
+    def publication_for(rows):
+        rows = replace(
+            rows, evidence_source=tuple(native_evidence_sources(inputs))
+        ).bind_preparation(inputs.prepared)
+        return SnapshotDerivedPublication.from_rows(
+            rows,
+            source=inputs.source_binding,
+            operation_id="evaluate",
+            projection_id=compiled.projection_id,
+            contract_id="candidate",
+            cut_id=cut,
+            profile_digest=compiled.profile.digest,
+        )
+
+    valid = publication_for(batch)
     expected = (
         "attribute occurrence differs from its own source assertion"
         if attack.startswith("attribute_")
         else {
             "omit": "effective cut identity exclusion omitted",
-            "collapse": "check constraint",
-            "raw_reference": "source declaration differs",
-            "reason": "source declaration differs",
-            "missing_citation": "evidence differs from source citations",
+            "collapse": None,
+            "raw_reference": "identity exclusion source declaration differs",
+            "reason": "identity exclusion source declaration differs",
+            "missing_citation": "identity exclusion evidence differs from source citations",
             "missing_primary": "identity exclusion lacks located primary custody",
-            "extra_citation": "evidence differs from source citations",
-            "identity": "identity differs",
+            "extra_citation": "identity exclusion evidence differs from source citations",
+            "identity": "identity exclusion identity differs",
             "locator": "native evidence differs from a located supplied citation",
-            "policy_version": "operation version differs from release model",
+            "policy_version": "identity exclusion operation version differs from release model",
         }[attack]
     )
     if attack.startswith("attribute_"):
@@ -205,28 +210,53 @@ def test_native_exclusion_publication_refuses_tampering(
         cut_id=cut,
         profile_digest=compiled.profile.digest,
     )
-    with (
-        pytest.raises(DBAPIError, match=expected) as refusal,
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-    ):
+    with exclusion_refusal_family.principal("write", isolation_level="SERIALIZABLE") as conn:
+        # Establish the valid publication reaches this guard under the same role/state.
+        positive = conn.begin_nested()
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:z)"), {"cut": cut, "z": "excluded-result"}
         )
-        publish_arrow_on_connection(conn, publication)
+        publish_arrow_on_connection(conn, valid)
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:z,:b)"),
-            {"cut": cut, "z": "excluded-result", "b": batch.batch_id},
+            {"cut": cut, "z": "excluded-result", "b": inputs.batch.batch_id},
         )
-    if attack.startswith("attribute_"):
-        assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
-    with semantic_writer_engine.connect() as conn:
         assert (
             conn.scalar(
-                text("SELECT count(*) FROM data.realization WHERE realization_id='excluded-result'")
+                text(
+                    "SELECT count(*) FROM data.identity_exclusion WHERE realization_id='excluded-result'"
+                )
             )
-            == 0
+            == 1
         )
+        positive.rollback()
+        with (
+            native_refusal(
+                "23514",
+                message=expected,
+                constraint="ck_identity_exclusion_physical_b87f376563"
+                if attack == "collapse"
+                else None,
+            ),
+            conn.begin_nested(),
+        ):
+            conn.execute(
+                text("SELECT data.begin_evaluation(:cut,:z)"), {"cut": cut, "z": "excluded-result"}
+            )
+            publish_arrow_on_connection(conn, publication)
+            conn.execute(
+                text("SELECT data.finish_evaluation(:cut,:z,:b)"),
+                {"cut": cut, "z": "excluded-result", "b": batch.batch_id},
+            )
+        for relation in ("realization", "identity_exclusion", "identity_exclusion_evidence"):
+            assert (
+                conn.scalar(
+                    text(
+                        f"SELECT count(*) FROM data.{relation} WHERE realization_id='excluded-result'"
+                    )
+                )
+                == 0
+            )
 
 
 @pytest.mark.parametrize(
@@ -237,24 +267,16 @@ def test_native_exclusion_publication_refuses_tampering(
         "DELETE FROM data.identity_exclusion",
     ],
 )
-def test_restricted_writer_cannot_mutate_exclusions(semantic_writer_engine, statement):
+def test_restricted_writer_cannot_mutate_exclusions(native_rollback, statement):
     with (
-        pytest.raises(DBAPIError, match="permission denied"),
-        semantic_writer_engine.begin() as conn,
+        native_refusal("42501"),
+        native_rollback.principal("write") as conn,
     ):
         conn.execute(text(statement))
 
 
 @pytest.mark.parametrize("local_ids", [("p_", "q%"), ("p/attributes/0", "q")])
-def test_literal_attribute_source_ids_remain_valid(
-    semantic_db_engine, semantic_writer_engine, tmp_path, local_ids
-):
-    _prepared, _run, _cut, result = exclusion_result(
-        semantic_db_engine,
-        semantic_writer_engine,
-        tmp_path,
-        local_ids=local_ids,
-        attribute_assertions=True,
-    )
+def test_literal_attribute_source_ids_remain_valid(exclusion_literal_case, tmp_path, local_ids):
+    _prepared, _run, _cut, result = exclusion_literal_case.stage.result
     assert result is not None
     assert result.realization_id == "excluded-result"

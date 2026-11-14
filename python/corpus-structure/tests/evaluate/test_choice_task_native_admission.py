@@ -5,13 +5,9 @@ from copy import deepcopy
 from dataclasses import asdict
 
 import pytest
-from evaluate.test_characterization_assessment_native import characterization_references
-from evaluate.test_operation_assessment_native import freeze
-from semantic.conftest import semantic_db_engine as semantic_db_engine
-from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
-from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from evaluation_operation_assessment_native_support import freeze
+from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.reference_scenarios import private_source_options as private_source_options
 from semantic.reference_scenarios import reference_source as reference_source
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -21,14 +17,18 @@ from corpus_structure.evaluate.operation_assessment import OperationCase, Operat
 
 @pytest.mark.parametrize(
     "private_source",
-    [dict(bundle_transform=characterization_references, additional_methods=("native-binding",))],
+    [
+        RecordSourceRecipe(
+            composition="reference-characterization", additional_methods=("native-binding",)
+        )
+    ],
     indirect=True,
 )
 @pytest.mark.parametrize("task,role", [("host_choice", "host"), ("referent_choice", "referent")])
 def test_native_choice_task_admits_exact_source_and_refuses_scheme_role_or_source_changes(
-    reference_source, semantic_evaluator_engine, task, role
+    reference_source, record_source_evaluator, task, role
 ):
-    with semantic_evaluator_engine.begin() as conn:
+    with record_source_evaluator.begin() as conn:
         _created, unit, frame, payload = freeze(
             conn, reference_source, frame_version=3, label="choice-native-" + task
         )

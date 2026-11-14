@@ -91,12 +91,14 @@ def test_factory_preserves_acquisition_exception(monkeypatch, configured):
 
 @pytest.mark.parametrize("configured", [False, True])
 @pytest.mark.parametrize("resolver", ["builtin", "server"])
-def test_actual_factory_driver_resolver_parity(db_engine, configured, resolver):
+def test_actual_factory_driver_resolver_parity(infrastructure_engine, configured, resolver):
     import adbc_driver_postgresql
 
-    uri = db_engine.url.set(drivername="postgresql").render_as_string(hide_password=False)
+    uri = infrastructure_engine.url.set(drivername="postgresql").render_as_string(
+        hide_password=False
+    )
     driver = adbc_driver_postgresql._driver_path() if configured else None
-    with db_engine.connect() as control:
+    with infrastructure_engine.connect() as control:
         expected_principal = control.scalar(text("SELECT current_user"))
     with (
         owned_adbc_read(
@@ -109,10 +111,12 @@ def test_actual_factory_driver_resolver_parity(db_engine, configured, resolver):
         assert cursor.fetchone() == (73, expected_principal)
 
 
-def test_actual_adbc_cancel_settles_slow_query_then_retired_handle_cannot_cancel_next(db_engine):
+def test_actual_adbc_cancel_settles_slow_query_then_retired_handle_cannot_cancel_next(
+    infrastructure_engine,
+):
     name = "ci-adbc-cancel-" + uuid4().hex
     uri = (
-        db_engine.url.set(drivername="postgresql")
+        infrastructure_engine.url.set(drivername="postgresql")
         .update_query_dict({"application_name": name})
         .render_as_string(hide_password=False)
     )
@@ -140,7 +144,7 @@ def test_actual_adbc_cancel_settles_slow_query_then_retired_handle_cannot_cancel
         assert entered.wait(timeout=10)
         stop = monotonic() + 10
         while True:
-            with db_engine.connect() as control:
+            with infrastructure_engine.connect() as control:
                 active = control.scalar(
                     text(
                         "SELECT count(*) FROM pg_stat_activity WHERE application_name=:name "
@@ -167,7 +171,7 @@ def test_actual_adbc_cancel_settles_slow_query_then_retired_handle_cannot_cancel
         cursor.execute("SELECT 73::bigint AS value")
         with cursor.fetch_record_batch() as reader:
             assert reader.read_all()["value"].to_pylist() == [73]
-    with db_engine.connect() as control:
+    with infrastructure_engine.connect() as control:
         assert (
             control.scalar(
                 text("SELECT count(*) FROM pg_stat_activity WHERE application_name=:name"),
@@ -297,7 +301,9 @@ def test_operation_request_before_publication_refuses_atomic_effect():
         pytest.fail("a canceled operation cannot publish")
 
 
-def test_capture_registers_actual_binding_queries_before_bulk_acquisition(db_engine, monkeypatch):
+def test_capture_registers_actual_binding_queries_before_bulk_acquisition(
+    infrastructure_engine, monkeypatch
+):
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.semantic import analytics, query
 
@@ -323,7 +329,7 @@ def test_capture_registers_actual_binding_queries_before_bulk_acquisition(db_eng
 
     def capture():
         try:
-            analytics.capture_packet(db_engine, "unbound", "unused", cancellation=owner)
+            analytics.capture_packet(infrastructure_engine, "unbound", "unused", cancellation=owner)
         except Exception as error:
             failures.append(error)
 
@@ -332,7 +338,7 @@ def test_capture_registers_actual_binding_queries_before_bulk_acquisition(db_eng
         assert entered.wait(timeout=10)
         deadline = monotonic() + 10
         while True:
-            with db_engine.connect() as control:
+            with infrastructure_engine.connect() as control:
                 active = control.scalar(
                     text(
                         "SELECT count(*) FROM pg_stat_activity WHERE pid=:pid "
@@ -350,7 +356,7 @@ def test_capture_registers_actual_binding_queries_before_bulk_acquisition(db_eng
     assert "cancel" in str(failures[0]).lower()
     assert owner.cleanup_failures == []
     owner.request_cancel()
-    with db_engine.connect() as conn:
+    with infrastructure_engine.connect() as conn:
         assert conn.scalar(text("SELECT 73")) == 73
 
 

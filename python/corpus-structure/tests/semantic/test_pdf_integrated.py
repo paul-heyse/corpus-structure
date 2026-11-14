@@ -27,8 +27,7 @@ from corpus_structure.semantic.pdf_storage import (
     read_pdf_product,
     trace_pdf_occurrence,
 )
-
-from .pdf_integration_support import (
+from semantic.pdf_integration_support import (
     CELL,
     CELL_IDS,
     HOLDER,
@@ -45,18 +44,10 @@ from .pdf_integration_support import (
     prepare,
     publish,
 )
-from .pdf_integration_support import (
-    independent_integrated as independent_integrated,
-)
-from .pdf_integration_support import (
-    native_source as native_source,
-)
-from .pdf_integration_support import (
-    pdf13_context as pdf13_context,
-)
-from .pdf_integration_support import (
-    pdf13_db as pdf13_db,
-)
+from semantic.pdf_integration_support import independent_integrated as independent_integrated
+from semantic.pdf_integration_support import native_source as native_source
+from semantic.pdf_integration_support import pdf13_context as pdf13_context
+from semantic.pdf_integration_support import pdf13_db as pdf13_db
 
 
 def test_materialized_integrated_content_enforces_released_metadata_affinity(
@@ -175,7 +166,7 @@ def test_reconciliation_operations_are_qualified(pdf13_context):
 
 
 def test_selected_cell_traces_two_observations_original_and_policy_reuse(
-    pdf13_db, semantic_reader_engine
+    pdf13_db, commit_reader_engine
 ):
     from docling_core.types.doc import DoclingDocument
 
@@ -211,7 +202,7 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
     assert IMAGE not in transmitted and RESPONSE not in transmitted
     assert db.source.recipe in transmitted
     assert publish(db, product) == digest
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         before = (
             conn.execute(
                 select(table("ops.pdf_product").c.content_digest).where(
@@ -386,7 +377,7 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
     revised = prepare(changed, db.source)
     assert revised.digest != product.digest
     publish(db, revised)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         after = (
             conn.execute(
                 select(table("ops.pdf_product").c.content_digest).where(
@@ -616,7 +607,7 @@ def test_partial_observation_cannot_support_complete_integrated_coverage(pdf13_d
     )
 
 
-def test_failed_later_pass_retains_earlier_observations(pdf13_db, semantic_reader_engine):
+def test_failed_later_pass_retains_earlier_observations(pdf13_db, commit_reader_engine):
     db = pdf13_db
     failed = observation(db.source, key="pass-c-failed", pass_role="C", outcome="failed")
     failed["occurrences"] = []
@@ -630,7 +621,7 @@ def test_failed_later_pass_retains_earlier_observations(pdf13_db, semantic_reade
         failed, db.source.original, db.source.recipe, artifacts=(IMAGE,)
     )
     digest = publish(db, product)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         retained = read_pdf_product(
             conn,
             task_id=db.job.task,
@@ -656,7 +647,7 @@ def test_failed_later_pass_retains_earlier_observations(pdf13_db, semantic_reade
 
 
 def test_retained_recognition_page_callback_uses_observation_only_native_port(
-    pdf13_db, semantic_reader_engine, tmp_path
+    pdf13_db, commit_reader_engine, tmp_path
 ):
     import json
 
@@ -732,7 +723,7 @@ def test_retained_recognition_page_callback_uses_observation_only_native_port(
         response == raw
         and observed["observation"]["raw_response_digest"] == sha256(raw).hexdigest()
     )
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         stored = read_pdf_product(conn, **reference, include_body=True)
     assert stored["body"] == observed
     assert stored["occurrences"][0]["body"]["text"] == "retained page"
@@ -762,7 +753,7 @@ def test_integrated_roundtrip_preserves_full_distinct_inventory(
     assert actual["health"]["source_fidelity"] == "unassessed"
 
 
-def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, semantic_reader_engine):
+def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, commit_reader_engine):
     from corpus_structure.semantic.pdf_storage import read_pdf_manifest
 
     db = pdf13_db
@@ -782,7 +773,7 @@ def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, seman
     )
     product = prepare(values, db.source)
     digest = publish(db, product)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         scoped = read_pdf_product(
             conn,
             task_id=db.job.task,
@@ -815,7 +806,7 @@ def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, seman
         assert len(all_rows) == len(values["coverage"])
 
 
-def test_artifact_byte_pages_require_exact_input_custody(pdf13_db, semantic_reader_engine):
+def test_artifact_byte_pages_require_exact_input_custody(pdf13_db, commit_reader_engine):
     from corpus_structure.semantic.pdf_storage import read_pdf_artifact
 
     db = pdf13_db
@@ -838,7 +829,7 @@ def test_artifact_byte_pages_require_exact_input_custody(pdf13_db, semantic_read
     )
     digest = publish(db, product)
     args = dict(task_id=db.job.task, product_key="artifact-pages", content_digest=digest)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         offset = 0
         parts = []
         while True:
@@ -865,7 +856,7 @@ def test_artifact_byte_pages_require_exact_input_custody(pdf13_db, semantic_read
 
 
 def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
-    pdf13_db, semantic_reader_engine, monkeypatch
+    pdf13_db, commit_reader_engine, monkeypatch
 ):
     from corpus_structure.semantic import pdf_contracts
 
@@ -896,7 +887,7 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
         )
 
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", archived_context)
-    with semantic_reader_engine.connect() as conn:
+    with commit_reader_engine.connect() as conn:
         result = read_pdf_product(
             conn,
             task_id=db.job.task,
