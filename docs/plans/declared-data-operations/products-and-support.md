@@ -198,18 +198,20 @@ native revisions require immutable successors and existing registration/adoption
 ## Native foundation completion correction · 2026-11-14
 
 The [current audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-14)
-reopens CA-08/09 under DDO-03/04. Native candidates must materialize contract-selected provider
+identified CA-08/09 under DDO-03/04; their current repair disposition is in the coordinator.
+Native candidates must materialize contract-selected provider
 identity from authentic producing custody instead of unconditionally refusing every such input.
 Pinned acquisition/continuation must cover relevant transitive computational and original-source
 trust scopes, consistently with recursive support validity and publication locking. Do not weaken
 the complete-support containment guard to accommodate an incomplete read pin. Existing replay,
 purpose-principal and qualified-context closures retain their narrow scope. The coordinator alone
-owns repair state and later positive/forgery/revocation verification; no tests resume from this note.
+owns repair state and positive/forgery/revocation verification under the operator-authorized
+focused scope in the coordinator receipt.
 
 
 ## SQLAlchemy/Alembic native authoring and read alignment · 2026-11-14
 
-**Accepted planned scope; implementation/verification remains open.** The
+**Accepted foundation contract; implemented state and bounded verification belong to the coordinator.** The
 [coordinator amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14)
 owns disposition and sequencing. DDO-04 delivers these foundation changes with the reopened
 DDO-03/05 work. They are not postponed until later table-role changes or public reader migration.

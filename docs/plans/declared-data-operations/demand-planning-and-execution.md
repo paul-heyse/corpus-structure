@@ -158,6 +158,16 @@ population closure. The planner expands only the declared member relation. A com
 population closes expansion; partial output remains useful under its declared scope but cannot
 prove there are no more subjects.
 
+**Explicit discovery input association, accepted target · 2026-11-14 (ADR-0104).** A discovery
+selection may name the target input role consuming that exact parent product/member. Validate role
+and member kind at freezing/registration; constrain its authenticated population binding before
+cardinality and independently enforce the selected association at native admission. No association
+means the existing unassociated discovery semantics, with no inferred origin preference. Preserve
+original/computed source-profile capability and distinct qualified member identities. Existing
+population/witness custody owns this relation; no new table or hidden selector is required. The
+[foundation receipt](../declared-data-operations_2026-11-12.md#foundation-execution-receipt--2026-11-14)
+owns implementation/verification. Equal-body candidates are not universally interchangeable.
+
 The root universe is frozen by membership identity, not a future re-execution of a mutable query.
 Newly discovered descendants belong to that demand only through its declared discovery products.
 A later changed root population is a new demand/binding. A resumed demand does not import unrelated
@@ -467,10 +477,11 @@ interpretation. New recipe results can stop downstream work at equal admissible 
 ## Dependency-complete readiness correction · 2026-11-14
 
 The [current audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-14)
-keeps the resolver's delivered behavior distinct from incomplete native premises (CA-08/09).
-Provider-sensitive roles currently cannot attach, and a root/direct-SourceSet-only trust mapping
-cannot attest the full transitive support closure. Complete native readiness remains open until
-those shared contracts are implemented. The selected-view child-binding failure remains with its
+distinguishes the resolver from its native premises (CA-08/09): provider-sensitive attachment
+requires authenticated producing identity, and root/direct-SourceSet-only pins cannot attest
+transitive support. The [foundation receipt](../declared-data-operations_2026-11-12.md#foundation-execution-receipt--2026-11-14)
+owns implementation and scoped verification of these shared contracts. The selected-view child-binding
+failure remains with its
 existing DDO-06/07 owner. This note neither reopens the distinct CA-05 context repair nor resumes tests.
 
 

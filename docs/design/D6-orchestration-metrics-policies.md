@@ -10,7 +10,15 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
-> Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
+**Accepted target; implementation Proposed · 2026-11-14.** A discovery selection can explicitly
+associate a target input role with its selected parent product/member. The planner filters that role
+to authenticated population membership before cardinality; native admission independently checks
+parent/member, context, producer and valid support. An omitted association preserves existing frozen
+meaning. Broad origin acceptance does not imply an origin preference or equal-body deduplication.
+Existing population/binding/witness machinery owns the relationship; no new storage authority is added.
+The coordinator's foundation receipt owns implementation and targeted qualification.
+
+> Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
 
 **Implemented foundation · 2026-11-13; scoped acceptance belongs to the coordinator.**
 Demand freezing consumes the compiled selected-dependency projection and explicit alternative

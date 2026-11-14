@@ -33,9 +33,9 @@ includes the callable's actual builtin lookup environment; complete source/scope
 applies to distinct members of one discovery population. Pure topology kernels and member-family
 policies do not by themselves supply the accepted compiled graph projection interpretation.
 
-**Completion-audit correction · 2026-11-14:** the coordinator's CA-08/09 own incomplete native
-provider-selected input identity and transitive-support trust pins. Python/compiler support and safe
-native refusal do not establish the missing native capability. Preserve contract-selected provider
+**Completion-audit contract · 2026-11-14:** CA-08/09 require native provider-selected input
+identity and transitive-support trust pins; Python/compiler support or safe native refusal alone
+cannot establish these capabilities. Preserve contract-selected provider
 identity from authenticated producing custody in both semantic and admission projections; read pins
 must cover relevant transitive support scopes. This corrects implementation status, not the accepted
 contract or the existing narrow typed-port/source-migration controls. See the
@@ -495,7 +495,7 @@ final qualification remain with their existing packages; no source-policy fallba
 
 ## SQLAlchemy protocol and binding alignment · 2026-11-14
 
-**Accepted planned scope; implementation/verification not established by this amendment.**
+**Accepted foundation contract; implementation and verification are recorded in the coordinator receipt.**
 The [coordinator amendment](../declared-data-operations_2026-11-12.md#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14)
 owns source-qualified SQLA/Alembic I01–I05 disposition and execution order. DDO-03 supplies these
 contracts now for the reopened DDO-04/05 work, rather than waiting for DDO-09/10 readers.
@@ -534,12 +534,13 @@ property, and date/timestamp boundaries. Resolve exposed divergences at the owni
 force Boolean parity between insufficiency and admission refusal. Introduce a shared tagged-value
 `TypeDecorator`/comparator only when a second real Core consumer needs the decode.
 
-**Future focused acceptance:** independently expected fate sets reject stored `waiting` and unknown
+**Focused acceptance contract:** independently expected fate sets reject stored `waiting` and unknown
 values; a captured protocol-only change alters the correct CHECK identity and generated types without
 an ambient read; shared metadata/candidate compilation agrees. Binding cases distinguish absent,
 unknown and typed values on both paths. Wrong/forged provider identity and transitive trust changes
-retain the separate CA-08/09 native expectations. These cases are planned, not run; cancellations
-remain in force. The [native realization](products-and-support.md#sqlalchemyalembic-native-authoring-and-read-alignment--2026-11-14)
+retain the separate CA-08/09 native expectations. The [foundation receipt](../declared-data-operations_2026-11-12.md#foundation-execution-receipt--2026-11-14)
+records actual scoped results; full campaigns and actual-provider journeys remain stopped.
+The [native realization](products-and-support.md#sqlalchemyalembic-native-authoring-and-read-alignment--2026-11-14)
 owns effect boundaries and protected compilation. Library mechanisms and source contracts:
 [review I01](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I01),
 [I02](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I02),

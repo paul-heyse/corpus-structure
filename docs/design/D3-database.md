@@ -32,7 +32,7 @@ original identity meaning. The coordinator owns implementation and qualification
 **Implemented native foundation; scoped Tested · 2026-11-13.** Registered successor
 `semantic_ddo_projection_v1` closes population ambiguity by full authenticated member context,
 preserving JSONB numeric value meaning and null/string distinction under each declared body schema.
-Current target admission requires model v3; exact historical v2 reading grants no current admission.
+Current target admission requires model v4; exact historical v2/v3 reading grants no current admission.
 Independent native replay, principal, support/recovery and scoped discovery controls are reconciled
 in the coordinator. The successor has not been deployed to the working database; production
 adoption and broader physical/schema retirement remain DDO-11.
@@ -307,12 +307,20 @@ No operational database is deployed by this target acceptance.
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
 
-**Accepted target; authoring integration Proposed · 2026-11-14.** Compared frozen table/schema
+**Implemented; rollback authoring scoped Tested · 2026-11-14.** Compared frozen table/schema
 privilege operations replace creation-only grants. An explicit initial normalization marks missing
 legacy before facts unrecorded; later transitions use exact policy custody. Purpose roles retain
 no table mutation/schema CREATE authority. Owned DDL preserves caller restoration and cross-owner
 FK authorization; the explicit walk still owns global retirement ordering. Named first-party data
 steps compile to frozen SQL under preview implementation custody; upgrades never resolve builders.
+Registered `semantic_ddo_found_v1` executes the whole upgrade and independently verifies catalogs
+in rollback-only authoring; it is not deployed. Complete policy includes explicit delegation order,
+empty column ACLs, evaluator-only protected tables and inherited trigger ownership. Shared Core
+binding/read definitions and captured protocol value sets retain approved source/type inputs.
+Provider-sensitive candidates use authenticated producing custody; pinned reads/publication share
+transitive immutable and selected-use support scopes. The
+[foundation receipt](../plans/declared-data-operations_2026-11-12.md#foundation-execution-receipt--2026-11-14)
+owns functional qualification and remaining boundaries.
 
 > Decision: [ADR-0103](../adr/0103-ddo-privilege-policy.md), [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
