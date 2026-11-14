@@ -1391,7 +1391,7 @@ def _project_cut(
     evidence_roles = {}
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.core.tex import effective_macros
-    from corpus_structure.methods.math.methods import MathSection
+    from corpus_structure.methods.math.configuration import MathSection
 
     from .proposals import NativeProposalFrame
 

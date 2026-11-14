@@ -122,9 +122,7 @@ def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_
     directory.mkdir()
     preparation = prepare_kernel(target, directory=directory)
     with commit_db_engine.begin() as connection:
-        kernel = admit_kernel(
-            connection, target, engine=commit_db_engine, preparation=preparation
-        )
+        kernel = admit_kernel(connection, target, engine=commit_db_engine, preparation=preparation)
     reference, _ = completed_original_source_reference(retained)
     with commit_db_engine.connect() as connection:
         views = table("kb.source_view")
