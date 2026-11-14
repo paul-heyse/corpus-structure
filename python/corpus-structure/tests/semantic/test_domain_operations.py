@@ -1042,3 +1042,31 @@ def test_native_declared_membership_refuses_forged_lineage(declared_membership_c
                     )
                     == 0
                 )
+
+
+def test_source_claim_cycles_distinguish_members_tails_and_independent_work():
+    from corpus_structure.semantic.domain_operations import _claim_reference_order
+
+    ordered, cyclic, blocked = _claim_reference_order({
+        "a": {"b"}, "b": {"a"}, "c": {"b"}, "d": set(),
+        "self": {"self"}, "missing": {"unavailable"}, "later": {"d"},
+    })
+    assert cyclic == ("a", "b", "self")
+    assert blocked == ("c",)
+    assert ordered == ("d", "later", "missing")
+
+
+def test_native_authored_cycle_tail_keeps_independent_claim_publishable(commit_db_engine, commit_writer_engine, tmp_path):
+    from corpus_structure.semantic.domain_operations import _cut_input
+
+    _, _, cut = build_domain_case(commit_db_engine, commit_writer_engine, tmp_path / "source.html", cycle_tail=True)
+    inputs = _cut_input(commit_writer_engine, cut, "evaluated")
+    assert tuple(item.local_id for item in inputs.candidates) == ("d",)
+    consolidate_cut(commit_writer_engine, cut, "evaluated")
+    with commit_writer_engine.connect() as connection:
+        rows = connection.execute(select(table("data.coverage").c.scope, table("data.coverage").c.reason).where(table("data.coverage").c.family == "claim")).all()
+        reasons = {scope.rsplit("/", 1)[-1]: reason for scope, reason in rows}
+        assert reasons["a"] == reasons["b"] == reasons["self"] == "cyclic source claim reference"
+        assert reasons["c"] == "blocked by cyclic source claim premise"
+        assert "d" not in reasons
+        assert connection.execute(select(table("data.fact").c.fact_id)).first() is not None

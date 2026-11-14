@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from collections.abc import Mapping
-from contextlib import suppress
 from dataclasses import asdict, dataclass, fields, replace
 from hashlib import sha256
 from pathlib import Path
@@ -59,6 +58,27 @@ from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
 RULE_INPUT = "operation/domain-rules.yaml"
 VERSION = "semantic-domain-3"
+
+
+def _claim_reference_order(dependencies: Mapping[str, set[str]]):
+    """Order admissible authored claims and distinguish cycles from their blocked tails."""
+    from .data_operation_identity import SemanticGraph
+
+    nodes = {name: {"id": name, "category": "source-claim", "payload": {}} for name in dependencies}
+    edges = [
+        {"source": name, "target": premise, "relation": "claim-premise"}
+        for name, premises in dependencies.items()
+        for premise in sorted(premises & dependencies.keys())
+    ]
+    graph = SemanticGraph({"nodes": tuple(nodes.values()), "edges": edges})
+    cyclic = {name for component in graph.cyclic_components() for name in component}
+    excluded = set(graph.closure(cyclic, direction="dependents")) if cyclic else set()
+    available = nodes.keys() - excluded
+    ordered = SemanticGraph({
+        "nodes": tuple(nodes[name] for name in sorted(available)),
+        "edges": [edge for edge in edges if edge["source"] in available and edge["target"] in available],
+    }).dependency_order()
+    return ordered, tuple(sorted(cyclic)), tuple(sorted(excluded - cyclic))
 
 
 class DomainOperationRefused(SemanticRefusal):
@@ -1643,19 +1663,13 @@ def _project_cut(
             ref: dependencies_of(claim, qclass, mapping)
             for ref, (i, claim) in source_claims.items()
         }
-        from graphlib import CycleError, TopologicalSorter
-
-        topology = TopologicalSorter(
-            {ref: refs & source_claims.keys() for ref, refs in dependencies.items()}
-        )
-        with suppress(CycleError):
-            topology.prepare()
-        ordered = []
-        while ready := topology.get_ready():
-            ordered.extend(sorted(ready))
-            topology.done(*ready)
-        for ref in source_claims.keys() - set(ordered):
+        ordered, cyclic, blocked = _claim_reference_order(dependencies)
+        for ref in cyclic:
             coverage_row("claim", source + "/" + ref, "partial", "cyclic source claim reference")
+        for ref in blocked:
+            coverage_row(
+                "claim", source + "/" + ref, "partial", "blocked by cyclic source claim premise"
+            )
         for ref in ordered:
             i, claim = source_claims[ref]
             if not dependencies[ref] <= claim_refs.keys():

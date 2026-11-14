@@ -419,6 +419,7 @@ class DomainCaseRecipe:
     local_known: bool = False
     claim_chain: bool = False
     cycle: bool = False
+    cycle_tail: bool = False
     condition: bytes | None = None
     report_count: int = 1
     authored_alternative: bool = False
@@ -477,6 +478,7 @@ def domain_case_recipe(
     broken: bool = False,
     claim_chain: bool = False,
     cycle: bool = False,
+    cycle_tail: bool = False,
     condition: dict[str, Any] | None = None,
     report_count: int = 1,
     global_person_identity: bool = False,
@@ -514,6 +516,7 @@ def domain_case_recipe(
         local_known=local_known,
         claim_chain=claim_chain,
         cycle=cycle,
+        cycle_tail=cycle_tail,
         condition=canonical_bytes(condition) if condition is not None else None,
         report_count=report_count,
         authored_alternative=authored_alternative,
@@ -679,7 +682,7 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
                 },
             },
         ]
-    if cycle:
+    if cycle or recipe.cycle_tail:
         base = raw["claims"][0]
         raw["claims"] = [
             {
@@ -699,6 +702,13 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
                 },
             },
         ]
+    if recipe.cycle_tail:
+        base = raw["claims"][0]
+        raw["claims"].extend([
+            {**base, "id": "c", "qualification": {**base["qualification"], "condition": {"kind": "claim", "ref": "b"}}},
+            {**base, "id": "self", "qualification": {**base["qualification"], "condition": {"kind": "claim", "ref": "self"}}},
+            {**base, "id": "d", "qualification": {key: value for key, value in base["qualification"].items() if key != "condition"}},
+        ])
     if integer_alias:
         raw["claims"][0]["object"] = {"kind": "number", "number": 4}
     if report_count == 2 and formulas:
