@@ -3,8 +3,8 @@
 import pytest
 from sqlalchemy import select
 
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -23,7 +23,11 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
     scenario_seeds, tmp_path, monkeypatch
 ):
     from docling_core.types.doc import (
-        BoundingBox, DocItemLabel, DoclingDocument, ProvenanceItem, Size,
+        BoundingBox,
+        DocItemLabel,
+        DoclingDocument,
+        ProvenanceItem,
+        Size,
     )
 
     from corpus_structure.ingest import pdf_worker

@@ -85,8 +85,8 @@ def test_enrichment_recipe_changes_with_actual_captured_classification_policy():
 
 @pytest.mark.parametrize("historical_aggregate", [False, True])
 def test_selected_publication_projection_does_not_hydrate_whole_native(monkeypatch, historical_aggregate):
-    from corpus_structure.semantic.operations import BoundReader, OperationConflict
     from corpus_structure.ingest import pdf_section_views
+    from corpus_structure.semantic.operations import BoundReader, OperationConflict
     pin = ProductReference(3, "organized", "a" * 64)
     draft = SourceViewDraft("selected", 1, pin, "#/groups/0", "direct", "text", ({"start": 0, "end": 4, "kind": "native_text", "item_ref": "#/texts/0"},), ("#/groups/0", "#/texts/0"), (), {"conversion": "success"}, b"{}")
     requests = []

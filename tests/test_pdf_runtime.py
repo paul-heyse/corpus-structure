@@ -11,7 +11,6 @@ import pytest
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import prepare_pdf_assets
 from corpus_structure.ingest.pdf_candidates import capture_candidates
-from corpus_structure.ingest.pdf_hierarchy import _section_text_policy_bytes
 from corpus_structure.ingest.pdf_methods import PdfIngestConfig
 
 
@@ -21,6 +20,7 @@ def test_pdf_recipe_has_no_implicit_conversion_deadline():
 
 def test_domain_source_selection_survives_pure_scope_configuration():
     from copy import deepcopy
+
     import yaml
 
     domain = yaml.safe_load((Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text())
@@ -195,7 +195,8 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
 
 def test_organization_profile_capture_does_not_initialize_models(tmp_path, monkeypatch):
     import json
-    from corpus_structure.ingest import pdf_worker, pdf_recognition
+
+    from corpus_structure.ingest import pdf_recognition, pdf_worker
     from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
     from corpus_structure.semantic.pdf_transforms import pdf_transform_operation_sources
 
@@ -593,8 +594,8 @@ def test_descendant_projection_selects_scoped_nested_roots_before_reader_filteri
         organize,
         snapshot,
     )
-    from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions
     from corpus_structure.ingest.pdf_methods import _select_sections
+    from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions
 
     document = DoclingDocument(name="independent scoped descendant selection")
     for title, level in [

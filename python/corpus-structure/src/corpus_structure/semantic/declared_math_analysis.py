@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import inspect
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal
-from collections.abc import Callable
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 

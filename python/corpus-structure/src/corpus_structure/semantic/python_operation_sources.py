@@ -7,8 +7,6 @@ admitted by explicit forms; inference cardinality is never a completeness proof.
 
 from __future__ import annotations
 
-from contextlib import suppress
-
 import ast
 from collections.abc import Mapping
 from contextlib import suppress

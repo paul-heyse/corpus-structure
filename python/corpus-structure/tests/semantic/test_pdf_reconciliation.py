@@ -664,8 +664,8 @@ def test_policy_demand_defaults_into_recipe_and_unsupported_demand_refuses(nativ
     import json
 
     from corpus_structure.ingest.pdf_recognition import NemotronRecipe
-    from corpus_structure.semantic.pdf_transforms import PdfIntegrationOptions, PreparedPdfTransform
     from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy
+    from corpus_structure.semantic.pdf_transforms import PdfIntegrationOptions, PreparedPdfTransform
 
     legacy = {
         "policy_id": "pdf-integration-v1",

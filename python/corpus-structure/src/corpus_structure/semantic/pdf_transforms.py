@@ -25,9 +25,9 @@ from .types import SourceArtifact
 class PdfEnrichmentOptions(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
     cell_math_pattern: str = (
-        "(?:[=+×÷∑∏∫√∞≤≥∈⊂∪∩^_\\\\]|(?<!\\w)[A-Za-z](?!\\w)|\\d)"
+        "(?:[=+×÷∑∏∫√∞≤≥∈⊂∪∩^_\\\\]|(?<!\\w)[A-Za-z](?!\\w)|\\d)"  # noqa: RUF001 — literal mathematical symbols
     )
-    cell_prose_pattern: str = "[A-Za-z]{2,}(?:[\\s,;:'’().-]+[A-Za-z]{2,})*[.!?]?"
+    cell_prose_pattern: str = "[A-Za-z]{2,}(?:[\\s,;:'’().-]+[A-Za-z]{2,})*[.!?]?"  # noqa: RUF001 — literal typographic apostrophe
     crop_padding_points: float = Field(default=0.75, ge=0)
 
 
@@ -99,6 +99,7 @@ def pdf_transform_custody(mode, *, directory, recipe=None, assets=None, options,
         raise ValueError("unknown PDF transformation capability")
     if mode == "organized":
         from pydantic import TypeAdapter
+
         from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
         policy = TypeAdapter(SectionPolicy).validate_python(options)
         option_value = TypeAdapter(SectionPolicy).dump_python(policy, mode="json")
@@ -181,16 +182,19 @@ class SelectedPdfInput:
 def _read_selected_pdf(prepared, capture, binding, execution_owner, directory, *, sections=(), membership: Literal["direct", "descendants"] = "direct", project_sections=True, check_active):
     """Authenticate the exact semantic support before detaching any native body."""
     from dataclasses import replace
+
+    from pydantic import TypeAdapter
+
     from corpus_structure.ingest.pdf_candidate_source import ReplayCandidatePageSource
     from corpus_structure.ingest.pdf_section_views import published_section_projections
     from corpus_structure.ingest.pdf_streaming import _atomic_bytes
-    from pydantic import TypeAdapter
+
+    from .metadata import table
     from .pdf_contracts import PreparedPdfProduct, pdf_context_for_release
     from .pdf_payloads import prepare_payload_family
     from .pdf_publication import PdfExecutionReceipt
     from .pdf_record_reader import PublishedPdfReader, PublishedReadBudget
     from .product_reference import ProductReference
-    from .metadata import table
 
     claim = execution_owner.claim
     if claim is None or binding.subject_context is None:
@@ -266,12 +270,14 @@ class PreparedPdfTransform:
 
     def transform(self, capture, *, binding, execution_owner, check_active, sections=(), membership: Literal["direct", "descendants"] = "direct", pages=()):
         import shutil
+
+        from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
+
         from .pdf_capture import PdfCaptureProduct, pdf_publication_value
         from .pdf_contracts import store_pdf_original
         from .pdf_publication import inspect_pdf_execution_receipt
         from .pdf_record_reader import PublishedPdfReader, PublishedReadBudget
         from .product_reference import ProductReference
-        from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
 
         claim = execution_owner.claim
         if claim is None:
@@ -309,7 +315,9 @@ class PreparedPdfTransform:
 
     def _organize(self, selected, recipe_bytes, check_active):
         from dataclasses import replace
+
         from pydantic import TypeAdapter
+
         from corpus_structure.ingest.pdf_hierarchy import SectionPolicy, organize
         from corpus_structure.ingest.pdf_methods import _conversion_from_product
         from corpus_structure.ingest.pdf_record_product import native_publication_draft
@@ -322,6 +330,7 @@ class PreparedPdfTransform:
 
     def _enrich(self, selected, recipe_bytes, check_active):
         from contextlib import nullcontext
+
         from corpus_structure.ingest.pdf import PdfRecipe
         from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
         from corpus_structure.ingest.pdf_capacity import native_before_nemotron
@@ -347,8 +356,15 @@ class PreparedPdfTransform:
         from corpus_structure.ingest.pdf import native_conversion_health
         from corpus_structure.ingest.pdf_hierarchy import load_snapshot, native_nodes
         from corpus_structure.ingest.pdf_methods import _snapshot_from_values
-        from corpus_structure.ingest.pdf_recognition import NemotronRecipe, PreparedRecognitionSource, RecognitionWorker, repetition_recovery_recipe, repetitive_capped_page
+        from corpus_structure.ingest.pdf_recognition import (
+            NemotronRecipe,
+            PreparedRecognitionSource,
+            RecognitionWorker,
+            repetition_recovery_recipe,
+            repetitive_capped_page,
+        )
         from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
+
         from .pdf_integrated import PreparedPdfOriginal, store_pdf_observation
         from .product_reference import ProductReference
 
@@ -410,6 +426,7 @@ class PreparedPdfTransform:
 def retain_recognition_page(page, source, recipe, original, context, *, publish, structural_pin: ProductReference | None = None, verify_retained=False, check_active):
     """Prepare each actual retained request, then let its fenced native owner publish."""
     from corpus_structure.ingest.pdf_recognition import recognition_observation_values
+
     from .pdf_integrated import prepare_integrated_pdf_product
     for row, raw, artifacts in page.requests(verify_retained=verify_retained):
         check_active()
@@ -471,6 +488,7 @@ class PreparedPdfTransformPort:
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.work import PreparedWork
+
         from .data_operation_identity import semantic_value
         from .data_operation_outcomes import successful_return_outcome
         from .data_operation_ports import PortCompletion, PortRefusal, RoleValue, _untrusted_value

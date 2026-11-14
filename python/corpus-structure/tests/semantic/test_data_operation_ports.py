@@ -1293,7 +1293,9 @@ def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path,
     from dataclasses import replace
 
     from corpus_structure.semantic.data_operation_model import (
-        ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION,
+        ARCHIVED_MODEL_VERSION,
+        LEGACY_MODEL_VERSION,
+        PREVIOUS_MODEL_VERSION,
     )
 
     model, inputs = fixture_source(tmp_path, monkeypatch, body='return "fixed"')

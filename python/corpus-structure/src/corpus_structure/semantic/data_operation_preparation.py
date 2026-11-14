@@ -368,7 +368,9 @@ def _acquire_primary_profile(
         )
         if capture.organization_policy is not None:
             from pydantic import TypeAdapter
+
             from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
+
             from .pdf_transforms import pdf_transform_operation_sources
             policy = TypeAdapter(SectionPolicy).validate_python(yaml.safe_load(read(capture.organization_policy)))
             arguments["pdf_organization_sources"] = pdf_transform_operation_sources("organized", options=policy, directory=location(capture.directory))

@@ -17,7 +17,10 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_rele
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.pdf_capture import pdf_capture_operation_sources
-from corpus_structure.semantic.pdf_effect_contract import PDF_ENRICHMENT_EFFECT, PDF_INTEGRATION_EFFECT
+from corpus_structure.semantic.pdf_effect_contract import (
+    PDF_ENRICHMENT_EFFECT,
+    PDF_INTEGRATION_EFFECT,
+)
 from corpus_structure.semantic.pdf_transforms import (
     PdfEnrichmentOptions,
     PdfIntegrationOptions,
@@ -25,7 +28,10 @@ from corpus_structure.semantic.pdf_transforms import (
     PreparedPdfTransform,
     pdf_transform_operation_sources,
 )
-from corpus_structure.semantic.primary_operations import primary_operation_inputs, primary_operation_targets
+from corpus_structure.semantic.primary_operations import (
+    primary_operation_inputs,
+    primary_operation_targets,
+)
 
 
 @pytest.mark.parametrize("mode", ["enriched", "integrated"])

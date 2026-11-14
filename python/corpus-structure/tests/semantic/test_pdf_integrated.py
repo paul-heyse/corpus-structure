@@ -7,7 +7,6 @@ from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
 from types import SimpleNamespace
-from typing import Any
 
 import psycopg
 import pytest
@@ -656,8 +655,8 @@ def test_retained_recognition_page_callback_uses_observation_only_native_port(
         PreparedRecognitionSource,
         RecognitionPage,
     )
-    from corpus_structure.semantic.pdf_transforms import retain_recognition_page
     from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
+    from corpus_structure.semantic.pdf_transforms import retain_recognition_page
     from corpus_structure.semantic.product_reference import ProductReference
 
     db = pdf13_db

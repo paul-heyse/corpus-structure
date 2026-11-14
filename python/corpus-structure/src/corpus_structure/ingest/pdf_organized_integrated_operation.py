@@ -1,6 +1,8 @@
 """One actually acquired PDF predecessor; the finite family owns execution."""
 from typing import ClassVar
+
 from corpus_structure.ingest.pdf_integration_operation import PdfIntegrationOperation
+
 
 class OrganizedPdfIntegrationOperation(PdfIntegrationOperation):
     __data_operation__: ClassVar[dict] = {

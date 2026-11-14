@@ -333,8 +333,8 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.ingest.pdf import PdfConverter
     from corpus_structure.ingest.pdf_chandra import ChandraRuntime
     from corpus_structure.ingest.pdf_hierarchy import organize, project_section
-    from corpus_structure.ingest.pdf_selected_enrichment import enrich_selected_pdf
     from corpus_structure.ingest.pdf_recognition import RecognitionWorker
+    from corpus_structure.ingest.pdf_selected_enrichment import enrich_selected_pdf
     from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
     from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer
     from corpus_structure.intervene.directions import record_direction

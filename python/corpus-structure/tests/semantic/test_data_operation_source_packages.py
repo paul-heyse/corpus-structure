@@ -3,7 +3,11 @@
 import pytest
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.python_operation_sources import ClosedPythonSources, PythonSource, PythonSourceCollection
+from corpus_structure.semantic.python_operation_sources import (
+    ClosedPythonSources,
+    PythonSource,
+    PythonSourceCollection,
+)
 from semantic.data_operation_declaration_support import contract
 
 

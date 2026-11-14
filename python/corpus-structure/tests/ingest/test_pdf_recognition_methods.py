@@ -7,14 +7,24 @@ from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
-from docling_core.types.doc import BoundingBox, DocItemLabel, DoclingDocument, GroupLabel, ProvenanceItem, Size
+from docling_core.types.doc import (
+    BoundingBox,
+    DocItemLabel,
+    DoclingDocument,
+    GroupLabel,
+    ProvenanceItem,
+    Size,
+)
 from pydantic import ValidationError
 
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
-from corpus_structure.ingest.pdf_recognition import NemotronRecipe
-from corpus_structure.ingest.pdf_recognition import PdfRecognitionRecoveryPolicy
-from corpus_structure.semantic.pdf_transforms import PdfIntegrationOptions, PreparedPdfTransform, SelectedPdfInput
+from corpus_structure.ingest.pdf_recognition import NemotronRecipe, PdfRecognitionRecoveryPolicy
+from corpus_structure.semantic.pdf_transforms import (
+    PdfIntegrationOptions,
+    PreparedPdfTransform,
+    SelectedPdfInput,
+)
 from corpus_structure.semantic.product_reference import ProductReference
 
 

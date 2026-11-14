@@ -21,12 +21,10 @@ from docling_core.types.doc import (
 )
 from pydantic import create_model
 
-from corpus_structure.ingest.pdf import PdfConversion, PdfConverter, publication_payload
-from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_candidates import rediscover_candidates
 from corpus_structure.ingest.pdf_hierarchy import load_snapshot, snapshot
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.ingest.pdf_worker import PdfWorker
 from corpus_structure.semantic.operations import (
     OperationBinding,
     claim_tasks,

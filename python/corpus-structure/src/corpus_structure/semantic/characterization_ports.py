@@ -1136,7 +1136,9 @@ class PreparedOrganizedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
 
     @property
     def endpoint(self):
-        from corpus_structure.methods.captured_organized_composition import ComposeOrganizedCapturedDocumentOperation
+        from corpus_structure.methods.captured_organized_composition import (
+            ComposeOrganizedCapturedDocumentOperation,
+        )
         return ComposeOrganizedCapturedDocumentOperation
 
 

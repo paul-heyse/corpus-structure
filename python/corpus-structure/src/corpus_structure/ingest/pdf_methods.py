@@ -17,7 +17,15 @@ from .pdf import PdfConversion, PdfRecipe
 from .pdf_candidate_source import CandidatePageSource, InMemoryCandidatePageSource
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_health import FormulaOutcome
-from .pdf_hierarchy import NativeSnapshot, SectionPolicy, load_snapshot, native_nodes, project_section, section_text_recipe, section_view_key
+from .pdf_hierarchy import (
+    NativeSnapshot,
+    SectionPolicy,
+    load_snapshot,
+    native_nodes,
+    project_section,
+    section_text_recipe,
+    section_view_key,
+)
 
 
 class PdfRuntimeConfig(BaseModel):

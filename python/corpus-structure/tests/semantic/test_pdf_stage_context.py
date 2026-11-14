@@ -137,23 +137,22 @@ def test_native_pdf_preparation_does_not_authorize_private_original_writes(ddo_o
                 "(SELECT count(*) FROM kb.source_artifact)"
             )
         ).one()
-    with case.writer.begin() as connection:
-        with (
-            native_refusal(
-                "P0004",
-                message="stale private PDF build owner/capability/support",
-                context="ops.require_pdf_stage_owner",
-            ),
-            connection.begin_nested(),
-        ):
-            connection.execute(
-                text("SELECT ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)"),
-                {
-                    **params,
-                    "original": bytes(original.content),
-                    "recipe": b'{"recipe":"forbidden"}',
-                },
-            )
+    with (
+        case.writer.begin() as connection, native_refusal(
+            "P0004",
+            message="stale private PDF build owner/capability/support",
+            context="ops.require_pdf_stage_owner",
+        ),
+        connection.begin_nested(),
+    ):
+        connection.execute(
+            text("SELECT ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)"),
+            {
+                **params,
+                "original": bytes(original.content),
+                "recipe": b'{"recipe":"forbidden"}',
+            },
+        )
     with case.admin.connect() as connection:
         after = connection.execute(
             text(

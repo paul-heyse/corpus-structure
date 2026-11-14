@@ -12,8 +12,8 @@ import pytest
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     LEGACY_MODEL_VERSION,
+    MODEL_VERSION,
     read_effective_data_operations,
 )
 from corpus_structure.semantic.identity import claim_source_item__data_operation__
