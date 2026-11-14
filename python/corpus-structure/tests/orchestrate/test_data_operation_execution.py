@@ -204,3 +204,46 @@ def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(ex
         # Failed infrastructure attempts remain retryable; they did not publish
         # a fabricated domain-level failure outcome or destroy the good answers.
         assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE status='failed'")) == 0
+
+
+def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_answers(executable):
+    from dataclasses import replace
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+    engine, prepared, runtime, sources, locations, bundle = executable
+    model = bound_data_operation_model(prepared)
+    intent = freeze_demand(model, roots=tuple(RootSubject(f"subject:{index}", f"source:{index}", b"{}") for index in range(6)), targets=("urn:ddo-execution:answer",), inference="exact", execution_profile="execution:test")
+    with engine.begin() as connection:
+        demand = DemandPlanner(model, DataOperationStorage(connection)).register(intent, project="execution", release=prepared.release_id, runtime=runtime.runtime_id)["demand_id"]
+    claimed, windows = [], []
+    policy = replace(CharacterizationExecutionPolicy(), max_claims=2)
+
+    class ObservedExecutor(NativeDemandExecutor):
+        def _claim(self, ready, owner):
+            claim, native = super()._claim(ready, owner)
+            if claim is not None:
+                claimed.append((ready.obligation, claim.task_id, claim.attempt))
+                with self.engine.connect() as connection:
+                    windows.append(connection.scalar(text("SELECT count(*) FROM ops.task WHERE claimed_by=:holder AND status='running'"), {"holder": self.holder}))
+                    assert connection.scalar(text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": claim.task_id}) is None
+            return claim, native
+
+    executor = ObservedExecutor(engine, prepared, runtime, sources, policy=policy, runtime_locations=locations, schema=bundle)
+    completed = executor.run(demand, limit=2)
+    assert completed.receipt_count == 6 and len(claimed) == 6
+    assert len({obligation for obligation, _task, _attempt in claimed}) == 6
+    assert len({task for _obligation, task, _attempt in claimed}) == 6
+    assert windows and all(1 <= count <= 2 for count in windows)
+    assert executor.budget.used_bytes == 0
+    with engine.begin() as connection:
+        snapshot = DataOperationStorage(connection).invoke("read_demand_result", {"demand_id": demand, "view": "products"})
+        assert {row["fate"] for row in snapshot["obligations"]} == {"fulfilled"}
+        products = [product for use in snapshot["uses"] for product in use["products"]]
+        assert len(products) == 6 and len({product["product_id"] for product in products}) == 6
+        assert {json.dumps(product["body"]) for product in products} == {json.dumps(["integer", "7"])}
+        receipts = connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt"))
+    resumed = executor.run(demand, limit=2)
+    assert resumed.receipt_count == 0 and len(claimed) == 6
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == receipts == 6

@@ -30,4 +30,3 @@ def test_source_unit_uses_metadata_without_hydrating_the_source(eligible, select
     assert unit.document_id == 7 and unit.source_view_id == 11
     assert unit.context_only == (not eligible or not selected)
     assert lookups == [11]
-
