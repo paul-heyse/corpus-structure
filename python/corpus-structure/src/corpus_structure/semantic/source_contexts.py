@@ -689,7 +689,10 @@ class NativeSourceContext:
         )
         if ancestors:
             if self.version == 1:
-                NativeProposalFrame(**_source_fields(self.primary), context_sources=ancestors)
+                legacy_ancestors = tuple(source for source in ancestors if isinstance(source, NativeFrameSource))
+                if len(legacy_ancestors) != len(ancestors):
+                    raise ContextRefused("legacy context cannot carry declared source ancestors")
+                NativeProposalFrame(**_source_fields(self.primary), context_sources=legacy_ancestors)
             elif any(
                 source.section_pointer not in contexts[self.primary.source_key].ancestors
                 or source.membership != "direct"

@@ -24,6 +24,7 @@ from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
+    from .declared_record_sources import DeclaredNativeFrameSource
     from .product_reference import ProductReference
 
 
@@ -351,7 +352,7 @@ def native_frame_identity(frame: ProposalFrame | NativeProposalFrame) -> dict[st
 
 
 def native_address(
-    frame: NativeFrameSource,
+    frame: NativeFrameSource | DeclaredNativeFrameSource,
     *,
     pointer: str | None = None,
     start: int | None = None,
@@ -361,6 +362,7 @@ def native_address(
     from .declared_record_sources import DeclaredNativeFrameSource
     from .identity import canonical_bytes
 
+    value: dict[str, str | int]
     if isinstance(frame, DeclaredNativeFrameSource):
         pin = frame.pin.values()
         value = {

@@ -8,25 +8,45 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from sqlalchemy import select, text
-
-from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
-from corpus_structure.semantic.composed import data_operation_dependencies, read_data_operation_inputs
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
-from corpus_structure.semantic.data_operation_demands import DiscoverySelection, DemandPlanner, OperationSelection, freeze_demand
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
-from corpus_structure.semantic.data_operation_storage import DataOperationStorage, native_operation_declarations, native_protocol_sources
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.m1_products import freeze_m1_configuration, m1_operation_inputs, m1_operation_sources
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.original_documents import acquire_original_document_selection
-from corpus_structure.semantic.source_admission import acquire_original_source_selection
-from corpus_structure.semantic.source_views import load_source_view
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
 from semantic.original_source_fixture import completed_original_source_reference
+from sqlalchemy import text
+
+from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
+from corpus_structure.semantic.composed import (
+    data_operation_dependencies,
+    read_data_operation_inputs,
+)
+from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
+from corpus_structure.semantic.data_operation_demands import (
+    DemandPlanner,
+    DiscoverySelection,
+    OperationSelection,
+    freeze_demand,
+)
+from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+from corpus_structure.semantic.data_operation_storage import (
+    DataOperationStorage,
+    native_operation_declarations,
+    native_protocol_sources,
+)
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.m1_products import (
+    freeze_m1_configuration,
+    m1_operation_inputs,
+    m1_operation_sources,
+)
+from corpus_structure.semantic.original_documents import acquire_original_document_selection
+from corpus_structure.semantic.source_admission import acquire_original_source_selection
+from corpus_structure.semantic.source_views import load_source_view
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 SENTENCE = "The sample mean is the sum of the observations divided by the sample size."
@@ -78,7 +98,9 @@ def _case(scenario_seeds, *, empty):
                 original_sources=(original.selection(), selected.selection()))
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(intent,
                 project=source.project_id, release=kernel.prepared.release_id, runtime=kernel.runtime)["demand_id"]
-        captured = read_data_operation_inputs(kernel.preparation.dependencies)[1]
+        acquired = read_data_operation_inputs(kernel.preparation.dependencies)
+        assert acquired is not None and acquired[1] is not None
+        captured = acquired[1]
         executor = NativeDemandExecutor(clone.writer, kernel.prepared, kernel.preparation.runtime, captured,
             runtime_locations={item.module: Path(item.filename) for item in captured.sources},
             schema=kernel.preparation.bundle, admission_engine=clone.purpose("admit"))
@@ -103,7 +125,7 @@ def _m1_result(kernel, demand):
 
 
 def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(scenario_seeds):
-    with _case(scenario_seeds, empty=True) as (kernel, source, selected, demand, executor):
+    with _case(scenario_seeds, empty=True) as (kernel, _source, selected, demand, executor):
         executed = executor.run(demand)
         report, evidence = _m1_result(kernel, demand)
         assert executed.receipt_count >= 3
@@ -123,7 +145,7 @@ def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_m1_bounded_gliner_questions_publish_candidate_inspection_with_cohort_custody(scenario_seeds):
-    with _case(scenario_seeds, empty=False) as (kernel, source, selected, demand, executor):
+    with _case(scenario_seeds, empty=False) as (kernel, _source, selected, demand, executor):
         executed = executor.run(demand)
         report, evidence = _m1_result(kernel, demand)
         assert executed.receipt_count >= 3

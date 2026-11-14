@@ -7,7 +7,6 @@ Related native sources retain independent pins; recognition alternatives remain 
 
 from __future__ import annotations
 
-import json
 from bisect import bisect_left, bisect_right
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
@@ -321,7 +320,7 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
             span = prepared_cells.ranges[index]
             if span is not None:
                 selected.append((*span, index))
-        pieces: list[SourceSlice | SyntheticText] = []
+        pieces: list[SourceSlice | DeclaredSourceSlice | SyntheticText] = []
         previous = None
         for start, end, index in sorted(selected):
             if previous is not None and index != previous:
@@ -1184,7 +1183,7 @@ def _widen_contexts(
                     "formula declaration/scope unresolved; direct enclosing context only",
                 ),
             )
-        pieces: list[SourceSlice | SyntheticText] = list(
+        pieces: list[SourceSlice | DeclaredSourceSlice | SyntheticText] = list(
             selection.pieces or (source_slice(frame, selection.start, selection.end),)
         )
         chars = sum(
@@ -1376,9 +1375,9 @@ def _widen_contexts(
             candidates, selected, excluded = result.candidates, [], []
             outcome, terminal = result.outcome, result.terminal_reason
             for source in result.sources:
-                declared = isinstance(source, DeclaredNativeFrameSource)
-                identity = source.source_key if declared else source.ref.id
-                source_pieces = source.inspectable_pieces if declared else source.pieces
+                declared_frame = source if isinstance(source, DeclaredNativeFrameSource) else None
+                identity = declared_frame.source_key if declared_frame is not None else source.ref.id
+                source_pieces = declared_frame.inspectable_pieces if declared_frame is not None else source.pieces
                 # Related sources retain their own exact selection. Never append
                 # their full raw projection merely because its carrier was bound.
                 ranges = []
@@ -1386,11 +1385,11 @@ def _widen_contexts(
                     if piece["kind"] != "native_text":
                         continue
                     start, end = piece["start"], piece["end"]
-                    if ranges and (ranges[-1][1] == start or (declared and source.contains_span(ranges[-1][0], end))):
+                    if ranges and (ranges[-1][1] == start or (declared_frame is not None and declared_frame.contains_span(ranges[-1][0], end))):
                         ranges[-1] = (ranges[-1][0], end)
                     else:
                         ranges.append((start, end))
-                if not declared:
+                if declared_frame is None:
                     ranges = [(0, len(source.text))]
                 target_pieces = tuple(p for p in source_pieces if p["kind"] == "native_text")
                 overlaps = any(p["item_ref"] in local for p in target_pieces)
@@ -1414,13 +1413,13 @@ def _widen_contexts(
                     continue
                 if identity not in related:
                     related[identity] = RelatedNativeSource(
-                        source if declared else native_source_frame(source, ()),
+                        declared_frame if declared_frame is not None else native_source_frame(source, ()),
                         request.relationship,
                         request.reason,
                     )
                 for start, end in ranges:
                     pieces.extend((SyntheticText("\n", "context piece separator"),
-                        source_slice(source if declared else related[identity].source, start, end)))
+                        source_slice(declared_frame if declared_frame is not None else related[identity].source, start, end)))
                 chars += len(ranges) + inspected_chars
                 count += len(ranges) + len(source_pieces)
                 selected.append(identity)

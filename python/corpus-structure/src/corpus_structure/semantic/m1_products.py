@@ -11,15 +11,19 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
-from corpus_structure.methods.m1_source import M1CandidateProduct, M1Candidates, M1Config, M1GlinerReply, M1GlinerRequest
+from corpus_structure.methods.m1_source import (
+    M1CandidateProduct,
+    M1Candidates,
+    M1Config,
+    M1GlinerReply,
+    M1GlinerRequest,
+)
 
+from .data_operation_json import json_bytes
 from .data_operation_model import BoundRoleMember, ResolvedRoleBinding
-from .data_operation_json import json_bytes, json_loads
 from .declared_contexts import DeclaredContextPopulation
-from .declared_record_sources import DeclaredNativeFrameSource, declared_record_inputs
+from .declared_record_sources import DeclaredNativeFrameSource
 from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
@@ -27,8 +31,8 @@ _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-candidate-in
 
 
 def m1_operation_inputs(bundle):
-    from .sentence_products import sentence_product_inputs
     from .declared_candidate_products import candidate_inspection_inputs
+    from .sentence_products import sentence_product_inputs
 
     if "data_operation_sentences" not in {source.name for source in bundle.sources}:
         bundle = sentence_product_inputs(bundle)
@@ -112,6 +116,7 @@ class PreparedM1Inputs:
 
     def run(self, primary, annotations, sources) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
         from corpus_structure.methods.source_preparation import prepare_source
+
         from .sentence_products import source_annotation_rows
 
         frame = DeclaredNativeFrameSource.acquire(self.prepared, primary, self.primary_member, project=self.project)
@@ -167,6 +172,7 @@ def candidate_report(prepared, model, product, primary, context):
 def complete_m1_inspection(prepared, model, product, primary, context, *, cpu_evidence=None, host_evidence=None, provider_evidence=None):
     """Map the kernel's terminal domain outcome once, retaining valid partial output."""
     from corpus_structure.core.vocab import ObservationOutcome
+
     from .data_operation_prepared_call import PreparedCallResult
 
     if product.outcome == ObservationOutcome.FAILED:
@@ -181,7 +187,10 @@ def complete_m1_inspection(prepared, model, product, primary, context, *, cpu_ev
 
 def plan_m1_gliner(question, configuration, *, execution_owner, check_active, ordinal, receipts):
     """Serve the exact original question through the existing shared provider lane."""
-    from corpus_structure.methods.characterization_resources import GLiNERWork, LogicalProviderMember
+    from corpus_structure.methods.characterization_resources import (
+        GLiNERWork,
+        LogicalProviderMember,
+    )
     from corpus_structure.methods.native_host import NativeRetirementUncertain, payload_digest
 
     if question.profile != configuration.profile() or question.native_profile != configuration.native_execution_profile:
@@ -209,7 +218,7 @@ def plan_m1_gliner(question, configuration, *, execution_owner, check_active, or
         return M1GlinerReply(failure="worker", message=reply.error_message or reply.error_type)
     if reply.error_type is not None:
         # Capacity and unknown infrastructure failures retain their owner/disposition.
-        reply.payload
+        _ = reply.payload
         raise ValueError("unknown M1 provider failure disposition")
     if reply.admissions:
         if len(reply.admissions) != len(question.inputs) or any(
@@ -243,8 +252,10 @@ class M1InvocationPlan:
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
         from pydantic import TypeAdapter
+
         from corpus_structure.core.vocab import ObservationOutcome
         from corpus_structure.methods.characterization_resources import ProviderExecutionReceipt
+
         from .data_operation_cpu import PythonCPUDescriptor
         from .data_operation_stream import plan_cpu_coroutine
 
@@ -284,7 +295,12 @@ class M1InvocationPlan:
 
 def resolve_m1_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.m1_declared import M1SourceCandidatesOperation
-    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, gliner_selection
+    from corpus_structure.methods.native_profiles import (
+        NativeProfile,
+        NativeSelection,
+        gliner_selection,
+    )
+
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 

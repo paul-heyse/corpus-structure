@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from corpus_structure.core.method import CoverageDraft
 from corpus_structure.core.vocab import ObservationOutcome
-from corpus_structure.methods.m1_source import M1CandidateProduct
+from corpus_structure.methods.m1_source import M1CandidateProduct, M1Config
 from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -48,7 +48,7 @@ def record_schemas():
 def configuration():
     from corpus_structure.orchestrate.m1 import registry
 
-    return registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+    return M1Config.model_validate(registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default"))
 
 
 def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator():
@@ -121,6 +121,7 @@ def test_actual_m1_producer_captures_selection_witnesses_and_single_stored_membe
         python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
     )
     operation = model.operation("extract.m1_candidates")
+    assert operation.consumer_selection is not None
     assert (
         operation.consumer_selection.entrypoint
         == "corpus_structure.methods.m1_declared.M1SourceCandidatesOperation.select_hydrated"
@@ -369,7 +370,10 @@ def test_m1_shared_provider_question_preserves_claim_membership_and_typed_refusa
 
     import pytest
 
-    from corpus_structure.methods.characterization_resources import ProviderReply
+    from corpus_structure.methods.characterization_resources import (
+        ProviderReply,
+        _execution_receipt,
+    )
     from corpus_structure.methods.gliner import GlinerInput, GlinerPack
     from corpus_structure.methods.gliner_worker import GlinerAdmission
     from corpus_structure.methods.m1_source import M1GlinerRequest
@@ -394,7 +398,7 @@ def test_m1_shared_provider_question_preserves_claim_membership_and_typed_refusa
     logical, = request.logical_members
     assert (logical.request_id, logical.generation, logical.task_id, logical.attempt, logical.member) == ("request:one", 2, 3, 4, "m1-question:2")
     assert logical.input_digest == payload_digest([asdict(inputs[0])])
-    receipt = object()
+    receipt = _execution_receipt(request, ())
     refused = ProviderReply(request.correlation, admissions=(GlinerAdmission(0, "context:one", "a" * 64, False, "oversized input"),), execution_receipt=receipt)
     with pytest.raises(StopIteration) as stopped:
         plan.send((refused,))
@@ -408,10 +412,16 @@ def test_m1_shared_provider_question_preserves_claim_membership_and_typed_refusa
 
 def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_text():
     import pytest
+
     from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.semantic.m1_products import NativeCandidateData
-    from corpus_structure.semantic.source_contexts import ContextRefused, NativeSourceContext, PreparedNativeSources, source_slice
     from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
+    from corpus_structure.semantic.m1_products import NativeCandidateData
+    from corpus_structure.semantic.source_contexts import (
+        ContextRefused,
+        NativeSourceContext,
+        PreparedNativeSources,
+        source_slice,
+    )
 
     prepared = prepare_release(m1_operation_inputs(record_schemas()))
     base = FrozenNativeSource.from_projection(prepared, document="original:scope", section_pointer="#/body", membership="descendants",
@@ -485,9 +495,16 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
 def test_m1_coalesced_success_preserves_report_and_rejects_foreign_source_reply():
     """The lane's successful scatter omits redundant per-input admission rows."""
     from dataclasses import replace
+
     import pytest
+
     from corpus_structure.methods.characterization_resources import ProviderReply
-    from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerPreparation, GlinerReport
+    from corpus_structure.methods.gliner import (
+        GlinerInput,
+        GlinerPack,
+        GlinerPreparation,
+        GlinerReport,
+    )
     from corpus_structure.methods.m1_source import M1GlinerRequest
     from corpus_structure.semantic.m1_products import plan_m1_gliner
 
