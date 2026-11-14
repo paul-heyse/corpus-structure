@@ -100,9 +100,6 @@ class DeclaredStructuralRef(DeclaredProductRef):
 
 class DeclaredComponentRef(DeclaredStructuralRef):
     component_id: Digest
-    operation_id: Nonempty
-    operation_version: Nonempty
-    dependencies: tuple[Nonempty, ...] = Field(min_length=1)
 
 
 class DeclaredRelationshipRef(DeclaredProductRef):
