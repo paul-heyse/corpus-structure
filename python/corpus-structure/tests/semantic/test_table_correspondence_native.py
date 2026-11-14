@@ -16,7 +16,6 @@ from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.scoped_relations import (
     ScopedRelationsConfig,
-    ScopedRelationsMethod,
     discover_relations,
 )
 from corpus_structure.methods.table_interpretation import execute_table_correspondence
@@ -194,7 +193,9 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
 
     with case.writer.begin() as conn:
         primary_pins = publish_primary_layers(conn, case.run, case.prepared, (case.view,))
-    method = ScopedRelationsMethod()
+    from semantic.sealed_scoped_fixture import scoped_relation_descriptor
+
+    method = scoped_relation_descriptor()
     config = ScopedRelationsConfig(
         interpretation_mode="correspondence",
         characterization_layers=tuple(pin.values() for pin in primary_pins),

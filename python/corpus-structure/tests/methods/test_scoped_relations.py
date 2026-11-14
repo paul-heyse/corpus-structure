@@ -10,7 +10,6 @@ from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.scoped_relations import (
     ScopedRelationsConfig,
-    ScopedRelationsMethod,
     SourceWorkBinding,
 )
 from corpus_structure.semantic.observations import source_python
@@ -545,9 +544,9 @@ def run_scoped(view, cfg, reader):
             )
 
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key))
-    return ScopedRelationsMethod().run(
-        (unit,), cfg, SimpleNamespace(reader=SelectedReader(), check_active=lambda: None)
-    )[0]
+    from semantic.sealed_scoped_fixture import scoped_relation_result
+
+    return scoped_relation_result(SelectedReader(), view, cfg, unit.ref)
 
 
 @pytest.mark.parametrize("errors", ((), ("retained block failed",)))

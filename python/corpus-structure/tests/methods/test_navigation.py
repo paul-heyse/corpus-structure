@@ -182,7 +182,6 @@ def test_table_header_geometry_uses_primary_cell_roles():
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.scoped_relations import (
         ScopedRelationsConfig,
-        ScopedRelationsMethod,
     )
     from corpus_structure.semantic.observations import source_python
 
@@ -200,9 +199,9 @@ def test_table_header_geometry_uses_primary_cell_roles():
 
     cfg = ScopedRelationsConfig(characterization_layers=tuple(pin.values() for pin in primary))
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key))
-    (result,) = ScopedRelationsMethod().run(
-        (unit,), cfg, SimpleNamespace(reader=Reader(), check_active=lambda: None)
-    )
+    from semantic.sealed_scoped_fixture import build_scoped_result
+
+    result = build_scoped_result(view, cfg, unit.ref, primary_layers=primary)
     assert result.contributions is not None
     cell_values = [
         source_python(row["value"])

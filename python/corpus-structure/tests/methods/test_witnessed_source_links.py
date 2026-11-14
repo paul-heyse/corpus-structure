@@ -7,7 +7,7 @@ import pytest
 
 from corpus_structure.methods.scoped_relations import (
     ScopedRelationsConfig,
-    ScopedRelationsMethod,
+    SCOPED_VERSION,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
@@ -113,7 +113,7 @@ def test_formula_uses_only_the_source_declared_symbol():
     body = json.loads(
         canonical_bytes(
             dict(
-                operation_version=ScopedRelationsMethod.version,
+                operation_version=SCOPED_VERSION,
                 contribution_operations=(output["operation"], *output["extra_operations"]),
                 contributions=rows,
                 parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),
@@ -320,7 +320,7 @@ def ordered_run(view, query, wider):
             dict(
                 configuration=config.model_dump(mode="json"),
                 body=dict(
-                    operation_version=ScopedRelationsMethod.version,
+                    operation_version=SCOPED_VERSION,
                     contribution_operations=operations,
                     contributions=output["contributions"],
                     parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),
@@ -450,32 +450,14 @@ def test_ordered_formula_witness_uses_one_physical_target_for_two_inspected_reca
     assert len({row["members"][1] for row in links}) == 1
 
 
-def test_ordered_witness_is_a_new_opt_in_method_contract(tmp_path):
-    from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
-
-    method_name = "structure.scoped_relations"
-    default = ScopedRelationsMethod()
-    assert default.version == "17"
-    assert default.Config is ScopedRelationsConfig
-    assert "ordered_formula_witness" in default.Config.model_fields
+def test_ordered_witness_remains_an_explicit_sealed_configuration():
+    assert SCOPED_VERSION == "17"
+    assert "ordered_formula_witness" in ScopedRelationsConfig.model_fields
     _, report, _ = ordered_run(*ordered_fixture())
-    (tmp_path / "methods.yaml").write_text(
-        json.dumps({"configs": {method_name: {"witness": report["configuration"]}}})
-    )
-    method = ScopedRelationsMethod()
-    assert method.version == "17"
-    assert method.Config is ScopedRelationsConfig
     cfg = ScopedRelationsConfig.model_validate(report["configuration"])
-    run = SimpleNamespace(
-        reader=SimpleNamespace(
-            source_views=lambda: (
-                SimpleNamespace(id=7, key="source:7"),
-                SimpleNamespace(id=8, key="source:8"),
-            )
-        )
-    )
-    (source,) = method.select(run, cfg)
-    assert source.unit_id == 7
+    assert cfg.inputs is not None and cfg.ordered_formula_witness is not None
+    assert len(cfg.inputs.sources) == 1
+    assert cfg.ordered_formula_witness.source_ref == cfg.inputs.sources[0].identity
 
 
 def test_named_links_use_literal_anchors_and_never_choose_first_section():
