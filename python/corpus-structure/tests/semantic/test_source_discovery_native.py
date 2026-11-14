@@ -55,7 +55,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(ddo_origin
         if views:
             length = len(first.source.value["text"])
             assert length >= 2
-            projection = first.source.value["source"]["projection"]
+            projection = reference.projection_digest
             acquisitions = [acquire_original_source_selection(connection, prepared, reference,
                 [{"projection": projection, "start": start, "end": end}], name="view:" + str(index))
                 for index, (start, end) in enumerate(((0, length // 2), (length // 2, length)))]
