@@ -117,6 +117,21 @@ class StructuralInput(StructuralValue):
         return self
 
 
+def legacy_structural_sources(inputs: StructuralInput) -> tuple[ExternalSourceRef, ...]:
+    """Narrow actual task-addressed inputs at historical replay/export boundaries.
+
+    Return the same references, without decoding or manufacturing legacy custody
+    for a declared semantic source. Current declared consumers use their native
+    product/member context directly and do not call this task-based reader view.
+    """
+    sources = []
+    for source in inputs.sources:
+        if not isinstance(source, ExternalSourceRef):
+            raise ValueError("task-based structural replay requires original legacy source custody")
+        sources.append(source)
+    return tuple(sources)
+
+
 class RetainedComponentRef(StructuralValue):
     product_id: Nonempty
     component_id: Digest

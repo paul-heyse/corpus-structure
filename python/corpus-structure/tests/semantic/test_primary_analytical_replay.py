@@ -9,7 +9,10 @@ import pytest
 from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.semantic.structural_products import StructuralProductReport
+from corpus_structure.semantic.structural_products import (
+    StructuralProductReport,
+    legacy_structural_sources,
+)
 from corpus_structure.serve import primary_characterization_replay, review_bundle
 
 
@@ -189,7 +192,9 @@ def comparison_fixture():
     )
     layers = formal_layers(inputs)
     references, payloads = [], {}
-    for source, passage, digit in zip(inputs.sources, inputs.passages, "ab", strict=True):
+    for source, passage, digit in zip(
+        legacy_structural_sources(inputs), inputs.passages, "ab", strict=True
+    ):
         key = "source-contribution:" + digit * 64
         reference = RetainedContributionRef(
             contribution_id=key,

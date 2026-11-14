@@ -62,7 +62,11 @@ def test_side_binding_keeps_opposite_context_and_requires_own_membership():
 @pytest.mark.parametrize("failure", ["scope", "version", "target_custody", "source", "occurrence"])
 def test_comparison_qualification_rejects_substitution(failure):
     value, root, root_ref, reference, payload, selected, relationships = fixture()
-    relationship = relationships[selected[0].relationship_ref]
+    from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
+
+    relationship_ref = selected[0].relationship_ref
+    assert isinstance(relationship_ref, RetainedRelationshipDecisionRef)
+    relationship = relationships[relationship_ref]
     match = "exact scoped root relationship"
     if failure == "scope":
         relationship["decision"]["scope"] = "other"
@@ -275,7 +279,11 @@ def test_native_role_projection_matches_python_and_refuses_stale_target(commit_d
 
     from sqlalchemy.exc import DBAPIError
 
-    edge = relationships[selected[0].relationship_ref]
+    from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
+
+    relationship_ref = selected[0].relationship_ref
+    assert isinstance(relationship_ref, RetainedRelationshipDecisionRef)
+    edge = relationships[relationship_ref]
     arguments = dict(
         ref=reference.model_dump_json(),
         report=dumps(payload["report"]),

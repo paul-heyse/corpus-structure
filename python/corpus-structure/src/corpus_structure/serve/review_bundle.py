@@ -39,6 +39,7 @@ from corpus_structure.semantic.source_views import (
     load_source_view,
     selected_source_views,
 )
+from corpus_structure.semantic.structural_products import legacy_structural_sources
 from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
 from corpus_structure.serve.companion_export import _publish_directory
 from corpus_structure.serve.contextual_navigation import (
@@ -720,7 +721,7 @@ def _capture_review_relations(
                 )
                 if selection.completeness == "inventory":
                     continue
-                for ref in report.inputs.sources:
+                for ref in legacy_structural_sources(report.inputs):
                     if ref.identity in validated_external:
                         continue
                     source_session = bind_completed_result(conn, ref.run_id)
@@ -1017,7 +1018,7 @@ def _capture_definition_annotations(conn, report, seen_reports, budget):
     origin, run = table("ops.task"), table("ops.run")
     member, selected = table("ops.cut_task"), origin.alias("definition_annotation_selected")
     passages = {p.passage_id: p for p in report.inputs.passages}
-    sources = {source.identity: source for source in report.inputs.sources}
+    sources = {source.identity: source for source in legacy_structural_sources(report.inputs)}
     witnessed = {
         (
             component.witness.annotation_task_id,
@@ -2304,7 +2305,11 @@ def _retained_contribution_payloads(
     source_ids = (
         set()
         if origin_sources
-        else {source.source_view_id for report, _ in requested for source in report.inputs.sources}
+        else {
+            source.source_view_id
+            for report, _ in requested
+            for source in legacy_structural_sources(report.inputs)
+        }
     )
     sources = {}
     for row in _detached_relation(root, manifest, "sources"):
@@ -2691,7 +2696,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
     ):
         comparison = report.comparison
         passages = {passage.passage_id: passage for passage in report.inputs.passages}
-        sources = {source.identity: source for source in report.inputs.sources}
+        sources = {source.identity: source for source in legacy_structural_sources(report.inputs)}
         left, right = passages[comparison.left_id], passages[comparison.right_id]
         primary, _ = primary_layers_for_report(root, manifest, raw, retained=retained_primary)
         expected = compare_clauses(
@@ -2835,7 +2840,10 @@ def _verify_condition_closure(
             raise ValueError("condition public assertion is outside the selected task")
         origin, report = condition_tasks[key]
         statement = structural_statement(report)
-        sources = [s.model_dump(mode="json", exclude_none=True) for s in report.inputs.sources]
+        sources = [
+            s.model_dump(mode="json", exclude_none=True)
+            for s in legacy_structural_sources(report.inputs)
+        ]
         if (
             assertion.get("cut_id") != structural_scopes[key[0]]["cut_id"]
             or assertion.get("origin_task_id") != origin
@@ -2982,7 +2990,11 @@ def _verify_artifact_nomination_closure(
             strict=True,
         )
     )
-    selected_ids = {s.source_view_id for report, _, _ in expected for s in report.inputs.sources}
+    selected_ids = {
+        s.source_view_id
+        for report, _, _ in expected
+        for s in legacy_structural_sources(report.inputs)
+    }
     sources = {
         row["source_view_id"]: row
         for row in _detached_relation(root, manifest, "sources")
@@ -2993,7 +3005,7 @@ def _verify_artifact_nomination_closure(
         raise ValueError("artifact replay lacks its captured original source closure")
 
     def source_frame(inputs, source_ref):
-        selected = next(s for s in inputs.sources if s.identity == source_ref)
+        selected = next(s for s in legacy_structural_sources(inputs) if s.identity == source_ref)
         view = _retained_review_source_view(sources[selected.source_view_id])
         if (
             view.ref.native_product.task_id,
@@ -3151,7 +3163,11 @@ def _verify_predicate_closure(root, manifest):
         passages = None
         if configured is not None:
             inputs = StructuralInput.model_validate(configured)
-            (external,) = tuple(ref for ref in inputs.sources if ref.source_view_id == view.ref.id)
+            (external,) = tuple(
+                ref
+                for ref in legacy_structural_sources(inputs)
+                if ref.source_view_id == view.ref.id
+            )
             passages = tuple(p for p in inputs.passages if p.source_ref == external.identity)
         context = NativeSourceContext(
             frame,
@@ -3452,13 +3468,15 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                     if member.contribution_ref is not None
                                 )
                             needed_sources.update(
-                                ref.source_view_id for ref in report.inputs.sources
+                                ref.source_view_id
+                                for ref in legacy_structural_sources(report.inputs)
                             )
                             structural_refs.update(
-                                (ref.identity, ref) for ref in report.inputs.sources
+                                (ref.identity, ref)
+                                for ref in legacy_structural_sources(report.inputs)
                             )
                             required_contracts.update(
-                                ref.release_id for ref in report.inputs.sources
+                                ref.release_id for ref in legacy_structural_sources(report.inputs)
                             )
                             needed_reports.add(payload["origin_task_id"])
                             structural_reports.extend(
@@ -3469,7 +3487,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                     sha256(passage.text.encode()).hexdigest(),
                                 )
                                 for passage in report.inputs.passages
-                                for ref in report.inputs.sources
+                                for ref in legacy_structural_sources(report.inputs)
                                 if ref.identity == passage.source_ref
                             )
                         if name == "sources":

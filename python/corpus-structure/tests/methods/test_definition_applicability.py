@@ -972,7 +972,10 @@ def test_current_named_definition_primary_witness_crosses_released_batch():
     rules = declarations["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"]
     cfg = DefinitionComponentsConfig(annotation_rules=rules)
     product = primary_product(text, product, profile, rules=cfg.annotation_rules)
+    from corpus_structure.semantic.source_contexts import NativeSourcePin
+
     native = product.source
+    assert isinstance(native, NativeSourcePin)
     source = (
         inputs()
         .sources[0]

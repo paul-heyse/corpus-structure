@@ -39,7 +39,10 @@ from corpus_structure.semantic.contextual_retrieval import (
 from corpus_structure.semantic.contributions import contribution_identity, operation_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
-from corpus_structure.semantic.structural_products import StructuralProductReport
+from corpus_structure.semantic.structural_products import (
+    StructuralProductReport,
+    legacy_structural_sources,
+)
 
 
 def _reports(body):
@@ -434,7 +437,9 @@ def _term_binding(target, reports, sources):
         raise ValueError("contextual witness target changes retained component meaning")
     term = component.term
     (passage,) = [p for p in report.inputs.passages if p.passage_id == term.passage_id]
-    (physical,) = [p for p in report.inputs.sources if p.identity == passage.source_ref]
+    (physical,) = [
+        p for p in legacy_structural_sources(report.inputs) if p.identity == passage.source_ref
+    ]
     source = sources[physical.source_view_id]
     native = source["ref"]["native_product"]
     if (

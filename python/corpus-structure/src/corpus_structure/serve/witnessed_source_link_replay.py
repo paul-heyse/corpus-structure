@@ -26,6 +26,7 @@ from corpus_structure.methods.witnessed_source_links import (
 from corpus_structure.semantic.contributions import operation_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.structural_products import legacy_structural_sources
 
 
 def verify_witnessed_links(
@@ -38,7 +39,11 @@ def verify_witnessed_links(
     pieces = context["pieces"]
     selection = ()
     if inputs is not None:
-        (ref,) = [r for r in inputs.sources if r.source_view_id == source["source_view_id"]]
+        (ref,) = [
+            r
+            for r in legacy_structural_sources(inputs)
+            if r.source_view_id == source["source_view_id"]
+        ]
         selection = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     if ordered_formula_witness is not None:
         if body["operation_version"] != SCOPED_VERSION:
@@ -532,7 +537,7 @@ def verify_annotated_named_links(
         return
     inputs = StructuralInput.model_validate(cfg["inputs"])
     view = _retained_review_source_view(source)
-    (ref,) = [r for r in inputs.sources if r.source_view_id == view.ref.id]
+    (ref,) = [r for r in legacy_structural_sources(inputs) if r.source_view_id == view.ref.id]
     passages = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     operations = [op for op in body["contribution_operations"] if op["question"] == NAMED_QUESTION]
     if len(operations) != 1:

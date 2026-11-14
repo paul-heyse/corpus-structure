@@ -16,6 +16,7 @@ from corpus_structure.semantic.structural_products import (
     RetainedStructuralRef,
     StructuralProductReport,
     definition_component,
+    legacy_structural_sources,
 )
 from semantic.structural_products_support import inputs
 
@@ -58,7 +59,7 @@ def custody(source, task_id):
 def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=None):
     value = value or side_inputs()
     left, right = value.passages
-    sources = {s.identity: s for s in value.sources}
+    sources = {s.identity: s for s in legacy_structural_sources(value)}
     left_source, right_source = sources[left.source_ref], sources[right.source_ref]
     root_passage = left if root_on_left else right
     root = definition_component(

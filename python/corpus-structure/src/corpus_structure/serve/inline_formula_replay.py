@@ -10,6 +10,7 @@ from corpus_structure.methods.inline_formula_occurrences import (
 )
 from corpus_structure.semantic.contributions import operation_identity
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.structural_products import legacy_structural_sources
 
 
 def verify_inline_formula_report(report, source, *, primary_layers=None):
@@ -34,7 +35,7 @@ def verify_inline_formula_report(report, source, *, primary_layers=None):
     source_id = source["source_view_id"]
     selection = None
     if cfg.inputs is not None:
-        (ref,) = [r for r in cfg.inputs.sources if r.source_view_id == source_id]
+        (ref,) = [r for r in legacy_structural_sources(cfg.inputs) if r.source_view_id == source_id]
         selection = tuple(
             (p.passage_id, p.start, p.end, p.effective_version)
             for p in cfg.inputs.passages

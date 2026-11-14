@@ -19,6 +19,7 @@ from corpus_structure.semantic.structural_products import (
     DossierFacet,
     DossierMember,
     LocatedDefinitionSpan,
+    legacy_structural_sources,
 )
 from corpus_structure.serve.structural_products import dossier_representation_page
 from semantic.primary_formal_fixture import formal_layers
@@ -63,7 +64,9 @@ def read_clause(passage, *, source_inputs, **expected_roles):
                 )
             )
     source = next(
-        source for source in source_inputs.sources if source.identity == passage.source_ref
+        source
+        for source in legacy_structural_sources(source_inputs)
+        if source.identity == passage.source_ref
     )
     thresholds = threshold_readings(
         passage, source=source, primary_layers=formal_layers(source_inputs)
@@ -354,7 +357,9 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
                 passage_id=passage.passage_id, start=start, end=start + len(spelling), text=spelling
             )
 
-        source = next(s for s in value.sources if s.identity == passage.source_ref)
+        source = next(
+            s for s in legacy_structural_sources(value) if s.identity == passage.source_ref
+        )
         primary = FormalSourceReadings(layers, source)
         members = []
         for spelling in (f"Identifier: {form}", f"Date: {date}"):
@@ -381,7 +386,9 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
             for x in threshold_readings(
                 passage,
                 source=next(
-                    source for source in value.sources if source.identity == passage.source_ref
+                    source
+                    for source in legacy_structural_sources(value)
+                    if source.identity == passage.source_ref
                 ),
                 primary_layers=formal_layers(value),
             )
@@ -402,7 +409,9 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
         return ClauseReading(passage_id=passage.passage_id, groups=groups)
 
     def ref(passage, digit):
-        source = next(item for item in value.sources if item.identity == passage.source_ref)
+        source = next(
+            item for item in legacy_structural_sources(value) if item.identity == passage.source_ref
+        )
         return dict(
             contribution_id="source-contribution:" + digit * 64,
             project_id=source.project_id,

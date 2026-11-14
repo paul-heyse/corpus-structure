@@ -8,6 +8,7 @@ import pytest
 from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.structural_products import legacy_structural_sources
 from corpus_structure.serve.contributions import ContributionRequest
 from corpus_structure.serve.review_bundle import (
     ReviewSelection,
@@ -885,7 +886,7 @@ def test_published_capture_keeps_selected_revision_after_reading_original_source
         model_dump=lambda **kw: dict(run_id=11, cut_id=21, release_id="release:structural"),
     )
     monkeypatch.setattr(module, "read_structural_export_page", lambda *args: page)
-    original = predecessor.inputs.sources[0]
+    original = legacy_structural_sources(predecessor.inputs)[0]
     view = SimpleNamespace(
         id=original.source_view_id,
         native_product=SimpleNamespace(

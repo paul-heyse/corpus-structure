@@ -18,6 +18,7 @@ from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
     LocatedDefinitionSpan,
     definition_component,
+    legacy_structural_sources,
 )
 from semantic.structural_products_support import inputs as inputs
 
@@ -40,9 +41,13 @@ def fixture_component():
 
 def test_original_projects_do_not_collapse_equal_text():
     value = inputs()
-    assert value.sources[0].identity != value.sources[1].identity
+    assert (
+        legacy_structural_sources(value)[0].identity != legacy_structural_sources(value)[1].identity
+    )
     with pytest.raises(ValueError, match="project_id"):
-        ExternalSourceRef.model_validate({**value.sources[0].model_dump(), "project_id": 1})
+        ExternalSourceRef.model_validate(
+            {**legacy_structural_sources(value)[0].model_dump(), "project_id": 1}
+        )
 
 
 def test_comparison_config_rejects_supplied_report():
@@ -147,7 +152,7 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
     value = inputs()
     primary = formal_layers(value)
     views = {}
-    for source in value.sources:
+    for source in legacy_structural_sources(value):
         passages = sorted(
             (p for p in value.passages if p.source_ref == source.identity), key=lambda p: p.start
         )
@@ -166,7 +171,9 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
         )
     references = []
     retained = {}
-    for passage, source, digit in zip(value.passages, value.sources, "ab", strict=True):
+    for passage, source, digit in zip(
+        value.passages, legacy_structural_sources(value), "ab", strict=True
+    ):
         key = "source-contribution:" + digit * 64
         references.append(
             RetainedContributionRef(
