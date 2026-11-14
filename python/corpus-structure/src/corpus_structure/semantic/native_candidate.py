@@ -19,7 +19,7 @@ from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
-from .alembic_privileges import PrivilegePolicy, policy_fact
+from .alembic_privileges import PrivilegePolicy, policy_fact, table_policy
 from .companion_projection_native import companion_projection_definitions
 from .metadata import SCHEMAS, metadata
 from .native_objects import (
@@ -46,9 +46,13 @@ class SeriesCandidate:
         return self.migration.upgrade_ops
 
 
-def intermediate_native_catalog(objects, predecessor, descriptor):
-    """Keep trigger staging ownership with the declared predecessor parent state."""
-    owners = {}
+def _trigger_parent_owners(predecessor, descriptor, target_policies=()):
+    """Resolve declaration facts only; no parent ownership is adopted from PostgreSQL."""
+    owners = {
+        policy["name"]: (policy["owner"], (), 1)
+        for policy in target_policies
+        if policy["kind"] == "table"
+    }
     for item in predecessor:
         if item.identity.kind == "trigger" and item.identity.relation is not None:
             owners[item.identity.schema + "." + item.identity.relation] = (
@@ -62,6 +66,48 @@ def intermediate_native_catalog(objects, predecessor, descriptor):
     for policy in descriptor.get("privileges", ()):
         if policy["kind"] == "table" and policy.get("owner") is not None:
             owners[policy["name"]] = (policy["owner"], (), 1)
+    return owners
+
+
+def intermediate_native_definitions(
+    connection, definitions, predecessor, descriptor, *, target_policies=()
+):
+    """Bind trigger declarations before their first normalization owner check."""
+    owners = _trigger_parent_owners(predecessor, descriptor, target_policies)
+    result = []
+    for item in definitions:
+        if item.identity.kind == "trigger" and item.identity.relation is not None:
+            parent = item.identity.schema + "." + item.identity.relation
+            if parent in owners:
+                owner, bindings, version = owners[parent]
+                namespace_owner = (
+                    semantic_namespace_owner(connection)
+                    if item.bind_owner or version == 2
+                    else None
+                )
+                owner = namespace_owner if version == 2 else owner
+                if owner is None:
+                    raise NativeAuthoringError("declared parent table lacks its owner")
+                if item.bind_owner:
+                    if item.owner != namespace_owner:
+                        raise NativeAuthoringError("trigger namespace owner binding differs")
+                elif item.owner is not None and item.owner != owner:
+                    raise NativeAuthoringError(
+                        "trigger owner conflicts with its declared parent policy"
+                    )
+                item = replace(
+                    item,
+                    owner=owner,
+                    role_bindings=bindings,
+                    bind_owner=version == 2,
+                )
+        result.append(item)
+    return tuple(result)
+
+
+def intermediate_native_catalog(objects, predecessor, descriptor):
+    """Keep trigger staging ownership with the declared predecessor parent state."""
+    owners = _trigger_parent_owners(predecessor, descriptor)
     result = []
     for item in objects:
         if item.identity.kind == "trigger" and item.identity.relation is not None:
@@ -1996,6 +2042,18 @@ def _prepare_series_authoring(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
     frozen_before = source.objects
+    from .source_view_native import _admission_descriptor
+
+    # A successor normalizes against its frozen predecessor's parent owner, not
+    # the source definition's older namespace-binding profile. Do this before
+    # prepare_native_authoring enforces the declared trigger/parent relation.
+    products = intermediate_native_definitions(
+        connection,
+        products,
+        frozen_before or (),
+        _admission_descriptor(source.admission),
+        target_policies=tuple(table_policy(table) for table in target_metadata.tables.values()),
+    )
     if frozen_before is not None:
         product_predecessor = tuple(
             item
@@ -2146,8 +2204,6 @@ def _prepare_series_authoring(
         owned_authoring=owned_authoring,
         check_plpgsql=checked_functions,
     )
-    from .source_view_native import _admission_descriptor
-
     return replace(
         authoring,
         desired=intermediate_native_catalog(

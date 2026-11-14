@@ -561,3 +561,124 @@ def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_eng
         }
         assert "withheld diagnostic" not in str(failure.value)
         assert conn.scalar(text("SELECT 1")) == 1
+
+
+def test_successor_trigger_declarations_use_frozen_parent_before_normalization(
+    semantic_bare_engine,
+):
+    from dataclasses import replace
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.alembic_native import NativeTransitionOp, compare_native
+    from corpus_structure.semantic.native_candidate import (
+        _execution_task_definitions,
+        intermediate_native_definitions,
+    )
+    from corpus_structure.semantic.native_objects import (
+        NativeObject,
+        admit_native,
+        definition_from_sql,
+        prepare_native_authoring,
+        semantic_namespace_owner,
+    )
+    from corpus_structure.semantic.source_view_native import _admission_descriptor
+
+    project = Path(__file__).resolve().parents[2]
+    versions = project / "semantic_alembic/versions"
+    semantic = project / "src/corpus_structure/semantic"
+    found = json.loads(versions.joinpath("semantic_ddo_found_v1_native.json").read_text())
+    frozen = tuple(NativeObject.from_payload(item) for item in found["desired"])
+    descriptor = _admission_descriptor(
+        versions.joinpath("semantic_ddo_found_v1_admission.sql").read_text()
+    )
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql("CREATE SCHEMA sem")
+        raw = _execution_task_definitions(
+            conn,
+            semantic.joinpath("sql/execution_guards.sql").read_text(),
+            versions.joinpath("semantic_0023_execution.sql").read_text(),
+            source="execution task:forward",
+        )
+        raw_trigger = next(item for item in raw if item.identity.kind == "trigger")
+        assert raw_trigger.bind_owner
+        assert raw_trigger.owner == semantic_namespace_owner(conn)
+        projected = intermediate_native_definitions(conn, raw, frozen, descriptor)
+        projected_trigger = next(item for item in projected if item.identity.kind == "trigger")
+        assert projected_trigger.owner == "corpus_sem_publisher"
+        assert not projected_trigger.bind_owner and projected_trigger.role_bindings == ()
+        assert next(item for item in projected if item.identity.kind == "function") == raw[0]
+        # Earlier v2 predecessors retain the exact namespace-bound interpretation.
+        old = json.loads(versions.joinpath("semantic_ddo_origeps_v1_native.json").read_text())
+        old_objects = tuple(NativeObject.from_payload(item) for item in old["desired"])
+        old_descriptor = _admission_descriptor(
+            versions.joinpath("semantic_ddo_origeps_v1_admission.sql").read_text()
+        )
+        historical = intermediate_native_definitions(conn, raw, old_objects, old_descriptor)
+        assert next(item for item in historical if item.identity.kind == "trigger") == raw_trigger
+
+        schema = "declared_parent_" + uuid4().hex[:10]
+        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+        conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
+        conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
+        conn.exec_driver_sql(
+            f'CREATE FUNCTION "{schema}".guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$'
+        )
+        trigger = replace(
+            definition_from_sql(
+                conn,
+                f'CREATE TRIGGER guarded BEFORE INSERT ON "{schema}".sample FOR EACH ROW EXECUTE FUNCTION "{schema}".guard()',
+                source="test:new-or-moved-parent",
+                owner=raw_trigger.owner,
+            ),
+            role_bindings=raw_trigger.role_bindings,
+            bind_owner=True,
+        )
+        with pytest.raises(
+            NativeAuthoringError, match="trigger requires its declared owning relation"
+        ):
+            prepare_native_authoring(conn, (trigger,), owned_authoring=True)
+        relation = Table("sample", MetaData(), Column("id", Integer), schema=schema)
+        with pytest.raises(NativeAuthoringError, match="conflicts with its declared parent policy"):
+            intermediate_native_definitions(
+                conn,
+                (replace(trigger, bind_owner=False, role_bindings=()),),
+                (),
+                {},
+                target_policies=(table_policy(relation),),
+            )
+        with pytest.raises(NativeAuthoringError, match="namespace owner binding differs"):
+            intermediate_native_definitions(
+                conn,
+                (replace(trigger, owner="corpus_sem_reader"),),
+                (),
+                {},
+                target_policies=(table_policy(relation),),
+            )
+        declared = intermediate_native_definitions(
+            conn, (trigger,), (), {}, target_policies=(table_policy(relation),)
+        )
+        assert declared[0].owner == "corpus_sem_publisher" and not declared[0].bind_owner
+        first = prepare_native_authoring(conn, declared, owned_authoring=True)
+        operations = Operations(MigrationContext.configure(conn))
+        operations.invoke(NativeTransitionOp(None, first.desired[0]))
+        admit_native(conn, first.desired)
+        # A later pass starts from the raw definition again, rather than an
+        # already-normalized object; the frozen predecessor supplies its owner.
+        next_definitions = intermediate_native_definitions(conn, (trigger,), first.desired, {})
+        second = prepare_native_authoring(
+            conn, next_definitions, predecessor=first.desired, owned_authoring=True
+        )
+        changes = ops.UpgradeOps([])
+        compare_native(
+            SimpleNamespace(
+                connection=conn,
+                migration_context=SimpleNamespace(opts={"native_authoring": second}),
+            ),
+            changes,
+            {schema},
+        )
+        assert changes.is_empty()
+        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+        conn.exec_driver_sql("DROP SCHEMA sem")
