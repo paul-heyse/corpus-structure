@@ -57,6 +57,7 @@ class DiscoverySelection:
     output_role: str
     target: str
     population: str
+    target_role: str | None = None
 
 
 @dataclass(frozen=True)
@@ -137,6 +138,36 @@ def freeze_demand(
             )
         ):
             raise ValueError("discovery relation is outside declared output contracts")
+        if relation.target_role is not None:
+            from .data_operation_kind_refinements import input_kind_refinements
+            from .data_operation_member_contracts import derive_member_kinds
+
+            target_roles = [
+                role
+                for role in operations[relation.target].roles
+                if role.direction == "input" and role.name == relation.target_role
+            ]
+            output = next(
+                role
+                for role in producer.roles
+                if role.direction == "output" and role.name == relation.output_role
+            )
+            if (
+                len(target_roles) != 1
+                or target_roles[0].support is None
+                or "computation" not in target_roles[0].support.origins
+            ):
+                raise ValueError("discovery target role must accept computational members")
+            target_role = target_roles[0]
+            if not set(
+                input_kind_refinements(model, (target_role.kind,))[target_role.kind]
+            ).intersection(derive_member_kinds(model, output.kind)):
+                raise ValueError("discovery target role does not accept the producer member kind")
+            if any(
+                previous.target == relation.target and previous.target_role == relation.target_role
+                for previous in discovery[: discovery.index(relation)]
+            ):
+                raise ValueError("discovery target role requires one frozen population")
         requested.update((relation.producer, relation.target))
     if not requested <= operations.keys():
         raise ValueError("unknown demand target")
@@ -221,7 +252,14 @@ def freeze_demand(
                 **(
                     {"original_sources": frozen_original_sources} if frozen_original_sources else {}
                 ),
-                "discovery": [asdict(item) for item in discovery],
+                "discovery": [
+                    {
+                        key: value
+                        for key, value in asdict(item).items()
+                        if key != "target_role" or value is not None
+                    }
+                    for item in discovery
+                ],
                 "inference": inference,
                 "execution_profile": execution_profile,
             }
@@ -490,6 +528,12 @@ class DemandPlanner:
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
                 continue
             operation = selected[obligation["operation_id"]]
+            discovery_roles = {
+                relation["target_role"]: relation["population"]
+                for relation in frozen["discovery"]
+                if relation["target"] == operation["operation"]
+                and relation.get("target_role") is not None
+            }
             projections = admitted_data_projection(
                 self.storage.connection,
                 snapshot["demand_id"],
@@ -513,6 +557,7 @@ class DemandPlanner:
                 choices=operation["choices"],
                 source_sets=read_source_sets(source_sets),
                 original_source=obligation["original_source"],
+                discovery_roles=tuple(discovery_roles.items()),
             )
             # Compile once without witnesses to obtain the shared AST's active
             # role/population associations, including its frozen branch choices.
@@ -546,12 +591,26 @@ class DemandPlanner:
                 contextual = [
                     row
                     for row in snapshot["populations"]
-                    if _population_context_matches(
-                        row,
-                        obligation,
-                        source_set=scope_name,
-                        source_sets=source_sets,
-                        project=snapshot["project_id"],
+                    if (
+                        role_name in discovery_roles
+                        and row["name"] == discovery_roles[role_name]
+                        and any(
+                            member["subject"] == obligation["subject"]
+                            and member["original_source"] == obligation["original_source"]
+                            and json_context_meaning(json_bytes(member["analyzed_scope"]))
+                            == json_context_meaning(json_bytes(obligation["analyzed_scope"]))
+                            for member in row["members"]
+                        )
+                    )
+                    or (
+                        role_name not in discovery_roles
+                        and _population_context_matches(
+                            row,
+                            obligation,
+                            source_set=scope_name,
+                            source_sets=source_sets,
+                            project=snapshot["project_id"],
+                        )
                     )
                 ]
                 parents = []
@@ -559,7 +618,7 @@ class DemandPlanner:
                     if "selection" in row["evidence"]:
                         continue
                     producer = row["evidence"]["producer_context"]["operation_id"]
-                    if producer not in prerequisites:
+                    if producer not in prerequisites and role_name not in discovery_roles:
                         continue
                     relations = [
                         relation
@@ -567,6 +626,13 @@ class DemandPlanner:
                         if relation["producer"] == producer
                         and relation["population"] == row["name"]
                         and relation["output_role"] == row["evidence"]["member_role"]
+                        and (
+                            role_name not in discovery_roles
+                            or (
+                                relation["target"] == operation["operation"]
+                                and relation.get("target_role") == role_name
+                            )
+                        )
                     ]
                     if not relations:
                         continue

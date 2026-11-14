@@ -623,7 +623,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
 DECLARE demand ops.data_demand; request ops.data_request; archived jsonb; projection jsonb; operation jsonb; compiled jsonb; selection jsonb; expression jsonb;
  population_refs jsonb; projection_mode text; roles jsonb:='{}'; universe jsonb; populations jsonb:='{}'; witnesses jsonb:='{}'; semantic_witnesses jsonb:='{}'; states jsonb:='{}'; context jsonb;
  authored_role jsonb; item jsonb; roledef jsonb; row_value jsonb; chosen jsonb; values jsonb; raw jsonb; role_meaning jsonb; witness jsonb; native_population ops.data_population;
- archive_digest text; role text; state text; inactive text[]; count_selected bigint; ordinal bigint; multiplicity bigint; seen jsonb; identity jsonb; expected jsonb; key text;
+ archive_digest text; role text; state text; inactive text[]; count_selected bigint; ordinal bigint; multiplicity bigint; seen jsonb; identity jsonb; expected jsonb; key text; boundary ops.data_demand_read; discovery_refs jsonb;
 BEGIN
  SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=p_demand;
  SELECT * INTO STRICT request FROM ops.data_request WHERE request_key=data.ddo_identity('semantic-request',p_request_meaning);
@@ -649,6 +649,7 @@ BEGIN
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') i WHERE i->>'owner'=authored_role->>'kind' AND i->>'domain'='kind' AND i->>'key'=roledef->>'kind_contract') THEN RAISE EXCEPTION 'native artifact role differs from effective model'; END IF;
  END LOOP;
  IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_binding->>'read_id' AND demand_id=demand.id;
  SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source,request.analyzed_scope) v;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
@@ -685,7 +686,9 @@ BEGIN
  FOR native_population IN SELECT * FROM ops.data_population pop
  WHERE demand_id=p_demand AND ops.ddo_population_valid(pop)
  AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id AND reference->>'name'=pop.name)
- AND ((NOT (pop.evidence ? 'selection') AND EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_request produced ON produced.id=producer.request_id WHERE producer.id=pop.evidence->>'derivation_id' AND produced.subject=p_subject AND produced.original_source=request.original_source AND produced.analyzed_scope=request.analyzed_scope)) OR (
+ AND (EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id
+ AND ops.ddo_discovery_role_population(demand,pop,p_operation,reference->>'role',p_subject,request.original_source,request.analyzed_scope,boundary))
+ OR (NOT (pop.evidence ? 'selection') AND EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_request produced ON produced.id=producer.request_id WHERE producer.id=pop.evidence->>'derivation_id' AND produced.subject=p_subject AND produced.original_source=request.original_source AND produced.analyzed_scope=request.analyzed_scope)) OR (
  pop.evidence->'selection'->>'subject'=p_subject
  AND pop.evidence->'selection'->>'original_source'=request.original_source
  AND pop.evidence->'selection'->>'operation_id'=p_operation
@@ -697,6 +700,10 @@ BEGIN
  'source_sets',coalesce(demand.selection->'source_sets','{}'),'parameters',selection->'parameters','parameter_meaning',selection->'parameter_meaning','parameterdefs',operation->'parameters'->'json','choices',selection->'choices','subject',p_subject,'original_source',request.original_source);
  inactive:=ops.ddo_binding_inactive(expression,context);
  population_refs:=ops.ddo_binding_population_refs(expression,context);
+ SELECT coalesce(jsonb_object_agg(relation->>'target_role',relation->>'population'),'{}') INTO discovery_refs
+ FROM jsonb_array_elements(demand.selection->'discovery') relation WHERE relation->>'target'=p_operation AND relation ? 'target_role';
+ IF EXISTS(SELECT FROM jsonb_each_text(discovery_refs) explicit WHERE population_refs ? explicit.key AND population_refs->>explicit.key IS DISTINCT FROM explicit.value) THEN RAISE EXCEPTION 'discovery input conflicts with authored population scope'; END IF;
+ population_refs:=population_refs||discovery_refs;
  FOR item IN SELECT value FROM jsonb_array_elements(p_binding->'populations') LOOP
  role:=item->>'role';
  SELECT value INTO STRICT roledef FROM jsonb_array_elements(compiled->'input_roles') WHERE value->>'name'=role;

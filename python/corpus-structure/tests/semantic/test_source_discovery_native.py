@@ -1,10 +1,13 @@
 """Actual selected-source producer publication, governed closure and native children."""
 
+import json
+from dataclasses import replace
 from functools import cache
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 from corpus_structure.semantic import SourceArtifact, SourceBundle
@@ -16,7 +19,12 @@ from corpus_structure.semantic.data_operation_demands import (
     OperationSelection,
     freeze_demand,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+from corpus_structure.semantic.data_operation_identity import (
+    SemanticRequestKey,
+    decode_semantic_value,
+    semantic_value,
+)
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
     native_operation_declarations,
@@ -130,6 +138,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
                     "result",
                     "profile.segments/source-native",
                     "selected-source-views",
+                    target_role="source",
                 ),
             ),
             inference="source-discovery-control",
@@ -139,7 +148,17 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
                 *(acquired.selection() for acquired in acquisitions),
             ),
         )
-        demand = DemandPlanner(model, DataOperationStorage(connection)).register(
+        planner = DemandPlanner(model, DataOperationStorage(connection))
+        invalid = intent.record
+        invalid["discovery"][0]["target_role"] = "not-an-input"
+        with pytest.raises(DBAPIError, match="discovery target role"), connection.begin_nested():
+            planner.register(
+                replace(intent, content=canonical_bytes(invalid)),
+                project=retained.project_id,
+                release=prepared.release_id,
+                runtime=kernel.runtime,
+            )
+        demand = planner.register(
             intent, project=retained.project_id, release=prepared.release_id, runtime=kernel.runtime
         )["demand_id"]
     executor = NativeDemandExecutor(
@@ -163,7 +182,9 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
         assert len(obligations) == (2 if views else 0)
         population = (
             connection.execute(
-                text("SELECT complete, members FROM ops.data_population WHERE demand_id=:demand"),
+                text(
+                    "SELECT id,complete,members,evidence FROM ops.data_population WHERE demand_id=:demand"
+                ),
                 {"demand": demand},
             )
             .mappings()
@@ -183,7 +204,9 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
                 for use in snapshot["uses"]
                 if use["obligation_id"] in {row["obligation_id"] for row in obligations}
             ]
-            assert len(child_uses) == 2 and all(use["fate"] == "fulfilled" for use in child_uses)
+            assert len(child_uses) == 2 and all(use["fate"] == "fulfilled" for use in child_uses), [
+                (use["fate"], use["selection"].get("reasons")) for use in child_uses
+            ]
             bodies = [
                 decode_semantic_value(product["body"])
                 for use in child_uses
@@ -192,4 +215,101 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
             assert sorted(body["chars"] for body in bodies) == sorted(
                 end - start for start, end in ((0, length // 2), (length // 2, length))
             )
+            for use in child_uses:
+                selected_input = connection.execute(
+                    text(
+                        "SELECT product_id,member_id FROM ops.data_derivation_input WHERE derivation_id=:episode"
+                    ),
+                    {"episode": use["derivation_id"]},
+                ).one()
+                assert selected_input.product_id == population["evidence"]["product_id"]
+                assert selected_input.member_id in {
+                    member["member_id"] for member in population["members"]
+                }
+            _refuse_same_context_original(connection, storage, snapshot, child_uses[0], population)
     assert executor.run(demand).receipt_count == 0
+
+
+def _refuse_same_context_original(connection, storage, snapshot, use, population):
+    request = (
+        connection.execute(
+            text("SELECT * FROM ops.data_request WHERE id=:request"), {"request": use["request_id"]}
+        )
+        .mappings()
+        .one()
+    )
+    original = (
+        connection.execute(
+            text(
+                "SELECT * FROM ops.data_binding_rows(:demand,:operation,CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb)) WHERE member IS NULL"
+            ),
+            {
+                "demand": snapshot["demand_id"],
+                "operation": request["operation_id"],
+                "trust": json.dumps(snapshot["trust_snapshot"]),
+                "read": snapshot["read_id"],
+                "subject": request["subject"],
+                "source": request["original_source"],
+                "scope": json.dumps(request["analyzed_scope"]),
+            },
+        )
+        .mappings()
+        .one()
+    )
+    assert original["product"] != population["evidence"]["product_id"]
+    assert (
+        original["subject"] == request["subject"]
+        and original["analyzed_scope"] == request["analyzed_scope"]
+    )
+    binding = json.loads(json.dumps(request["binding"]))
+    binding.pop("execution_profile", None)
+    binding["read_id"] = snapshot["read_id"]
+    inputs = decode_semantic_value(binding["request_inputs"])
+    present = inputs["source"]["value"]
+    inputs["source"]["value"] = replace(
+        present, value=[{**present.value[0], "product": original["product"], "member": None}]
+    )
+    binding["request_inputs"] = semantic_value(inputs)
+    binding["inputs"] = [
+        {
+            "role": "source",
+            "position": original["position"],
+            "multiplicity": original["multiplicity"],
+            "product_id": original["product"],
+            "member_id": None,
+        }
+    ]
+    binding["support"] = [item for item in binding["support"] if item["role"] != "source"] + [
+        {**reference, "role": "source", "position": original["position"]}
+        for reference in original["support_references"]
+    ]
+    key = SemanticRequestKey(
+        request["recipe"],
+        request["subject"],
+        inputs,
+        decode_semantic_value(binding["parameters"]),
+        binding["inference"],
+        subject_context=SubjectContext(
+            request["project_id"],
+            request["subject"],
+            request["original_source"],
+            canonical_bytes(request["analyzed_scope"]),
+        ),
+    )
+    with (
+        pytest.raises(
+            DBAPIError,
+            match="discovery input differs from exact selected parent/member/context support",
+        ),
+        connection.begin_nested(),
+    ):
+        storage.invoke(
+            "attach_data_request",
+            {
+                "obligation_id": use["obligation_id"],
+                "request_meaning": json.loads(key.identity.canonical_input),
+                "request_key": key.identity.key,
+                "binding": binding,
+                "replicate": request["replicate"],
+            },
+        )

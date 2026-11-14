@@ -82,6 +82,57 @@ def test_discovered_targets_are_not_seeded_on_unrelated_root_subjects():
         "op:result",
         "op:child",
     }
+    assert intent.record["discovery"] == [
+        {
+            "producer": "op:discover",
+            "output_role": "result",
+            "target": "op:child",
+            "population": "passages",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "role_name,origins,expected",
+    [
+        ("missing", ["computation"], "computational members"),
+        ("source", ["original-source"], "computational members"),
+        ("source", ["computation"], "producer member kind"),
+    ],
+)
+def test_explicit_discovery_role_refuses_missing_origin_or_member_contract(
+    role_name, origins, expected
+):
+    child = operation("op:child")
+    child["roles"].insert(
+        0,
+        {
+            "name": "source",
+            "kind": "integer",
+            "direction": "input",
+            "minimum": 1,
+            "maximum": 1,
+            "collection": "scalar",
+            "presence": "required",
+            "support": {
+                "provenance": "value_substitution",
+                "source": "same-original",
+                "coverage": "exact",
+                "origins": origins,
+                "identity_requirements": [],
+            },
+        },
+    )
+    compiled = model(operation("op:discover", profile="discovery"), operation("op:result"), child)
+    with pytest.raises(ValueError, match=expected):
+        freeze(
+            compiled,
+            discovery=(
+                DiscoverySelection(
+                    "op:discover", "result", "op:child", "passages", target_role=role_name
+                ),
+            ),
+        )
 
 
 def test_selected_cycle_refuses_even_if_potential_graph_was_allowed():

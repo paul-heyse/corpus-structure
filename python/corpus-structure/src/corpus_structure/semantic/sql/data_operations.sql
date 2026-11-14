@@ -241,6 +241,23 @@ BEGIN
  RETURN FOUND AND ops.ddo_use_valid(source_use,boundary);
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_discovery_role_population(d ops.data_demand,pop ops.data_population,target text,input_role text,subject text,source text,scope jsonb,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT pop.demand_id=d.id AND NOT (pop.evidence ? 'selection')
+ AND ops.ddo_population_valid(pop,boundary)
+ AND (boundary.id IS NULL OR ops.ddo_read_visible(pop.created_at,pop.created_xid,boundary))
+ AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'discovery') relation
+ JOIN ops.data_derivation episode ON episode.id=pop.evidence->>'derivation_id'
+ JOIN ops.data_request producer ON producer.id=episode.request_id
+ JOIN ops.data_derivation_output output ON output.derivation_id=episode.id AND output.product_id=pop.evidence->>'product_id'
+ WHERE relation->>'target'=target AND relation->>'target_role'=input_role
+ AND relation->>'population'=pop.name AND relation->>'producer'=producer.operation_id
+ AND relation->>'output_role'=output.role AND output.role=pop.evidence->>'member_role'
+ AND producer.project_id=d.project_id AND producer.release_id=d.release_id)
+ AND EXISTS(SELECT FROM jsonb_array_elements(pop.members) member
+ WHERE member->>'subject'=subject AND member->>'original_source'=source AND member->'analyzed_scope'=scope)
+$$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_bound_support_available(r ops.data_request,support jsonb,binding jsonb) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE item jsonb; episode ops.data_derivation; source_request ops.data_request; selected ops.demand_use; original ops.original_source_admission;
@@ -392,6 +409,19 @@ BEGIN
  AND operation->>'semantic_id'=relation->>'producer' AND operation->>'profile'='discovery'
  AND EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->>'direction'='output' AND role->>'name'=relation->>'output_role')))
  THEN RAISE EXCEPTION 'discovery relation differs from declared producer output'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation
+ WHERE relation ? 'target_role' AND (jsonb_typeof(relation->'target_role') IS DISTINCT FROM 'string' OR NOT EXISTS(
+ SELECT FROM sem.data_operation_definition target
+ CROSS JOIN LATERAL jsonb_array_elements(target.input_roles) input
+ JOIN sem.data_operation_definition producer ON producer.release_id=target.release_id AND producer.operation_id=relation->>'producer'
+ CROSS JOIN LATERAL jsonb_array_elements(producer.output_roles) output
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=output->>'kind_contract'
+ WHERE target.release_id=p->>'release_id' AND target.operation_id=relation->>'target'
+ AND input->>'name'=relation->>'target_role' AND output->>'name'=relation->>'output_role'
+ AND coalesce(input->'support'->'origins','["computation"]'::jsonb) ? 'computation'
+ AND EXISTS(SELECT FROM jsonb_array_elements_text(input->'accepted_kind_contracts') accepted WHERE kind.member_contracts ? accepted))))
+ OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation WHERE relation ? 'target_role' GROUP BY relation->>'target',relation->>'target_role' HAVING count(*)<>1)
+ THEN RAISE EXCEPTION 'discovery target role differs from declared member/input contracts'; END IF;
  IF EXISTS(WITH RECURSIVE edges(source,target) AS (
  SELECT selected->>'operation',dependency FROM jsonb_array_elements(p->'selection'->'operations') selected
  CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency),
@@ -549,7 +579,7 @@ BEGIN
  SELECT * INTO STRICT x FROM kb.data_product WHERE id=p->>'product_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,jsonb_build_array(jsonb_build_object('derivation_id',producer.id)));
  PERFORM ops.ddo_require_active_demand(d.id);
- SELECT DISTINCT value-'target' INTO STRICT rel FROM jsonb_array_elements(d.selection->'discovery') value WHERE value->>'population'=p->>'name' AND value->>'producer'=r.operation_id AND value->>'output_role'=p->>'member_role';
+ SELECT DISTINCT value-'target'-'target_role' INTO STRICT rel FROM jsonb_array_elements(d.selection->'discovery') value WHERE value->>'population'=p->>'name' AND value->>'producer'=r.operation_id AND value->>'output_role'=p->>'member_role';
  IF x.project_id<>d.project_id OR r.project_id<>d.project_id OR r.release_id<>d.release_id
  OR NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_use_valid(u)) OR NOT EXISTS(SELECT FROM sem.data_operation_definition op WHERE op.release_id=d.release_id AND op.operation_id=r.operation_id AND op.profile='discovery')
  OR NOT EXISTS(SELECT FROM ops.data_derivation_output outp WHERE outp.derivation_id=producer.id AND outp.product_id=x.id AND outp.role=p->>'member_role')
@@ -575,7 +605,7 @@ CREATE OR REPLACE FUNCTION data.ddo_field(v jsonb,k text) RETURNS jsonb
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$ SELECT value->1 FROM jsonb_array_elements(v->1) WHERE value->>0=k $$;
 CREATE OR REPLACE FUNCTION ops.ddo_validate_binding(r ops.data_request,o ops.data_obligation,def sem.data_operation_definition,b jsonb,meaning jsonb,replicate text) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; witness jsonb; role_meaning jsonb; state text; population_reference jsonb; lexical_alternative text; frozen_binding jsonb;
+DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; boundary ops.data_demand_read; witness jsonb; role_meaning jsonb; state text; population_reference jsonb; lexical_alternative text; frozen_binding jsonb;
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=o.demand_id;
  IF b->>'inference' IS DISTINCT FROM d.selection->>'inference'
@@ -583,6 +613,7 @@ BEGIN
  OR data.ddo_field(b->'parameters','replicate') IS DISTINCT FROM (CASE WHEN replicate IS NULL THEN jsonb_build_array('null') ELSE jsonb_build_array('string',replicate) END)
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') s WHERE s->>'operation'=o.operation_id AND s->>'recipe'=def.recipe AND s->>'replicate' IS NOT DISTINCT FROM replicate) THEN RAISE EXCEPTION 'request differs from frozen inference/parameters/replicate/recipe'; END IF;
  IF NOT EXISTS(SELECT FROM ops.data_demand_read acquired WHERE acquired.id=b->>'read_id' AND acquired.demand_id=d.id) THEN RAISE EXCEPTION 'binding lacks exact native read acquisition'; END IF;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=b->>'read_id' AND demand_id=d.id;
  expected:=(SELECT coalesce(jsonb_object_agg(named.key,named.value),'{}') FROM jsonb_each(coalesce(d.selection->'source_sets','{}')) named WHERE EXISTS(SELECT FROM jsonb_array_elements(def.input_roles) AS role_record(value) WHERE role_record.value->'support'->>'source_set'=named.key));
  IF expected<>'{}'::jsonb THEN
  IF data.ddo_json(data.ddo_field(b->'parameters','source_sets')) IS DISTINCT FROM expected THEN RAISE EXCEPTION 'request source-set meaning differs from exact frozen declaration'; END IF;
@@ -609,6 +640,17 @@ BEGIN
  IF witness IS DISTINCT FROM expected THEN RAISE EXCEPTION 'population semantic witness differs from native closure value'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(b->'support') selected WHERE selected->>'role'='population:'||pop.name AND selected->>'derivation_id'=pop.evidence->>'derivation_id' AND selected->>'admission_use_id'=pop.evidence->>'admission_use_id') THEN RAISE EXCEPTION 'population closure lacks authentic derivation support'; END IF;
  ELSIF population_reference IS NOT NULL THEN RAISE EXCEPTION 'unexpected native population receipt for unwitnessed role';
+ END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(d.selection->'discovery') relation WHERE relation->>'target'=o.operation_id AND relation->>'target_role'=roledef->>'name') THEN
+ IF pop.id IS NULL OR NOT coalesce(ops.ddo_discovery_role_population(d,pop,o.operation_id,roledef->>'name',o.subject,o.original_source,o.analyzed_scope,boundary),false)
+ OR EXISTS(SELECT FROM jsonb_array_elements(b->'inputs') selected WHERE selected->>'role'=roledef->>'name'
+ AND (selected->>'product_id' IS DISTINCT FROM pop.evidence->>'product_id' OR NOT EXISTS(
+ SELECT FROM jsonb_array_elements(pop.members) member WHERE member->>'member_id'=selected->>'member_id'
+ AND member->>'subject'=o.subject AND member->>'original_source'=o.original_source AND member->'analyzed_scope'=o.analyzed_scope)))
+ OR EXISTS(SELECT FROM jsonb_array_elements(b->'inputs') selected WHERE selected->>'role'=roledef->>'name' AND NOT EXISTS(
+ SELECT FROM ops.ddo_input_support_refs(b,roledef->>'name',selected->'position',selected->>'product_id',selected->>'member_id') reference
+ WHERE coalesce(reference->>'kind','computation')='computation' AND reference->>'derivation_id'=pop.evidence->>'derivation_id' AND reference->>'admission_use_id'=pop.evidence->>'admission_use_id'))
+ THEN RAISE EXCEPTION 'discovery input differs from exact selected parent/member/context support'; END IF;
  END IF;
  IF state='known-absent' AND EXISTS(SELECT FROM jsonb_array_elements(b->'inputs') i WHERE i->>'role'=roledef->>'name') THEN RAISE EXCEPTION 'absent role cannot carry native inputs'; END IF;
  IF state='known-absent' AND pop.id IS NOT NULL AND NOT pop.complete THEN RAISE EXCEPTION 'open population cannot establish absence'; END IF;

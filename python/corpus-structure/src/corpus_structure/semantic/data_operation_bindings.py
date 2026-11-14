@@ -15,7 +15,7 @@ from decimal import Decimal
 from itertools import pairwise
 from typing import Any, Literal, cast
 
-from sqlalchemy import and_, func, literal, not_, or_, select, true
+from sqlalchemy import and_, false, func, literal, not_, or_, select, true
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
@@ -269,6 +269,7 @@ def compile_binding(
     source_sets: tuple[FrozenSourceSet, ...] = (),
     original_source: str | None = None,
     subject_context: SubjectContext | None = None,
+    discovery_roles: tuple[tuple[str, str], ...] = (),
 ) -> CompiledBinding:
     """Pin a frozen demand and lower every supported expression to Core SQL.
 
@@ -412,6 +413,25 @@ def compile_binding(
             inspect_scopes(child)
 
     inspect_scopes(expression)
+    if discovery_roles and subject_context is None:
+        raise ValueError("discovery input association requires its complete child context")
+    for name, population in discovery_roles:
+        if name not in roles or not population:
+            raise ValueError("discovery association requires an active named input role")
+        if name in role_populations and (
+            role_populations[name] != population or role_projections[name] != "member"
+        ):
+            raise ValueError("one role cannot bind two population scopes")
+        role_populations[name] = population
+        role_projections[name] = "member"
+        if population not in population_map:
+            initial.append(
+                BindingReason(
+                    "population-incomplete",
+                    operation + "/" + name,
+                    "explicit discovery input lacks its authenticated parent population",
+                )
+            )
     if any(roles[name].minimum != 0 for name in negative_roles):
         raise ValueError("absence requires a role admitting zero members")
     for name, role in roles.items():
@@ -564,6 +584,36 @@ def compile_binding(
                 subject_condition(name),
                 alias.c.kind_contract.in_(accepted_kinds[role.kind]),
             )
+            if name in dict(discovery_roles):
+                population = population_map.get(dict(discovery_roles)[name])
+                if population is None:
+                    condition = and_(condition, false())
+                else:
+                    evidence = wire_json_loads(population.evidence)
+                    if subject_context is None:
+                        raise ValueError(
+                            "discovery input association requires its complete child context"
+                        )
+                    if (
+                        population.projection != "member"
+                        or not isinstance(evidence.get("product_id"), str)
+                        or not evidence["product_id"]
+                    ):
+                        raise ValueError("discovery input requires an exact parent product")
+                    condition = and_(
+                        condition,
+                        alias.c.product == evidence["product_id"],
+                        alias.c.member.in_(population.members),
+                        alias.c.subject == subject_context.subject,
+                        alias.c.original_source == subject_context.original_source,
+                        json_context_equal(
+                            alias.c.analyzed_scope,
+                            literal(
+                                wire_json_loads(subject_context.analyzed_scope),
+                                type_=ContextJSONB(),
+                            ),
+                        ),
+                    )
             if role.presence == "alternative":
                 selected = choice_values.get(name, role.selected)
                 if selected not in role.alternatives:

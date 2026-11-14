@@ -1200,6 +1200,46 @@ def test_native_population_member_ids_are_qualified_by_owning_product(storage):
     )
 
 
+def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(storage):
+    connection, table, projection = storage
+    row = dict(connection.execute(table.select().where(table.c.product == "p2")).mappings().one())
+    connection.execute(table.insert(), {**row, "product": "same-context-other-parent"})
+    connection.execute(
+        table.insert(), {**row, "member": "m2-other-scope", "analyzed_scope": {"page": 2}}
+    )
+    context = SubjectContext("project", "doc", "source", b'{"page":1}')
+    schema = model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1)
+    population = PopulationBinding(
+        "discovered",
+        "population:exact-parent",
+        False,
+        ("m2", "m2-other-scope"),
+        b'{"product_id":"p2"}',
+    )
+    associated = compile_binding(
+        schema,
+        "urn:op",
+        (projection,),
+        subject="doc",
+        subject_context=context,
+        populations=(population,),
+        discovery_roles=(("items", "discovered"),),
+    )
+    result = execute_binding(connection, associated)
+    assert result.status == "ready"
+    assert [(member.product, member.member) for member in result.roles[0].members] == [("p2", "m2")]
+    assert result.roles[0].population_witness is not None
+    missing = compile_binding(
+        schema,
+        "urn:op",
+        (projection,),
+        subject="doc",
+        subject_context=context,
+        discovery_roles=(("items", "discovered"),),
+    )
+    assert execute_binding(connection, missing).status == "awaiting-population"
+
+
 def test_native_membership_and_absence_cannot_use_another_containers_local_member(storage):
     connection, table, projection = storage
     population = PopulationBinding("retained", "closed", True, ("b",), b'{"product_id":"p2"}')
