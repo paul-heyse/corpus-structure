@@ -9,10 +9,10 @@ from corpus_structure.semantic.contextual_characterization import (
     ContextInput,
     ContextPart,
     ContextualLayer,
-    canonical_tokens,
-    reuse_native,
 )
 from methods.contextual_characterization_support import (
+    canonical_tokens,
+    reuse_native,
     add_metadata as add_metadata,
 )
 from methods.contextual_characterization_support import (
