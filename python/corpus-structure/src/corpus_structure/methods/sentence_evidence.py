@@ -27,8 +27,8 @@ class SentenceEvidenceOperation:
                 "parameter": "source",
                 "support": {
                     "provenance": "exact",
-                    "identity_requirements": [],
-                    "origins": ["computation", "original-source"],
+                    "identity_requirements": ["episode"],
+                    "origins": ["computation"],
                     "source": "original-source",
                     "coverage": "selected-scope",
                 },
