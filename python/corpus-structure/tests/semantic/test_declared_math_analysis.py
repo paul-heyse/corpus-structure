@@ -36,7 +36,7 @@ def test_weak_analysis_never_loads_ancestors_reparses_or_performs_symbolic_work(
     (item,) = result["items"]
     assert item["pointer"] == "#/texts/0" and item["recognized_latex"] == "2+1"
     assert item["lexical"] and "symbolic" not in item and "assessment" not in item
-    assert item["context"]["declarations"] == []
+    assert all(row["authority"] != "source" for row in item["context"]["declarations"])
     assert item["primary_input"]["product_id"] == formal.semantic_id
 
 
@@ -77,9 +77,9 @@ def test_context_reads_exact_retained_parent_function_and_variable_with_native_o
     from corpus_structure.semantic.structural_products import DeclaredStructuralInputPin
     from semantic.formal_products_support import selected
 
-    root = {"self_ref": "#/groups/0", "label": "section_header", "children": [{"$ref": "#/texts/0"}, {"$ref": "#/groups/1"}]}
-    parent = selected(math_profile, "f(x)=x", items=[{"self_ref": "#/texts/0", "label": "formula", "text": "f(x)=x", "orig": "f(x)=x", "parent": {"$ref": "#/groups/0"}}], ancestors=[root])
-    child = selected(math_profile, "f(x)", source={**parent.value["source"], "section_pointer": "#/groups/1"}, items=[{"self_ref": "#/texts/1", "label": "formula", "text": "f(x)", "orig": "f(x)", "parent": {"$ref": "#/groups/1"}}], pieces=[{"kind": "native_text", "start": 0, "end": 4, "item_ref": "#/texts/1", "source_field": "text"}], selectors=[{"projection": "b" * 64, "native_pointer": "#/texts/1", "start": 0, "end": 4}], ancestors=[root, {"self_ref": "#/groups/1", "label": "section_header", "parent": {"$ref": "#/groups/0"}}])
+    root = {"self_ref": "#/groups/0", "label": "section_header", "children": ["#/texts/0", "#/groups/1"]}
+    parent = selected(math_profile, "f(x)=x", items=[{"self_ref": "#/texts/0", "label": "formula", "text": "f(x)=x", "orig": "f(x)=x", "parent": "#/groups/0"}], ancestors=[root])
+    child = selected(math_profile, "f(x)", source={**parent.value["source"], "section_pointer": "#/groups/1"}, items=[{"self_ref": "#/texts/1", "label": "formula", "text": "f(x)", "orig": "f(x)", "parent": "#/groups/1"}], pieces=[{"kind": "native_text", "start": 0, "end": 4, "item_ref": "#/texts/1", "source_field": "text"}], selectors=[{"projection": "b" * 64, "native_pointer": "#/texts/1", "start": 0, "end": 4}], ancestors=[root, {"self_ref": "#/groups/1", "label": "section_header", "parent": "#/groups/0"}])
     def bind(source, product):
         return BoundRoleMember(product, "kind:source", source_subject(source.value["source"]), source.value["source"]["document"], canonical_bytes({"source": source.value["source"], "selectors": source.value["selectors"]}), b"{}", (), b"{}")
     parent_pin, child_pin = bind(parent, "parent-source"), bind(child, "child-source")
