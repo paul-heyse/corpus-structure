@@ -1,0 +1,11 @@
+baseline: 3f11b5597
+packs: [statistics]
+native_predecessor: semantic_ddo_stream_v1
+native_revision: semantic_ddo_context_v1
+deployment: true
+deployment_profile: development
+retire:
+  - kind: function
+    schema: ops
+    name: ddo_binding_subject
+    arguments: [jsonb, jsonb, text]

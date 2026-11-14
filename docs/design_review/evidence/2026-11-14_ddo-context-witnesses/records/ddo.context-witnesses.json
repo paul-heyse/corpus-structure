@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.context-witnesses",
+  "title": "Qualified source contexts and grouped native output witnesses",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can qualified context fan-in, selected source association, grouped record pins and exact sealed-PDF support be admitted without persistent deployment?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-context-witnesses/change.yaml --json",
+    "uv run ci model change candidate 12feeb152c4b4d63b73f4891c4b0d7d1 --json",
+    "uv run ci model change inspect-candidate d994557667c0418db1fb56d8e7daf5b6 --view operations --json",
+    "uv run ci model change inspect-candidate d994557667c0418db1fb56d8e7daf5b6 --view sql --json",
+    "uv run ci model change register d994557667c0418db1fb56d8e7daf5b6 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit successor and overload retirement request",
+      "sha256": "2be54bb62568c06263cdd3ecced17aa65b8b59427ce5223b7a388896a3936c2b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout file hashes",
+      "sha256": "eedaea6b55a1b047c1a33d1d89e87b3a5fd6dfcc9bf37ad2e7acfd102ef47b14"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 29,
+      "of": null,
+      "unit": null,
+      "note": "20 body changes, 8 new functions, 1 explicit obsolete overload retirement"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only authoring and registration passed for semantic_ddo_context_v1 after semantic_ddo_stream_v1. Existing owners/ACLs are unchanged; new helpers are publisher-private except the exact PDF support reader granted to writer. Registration is not persistent deployment or functional/provider qualification. Persistent binding remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
