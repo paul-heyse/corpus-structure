@@ -433,3 +433,40 @@ def test_native_population_local_member_collision_cannot_satisfy_closed_scope(
     }
     with pytest.raises(DBAPIError, match="lacks admitted candidate facts"):
         evaluate(binding_native_connection, absent, facts)
+
+
+@pytest.mark.db
+def test_native_qualified_context_population_uses_whole_header_context(binding_native_connection):
+    connection = binding_native_connection
+    facts = context(1, 2)
+    facts["project_id"] = "project"
+    required = [
+        {"project_id": "project", "subject": "same-local", "original_source": "source", "analyzed_scope": {"page": page}}
+        for page in (1, 2)
+    ]
+    for index, item in enumerate(facts["roles"]["items"]):
+        item.update(product="derived-" + str(index), subject="same-local", original_source="source", analyzed_scope={"page": index + 1})
+    population = {"identity": "discovery-closure", "complete": True, "projection": "qualified-context", "members": required, "evidence": {"product_id": "discovery-only"}}
+    facts["populations"] = {"children": population}
+    facts["witnesses"] = {"items": population}
+    operands = [field(name="@context", value_type="subject-context"), {"kind": "population", "name": "children", "value_type": "subject-context", "population_projection": "qualified-context"}]
+    expression = {"operator": "all", "children": [{"operator": op, "operands": operands} for op in ("membership", "covers")]}
+    assert evaluate(connection, expression, facts) is True
+    # JSONB numeric meaning is exact; same local subject is insufficient.
+    required[0]["analyzed_scope"]["page"] = 1.0
+    assert evaluate(connection, expression, facts) is True
+    for dimension, wrong in (("project_id", "other"), ("original_source", "other"), ("analyzed_scope", {"page": True})):
+        old = required[1][dimension]
+        required[1][dimension] = wrong
+        assert evaluate(connection, expression, facts) is False
+        required[1][dimension] = old
+    facts["roles"]["items"].pop()
+    assert evaluate(connection, expression, facts) is False
+    # Coverage does not impose uniqueness: distinct physical products can provide
+    # the same required context unless the operation declares a choice/cardinality.
+    facts["roles"]["items"] = [dict(facts["roles"]["items"][0]), dict(facts["roles"]["items"][0], product="another-derived")]
+    population["members"] = required[:1]
+    assert evaluate(connection, expression, facts) is True
+    population["members"] = []
+    facts["roles"]["items"] = []
+    assert evaluate(connection, expression, facts) is True

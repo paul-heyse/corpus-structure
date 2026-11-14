@@ -37,6 +37,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_binding_population_product(population jsonb,row_value jsonb) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
+ IF population->>'projection'='qualified-context' THEN RETURN true; END IF;
  IF NOT coalesce(population->'evidence','{}') ? 'product_id' THEN RETURN true; END IF;
  RETURN jsonb_typeof(population->'evidence'->'product_id')='string'
  AND nullif(population->'evidence'->>'product_id','') IS NOT NULL
@@ -73,6 +74,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_binding_type(context jsonb,declared text) RET
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE kind jsonb; facts jsonb; primitive text;
 BEGIN
+ IF declared='subject-context' THEN RETURN declared; END IF;
  IF declared LIKE 'primitive:%' THEN primitive:=substring(declared FROM 11);
  ELSE
  SELECT value INTO kind FROM jsonb_array_elements(context->'model'->'kinds') WHERE value->>'semantic_id'=declared OR value->>'name'=declared;
@@ -131,6 +133,10 @@ CREATE OR REPLACE FUNCTION ops.ddo_binding_compare(left_value jsonb,right_value 
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE tag text:=left_value->>0; l numeric; r numeric; ordering integer;
 BEGIN
+ IF left_value->>0='subject-context' OR right_value->>0='subject-context' THEN
+ IF comparison<>'equal' OR left_value->>0 IS DISTINCT FROM 'subject-context' OR right_value->>0 IS DISTINCT FROM 'subject-context' THEN RAISE EXCEPTION 'context operands support equality only'; END IF;
+ RETURN left_value->1=right_value->1;
+ END IF;
  IF tag IS DISTINCT FROM right_value->>0 THEN RAISE EXCEPTION 'binding operand type mismatch' USING ERRCODE='23514'; END IF;
  IF comparison='equal' THEN
  IF tag='float' THEN RETURN ops.ddo_binding_float(left_value->>1)=ops.ddo_binding_float(right_value->>1); END IF;
@@ -201,6 +207,13 @@ BEGIN
  field:=operand->'field';
  SELECT value INTO STRICT roledef FROM jsonb_array_elements(context->'roledefs') WHERE value->>'name'=field->>'role';
  IF field->>'projection'<>roledef->>'kind' AND NOT EXISTS(SELECT FROM jsonb_array_elements(context->'model'->'kinds') k WHERE k->>'semantic_id'=roledef->>'kind' AND k->>'name'=field->>'projection') THEN RAISE EXCEPTION 'native binding projection differs from qualified role'; END IF;
+ IF field->>'field'='@context' THEN
+ IF operand->>'value_type' IS DISTINCT FROM 'subject-context' OR nullif(context->>'project_id','') IS NULL THEN RAISE EXCEPTION 'native qualified context lacks project/type'; END IF;
+ FOR item IN SELECT value FROM jsonb_array_elements(coalesce(context->'roles'->(field->>'role'),'[]')) LOOP
+ result:=result||jsonb_build_array(jsonb_build_array('subject-context',jsonb_build_object('project_id',context->>'project_id','subject',item->>'subject','original_source',item->>'original_source','analyzed_scope',item->'analyzed_scope')));
+ END LOOP;
+ RETURN result;
+ END IF;
  SELECT value INTO STRICT property FROM jsonb_array_elements(context->'model'->'kinds') WHERE value->>'semantic_id'=(roledef->>'kind')||'/property/'||(field->>'field');
  expected:=property->'facts'->'json'->>'range'; kind:=ops.ddo_binding_type(context,coalesce(operand->>'value_type',expected));
  IF operand ? 'value_type' AND ops.ddo_binding_type(context,expected)<>kind THEN RAISE EXCEPTION 'native binding field type differs'; END IF;
@@ -234,7 +247,13 @@ BEGIN
  ELSIF source='population' THEN
  population:=context->'populations'->(operand->>'name');
  IF population IS NULL OR population->>'complete' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'binding membership population is not closed'; END IF;
+ IF coalesce(operand->>'population_projection','member') IS DISTINCT FROM coalesce(population->>'projection','member') THEN RAISE EXCEPTION 'native population projection differs from frozen operand'; END IF;
+ IF operand->>'population_projection'='qualified-context' THEN
+ IF kind<>'subject-context' THEN RAISE EXCEPTION 'native context population type differs'; END IF;
+ FOR item IN SELECT value FROM jsonb_array_elements(population->'members') LOOP result:=result||jsonb_build_array(jsonb_build_array('subject-context',item)); END LOOP;
+ ELSE
  FOR item IN SELECT value FROM jsonb_array_elements(population->'members') LOOP result:=result||jsonb_build_array(ops.ddo_binding_scalar(item,kind)); END LOOP;
+ END IF;
  ELSE RAISE EXCEPTION 'unsupported native binding operand %',source USING ERRCODE='23514'; END IF;
  RETURN result;
 END $$;
@@ -349,7 +368,7 @@ BEGIN
  FOR operand IN SELECT value FROM jsonb_array_elements(coalesce(node->'fields','[]')) LOOP operands:=operands||jsonb_build_array(jsonb_build_object('kind','field','field',operand)); END LOOP;
  END IF;
  IF operator='covers' THEN
- IF jsonb_array_length(operands)<>2 OR operands->0->>'kind'<>'field' OR operands->1->>'kind' NOT IN ('parameter','literal') THEN RAISE EXCEPTION 'invalid native coverage operands'; END IF;
+ IF jsonb_array_length(operands)<>2 OR operands->0->>'kind'<>'field' OR operands->1->>'kind' NOT IN ('parameter','literal','population') THEN RAISE EXCEPTION 'invalid native coverage operands'; END IF;
  a:=ops.ddo_binding_values(operands->0,context); b:=ops.ddo_binding_values(operands->1,context);
  FOR operand IN SELECT value FROM jsonb_array_elements(b) LOOP
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(a) actual WHERE ops.ddo_binding_compare(actual,operand,'equal')) THEN RETURN false; END IF;
@@ -361,7 +380,7 @@ BEGIN
  operands:=operands||jsonb_build_array(jsonb_build_object('kind','literal','value_type',node->'value'->'json'->>0,'value',node->'value'));
  END IF;
  FOR operand IN SELECT value FROM jsonb_array_elements(operands) WHERE value->>'kind'='population' LOOP
- IF operator<>'membership' THEN RAISE EXCEPTION 'native population operands are membership universes'; END IF;
+ IF operator NOT IN ('membership','covers') THEN RAISE EXCEPTION 'native population operands are membership/coverage universes'; END IF;
  population:=context->'populations'->(operand->>'name'); names:=ops.ddo_binding_roles(jsonb_set(node,'{children}','[]'));
  IF cardinality(names)=0 THEN RAISE EXCEPTION 'population operand requires an identity-bearing input role'; END IF;
  FOREACH role IN ARRAY names LOOP
@@ -434,7 +453,7 @@ BEGIN
  FOREACH name IN ARRAY names LOOP result:=jsonb_set(result,ARRAY[name],node->'population'); END LOOP;
  END IF;
  FOR operand IN SELECT value FROM jsonb_array_elements(coalesce(node->'operands','[]')) WHERE value->>'kind'='population' LOOP
- IF node->>'operator'<>'membership' THEN RAISE EXCEPTION 'unsupported population operand scope'; END IF;
+ IF node->>'operator' NOT IN ('membership','covers') THEN RAISE EXCEPTION 'unsupported population operand scope'; END IF;
  names:=ops.ddo_binding_roles(jsonb_set(node,'{children}','[]'));
  IF cardinality(names)=0 THEN RAISE EXCEPTION 'population operand lacks an identity-bearing role'; END IF;
  FOREACH name IN ARRAY names LOOP
@@ -452,6 +471,69 @@ BEGIN
  RETURN result;
 END $$;
 
+-- Potential graph edges do not confer admission; only frozen selected
+-- dependencies and discovery target relations extend the consumed producer set.
+CREATE OR REPLACE FUNCTION ops.ddo_consumed_producers(selection jsonb,operation text) RETURNS text[]
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ WITH RECURSIVE allowed(id) AS (
+ SELECT dependency FROM jsonb_array_elements(selection->'operations') selected
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency
+ WHERE selected->>'operation'=operation
+ UNION
+ SELECT edge.id FROM allowed parent CROSS JOIN LATERAL (
+ SELECT dependency AS id FROM jsonb_array_elements(selection->'operations') selected
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency WHERE selected->>'operation'=parent.id
+ UNION
+ SELECT relation->>'target' FROM jsonb_array_elements(selection->'discovery') relation WHERE relation->>'producer'=parent.id
+ ) edge
+ ) SELECT coalesce(array_agg(id ORDER BY id),ARRAY[]::text[]) FROM allowed
+$$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_binding_population_projection(node jsonb,context jsonb,role text) RETURNS text
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE child jsonb; operand jsonb; result text; candidate text; choice text;
+BEGIN
+ IF node->>'operator'='choice' THEN
+ choice:=coalesce(node->>'selected',context->'choices'->>(node->>'choice_parameter'));
+ FOR child IN SELECT value FROM jsonb_array_elements(node->'children') LOOP
+ IF choice=ANY(ops.ddo_binding_roles(child)) THEN RETURN ops.ddo_binding_population_projection(child,context,role); END IF;
+ END LOOP;
+ RAISE EXCEPTION 'population projection branch is not frozen';
+ END IF;
+ IF role=ANY(ops.ddo_binding_roles(node-'children')) THEN
+ IF node->>'operator' IN ('forall','absent') THEN result:='member'; END IF;
+ FOR operand IN SELECT value FROM jsonb_array_elements(coalesce(node->'operands','[]')) WHERE value->>'kind'='population' LOOP
+ candidate:=coalesce(operand->>'population_projection','member');
+ IF candidate NOT IN ('member','qualified-context') OR (candidate='qualified-context' AND operand->>'value_type' IS DISTINCT FROM 'subject-context') THEN RAISE EXCEPTION 'invalid population projection'; END IF;
+ IF result IS NOT NULL AND result<>candidate THEN RAISE EXCEPTION 'conflicting population projections'; END IF;
+ result:=candidate;
+ END LOOP;
+ END IF;
+ FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP
+ candidate:=ops.ddo_binding_population_projection(child,context,role);
+ IF candidate IS NOT NULL THEN
+ IF result IS NOT NULL AND result<>candidate THEN RAISE EXCEPTION 'conflicting population projections'; END IF;
+ result:=candidate;
+ END IF;
+ END LOOP;
+ RETURN result;
+END $$;
+
+-- Inputs are authenticated population table fields, never a portable caller witness.
+CREATE OR REPLACE FUNCTION ops.ddo_project_population(identity text,complete boolean,members jsonb,evidence jsonb,project text,projection text) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE projected jsonb; result jsonb;
+BEGIN
+ IF projection='qualified-context' THEN
+ SELECT coalesce(jsonb_agg(jsonb_build_object('project_id',project,'subject',value->'subject','original_source',value->'original_source','analyzed_scope',value->'analyzed_scope') ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
+ ELSIF projection='member' THEN
+ SELECT coalesce(jsonb_agg(value->'member_id' ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
+ ELSE RAISE EXCEPTION 'unknown population projection'; END IF;
+ result:=jsonb_build_object('identity',identity,'complete',complete,'members',projected,'evidence',evidence);
+ IF projection='qualified-context' THEN result:=result||jsonb_build_object('projection',projection); END IF;
+ RETURN result;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_binding_population_meaning(witness jsonb,require_episode boolean) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result jsonb; episode text;
@@ -459,9 +541,12 @@ BEGIN
  IF witness->>'reason'='unselected-declared-branch' THEN RETURN witness; END IF;
  IF jsonb_typeof(witness) IS DISTINCT FROM 'object' OR jsonb_typeof(witness->'identity') IS DISTINCT FROM 'string' OR nullif(witness->>'identity','') IS NULL
  OR jsonb_typeof(witness->'complete') IS DISTINCT FROM 'boolean' OR jsonb_typeof(witness->'members') IS DISTINCT FROM 'array' OR jsonb_typeof(witness->'evidence') IS DISTINCT FROM 'object'
- OR EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m) IS DISTINCT FROM 'string' OR m#>>'{}'='')
+ OR (coalesce(witness->>'projection','member')='member' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m) IS DISTINCT FROM 'string' OR m#>>'{}'=''))
+ OR (witness->>'projection'='qualified-context' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m)<>'object' OR nullif(m->>'project_id','') IS NULL OR nullif(m->>'subject','') IS NULL OR nullif(m->>'original_source','') IS NULL OR jsonb_typeof(m->'analyzed_scope') IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(m))<>4))
+ OR coalesce(witness->>'projection','member') NOT IN ('member','qualified-context')
  OR EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m GROUP BY m HAVING count(*)<>1) THEN RAISE EXCEPTION 'invalid structured native population witness'; END IF;
  result:=jsonb_build_object('identity',witness->'identity','complete',witness->'complete','members',witness->'members');
+ IF witness->>'projection'='qualified-context' THEN result:=result||jsonb_build_object('projection','qualified-context'); END IF;
  IF require_episode THEN
  episode:=nullif(witness->'evidence'->>'derivation_id',''); IF episode IS NULL THEN RAISE EXCEPTION 'population episode identity is unavailable'; END IF;
  result:=result||jsonb_build_object('support_episodes',jsonb_build_array(episode));
@@ -472,7 +557,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_binding(p_demand text,p_operation text,p_subject text,p_request_meaning jsonb,p_binding jsonb,p_trust jsonb) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE demand ops.data_demand; request ops.data_request; archived jsonb; projection jsonb; operation jsonb; compiled jsonb; selection jsonb; expression jsonb;
- population_refs jsonb; roles jsonb:='{}'; universe jsonb; populations jsonb:='{}'; witnesses jsonb:='{}'; semantic_witnesses jsonb:='{}'; states jsonb:='{}'; context jsonb;
+ population_refs jsonb; projection_mode text; roles jsonb:='{}'; universe jsonb; populations jsonb:='{}'; witnesses jsonb:='{}'; semantic_witnesses jsonb:='{}'; states jsonb:='{}'; context jsonb;
  authored_role jsonb; item jsonb; roledef jsonb; row_value jsonb; chosen jsonb; values jsonb; raw jsonb; role_meaning jsonb; witness jsonb; native_population ops.data_population;
  archive_digest text; role text; state text; inactive text[]; count_selected bigint; ordinal bigint; multiplicity bigint; seen jsonb; identity jsonb; expected jsonb; key text;
 BEGIN
@@ -541,10 +626,10 @@ BEGIN
  AND pop.evidence->'selection'->>'original_source'=request.original_source
  AND pop.evidence->'selection'->>'operation_id'=p_operation
  AND pop.evidence->'selection'->'analyzed_scope'=request.analyzed_scope)) LOOP
- SELECT coalesce(jsonb_agg(value->'member_id' ORDER BY n),'[]') INTO expected FROM jsonb_array_elements(native_population.members) WITH ORDINALITY a(value,n);
- populations:=jsonb_set(populations,ARRAY[native_population.name],jsonb_build_object('identity',native_population.semantic_key,'complete',native_population.complete,'members',expected,'evidence',native_population.evidence));
+ SELECT coalesce(ops.ddo_binding_population_projection(expression,jsonb_build_object('choices',selection->'choices'),reference->>'role'),'member') INTO projection_mode FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=native_population.id LIMIT 1;
+ populations:=jsonb_set(populations,ARRAY[native_population.name],ops.ddo_project_population(native_population.semantic_key,native_population.complete,native_population.members,native_population.evidence,demand.project_id,projection_mode));
  END LOOP;
- context:=jsonb_build_object('model',archived,'roledefs',compiled->'input_roles','roles',roles,'states',states,'witnesses',witnesses,'universe',universe,'populations',populations,
+ context:=jsonb_build_object('project_id',demand.project_id,'model',archived,'roledefs',compiled->'input_roles','roles',roles,'states',states,'witnesses',witnesses,'universe',universe,'populations',populations,
  'source_sets',coalesce(demand.selection->'source_sets','{}'),'parameters',selection->'parameters','parameter_meaning',selection->'parameter_meaning','parameterdefs',operation->'parameters'->'json','choices',selection->'choices','subject',p_subject,'original_source',request.original_source);
  inactive:=ops.ddo_binding_inactive(expression,context);
  population_refs:=ops.ddo_binding_population_refs(expression,context);

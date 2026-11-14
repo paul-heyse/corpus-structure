@@ -512,12 +512,14 @@ class DemandPlanner:
                 if prerequisite not in prerequisites:
                     prerequisites.add(prerequisite)
                     pending.extend(selected[prerequisite]["dependencies"])
+                    pending.extend(relation["target"] for relation in frozen["discovery"] if relation["producer"] == prerequisite)
             operation_roles = {
                 role.name: role
                 for role in self.model.operation(operation["operation"]).roles
                 if role.direction == "input"
             }
             population_rows, ambiguities, derived = {}, [], False
+            population_modes = dict(compiled.population_projections)
             for role_name, population_name in compiled.population_roles:
                 role = operation_roles[role_name]
                 scope_name = role.support.source_set if role.support is not None else None
@@ -557,9 +559,9 @@ class DemandPlanner:
                         if output.direction == "output"
                         and output.name == row["evidence"]["member_role"]
                     ]
-                    if len(outputs) == 1 and set(
+                    if len(outputs) == 1 and (population_modes.get(role_name) == "qualified-context" or set(
                         input_kind_refinements(self.model, (role.kind,))[role.kind]
-                    ).intersection(derive_member_kinds(self.model, outputs[0].kind)):
+                    ).intersection(derive_member_kinds(self.model, outputs[0].kind))):
                         parents.append(row)
                 existing = [
                     row
@@ -573,7 +575,7 @@ class DemandPlanner:
                 if existing:
                     population_rows[population_name] = existing[0]
                     continue
-                if len(parents) > 1:
+                if len(parents) > 1 and population_modes.get(role_name) != "qualified-context":
                     query = dict(compiled.queries).get(role_name)
                     if query is not None:
                         qualified = {
@@ -645,6 +647,8 @@ class DemandPlanner:
                             "name": row["name"],
                         }
                     ),
+                    projection=next(population_modes[role] for role, name in compiled.population_roles if name == row["name"]),
+                    contexts=tuple(SubjectContext(snapshot["project_id"], member["subject"], member["original_source"], json_bytes(member["analyzed_scope"])) for member in row["members"]),
                 )
                 for row in population_rows.values()
             )

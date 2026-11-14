@@ -16,11 +16,12 @@ from itertools import pairwise
 from typing import Any, Literal, cast
 
 from sqlalchemy import and_, func, literal, not_, or_, select, true
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
 
 from .data_operation_identity import decode_semantic_value, semantic_value
-from .data_operation_json import json_bytes, json_context_equal, wire_json_loads
+from .data_operation_json import ContextJSONB, json_bytes, json_context_equal, wire_json_loads
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
     BindingExpression,
@@ -96,9 +97,15 @@ class PopulationBinding:
     complete: bool
     members: tuple[str, ...]
     evidence: bytes
+    projection: Literal["member", "qualified-context"] = "member"
+    contexts: tuple[SubjectContext, ...] = ()
 
     def __post_init__(self):
-        if not self.identity or not self.evidence or len(set(self.members)) != len(self.members):
+        if self.projection not in {"member", "qualified-context"}:
+            raise ValueError("unknown population projection")
+        if self.projection == "qualified-context" and len(set(self.contexts)) != len(self.contexts):
+            raise ValueError("population contexts must be unique")
+        if not self.identity or not self.evidence or (self.projection == "member" and len(set(self.members)) != len(self.members)):
             raise ValueError("population requires pinned identity, evidence and unique members")
 
 
@@ -184,6 +191,7 @@ class CompiledBinding:
     source_sets: bytes = b"{}"
     original_source: str | None = None
     subject_context: SubjectContext | None = None
+    population_projections: tuple[tuple[str, str], ...] = ()
 
 
 def _decode_value(content: bytes) -> Any:
@@ -347,6 +355,7 @@ def compile_binding(
     visit_choices(expression)
     negative_roles = set()
     role_populations = {}
+    role_projections = {}
 
     def inspect_scopes(node):
         if node.operator == "absent":
@@ -372,12 +381,12 @@ def compile_binding(
         names = node.roles or tuple(roles)
         associations = []
         if node.operator in {"forall", "absent"}:
-            associations.extend((name, node.population) for name in names)
+            associations.extend((name, node.population, "member") for name in names)
             if node.operator == "absent":
                 negative_roles.update(names)
         for operand in node.operands:
             if operand.kind == "population":
-                if node.operator != "membership":
+                if node.operator not in {"membership", "covers"}:
                     raise ValueError(
                         "population operands are supported only as membership universes"
                     )
@@ -389,15 +398,16 @@ def compile_binding(
                     raise ValueError(
                         "population operand requires a named input role for its identity witness"
                     )
-                associations.extend((name, operand.name) for name in owners)
-        for name, population in associations:
+                associations.extend((name, operand.name, operand.population_projection) for name in owners)
+        for name, population, projection_mode in associations:
             if population is None:
                 raise ValueError("population binding requires an immutable named scope")
-            if name in role_populations and role_populations[name] != population:
+            if name in role_populations and (role_populations[name] != population or role_projections[name] != projection_mode):
                 raise ValueError(
                     "one role cannot bind two population scopes; use distinct named roles"
                 )
             role_populations[name] = population
+            role_projections[name] = projection_mode
         for child in selected_children(node):
             inspect_scopes(child)
 
@@ -454,6 +464,7 @@ def compile_binding(
             tuple(sorted(inactive)),
             tuple(sorted(role_populations.items())),
             subject_context=subject_context,
+            population_projections=tuple(sorted(role_projections.items())),
         )
     accepted_kinds = input_kind_contracts(model, (role.kind for role in roles.values()))
     anchor = select(literal(subject).label("subject")).subquery("binding_subject")
@@ -545,6 +556,15 @@ def compile_binding(
             next(k.name for k in model.kinds if k.semantic_id == role.kind),
         }:
             raise ValueError("field projection differs from role kind")
+        if field.field == "@context":
+            if subject_context is None:
+                raise ValueError("qualified-context field requires full subject context")
+            alias = aliases[field.role]
+            return func.jsonb_build_object(
+                "project_id", subject_context.project_id,
+                "subject", alias.c.subject, "original_source", alias.c.original_source,
+                "analyzed_scope", alias.c.analyzed_scope, type_=JSONB,
+            )
         projection = projected[role.kind]
         matches = [item for item in projection.fields if item.name == field.field]
         if len(matches) != 1:
@@ -573,6 +593,8 @@ def compile_binding(
         )
 
     def population_product(name: str, population: PopulationBinding):
+        if population.projection == "qualified-context":
+            return true()
         evidence = wire_json_loads(population.evidence)
         product = evidence.get("product_id")
         if product is None:
@@ -585,6 +607,10 @@ def compile_binding(
         if operand.kind == "field":
             if operand.field is None:
                 raise ValueError("field operand lacks field")
+            if operand.field.field == "@context":
+                if operand.value_type != "subject-context":
+                    raise ValueError("context fields require subject-context type")
+                return field_value(operand.field)
             projection = projected[roles[operand.field.role].kind]
             native = next((f for f in projection.fields if f.name == operand.field.field), None)
             if native is None or primitive_type(native.value_type) != primitive_type(
@@ -597,7 +623,8 @@ def compile_binding(
                 raise ValueError("population operand lacks frozen name")
             population = population_map.get(operand.name)
             if population is None:
-                raise ValueError("missing frozen population operand")
+                initial.append(BindingReason("population-incomplete", operation + "/population/" + operand.name, "named population witness is not yet available"))
+                return ()
             if not population.complete:
                 initial.append(
                     BindingReason(
@@ -606,6 +633,12 @@ def compile_binding(
                         "membership universe is not closed",
                     )
                 )
+            if population.projection != operand.population_projection:
+                raise ValueError("population witness projection differs from frozen operand")
+            if operand.population_projection == "qualified-context":
+                if operand.value_type != "subject-context":
+                    raise ValueError("context population requires subject-context type")
+                return tuple(literal(context.record, type_=ContextJSONB()) for context in population.contexts)
             return _typed(population.members, primitive_type(operand.value_type), many=True)
         if operand.kind == "parameter":
             if operand.name not in params:
@@ -688,12 +721,12 @@ def compile_binding(
                 population_name = node.operands[1].name
                 if population_name is None:
                     raise ValueError("population operand lacks its frozen name")
-                population = population_map[population_name]
+                population = population_map.get(population_name)
                 owners = set(node.roles) | {field.role for field in node.fields}
                 owners.update(
                     operand.field.role for operand in node.operands if operand.field is not None
                 )
-                product_scopes = [population_product(name, population) for name in owners]
+                product_scopes = [population_product(name, population) for name in owners] if population is not None else []
             return and_(nested, value.in_(members), *product_scopes)
         if node.operator in {"same", "distinct"}:
             values = [aliases[name] for name in node.roles]
@@ -981,7 +1014,9 @@ def compile_binding(
                         operation + "/binding/" + str(index),
                         "selected field values omit required frozen values",
                     ),
-                    select(covered == len(set(required))),
+                    select(covered == ((len(population_map[node.operands[1].name].contexts) if node.operands[1].name in population_map else 0)
+                        if node.operands[1].kind == "population" and node.operands[1].population_projection == "qualified-context"
+                        else len(set(required)))) ,
                     "not-applicable",
                 )
             )
@@ -1050,6 +1085,7 @@ def compile_binding(
         json_bytes(selected_source_sets),
         original_source,
         subject_context,
+        tuple(sorted(role_projections.items())),
     )
 
 
@@ -1234,7 +1270,9 @@ def decode_binding_rows(
                 {
                     "identity": population.identity,
                     "complete": population.complete,
-                    "members": population.members,
+                    "members": ([context.record for context in population.contexts]
+                                if population.projection == "qualified-context" else population.members),
+                    **({"projection": "qualified-context"} if population.projection == "qualified-context" else {}),
                     "evidence": wire_json_loads(population.evidence),
                 }
             )

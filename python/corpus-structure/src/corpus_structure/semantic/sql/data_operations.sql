@@ -556,7 +556,7 @@ CREATE OR REPLACE FUNCTION data.ddo_field(v jsonb,k text) RETURNS jsonb
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$ SELECT value->1 FROM jsonb_array_elements(v->1) WHERE value->>0=k $$;
 CREATE OR REPLACE FUNCTION ops.ddo_validate_binding(r ops.data_request,o ops.data_obligation,def sem.data_operation_definition,b jsonb,meaning jsonb,replicate text) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; witness jsonb; role_meaning jsonb; state text; population_reference jsonb; lexical_alternative text;
+DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; witness jsonb; role_meaning jsonb; state text; population_reference jsonb; lexical_alternative text; frozen_binding jsonb;
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=o.demand_id;
  IF b->>'inference' IS DISTINCT FROM d.selection->>'inference'
@@ -585,7 +585,9 @@ BEGIN
  SELECT * INTO STRICT pop FROM ops.data_population WHERE id=population_reference->>'population_id' AND demand_id=d.id AND name=population_reference->>'name';
  IF NOT ops.ddo_population_valid(pop) THEN RAISE EXCEPTION 'population witness is historical or revoked'; END IF;
  IF pop.evidence ? 'selection' AND (pop.evidence->'selection'->>'obligation_id',pop.evidence->'selection'->>'operation_id',pop.evidence->'selection'->>'subject',pop.evidence->'selection'->>'original_source') IS DISTINCT FROM (o.id,o.operation_id,o.subject,o.original_source) THEN RAISE EXCEPTION 'selected population belongs to another binding context'; END IF;
- expected:=ops.ddo_binding_population_meaning(jsonb_build_object('identity',pop.semantic_key,'complete',pop.complete,'members',(SELECT coalesce(jsonb_agg(value->'member_id' ORDER BY n),'[]') FROM jsonb_array_elements(pop.members) WITH ORDINALITY entry(value,n)),'evidence',pop.evidence),roledef->'identity_requirements' ? 'episode');
+ SELECT operation->'binding' INTO STRICT frozen_binding FROM sem.artifact artifact CROSS JOIN LATERAL jsonb_array_elements((convert_from(artifact.content,'UTF8')::jsonb)->'operations') operation WHERE artifact.release_id=d.release_id AND artifact.artifact_name='data_operation_native_definitions.json' AND operation->>'operation_id'=o.operation_id;
+ expected:=ops.ddo_binding_population_meaning(ops.ddo_project_population(pop.semantic_key,pop.complete,pop.members,pop.evidence,d.project_id,
+ coalesce(ops.ddo_binding_population_projection(frozen_binding,jsonb_build_object('choices',(SELECT chosen->'choices' FROM jsonb_array_elements(d.selection->'operations') chosen WHERE chosen->>'operation'=o.operation_id)),roledef->>'name'),'member')),roledef->'identity_requirements' ? 'episode');
  IF witness IS DISTINCT FROM expected THEN RAISE EXCEPTION 'population semantic witness differs from native closure value'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(b->'support') selected WHERE selected->>'role'='population:'||pop.name AND selected->>'derivation_id'=pop.evidence->>'derivation_id' AND selected->>'admission_use_id'=pop.evidence->>'admission_use_id') THEN RAISE EXCEPTION 'population closure lacks authentic derivation support'; END IF;
  ELSIF population_reference IS NOT NULL THEN RAISE EXCEPTION 'unexpected native population receipt for unwitnessed role';
@@ -1349,6 +1351,9 @@ BEGIN
  END LOOP;
  names:=ops.ddo_binding_roles(node-'children');
  IF operator IN ('join','equal','literal','range','membership') AND cardinality(names)<=1 THEN
+ IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(node->'operands','[]')) operand WHERE operand->>'kind'='population' AND operand->>'population_projection'='qualified-context') THEN
+ RETURN jsonb_build_object('operator','all','children',children);
+ END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(node->'operands','[]')) operand WHERE operand->>'kind'='population') THEN
  RAISE EXCEPTION 'selected population filter requires explicit non-circular membership operands'; END IF;
  children:=children||jsonb_build_array(node-'children');
@@ -1362,7 +1367,7 @@ DECLARE p jsonb:=p_payload; obligation ops.data_obligation; demand ops.data_dema
  selected ops.data_population; source_request ops.data_request; archived jsonb; projection jsonb; operation jsonb;
  compiled jsonb; selection jsonb; expression jsonb; context jsonb; refs jsonb; role text; roledef jsonb; predicate jsonb;
  universe jsonb; row_value jsonb; expected jsonb; members jsonb:='[]'; evidence jsonb; meaning jsonb;
- scope jsonb; archive_digest text; value_key text; key text; count_roles integer;
+ scope jsonb; archive_digest text; value_key text; key text; count_roles integer; projection_mode text;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['obligation_id','population_name','parent_population_id','read_id']);
  SELECT * INTO STRICT obligation FROM ops.data_obligation WHERE id=p->>'obligation_id';
@@ -1396,15 +1401,13 @@ BEGIN
  SELECT count(*),min(e.key) INTO count_roles,role FROM jsonb_each_text(refs) e WHERE e.value=p->>'population_name';
  IF count_roles<>1 THEN RAISE EXCEPTION 'selected population name must identify one frozen active role'; END IF;
  SELECT value INTO STRICT roledef FROM jsonb_array_elements(compiled->'input_roles') WHERE value->>'name'=role;
+ projection_mode:=coalesce(ops.ddo_binding_population_projection(expression,context,role),'member');
  predicate:=ops.ddo_population_filter(expression,role,selection->'choices');
- IF NOT EXISTS(WITH RECURSIVE prerequisites(id) AS (
- SELECT value FROM jsonb_array_elements_text(selection->'dependencies')
- UNION SELECT dependency.value FROM prerequisites prerequisite JOIN LATERAL jsonb_array_elements(demand.selection->'operations') chosen ON chosen->>'operation'=prerequisite.id CROSS JOIN LATERAL jsonb_array_elements_text(chosen->'dependencies') dependency(value))
- SELECT FROM prerequisites WHERE id=source_request.operation_id) OR NOT EXISTS(
+ IF NOT source_request.operation_id=ANY(ops.ddo_consumed_producers(demand.selection,p->>'operation_id')) OR NOT EXISTS(
  SELECT FROM jsonb_array_elements(demand.selection->'discovery') relation WHERE relation->>'population'=parent.name
  AND relation->>'producer'=source_request.operation_id AND relation->>'output_role'=parent.evidence->>'member_role') THEN
  RAISE EXCEPTION 'selected parent is not a declared prerequisite discovery population'; END IF;
- IF NOT EXISTS(SELECT FROM kb.data_product product JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
+ IF projection_mode<>'qualified-context' AND NOT EXISTS(SELECT FROM kb.data_product product JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
  WHERE product.id=parent.evidence->>'product_id' AND EXISTS(SELECT FROM jsonb_array_elements_text(roledef->'accepted_kind_contracts') accepted WHERE kind.member_contracts ? accepted)) THEN
  RAISE EXCEPTION 'selected parent does not declare the role member kind'; END IF;
  IF (source_request.subject,source_request.original_source,source_request.analyzed_scope) IS DISTINCT FROM (obligation.subject,obligation.original_source,obligation.analyzed_scope) AND NOT EXISTS(
@@ -1415,6 +1418,13 @@ BEGIN
  SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(demand.id,p->>'operation_id',scope,boundary.id,p->>'subject',p->>'original_source',obligation.analyzed_scope) v
  WHERE v.product=parent.evidence->>'product_id' AND roledef->'accepted_kind_contracts' ? v.kind_contract
  AND v.support_episodes ? (parent.evidence->>'derivation_id') AND v.support_evidence->>'use_id'=parent.evidence->>'admission_use_id';
+ IF projection_mode='qualified-context' THEN
+ -- The required universe remains the discovery closure even while no child
+ -- products exist. Filtering it by currently available results would invent
+ -- completeness. Body predicates of the derived kind cannot filter source views.
+ IF predicate<>jsonb_build_object('operator','all','children','[]'::jsonb) THEN RAISE EXCEPTION 'qualified-context closure cannot apply derived body filters to discovery members'; END IF;
+ members:=parent.members;
+ ELSE
  FOR expected IN SELECT value FROM jsonb_array_elements(parent.members) LOOP
  SELECT to_jsonb(m) INTO row_value FROM kb.data_product_member m WHERE m.product_id=parent.evidence->>'product_id' AND m.member_id=expected->>'member_id' AND roledef->'accepted_kind_contracts' ? m.kind_contract;
  IF row_value IS NULL THEN CONTINUE; END IF;
@@ -1425,9 +1435,11 @@ BEGIN
  IF row_value IS NULL THEN RAISE EXCEPTION 'parent population member facts unavailable in pinned read'; END IF;
  IF ops.ddo_binding_test(predicate,jsonb_set(context,ARRAY['roles',role],jsonb_build_array(row_value))) THEN members:=members||jsonb_build_array(expected); END IF;
  END LOOP;
+ END IF;
  meaning:=jsonb_build_object('parent',parent.semantic_key,'operation',p->>'operation_id','kind_contract',roledef->>'kind_contract',
  'role',role,'subject',p->>'subject','original_source',p->>'original_source','analyzed_scope',obligation.analyzed_scope,'filter',predicate,'parameters',selection->'parameter_meaning',
  'members',members,'complete',parent.complete);
+ IF projection_mode='qualified-context' THEN meaning:=meaning||jsonb_build_object('projection',projection_mode); END IF;
  value_key:='population-value:'||ops.ddo_digest(meaning);
  SELECT * INTO selected FROM ops.data_population old WHERE old.demand_id=demand.id AND old.name=p->>'population_name'
  AND old.selected_obligation_id=obligation.id AND old.semantic_key=value_key AND old.evidence->'selection'->>'parent_population_id'=parent.id AND ops.ddo_population_valid(old) ORDER BY old.created_at DESC,old.id DESC LIMIT 1;
@@ -1534,7 +1546,7 @@ BEGIN
   WHERE u.demand_id=d.id AND u.fate='fulfilled' AND x.project_id=d.project_id
    AND (boundary.id IS NULL OR ops.ddo_read_visible(u.created_at,u.created_xid,boundary))
    AND ops.ddo_use_valid(u,boundary)
-   AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation AND (jsonb_array_length(selected->'dependencies')=0 OR selected->'dependencies' ? producer.operation_id))
+   AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation AND (jsonb_array_length(selected->'dependencies')=0 OR producer.operation_id=ANY(ops.ddo_consumed_producers(d.selection,p_operation))))
    AND NOT EXISTS(SELECT FROM ops.demand_use later WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(later.created_at,later.created_xid,boundary)))
  ), candidates AS MATERIALIZED (
   SELECT a.product_id,a.parent_kind,projected.*,a.episode_id,a.use_id,a.producer_operation,

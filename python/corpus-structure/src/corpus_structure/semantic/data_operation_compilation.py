@@ -243,7 +243,7 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     operands = []
     for operand in value.get("operands", []):
         operand = _mapping(
-            operand, operation + "/operand", {"kind", "value_type", "field", "name", "value"}
+            operand, operation + "/operand", {"kind", "value_type", "field", "name", "value", "population_projection"}
         )
         kind = operand.get("kind")
         if kind not in {"field", "literal", "parameter", "population"}:
@@ -254,6 +254,13 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
             "value_type",
             "field" if kind == "field" else "value" if kind == "literal" else "name",
         }
+        if kind == "population" and "population_projection" in operand:
+            allowed.add("population_projection")
+        projection_mode = operand.get("population_projection", "member")
+        if projection_mode not in {"member", "qualified-context"}:
+            _fail(operation, "unsupported population projection")
+        if projection_mode == "qualified-context" and value_type != "subject-context":
+            _fail(operation, "qualified-context population requires subject-context type")
         if set(operand) != allowed:
             _fail(operation, "operand fields do not match its declared source kind")
         field = None
@@ -277,6 +284,7 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
                 field,
                 operand.get("name"),
                 canonical_bytes(value_meaning(operand["value"])) if kind == "literal" else None,
+                cast(Any, projection_mode),
             )
         )
     if operator == "range" and len(operands) != 3:
@@ -288,7 +296,7 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     if operator == "covers" and (
         len(operands) != 2
         or operands[0].kind != "field"
-        or operands[1].kind not in {"parameter", "literal"}
+        or operands[1].kind not in {"parameter", "literal", "population"}
     ):
         _fail(operation, "covers requires a qualified scalar field and frozen sequence")
     if operator in {"equal", "join"} and operands and len(operands) < 2:
@@ -557,12 +565,20 @@ def _validate_binding_fields(
             _fail(owner, "unresolved binding projection " + field.projection)
         if projection != roles[field.role].kind:
             _fail(owner, "binding projection differs from its qualified role kind")
+        if field.field == "@context":
+            ranges.append("subject-context")
+            continue
         property_id = projection + "/property/" + field.field
         if property_id not in kinds:
             _fail(owner, "unresolved binding projection field " + property_id)
         ranges.append(json.loads(kinds[property_id].facts)["range"])
     for operand in expression.operands:
         expected = aliases.get(operand.value_type, operand.value_type)
+        if expected == "subject-context":
+            if not ((operand.kind == "field" and operand.field.field == "@context") or
+                    (operand.kind == "population" and operand.population_projection == "qualified-context")):
+                _fail(owner, "subject-context operands require native context fields or population projection")
+            continue
         if expected not in kinds:
             _fail(owner, "unresolved operand type " + operand.value_type)
         if operand.kind == "literal":
@@ -1483,7 +1499,8 @@ def compile_data_operations(
             data["value"] = json.loads(expression.value) if expression.value is not None else None
             data["operands"] = [
                 {
-                    **asdict(operand),
+                    **{key: value for key, value in asdict(operand).items()
+                       if key != "population_projection" or value != "member"},
                     "value": json.loads(operand.value) if operand.value is not None else None,
                 }
                 for operand in expression.operands
@@ -1534,7 +1551,8 @@ def _binding_record(expression: BindingExpression, *, result_only: bool = False)
     data["value"] = json.loads(expression.value) if expression.value is not None else None
     data["operands"] = [
         {
-            **asdict(operand),
+            **{key: value for key, value in asdict(operand).items()
+                       if key != "population_projection" or value != "member"},
             "value": json.loads(operand.value) if operand.value is not None else None,
         }
         for operand in expression.operands
@@ -1671,18 +1689,34 @@ def project_population_witness(
         ):
             _fail("population-witness", "invalid frozen branch witness")
         return witness
+    context_projection = witness.get("projection") == "qualified-context"
+    expected_fields = {"identity", "complete", "members", "evidence"} | ({"projection"} if context_projection else set())
     if (
-        set(witness) != {"identity", "complete", "members", "evidence"}
+        set(witness) != expected_fields
         or not isinstance(witness["identity"], str)
         or not witness["identity"]
         or type(witness["complete"]) is not bool
         or not isinstance(witness["members"], list)
-        or any(not isinstance(member, str) or not member for member in witness["members"])
-        or len(set(witness["members"])) != len(witness["members"])
+        or (not context_projection and any(not isinstance(member, str) or not member for member in witness["members"]))
         or not isinstance(witness["evidence"], dict)
     ):
         _fail("population-witness", "invalid structured population witness")
-    meaning = {key: witness[key] for key in ("identity", "complete", "members")}
+    members = witness["members"]
+    if context_projection:
+        from .data_operation_model import SubjectContext
+        from .data_operation_json import json_bytes
+        try:
+            contexts = [SubjectContext(**{**member, "analyzed_scope": json_bytes(member["analyzed_scope"])}) for member in members]
+        except (TypeError, KeyError, ValueError) as error:
+            raise ValueError("invalid qualified-context population witness") from error
+        if len(set(contexts)) != len(contexts):
+            _fail("population-witness", "duplicate qualified contexts")
+        members = [context.identity_record for context in contexts]
+    elif len(set(members)) != len(members):
+        _fail("population-witness", "duplicate member identifiers")
+    meaning = {"identity": witness["identity"], "complete": witness["complete"], "members": members}
+    if context_projection:
+        meaning["projection"] = "qualified-context"
     if "episode" in identity_requirements:
         episode = _text(witness["evidence"].get("derivation_id"), "population-witness/episode")
         meaning["support_episodes"] = [episode]

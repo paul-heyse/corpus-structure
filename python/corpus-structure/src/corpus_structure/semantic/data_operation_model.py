@@ -143,6 +143,7 @@ class BindingOperand:
     field: BindingField | None = None
     name: str | None = None
     value: bytes | None = None
+    population_projection: Literal["member", "qualified-context"] = "member"
 
 
 @dataclass(frozen=True)
@@ -556,6 +557,17 @@ class EffectiveDataOperationModel:
             return value
 
         record = asdict(self)
+        def binding_record(node):
+            for operand in node["operands"]:
+                mode = operand["population_projection"]
+                if mode == "member":
+                    operand.pop("population_projection")
+                elif self.version != MODEL_VERSION:
+                    raise ValueError("historical models cannot project population contexts")
+            for child in node["children"]:
+                binding_record(child)
+        for binding in record["bindings"]:
+            binding_record(binding["expression"])
         for operation in record["operations"]:
             if self.version != MODEL_VERSION:
                 if operation["output_witnesses"]:
@@ -758,6 +770,10 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
         archived_fields = expected - historical.keys()
 
         def structure(value, _):
+            if cls is BindingOperand and isinstance(value, dict):
+                value = {"population_projection": "member", **value}
+                if historical_model and value["population_projection"] != "member":
+                    raise ValueError("historical models cannot project population contexts")
             if cls is InputSupport and isinstance(value, dict):
                 value = {
                     "source_set": None,
