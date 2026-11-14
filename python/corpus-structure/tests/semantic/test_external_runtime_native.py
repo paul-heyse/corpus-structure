@@ -138,7 +138,7 @@ def test_current_cli_external_stdio_preserves_exact_native_custody_and_closes_po
             text("SELECT status,attempt FROM ops.task WHERE id=:task"), {"task": initial["task_id"]}
         ).one()
         if mode == "early_exit":
-            assert task.status == "awaiting_agent" and task.attempt == initial["attempt"]
+            assert task.status == "pending" and task.attempt == initial["attempt"]
         elif mode == "complete":
             assert task.status == "done" and task.attempt == selected["attempt"]
         else:

@@ -1,0 +1,18 @@
+[
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_external_v1.py",
+    "sha256": "7a9902070c12616cecdd8ff338f47cb4a800a35f73ba18275268c25f16431c87"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_external_v1_admission.sql",
+    "sha256": "295609c10e8a400d0de6f883c4898a0746b9b7c04f0fd114b7087c55405d4f61"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_external_v1_native.json",
+    "sha256": "c3c05fac8bd65721111b4ca4824339bcce31e576b39907fa1637274e99e39b3c"
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_external_v1_upgrade.txt",
+    "sha256": "83ce1bb019abf8b3c510f65e565c83b86bb1e3a4d2280fbfdf903d1334ed9041"
+  }
+]

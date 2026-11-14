@@ -157,7 +157,7 @@ BEGIN
  prior:=OLD.status || CASE WHEN OLD.status IN ('failed','cancelled') THEN CASE WHEN OLD.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  result:=NEW.status || CASE WHEN NEW.status IN ('failed','cancelled') THEN CASE WHEN NEW.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  IF prior<>result THEN
-  PERFORM ops.require_transition(NEW.release_id,CASE WHEN NEW.status='running' THEN 'execute_source'
+  PERFORM ops.require_transition(NEW.release_id,CASE WHEN NEW.status='running' THEN 'start_run'
    WHEN NEW.status='consolidating' THEN 'capture_cut' WHEN NEW.status='finished' THEN 'evaluate' ELSE 'end_run' END,prior,result);
  END IF;
 

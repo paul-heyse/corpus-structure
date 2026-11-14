@@ -72,7 +72,9 @@ BEGIN
  'binding',r.binding,'protocol',definition.support_contract->'external','inputs',inputs,'result_contract',contracts,'outcomes',definition.support_contract->'outcomes');
  IF octet_length(data.canonical_json(packet))>(p->>'max_bytes')::integer THEN RAISE EXCEPTION 'complete external packet exceeds owned packet capacity'; END IF;
  INSERT INTO ops.data_external_packet VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,r.runtime_id,packet,ops.ddo_digest(packet),clock_timestamp());
- UPDATE ops.task SET status='awaiting_agent',lease_until=NULL WHERE id=t.id;
+ -- Waiting for the external actor is derived from packet custody; the physical
+ -- task reuses its ordinary released state and retains its exact attempt fence.
+ UPDATE ops.task SET status='pending',lease_until=NULL WHERE id=t.id;
  RETURN jsonb_build_object('payload',jsonb_build_object('packet_id',key,'packet_digest',ops.ddo_digest(packet),'state','awaiting-external'));
 END $$;
 
@@ -87,7 +89,7 @@ BEGIN
  JOIN ops.data_request request ON (request.id,request.generation,request.live_task_id)=(packet.request_id,packet.generation,packet.task_id)
  JOIN ops.task task ON task.id=packet.task_id
  WHERE request.project_id=p->>'project_id' AND ops.ddo_request_useful(request)
- AND (task.status IN ('pending','awaiting_agent') OR (task.status='running' AND task.lease_until<=clock_timestamp()))
+ AND (task.status='pending' OR (task.status='running' AND task.lease_until<=clock_timestamp()))
  AND NOT EXISTS(SELECT FROM ops.data_external_receipt receipt WHERE receipt.packet_id=packet.id)
  AND NOT EXISTS(SELECT FROM ops.data_revocation revoked WHERE revoked.scope=ops.ddo_scope(request.project_id,request.original_source)
  AND ((revoked.selector_kind='runtime' AND revoked.selector=request.runtime_id) OR (revoked.selector_kind='recipe' AND revoked.selector=request.recipe)))
@@ -227,9 +229,9 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=packet.request_id FOR UPDATE;
  PERFORM ops.ddo_authorize_request(r);
  SELECT * INTO STRICT t FROM ops.task WHERE id=packet.task_id FOR UPDATE;
- IF (r.generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM ((p->>'generation')::bigint,(p->>'task_id')::bigint,(p->>'attempt')::bigint,p->>'holder') OR t.status NOT IN ('running','awaiting_agent') THEN RAISE EXCEPTION 'external release lost its exact packet/attempt fence'; END IF;
+ IF (r.generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM ((p->>'generation')::bigint,(p->>'task_id')::bigint,(p->>'attempt')::bigint,p->>'holder') OR t.status NOT IN ('running','pending') THEN RAISE EXCEPTION 'external release lost its exact packet/attempt fence'; END IF;
  IF EXISTS(SELECT FROM ops.data_external_receipt WHERE packet_id=packet.id) THEN RAISE EXCEPTION 'retained external result requires publication reconciliation, not release'; END IF;
  -- Releasing logical permission does not assert an external actor/process stopped.
- UPDATE ops.task SET status='awaiting_agent',lease_until=NULL,error=jsonb_build_object('external_release',p->>'reason','physical_retirement','not-asserted') WHERE id=t.id;
+ UPDATE ops.task SET status='pending',lease_until=NULL,error=jsonb_build_object('external_release',p->>'reason','physical_retirement','not-asserted') WHERE id=t.id;
  RETURN jsonb_build_object('payload',jsonb_build_object('packet_id',packet.id,'state','awaiting-external','released',true));
 END $$;

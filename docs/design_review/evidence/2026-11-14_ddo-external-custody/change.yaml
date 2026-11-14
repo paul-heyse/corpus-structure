@@ -1,0 +1,7 @@
+baseline: e2cb2fe49
+packs:
+- statistics
+native_predecessor: semantic_ddo_facts_v2
+native_revision: semantic_ddo_external_v1
+deployment: true
+deployment_profile: development

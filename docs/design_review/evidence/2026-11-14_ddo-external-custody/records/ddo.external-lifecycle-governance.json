@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "id": "ddo.external-lifecycle-governance",
+  "title": "Native external custody and run lifecycle successor authoring",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the external custody and run lifecycle successor execute its complete rendered upgrade under declared ownership and retain the independently checked native catalog without persistent deployment?",
+  "answers": [],
+  "method": "Fixed-source previews, complete rendered rollback upgrade, native catalog and complete privilege inspection, PL/pgSQL checks, immutable successor registration and exact registered-file inspection.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-external-custody/change.yaml --json",
+    "uv run ci model change candidate b798eb6c8d6f42c6a600b92178595031 --json",
+    "uv run ci model change inspect-candidate be9dfa038e4249b6b48ae43d7361d8c4 --view operations --limit 100 --json",
+    "uv run ci model change register be9dfa038e4249b6b48ae43d7361d8c4 --json",
+    "uv run ci model change inspect-candidate be9dfa038e4249b6b48ae43d7361d8c4 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "fixed-source successor request",
+      "sha256": "fcebb4b01edfe57e247ec32b87af7c32fc1b34ebd1203cd4a7cf03490907d776"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/candidate.json",
+      "role": "retained authoring inspection and exact file custody",
+      "sha256": "0de9609ff7b71d4549e139ed040443115e895ba5c950ad1cf65cf36216a6f549"
+    },
+    {
+      "path": "results/native-operations.json",
+      "role": "retained authoring inspection and exact file custody",
+      "sha256": "647d961fea7c9881d2d243bc6a87fe707af525d47063123f1f69d1cdbfa9d643"
+    },
+    {
+      "path": "results/registered-files.json",
+      "role": "retained authoring inspection and exact file custody",
+      "sha256": "4e43a34146d77e3254ea7096714cbfc25e4d9c8d05cce1e64fd452fda122a028"
+    }
+  ],
+  "depends_on": [
+    "ddo.authored-demand-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The final complete rendered rollback upgrade and independent native catalog checks passed. All37 native transitions, two private-table privilege normalizations and three ordinary operations were inspected; new tables are created under their declared publisher owner before native triggers. The external helper uses native bigint fences and correct same-command receipt visibility; begin_run is explicitly inventoried and statically checked. Registration is verified. Earlier signature and ownership failures are retained in the README. This is scoped authoring evidence; functional/provider acceptance and the assembled union are separate obligations. No persistent deployment, activation or cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

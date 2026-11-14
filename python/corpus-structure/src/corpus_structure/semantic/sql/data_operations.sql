@@ -508,7 +508,7 @@ BEGIN
  FOR r IN SELECT req.* FROM ops.data_request req WHERE EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.request_id=req.id) ORDER BY req.id LOOP
  IF NOT ops.ddo_request_useful(r) AND r.live_task_id IS NOT NULL THEN
  PERFORM 1 FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- IF EXISTS(SELECT FROM ops.task WHERE id=r.live_task_id AND status IN ('pending','running','awaiting_agent')) THEN
+ IF EXISTS(SELECT FROM ops.task WHERE id=r.live_task_id AND status IN ('pending','running')) THEN
  UPDATE ops.data_request SET generation=generation+1,live_task_id=NULL WHERE id=r.id;
  END IF;
  END IF;
@@ -804,7 +804,7 @@ BEGIN
  AND (current_task.lease_until IS NULL OR current_task.lease_until>clock_timestamp()) THEN
  RAISE EXCEPTION 'invalid current generation still has an active producer lease'; END IF;
  IF current_task.status IN ('done','empty','failed','cancelled')
- OR ((invalid_current OR invalid_retained) AND (current_task.status IN ('pending','awaiting_agent')
+ OR ((invalid_current OR invalid_retained) AND (current_task.status='pending'
  OR (current_task.status='running' AND current_task.lease_until<=clock_timestamp()))) THEN
  IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(d.project_id,o.original_source)
  AND ((v.selector_kind='runtime' AND v.selector=d.runtime_id)
@@ -845,7 +845,7 @@ BEGIN
  IF p ? 'external_packet_id' AND (packet.id IS NULL OR packet.id<>p->>'external_packet_id' OR packet.task_id<>t.id) THEN RAISE EXCEPTION 'external claim differs from its exact current packet/task'; END IF;
  IF packet.id IS NOT NULL AND retained_id IS NULL AND p->>'external_packet_id' IS DISTINCT FROM packet.id THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  IF t.status='running' AND t.lease_until IS NULL THEN RAISE EXCEPTION 'running task has no publication lease'; END IF;
- IF t.status NOT IN ('pending','running','awaiting_agent') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
+ IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  PERFORM ops.ddo_assert_support(r,r.binding->'support');
  IF packet.id IS NOT NULL THEN PERFORM ops.ddo_assert_external_active(r); END IF;
  UPDATE ops.task SET status='running',attempt=attempt+1,claimed_by=p->>'holder',lease_until=clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer),started_at=coalesce(started_at,clock_timestamp()) WHERE id=t.id RETURNING * INTO t;
