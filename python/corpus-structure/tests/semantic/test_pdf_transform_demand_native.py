@@ -6,6 +6,7 @@ from hashlib import sha256
 from pathlib import Path
 import json
 import sys
+from typing import Any
 
 import pytest
 from sqlalchemy import select, text
@@ -152,7 +153,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
 
 @pytest.mark.parametrize("effect,factory", [(PDF_ORGANIZATION_EFFECT, PDF_ORGANIZATION_FACTORY), (PDF_ENRICHMENT_EFFECT, PDF_ENRICHMENT_FACTORY), (PDF_INTEGRATION_EFFECT, PDF_INTEGRATION_FACTORY)])
 def test_native_pdf_transform_eligibility_matches_only_exact_effect_factory_pair(native_rollback, effect, factory):
-    definition = {"profile": "command", "implementation_revision": "implementation-slice:captured", "support_contract": {"effects": [asdict(effect)], "capabilities": {"preparation": "pdf-native", "forms": ["scalar"], "prepared_factory": {"entrypoint": factory, "source_digest": "a" * 64}}}}
+    definition: dict[str, Any] = {"profile": "command", "implementation_revision": "implementation-slice:captured", "support_contract": {"effects": [asdict(effect)], "capabilities": {"preparation": "pdf-native", "forms": ["scalar"], "prepared_factory": {"entrypoint": factory, "source_digest": "a" * 64}}}}
     query = text("SELECT coalesce(ops.ddo_pdf_command_eligible(jsonb_populate_record(NULL::sem.data_operation_definition,CAST(:value AS jsonb))),false)")
     connection = native_rollback.connection
     assert connection.scalar(query, {"value": json_bytes(definition).decode()}) is True
