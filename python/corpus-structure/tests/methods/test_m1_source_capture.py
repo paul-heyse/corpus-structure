@@ -9,7 +9,7 @@ from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.m1_source import M1Candidates
 from corpus_structure.methods.m1_source_capture import RecordCaptureRule
-from corpus_structure.orchestrate.m1 import registry
+from methods.domain_configuration import candidate_configuration
 from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
 
 
@@ -27,7 +27,7 @@ def compare(monkeypatch, text, rules):
     monkeypatch.setattr(
         method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
     )
-    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     (baseline,) = method.run((unit,), cfg, ctx)

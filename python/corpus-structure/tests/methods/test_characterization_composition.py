@@ -10,7 +10,6 @@ from semantic.characterization_support import layer_payload
 from corpus_structure.core.method import MethodContext, MethodSettings, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.characterization import ComposeViewConfig, ComposeViewMethod
-from corpus_structure.orchestrate.phase0 import registry
 from corpus_structure.semantic.characterization import _published_layer_manifest, validate_layer
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -69,7 +68,7 @@ def context(unit):
 
 def test_source_only_is_real_registered_method_and_returns_terminal_view(prepared, tmp_path):
     body, _reader, run, unit = inputs(prepared)
-    method = registry(tmp_path).method("text.compose_view")
+    method = ComposeViewMethod()
     cfg = ComposeViewConfig(
         characterization_base_document=body["base_document"],
         characterization_source_scope=body["source_scope"],

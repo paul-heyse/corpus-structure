@@ -137,13 +137,12 @@ def owned_reader(source):
     from corpus_structure.ingest.sentences import pipeline
     from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
     from corpus_structure.methods.source_preparation import annotation_inputs
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration, annotation_configuration
     from corpus_structure.semantic.constructions.layers import ConstructionLayer
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
     from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
 
-    source_registry = registry(ROOT / "domains/statistics")
-    cfg = source_registry.overlay(M1Annotations.name, "default")
+    cfg = annotation_configuration(ROOT / "domains/statistics")
     assert isinstance(cfg, M1AnnotationConfig)
     profile = AnnotationProfile(cfg.sentences)
     nlp = pipeline(profile.configuration)
@@ -205,7 +204,7 @@ def owned_reader(source):
     }
     reader.primary_characterization = lambda *_args, **_kwargs: primary
     producer = M1Annotations()
-    cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
+    cfg = annotation_configuration(ROOT / "domains/statistics", "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     (product,) = producer.run(
         (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)

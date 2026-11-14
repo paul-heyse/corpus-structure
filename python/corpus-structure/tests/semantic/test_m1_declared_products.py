@@ -46,10 +46,10 @@ def record_schemas():
 
 
 def configuration():
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     return M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
 
 

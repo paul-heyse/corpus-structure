@@ -54,7 +54,7 @@ SENTENCE = "The sample mean is the sum of the observations divided by the sample
 
 
 def _recipe():
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     terminology, vocabulary_assets, ontology_sources = acquire_terminology(
         ROOT / "domains/statistics"
@@ -75,7 +75,7 @@ def _recipe():
             *terminology,
         ),
     )
-    cfg = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     # This is an explicit supported producer profile, with no undeclared rule or
     # formal input and no extra local question. Family semantics remain original.
     cfg = freeze_m1_configuration(

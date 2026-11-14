@@ -16,7 +16,6 @@ import pytest
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import ConfidenceSource, PolicyChain, TaskUnitType
-from corpus_structure.orchestrate import phase0
 from corpus_structure.orchestrate.policy import (
     PolicyError,
     compile_policy,
@@ -34,7 +33,10 @@ STATISTICS = REPO / "domains/statistics"
 
 @pytest.fixture(scope="module")
 def configs() -> dict[str, set[str]]:
-    return registry_configs(phase0.registry(STATISTICS))
+    import yaml
+
+    configured = yaml.safe_load((STATISTICS / "methods.yaml").read_bytes())["configs"]
+    return {name: set(named or {"default": {}}) for name, named in configured.items()}
 
 
 @pytest.fixture(scope="module")
@@ -210,41 +212,3 @@ def test_source_execution_preserves_available_unknown_classification():
     )
 
 
-@pytest.mark.parametrize("chain,when", [("escalate", "true"), ("propose", "target.size == null")])
-def test_source_policy_refusal_precedes_run_and_task_effects(monkeypatch, chain, when):
-    from types import SimpleNamespace
-    from unittest.mock import MagicMock
-
-    from corpus_structure.methods.llm.agent_opus import AgentOpus
-    from corpus_structure.orchestrate.policy import PolicyError
-    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-    from corpus_structure.orchestrate.semantic import run_source_methods
-    from corpus_structure.semantic.operations import OperationBinding
-
-    monkeypatch.setattr(
-        "corpus_structure.semantic.contracts.require_bound_operation", lambda *args: None
-    )
-    monkeypatch.setattr("corpus_structure.semantic.contracts.execution_payload", lambda *args: None)
-    monkeypatch.setattr(
-        "corpus_structure.semantic.statement_types.statement_kinds", lambda *args: ("theorem",)
-    )
-    registry = MethodRegistry([AgentOpus()], MethodsFile(configs={"agent.opus": {"extract": {}}}))
-    engine = MagicMock()
-    with pytest.raises(PolicyError):
-        run_source_methods(
-            engine,
-            project_id="p",
-            prepared=SimpleNamespace(release_id="r"),
-            binding=OperationBinding("r", "policy-input", 0, b"{}"),
-            registry=registry,
-            graph=SimpleNamespace(stages=(), policy_propose=True),
-            method_settings=MethodSettings(
-                data_dir=Path("build/data"), model_cache=Path("build/models")
-            ),
-            policy_source=(
-                f'version: "1"\nchains:\n {chain}:\n  - key: unsupported\n'
-                f'    when: "{when}"\n    do: {{method: agent.opus/extract}}\n'
-            ),
-        )
-    engine.begin.assert_not_called()
-    engine.connect.assert_not_called()

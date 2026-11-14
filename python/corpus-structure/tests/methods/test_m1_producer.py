@@ -38,7 +38,7 @@ from methods.m1_producer_support import (
 
 def test_local_schema_survives_empty_record_outputs(monkeypatch):
     """Real source preparation and native annotation restoration; controlled decoder only."""
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     class LocalDecoder(ControlledDecoder):
         def extract(self, pack, inputs, *, threshold, check_active):
@@ -66,8 +66,7 @@ def test_local_schema_survives_empty_record_outputs(monkeypatch):
         method, "_resident", lambda _, *, providers, native_profile: LocalDecoder("empty")
     )
     cfg = (
-        registry(ROOT / "domains/statistics")
-        .overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
         .model_copy(
             update={
                 "local_schema": {"entities": ["term"]},
@@ -91,12 +90,12 @@ def test_local_schema_survives_empty_record_outputs(monkeypatch):
 
 def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_precedence():
     from corpus_structure.methods.m1_source import configured_packs
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
     from methods.record_assembly_support import release
 
     method = m1_source.M1Candidates()
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     prepared = release()
     baseline = configured_packs(prepared, cfg)
@@ -129,7 +128,7 @@ def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_prec
 
 
 def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkeypatch):
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     source = view()
     method = m1_source.M1Candidates()
@@ -137,7 +136,7 @@ def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkey
         method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
     )
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=owned_reader(source), check_active=lambda: None)
@@ -156,7 +155,7 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
     from dataclasses import replace
 
     from corpus_structure.methods.gliner import GlinerRefused
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
     from corpus_structure.semantic.contributions import bind_contributions
 
     first, second = "Mean is average.", "Other is distinct."
@@ -220,8 +219,7 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
         method, "close", lambda: pytest.fail("input refusal must not retire resident")
     )
     cfg = (
-        registry(ROOT / "domains/statistics")
-        .overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
         .model_copy(update={"local_schema": {"entities": ["term"]}})
     )
     (result,) = method.run(
@@ -310,7 +308,7 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
 ):
     from dataclasses import replace
 
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     first, second = "Mean is average.", "Other is distinct."
     text = first + "\n" + second
@@ -343,8 +341,7 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
     worker = ControlledDecoder("empty")
     monkeypatch.setattr(method, "_resident", lambda _, *, providers, native_profile: worker)
     cfg = (
-        registry(ROOT / "domains/statistics")
-        .overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
         .model_copy(
             update={
                 "region_pointers": ("#/texts/1",),
@@ -377,7 +374,7 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
 def test_projection_selection_is_metadata_only_and_never_silently_empty():
     from dataclasses import replace
 
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     method = m1_source.M1Candidates()
     body = view().ref
@@ -388,8 +385,7 @@ def test_projection_selection_is_metadata_only_and_never_silently_empty():
     )
     run = SimpleNamespace(reader=reader)
     cfg = (
-        registry(ROOT / "domains/statistics")
-        .overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
         .model_copy(update={"source_projection_digest": body.projection_digest})
     )
     assert [ref.unit_id for ref in method.select(run, cfg)] == [body.id]
@@ -407,7 +403,7 @@ def test_projection_selection_is_metadata_only_and_never_silently_empty():
 def test_context_relationship_diagnostics_cross_the_source_report_boundary(monkeypatch):
     from dataclasses import replace
 
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
     from corpus_structure.semantic.observations import source_python, source_value
     from corpus_structure.semantic.source_contexts import ContextRelationship
 
@@ -429,7 +425,7 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
 
     monkeypatch.setattr(m1_source, "prepare_source", with_related_diagnostic)
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     (result,) = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
@@ -447,10 +443,10 @@ def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(mo
     method = m1_source.M1Candidates()
     worker = ControlledDecoder(mode)
     monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     checks = []
     context = SimpleNamespace(
@@ -555,10 +551,10 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
     method = m1_source.M1Candidates()
     worker = ControlledDecoder("empty")
     monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7"))
     (result,) = method.run(
@@ -630,10 +626,14 @@ def test_dense_native_structure_emits_only_the_explicit_context_target_cells(mon
 )
 def test_literal_candidate_configuration_rejects_superseded_primary_branches(obsolete):
     from pydantic import ValidationError
+<<<<<<< HEAD
 
     from corpus_structure.orchestrate.m1 import registry
+=======
+    from methods.domain_configuration import candidate_configuration
+>>>>>>> 2a9df32e9 (DDO remove test runtime catalogs while preserving kernel and retained-PDF controls; tests not_run)
 
-    baseline = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+    baseline = candidate_configuration(ROOT / "domains/statistics", "default")
     with pytest.raises(ValidationError, match=obsolete):
         m1_source.M1Config.model_validate({**baseline.model_dump(), obsolete: []})
 
@@ -641,13 +641,13 @@ def test_literal_candidate_configuration_rejects_superseded_primary_branches(obs
 def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monkeypatch):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.m1_annotations import consume_annotations
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     source = view()
     reader = owned_reader(source)
     method = m1_source.M1Candidates()
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     annotations, errors, annotation_result = consume_annotations(
         reader, source, AnnotationProfile(cfg.sentences)
@@ -692,12 +692,12 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
 def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure():
     """No inference runs: inspect the real plan boundary and error reduction."""
     from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     source = view()
     method = m1_source.M1Candidates()
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     prepared_source = prepare_source(source, persisted_annotations=(), policy=cfg.policy)
     plan = method.plan_candidates(
@@ -735,12 +735,12 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
 )
 def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure, expected):
     from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
     source = view()
     method = m1_source.M1Candidates()
     cfg = m1_source.M1Config.model_validate(
-        registry(ROOT / "domains/statistics").overlay(method.name, "default")
+        candidate_configuration(ROOT / "domains/statistics", "default")
     )
     plan = method.plan_candidate_replies(
         prepared=release(),

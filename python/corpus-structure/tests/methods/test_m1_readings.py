@@ -9,7 +9,7 @@ from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import ObservationOutcome, Stage, TaskUnitType
 from corpus_structure.methods.m1_readings import EVENT_PROCEDURE, M1ReadingConfig, M1Readings
 from corpus_structure.methods.m1_source import M1Candidates, M1Config
-from corpus_structure.orchestrate.m1 import registry, source_graph
+from methods.domain_configuration import candidate_configuration
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_policy import PolicyApplicability
 from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
@@ -23,7 +23,7 @@ def retained_fixture(monkeypatch, *, mode="definition"):
     producer = M1Candidates()
     worker = ControlledDecoder(mode)
     monkeypatch.setattr(producer, "_resident", lambda _, *, providers, native_profile: worker)
-    cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     (product,) = producer.run((unit,), cfg, ctx)
     assert product.parse_detail is not None
     upstream = dict(
@@ -40,13 +40,9 @@ def retained_fixture(monkeypatch, *, mode="definition"):
 
 
 def test_readings_profile_is_explicit_and_retains_the_historical_profiles():
-    methods = registry(ROOT / "domains/statistics")
     for name, inspection in (("default", False), ("described", False), ("readings", True)):
-        cfg = methods.overlay("extract.m1_candidates", name)
+        cfg = candidate_configuration(ROOT / "domains/statistics", name)
         assert isinstance(cfg, M1Config) and cfg.source_inspection is inspection
-    assert source_graph("readings").stages[-1][0] == Stage.ASSEMBLE
-    assert source_graph("readings").stages[-1][1][0].config == "resolve.m1_readings/default"
-    assert len(source_graph("default").stages) == len(source_graph("described").stages) == 2
 
 
 def test_resolver_reuses_retained_candidates_and_seals_explicit_not_run_scores(monkeypatch):
@@ -354,7 +350,7 @@ def test_explicit_historical_port_rebinds_new_alias_and_keeps_original_result(mo
         old.ancestors,
         old.health,
     )
-    config = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+    config = candidate_configuration(ROOT / "domains/statistics", "default")
     retained = RetainedSourceResult(
         selected_task_id=37,
         task_id=37,

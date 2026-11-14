@@ -8,8 +8,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
-from corpus_structure.orchestrate.m1 import RetainedIntegratedConfig, RetainedIntegratedPdf
+from ingest.retained_pdf_fixture import RetainedIntegratedConfig, RetainedIntegratedPdf
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.identity import canonical_bytes
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -144,7 +145,7 @@ def retained_input(monkeypatch):
 def test_exact_product_preflight_refuses_mismatched_custody(
     retained_input, monkeypatch, failure, match
 ):
-    from corpus_structure.orchestrate.m1 import retained_document
+    from corpus_structure.semantic.retained_pdf_documents import retained_pdf_document as retained_document
 
     f = retained_input
     if failure == "wrong_corpus":
@@ -178,18 +179,13 @@ def test_exact_product_preflight_refuses_mismatched_custody(
 
 
 def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
-    from corpus_structure.orchestrate.m1 import bind_retained_document, registry, retained_document
-    from corpus_structure.orchestrate.phase0 import bind_pdf_source
+    from corpus_structure.semantic.retained_pdf_documents import retained_pdf_document as retained_document
 
     f = retained_input
     document = retained_document(
         f.conn, f.pin, prepared=object(), project_id="project", documents=f.documents
     )
-    bound = bind_retained_document(
-        bind_pdf_source(registry(ROOT / "domains/statistics"), f.pin, input_role="integrated"),
-        document,
-    )
-    cfg = bound.overlay("ingest.pdf_integrated", "default")
+    cfg = RetainedIntegratedConfig(originals=(document.source_uri,), native_product=None, integrated_product=f.pin, retained_document_id=document.id, retained_document_key=document.key, retained_original_digest=document.content_hash)
     assert isinstance(cfg, RetainedIntegratedConfig)
     assert cfg.originals == ("other_book/Full.pdf",)
     assert cfg.retained_document_id == 2 and cfg.retained_document_key == "other-book"
@@ -210,7 +206,7 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
         options={"corpus": {"documents": ["other-book"]}},
         reader=SimpleNamespace(documents=documents),
     )
-    method = bound.method("ingest.pdf_integrated")
+    method = RetainedIntegratedPdf()
     assert isinstance(method, RetainedIntegratedPdf)
     assert json.loads(method.original_recipe(cfg))["document"] == dict(
         id=2, key="other-book", original_digest="b" * 64, source_uri="other_book/Full.pdf"
@@ -224,10 +220,10 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
 
 def test_configured_descriptions_change_pack_conditioning_without_changing_released_roles():
     from corpus_structure.methods.m1_source import configured_packs
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
     from methods.m1_producer_support import release
 
-    cfg = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "described")
+    cfg = candidate_configuration(ROOT / "domains/statistics", "described")
     assert isinstance(cfg, M1Config)
     described = configured_packs(release(), cfg)
     plain = configured_packs(release(), cfg.model_copy(update={"pack_descriptions": {}}))
@@ -243,11 +239,10 @@ def test_configured_descriptions_change_pack_conditioning_without_changing_relea
 
 
 def test_default_policy_is_baseline_and_described_is_explicit_experimental_selection():
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
 
-    methods = registry(ROOT / "domains/statistics")
-    baseline = methods.overlay("extract.m1_candidates", "default")
-    experimental = methods.overlay("extract.m1_candidates", "described")
+    baseline = candidate_configuration(ROOT / "domains/statistics", "default")
+    experimental = candidate_configuration(ROOT / "domains/statistics", "described")
     assert isinstance(baseline, M1Config) and isinstance(experimental, M1Config)
     assert baseline.pack_descriptions == {}
     assert experimental.pack_descriptions
@@ -255,8 +250,8 @@ def test_default_policy_is_baseline_and_described_is_explicit_experimental_selec
         exclude={"pack_descriptions"}
     )
     assert (
-        methods.resolve("extract.m1_candidates", "default").config_hash
-        != methods.resolve("extract.m1_candidates", "described").config_hash
+        canonical_bytes(baseline.model_dump(mode="json"))
+        != canonical_bytes(experimental.model_dump(mode="json"))
     )
 
 
@@ -272,10 +267,10 @@ def test_description_policy_rejects_unknown_families_empty_instructions_and_unre
     descriptions, match
 ):
     from corpus_structure.methods.m1_source import configured_packs
-    from corpus_structure.orchestrate.m1 import registry
+    from methods.domain_configuration import candidate_configuration
     from methods.m1_producer_support import release
 
-    cfg = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "described")
+    cfg = candidate_configuration(ROOT / "domains/statistics", "described")
     with pytest.raises(ValueError, match=match):
         changed = type(cfg).model_validate(
             dict(cfg.model_dump(mode="python"), pack_descriptions=descriptions)

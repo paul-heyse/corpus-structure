@@ -22,7 +22,7 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.ingest import pdf_recognition_methods as methods
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
-from corpus_structure.orchestrate.m1 import RetainedIntegratedPdf
+from ingest.retained_pdf_fixture import RetainedIntegratedPdf
 from corpus_structure.semantic.product_reference import ProductReference
 
 

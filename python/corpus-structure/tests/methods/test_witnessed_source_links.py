@@ -451,10 +451,10 @@ def test_ordered_formula_witness_uses_one_physical_target_for_two_inspected_reca
 
 
 def test_ordered_witness_is_a_new_opt_in_method_contract(tmp_path):
-    from corpus_structure.orchestrate.phase0 import registry
+    from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
 
     method_name = "structure.scoped_relations"
-    default = registry(tmp_path).method(method_name)
+    default = ScopedRelationsMethod()
     assert default.version == "17"
     assert default.Config is ScopedRelationsConfig
     assert "ordered_formula_witness" in default.Config.model_fields
@@ -462,11 +462,10 @@ def test_ordered_witness_is_a_new_opt_in_method_contract(tmp_path):
     (tmp_path / "methods.yaml").write_text(
         json.dumps({"configs": {method_name: {"witness": report["configuration"]}}})
     )
-    selected = registry(tmp_path)
-    method = selected.method(method_name)
+    method = ScopedRelationsMethod()
     assert method.version == "17"
     assert method.Config is ScopedRelationsConfig
-    cfg = selected.overlay(method_name, "witness")
+    cfg = ScopedRelationsConfig.model_validate(report["configuration"])
     run = SimpleNamespace(
         reader=SimpleNamespace(
             source_views=lambda: (

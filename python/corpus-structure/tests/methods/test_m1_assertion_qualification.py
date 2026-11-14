@@ -14,7 +14,7 @@ from corpus_structure.methods.gliner import GlinerRefused
 from corpus_structure.methods.m1_annotations import consume_annotations
 from corpus_structure.methods.m1_source import M1Candidates, configured_packs
 from corpus_structure.methods.record_assembly import OCCURRENCE_POLICY, assemble_records
-from corpus_structure.orchestrate.m1 import registry
+from methods.domain_configuration import candidate_configuration
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
@@ -63,7 +63,7 @@ def produce(monkeypatch, text, groups, *, heading=None):
     monkeypatch.setattr(
         producer, "_resident", lambda _profile, *, providers, native_profile: decoder
     )
-    cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     (result,) = producer.run(
         (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
