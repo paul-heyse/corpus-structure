@@ -42,6 +42,8 @@ _FILES = (
     "methods/pm2_gliner_classification.py",
     "methods/model_observation.py",
     "methods/gliner.py",
+    "methods/definition_applicability.py",
+    "semantic/definition_model_products.py",
 )
 
 
@@ -190,6 +192,13 @@ class PreparedLearnedPrimary:
         contextual=None,
         focuses=(),
     ):
+        if self.family == "gliner_definitions":
+            from .definition_model_products import extract_definition_products
+
+            return (yield from extract_definition_products(
+                self, source, binding=binding, execution_owner=execution_owner, check_active=check_active
+            ))
+
         from corpus_structure.methods.characterization_resources import (
             GLiNERWork,
             LogicalProviderMember,

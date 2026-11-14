@@ -3139,3 +3139,471 @@ class ContextualNativePrimaryOperation:
         dipo: dict,
     ) -> dict:
         return execute_contextual_native(self, source, formal, constructions, maverick, dipo)
+
+
+class GlinerDefinitionPrimaryOperation:
+    __data_operation__: ClassVar[dict] = {
+        "id": "text.gliner_definitions/source-native",
+        "profile": "derivation",
+        "subject": "original-source-view",
+        "context": ["original-source", "selected-scope"],
+        "entrypoints": ["run"],
+        "roles": [
+            {
+                "name": "source",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "parameter": "source",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode"],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "selected-scope",
+                },
+            },
+            {
+                "name": "result",
+                "direction": "output",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-learned/DdoGlinerDefinitionObservations",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+            {
+                "name": "candidates",
+                "direction": "output",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoGlinerDefinitionCandidatesReport",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "parameters": {},
+        "dependencies": [],
+        "effects": [],
+        "applicability": ["actual-original-source-blocks", "frozen-qualified-native-provider"],
+        "invariants": [
+            "private-uncalibrated-candidates",
+            "exact-original-source-coordinates",
+            "no-score-authority-upgrade",
+            "raw-native-labels-and-question-populations",
+        ],
+        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "outcomes": ["success", "failed"],
+        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "resource",
+            "prepared_factory": "acquire_port",
+            "cancellation": "cooperative",
+            "ownership": "native-residency-borrow",
+        },
+        "behavior": "retain actual gliner observations and source-bound private candidates through the "
+        "invocation shared provider lanes",
+        "binding": {"operator": "all", "children": [{"operator": "scan", "roles": ["source"]}]},
+        "opaque": [
+            {
+                "reference": "corpus_structure.semantic.learned_primary.execute_learned_primary",
+                "contract": "learned/profile-assets",
+                "role": "owned-native-provider-plan",
+            },
+            {
+                "reference": "corpus_structure.semantic.learned_primary.LearnedPrimaryProducts",
+                "contract": "learned/profile-assets",
+                "role": "typed-native-observations-and-private-candidates",
+            },
+            {
+                "reference": "corpus_structure.semantic.source_products.FrozenNativeSource",
+                "contract": "learned/profile-assets",
+                "role": "exact-original-source",
+            },
+        ],
+        "assets": [
+            {
+                "reference": "gliner_definitions-native-profile",
+                "contract": "learned/profile-assets",
+                "role": "native-policy-source-mapping-and-private-projection",
+            }
+        ],
+        "output_witnesses": [
+            {
+                "output_role": "result",
+                "records": "/source_pin",
+                "input_role": "source",
+                "comparisons": [
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "source_member",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "member",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "reference",
+                        },
+                        "encoding": "json",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "document",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/document",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "projection_digest",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/projection",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "section_pointer",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "membership",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/membership",
+                        },
+                        "encoding": "value",
+                    },
+                ],
+            },
+            {
+                "output_role": "candidates",
+                "records": "/source_pin",
+                "input_role": "source",
+                "comparisons": [
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "source_member",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "member",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "reference",
+                        },
+                        "encoding": "json",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "document",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/document",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "projection_digest",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/projection",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "section_pointer",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "membership",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/membership",
+                        },
+                        "encoding": "value",
+                    },
+                ],
+            },
+            {
+                "output_role": "candidates",
+                "records": "/members/*/body/pin",
+                "input_role": "source",
+                "comparisons": [
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "source_member",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "member",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "reference",
+                        },
+                        "encoding": "json",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "document",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/document",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "projection_digest",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/projection",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "section_pointer",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "membership",
+                        "input": {
+                            "role": "source",
+                            "projection": "DdoSelectedNativeSource",
+                            "field": "/source/membership",
+                        },
+                        "encoding": "value",
+                    },
+                ],
+            },
+        ],
+    }
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        from corpus_structure.semantic.learned_primary import resolve_learned_primary_port
+
+        return resolve_learned_primary_port(
+            prepared,
+            model,
+            operation,
+            family="gliner_definitions",
+            provider="gliner",
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
+        )
+
+    def __init__(self, profile, binding, execution_owner, check_active):
+        self.profile, self.binding, self.execution_owner, self.check_active = (
+            profile,
+            binding,
+            execution_owner,
+            check_active,
+        )
+
+    def run(self, source: FrozenNativeSource) -> LearnedPrimaryProducts:
+        return execute_learned_primary(self, source)

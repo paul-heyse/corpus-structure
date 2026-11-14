@@ -7,7 +7,7 @@ independent assessment or publication standing.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from itertools import pairwise
@@ -168,6 +168,7 @@ def decode_definition_components(
     cfg: DefinitionComponentsConfig,
     *,
     candidate_errors: list[dict[str, JsonValue]] | None = None,
+    component_factory: Callable[..., Any] = definition_component,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Require both independently located endpoint roles and a returned attachment.
 
@@ -225,7 +226,7 @@ def decode_definition_components(
         except ValueError as error:
             rejected("attachment", index, error)
             continue
-        component = definition_component(
+        component = component_factory(
             term=term,
             content=content,
             interpretation=term_spans[term.identity][1],
@@ -468,6 +469,7 @@ def components_from_named_matches(
     content_role: str,
     antecedents: Mapping[AnnotationRuleMatch, LocatedDefinitionSpan] | None = None,
     witnesses: Mapping[AnnotationRuleMatch, DefinitionBasisWitness] | None = None,
+    component_factory: Callable[..., Any] = definition_component,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
@@ -522,7 +524,7 @@ def components_from_named_matches(
             continue
         antecedent = antecedents.get(match) if antecedents is not None else None
         qualified = witnesses is None or (match in witnesses and antecedent is None)
-        component = definition_component(
+        component = component_factory(
             term=selected[0],
             content=antecedent if antecedent is not None else selected[1],
             interpretation=(
@@ -559,6 +561,7 @@ def components_from_following_display(
     scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
     term_role: str,
     witnesses: Mapping[AnnotationRuleMatch, DefinitionBasisWitness] | None = None,
+    component_factory: Callable[..., Any] = definition_component,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Join an explicit named following-content cue to its adjacent native display.
 
@@ -636,7 +639,7 @@ def components_from_following_display(
             if witness is not None and labelled and label_match is not None:
                 witness = witness.model_copy(update={"label_nodes": label_match.nodes})
             found.append(
-                definition_component(
+                component_factory(
                     term=span(term_start, term_end),
                     content=span(start, end),
                     interpretation=(

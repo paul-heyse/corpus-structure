@@ -63,6 +63,15 @@ classes:
   DdoScopedRelationsReport:
     is_a: DdoCandidateInspectionReport
     description: Exact source-local structural, procedure, formula and named relationship inspection.
+  DdoGlinerDefinitionCandidatesReport:
+    is_a: DdoCandidateInspectionReport
+    attributes: {}
+  LocatedDefinitionContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: definition.located_components}
+      question: {required: true, equals_string: definition.located_gliner_v1}
+      value: {range: SourceObject, inlined: true, required: true}
 enums:
   DdoCandidateInspectionOutcome:
     permissible_values: {produced: {}, empty: {}}
