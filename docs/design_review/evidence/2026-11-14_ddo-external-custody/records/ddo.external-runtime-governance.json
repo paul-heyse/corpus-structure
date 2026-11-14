@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "ddo.external-runtime-governance",
+  "title": "Native external suspension and result wire successor authoring",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the bounded runtime repairs be registered as an immutable successor with complete rollback execution and catalog verification?",
+  "answers": [],
+  "method": "Complete rendered rollback upgrade, independent catalog verification, all14 native changes and one ordinary physical-contract operation inspected; registration verified.",
+  "commands": [
+    "uv run ci model change candidate d8ccee373e30494da25b39f91068b62d --json",
+    "uv run ci model change inspect-candidate cfbd973594d84c928d88b1467dcd0a41 --view operations --limit 100 --json",
+    "uv run ci model change register cfbd973594d84c928d88b1467dcd0a41 --json",
+    "uv run ci model change inspect-candidate cfbd973594d84c928d88b1467dcd0a41 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change-runtime.yaml",
+      "role": "fixed-source successor request",
+      "sha256": "e3d3dbcd2e4c508b14ea0ee4f80b12046b13c29d8e5f78dfbd918fb48a3f6f84"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/runtime-candidate.json",
+      "role": "v2 authoring and exact registered-file custody",
+      "sha256": "e4e5980781a9cf49f23f027bd871db0a227b8b98c2da40246a5a11fc71534035"
+    },
+    {
+      "path": "results/runtime-native-operations.json",
+      "role": "v2 authoring and exact registered-file custody",
+      "sha256": "309802d25698dd45e264687161ac4f485dce262dcdcb1532a13ea75c331d5645"
+    },
+    {
+      "path": "results/runtime-registered-files.json",
+      "role": "v2 authoring and exact registered-file custody",
+      "sha256": "c7a62858629a99ed4cf7d42cf52c6f7020e150d47232e87134d53a68cf65708d"
+    }
+  ],
+  "depends_on": [
+    "ddo.external-lifecycle-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Complete rendered rollback candidate cfbd973594d84c928d88b1467dcd0a41 passed and registration44d3738d677e4ac2ba65d655f0f1eaf8 is verified. All14 native body changes preserve owners and grants; the only ordinary operation inserts the exact physical contract. Existing pending task state replaces legacy awaiting_agent, continuation requires its actual max_bytes and the run trigger names start_run. Registered v1 and frozen predecessors remain unchanged. Functional/provider retries remain separate and open; no persistent deployment, activation or cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
