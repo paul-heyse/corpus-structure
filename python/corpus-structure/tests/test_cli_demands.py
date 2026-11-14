@@ -298,4 +298,9 @@ def test_run_demand_refuses_incomplete_or_changed_intent_before_acquisition(cli,
     }
     result = cli("run", *arguments[invalid], settings=refuse_settings)
     assert result.exit_code == 2, result.output
-    assert "requires" in result.output or "retained intent" in result.output
+    if invalid == "missing-root":
+        assert "--source-root" in result.output
+    elif invalid == "missing-demand":
+        assert "--semantic-release" in result.output and "--runtime" in result.output
+    else:
+        assert "retained demand owns its original source and workflow choices" in result.output

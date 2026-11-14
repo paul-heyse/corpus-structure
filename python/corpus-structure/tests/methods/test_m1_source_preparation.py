@@ -145,22 +145,16 @@ def test_old_record_absence_and_new_inspected_empty_are_distinct():
         replace(old, records=({"record_id": "candidate"},))
 
 
-def test_m1_refuses_unpinned_or_native_input_before_database_access():
-    from corpus_structure.orchestrate.commands import CommandError, start_bound_run
+def test_source_request_refuses_legacy_task_pin_execution_authority():
+    from pydantic import ValidationError
+    from corpus_structure.orchestrate.source_request import SourceRunRequest
 
-    for pin in (None, ProductReference(23, "native", "a" * 64)):
-        # Preserve the invalid runtime engine: pin preflight must never touch it.
-        with pytest.raises(CommandError, match="retained integrated"):
-            start_bound_run(
-                cast(Engine, object()),
-                release_id="release",
-                realization_id="input",
-                project_id="project",
-                domain="statistics",
-                method_settings=None,
-                extraction_policy="m1-candidate",
-                native_product=pin,
-            )
+    for field in ("native_product", "integrated_product"):
+        with pytest.raises(ValidationError):
+            SourceRunRequest.model_validate({
+                "project_id": "project", "release_id": "release", "runtime_id": "runtime",
+                field: {"task_id": 23, "product_key": "native", "content_digest": "a" * 64},
+            })
 
 
 def test_m1_registry_has_no_agent_or_general_llm_route():

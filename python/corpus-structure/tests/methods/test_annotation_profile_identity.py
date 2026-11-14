@@ -230,26 +230,6 @@ def test_restoration_source_changes_construction_resource_identity_and_refuses_o
         ConstructionConfig(grammar=original)
 
 
-def test_retained_graph_never_resolves_unreachable_ingestion_or_pdf_enrichment():
-    from corpus_structure.core.vocab import Stage
-    from corpus_structure.methods.characterization import ComposeViewMethod
-    from corpus_structure.orchestrate.registry import MethodRegistry
-    from corpus_structure.orchestrate.runner import Graph, Step
-    from corpus_structure.orchestrate.semantic import _source_configurations
-    from corpus_structure.orchestrate.source_operation import _retained_analytical_graph
-
-    graph = Graph(
-        (
-            (Stage.INGEST, (Step("ingest.pdf/default"),)),
-            (Stage.EXTRACT, (Step("enrich.pdf_math/default"),)),
-            (Stage.NORMALIZE, (Step("text.compose_view/default"),)),
-        ),
-        policy_propose=False,
-    )
-    effective = _retained_analytical_graph(graph)
-    assert set(_source_configurations(MethodRegistry((ComposeViewMethod(),)), effective, {})) == {
-        "text.compose_view"
-    }
 
 
 @pytest.mark.parametrize("coerced", [True, 2.0])

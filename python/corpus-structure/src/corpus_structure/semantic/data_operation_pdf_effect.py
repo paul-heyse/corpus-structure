@@ -29,6 +29,9 @@ class PdfCaptureEffectPort(ReceiptBearingEffectPort):
 
     wrapped: Any
 
+    def effect_implementation(self) -> Any:
+        return self.wrapped
+
     def __post_init__(self):
         operation = self.wrapped.operation
         if (

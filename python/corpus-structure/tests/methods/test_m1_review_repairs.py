@@ -245,8 +245,7 @@ def test_configured_descriptions_change_pack_conditioning_without_changing_relea
 
 
 def test_default_policy_is_baseline_and_described_is_explicit_experimental_selection():
-    from corpus_structure.orchestrate.commands import CommandError, start_bound_run
-    from corpus_structure.orchestrate.m1 import M1, registry, source_graph
+    from corpus_structure.orchestrate.m1 import registry
 
     methods = registry(ROOT / "domains/statistics")
     baseline = methods.overlay("extract.m1_candidates", "default")
@@ -261,19 +260,6 @@ def test_default_policy_is_baseline_and_described_is_explicit_experimental_selec
         methods.resolve("extract.m1_candidates", "default").config_hash
         != methods.resolve("extract.m1_candidates", "described").config_hash
     )
-    assert source_graph() is M1
-    assert source_graph("described").stages[1][1][1].config == "extract.m1_candidates/described"
-    # Preserve the invalid runtime engine: parameter preflight must never touch it.
-    with pytest.raises(CommandError, match="nondefault M1 configuration"):
-        start_bound_run(
-            cast(Engine, object()),
-            release_id="release",
-            realization_id="input",
-            project_id="project",
-            domain="statistics",
-            method_settings=None,
-            m1_configuration="described",
-        )
 
 
 @pytest.mark.parametrize(

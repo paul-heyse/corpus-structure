@@ -1,122 +1,88 @@
-"""Project initialization binds retained originals before incidental pack acquisition."""
+"""Project initialization authenticates retained original facts without rewriting custody."""
 
 from hashlib import sha256
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from corpus_structure.orchestrate import project
-from corpus_structure.orchestrate.phase0 import registry
-from corpus_structure.semantic.product_reference import ProductReference
-
-ROOT = Path(__file__).resolve().parents[4]
+from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
 
 
 @pytest.fixture
 def initialization(monkeypatch, tmp_path):
-    from corpus_structure.orchestrate import pdf_source
-    from corpus_structure.semantic import _operation_calls, contracts, operations, releases
+    from corpus_structure.semantic import _operation_calls, contracts, operations, original_documents, releases
 
     raw = b"%PDF-1.7\nretained Grinstead source\n"
-    original = tmp_path / "grinstead_snell/book.pdf"
-    original.parent.mkdir()
+    original = tmp_path / "corpus/grinstead_snell/book.pdf"
+    original.parent.mkdir(parents=True)
     original.write_bytes(raw)
-    prepared = SimpleNamespace(release_id="release")
-    document = pdf_source.RetainedDocument(
-        45, "book", sha256(raw).hexdigest(), "grinstead_snell/book.pdf"
-    )
+    domain = tmp_path / "domains/statistics"
+    domain.mkdir(parents=True)
+    (domain / "methods.yaml").write_text("configs:\n  ingest.pdf:\n    default:\n      originals: [grinstead_snell/book.pdf]\n")
+    reference = OriginalDocumentRef(kind="original-document", project_id="grinstead", document_key="book", content_hash=sha256(raw).hexdigest(), mime="application/pdf")
     conn = MagicMock()
-    conn.execute.return_value.mappings.return_value.__iter__.side_effect = lambda: iter(
-        [dict(id=45, key="book", content_hash=document.content_hash)]
-    )
+    conn.scalar.return_value = "grinstead_snell/book.pdf"
     initialized, registered = MagicMock(), MagicMock()
-    monkeypatch.setattr(releases, "load_release", lambda *a: prepared)
-    monkeypatch.setattr(contracts, "require_bound_operation", lambda *a: None)
+    monkeypatch.setattr(releases, "load_release", lambda *args: SimpleNamespace(release_id="release"))
+    monkeypatch.setattr(contracts, "require_bound_operation", lambda *args: None)
     monkeypatch.setattr(_operation_calls, "initialize_source_project", initialized)
     monkeypatch.setattr(operations, "register_document", registered)
-    authenticated = MagicMock(return_value=document)
-    monkeypatch.setattr(pdf_source, "retained_source_document", authenticated)
-    return SimpleNamespace(
-        conn=conn,
-        initialized=initialized,
-        registered=registered,
-        authenticated=authenticated,
-        document=document,
-        original=original,
-        raw=raw,
-        corpus=tmp_path,
-    )
+    authenticated = MagicMock(return_value=SimpleNamespace(reference=reference))
+    monkeypatch.setattr(original_documents, "acquire_original_document_selection", authenticated)
+    return SimpleNamespace(conn=conn, initialized=initialized, registered=registered,
+                           authenticated=authenticated, reference=reference, original=original,
+                           raw=raw, corpus=tmp_path / "corpus", domains=tmp_path / "domains")
 
 
-def invoke(f, **kwargs):
-    return project.init_bound_project(
-        f.conn,
-        domain="statistics",
-        corpus=f.corpus,
-        release_id="release",
-        realization_id="source",
-        name="grinstead",
-        registry=kwargs.pop("registry", registry(ROOT / "domains/statistics")),
-        **kwargs,
-    )
+def invoke(f, *, originals=()):
+    return project.init_bound_project(f.conn, domain="statistics", corpus=f.corpus,
+                                     release_id="release", realization_id="source", name="grinstead",
+                                     domains=f.domains, originals=originals)
 
 
-@pytest.mark.parametrize("kind", ["native", "integrated"])
-def test_retained_initialization_reuses_the_authenticated_original_without_descriptor_rewrite(
-    initialization, kind
-):
+def test_retained_original_fact_is_authenticated_without_descriptor_rewrite(initialization):
     f = initialization
-    pin = ProductReference(1627, kind, "a" * 64)
-    result = invoke(f, **{kind + "_product": pin})
-    assert result.documents == 1
-    assert f.initialized.call_count == 1
+    result = invoke(f, originals=(f.reference,))
+    assert result.documents == 1 and f.initialized.call_count == 1
     f.registered.assert_not_called()
-    auth = f.authenticated.call_args
-    assert auth.args == (f.conn, pin)
-    assert auth.kwargs["project_id"] == "grinstead" and auth.kwargs["role"] == kind
-    assert auth.kwargs["documents"] == [
-        dict(id=45, key="book", content_hash=f.document.content_hash)
-    ]
+    f.authenticated.assert_called_once_with(f.conn, project_id="grinstead", document_key="book")
 
 
-def test_foreign_or_absent_retained_original_refuses_before_project_effects(initialization):
+def test_foreign_or_absent_original_refuses_before_project_effects(initialization):
     f = initialization
-    f.authenticated.side_effect = ValueError("retained product belongs to another project")
-    with pytest.raises(ValueError, match="another project"):
-        invoke(f, integrated_product=ProductReference(1627, "integrated", "a" * 64))
+    with pytest.raises(project.ProjectError, match="another project"):
+        invoke(f, originals=(f.reference.model_copy(update={"project_id": "other"}),))
     f.initialized.assert_not_called()
     f.registered.assert_not_called()
+    f.authenticated.assert_not_called()
 
 
-def test_changed_file_cannot_be_registered_as_the_retained_original(initialization):
+def test_changed_file_cannot_be_registered_as_retained_original(initialization):
     f = initialization
     f.original.write_bytes(b"%PDF-1.7\nchanged source\n")
     with pytest.raises(project.ProjectError, match="authenticated original"):
-        invoke(f, integrated_product=ProductReference(1627, "integrated", "a" * 64))
-    f.registered.assert_not_called()
-
-
-def test_initialization_refuses_conflicting_product_roles_before_effects(initialization):
-    f = initialization
-    pin = ProductReference(1627, "integrated", "a" * 64)
-    with pytest.raises(project.ProjectError, match="mutually exclusive"):
-        invoke(f, native_product=pin, integrated_product=pin)
+        invoke(f, originals=(f.reference,))
     f.initialized.assert_not_called()
     f.registered.assert_not_called()
 
 
-def test_unpinned_initialization_still_registers_configured_original_bytes(initialization):
-    from corpus_structure.orchestrate.phase0 import bind_pdf_selection
-
+def test_stale_original_fact_refuses_before_registration(initialization):
     f = initialization
-    configured = bind_pdf_selection(registry(ROOT / "domains/statistics"), document=f.document)
-    result = invoke(f, registry=configured)
+    f.authenticated.return_value = SimpleNamespace(reference=f.reference.model_copy(update={"content_hash": "a" * 64}))
+    with pytest.raises(project.ProjectError, match="authenticated metadata"):
+        invoke(f, originals=(f.reference,))
+    f.initialized.assert_not_called()
+    f.registered.assert_not_called()
+
+
+def test_unpinned_initialization_registers_configured_original_bytes(initialization):
+    f = initialization
+    result = invoke(f)
     assert result.documents == 1
     f.authenticated.assert_not_called()
     assert f.initialized.call_count == 1 and f.registered.call_count == 1
     registered = f.registered.call_args.kwargs
     assert registered["source_uri"] == "grinstead_snell/book.pdf"
-    assert registered["original"] == f.raw
-    assert registered["original_path"] == str(f.original.resolve())
+    assert registered["original"] == f.raw and registered["original_path"] == str(f.original.resolve())
