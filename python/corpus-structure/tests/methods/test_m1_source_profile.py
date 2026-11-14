@@ -367,9 +367,6 @@ def test_natural_formula_variants_keep_roles_and_distinct_grouping_without_false
 def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
     tmp_path, monkeypatch, binding_refused
 ):
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods import m1_annotations
 
     view = source("x=1", labels=("formula",))
     product = prep.prepare_source(view, persisted_annotations=())
@@ -381,17 +378,7 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
         preparation=product.preparation,
         policy=prep.POLICY_V5,
     )
-    monkeypatch.setattr(m1_source, "prepare_source", lambda *_args, **_kwargs: product)
     monkeypatch.setattr(m1_source, "_structural_groups", lambda *_: ())
-    monkeypatch.setattr(
-        m1_annotations,
-        "consume_annotations",
-        lambda *_: (
-            (),
-            (),
-            dict(method="extract.m1_annotations", input_hash="input", configuration_hash="config"),
-        ),
-    )
 
     class Worker:
         def extract(self, pack, inputs, **kwargs):
@@ -403,14 +390,13 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
                 raise gliner.GlinerRefused("controlled capacity refusal")
             return (report(native_context, pack, "formula_context", []),)
 
-    producer = m1_source.M1Candidates()
-    monkeypatch.setattr(producer, "_resident", lambda _, **_kwargs: Worker())
-    ctx = SimpleNamespace(
-        reader=SimpleNamespace(prepared=release(), source_view=lambda _: view),
-        check_active=lambda: None,
-    )
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7"))
-    result = producer._source(unit, cfg, ctx)
+    from methods.m1_producer_support import candidate_fixture_product
+
+    result = candidate_fixture_product(dict(
+        prepared=release(), view=view, prepared_source=product,
+        annotation_result=dict(method="extract.m1_annotations", input_hash="input", configuration_hash="config"),
+        cfg=cfg, check_active=lambda: None,
+    ), Worker())
     assert result.parse_detail is not None
     details = result.parse_detail
     executions = detail_objects(details["execution"])

@@ -14,7 +14,8 @@ from typing import Any
 from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
 from corpus_structure.methods.m1_source import (
     M1CandidateProduct,
-    M1Candidates,
+    plan_candidates,
+    plan_candidate_replies,
     M1Config,
     M1GlinerReply,
     M1GlinerRequest,
@@ -234,7 +235,7 @@ class PreparedM1Inputs:
             "execution_profile": checked["execution_profile"],
         }
         return (
-            yield from M1Candidates().plan_candidate_replies(
+            yield from plan_candidate_replies(
                 prepared=self.prepared,
                 view=data,
                 prepared_source=prepared_source,
@@ -600,12 +601,12 @@ def resolve_m1_port(prepared, model, operation, *, identity, authorize, custody,
             ),
             ("corpus_structure.semantic.m1_products.plan_m1_gliner", plan_m1_gliner),
             (
-                "corpus_structure.methods.m1_source.M1Candidates.plan_candidates",
-                M1Candidates.plan_candidates,
+                "corpus_structure.methods.m1_source.plan_candidates",
+                plan_candidates,
             ),
             (
-                "corpus_structure.methods.m1_source.M1Candidates.plan_candidate_replies",
-                M1Candidates.plan_candidate_replies,
+                "corpus_structure.methods.m1_source.plan_candidate_replies",
+                plan_candidate_replies,
             ),
         ),
         native_selections=(selection,),

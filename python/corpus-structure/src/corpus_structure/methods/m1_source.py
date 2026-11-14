@@ -7,13 +7,12 @@ from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from corpus_structure.core.method import CoverageDraft, Resources, UnitResult
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.ingest.annotations import AnnotationProfile
+from corpus_structure.core.method import CoverageDraft
+from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.gliner import (
     ASSERTION_LITERAL_PACK,
@@ -24,14 +23,12 @@ from corpus_structure.methods.gliner import (
     GlinerRefused,
     GlinerReport,
 )
-from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
-from corpus_structure.methods.native_host_clients import HostedGliner
+from corpus_structure.methods.gliner_worker import GlinerWorkerError
 from corpus_structure.methods.source_preparation import (
     POLICY,
     POLICY_V5,
     POLICY_V6,
     native_table_geometry,
-    prepare_source,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
@@ -39,9 +36,6 @@ from corpus_structure.semantic.source_contexts import (
     NativeSourcePin,
     NativeSpanEvidence,
 )
-
-if TYPE_CHECKING:
-    from corpus_structure.methods.m1_source_capture import RecordCaptureRule
 
 FAMILIES = {
     "definition": ("DefinitionRecordFields", "term"),
@@ -343,829 +337,309 @@ class M1CandidateProduct:
     contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
 
 
-class M1Candidates:
-    name = "extract.m1_candidates"
-    version = "10"
-    family = MethodFamily.EXTRACT
-    unit_type = TaskUnitType.SOURCE_VIEW
-    tier = MethodTier.ENCODER
-    confidence_source = None
-    Config = M1Config
-    resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
-
-
-    def __init__(self) -> None:
-        self._worker: HostedGliner | None = None
-
-    def close(self) -> None:
-        if self._worker is not None:
-            self._worker.close()
-        self._worker = None
-
-
-
-
-
-
-    def _resident(self, profile, *, providers=None, native_profile=None):
-        if self._worker is None:
-            if providers is not None:
-                self._worker = HostedGliner(
-                    profile, group=providers.native_group, native_profile=native_profile
-                )
+def plan_candidate_replies(
+    *,
+    prepared,
+    view,
+    prepared_source,
+    annotation_result,
+    cfg,
+    check_active,
+    generic_role_guidance=False,
+    source_capture_rules=(),
+) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
+    """Translate only bounded provider dispositions into the original kernel."""
+    plan = plan_candidates(
+        prepared=prepared,
+        view=view,
+        prepared_source=prepared_source,
+        annotation_result=annotation_result,
+        cfg=cfg,
+        check_active=check_active,
+        generic_role_guidance=generic_role_guidance,
+        source_capture_rules=source_capture_rules,
+    )
+    reports, failure = None, None
+    try:
+        while True:
+            try:
+                request = plan.throw(failure) if failure is not None else plan.send(reports)
+            except StopIteration as completed:
+                return completed.value
+            reply = yield request
+            if not isinstance(reply, M1GlinerReply):
+                raise TypeError("M1 requires its typed provider reply")
+            if reply.failure == "refused":
+                reports, failure = None, GlinerRefused(reply.message)
+            elif reply.failure == "worker":
+                reports, failure = None, GlinerWorkerError(reply.message)
+            elif len(reply.reports) != len(request.inputs):
+                raise ValueError("M1 reply changed its exact inference question population")
             else:
-                self._worker = GlinerWorker(profile)
-        elif self._worker.profile.fingerprint != profile.fingerprint:
-            raise GlinerRefused("one M1 run cannot switch resident profiles")
-        return self._worker
+                reports, failure = reply.reports, None
+    finally:
+        plan.close()
 
-    def run(self, units, cfg, ctx):
-        return tuple(self._source(unit, cfg, ctx) for unit in units)
 
-    def run_generic_role_guidance_comparison(self, units, cfg, ctx):
-        """Run the detached opt-in prompt arm without changing registered method config."""
-        return tuple(self._source(unit, cfg, ctx, generic_role_guidance=True) for unit in units)
 
-    def run_source_rule_capture_comparison(
-        self, units, cfg, ctx, rules: tuple[RecordCaptureRule, ...]
-    ):
-        """Run an explicit candidate capture arm without altering the registered default."""
-        if not rules:
-            raise ValueError("source capture comparison requires declared rules")
-        return tuple(self._source(unit, cfg, ctx, source_capture_rules=rules) for unit in units)
+def plan_candidates(
+    *,
+    prepared,
+    view,
+    prepared_source,
+    annotation_result,
+    cfg,
+    check_active,
+    generic_role_guidance=False,
+    source_capture_rules=(),
+):
+    """Execute only explicitly prepared language, annotation and selected primary facts.
 
-    def interpretation_request(self, group):
-        """Actual retained groups reach the interpreter only with an applicable factor policy."""
-        return None
+    Preparation and native binding own discovery. This kernel never obtains a
+    Reader, UnitView, task, connection or selection query.
+    """
+    from corpus_structure.methods.assertion_qualification import AssertionQualification
+    from corpus_structure.methods.record_assembly import (
+        AssemblyDiagnostic,
+        NativeRecordGroup,
+        RoleInput,
+        assemble_native_records,
+        assemble_records,
+        native_group_identity,
+        reconcile_record_candidates,
+    )
 
-    def _source(
-        self,
-        unit,
-        cfg,
-        ctx,
-        *,
-        generic_role_guidance: bool = False,
-        source_capture_rules: tuple[RecordCaptureRule, ...] = (),
-    ):
-        from threadpoolctl import ThreadpoolController
+    packs = configured_pack_variants(prepared, cfg, generic_role_guidance=generic_role_guidance)
+    assertion_qualification = AssertionQualification(
+        prepared_source.source, prepared_source.annotations, view.pieces, view.items
+    )
+    details: dict[str, Any] = dict(
+        policy=cfg.policy,
+        standing="private_uncalibrated_candidates",
+        source_pin=asdict(NativeSourcePin.from_source(prepared_source.source)),
+        regions=[asdict(region) for region in prepared_source.regions],
+        contexts=[
+            json.loads(canonical_bytes(asdict(selection)))
+            for selection in prepared_source.selections
+        ],
+        annotation_product=(
+            {
+                **annotation_result,
+                "blocks": [
+                    product.dependency_digest for product in prepared_source.annotations
+                ],
+            }
+            if "semantic_product" in annotation_result
+            else dict(
+                method=annotation_result["method"],
+                input_hash=annotation_result["input_hash"],
+                configuration_hash=annotation_result["configuration_hash"],
+                dependency_digest=sha256(canonical_bytes(annotation_result)).hexdigest(),
+                blocks=[product.dependency_digest for product in prepared_source.annotations],
+            )
+        ),
+        annotation_errors=list(prepared_source.annotation_errors),
+        exclusions=list(prepared_source.exclusions),
+        effective_profiles={},
+        occurrence_policy=cfg.occurrence_policy,
+        record_policy_version=cfg.record_policy_version,
+        source_inspection=cfg.source_inspection,
+        source_region_selection=dict(
+            projection_digest=cfg.source_projection_digest,
+            region_pointers=cfg.region_pointers,
+            scope="explicit_native_regions"
+            if cfg.region_pointers is not None
+            else "all_prepared_regions",
+        ),
+        model_observations=[],
+        record_policy_events=[],
+        reports=[],
+        runtime=dict(
+            parent_threads=cfg.parent_threads,
+            child_threads=cfg.threads,
+            concurrent_sources=1,
+            aggregate_rss="unqualified",
+            ordinary_workload="unqualified",
+        ),
+    )
+    if generic_role_guidance:
+        details["comparison_arm"] = "generic-source-role-guidance-1"
+    source_capture = None
+    if source_capture_rules:
+        from corpus_structure.methods.m1_source_capture import SourceRecordCapture
 
-        if unit.ref.unit_id is None:
-            raise ValueError("M1 requires a selected source view")
-        ctx.check_active()
-        view = ctx.reader.source_view(unit.ref.unit_id)
-        if (
-            cfg.source_projection_digest is not None
-            and view.ref.projection_digest != cfg.source_projection_digest
-        ):
-            raise GlinerRefused("source view differs from selected projection digest")
-        if cfg.region_pointers is not None:
-            missing = set(cfg.region_pointers) - {item["self_ref"] for item in view.items}
-            if missing:
-                raise GlinerRefused(
-                    "unknown native region pointer in selected source view: "
-                    + ", ".join(sorted(missing))
-                )
-        profile = AnnotationProfile(cfg.sentences)
-        from corpus_structure.methods.m1_annotations import consume_annotations
-
-        annotations, annotation_errors, annotation_result = consume_annotations(
-            ctx.reader, view, profile
+        source_capture = SourceRecordCapture(
+            prepared, _source_vocabulary(), source_capture_rules
         )
-        controller = ThreadpoolController()
-        with controller.limit(limits=cfg.parent_threads):
-            prepared_source = prepare_source(
-                view,
-                profile=profile,
+        details["comparison_arm"] = "exact-source-rule-capture-1"
+        details["source_capture_rules"] = [
+            rule.model_dump(mode="json") for rule in source_capture_rules
+        ]
+    from corpus_structure.methods.contribution_adapter import (
+        ADAPTER_VERSION,
+        LOCAL_ADAPTER_VERSION,
+        ContributionBatch,
+        adapt_native_groups,
+        adapt_report,
+    )
+
+    contribution_batches = []
+    local_pack = (
+        GlinerPack.from_declaration(
+            next(iter(packs.values()))[0][2].release,
+            cfg.local_schema,
+            version="native-local-v1",
+        )
+        if cfg.local_schema is not None
+        else None
+    )
+    details["schema_packs"] = {
+        pack.fingerprint: asdict(pack) for variants in packs.values() for _, _, pack in variants
+    }
+    details["context_manifests"] = {}
+    details["local_reports"] = []
+    details["local_execution"] = []
+    if local_pack is not None:
+        details["schema_packs"][local_pack.fingerprint] = asdict(local_pack)
+    assemblies = []
+    coverage = []
+    details["execution"] = [
+        dict(
+            context=index,
+            family=family,
+            outcome="pending",
+            reason="not yet executed",
+            **(
+                dict(variant=variant, anchor_role=anchor)
+                if cfg.policy in {POLICY_V5, POLICY_V6}
+                else {}
+            ),
+        )
+        for index, selection in enumerate(prepared_source.selections)
+        for family in selection.families
+        for variant, anchor, _ in packs[family]
+    ]
+    execution = {
+        (row["context"], row["family"], row.get("variant", "default")): row
+        for row in details["execution"]
+    }
+
+    def retain_unexecuted(index, pack, outcome, reason, *, local=False):
+        from corpus_structure.semantic.contributions import operation_identity
+
+        selected = prepared_source.selections[index]
+        operation = dict(
+            question="retain_native_spans_attributes_relations"
+            if local
+            else "recover_returned_local_contributions",
+            operation_version=LOCAL_ADAPTER_VERSION if local else ADAPTER_VERSION,
+            outcome=outcome,
+            inspected_count=0,
+            emitted_count=0,
+            reason=reason,
+            inputs=(),
+            computation_dependencies=(
+                "pack:" + pack.fingerprint,
+                "source-projection:" + prepared_source.source.projection_digest,
+                "selection:" + sha256(canonical_bytes(asdict(selected))).hexdigest(),
+            ),
+        )
+        operation["operation_key"] = operation_identity(operation, context=index)
+        contribution_batches.append(ContributionBatch(operations=(operation,)))
+
+    def stop_failed_worker(reason, family, index):
+        terminal = "resident worker failed; no automatic restart/fallback"
+        for row in details["execution"]:
+            if row["outcome"] != "pending":
+                continue
+            row.update(outcome="not_run", reason=terminal)
+            for variant, _, pack in packs[row["family"]]:
+                if variant == row.get("variant", "default"):
+                    retain_unexecuted(row["context"], pack, "not_run", terminal)
+        if local_pack is not None:
+            attempted = {row["context"] for row in details["local_execution"]}
+            for pending in range(len(prepared_source.selections)):
+                if pending not in attempted:
+                    details["local_execution"].append(
+                        dict(context=pending, outcome="not_run", reason=terminal)
+                    )
+                    retain_unexecuted(pending, local_pack, "not_run", terminal, local=True)
+        details["producer_failure"] = str(reason)
+        combined = ContributionBatch.combine(contribution_batches)
+        return M1CandidateProduct(
+            outcome=ObservationOutcome.PRODUCED
+            if combined.contributions
+            else ObservationOutcome.FAILED,
+            error=None if combined.contributions else str(reason),
+            parse_detail=details,
+            contributions=combined.contributions,
+            contribution_operations=combined.operations,
+            contribution_coordinate_texts=combined.coordinate_texts,
+            coverage=(
+                *coverage,
+                CoverageDraft(
+                    family=family,
+                    scope=prepared_source.selections[index].region,
+                    outcome="failed",
+                    reason=str(reason),
+                ),
+            ),
+        )
+
+    for region in prepared_source.regions:
+        for family in region.families:
+            coverage.append(
+                CoverageDraft(
+                    family="routing/" + family,
+                    scope=region.pointer,
+                    outcome="complete"
+                    if region.outcome in {"selected", "empty"}
+                    else "unsupported"
+                    if region.outcome == "unsupported"
+                    else "unknown"
+                    if region.outcome == "not_requested"
+                    else "partial",
+                    reason=region.reason,
+                )
+            )
+    if prepared_source.annotation_errors:
+        reason = "; ".join(prepared_source.annotation_errors)
+        for row in details["execution"]:
+            row.update(outcome="not_run", reason="required annotation profile unavailable")
+        return M1CandidateProduct(
+            outcome=ObservationOutcome.FAILED,
+            error=reason,
+            parse_detail=details,
+            coverage=tuple(coverage),
+        )
+    for index, selection in enumerate(prepared_source.selections):
+        check_active()
+        try:
+            context = selection.context(
+                prepared_source.source,
                 max_chars=cfg.max_context_chars,
                 max_pieces=cfg.max_context_pieces,
-                max_annotation_chars=cfg.max_annotation_chars,
-                check_active=ctx.check_active,
-                reader=ctx.reader,
-                persisted_annotations=annotations,
-                annotation_errors=annotation_errors,
+                related=prepared_source.related,
+                preparation=prepared_source.preparation,
                 policy=cfg.policy,
-                formula_prose=cfg.formula_prose,
-                region_pointers=cfg.region_pointers,
             )
-        product = self.produce_candidates(
-            prepared=ctx.reader.prepared,
-            view=view,
-            prepared_source=prepared_source,
-            annotation_result=annotation_result,
-            cfg=cfg,
-            check_active=ctx.check_active,
-            provider_execution=getattr(ctx.reader, "provider_execution", None),
-            generic_role_guidance=generic_role_guidance,
-            source_capture_rules=source_capture_rules,
-        )
-        return UnitResult(
-            ref=unit.ref,
-            outcome=product.outcome,
-            error=product.error,
-            parse_detail=product.parse_detail,
-            coverage=product.coverage,
-            records=product.records,
-            contribution_operations=product.contribution_operations,
-            contributions=product.contributions,
-            contribution_coordinate_texts=product.contribution_coordinate_texts,
-        )
-
-    def produce_candidates(
-        self,
-        *,
-        prepared,
-        view,
-        prepared_source,
-        annotation_result,
-        cfg,
-        check_active,
-        provider_execution=None,
-        generic_role_guidance=False,
-        source_capture_rules=(),
-    ) -> M1CandidateProduct:
-        """Drain the original synchronous caller through the authoritative kernel plan."""
-        plan = self.plan_candidates(
-            prepared=prepared,
-            view=view,
-            prepared_source=prepared_source,
-            annotation_result=annotation_result,
-            cfg=cfg,
-            check_active=check_active,
-            generic_role_guidance=generic_role_guidance,
-            source_capture_rules=source_capture_rules,
-        )
-        reply, failure = None, None
-        try:
-            while True:
-                try:
-                    request = plan.throw(failure) if failure is not None else plan.send(reply)
-                except StopIteration as completed:
-                    return completed.value
-                if not isinstance(request, M1GlinerRequest):
-                    raise TypeError("M1 kernel yielded an undeclared inference question")
-                try:
-                    reply = self._resident(
-                        request.profile,
-                        providers=provider_execution,
-                        native_profile=request.native_profile,
-                    ).extract(
-                        request.pack,
-                        request.inputs,
-                        threshold=request.threshold,
-                        check_active=check_active,
-                    )
-                    failure = None
-                except BaseException as error:
-                    reply, failure = None, error
-        finally:
-            plan.close()
-
-    def plan_candidate_replies(
-        self,
-        *,
-        prepared,
-        view,
-        prepared_source,
-        annotation_result,
-        cfg,
-        check_active,
-        generic_role_guidance=False,
-        source_capture_rules=(),
-    ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
-        """Translate only bounded provider dispositions into the original kernel."""
-        plan = self.plan_candidates(
-            prepared=prepared,
-            view=view,
-            prepared_source=prepared_source,
-            annotation_result=annotation_result,
-            cfg=cfg,
-            check_active=check_active,
-            generic_role_guidance=generic_role_guidance,
-            source_capture_rules=source_capture_rules,
-        )
-        reports, failure = None, None
-        try:
-            while True:
-                try:
-                    request = plan.throw(failure) if failure is not None else plan.send(reports)
-                except StopIteration as completed:
-                    return completed.value
-                reply = yield request
-                if not isinstance(reply, M1GlinerReply):
-                    raise TypeError("M1 requires its typed provider reply")
-                if reply.failure == "refused":
-                    reports, failure = None, GlinerRefused(reply.message)
-                elif reply.failure == "worker":
-                    reports, failure = None, GlinerWorkerError(reply.message)
-                elif len(reply.reports) != len(request.inputs):
-                    raise ValueError("M1 reply changed its exact inference question population")
-                else:
-                    reports, failure = reply.reports, None
-        finally:
-            plan.close()
-
-    def plan_candidates(
-        self,
-        *,
-        prepared,
-        view,
-        prepared_source,
-        annotation_result,
-        cfg,
-        check_active,
-        generic_role_guidance=False,
-        source_capture_rules=(),
-    ):
-        """Execute only explicitly prepared language, annotation and selected primary facts.
-
-        Preparation and native binding own discovery. This kernel never obtains a
-        Reader, UnitView, task, connection or selection query.
-        """
-        from corpus_structure.methods.assertion_qualification import AssertionQualification
-        from corpus_structure.methods.record_assembly import (
-            AssemblyDiagnostic,
-            NativeRecordGroup,
-            RoleInput,
-            assemble_native_records,
-            assemble_records,
-            native_group_identity,
-            reconcile_record_candidates,
-        )
-
-        packs = configured_pack_variants(prepared, cfg, generic_role_guidance=generic_role_guidance)
-        assertion_qualification = AssertionQualification(
-            prepared_source.source, prepared_source.annotations, view.pieces, view.items
-        )
-        details: dict[str, Any] = dict(
-            policy=cfg.policy,
-            standing="private_uncalibrated_candidates",
-            source_pin=asdict(NativeSourcePin.from_source(prepared_source.source)),
-            regions=[asdict(region) for region in prepared_source.regions],
-            contexts=[
-                json.loads(canonical_bytes(asdict(selection)))
-                for selection in prepared_source.selections
-            ],
-            annotation_product=(
-                {
-                    **annotation_result,
-                    "blocks": [
-                        product.dependency_digest for product in prepared_source.annotations
-                    ],
-                }
-                if "semantic_product" in annotation_result
-                else dict(
-                    method=annotation_result["method"],
-                    input_hash=annotation_result["input_hash"],
-                    configuration_hash=annotation_result["configuration_hash"],
-                    dependency_digest=sha256(canonical_bytes(annotation_result)).hexdigest(),
-                    blocks=[product.dependency_digest for product in prepared_source.annotations],
-                )
-            ),
-            annotation_errors=list(prepared_source.annotation_errors),
-            exclusions=list(prepared_source.exclusions),
-            effective_profiles={},
-            occurrence_policy=cfg.occurrence_policy,
-            record_policy_version=cfg.record_policy_version,
-            source_inspection=cfg.source_inspection,
-            source_region_selection=dict(
-                projection_digest=cfg.source_projection_digest,
-                region_pointers=cfg.region_pointers,
-                scope="explicit_native_regions"
-                if cfg.region_pointers is not None
-                else "all_prepared_regions",
-            ),
-            model_observations=[],
-            record_policy_events=[],
-            reports=[],
-            runtime=dict(
-                parent_threads=cfg.parent_threads,
-                child_threads=cfg.threads,
-                concurrent_sources=1,
-                aggregate_rss="unqualified",
-                ordinary_workload="unqualified",
-            ),
-        )
-        if generic_role_guidance:
-            details["comparison_arm"] = "generic-source-role-guidance-1"
-        source_capture = None
-        if source_capture_rules:
-            from corpus_structure.methods.m1_source_capture import SourceRecordCapture
-
-            source_capture = SourceRecordCapture(
-                prepared, _source_vocabulary(), source_capture_rules
-            )
-            details["comparison_arm"] = "exact-source-rule-capture-1"
-            details["source_capture_rules"] = [
-                rule.model_dump(mode="json") for rule in source_capture_rules
-            ]
-        from corpus_structure.methods.contribution_adapter import (
-            ADAPTER_VERSION,
-            LOCAL_ADAPTER_VERSION,
-            ContributionBatch,
-            adapt_native_groups,
-            adapt_report,
-        )
-
-        contribution_batches = []
-        local_pack = (
-            GlinerPack.from_declaration(
-                next(iter(packs.values()))[0][2].release,
-                cfg.local_schema,
-                version="native-local-v1",
-            )
-            if cfg.local_schema is not None
-            else None
-        )
-        details["schema_packs"] = {
-            pack.fingerprint: asdict(pack) for variants in packs.values() for _, _, pack in variants
-        }
-        details["context_manifests"] = {}
-        details["local_reports"] = []
-        details["local_execution"] = []
-        if local_pack is not None:
-            details["schema_packs"][local_pack.fingerprint] = asdict(local_pack)
-        assemblies = []
-        coverage = []
-        details["execution"] = [
-            dict(
-                context=index,
-                family=family,
-                outcome="pending",
-                reason="not yet executed",
-                **(
-                    dict(variant=variant, anchor_role=anchor)
-                    if cfg.policy in {POLICY_V5, POLICY_V6}
-                    else {}
-                ),
-            )
-            for index, selection in enumerate(prepared_source.selections)
-            for family in selection.families
-            for variant, anchor, _ in packs[family]
-        ]
-        execution = {
-            (row["context"], row["family"], row.get("variant", "default")): row
-            for row in details["execution"]
-        }
-
-        def retain_unexecuted(index, pack, outcome, reason, *, local=False):
-            from corpus_structure.semantic.contributions import operation_identity
-
-            selected = prepared_source.selections[index]
-            operation = dict(
-                question="retain_native_spans_attributes_relations"
-                if local
-                else "recover_returned_local_contributions",
-                operation_version=LOCAL_ADAPTER_VERSION if local else ADAPTER_VERSION,
-                outcome=outcome,
-                inspected_count=0,
-                emitted_count=0,
-                reason=reason,
-                inputs=(),
-                computation_dependencies=(
-                    "pack:" + pack.fingerprint,
-                    "source-projection:" + prepared_source.source.projection_digest,
-                    "selection:" + sha256(canonical_bytes(asdict(selected))).hexdigest(),
-                ),
-            )
-            operation["operation_key"] = operation_identity(operation, context=index)
-            contribution_batches.append(ContributionBatch(operations=(operation,)))
-
-        def stop_failed_worker(reason, family, index):
-            terminal = "resident worker failed; no automatic restart/fallback"
-            for row in details["execution"]:
-                if row["outcome"] != "pending":
-                    continue
-                row.update(outcome="not_run", reason=terminal)
-                for variant, _, pack in packs[row["family"]]:
-                    if variant == row.get("variant", "default"):
-                        retain_unexecuted(row["context"], pack, "not_run", terminal)
+        except ContextRefused as error:
             if local_pack is not None:
-                attempted = {row["context"] for row in details["local_execution"]}
-                for pending in range(len(prepared_source.selections)):
-                    if pending not in attempted:
-                        details["local_execution"].append(
-                            dict(context=pending, outcome="not_run", reason=terminal)
-                        )
-                        retain_unexecuted(pending, local_pack, "not_run", terminal, local=True)
-            details["producer_failure"] = str(reason)
-            combined = ContributionBatch.combine(contribution_batches)
-            return M1CandidateProduct(
-                outcome=ObservationOutcome.PRODUCED
-                if combined.contributions
-                else ObservationOutcome.FAILED,
-                error=None if combined.contributions else str(reason),
-                parse_detail=details,
-                contributions=combined.contributions,
-                contribution_operations=combined.operations,
-                contribution_coordinate_texts=combined.coordinate_texts,
-                coverage=(
-                    *coverage,
-                    CoverageDraft(
-                        family=family,
-                        scope=prepared_source.selections[index].region,
-                        outcome="failed",
-                        reason=str(reason),
-                    ),
-                ),
-            )
-
-        for region in prepared_source.regions:
-            for family in region.families:
-                coverage.append(
-                    CoverageDraft(
-                        family="routing/" + family,
-                        scope=region.pointer,
-                        outcome="complete"
-                        if region.outcome in {"selected", "empty"}
-                        else "unsupported"
-                        if region.outcome == "unsupported"
-                        else "unknown"
-                        if region.outcome == "not_requested"
-                        else "partial",
-                        reason=region.reason,
-                    )
+                details["local_execution"].append(
+                    dict(context=index, outcome="limited", reason=str(error))
                 )
-        if prepared_source.annotation_errors:
-            reason = "; ".join(prepared_source.annotation_errors)
-            for row in details["execution"]:
-                row.update(outcome="not_run", reason="required annotation profile unavailable")
-            return M1CandidateProduct(
-                outcome=ObservationOutcome.FAILED,
-                error=reason,
-                parse_detail=details,
-                coverage=tuple(coverage),
-            )
-        for index, selection in enumerate(prepared_source.selections):
-            check_active()
-            try:
-                context = selection.context(
-                    prepared_source.source,
-                    max_chars=cfg.max_context_chars,
-                    max_pieces=cfg.max_context_pieces,
-                    related=prepared_source.related,
-                    preparation=prepared_source.preparation,
-                    policy=cfg.policy,
-                )
-            except ContextRefused as error:
-                if local_pack is not None:
-                    details["local_execution"].append(
-                        dict(context=index, outcome="limited", reason=str(error))
-                    )
-                    retain_unexecuted(index, local_pack, "limited", str(error), local=True)
-                for family in selection.families:
-                    for variant, anchor, selected_pack in packs[family]:
-                        retain_unexecuted(index, selected_pack, "limited", str(error))
-                        execution[index, family, variant].update(
-                            outcome="limited", reason=str(error)
-                        )
-                        metadata = (
-                            dict(variant=variant, anchor_role=anchor)
-                            if cfg.policy in {POLICY_V5, POLICY_V6}
-                            else {}
-                        )
-                        details["reports"].append(
-                            dict(
-                                context=index,
-                                family=family,
-                                outcome="limited",
-                                reason=str(error),
-                                **metadata,
-                            )
-                        )
-                        scope = f"{selection.region}:{selection.start}:{selection.end}"
-                        if metadata:
-                            scope += f":{variant}"
-                        coverage.append(
-                            CoverageDraft(
-                                family=family,
-                                scope=scope,
-                                outcome="partial",
-                                reason=str(error),
-                            )
-                        )
-                continue
-            details["context_manifests"][str(index)] = dict(
-                version=context.version,
-                max_chars=context.max_chars,
-                max_pieces=context.max_pieces,
-                max_sources=context.max_sources,
-            )
-            if source_capture is not None:
-                for family in selection.families:
-                    contract, anchor = FAMILIES[family]
-                    captured = source_capture.capture(
-                        context,
-                        contract,
-                        prepared_source.annotations,
-                        selection.start,
-                        selection.end,
-                    )
-                    if not captured:
-                        continue
-                    assembled = assemble_native_records(
-                        prepared,
-                        context,
-                        contract=contract,
-                        occurrence_roles=(anchor,),
-                        policy_version=cfg.record_policy_version,
-                        occurrence_policy=cfg.occurrence_policy,
-                        groups=captured,
-                    )
-                    assemblies.append(assembled)
-                    contribution_batches.append(
-                        adapt_native_groups(
-                            context,
-                            family=family,
-                            groups=captured,
-                            item_key=f"source-capture/{index}/{family}",
-                        )
-                    )
-                    details["reports"].append(
-                        dict(
-                            context=index,
-                            family=family,
-                            operation="exact_source_rule_capture",
-                            context_digest=context.dependency_digest,
-                            groups=[asdict(group) for group in captured],
-                            diagnostics=[asdict(item) for item in assembled.diagnostics],
-                        )
-                    )
-            if local_pack is not None:
-                check_active()
-                try:
-                    (local_report,) = yield M1GlinerRequest(
-                        cfg.profile(),
-                        local_pack,
-                        (GlinerInput.from_context(context),),
-                        cfg.threshold,
-                        cfg.native_execution_profile,
-                    )
-                    contribution_batches.append(
-                        adapt_report(
-                            local_report,
-                            context,
-                            pack=local_pack,
-                            item_key=f"local/{index}",
-                        )
-                    )
-                    details["local_reports"].append(
-                        dict(
-                            context=index,
-                            pack=local_pack.fingerprint,
-                            report=_retained_report(local_report, details["effective_profiles"]),
-                        )
-                    )
-                    details["local_execution"].append(dict(context=index, outcome="succeeded"))
-                except (GlinerRefused, GlinerWorkerError) as error:
-                    outcome = "limited" if isinstance(error, GlinerRefused) else "failed"
-                    details["local_execution"].append(
-                        dict(context=index, outcome=outcome, reason=str(error))
-                    )
-                    retain_unexecuted(index, local_pack, outcome, str(error), local=True)
-                    if isinstance(error, GlinerWorkerError):
-                        return stop_failed_worker(error, "local_contributions", index)
-            for family, variant, anchor, pack in (
-                (requested_family, variant, anchor, pack)
-                for requested_family in selection.families
-                for variant, anchor, pack in packs[requested_family]
-            ):
-                contract = FAMILIES[family][0]
-                metadata = (
-                    dict(variant=variant, anchor_role=anchor)
-                    if cfg.policy in {POLICY_V5, POLICY_V6}
-                    else {}
-                )
-                scope = f"{selection.region}:{selection.start}:{selection.end}"
-                if metadata:
-                    scope += f":{variant}"
-                try:
-                    native_groups = (
-                        _structural_groups(view, selection, context)
-                        if family in {"table", "formula_context"}
-                        else ()
-                    )
-                    if native_groups:
-                        contribution_batches.append(
-                            adapt_native_groups(
-                                context,
-                                family=family,
-                                groups=native_groups,
-                                item_key=f"native/{index}/{family}/{variant}",
-                            )
-                        )
-                    occurrence_roles = (anchor,)
-                    native_diagnostics = ()
-                    native_records = ()
-                    if native_groups and family == "table":
-                        native = assemble_native_records(
-                            prepared,
-                            context,
-                            contract=contract,
-                            occurrence_roles=occurrence_roles,
-                            policy_version=cfg.record_policy_version,
-                            occurrence_policy=cfg.occurrence_policy,
-                            groups=native_groups,
-                        )
-                        assemblies.append(native)
-                        native_diagnostics = native.diagnostics
-                        native_records = native.records
-                        details["reports"].append(
-                            dict(
-                                context=index,
-                                family=family,
-                                operation="native_structure",
-                                context_digest=context.dependency_digest,
-                                groups=[asdict(group) for group in native_groups],
-                                diagnostics=[asdict(d) for d in native.diagnostics],
-                                **metadata,
-                            )
-                        )
-                    (report,) = yield M1GlinerRequest(
-                        cfg.profile(),
-                        pack,
-                        (GlinerInput.from_context(context),),
-                        cfg.threshold,
-                        cfg.native_execution_profile,
-                    )
-                    association_diagnostics: list[dict[str, Any]] = []
-                    report_entry = dict(
-                        context=index,
-                        family=family,
-                        report=_retained_report(report, details["effective_profiles"]),
-                        diagnostics=[],
-                        association_diagnostics=association_diagnostics,
-                        **metadata,
-                    )
-                    contribution_batches.append(
-                        adapt_report(
-                            report,
-                            context,
-                            pack=pack,
-                            item_key=f"retained/reports[{len(details['reports'])}]",
-                        )
-                    )
-                    details["reports"].append(report_entry)
-                    if family == "formula_context" and native_groups:
-                        details["reports"].append(
-                            dict(
-                                context=index,
-                                family=family,
-                                operation="native_structure",
-                                context_digest=context.dependency_digest,
-                                groups=[asdict(group) for group in native_groups],
-                                **metadata,
-                            )
-                        )
-                        if not report.raw.get(family):
-                            native_diagnostics = (
-                                AssemblyDiagnostic(
-                                    -1,
-                                    "symbol",
-                                    "unresolved_formula_binding",
-                                    "native formula retained, but no independent symbol/meaning "
-                                    "inspection proposal establishes a binding "
-                                    "or formula-only reading",
-                                ),
-                            )
-                            association_diagnostics.extend(asdict(d) for d in native_diagnostics)
-                    from corpus_structure.methods.record_readings import native_model_observations
-
-                    details["model_observations"].extend(
-                        native_model_observations(
-                            report,
-                            context=context,
-                            family=family,
-                            context_index=index,
-                        )
-                    )
-                    supplements = {}
-                    for group_index, group in enumerate(report.raw.get(family, ())):
-                        if family == "assertion" and isinstance(group, dict):
-                            supplement = assertion_qualification.supplement(
-                                context, pack, report, group
-                            )
-                            if supplement is not None:
-                                supplements[group_index] = supplement
-                        elif family == "definition":
-                            supplements[group_index] = NativeRecordGroup(
-                                (
-                                    RoleInput(
-                                        "scope", native_pointer=context.primary.section_pointer
-                                    ),
-                                ),
-                                "selected native section is the explicit definition scope",
-                            )
-                        elif family == "formula_context" and native_groups:
-                            if _formula_matches_primary(context, group, selection.region):
-                                supplements[group_index] = native_groups[0]
-                            else:
-                                association_diagnostics.append(
-                                    dict(
-                                        group=group_index,
-                                        reason="formula span does not identify the selected native "
-                                        "formula; no structural supplement attached",
-                                    )
-                                )
-                        elif family == "formula_context" and cfg.formula_prose:
-                            # The decoder supplies the formula span. Native source
-                            # custody supplies scope only, without a fabricated
-                            # FormulaOccurrence or recognition/representation status.
-                            supplement = _prose_formula_scope(view, context, group)
-                            if supplement is not None:
-                                supplements[group_index] = supplement
-                            else:
-                                association_diagnostics.append(
-                                    dict(
-                                        group=group_index,
-                                        reason="decoded prose formula has no "
-                                        "exact primary-source span; no native scope attached",
-                                    )
-                                )
-                        elif family == "table":
-                            raw_value = group.get("cell_value")
-                            if isinstance(raw_value, dict):
-                                try:
-                                    evidence = context.map_span(
-                                        raw_value["start"],
-                                        raw_value["end"],
-                                        literal=raw_value["text"],
-                                        allow_multiple=True,
-                                    )
-                                except (KeyError, TypeError, ContextRefused) as error:
-                                    association_diagnostics.append(
-                                        dict(group=group_index, reason=str(error))
-                                    )
-                                    continue
-                                indices = set()
-                                for piece in evidence:
-                                    if not isinstance(piece, NativeSpanEvidence):
-                                        raise ContextRefused(
-                                            "M1 table association requires native evidence"
-                                        )
-                                    indices.add(piece.cell_index)
-                                if len(indices) == 1 and None not in indices:
-                                    cell = next(iter(indices))
-                                    pointer = f"{selection.region}/data/table_cells/{cell}"
-                                    matching = [
-                                        g
-                                        for g in native_groups
-                                        if any(
-                                            f.role == "cell" and f.native_pointer == pointer
-                                            for f in g.fields
-                                        )
-                                    ]
-                                    if len(matching) == 1:
-                                        supplements[group_index] = matching[0]
-                    assembled = assemble_records(
-                        prepared,
-                        context,
-                        pack,
-                        report,
-                        contract=contract,
-                        anchor_role=anchor,
-                        policy_version=cfg.record_policy_version,
-                        occurrence_policy=cfg.occurrence_policy,
-                        occurrence_roles=occurrence_roles,
-                        supplements=supplements,
-                    )
-                    assemblies.append(assembled)
-                    report_entry["diagnostics"] = [
-                        dict(
-                            asdict(d),
-                            group_dependency=native_group_identity(
-                                report,
-                                d.group,
-                                report.raw[family][d.group],
-                            ),
-                        )
-                        for d in assembled.diagnostics
-                    ]
-                    if assembled.unattached_roles:
-                        report_entry["unattached_roles"] = [
-                            asdict(role) for role in assembled.unattached_roles
-                        ]
-                    incomplete = bool(assembled.diagnostics or native_diagnostics)
-                    coverage.append(
-                        CoverageDraft(
-                            family=family,
-                            scope=scope,
-                            outcome="partial" if incomplete else "complete",
-                            reason="assembly diagnostics retained"
-                            if incomplete
-                            else (
-                                "extraction complete; empty output leaves source meaning unresolved"
-                            ),
-                        )
-                    )
+                retain_unexecuted(index, local_pack, "limited", str(error), local=True)
+            for family in selection.families:
+                for variant, anchor, selected_pack in packs[family]:
+                    retain_unexecuted(index, selected_pack, "limited", str(error))
                     execution[index, family, variant].update(
-                        outcome="partial" if incomplete else "complete",
-                        reason="candidate output"
-                        if assembled.records or native_records
-                        else "no located candidate output",
+                        outcome="limited", reason=str(error)
                     )
-                except GlinerRefused as error:
-                    retain_unexecuted(index, pack, "limited", str(error))
-                    execution[index, family, variant].update(outcome="limited", reason=str(error))
+                    metadata = (
+                        dict(variant=variant, anchor_role=anchor)
+                        if cfg.policy in {POLICY_V5, POLICY_V6}
+                        else {}
+                    )
                     details["reports"].append(
                         dict(
                             context=index,
@@ -1175,6 +649,9 @@ class M1Candidates:
                             **metadata,
                         )
                     )
+                    scope = f"{selection.region}:{selection.start}:{selection.end}"
+                    if metadata:
+                        scope += f":{variant}"
                     coverage.append(
                         CoverageDraft(
                             family=family,
@@ -1183,52 +660,389 @@ class M1Candidates:
                             reason=str(error),
                         )
                     )
-                except GlinerWorkerError as error:
-                    execution[index, family, variant].update(outcome="failed", reason=str(error))
-                    retain_unexecuted(index, pack, "failed", str(error))
+            continue
+        details["context_manifests"][str(index)] = dict(
+            version=context.version,
+            max_chars=context.max_chars,
+            max_pieces=context.max_pieces,
+            max_sources=context.max_sources,
+        )
+        if source_capture is not None:
+            for family in selection.families:
+                contract, anchor = FAMILIES[family]
+                captured = source_capture.capture(
+                    context,
+                    contract,
+                    prepared_source.annotations,
+                    selection.start,
+                    selection.end,
+                )
+                if not captured:
+                    continue
+                assembled = assemble_native_records(
+                    prepared,
+                    context,
+                    contract=contract,
+                    occurrence_roles=(anchor,),
+                    policy_version=cfg.record_policy_version,
+                    occurrence_policy=cfg.occurrence_policy,
+                    groups=captured,
+                )
+                assemblies.append(assembled)
+                contribution_batches.append(
+                    adapt_native_groups(
+                        context,
+                        family=family,
+                        groups=captured,
+                        item_key=f"source-capture/{index}/{family}",
+                    )
+                )
+                details["reports"].append(
+                    dict(
+                        context=index,
+                        family=family,
+                        operation="exact_source_rule_capture",
+                        context_digest=context.dependency_digest,
+                        groups=[asdict(group) for group in captured],
+                        diagnostics=[asdict(item) for item in assembled.diagnostics],
+                    )
+                )
+        if local_pack is not None:
+            check_active()
+            try:
+                (local_report,) = yield M1GlinerRequest(
+                    cfg.profile(),
+                    local_pack,
+                    (GlinerInput.from_context(context),),
+                    cfg.threshold,
+                    cfg.native_execution_profile,
+                )
+                contribution_batches.append(
+                    adapt_report(
+                        local_report,
+                        context,
+                        pack=local_pack,
+                        item_key=f"local/{index}",
+                    )
+                )
+                details["local_reports"].append(
+                    dict(
+                        context=index,
+                        pack=local_pack.fingerprint,
+                        report=_retained_report(local_report, details["effective_profiles"]),
+                    )
+                )
+                details["local_execution"].append(dict(context=index, outcome="succeeded"))
+            except (GlinerRefused, GlinerWorkerError) as error:
+                outcome = "limited" if isinstance(error, GlinerRefused) else "failed"
+                details["local_execution"].append(
+                    dict(context=index, outcome=outcome, reason=str(error))
+                )
+                retain_unexecuted(index, local_pack, outcome, str(error), local=True)
+                if isinstance(error, GlinerWorkerError):
+                    return stop_failed_worker(error, "local_contributions", index)
+        for family, variant, anchor, pack in (
+            (requested_family, variant, anchor, pack)
+            for requested_family in selection.families
+            for variant, anchor, pack in packs[requested_family]
+        ):
+            contract = FAMILIES[family][0]
+            metadata = (
+                dict(variant=variant, anchor_role=anchor)
+                if cfg.policy in {POLICY_V5, POLICY_V6}
+                else {}
+            )
+            scope = f"{selection.region}:{selection.start}:{selection.end}"
+            if metadata:
+                scope += f":{variant}"
+            try:
+                native_groups = (
+                    _structural_groups(view, selection, context)
+                    if family in {"table", "formula_context"}
+                    else ()
+                )
+                if native_groups:
+                    contribution_batches.append(
+                        adapt_native_groups(
+                            context,
+                            family=family,
+                            groups=native_groups,
+                            item_key=f"native/{index}/{family}/{variant}",
+                        )
+                    )
+                occurrence_roles = (anchor,)
+                native_diagnostics = ()
+                native_records = ()
+                if native_groups and family == "table":
+                    native = assemble_native_records(
+                        prepared,
+                        context,
+                        contract=contract,
+                        occurrence_roles=occurrence_roles,
+                        policy_version=cfg.record_policy_version,
+                        occurrence_policy=cfg.occurrence_policy,
+                        groups=native_groups,
+                    )
+                    assemblies.append(native)
+                    native_diagnostics = native.diagnostics
+                    native_records = native.records
                     details["reports"].append(
                         dict(
                             context=index,
                             family=family,
-                            outcome="failed",
-                            reason=str(error),
+                            operation="native_structure",
+                            context_digest=context.dependency_digest,
+                            groups=[asdict(group) for group in native_groups],
+                            diagnostics=[asdict(d) for d in native.diagnostics],
                             **metadata,
                         )
                     )
-                    return stop_failed_worker(error, family, index)
-        check_active()
-        contribution_batch = ContributionBatch.combine(contribution_batches)
-        records = tuple(
-            record.model_dump(mode="python")
-            for record in reconcile_record_candidates(prepared, assemblies)
-        )
-        from corpus_structure.methods.record_readings import interpret_candidate_readings
+                (report,) = yield M1GlinerRequest(
+                    cfg.profile(),
+                    pack,
+                    (GlinerInput.from_context(context),),
+                    cfg.threshold,
+                    cfg.native_execution_profile,
+                )
+                association_diagnostics: list[dict[str, Any]] = []
+                report_entry = dict(
+                    context=index,
+                    family=family,
+                    report=_retained_report(report, details["effective_profiles"]),
+                    diagnostics=[],
+                    association_diagnostics=association_diagnostics,
+                    **metadata,
+                )
+                contribution_batches.append(
+                    adapt_report(
+                        report,
+                        context,
+                        pack=pack,
+                        item_key=f"retained/reports[{len(details['reports'])}]",
+                    )
+                )
+                details["reports"].append(report_entry)
+                if family == "formula_context" and native_groups:
+                    details["reports"].append(
+                        dict(
+                            context=index,
+                            family=family,
+                            operation="native_structure",
+                            context_digest=context.dependency_digest,
+                            groups=[asdict(group) for group in native_groups],
+                            **metadata,
+                        )
+                    )
+                    if not report.raw.get(family):
+                        native_diagnostics = (
+                            AssemblyDiagnostic(
+                                -1,
+                                "symbol",
+                                "unresolved_formula_binding",
+                                "native formula retained, but no independent symbol/meaning "
+                                "inspection proposal establishes a binding "
+                                "or formula-only reading",
+                            ),
+                        )
+                        association_diagnostics.extend(asdict(d) for d in native_diagnostics)
+                from corpus_structure.methods.record_readings import native_model_observations
 
-        details["record_interpretation"] = interpret_candidate_readings(
-            records,
-            request_factory=self.interpretation_request,
+                details["model_observations"].extend(
+                    native_model_observations(
+                        report,
+                        context=context,
+                        family=family,
+                        context_index=index,
+                    )
+                )
+                supplements = {}
+                for group_index, group in enumerate(report.raw.get(family, ())):
+                    if family == "assertion" and isinstance(group, dict):
+                        supplement = assertion_qualification.supplement(
+                            context, pack, report, group
+                        )
+                        if supplement is not None:
+                            supplements[group_index] = supplement
+                    elif family == "definition":
+                        supplements[group_index] = NativeRecordGroup(
+                            (
+                                RoleInput(
+                                    "scope", native_pointer=context.primary.section_pointer
+                                ),
+                            ),
+                            "selected native section is the explicit definition scope",
+                        )
+                    elif family == "formula_context" and native_groups:
+                        if _formula_matches_primary(context, group, selection.region):
+                            supplements[group_index] = native_groups[0]
+                        else:
+                            association_diagnostics.append(
+                                dict(
+                                    group=group_index,
+                                    reason="formula span does not identify the selected native "
+                                    "formula; no structural supplement attached",
+                                )
+                            )
+                    elif family == "formula_context" and cfg.formula_prose:
+                        # The decoder supplies the formula span. Native source
+                        # custody supplies scope only, without a fabricated
+                        # FormulaOccurrence or recognition/representation status.
+                        supplement = _prose_formula_scope(view, context, group)
+                        if supplement is not None:
+                            supplements[group_index] = supplement
+                        else:
+                            association_diagnostics.append(
+                                dict(
+                                    group=group_index,
+                                    reason="decoded prose formula has no "
+                                    "exact primary-source span; no native scope attached",
+                                )
+                            )
+                    elif family == "table":
+                        raw_value = group.get("cell_value")
+                        if isinstance(raw_value, dict):
+                            try:
+                                evidence = context.map_span(
+                                    raw_value["start"],
+                                    raw_value["end"],
+                                    literal=raw_value["text"],
+                                    allow_multiple=True,
+                                )
+                            except (KeyError, TypeError, ContextRefused) as error:
+                                association_diagnostics.append(
+                                    dict(group=group_index, reason=str(error))
+                                )
+                                continue
+                            indices = set()
+                            for piece in evidence:
+                                if not isinstance(piece, NativeSpanEvidence):
+                                    raise ContextRefused(
+                                        "M1 table association requires native evidence"
+                                    )
+                                indices.add(piece.cell_index)
+                            if len(indices) == 1 and None not in indices:
+                                cell = next(iter(indices))
+                                pointer = f"{selection.region}/data/table_cells/{cell}"
+                                matching = [
+                                    g
+                                    for g in native_groups
+                                    if any(
+                                        f.role == "cell" and f.native_pointer == pointer
+                                        for f in g.fields
+                                    )
+                                ]
+                                if len(matching) == 1:
+                                    supplements[group_index] = matching[0]
+                assembled = assemble_records(
+                    prepared,
+                    context,
+                    pack,
+                    report,
+                    contract=contract,
+                    anchor_role=anchor,
+                    policy_version=cfg.record_policy_version,
+                    occurrence_policy=cfg.occurrence_policy,
+                    occurrence_roles=occurrence_roles,
+                    supplements=supplements,
+                )
+                assemblies.append(assembled)
+                report_entry["diagnostics"] = [
+                    dict(
+                        asdict(d),
+                        group_dependency=native_group_identity(
+                            report,
+                            d.group,
+                            report.raw[family][d.group],
+                        ),
+                    )
+                    for d in assembled.diagnostics
+                ]
+                if assembled.unattached_roles:
+                    report_entry["unattached_roles"] = [
+                        asdict(role) for role in assembled.unattached_roles
+                    ]
+                incomplete = bool(assembled.diagnostics or native_diagnostics)
+                coverage.append(
+                    CoverageDraft(
+                        family=family,
+                        scope=scope,
+                        outcome="partial" if incomplete else "complete",
+                        reason="assembly diagnostics retained"
+                        if incomplete
+                        else (
+                            "extraction complete; empty output leaves source meaning unresolved"
+                        ),
+                    )
+                )
+                execution[index, family, variant].update(
+                    outcome="partial" if incomplete else "complete",
+                    reason="candidate output"
+                    if assembled.records or native_records
+                    else "no located candidate output",
+                )
+            except GlinerRefused as error:
+                retain_unexecuted(index, pack, "limited", str(error))
+                execution[index, family, variant].update(outcome="limited", reason=str(error))
+                details["reports"].append(
+                    dict(
+                        context=index,
+                        family=family,
+                        outcome="limited",
+                        reason=str(error),
+                        **metadata,
+                    )
+                )
+                coverage.append(
+                    CoverageDraft(
+                        family=family,
+                        scope=scope,
+                        outcome="partial",
+                        reason=str(error),
+                    )
+                )
+            except GlinerWorkerError as error:
+                execution[index, family, variant].update(outcome="failed", reason=str(error))
+                retain_unexecuted(index, pack, "failed", str(error))
+                details["reports"].append(
+                    dict(
+                        context=index,
+                        family=family,
+                        outcome="failed",
+                        reason=str(error),
+                        **metadata,
+                    )
+                )
+                return stop_failed_worker(error, family, index)
+    check_active()
+    contribution_batch = ContributionBatch.combine(contribution_batches)
+    records = tuple(
+        record.model_dump(mode="python")
+        for record in reconcile_record_candidates(prepared, assemblies)
+    )
+    from corpus_structure.methods.record_readings import interpret_candidate_readings
+
+    details["record_interpretation"] = interpret_candidate_readings(records)
+    details["record_policy_events"] = [
+        dict(
+            record_id=record["record_id"],
+            interpretation_id=record["interpretation_id"],
+            feature_instance_digest=None,
+            feature_input_digest=None,
+            event_procedure="independent_complete_reading",
+            final_event_score=None,
+            outcome="not_run",
+            diagnostics=["fitted record policy instance unavailable"],
         )
-        details["record_policy_events"] = [
-            dict(
-                record_id=record["record_id"],
-                interpretation_id=record["interpretation_id"],
-                feature_instance_digest=None,
-                feature_input_digest=None,
-                event_procedure="independent_complete_reading",
-                final_event_score=None,
-                outcome="not_run",
-                diagnostics=["fitted record policy instance unavailable"],
-            )
-            for record in records
-        ]
-        return M1CandidateProduct(
-            outcome=ObservationOutcome.PRODUCED
-            if records or contribution_batch.contributions
-            else ObservationOutcome.EMPTY,
-            records=records,
-            contributions=contribution_batch.contributions,
-            contribution_operations=contribution_batch.operations,
-            contribution_coordinate_texts=contribution_batch.coordinate_texts,
-            coverage=tuple(coverage),
-            parse_detail=details,
-        )
+        for record in records
+    ]
+    return M1CandidateProduct(
+        outcome=ObservationOutcome.PRODUCED
+        if records or contribution_batch.contributions
+        else ObservationOutcome.EMPTY,
+        records=records,
+        contributions=contribution_batch.contributions,
+        contribution_operations=contribution_batch.operations,
+        contribution_coordinate_texts=contribution_batch.coordinate_texts,
+        coverage=tuple(coverage),
+        parse_detail=details,
+    )

@@ -415,7 +415,6 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
         contextual_candidates=retrieve,
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
-    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
 
     result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref,
         encode=encoded if provider_available else None, retrieve=retrieve, neighborhood=reader.contextual_mutual_neighbors)
@@ -647,7 +646,6 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
         cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
     )
-    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     if isinstance(failure, DatabaseOperationCancelled):
         with pytest.raises(DatabaseOperationCancelled):
@@ -1133,7 +1131,6 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         contextual_mutual_neighbors=lambda _: {"directed_ranks": [], "edges": []},
         prepared=SimpleNamespace(release_id="release"),
     )
-    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
 
     result = contextual_fixture_result(contextual_fixture_inputs(reader, source, cfg), cfg, unit.ref,

@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
+from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
+
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.methods.assertion_qualification import AssertionQualification
 from corpus_structure.methods.gliner import GlinerRefused
 from corpus_structure.methods.m1_annotations import consume_annotations
-from corpus_structure.methods.m1_source import M1Candidates, configured_packs
+from corpus_structure.methods.m1_source import configured_packs
 from corpus_structure.methods.record_assembly import OCCURRENCE_POLICY, assemble_records
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
@@ -58,16 +58,11 @@ class AssertionDecoder(ControlledDecoder):
 def produce(monkeypatch, text, groups, *, heading=None):
     source = view(text, heading=heading)
     reader = owned_reader(source)
-    producer = M1Candidates()
+
     decoder = AssertionDecoder(text, groups)
-    monkeypatch.setattr(
-        producer, "_resident", lambda _profile, *, providers, native_profile: decoder
-    )
+    decoder = decoder
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
-    (result,) = producer.run(
-        (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
-    )
+    result = candidate_fixture_product(candidate_fixture_inputs(reader, source, cfg, check_active=lambda: None), decoder)
     assert result.records and result.parse_detail
     assert all(r["family"] == "assertion" and r["standing"] == "candidate" for r in result.records)
     return result.records, result.parse_detail

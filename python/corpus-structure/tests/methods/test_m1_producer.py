@@ -6,8 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
+
+from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import GlinerWorkerError
@@ -61,23 +62,14 @@ def test_local_schema_survives_empty_record_outputs(monkeypatch):
             )
 
     source = view()
-    method = m1_source.M1Candidates()
-    monkeypatch.setattr(
-        method, "_resident", lambda _, *, providers, native_profile: LocalDecoder("empty")
-    )
+
+    decoder = LocalDecoder("empty")
     cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
         update={
             "local_schema": {"entities": ["term"]},
         }
     )
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
-        cfg,
-        SimpleNamespace(
-            reader=owned_reader(source),
-            check_active=lambda: None,
-        ),
-    )
+    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None), decoder)
     assert result.contributions is not None
     types = {row["semantic_type"] for row in result.contributions}
     assert "entity.term" in types
@@ -127,18 +119,15 @@ def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkey
     from methods.domain_configuration import candidate_configuration
 
     source = view()
-    method = m1_source.M1Candidates()
-    monkeypatch.setattr(
-        method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
-    )
+
+    decoder = ControlledDecoder("empty")
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=owned_reader(source), check_active=lambda: None)
 
-    (baseline,) = method.run((unit,), cfg, ctx)
-    (guided,) = method.run_generic_role_guidance_comparison((unit,), cfg, ctx)
+    baseline = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder)
+    guided = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder, generic_role_guidance=True)
 
     assert baseline.parse_detail is not None and guided.parse_detail is not None
     assert "comparison_arm" not in baseline.parse_detail
@@ -209,19 +198,13 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
             )
 
     decoder = LimitedDecoder("empty")
-    method = m1_source.M1Candidates()
-    monkeypatch.setattr(method, "_resident", lambda _, *, providers, native_profile: decoder)
-    monkeypatch.setattr(
-        method, "close", lambda: pytest.fail("input refusal must not retire resident")
-    )
+
+    decoder = decoder
+
     cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
         update={"local_schema": {"entities": ["term"]}}
     )
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
-        cfg,
-        SimpleNamespace(reader=owned_reader(source), check_active=lambda: None),
-    )
+    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None), decoder)
     assert result.parse_detail is not None
     local = detail_objects(result.parse_detail["local_execution"])
     assert [row["outcome"] for row in local] == (
@@ -332,20 +315,16 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
         (),
         {},
     )
-    method = m1_source.M1Candidates()
+
     worker = ControlledDecoder("empty")
-    monkeypatch.setattr(method, "_resident", lambda _, *, providers, native_profile: worker)
+    decoder = worker
     cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
         update={
             "region_pointers": ("#/texts/1",),
             "source_projection_digest": selected.ref.projection_digest,
         }
     )
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
-        cfg,
-        SimpleNamespace(reader=owned_reader(selected), check_active=lambda: None),
-    )
+    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(selected), selected, cfg, check_active=lambda: None), decoder)
     assert worker.calls and all(item.text == first for _, inputs in worker.calls for item in inputs)
     assert result.parse_detail is not None
     regions = detail_objects(result.parse_detail["regions"])
@@ -355,40 +334,10 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
     worker.calls.clear()
     bad = cfg.model_copy(update={"region_pointers": ("#/texts/99999",)})
     with pytest.raises(m1_source.GlinerRefused, match="unknown native region"):
-        method.run(
-            (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
-            bad,
-            SimpleNamespace(reader=owned_reader(selected), check_active=lambda: None),
-        )
+        candidate_fixture_product(candidate_fixture_inputs(owned_reader(selected), selected, bad, check_active=lambda: None), decoder)
     assert worker.calls == []
 
 
-def test_projection_selection_is_metadata_only_and_never_silently_empty():
-    from dataclasses import replace
-
-    from methods.domain_configuration import candidate_configuration
-
-    method = m1_source.M1Candidates()
-    body = view().ref
-    header = replace(body, id=8, key="header", projection_digest="d" * 64)
-    reader = SimpleNamespace(
-        source_views=lambda: (header, body),
-        source_view=lambda *_: pytest.fail("selector hydrated source bodies"),
-    )
-    run = SimpleNamespace(reader=reader)
-    cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
-        update={"source_projection_digest": body.projection_digest}
-    )
-    assert [ref.unit_id for ref in method.select(run, cfg)] == [body.id]
-    with pytest.raises(m1_source.GlinerRefused, match="exactly one"):
-        method.select(run, cfg.model_copy(update={"source_projection_digest": "e" * 64}))
-    with pytest.raises(m1_source.GlinerRefused, match="exactly one"):
-        method.select(
-            SimpleNamespace(
-                reader=SimpleNamespace(source_views=lambda: (body, replace(body, id=9)))
-            ),
-            cfg,
-        )
 
 
 def test_context_relationship_diagnostics_cross_the_source_report_boundary(monkeypatch):
@@ -399,30 +348,19 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
     from methods.domain_configuration import candidate_configuration
 
     source = view()
-    method = m1_source.M1Candidates()
+
     reader = owned_reader(source)
-    prepare = m1_source.prepare_source
-
-    def with_related_diagnostic(*args, **kwargs):
-        prepared = prepare(*args, **kwargs)
-        return replace(
-            prepared,
-            selections=tuple(
-                replace(row, relationships=((8, ContextRelationship.NEIGHBOR, "nearby unit"),))
-                for row in prepared.selections
-            ),
-            annotation_errors=("controlled unavailable annotation",),
-        )
-
-    monkeypatch.setattr(m1_source, "prepare_source", with_related_diagnostic)
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
-        cfg,
-        SimpleNamespace(reader=reader, check_active=lambda: None),
-    )
+    frozen = candidate_fixture_inputs(reader, source, cfg)
+    prepared_source = frozen["prepared_source"]
+    frozen["prepared_source"] = replace(prepared_source,
+        selections=tuple(replace(row, relationships=((8, ContextRelationship.NEIGHBOR, "nearby unit"),))
+                         for row in prepared_source.selections),
+        annotation_errors=("controlled unavailable annotation",))
+    result = candidate_fixture_product(frozen)
+
     decoded = source_python(source_value(result.parse_detail))
     assert decoded["contexts"][0]["relationships"] == [[8, "neighbor", "nearby unit"]]
     assert result.outcome == ObservationOutcome.FAILED
@@ -431,9 +369,9 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
 @pytest.mark.parametrize("mode", ["definition", "empty", "failed"])
 def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(monkeypatch, mode):
     source = view()
-    method = m1_source.M1Candidates()
+
     worker = ControlledDecoder(mode)
-    monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
+    decoder = worker
     from methods.domain_configuration import candidate_configuration
 
     cfg = m1_source.M1Config.model_validate(
@@ -444,8 +382,7 @@ def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(mo
         reader=owned_reader(source),
         check_active=lambda: checks.append("checked"),
     )
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7"))
-    (result,) = method.run((unit,), cfg, context)
+    result = candidate_fixture_product(candidate_fixture_inputs(context.reader, source, cfg, check_active=context.check_active), decoder)
     details = result.parse_detail
     assert details is not None
     regions = details["regions"]
@@ -539,23 +476,15 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
         pieces=tuple(pieces),
         ref=replace(source.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
     )
-    method = m1_source.M1Candidates()
+
     worker = ControlledDecoder("empty")
-    monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
+    decoder = worker
     from methods.domain_configuration import candidate_configuration
 
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7"))
-    (result,) = method.run(
-        (unit,),
-        cfg,
-        SimpleNamespace(
-            reader=owned_reader(source),
-            check_active=lambda: None,
-        ),
-    )
+    result = candidate_fixture_product(candidate_fixture_inputs(owned_reader(source), source, cfg, check_active=lambda: None), decoder)
     assert result.records is not None
     assert len(worker.calls) == 1 and len(result.records) == 2
     zero, blank = ({f["role"]: f for f in row["fields"]} for row in result.records)
@@ -632,14 +561,16 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
 
     source = view()
     reader = owned_reader(source)
-    method = m1_source.M1Candidates()
+
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
     annotations, errors, annotation_result = consume_annotations(
         reader, source, AnnotationProfile(cfg.sentences)
     )
-    frozen_inputs = m1_source.prepare_source(
+    from corpus_structure.methods.source_preparation import prepare_source
+
+    frozen_inputs = prepare_source(
         source,
         profile=AnnotationProfile(cfg.sentences),
         max_chars=cfg.max_context_chars,
@@ -656,15 +587,8 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     # Everything consumed from the reader has been frozen before kernel execution.
     del reader
     worker = ControlledDecoder("definition")
-    monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
-    product = method.produce_candidates(
-        prepared=prepared,
-        view=source,
-        prepared_source=frozen_inputs,
-        annotation_result=annotation_result,
-        cfg=cfg,
-        check_active=lambda: None,
-    )
+    decoder = worker
+    product = candidate_fixture_product(dict(prepared=prepared, view=source, prepared_source=frozen_inputs, annotation_result=annotation_result, cfg=cfg, check_active=lambda: None), decoder)
     assert isinstance(product, m1_source.M1CandidateProduct)
     assert product.outcome == ObservationOutcome.PRODUCED
     assert not hasattr(product, "ref")
@@ -682,12 +606,12 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
     from methods.domain_configuration import candidate_configuration
 
     source = view()
-    method = m1_source.M1Candidates()
+
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
     prepared_source = prepare_source(source, persisted_annotations=(), policy=cfg.policy)
-    plan = method.plan_candidates(
+    plan = m1_source.plan_candidates(
         prepared=release(),
         view=source,
         prepared_source=prepared_source,
@@ -725,11 +649,11 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
     from methods.domain_configuration import candidate_configuration
 
     source = view()
-    method = m1_source.M1Candidates()
+
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
-    plan = method.plan_candidate_replies(
+    plan = m1_source.plan_candidate_replies(
         prepared=release(),
         view=source,
         prepared_source=prepare_source(source, persisted_annotations=(), policy=cfg.policy),

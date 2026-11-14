@@ -5,9 +5,8 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.methods.m1_source import M1Candidates
+from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
+
 from corpus_structure.methods.m1_source_capture import RecordCaptureRule
 from methods.domain_configuration import candidate_configuration
 from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
@@ -23,15 +22,12 @@ def rules():
 def compare(monkeypatch, text, rules):
     source = view(text)
     reader = owned_reader(source)
-    method = M1Candidates()
-    monkeypatch.setattr(
-        method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
-    )
+
+    decoder = ControlledDecoder("empty")
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
-    (baseline,) = method.run((unit,), cfg, ctx)
-    (captured,) = method.run_source_rule_capture_comparison((unit,), cfg, ctx, rules)
+    baseline = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder)
+    captured = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder, source_capture_rules=rules)
     assert not baseline.records
     assert baseline.parse_detail is not None and captured.parse_detail is not None
     assert "comparison_arm" not in baseline.parse_detail

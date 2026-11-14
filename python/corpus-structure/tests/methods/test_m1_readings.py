@@ -5,10 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product
+
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.m1_readings import EVENT_PROCEDURE, M1ReadingConfig, M1Readings
-from corpus_structure.methods.m1_source import M1Candidates, M1Config
+from corpus_structure.methods.m1_source import M1Config
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_policy import PolicyApplicability
 from methods.domain_configuration import candidate_configuration
@@ -20,14 +22,14 @@ def retained_fixture(monkeypatch, *, mode="definition"):
     reader = owned_reader(source)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
-    producer = M1Candidates()
+
     worker = ControlledDecoder(mode)
-    monkeypatch.setattr(producer, "_resident", lambda _, *, providers, native_profile: worker)
+    decoder = worker
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
-    (product,) = producer.run((unit,), cfg, ctx)
+    product = candidate_fixture_product(candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder)
     assert product.parse_detail is not None
     upstream = dict(
-        method=producer.name,
+        method="extract.m1_candidates",
         input_hash="retained-input",
         configuration_hash="retained-config",
         parse_detail=json.loads(canonical_bytes(product.parse_detail)),
