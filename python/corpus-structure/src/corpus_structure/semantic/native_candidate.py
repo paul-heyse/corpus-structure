@@ -2457,6 +2457,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
 
     role = connection.exec_driver_sql("SELECT current_user").scalar_one()
     savepoint = connection.begin_nested()
+    phase = "rendered_upgrade"
     try:
         namespace = {}
         exec(compile(python_source, "native_candidate.py", "exec"), namespace)
@@ -2464,8 +2465,11 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
             namespace["upgrade"]()
         if connection.exec_driver_sql("SELECT current_user").scalar_one() != role:
             raise NativeAuthoringError("candidate upgrade did not restore its migration caller")
+        phase = "native_after_admission"
         admit_native(connection, authoring.desired)
+        phase = "privilege_after_admission"
         admit_privileges(connection, policies)
+        phase = "frozen_catalog_admission"
         verify_frozen_catalog(connection, admission)
     except DBAPIError as error:
         import ast as python_ast
@@ -2477,7 +2481,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
             for frame in traceback.extract_tb(error.__traceback__)
             if frame.filename == "native_candidate.py" and frame.lineno is not None
         ]
-        context: dict[str, object] = {"operation_kind": "rendered_upgrade", "sqlstate": state}
+        context: dict[str, object] = {"operation_kind": phase, "sqlstate": state}
         if sites:
             line = sites[-1]
             context["source_line"] = line

@@ -2112,6 +2112,7 @@ classes:
         - label
         - split
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
         {"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns":
         ["source_run_id"], "target": "ops.run.id"}]'
@@ -2153,6 +2154,7 @@ classes:
         - set_id
         - unit_key
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns":["set_id"],"target":"eval.reference_set.id"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]'
       ph:checks: '["(rendition_id IS NOT NULL AND source_view_id IS NULL AND projection_digest
         IS NULL) OR (rendition_id IS NULL AND source_view_id IS NOT NULL AND projection_digest
@@ -2186,6 +2188,7 @@ classes:
         unique_key_slots:
         - id
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns": ["unit_id"], "target": "eval.reference_unit.id"}]'
       ph:checks: '["pass_kind IN (''A'',''B'',''C'')"]'
 
@@ -2234,6 +2237,7 @@ classes:
         - pass_id
         - version
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns":["pass_id"],"target":"eval.reference_pass.id"},{"columns":["parent_id"],"target":"eval.reference_frame.id"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]'
       ph:checks: '["version > 0", "(rendition_id IS NOT NULL AND source_view_id IS NULL
         AND projection_digest IS NULL) OR (rendition_id IS NULL AND source_view_id IS
@@ -2272,6 +2276,7 @@ classes:
         - item_kind
         - local_ref
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns": ["pass_id"], "target": "eval.reference_pass.id"},
         {"columns": ["frame_id"], "target": "eval.reference_frame.id"}]'
       ph:checks: '[]'
@@ -2308,6 +2313,7 @@ classes:
         unique_key_slots:
         - id
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
         {"columns": ["run_id"], "target": "ops.completed_result.run_id"}, {"columns":
         ["set_id"], "target": "eval.reference_set.id"}]'
@@ -2384,6 +2390,7 @@ classes:
         - project_id
         - source_uri
     annotations:
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns": ["decision_id"], "target": "eval.split_decision.decision_id"}]'
       ph:checks: '["split IN (''dev'',''test'',''reserved'')"]'
 

@@ -513,3 +513,51 @@ def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_ba
         )
         assert next_ops.is_empty()
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+
+
+def test_reference_table_policies_preserve_evaluation_isolation():
+    from corpus_structure.semantic.alembic_privileges import desired_policies
+    from corpus_structure.semantic.metadata import metadata
+
+    reference_names = {
+        "eval.reference_set",
+        "eval.reference_unit",
+        "eval.reference_pass",
+        "eval.reference_frame",
+        "eval.reference_item",
+        "eval.reference_evaluation",
+        "eval.document_split",
+    }
+    for name in reference_names:
+        assert table_policy(metadata.tables[name])["acl"] == [
+            ("corpus_sem_evaluator", "SELECT", False)
+        ]
+    policies = desired_policies(metadata, ())
+    eval_schema = next(p for p in policies if p["kind"] == "schema" and p["name"] == "eval")
+    assert not {"corpus_sem_writer", "corpus_sem_reader", "corpus_sem_admitter"} & {
+        role for role, _, _ in eval_schema["acl"]
+    }
+
+
+def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_engine, monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import native_candidate
+
+    def catalog_refusal(connection, admission):
+        connection.exec_driver_sql(
+            "DO $$ BEGIN RAISE EXCEPTION 'withheld diagnostic' USING ERRCODE='23514'; END $$"
+        )
+
+    monkeypatch.setattr(native_candidate, "verify_frozen_catalog", catalog_refusal)
+    with semantic_bare_engine.begin() as conn:
+        with pytest.raises(NativeAuthoringError) as failure:
+            native_candidate.verify_rendered_candidate(
+                conn, "def upgrade():\n    pass\n", SimpleNamespace(desired=()), (), "frozen"
+            )
+        assert failure.value.authoring_context == {
+            "operation_kind": "frozen_catalog_admission",
+            "sqlstate": "23514",
+        }
+        assert "withheld diagnostic" not in str(failure.value)
+        assert conn.scalar(text("SELECT 1")) == 1
