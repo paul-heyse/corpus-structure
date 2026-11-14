@@ -990,6 +990,11 @@ def data_operation_native_definitions(connection):
                 "corpus_sem_admitter",
                 "corpus_sem_evaluator",
             )
+        elif schema == "data" and name == "ddo_field":
+            # The compiled read projection extracts a field from caller-visible
+            # tagged values. This immutable function uses only pg_catalog JSON,
+            # and grants no protected-row access or effect authority.
+            roles = ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
         elif name == "data_binding_rows":
             roles = ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
         else:

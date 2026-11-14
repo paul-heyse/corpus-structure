@@ -701,6 +701,11 @@ class M1SourceCandidatesOperation:
         ],
         "opaque": [
             {
+                "reference": "collections.abc.Generator",
+                "contract": "m1/profile-assets",
+                "role": "typed-coroutine-return-shape",
+            },
+            {
                 "reference": "corpus_structure.semantic.m1_products.execute_declared_m1",
                 "contract": "m1/profile-assets",
                 "role": "original-resumable-inspection-kernel",

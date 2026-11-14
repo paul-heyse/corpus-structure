@@ -17,14 +17,14 @@ def test_native_admission_read_authenticates_selected_contract_and_runtime_witho
     payload = {
         "release_id": ddo_kernel.prepared.release_id,
         "operation_id": source_declaration()["id"],
-        "runtime_id": ddo_kernel.runtime.runtime_id,
+        "runtime_id": ddo_kernel.runtime,
     }
     with ddo_kernel.purpose("admit").begin() as connection:
         retained = DataOperationStorage(connection).invoke("inspect_data_execution", payload)
         assert retained["recipe"] == ddo_kernel.identities[payload["operation_id"], "recipe"]
         assert retained["runtime"] == {
-            "manifest_sha256": sha256(ddo_kernel.runtime.manifest).hexdigest(),
-            "archive_sha256": sha256(ddo_kernel.runtime.archive).hexdigest(),
+            "manifest_sha256": sha256(ddo_kernel.preparation.runtime.manifest).hexdigest(),
+            "archive_sha256": sha256(ddo_kernel.preparation.runtime.archive).hexdigest(),
         }
         # Admission receives selected identities, not a broad protected-table grant.
         with pytest.raises(DBAPIError, match="permission denied"), connection.begin_nested():
