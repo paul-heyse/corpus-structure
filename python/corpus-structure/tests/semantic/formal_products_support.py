@@ -74,7 +74,7 @@ def acquire_source(profile, value):
     from corpus_structure.semantic.source_products import native_projection_identity
 
     projection = native_projection_identity(
-        value["text"], value["pieces"], value["items"], value.get("recognition", ())
+        value["text"], value["pieces"], value["items"], value.get("recognition", ()), value.get("ancestors", ())
     )
     from corpus_structure.semantic.original_documents import original_document_subject
 

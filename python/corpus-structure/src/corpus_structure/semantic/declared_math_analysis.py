@@ -122,6 +122,7 @@ def inherited_analysis_declarations(frame, products, product_members, ancestors,
 
 
 def analyze_declared_math(prepared, roles, context, options, context_profile, arguments, *, check_active):
+    from corpus_structure.methods.math import grammar
     from corpus_structure.methods.math.declared import selected_formula_inputs
     from corpus_structure.methods.math.native import analyze_native_operand, declaration_scope, domain_blocks_columns, _heads
     from corpus_structure.methods.math.native_topology import prepare_native_topology_columns
@@ -180,7 +181,10 @@ def analyze_declared_math(prepared, roles, context, options, context_profile, ar
         source_id, scope_id, end = declaration_scope(source=frame.source_key, items=frame.items, topology=topology, rules=options.math_domain_rules if contextual else (), ordinal=ordinal, blocks=blocks)
         interpretation = prepare_interpretation_context(prepared, context_profile=context_profile, macros=options.section().macro_table(), constants=options.constants, source_id=source_id, scope=scope_id, offset=ordinal, scope_chain=topology.scope_chain(ref, source_id), declarations=declarations if contextual else (), demand=demand)
         operand = PreparedMathInput(interpretation, item["text"], seconds=seconds)
-        syntax = retained.syntax(ref, operand.latex, macros=interpretation.macros, kind=operand.kind or interpretation.kind)
+        kind = operand.kind or interpretation.kind
+        if kind not in grammar.STARTS:
+            raise ValueError("retained mathematical input requires its actual supported start kind")
+        syntax = retained.syntax(ref, operand.latex, macros=interpretation.macros, kind=kind)
         inventory = retained.inventory(ref, operand.latex, macros=interpretation.macros)
         operand.retain_primary_syntax(syntax, primary_input=inventory["input"])
         if contextual and interpretation.allow_local_definitions:

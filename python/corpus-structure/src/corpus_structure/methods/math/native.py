@@ -1111,7 +1111,7 @@ def native_request_analysis(
     )
 
 
-def analyze_native_operand(operand, *, demand, pointer, original, recognition_health, context_issues, context_coverage, retained_inventory, question=None, predicate=None):
+def analyze_native_operand(operand, *, demand, pointer, original, recognition_health, context_issues, context_coverage, retained_inventory, question: str | None = None, predicate: str | None = None):
     """Original finite per-operand projection, shared by target and sealed readers."""
     import dataclasses
     import sympy
@@ -1122,7 +1122,11 @@ def analyze_native_operand(operand, *, demand, pointer, original, recognition_he
     if demand not in allowed or (demand == "scientific" and question is None):
         raise ValueError("native mathematical analysis requires its exact demand/question")
     context = operand.context
-    question_rule = scientific_question_rule(context.profile, question) if demand == "scientific" else None
+    question_rule = None
+    if demand == "scientific":
+        if question is None:
+            raise ValueError("scientific demand requires its explicit question")
+        question_rule = scientific_question_rule(context.profile, question)
     value = dict(
         pointer=pointer,
         orig=original,
