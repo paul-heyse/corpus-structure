@@ -21,6 +21,46 @@ def derive_contribution_members(
     inputs, reference, payload, *, root=None
 ) -> tuple[DossierMember, ...]:
     """Consume only detached owned-reader output; authenticate again at native replay."""
+    views = {v["source_view_id"]: v for v in payload["sources"]}
+    sources = {s.source_view_id: s for s in inputs.sources}
+
+    def resolve(pin):
+        source = sources.get(pin["source_view_id"])
+        view = views.get(pin["source_view_id"])
+        if source is None or view is None or any(
+            pin.get(k) != getattr(source, v)
+            for k, v in (
+                ("native_product_task_id", "native_task_id"),
+                ("product_key", "native_product_key"),
+                ("product_digest", "native_content_digest"),
+                ("projection_digest", "projection_digest"),
+                ("recipe_digest", "recipe_digest"),
+            )
+        ):
+            raise ValueError("contribution source differs from original dossier source")
+        return source, view
+
+    return _derive_contribution_members(inputs, reference, payload, root=root, resolve=resolve, member_type=DossierMember)
+
+
+def derive_declared_contribution_members(inputs, reference, payload, *, root=None):
+    """Consume the genuine admitted native source/member protocol without task aliases."""
+    from corpus_structure.semantic.structural_products import DeclaredDossierMember
+
+    views = {v["pin"]["source"]: v for v in payload["sources"]}
+    sources = {source.source: source for source in inputs.sources}
+
+    def resolve(pin):
+        source = sources.get(pin["source"])
+        view = views.get(pin["source"])
+        if source is None or view is None or not source.matches_pin(pin):
+            raise ValueError("contribution source differs from original dossier source")
+        return source, view
+
+    return _derive_contribution_members(inputs, reference, payload, root=root, resolve=resolve, member_type=DeclaredDossierMember)
+
+
+def _derive_contribution_members(inputs, reference, payload, *, root, resolve, member_type):
     rows = {r["contribution_id"]: r for r in payload["contributions"]}
     selected = rows.get(reference.contribution_id)
     if selected is None or any(contribution_identity(r) != key for key, r in rows.items()):
@@ -46,31 +86,13 @@ def derive_contribution_members(
         pending.extend(row.get("members", ()))
     if set(reachable) != set(rows):
         raise ValueError("retained contribution closure includes unrelated products")
-    views = {v["source_view_id"]: v for v in payload["sources"]}
-    sources = {s.source_view_id: s for s in inputs.sources}
     passages_by_id = {p.passage_id: p for p in inputs.passages}
     citations, dependencies = [], []
     for row in sorted(reachable.values(), key=lambda r: r["contribution_id"]):
         dependencies.extend((row["contribution_id"], *row.get("computation_dependencies", ())))
         for anchor in row.get("anchors", ()):
             pin = anchor["pin"]
-            source = sources.get(pin["source_view_id"])
-            view = views.get(pin["source_view_id"])
-            if (
-                source is None
-                or view is None
-                or any(
-                    pin.get(k) != getattr(source, v)
-                    for k, v in (
-                        ("native_product_task_id", "native_task_id"),
-                        ("product_key", "native_product_key"),
-                        ("product_digest", "native_content_digest"),
-                        ("projection_digest", "projection_digest"),
-                        ("recipe_digest", "recipe_digest"),
-                    )
-                )
-            ):
-                raise ValueError("contribution source differs from original dossier source")
+            source, view = resolve(pin)
             if (
                 pin != view["pin"]
                 or anchor.get("space") != "native"
@@ -197,7 +219,7 @@ def derive_contribution_members(
     ).hexdigest()
     primary = citations[0].span
     return (
-        DossierMember(
+        member_type(
             member_id=key,
             passage_id=primary.passage_id,
             citation=primary,

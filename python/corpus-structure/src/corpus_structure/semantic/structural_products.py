@@ -1346,6 +1346,10 @@ class DeclaredDossierReport(DeclaredStructuralProductReport):
     condition_qualification: None = None
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
     reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+    definitions_input: tuple[DeclaredStructuralInputPin, ...] = ()
+    comparisons_input: tuple[DeclaredStructuralInputPin, ...] = ()
+    candidates_input: tuple[DeclaredStructuralInputPin, ...] = ()
+    relationships_input: tuple[DeclaredStructuralInputPin, ...] = ()
 
 
 class DeclaredConditionReport(DeclaredStructuralProductReport):
@@ -1924,6 +1928,8 @@ def _dossier_product_invariants(value: Any, *, selection_type=DossierComparisonS
             comparison_product_id=binding.comparison_ref.product_id,
             side=binding.side,
             relationship_ref=binding.relationship_ref,
+            applicability_ref=binding.applicability_ref,
+            conflict_passage_id=(binding.conflict_evidence.passage_id if binding.conflict_evidence is not None else None),
         )
         not in value.comparison_selections
         for member in value.members

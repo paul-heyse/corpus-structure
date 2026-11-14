@@ -781,6 +781,9 @@ def select_dossier(
 
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_products import DossierRepresentation
+    from corpus_structure.semantic.structural_products import (
+        DeclaredDossierProduct, DeclaredStructuralInput, DeclaredStructuralProductReport,
+    )
 
     if type(member_budget) is not int or member_budget < 1:
         raise ValueError("dossier budget must be positive")
@@ -845,10 +848,12 @@ def select_dossier(
         "unresolved_sense",
         "open_question",
     )
-    return StructuralProductReport(
+    report_type = DeclaredStructuralProductReport if isinstance(inputs, DeclaredStructuralInput) else StructuralProductReport
+    dossier_type = DeclaredDossierProduct if isinstance(inputs, DeclaredStructuralInput) else DossierProduct
+    return report_type(
         kind="dossier",
         inputs=inputs,
-        dossier=DossierProduct(
+        dossier=dossier_type(
             root_id=root_id,
             root_component=root_component,
             members=ordered,
@@ -863,12 +868,13 @@ def select_dossier(
     )
 
 
-def dossier_root(reference, retained) -> LocatedDefinitionComponent:
+def dossier_root(reference, retained):
     """Resolve a provisional sense against the exact selected producer result."""
     from corpus_structure.semantic.declared_structural_references import (
         DeclaredComponentRef,
         DeclaredStructuralRef,
     )
+    from corpus_structure.semantic.structural_products import read_structural_product_report
 
     selected_type = (
         DeclaredStructuralRef
@@ -883,11 +889,14 @@ def dossier_root(reference, retained) -> LocatedDefinitionComponent:
     for ref, payload in retained:
         if ref != selected_ref:
             continue
-        report = StructuralProductReport.model_validate(payload["report"])
+        report = read_structural_product_report(payload["report"])
         if (
             report.product_id == getattr(ref, "structural_id", ref.product_id)
             and report.definition_components is not None
-            and report.inputs.dependencies == reference.dependencies
+            and (
+                isinstance(reference, DeclaredComponentRef)
+                or report.inputs.dependencies == reference.dependencies
+            )
         ):
             for component in report.definition_components.components:
                 if component.component_id == reference.component_id:
@@ -914,7 +923,6 @@ def _comparison_member_roles(
     sources = {s.identity: s for s in report.inputs.sources}
     for selection in selections:
         relationship = relationships[selection.relationship_ref]
-        decision, edge = relationship["decision"], relationship["edge"]
         side = selection.side
         passage, opposite = (
             (passages[comparison.left_id], passages[comparison.right_id])
@@ -922,27 +930,36 @@ def _comparison_member_roles(
             else (passages[comparison.right_id], passages[comparison.left_id])
         )
         source = sources[passage.source_ref]
-        if (
-            edge["relation"] not in {"denotes", "defined-by", "specializes"}
-            or decision["scope"] != passage.scope
-            or root.scope != passage.scope
-            or not passage.effective_version
-            or decision.get("effective_version") != passage.effective_version
-            or root.effective_version != passage.effective_version
-            or relationship["source_view_id"] != source.source_view_id
-            or selection.relationship_ref.project_id != source.project_id
-            or selection.relationship_ref.release_id != source.release_id
-            or root.component_id not in edge["member_target_ids"]
-            or not any(
-                RetainedComponentRef.model_validate(target["reference"]) == root_ref
-                for target in relationship["component_targets"]
+        from corpus_structure.semantic.declared_structural_references import DeclaredComponentRef
+        if isinstance(root_ref, DeclaredComponentRef):
+            from corpus_structure.semantic.dossier_products import declared_comparison_occurrence
+            relation, occurrence = declared_comparison_occurrence(
+                relationship, selection.relationship_ref, source, passage, root_ref, root
             )
-        ):
-            raise ValueError("comparison side lacks the exact scoped root relationship")
-        occurrence = tuple(
-            LocatedDefinitionSpan(passage_id=passage.passage_id, **location)
-            for location in relationship["located_occurrence"]
-        )
+        else:
+            decision, edge = relationship["decision"], relationship["edge"]
+            if (
+                edge["relation"] not in {"denotes", "defined-by", "specializes"}
+                or decision["scope"] != passage.scope
+                or root.scope != passage.scope
+                or not passage.effective_version
+                or decision.get("effective_version") != passage.effective_version
+                or root.effective_version != passage.effective_version
+                or relationship["source_view_id"] != source.source_view_id
+                or selection.relationship_ref.project_id != source.project_id
+                or selection.relationship_ref.release_id != source.release_id
+                or root.component_id not in edge["member_target_ids"]
+                or not any(
+                    RetainedComponentRef.model_validate(target["reference"]) == root_ref
+                    for target in relationship["component_targets"]
+                )
+            ):
+                raise ValueError("comparison side lacks the exact scoped root relationship")
+            occurrence = tuple(
+                LocatedDefinitionSpan(passage_id=passage.passage_id, **location)
+                for location in relationship["located_occurrence"]
+            )
+            relation = edge["relation"]
         if not occurrence or any(
             not passage.start <= span.start < span.end <= passage.end
             or passage.text[span.start - passage.start : span.end - passage.start] != span.text
@@ -978,7 +995,7 @@ def _comparison_member_roles(
                     reading.component_ref == root_ref
                     and (
                         reading.link_ref == selection.relationship_ref
-                        or edge["relation"] == "specializes"
+                        or relation == "specializes"
                     )
                     and reading.outcome in {"applicable_definition", "applicable_explanation"}
                     for reading in definition.readings
@@ -1014,11 +1031,13 @@ def _comparison_member_roles(
                 )
             conflict = _located(proof, proof.text, 0)
         citation = _located(passage, passage.text, 0)
-        binding = DossierComparisonBinding(
+        from corpus_structure.semantic.structural_products import DeclaredDossierComparisonBinding
+        binding_type = DeclaredDossierComparisonBinding if isinstance(root_ref, DeclaredComponentRef) else DossierComparisonBinding
+        binding = binding_type(
             comparison_ref=reference,
             side=side,
             relationship_ref=selection.relationship_ref,
-            relationship=edge["relation"],
+            relationship=relation,
             root=root_ref,
             source=source,
             citation=citation,
@@ -1037,7 +1056,7 @@ def _comparison_member_roles(
         group = exceptions.left_group if side == "left" else exceptions.right_group
         if (
             applicable
-            and edge["relation"] == "specializes"
+            and relation == "specializes"
             and group is not None
             and group.state == "present"
         ):
@@ -1070,11 +1089,14 @@ def derive_dossier_members(
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
+        DeclaredDossierMember,
+        DeclaredStructuralInput,
         DefinitionInterpretation,
         DefinitionOutcome,
         DossierFacet,
         LocatedDefinitionSpan,
         MemberRole,
+        read_structural_product_report,
     )
 
     passages = {p.passage_id: p for p in inputs.passages}
@@ -1087,7 +1109,7 @@ def derive_dossier_members(
     facets = []
     member_ids = set()
     parsed = [
-        (ref, payload, StructuralProductReport.model_validate(payload["report"]))
+        (ref, payload, read_structural_product_report(payload["report"]))
         for ref, payload in retained
     ]
     applicability_reports = {
@@ -1169,7 +1191,7 @@ def derive_dossier_members(
                     )
                 )
         bound_roles = ()
-        selected = selections.pop(report.product_id, ())
+        selected = selections.pop(reference.product_id, ())
         if selected:
             bound_roles = _comparison_member_roles(
                 reference,
@@ -1252,7 +1274,8 @@ def derive_dossier_members(
                 ):
                     supported = assertion["assessment_id"]
                     break
-            member = DossierMember(
+            member_type = DeclaredDossierMember if isinstance(inputs, DeclaredStructuralInput) else DossierMember
+            member = member_type(
                 member_id=key,
                 passage_id=p.passage_id,
                 citation=span,
@@ -1368,12 +1391,14 @@ def produce_structural_dossier(
         relationships=relationships,
         require_comparison_focus=True,
     )
-    from .dossier_contributions import derive_contribution_members
+    from .dossier_contributions import derive_contribution_members, derive_declared_contribution_members
+    from corpus_structure.semantic.structural_products import DeclaredStructuralInput
 
     source_members = []
     for reference, payload in contribution_retained:
         check_active()
-        source_members.extend(derive_contribution_members(inputs, reference, payload, root=root))
+        derive = derive_declared_contribution_members if isinstance(inputs, DeclaredStructuralInput) else derive_contribution_members
+        source_members.extend(derive(inputs, reference, payload, root=root))
     return select_dossier(
         inputs,
         root_id=root.component_id,
