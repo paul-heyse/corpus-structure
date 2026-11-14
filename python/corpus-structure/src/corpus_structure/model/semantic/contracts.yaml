@@ -28,11 +28,6 @@ classes:
     description: Bootstrap native capability checks; helper success is not whole-release admission.
     attributes:
       purpose: {range: RuntimePrincipalPurpose, required: true}
-  PdfObservationProduct:
-    description: A retained recognition observation only; this boundary cannot publish a legacy document graph.
-    is_a: PdfIntegratedProduct
-    slot_usage:
-      kind: {range: PdfObservationKind}
   CompletionReceipt:
     attributes:
       task_id: {range: integer, required: true, annotations: {cp:source: "physical:ops.task.id"}}
@@ -1013,9 +1008,6 @@ enums:
       read: {}
       evaluate: {}
       admit: {}
-  PdfObservationKind:
-    permissible_values:
-      recognition_observation: {}
   OperationJsonReadRepresentation:
     permissible_values:
       native: {}

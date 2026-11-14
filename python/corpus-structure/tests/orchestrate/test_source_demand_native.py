@@ -162,7 +162,13 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         admission_engine=kernel.purpose("admit"),
     )
     with clone.admin.begin() as connection:
-        snapshot = read_data_demand(connection, result.demand_id, view="products")
+        snapshot = read_data_demand(connection, result.demand_id, view="products", limit=1)
+        continuation = snapshot["continuation"]
+        while continuation is not None:
+            page = read_data_demand(connection, result.demand_id, continuation=continuation)
+            snapshot["uses"].extend(page["uses"])
+            snapshot["obligations"].extend(page["obligations"])
+            continuation = page["continuation"]
         builds_after = connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
     assert builds_after == builds_before, "retained sources must never recapture their original"
     pending = [

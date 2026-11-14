@@ -5,6 +5,7 @@ from dataclasses import replace
 from hashlib import sha256
 
 import pytest
+from pydantic import ValidationError
 
 from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
@@ -95,3 +96,34 @@ def test_pdf_domain_native_checks_exact_frozen_facet_and_declared_action(domain)
     assert "facet->'actions'->p_operation->'contract'->>'id'" in sql
     assert "sem.require_execution_operation(p_release,p_operation)" in sql
     assert "pdf-domain/schema/pdf_products" not in sql  # One input prefix projection.
+
+
+def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(domain):
+    from corpus_structure.semantic._operation_calls import (
+        READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST,
+        READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST,
+    )
+
+    boundary = _boundary(domain.schema)
+    assert (
+        boundary.index.definitions["PdfObservationProduct"].iri
+        == "https://corpus-structure.dev/execution/PdfObservationProduct"
+    )
+    kind = boundary.property_adapter("PdfObservationProduct", "kind")
+    assert kind.validate_python("recognition_observation", strict=True) == "recognition_observation"
+    for other_kind in ("native", "integrated"):
+        with pytest.raises(ValidationError):
+            kind.validate_python(other_kind, strict=True)
+    dependencies = ResolvedDependencies(
+        (SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources)
+    )
+    prepared = replace(
+        boundary, artifacts=(*boundary.artifacts, *pdf_domain_artifacts(dependencies))
+    )
+    for variant, digest in (
+        ("read_published_sections", READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST),
+        ("read_published_section_nodes", READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST),
+    ):
+        require_call_context(prepared, "read_native_source", variant, digest)
+        with pytest.raises(SemanticRefusal, match="incompatible consumer"):
+            require_call_context(prepared, "read_native_source", variant, "changed")

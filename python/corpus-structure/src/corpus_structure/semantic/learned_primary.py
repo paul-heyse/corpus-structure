@@ -215,7 +215,7 @@ class PreparedLearnedPrimary:
             LogicalProviderMember,
             PM2Work,
         )
-        from corpus_structure.methods.model_observation import ordered_native_bytes, released_policy
+        from corpus_structure.methods.model_observation import declared_policy, ordered_native_bytes
         from corpus_structure.methods.native_host import payload_digest
         from corpus_structure.methods.pm2_products import PARSER_QUESTIONS, ParserProduct
         from corpus_structure.methods.pm2_result import (
@@ -591,7 +591,7 @@ class PreparedLearnedPrimary:
                     threshold=self.threshold,
                     runtime_identity=self.selection.native.runtime_identity,
                 )
-                inference = released_policy(self.prepared)["inference"]
+                inference = declared_policy(self.prepared)["inference"]
                 if self.family == "gliner_cues":
                     family = families[GLINER_CUES]
                     pack, item = gliner_cue_request(self.prepared.release_id, family, scope)

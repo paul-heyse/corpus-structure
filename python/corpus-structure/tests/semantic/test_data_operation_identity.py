@@ -454,3 +454,45 @@ def test_subject_context_equality_uses_tagged_json_meaning_not_python_numeric_eq
     assert integer == decimal and hash(integer) == hash(decimal)
     assert len({integer, decimal, boolean, string}) == 3
     assert integer != boolean and integer != string and integer != object()
+
+
+def test_nested_decode_retains_exact_values_and_canonical_refusals():
+    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+
+    def wrap(value: Any) -> list[Any]:
+        return [value]
+
+    wire: Any = [
+        "mapping",
+        [
+            ["amount", ["decimal", "1.2"]],
+            ["large", ["integer", "18446744073709551617"]],
+            ["present", ["present", ["null"]]],
+            ["set", ["set", [["integer", "1"], ["integer", "2"]]]],
+        ],
+    ]
+    expected: Any = {
+        "amount": Decimal("1.2"),
+        "large": 18446744073709551617,
+        "present": OptionalValue("present", None),
+        "set": CollectionValue("set", (1, 2)),
+    }
+    for _ in range(20):
+        wire = ["sequence", wrap(wire)]
+        expected = wrap(expected)
+    assert decode_semantic_value(wire) == expected
+    malformed_values: tuple[Any, ...] = (
+        ["integer", "01"],
+        ["integer", "+1"],
+        ["float", "0x1p+0"],
+        ["boolean", 1],
+        ["set", [["integer", "2"], ["integer", "1"]]],
+        ["set", [["integer", "1"], ["integer", "1"]]],
+        ["mapping", [["z", ["null"]], ["a", ["null"]]]],
+        ["mapping", [["a", ["null"]], ["a", ["null"]]]],
+    )
+    for malformed in malformed_values:
+        for _ in range(20):
+            malformed = ["sequence", wrap(malformed)]
+        with pytest.raises(ValueError):
+            decode_semantic_value(malformed)

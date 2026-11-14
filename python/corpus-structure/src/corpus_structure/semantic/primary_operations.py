@@ -88,14 +88,14 @@ def primary_operation_inputs(
     if dependencies is None:
         dependencies = ResolvedDependencies()
     if downstream or learned_selections is not None:
-        from corpus_structure.methods.model_observation import MODEL_OBSERVATION_INPUT
+        from corpus_structure.methods.model_observation import DECLARED_MODEL_OBSERVATION_INPUT
 
         policy = SourceArtifact(
-            MODEL_OBSERVATION_INPUT,
+            DECLARED_MODEL_OBSERVATION_INPUT,
             (Path(__file__).parents[1] / "methods/model_observation.json").read_bytes(),
         )
         existing = tuple(
-            item for item in dependencies.artifacts if item.name == MODEL_OBSERVATION_INPUT
+            item for item in dependencies.artifacts if item.name == DECLARED_MODEL_OBSERVATION_INPUT
         )
         if existing and existing != (policy,):
             raise ValueError("model observation policy differs from the acquired input")

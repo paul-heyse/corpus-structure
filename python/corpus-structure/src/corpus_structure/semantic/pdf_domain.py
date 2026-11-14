@@ -19,8 +19,17 @@ PREFIX = "pdf-domain/"
 CONTRACT = PREFIX + "contract.json"
 
 
-def _pdf_owner(owner: str) -> bool:
-    return owner.startswith(("semantic.pdf_", "ingest.pdf")) or owner == "orchestrate.pdf_streaming"
+def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
+    return (
+        owner.startswith(("semantic.pdf_", "ingest.pdf"))
+        or owner == "orchestrate.pdf_streaming"
+        # This genuine shared reader owns the existing PDF projection/context calls.
+        or (
+            operation == "read_native_source"
+            and owner == "semantic.source_views"
+            and symbol == "read_native_source"
+        )
+    )
 
 
 @cache
@@ -30,16 +39,19 @@ def pdf_domain_sources() -> tuple[SourceArtifact, ...]:
 
     inputs = trusted_execution_inputs()
     model = compile_execution_model(inputs)
-    bindings = {
-        binding.id: binding for binding in model.implementations if _pdf_owner(binding.owner)
-    }
+    bindings = {binding.id: binding for binding in model.implementations}
     actions = {
         operation.id: {
             "contract": asdict(model.require_operation(operation.id)),
             "implementation": asdict(bindings[operation.implementation]),
         }
         for operation in model.operations
-        if operation.implementation in bindings
+        if operation.implementation is not None
+        and _pdf_action(
+            operation.id,
+            bindings[operation.implementation].owner,
+            bindings[operation.implementation].symbol,
+        )
     }
     # Native PDF has its own standalone nominal envelope and retained staging policy.
     schema = next(source for source in inputs.schema.sources if source.name == "pdf_products")
@@ -118,8 +130,8 @@ class PdfDomainContract:
         ):
             raise ValueError("PDF domain source custody differs")
         for name, action in contract["actions"].items():
-            if action["contract"]["id"] != name or not _pdf_owner(
-                action["implementation"]["owner"]
+            if action["contract"]["id"] != name or not _pdf_action(
+                name, action["implementation"]["owner"], action["implementation"]["symbol"]
             ):
                 raise ValueError("PDF action has a foreign or relabeled owner")
 

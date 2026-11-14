@@ -60,7 +60,7 @@ class DefinitionQuestion:
 def definition_request(prepared, frame, window, profile, *, threshold, options=None):
     from corpus_structure.methods.definition_applicability import definition_pack
     from corpus_structure.methods.gliner import GlinerInput
-    from corpus_structure.methods.model_observation import released_policy
+    from corpus_structure.methods.model_observation import declared_policy
 
     options = DefinitionExtractionOptions() if options is None else options
     question: Any = DefinitionQuestion(
@@ -85,7 +85,7 @@ def definition_request(prepared, frame, window, profile, *, threshold, options=N
         "pack": asdict(pack),
         "item": asdict(item),
         "threshold": threshold,
-        "inference": released_policy(prepared)["inference"],
+        "inference": declared_policy(prepared)["inference"],
         "window": window.model_dump(mode="json", exclude_none=True),
         "source_pin": frame.pin.values(),
     }

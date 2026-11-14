@@ -27,6 +27,15 @@ ENCODING_VERSION = "1"
 
 def decode_semantic_value(value: Any) -> Any:
     """Decode the owned tagged value format, refusing noncanonical alternatives."""
+    result = _decode_semantic_value(value)
+    # Re-encoding the complete value checks every nested tag, ordering and spelling.
+    # Repeating this round-trip at each subtree serializes the same descendants again.
+    if canonical_bytes(semantic_value(result)) != canonical_bytes(value):
+        raise ValueError("noncanonical semantic value")
+    return result
+
+
+def _decode_semantic_value(value: Any) -> Any:
     from datetime import date, datetime
     from decimal import Decimal
 
@@ -54,12 +63,12 @@ def decode_semantic_value(value: Any) -> Any:
         elif tag == "datetime" and isinstance(payload, str):
             result = datetime.fromisoformat(payload)
         elif tag == "present":
-            result = OptionalValue("present", decode_semantic_value(payload))
+            result = OptionalValue("present", _decode_semantic_value(payload))
         elif tag == "sequence" and isinstance(payload, list):
-            result = [decode_semantic_value(member) for member in payload]
+            result = [_decode_semantic_value(member) for member in payload]
         elif tag in {"set", "bag", "ordered-bag"} and isinstance(payload, list):
             result = CollectionValue(
-                tag, tuple(decode_semantic_value(member) for member in payload)
+                tag, tuple(_decode_semantic_value(member) for member in payload)
             )
         elif tag == "mapping" and isinstance(payload, list):
             if any(
@@ -69,13 +78,11 @@ def decode_semantic_value(value: Any) -> Any:
                 raise ValueError("invalid semantic mapping")
             if len({pair[0] for pair in payload}) != len(payload):
                 raise ValueError("duplicate semantic mapping key")
-            result = {name: decode_semantic_value(member) for name, member in payload}
+            result = {name: _decode_semantic_value(member) for name, member in payload}
         else:
             raise ValueError("unsupported semantic value tag or payload")
     else:
         raise ValueError("invalid semantic value arity")
-    if canonical_bytes(semantic_value(result)) != canonical_bytes(value):
-        raise ValueError("noncanonical semantic value")
     return result
 
 

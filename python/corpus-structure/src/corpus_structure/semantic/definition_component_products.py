@@ -356,7 +356,7 @@ def project_named_definition_components(
         components_from_named_matches,
         definition_scopes,
     )
-    from corpus_structure.methods.model_observation import released_policy
+    from corpus_structure.methods.model_observation import declared_policy
     from corpus_structure.methods.predicate_frames import (
         predicate_frames,
         prepare_predicate_readings,
@@ -405,7 +405,7 @@ def project_named_definition_components(
         raise ValueError("named definition components require actual retained native source blocks")
     named = DeclaredNamedRules(primary, native)
     readings = prepare_predicate_readings(primary)
-    policy = released_policy(prepared)["definition_witness"]
+    policy = declared_policy(prepared)["definition_witness"]
     qualified = (
         policy.get("rules", {}) if policy.get("scope") == _DEFINITION_SCOPE["version"] else {}
     )

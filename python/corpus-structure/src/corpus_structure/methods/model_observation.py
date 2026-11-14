@@ -13,6 +13,7 @@ from corpus_structure.semantic.value_codec import decimal_text
 from .gliner import GlinerPack, _json
 
 MODEL_OBSERVATION_INPUT = "execution/implementation/operations/model-observation.json"
+DECLARED_MODEL_OBSERVATION_INPUT = "operation/model-observation.json"
 PRIVATE_DECLARATION_INPUT = "operation/pm2-definition-policy.json"
 PRIVATE_DECLARATION_POLICY = {
     "scope": "private_development",
@@ -39,9 +40,19 @@ def installed_policy():
 
 
 def released_policy(prepared):
+    """Authenticate the original policy entry of an actual sealed execution release."""
+    return _released_policy(prepared, MODEL_OBSERVATION_INPUT)
+
+
+def declared_policy(prepared):
+    """Authenticate the explicit policy entry of a current declared-operation release."""
+    return _released_policy(prepared, DECLARED_MODEL_OBSERVATION_INPUT)
+
+
+def _released_policy(prepared, input_name):
     policy, actual = installed_policy()
     # Real prepared releases always supply the authenticated manifest.
-    if dict(json.loads(prepared.manifest)["dependencies"]).get(MODEL_OBSERVATION_INPUT) != actual:
+    if dict(json.loads(prepared.manifest)["dependencies"]).get(input_name) != actual:
         raise ValueError("installed model observation policy differs from the selected release")
     return policy
 

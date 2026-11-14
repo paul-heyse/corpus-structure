@@ -27,6 +27,10 @@ types:
     base: bool
     uri: xsd:boolean
 enums:
+  PdfObservationKind:
+    enum_uri: https://corpus-structure.dev/execution/PdfObservationKind
+    permissible_values:
+      recognition_observation: {}
   PdfTransformStatus:
     permissible_values:
       unknown: {}
@@ -255,6 +259,12 @@ enums:
   PdfInlineAlignmentBasis:
     permissible_values: {ambiguous-native-items: {}, unmatched-native-text: {}}
 classes:
+  PdfObservationProduct:
+    class_uri: https://corpus-structure.dev/execution/PdfObservationProduct
+    description: A retained recognition observation only; this boundary cannot publish a legacy document graph.
+    is_a: PdfIntegratedProduct
+    slot_usage:
+      kind: {range: PdfObservationKind}
   PdfItemAddress:
     attributes:
       product_digest:
