@@ -1,6 +1,6 @@
 """Declared finite interpretation, distinct from native D1 provider answers."""
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from corpus_structure.semantic.finite_interpretation_products import execute_finite_profile
 
@@ -52,7 +52,7 @@ class FiniteInterpretationOperation:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, candidates: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
+    def run(self, candidates: dict, policy: dict) -> dict:
         return execute_finite_profile(self, candidates, policy)
 
     @staticmethod
