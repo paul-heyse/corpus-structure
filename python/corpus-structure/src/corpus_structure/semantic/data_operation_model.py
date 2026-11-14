@@ -94,11 +94,14 @@ class OperationRole:
     alternatives: tuple[str, ...] = ()
     selected: str | None = None
     subject_field: str | None = None
+    subject_target: Literal["subject", "original-source"] = "subject"
 
 
 def operation_role_record(role: OperationRole, *, result_only: bool = False) -> dict:
     """Export absent subject association under its original archived meaning."""
     record = asdict(role)
+    if role.subject_target == "subject":
+        record.pop("subject_target")
     if role.subject_field is None:
         record.pop("subject_field")
     if role.support is not None:
@@ -337,7 +340,11 @@ class EffectiveOperation:
         """Eligibility-only rules have a separate identity; support/scope remain determinants."""
         return canonical_bytes(
             {
-                **({"stream_settlement": asdict(self.capabilities.stream_settlement)} if self.capabilities.stream_settlement is not None else {}),
+                **(
+                    {"stream_settlement": asdict(self.capabilities.stream_settlement)}
+                    if self.capabilities.stream_settlement is not None
+                    else {}
+                ),
                 "id": self.semantic_id,
                 "profile": self.profile,
                 "subject": self.subject,
@@ -355,7 +362,11 @@ class EffectiveOperation:
                 "replicate_policy": self.replicate_policy,
                 "support_policy": self.support_policy,
                 **({"result_fields": dict(self.result_fields)} if self.result_fields else {}),
-                **({"output_witnesses": [asdict(group) for group in self.output_witnesses]} if self.output_witnesses else {}),
+                **(
+                    {"output_witnesses": [asdict(group) for group in self.output_witnesses]}
+                    if self.output_witnesses
+                    else {}
+                ),
             }
         )
 
@@ -397,8 +408,16 @@ class EffectiveOperation:
                 ),
                 "state_dimensions": [asdict(s) for s in self.state_dimensions],
                 "transitions": [asdict(s) for s in self.transitions],
-                "capabilities": {key: value for key, value in asdict(self.capabilities).items() if value is not None},
-                **({"consumer_selection": asdict(self.consumer_selection)} if self.consumer_selection is not None else {}),
+                "capabilities": {
+                    key: value
+                    for key, value in asdict(self.capabilities).items()
+                    if value is not None
+                },
+                **(
+                    {"consumer_selection": asdict(self.consumer_selection)}
+                    if self.consumer_selection is not None
+                    else {}
+                ),
                 "binding": self.binding,
                 "callable_surfaces": [
                     {
@@ -557,6 +576,7 @@ class EffectiveDataOperationModel:
             return value
 
         record = asdict(self)
+
         def binding_record(node):
             for operand in node["operands"]:
                 mode = operand["population_projection"]
@@ -566,6 +586,7 @@ class EffectiveDataOperationModel:
                     raise ValueError("historical models cannot project population contexts")
             for child in node["children"]:
                 binding_record(child)
+
         for binding in record["bindings"]:
             binding_record(binding["expression"])
         for operation in record["operations"]:
@@ -576,6 +597,10 @@ class EffectiveDataOperationModel:
                 operation["capabilities"].pop("stream_settlement")
                 operation["capabilities"].pop("prepared_factory")
             for role in operation["roles"]:
+                if role["subject_target"] == "subject":
+                    role.pop("subject_target")
+                elif self.version != MODEL_VERSION:
+                    raise ValueError("historical models cannot target original-source associations")
                 if role["subject_field"] is None:
                     role.pop("subject_field")
                 if role["support"] is not None:
@@ -782,7 +807,9 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
                     **value,
                 }
             if cls is OperationRole and isinstance(value, dict):
-                value = {"subject_field": None, **value}
+                value = {"subject_field": None, "subject_target": "subject", **value}
+                if historical_model and value["subject_target"] != "subject":
+                    raise ValueError("historical models cannot target original-source associations")
             if cls is EffectiveOperation and isinstance(value, dict):
                 if historical_model and value.get("output_witnesses"):
                     raise ValueError("historical models cannot declare output witnesses")

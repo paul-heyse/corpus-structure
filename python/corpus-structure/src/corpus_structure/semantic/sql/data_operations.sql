@@ -1431,8 +1431,8 @@ BEGIN
  SELECT to_jsonb(m) INTO row_value FROM kb.data_product_member m WHERE m.product_id=parent.evidence->>'product_id' AND m.member_id=expected->>'member_id' AND roledef->'accepted_kind_contracts' ? m.kind_contract;
  IF row_value IS NULL THEN CONTINUE; END IF;
  IF NOT coalesce(ops.ddo_binding_source(roledef,jsonb_build_object('product',parent.evidence->>'product_id','member',row_value->>'member_id','subject',row_value->>'subject','original_source',row_value->>'original_source','analyzed_scope',row_value->'analyzed_scope','meaning_body',row_value->'body'),obligation.original_source,coalesce(demand.selection->'source_sets','{}')),false) THEN CONTINUE; END IF;
- IF ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject') IS NULL THEN RAISE EXCEPTION 'population subject relationship is unknown'; END IF;
- IF NOT ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject') THEN CONTINUE; END IF;
+ IF ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject',obligation.original_source) IS NULL THEN RAISE EXCEPTION 'population subject relationship is unknown'; END IF;
+ IF NOT ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject',obligation.original_source) THEN CONTINUE; END IF;
  SELECT value INTO row_value FROM jsonb_array_elements(universe) value WHERE value->>'member'=expected->>'member_id' LIMIT 1;
  IF row_value IS NULL THEN RAISE EXCEPTION 'parent population member facts unavailable in pinned read'; END IF;
  IF ops.ddo_binding_test(predicate,jsonb_set(context,ARRAY['roles',role],jsonb_build_array(row_value))) THEN members:=members||jsonb_build_array(expected); END IF;
@@ -1566,7 +1566,7 @@ BEGIN
    AND input_role.value->'accepted_kind_contracts' ? projected.projected_kind
    AND coalesce(input_role.value->'support'->'origins','["computation"]'::jsonb) ? 'computation'
    AND (p_subject IS NULL OR ops.ddo_binding_subject(input_role.value,
-    jsonb_build_object('subject',projected.projected_subject,'meaning_body',projected.projected_body),p_subject))
+    jsonb_build_object('subject',projected.projected_subject,'meaning_body',projected.projected_body),p_subject,p_source))
    AND ops.ddo_binding_source(input_role.value,jsonb_build_object('product',a.product_id,'member',projected.member_id,'subject',projected.projected_subject,'original_source',projected.projected_source,'analyzed_scope',projected.projected_scope,'meaning_body',projected.projected_body),p_source,coalesce(d.selection->'source_sets','{}')))
  )
  SELECT candidate.product_id,candidate.projected_kind,candidate.projected_subject,candidate.projected_source,candidate.projected_scope,
@@ -1588,7 +1588,7 @@ BEGIN
  AND input_role.value->'accepted_kind_contracts' ? product.kind_contract
  AND coalesce(input_role.value->'support'->'origins','["computation"]'::jsonb) ? 'original-source'
  AND (p_subject IS NULL OR ops.ddo_binding_subject(input_role.value,
- jsonb_build_object('subject',admission.subject,'meaning_body',product.canonical_body),p_subject))
+ jsonb_build_object('subject',admission.subject,'meaning_body',product.canonical_body),p_subject,p_source))
  AND admission.analyzed_scope IS NOT DISTINCT FROM p_scope
  AND (p_source IS NULL OR admission.original_source=p_source))
  )

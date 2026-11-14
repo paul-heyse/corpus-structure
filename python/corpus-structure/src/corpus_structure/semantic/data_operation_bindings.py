@@ -105,7 +105,11 @@ class PopulationBinding:
             raise ValueError("unknown population projection")
         if self.projection == "qualified-context" and len(set(self.contexts)) != len(self.contexts):
             raise ValueError("population contexts must be unique")
-        if not self.identity or not self.evidence or (self.projection == "member" and len(set(self.members)) != len(self.members)):
+        if (
+            not self.identity
+            or not self.evidence
+            or (self.projection == "member" and len(set(self.members)) != len(self.members))
+        ):
             raise ValueError("population requires pinned identity, evidence and unique members")
 
 
@@ -398,11 +402,15 @@ def compile_binding(
                     raise ValueError(
                         "population operand requires a named input role for its identity witness"
                     )
-                associations.extend((name, operand.name, operand.population_projection) for name in owners)
+                associations.extend(
+                    (name, operand.name, operand.population_projection) for name in owners
+                )
         for name, population, projection_mode in associations:
             if population is None:
                 raise ValueError("population binding requires an immutable named scope")
-            if name in role_populations and (role_populations[name] != population or role_projections[name] != projection_mode):
+            if name in role_populations and (
+                role_populations[name] != population or role_projections[name] != projection_mode
+            ):
                 raise ValueError(
                     "one role cannot bind two population scopes; use distinct named roles"
                 )
@@ -488,7 +496,18 @@ def compile_binding(
 
     def subject_condition(name):
         alias = aliases[name]
-        association = alias.c[subject_columns.get(name, "subject")] == anchor.c.subject
+        role = roles[name]
+        if role.subject_target == "original-source":
+            if role.subject_field is None or not original_source:
+                raise ValueError(
+                    "original-source association requires its explicit source and field"
+                )
+            target = literal(original_source)
+        elif role.subject_target == "subject":
+            target = anchor.c.subject
+        else:
+            raise ValueError("unsupported role subject association target")
+        association = alias.c[subject_columns.get(name, "subject")] == target
         support = roles[name].support
         if support is not None and support.source_set is not None:
             fields = [
@@ -561,9 +580,15 @@ def compile_binding(
                 raise ValueError("qualified-context field requires full subject context")
             alias = aliases[field.role]
             return func.jsonb_build_object(
-                "project_id", subject_context.project_id,
-                "subject", alias.c.subject, "original_source", alias.c.original_source,
-                "analyzed_scope", alias.c.analyzed_scope, type_=JSONB,
+                "project_id",
+                subject_context.project_id,
+                "subject",
+                alias.c.subject,
+                "original_source",
+                alias.c.original_source,
+                "analyzed_scope",
+                alias.c.analyzed_scope,
+                type_=JSONB,
             )
         projection = projected[role.kind]
         matches = [item for item in projection.fields if item.name == field.field]
@@ -623,7 +648,13 @@ def compile_binding(
                 raise ValueError("population operand lacks frozen name")
             population = population_map.get(operand.name)
             if population is None:
-                initial.append(BindingReason("population-incomplete", operation + "/population/" + operand.name, "named population witness is not yet available"))
+                initial.append(
+                    BindingReason(
+                        "population-incomplete",
+                        operation + "/population/" + operand.name,
+                        "named population witness is not yet available",
+                    )
+                )
                 return ()
             if not population.complete:
                 initial.append(
@@ -638,7 +669,9 @@ def compile_binding(
             if operand.population_projection == "qualified-context":
                 if operand.value_type != "subject-context":
                     raise ValueError("context population requires subject-context type")
-                return tuple(literal(context.record, type_=ContextJSONB()) for context in population.contexts)
+                return tuple(
+                    literal(context.record, type_=ContextJSONB()) for context in population.contexts
+                )
             return _typed(population.members, primitive_type(operand.value_type), many=True)
         if operand.kind == "parameter":
             if operand.name not in params:
@@ -726,7 +759,11 @@ def compile_binding(
                 owners.update(
                     operand.field.role for operand in node.operands if operand.field is not None
                 )
-                product_scopes = [population_product(name, population) for name in owners] if population is not None else []
+                product_scopes = (
+                    [population_product(name, population) for name in owners]
+                    if population is not None
+                    else []
+                )
             return and_(nested, value.in_(members), *product_scopes)
         if node.operator in {"same", "distinct"}:
             values = [aliases[name] for name in node.roles]
@@ -1014,9 +1051,19 @@ def compile_binding(
                         operation + "/binding/" + str(index),
                         "selected field values omit required frozen values",
                     ),
-                    select(covered == ((len(population_map[node.operands[1].name].contexts) if node.operands[1].name in population_map else 0)
-                        if node.operands[1].kind == "population" and node.operands[1].population_projection == "qualified-context"
-                        else len(set(required)))) ,
+                    select(
+                        covered
+                        == (
+                            (
+                                len(population_map[node.operands[1].name].contexts)
+                                if node.operands[1].name in population_map
+                                else 0
+                            )
+                            if node.operands[1].kind == "population"
+                            and node.operands[1].population_projection == "qualified-context"
+                            else len(set(required))
+                        )
+                    ),
                     "not-applicable",
                 )
             )
@@ -1162,7 +1209,13 @@ def decode_binding_rows(
         accepted = input_kind_contracts(compiled.model, (role.kind,))[role.kind] if members else ()
         subject_column = dict(compiled.subject_columns).get(role.name)
         subject_invalid = subject_column is not None and any(
-            row.get(subject_column) != compiled.subject for row in rows.get(role.name, ())
+            row.get(subject_column)
+            != (
+                compiled.original_source
+                if role.subject_target == "original-source"
+                else compiled.subject
+            )
+            for row in rows.get(role.name, ())
         )
         malformed = (
             raw_invalid
@@ -1270,9 +1323,16 @@ def decode_binding_rows(
                 {
                     "identity": population.identity,
                     "complete": population.complete,
-                    "members": ([context.record for context in population.contexts]
-                                if population.projection == "qualified-context" else population.members),
-                    **({"projection": "qualified-context"} if population.projection == "qualified-context" else {}),
+                    "members": (
+                        [context.record for context in population.contexts]
+                        if population.projection == "qualified-context"
+                        else population.members
+                    ),
+                    **(
+                        {"projection": "qualified-context"}
+                        if population.projection == "qualified-context"
+                        else {}
+                    ),
                     "evidence": wire_json_loads(population.evidence),
                 }
             )

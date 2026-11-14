@@ -1433,12 +1433,20 @@ def test_postgresql_authored_complete_binding_meanings(storage, case):
 def _qualified_context_expression():
     operands = (
         BindingOperand("field", "subject-context", BindingField("items", "urn:item", "@context")),
-        BindingOperand("population", "subject-context", name="children", population_projection="qualified-context"),
+        BindingOperand(
+            "population",
+            "subject-context",
+            name="children",
+            population_projection="qualified-context",
+        ),
     )
-    return BindingExpression("all", children=(
-        BindingExpression("membership", operands=operands),
-        BindingExpression("covers", operands=operands),
-    ))
+    return BindingExpression(
+        "all",
+        children=(
+            BindingExpression("membership", operands=operands),
+            BindingExpression("covers", operands=operands),
+        ),
+    )
 
 
 def test_population_projection_preserves_historical_bytes_and_is_explicit():
@@ -1447,39 +1455,87 @@ def test_population_projection_preserves_historical_bytes_and_is_explicit():
     historical = model(BindingExpression("scan", roles=("items",)))
     for version in ("data-operation-model-v2", "data-operation-model-v3", MODEL_VERSION):
         archived = replace(historical, version=version)
-        assert b'population_projection' not in archived.content
+        assert b"population_projection" not in archived.content
         assert read_effective_data_operations(archived.content).content == archived.content
-    parsed = _expression({"operator": "covers", "operands": [
-        {"kind": "field", "value_type": "subject-context", "field": {"role": "items", "projection": "urn:item", "field": "@context"}},
-        {"kind": "population", "name": "children", "value_type": "subject-context", "population_projection": "qualified-context"},
-    ]}, "urn:op", {"items"})
+    parsed = _expression(
+        {
+            "operator": "covers",
+            "operands": [
+                {
+                    "kind": "field",
+                    "value_type": "subject-context",
+                    "field": {"role": "items", "projection": "urn:item", "field": "@context"},
+                },
+                {
+                    "kind": "population",
+                    "name": "children",
+                    "value_type": "subject-context",
+                    "population_projection": "qualified-context",
+                },
+            ],
+        },
+        "urn:op",
+        {"items"},
+    )
     current = model(parsed)
     assert b'"population_projection":"qualified-context"' in current.content
     assert read_effective_data_operations(current.content).content == current.content
     with pytest.raises(ValueError, match="historical"):
-        replace(current, version="data-operation-model-v3").content
+        _ = replace(current, version="data-operation-model-v3").content
 
 
 def test_sql_qualified_context_fanin_requires_all_contexts_without_parent_product_pin(storage):
     from corpus_structure.semantic.data_operation_json import json_bytes
 
     connection, table, projection = storage
-    connection.execute(table.update().where(table.c.product == "p2").values(analyzed_scope={"page": 2}))
-    connection.execute(table.update().where(table.c.product == "p3").values(analyzed_scope={"page": 3}))
+    connection.execute(
+        table.update().where(table.c.product == "p2").values(analyzed_scope={"page": 2})
+    )
+    connection.execute(
+        table.update().where(table.c.product == "p3").values(analyzed_scope={"page": 3})
+    )
     schema = model(_qualified_context_expression(), minimum=0, presence="optional")
     root = SubjectContext("project", "doc", "source", b'{"root":true}')
-    contexts = tuple(SubjectContext("project", "doc", "source", json_bytes({"page": page})) for page in (1, 2))
+    contexts = tuple(
+        SubjectContext("project", "doc", "source", json_bytes({"page": page})) for page in (1, 2)
+    )
+
     def bind(required=contexts, complete=True):
-        population = PopulationBinding("children", "authentic-discovery-closure", complete, ("source-member-a", "source-member-b"), b'{"product_id":"discovery-product","derivation_id":"discovery-episode"}', projection="qualified-context", contexts=required)
-        return execute_binding(connection, compile_binding(schema, "urn:op", (projection,), subject="doc", subject_context=root, populations=(population,)))
+        population = PopulationBinding(
+            "children",
+            "authentic-discovery-closure",
+            complete,
+            ("source-member-a", "source-member-b"),
+            b'{"product_id":"discovery-product","derivation_id":"discovery-episode"}',
+            projection="qualified-context",
+            contexts=required,
+        )
+        return execute_binding(
+            connection,
+            compile_binding(
+                schema,
+                "urn:op",
+                (projection,),
+                subject="doc",
+                subject_context=root,
+                populations=(population,),
+            ),
+        )
+
     ready = bind()
     assert ready.status == "ready"
     assert {member.product for member in ready.roles[0].members} == {"p1", "p2"}
     assert json.loads(ready.roles[0].population_witness)["projection"] == "qualified-context"
     # Same local subject does not collapse two scope occurrences. JSONB numeric
     # spelling shares meaning; Boolean, source, and project remain distinct.
-    assert bind((replace(contexts[0], analyzed_scope=b'{"page":1.0}'), contexts[1])).status == "ready"
-    for altered in (replace(contexts[1], analyzed_scope=b'{"page":true}'), replace(contexts[1], original_source="other"), replace(contexts[1], project_id="other")):
+    assert (
+        bind((replace(contexts[0], analyzed_scope=b'{"page":1.0}'), contexts[1])).status == "ready"
+    )
+    for altered in (
+        replace(contexts[1], analyzed_scope=b'{"page":true}'),
+        replace(contexts[1], original_source="other"),
+        replace(contexts[1], project_id="other"),
+    ):
         assert bind((contexts[0], altered)).status == "not-applicable"
     assert bind(complete=False).status == "awaiting-population"
     connection.execute(table.delete().where(table.c.product == "p2"))
@@ -1487,3 +1543,44 @@ def test_sql_qualified_context_fanin_requires_all_contexts_without_parent_produc
     empty = bind(())
     assert empty.status == "ready" and empty.roles[0].members == ()
     assert empty.roles[0].state == "known-absent"
+
+
+def test_sql_subject_field_can_target_original_source_without_relabeling_context(storage):
+    connection, table, projection = storage
+    connection.execute(table.update().where(table.c.product == "p1").values(base="source"))
+    connection.execute(table.update().where(table.c.product == "p2").values(base="hashed:document"))
+    base = model(BindingExpression("scan", roles=("items",)))
+    op = base.operations[0]
+    schema = replace(
+        base,
+        operations=(
+            replace(
+                op,
+                roles=(
+                    replace(op.roles[0], subject_field="base", subject_target="original-source"),
+                ),
+            ),
+        ),
+    )
+    compiled = compile_binding(
+        schema,
+        "urn:op",
+        (projection,),
+        subject="hashed:document",
+        original_source="source",
+        subject_context=SubjectContext("project", "hashed:document", "source", b"{}"),
+    )
+    result = execute_binding(connection, compiled)
+    assert result.status == "ready"
+    assert [
+        (member.product, member.subject, member.original_source)
+        for member in result.roles[0].members
+    ] == [("p1", "doc", "source")]
+    assert b'"subject_target":"original-source"' in schema.content
+    assert read_effective_data_operations(schema.content).content == schema.content
+    for version in ("data-operation-model-v2", "data-operation-model-v3"):
+        archived = replace(base, version=version)
+        assert b"subject_target" not in archived.content
+        assert read_effective_data_operations(archived.content).content == archived.content
+        with pytest.raises(ValueError, match="historical"):
+            _ = replace(schema, version=version).content

@@ -44,11 +44,16 @@ BEGIN
  AND population->'evidence'->>'product_id'=row_value->>'product';
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_subject(roledef jsonb,row_value jsonb,consumer_subject text) RETURNS boolean
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE association jsonb; path text; part text;
+CREATE OR REPLACE FUNCTION ops.ddo_binding_subject(roledef jsonb,row_value jsonb,consumer_subject text,consumer_source text) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE association jsonb; path text; part text; target text;
 BEGIN
- IF roledef->>'subject_field' IS NULL THEN RETURN row_value->>'subject'=consumer_subject; END IF;
+ IF coalesce(roledef->>'subject_target','subject')='original-source' THEN
+ IF roledef->>'subject_field' IS NULL OR consumer_source IS NULL THEN RAISE EXCEPTION 'original-source association lacks exact context'; END IF;
+ target:=consumer_source;
+ ELSIF coalesce(roledef->>'subject_target','subject')='subject' THEN target:=consumer_subject;
+ ELSE RAISE EXCEPTION 'unsupported role subject association target'; END IF;
+ IF roledef->>'subject_field' IS NULL THEN RETURN row_value->>'subject'=target; END IF;
  path:=roledef->>'subject_field';
  association:=row_value->'meaning_body';
  IF left(path,1)='/' THEN
@@ -56,7 +61,7 @@ BEGIN
  association:=data.ddo_field(association,replace(replace(part,'~1','/'),'~0','~'));
  END LOOP;
  ELSE association:=data.ddo_field(association,path); END IF;
- RETURN association->>0='string' AND association->>1=consumer_subject;
+ RETURN association->>0='string' AND association->>1=target;
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_roles(node jsonb) RETURNS text[]
@@ -321,8 +326,8 @@ BEGIN
  IF population IS NULL OR population->>'complete' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'native absence requires closed population'; END IF;
  IF context->'witnesses'->role IS DISTINCT FROM population THEN RAISE EXCEPTION 'native absence witness differs from named population'; END IF;
  IF jsonb_array_length(coalesce(context->'roles'->role,'[]'))<>0 THEN RETURN false; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements_text(population->'members') member WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(context->'universe') candidate WHERE candidate->>'member'=member AND ops.ddo_binding_population_product(population,candidate) AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'subject') AND ops.ddo_binding_source((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'original_source',context->'source_sets') AND (SELECT r->'accepted_kind_contracts' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role) ? (candidate->>'kind_contract'))) THEN RAISE EXCEPTION 'negative population lacks admitted candidate facts'; END IF;
- FOR row_value IN SELECT value FROM jsonb_array_elements(context->'universe') WHERE (SELECT r->'accepted_kind_contracts' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role) ? (value->>'kind_contract') AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'subject') AND ops.ddo_binding_source((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'original_source',context->'source_sets') AND population->'members' ? (value->>'member') AND ops.ddo_binding_population_product(population,value) LOOP
+ IF EXISTS(SELECT FROM jsonb_array_elements_text(population->'members') member WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(context->'universe') candidate WHERE candidate->>'member'=member AND ops.ddo_binding_population_product(population,candidate) AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'subject',context->>'original_source') AND ops.ddo_binding_source((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'original_source',context->'source_sets') AND (SELECT r->'accepted_kind_contracts' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role) ? (candidate->>'kind_contract'))) THEN RAISE EXCEPTION 'negative population lacks admitted candidate facts'; END IF;
+ FOR row_value IN SELECT value FROM jsonb_array_elements(context->'universe') WHERE (SELECT r->'accepted_kind_contracts' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role) ? (value->>'kind_contract') AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'subject',context->>'original_source') AND ops.ddo_binding_source((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'original_source',context->'source_sets') AND population->'members' ? (value->>'member') AND ops.ddo_binding_population_product(population,value) LOOP
  altered:=jsonb_set(context,ARRAY['roles',role],jsonb_build_array(row_value));
  matching:=1;
  FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP IF NOT ops.ddo_binding_test(child,altered) THEN matching:=0; END IF; END LOOP;
@@ -591,7 +596,7 @@ BEGIN
  role:=roledef->>'name'; values:='[]';
  FOR item IN SELECT value FROM jsonb_array_elements(p_binding->'inputs') WHERE value->>'role'=role LOOP
  SELECT value INTO chosen FROM jsonb_array_elements(universe) v WHERE v->>'product'=item->>'product_id' AND v->>'member' IS NOT DISTINCT FROM item->>'member_id'
- AND roledef->'accepted_kind_contracts' ? (v->>'kind_contract') AND ops.ddo_binding_subject(roledef,v,p_subject) AND ops.ddo_binding_source(roledef,v,request.original_source,coalesce(demand.selection->'source_sets','{}'))
+ AND roledef->'accepted_kind_contracts' ? (v->>'kind_contract') AND ops.ddo_binding_subject(roledef,v,p_subject,request.original_source) AND ops.ddo_binding_source(roledef,v,request.original_source,coalesce(demand.selection->'source_sets','{}'))
  AND v->>'position' IS NOT DISTINCT FROM item->>'position' AND v->>'multiplicity'=item->>'multiplicity'
  AND (item->>'support_derivation_id' IS NULL OR v->'support_episodes' ? (item->>'support_derivation_id'))
  AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'support') support WHERE support->>'role'=role AND support->>'position' IS NOT DISTINCT FROM item->>'position' AND ops.ddo_support_reference_matches(support,v)) LIMIT 1;

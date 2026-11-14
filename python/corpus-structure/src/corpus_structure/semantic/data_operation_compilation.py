@@ -21,6 +21,7 @@ from .data_operation_model import (
     BindingExpression,
     BindingField,
     BindingOperand,
+    ConsumerSelectionCapability,
     EffectContract,
     EffectiveDataOperationModel,
     EffectiveIdentity,
@@ -28,8 +29,6 @@ from .data_operation_model import (
     EffectiveOperation,
     FactOrigin,
     ImplementationCapabilities,
-    StreamSettlement,
-    ConsumerSelectionCapability,
     InputSupport,
     OpaqueBoundary,
     OperationRole,
@@ -39,6 +38,7 @@ from .data_operation_model import (
     SourceUnknown,
     StateDimension,
     StateTransition,
+    StreamSettlement,
     compiled_graph_projections,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
@@ -243,7 +243,9 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     operands = []
     for operand in value.get("operands", []):
         operand = _mapping(
-            operand, operation + "/operand", {"kind", "value_type", "field", "name", "value", "population_projection"}
+            operand,
+            operation + "/operand",
+            {"kind", "value_type", "field", "name", "value", "population_projection"},
         )
         kind = operand.get("kind")
         if kind not in {"field", "literal", "parameter", "population"}:
@@ -575,9 +577,17 @@ def _validate_binding_fields(
     for operand in expression.operands:
         expected = aliases.get(operand.value_type, operand.value_type)
         if expected == "subject-context":
-            if not ((operand.kind == "field" and operand.field.field == "@context") or
-                    (operand.kind == "population" and operand.population_projection == "qualified-context")):
-                _fail(owner, "subject-context operands require native context fields or population projection")
+            if not (
+                (operand.kind == "field" and operand.field.field == "@context")
+                or (
+                    operand.kind == "population"
+                    and operand.population_projection == "qualified-context"
+                )
+            ):
+                _fail(
+                    owner,
+                    "subject-context operands require native context fields or population projection",
+                )
             continue
         if expected not in kinds:
             _fail(owner, "unresolved operand type " + operand.value_type)
@@ -1004,6 +1014,7 @@ def compile_data_operations(
                     "alternatives",
                     "selected",
                     "subject_field",
+                    "subject_target",
                 },
             )
             name = _text(record.get("name"), semantic_id + "/role")
@@ -1150,6 +1161,13 @@ def compile_data_operations(
                 _fail(semantic_id, "alternative roles require a selected declared alternative")
             if presence != "alternative" and (alternatives or selected is not None):
                 _fail(semantic_id, "only alternative roles carry a selected alternative")
+            subject_target = record.get("subject_target", "subject")
+            if subject_target not in {"subject", "original-source"}:
+                _fail(semantic_id, "unsupported subject association target")
+            if subject_target == "original-source" and (
+                direction != "input" or not record.get("subject_field")
+            ):
+                _fail(semantic_id, "original-source association requires an input subject field")
             subject_field = record.get("subject_field")
             if subject_field is not None:
                 subject_field = _text(subject_field, semantic_id + "/subject_field")
@@ -1175,6 +1193,7 @@ def compile_data_operations(
                     alternatives,
                     selected,
                     subject_field,
+                    cast(Any, subject_target),
                 )
             )
         if semantic_id in kinds or semantic_id in nodes:
@@ -1194,7 +1213,9 @@ def compile_data_operations(
         from .data_operation_output_witnesses import compile_output_witnesses
 
         try:
-            output_witnesses = compile_output_witnesses(raw.get("output_witnesses", []), roles, kinds, aliases)
+            output_witnesses = compile_output_witnesses(
+                raw.get("output_witnesses", []), roles, kinds, aliases
+            )
         except ValueError as error:
             _fail(semantic_id, str(error))
 
@@ -1375,20 +1396,46 @@ def compile_data_operations(
         capabilities = _mapping(
             raw.get("capabilities"),
             semantic_id,
-            {"forms", "preparation", "cancellation", "ownership", "limits", "stream_settlement", "prepared_factory"},
+            {
+                "forms",
+                "preparation",
+                "cancellation",
+                "ownership",
+                "limits",
+                "stream_settlement",
+                "prepared_factory",
+            },
         )
         forms = _strings(capabilities.get("forms"), semantic_id, empty=False)
         if not set(forms) <= {"scalar", "batch", "stream"}:
             _fail(semantic_id, "unsupported invocation capability")
         settlement = None
         if capabilities.get("stream_settlement") is not None:
-            record = _mapping(capabilities["stream_settlement"], semantic_id, {"mode", "output_role", "terminal_outcome"})
+            record = _mapping(
+                capabilities["stream_settlement"],
+                semantic_id,
+                {"mode", "output_role", "terminal_outcome"},
+            )
             if record.get("mode") != "terminal-atomic" or forms != ("stream",):
                 _fail(semantic_id, "terminal settlement requires exactly the stream form")
-            output = next((role for role in roles if role.direction == "output" and role.name == record.get("output_role")), None)
-            if output is None or len([role for role in roles if role.direction == "output"]) != 1 or record.get("terminal_outcome") not in outcomes:
+            output = next(
+                (
+                    role
+                    for role in roles
+                    if role.direction == "output" and role.name == record.get("output_role")
+                ),
+                None,
+            )
+            if (
+                output is None
+                or len([role for role in roles if role.direction == "output"]) != 1
+                or record.get("terminal_outcome") not in outcomes
+            ):
                 _fail(semantic_id, "stream settlement requires one declared output and outcome")
-            settlement = StreamSettlement("terminal-atomic", output.name, record["terminal_outcome"])
+            settlement = StreamSettlement(
+                "terminal-atomic", output.name, record["terminal_outcome"]
+            )
+
         def captured_method(name, *, semantic_id=semantic_id, origins=origins):
             if frontend is None or not isinstance(name, str) or not name.isidentifier():
                 _fail(semantic_id, "captured capability requires its supplied Python owner")
@@ -1399,21 +1446,32 @@ def compile_data_operations(
             owner = declaration.rsplit(".", 1)[0]
             entrypoint = owner + "." + name
             member = frontend.resolve(entrypoint)
-            import griffe
             from hashlib import sha256
+
+            import griffe
+
             if not isinstance(member, griffe.Function):
                 _fail(semantic_id, "captured capability is not an original method")
             source = frontend.modules[frontend._module_for(entrypoint)].source
             return ConsumerSelectionCapability(entrypoint, sha256(source.content).hexdigest())
 
-        factory = captured_method(capabilities["prepared_factory"]) if capabilities.get("prepared_factory") is not None else None
+        factory = (
+            captured_method(capabilities["prepared_factory"])
+            if capabilities.get("prepared_factory") is not None
+            else None
+        )
         selection = None
         if raw.get("consumer_selection") is not None:
             if isinstance(raw["consumer_selection"], str):
                 selection = captured_method(raw["consumer_selection"])
             else:
-                record = _mapping(raw["consumer_selection"], semantic_id, {"entrypoint", "source_digest"})
-                selection = ConsumerSelectionCapability(_text(record.get("entrypoint"), semantic_id), _text(record.get("source_digest"), semantic_id))
+                record = _mapping(
+                    raw["consumer_selection"], semantic_id, {"entrypoint", "source_digest"}
+                )
+                selection = ConsumerSelectionCapability(
+                    _text(record.get("entrypoint"), semantic_id),
+                    _text(record.get("source_digest"), semantic_id),
+                )
         capability = ImplementationCapabilities(
             cast(Any, forms),
             _text(capabilities.get("preparation"), semantic_id),
@@ -1499,8 +1557,11 @@ def compile_data_operations(
             data["value"] = json.loads(expression.value) if expression.value is not None else None
             data["operands"] = [
                 {
-                    **{key: value for key, value in asdict(operand).items()
-                       if key != "population_projection" or value != "member"},
+                    **{
+                        key: value
+                        for key, value in asdict(operand).items()
+                        if key != "population_projection" or value != "member"
+                    },
                     "value": json.loads(operand.value) if operand.value is not None else None,
                 }
                 for operand in expression.operands
@@ -1551,8 +1612,11 @@ def _binding_record(expression: BindingExpression, *, result_only: bool = False)
     data["value"] = json.loads(expression.value) if expression.value is not None else None
     data["operands"] = [
         {
-            **{key: value for key, value in asdict(operand).items()
-                       if key != "population_projection" or value != "member"},
+            **{
+                key: value
+                for key, value in asdict(operand).items()
+                if key != "population_projection" or value != "member"
+            },
             "value": json.loads(operand.value) if operand.value is not None else None,
         }
         for operand in expression.operands
@@ -1690,23 +1754,32 @@ def project_population_witness(
             _fail("population-witness", "invalid frozen branch witness")
         return witness
     context_projection = witness.get("projection") == "qualified-context"
-    expected_fields = {"identity", "complete", "members", "evidence"} | ({"projection"} if context_projection else set())
+    expected_fields = {"identity", "complete", "members", "evidence"} | (
+        {"projection"} if context_projection else set()
+    )
     if (
         set(witness) != expected_fields
         or not isinstance(witness["identity"], str)
         or not witness["identity"]
         or type(witness["complete"]) is not bool
         or not isinstance(witness["members"], list)
-        or (not context_projection and any(not isinstance(member, str) or not member for member in witness["members"]))
+        or (
+            not context_projection
+            and any(not isinstance(member, str) or not member for member in witness["members"])
+        )
         or not isinstance(witness["evidence"], dict)
     ):
         _fail("population-witness", "invalid structured population witness")
     members = witness["members"]
     if context_projection:
-        from .data_operation_model import SubjectContext
         from .data_operation_json import json_bytes
+        from .data_operation_model import SubjectContext
+
         try:
-            contexts = [SubjectContext(**{**member, "analyzed_scope": json_bytes(member["analyzed_scope"])}) for member in members]
+            contexts = [
+                SubjectContext(**{**member, "analyzed_scope": json_bytes(member["analyzed_scope"])})
+                for member in members
+            ]
         except (TypeError, KeyError, ValueError) as error:
             raise ValueError("invalid qualified-context population witness") from error
         if len(set(contexts)) != len(contexts):
