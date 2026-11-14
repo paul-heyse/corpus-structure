@@ -41,6 +41,7 @@ from corpus_structure.semantic.m1_products import (
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
 from corpus_structure.semantic.source_admission import acquire_original_source_selection
 from corpus_structure.semantic.source_views import load_source_view
+from corpus_structure.semantic.terminology import acquire_terminology
 from corpus_structure.semantic.types import (
     PreparationProfile,
     ResolvedDependencies,
@@ -55,18 +56,23 @@ SENTENCE = "The sample mean is the sum of the observations divided by the sample
 def _recipe():
     from corpus_structure.orchestrate.m1 import registry
 
+    terminology, vocabulary_assets, ontology_sources = acquire_terminology(
+        ROOT / "domains/statistics"
+    )
     schemas = SourceBundle(
         "statistics_semantic",
-        tuple(
-            SourceArtifact(name, (ROOT / path).read_bytes())
-            for name, path in (
-                ("statistics_semantic", "domains/statistics/semantic.yaml"),
-                ("statistics_terminology", "domains/statistics/terminology.yaml"),
-                (
-                    "semantic_core",
-                    "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml",
-                ),
-            )
+        (
+            *tuple(
+                SourceArtifact(name, (ROOT / path).read_bytes())
+                for name, path in (
+                    ("statistics_semantic", "domains/statistics/semantic.yaml"),
+                    (
+                        "semantic_core",
+                        "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml",
+                    ),
+                )
+            ),
+            *terminology,
         ),
     )
     cfg = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
@@ -87,7 +93,10 @@ def _recipe():
     sources = m1_operation_sources(cfg, record_schemas=schemas)
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*native, *capture_port_generator_sources())),
+        ResolvedDependencies(
+            (*native, *capture_port_generator_sources(), *vocabulary_assets),
+            ontology_sources=ontology_sources,
+        ),
         (native_operation_declarations(native),),
         sources,
     )
