@@ -35,9 +35,9 @@ def primary_operation_targets(workflow: str, *, captured: bool) -> tuple[str, ..
             else "text.compose_view/full-native",
         )
     if workflow == "phase0":
-        raise ValueError(
-            "phase0 target requires completed mathematical extraction, normalization and symbol-scope "
-            "producer adoption; select explicit admitted operations for the available scope"
+        return (
+            "text.compose_view/captured-full-native" if captured else "text.compose_view/full-native",
+            "resolve.symbol_scope/declared",
         )
     raise ValueError("unknown declared primary workflow")
 

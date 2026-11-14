@@ -50,6 +50,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         "text.hanlp_native/source-native",
         "text.formal_evidence/source-native",
         "text.constructions/source-native",
+        "text.declaration_syntax/source-native",
         "text.contextual_evaluation/source-native",
         "text.compose_view/source-native",
         "text.compose_view/full-native",
@@ -85,6 +86,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
     assert set(dependencies["text.contextual_evaluation/source-native"]) == {
         "text.formal_evidence/source-native",
         "text.constructions/source-native",
+        "text.declaration_syntax/source-native",
     }
     assert not model.operation("text.compose_view/source-native").potential_dependencies
     assert set(model.operation("text.compose_view/full-native").potential_dependencies) == {
@@ -93,6 +95,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         "text.hanlp_native/source-native",
         "text.formal_evidence/source-native",
         "text.constructions/source-native",
+        "text.declaration_syntax/source-native",
         "text.contextual_evaluation/source-native",
     }
 
@@ -192,7 +195,11 @@ def test_primary_workflow_targets_do_not_relabel_characterization_as_phase0():
     assert primary_operation_targets("characterize", captured=True) == (
         "text.compose_view/captured-full-native",
     )
-    with pytest.raises(ValueError, match="normalization and symbol-scope"):
-        primary_operation_targets("phase0", captured=True)
+    assert primary_operation_targets("phase0", captured=True) == (
+        "text.compose_view/captured-full-native", "resolve.symbol_scope/declared",
+    )
+    assert primary_operation_targets("phase0", captured=False) == (
+        "text.compose_view/full-native", "resolve.symbol_scope/declared",
+    )
     with pytest.raises(ValueError, match="actual declared PDF capture"):
         primary_operation_targets("capture", captured=False)

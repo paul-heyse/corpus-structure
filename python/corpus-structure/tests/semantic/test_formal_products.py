@@ -961,6 +961,8 @@ def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_fore
     address = DeclaredStructuralSource(source=canonical_bytes(["fixture:native-source", None]).decode(), source_product="fixture:native-source", kind_contract="kind:fixture-source", subject=coordinate["document_subject"], document=coordinate["document"], projection_digest=coordinate["projection"], section_pointer=coordinate["section_pointer"], membership=coordinate["membership"], project_id="fixture", original_source=coordinate["document"], analyzed_scope_meaning="{}")
     passage = StructuralPassage(passage_id="p", source_ref=address.identity, start=0, end=len(text), text=text, scope="selected")
     (field,) = threshold_readings(passage, source=address, primary_layers=primary)
+    from corpus_structure.semantic.structural_products import DeclaredClauseField
+    assert isinstance(field, DeclaredClauseField)
     assert field.typed is not None and field.typed.value == "25000"
     assert field.typed.unit == "USD" and field.typed.basis == "annual gross revenue"
     assert field.typed.primary_formal is not None and field.typed.primary_formal.product_id == product.semantic_id
