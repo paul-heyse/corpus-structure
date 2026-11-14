@@ -28,7 +28,7 @@ class ScopedRelationsOperation:
                         'identity_requirements': ['episode']}},
            {'name': 'constructions',
             'parameter': 'constructions',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct',
+            'kind': 'https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct',
             'direction': 'input',
             'minimum': 1,
             'maximum': None,

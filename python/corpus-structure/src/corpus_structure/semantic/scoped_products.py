@@ -75,7 +75,7 @@ def execute_scoped_relations(receiver, source, constructions, formal, predicates
         raise ValueError("scoped relations require exact whole retained primary products")
     products, formal_products = [], []
     for member, value in zip(profile.members("constructions"), constructions, strict=True):
-        product = RetainedCharacterizationProduct.acquire(profile.prepared, model, profile.prepared.index.definitions["DdoConstructionProduct"].iri, canonical_bytes(value), subject_context=SubjectContext(profile.context.project_id, member.subject, member.original_source, member.analyzed_scope))
+        product = RetainedCharacterizationProduct.acquire(profile.prepared, model, profile.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri, canonical_bytes(value), subject_context=SubjectContext(profile.context.project_id, member.subject, member.original_source, member.analyzed_scope))
         if product.semantic_id != member.product:
             raise ValueError("scoped construction body differs from its selected product")
         products.append(CharacterizationSnapshot(product.semantic_id, product.content))
