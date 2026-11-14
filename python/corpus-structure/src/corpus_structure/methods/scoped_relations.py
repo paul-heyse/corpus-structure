@@ -1516,7 +1516,6 @@ def discover_relations(
                 projection=frame.projection_digest,
                 source_view_id=legacy_view_id,
                 navigation=navigation,
-                navigation=navigation,
             )
             named_op = operation_identity(NAMED_QUESTION, named_link_version, pin, selection)
             first = len(products)
