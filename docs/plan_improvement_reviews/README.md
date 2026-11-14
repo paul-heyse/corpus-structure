@@ -47,7 +47,9 @@ performs no review and changes no implementation plan.
   hydration, bounded executor database concurrency, one failure contract, a vector contract for
   DDO-08 and declaration-edit cleanup; Arrow reads and compiled-SQL cross-checks conditional;
   five observed defects. A typed staged member route was withdrawn after independent challenge.
-  Proposals only; DDO plans remain unchanged.
+  Revised the same day at `ee683f3e9`: executor hydration is implemented with a native half
+  open, the vector contract is overtaken by the contextual-retrieval migration and needs only
+  recording, and the rest stands. Proposals only; not adopted wholesale by the DDO coordinator.
 
 - [Declared data operations with SQLAlchemy and Alembic](declared-data-operations-sqlalchemy-alembic_2026-11-14.md):
   full overview/addendum coverage against an already library-based baseline; DDO-09/10 read
