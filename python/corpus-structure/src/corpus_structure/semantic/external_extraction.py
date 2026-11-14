@@ -33,7 +33,9 @@ def external_extraction_inputs(bundle, dependencies=None, *, qualification_class
     if "data_operation_sentences" not in names:
         bundle = sentence_product_inputs(bundle)
     if "agent" not in names:
-        options = {"qualification_class": qualification_class, "statement_class": statement_class}
+        observation_content = next(source.content for source in bundle.sources if source.name == "observations")
+        options = {"qualification_class": qualification_class, "statement_class": statement_class,
+                   "observation_content": observation_content}
         bundle = proposal_inputs(bundle, **options) if dependencies is None else proposal_inputs(bundle, dependencies, **options)
     name, root = "data_operation_external_extraction", "data_operation_external_extraction_root"
     existing = {source.name: source.content for source in bundle.sources}
