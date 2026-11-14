@@ -24,8 +24,6 @@ def source_product_inputs(bundle: SourceBundle) -> SourceBundle:
     """Capture the one common nominal source model, reusing existing selectors."""
     from .characterization import characterization_inputs
     from .data_product_reference import reference_inputs
-
-    bundle = reference_inputs(characterization_inputs(bundle))
     names = {source.name for source in bundle.sources}
     if "data_operation_source" in names:
         if (
@@ -37,7 +35,8 @@ def source_product_inputs(bundle: SourceBundle) -> SourceBundle:
             != _MODEL.read_bytes()
         ):
             raise ValueError("shared native source model differs from installed owner")
-        return bundle
+        return reference_inputs(bundle)
+    bundle = reference_inputs(characterization_inputs(bundle))
     root = "data_operation_source_root"
     if root in names:
         raise ValueError("native source model uses a reserved root name")
