@@ -1478,11 +1478,51 @@ conflict resolution, focused integrated verification and the final current-state
   where their contracts fit. Keep short per-request publication and deliberate separate-snapshot
   conflict/lock behavior; do not add a batch-wide transaction, separate queue or scoring authority.
 
-The concurrent untracked PostgreSQL-library review is preserved. Its useful mechanisms may inform
+The concurrent PostgreSQL-library review, committed independently as `c703d4c31`, is preserved. Its useful mechanisms may inform
 this authorized footprint; recommendations for DDO-09/10 or new scope are not blanket adopted.
 DDO-11 still owns persistent deployment, activation, adoption and cutover. Targeted native/functional
 and genuine provider checks qualify only their selected scope; endpoint typing/lint and documentation
 checks do not establish the DDO-12 required union. Efficiency benefits remain Proposed, unmeasured.
+
+### Current integrated implementation and scoped evidence · 2026-11-14
+
+DDO-06–08 remain **in progress**. Implemented target slices now include shared paged exact native
+hydration, generalized authenticated receipt-bearing effects, Demand-only ordinary source/recovery
+frontdoors, source/native primary profile preparation, finite interpretations and contextual reading,
+CPU-owned exact contextual encoding/retrieval, native predicate/definition/applicability/artifact
+and dossier producers, distinct declaration syntax in full document composition, and positioned
+formal/scoped joins over actual semantic product addresses. This is not whole-family completion:
+clause/comparison/external integration, remaining mathematical scope, default phase0 composition,
+and retirement of remaining runner/catalog/CPU/reference consumers continue. Proposed dossier
+membership is not protected assessment; DDO-10 owns that public assessment boundary.
+
+The [authored-demand evidence](../design_review/evidence/2026-11-14_ddo-authored-demand/README.md)
+owns immutable registered `semantic_ddo_facts_v1`/`semantic_ddo_facts_v2`, both complete rollback
+candidates and registrations, scalar projection repair and exact retained artifact hashes. The
+public authored-input service freezes a native demand and retains distinct authenticated authored
+admissions, without a private graph or invented compute/run/cut. Evidence finalization
+`f3513786891844748cbf90e9181e53e0` **passed**. The persistent database remains
+`semantic_bep_located_v2`; the registered checkout head is `semantic_ddo_facts_v2`.
+
+Focused managed receipts (all dated 2026-11-14; source/context bounds retained):
+
+| Actual selected scope | Outcome and exact receipt |
+|---|---|
+| Pure hydration18 / native hydration4 / authored-native1 | Pure18 passed in `8db09d42786b4b66ac290c2343f03396`; its four native setup failures were replaced by four passes in `9b5175234c124c8dabec18fce8e2b714`. The authored scalar failure in that latter selection passed its sole retry `f16c466b521a4958ba958af0dfe00fd6`. |
+| Primary/family14 | `d29b211e11294e669071ca3ef4badc9e` passed13, failed1; exact finite compiler retries `88e9873bcbb6483db0551a72cbe1c082` failed and `b784154234e64fa5957002cd78bfd2b3` passed1. |
+| Source/frontdoor46 | `0538086c475342599fdab6f49a6f958e` passed43, failed3; `e668b63b79fc46dd8d7551e8daccb8dc` passed those3. |
+| Contextual/reading/encoder/nav/entrypoint19 | `6f045832551b41338f0ec75eef355a1f` passed15, failed4; `bd77e567f57945aa837e221a94b62cfd` passed those4. |
+| New definition/applicability/primary-manifest/formal13 | `7b4e9b244b904bd0b1c7a72105bf6a6e` passed11, failed2 formal scope comparison controls; `7905c74c35bd43a199a99d196bbe3c63` passed those2. |
+| Actual spaCy + retained named/scope/predicate consumer1 | `64f6a6074b494f0da3967983fc28be7a` failed initialization ordering; `9530234b3bbd412abc09b6d6f3f73661` passed the sole retry. No inference is rerun by the construction consumer. |
+| Math occurrence/symbolic2 | `4450f9fd89ae439690d96f7030127383` passed2 after the earlier typed-witness failures. Symbol-scope and native publication remain independent obligations. |
+| Dossier2 / scoped collection | `2d5cdaa3dc4848d2b954fd354eb43bbd` retained three failures (one older mathematical setup, two missing fixture stages). `78c2d508ad504362a2926dad78d5be1a` passed dossier2; scoped collection failed repeated keyword and remains under repair. |
+
+Passing cohorts are not replayed after fixes. These receipts do not establish final source qualification
+of subsequently changed shared profiles. Configured typing checks `756d85c55f8d4ab8aa61ff574f1e8b3a`
+and `af70d837c3764c428cca3fb5374bd651` failed during integration; their identified repairs are
+implemented and the coherent endpoint check remains open. Ruff E501 remains excluded.
+Full tests/checks, benchmarks and repository health sweeps are **not_run**, per operator. Actual
+bounded provider/current-capability journeys continue; no persistent deployment or cutover follows.
 
 ## DDO-06–08 authorized execution · 2026-11-13
 
