@@ -17,20 +17,47 @@ from corpus_structure.semantic.data_operation_identity import (
     SemanticRequestKey,
     body_identity,
     canonical_identity,
+    contextual_product_identity,
     definition_fingerprint,
     eligibility_fingerprint,
     execution_attestation,
     implementation_slice_fingerprint,
     kind_fingerprint,
-    product_identity,
     profile_identities,
     recipe_fingerprint,
     runtime_artifact_identity,
     semantic_fields,
     semantic_value,
-    subject_identity,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS
+
+
+@pytest.mark.parametrize("vector", CONTEXTUAL_PRODUCTS, ids=lambda vector: vector.name)
+def test_contextual_product_has_independent_literal_identity(vector):
+    context = SubjectContext(vector.project, "local", vector.source, vector.scope)
+    actual = contextual_product_identity(kind="kind:one", context=context, body="body:one")
+    assert actual.canonical_input == vector.literal
+    assert actual.key == "product:" + sha256(vector.literal).hexdigest()
+
+
+def test_contextual_product_domain_nesting_and_local_subject_are_determinants():
+    vector = CONTEXTUAL_PRODUCTS[0]
+    context = SubjectContext(vector.project, "local", vector.source, vector.scope)
+    actual = contextual_product_identity(kind="kind:one", context=context, body="body:one")
+    value = {
+        "body": "body:one",
+        "kind": "kind:one",
+        "subject": "local",
+        "subject_context": context.identity_record,
+    }
+    assert canonical_identity("other-product", value).canonical_input == vector.literal.replace(
+        b'"ddo","product"', b'"ddo","other-product"', 1
+    )
+    assert canonical_identity("other-product", value).digest != actual.digest
+    flattened = {"body": "body:one", "kind": "kind:one", **context.identity_record}
+    assert canonical_identity("product", flattened).digest != actual.digest
+    assert len({sha256(vector.literal).hexdigest() for vector in CONTEXTUAL_PRODUCTS[:4]}) == 4
 
 
 @pytest.mark.parametrize(
@@ -292,29 +319,6 @@ def test_opaque_boundary_requires_capture_or_resolved_immutable_contract():
     boundary["content_digest"] = "mutable-name"
     with pytest.raises(ValueError, match="SHA-256"):
         implementation_slice_fingerprint(records, "urn:root")
-
-
-def test_subject_occurrence_context_order_and_product_provenance_separation():
-    args = dict(
-        original_source="sha256:source",
-        projection="read-v1",
-        occurrence="passage/0",
-        context={"extent": [0, 3]},
-        order=[0],
-    )
-    first = subject_identity(**args)
-    for change in (
-        {"occurrence": "passage/1"},
-        {"context": {"extent": [3, 6]}},
-        {"order": [1]},
-        {"projection": "read-v2"},
-    ):
-        assert subject_identity(**{**args, **change}) != first
-    body = body_identity({"text": "equal"})
-    product = product_identity(kind="kind:one", subject=first.key, body=body.key)
-    # Producing task/execution/recipe do not occur in the product's canonical input.
-    assert product_identity(kind="kind:one", subject=first.key, body=body.key) == product
-    assert product_identity(kind="kind:two", subject=first.key, body=body.key) != product
 
 
 def test_provider_projections_are_declaration_roles_and_preserve_execution_details():

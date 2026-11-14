@@ -16,6 +16,43 @@ from corpus_structure.semantic.data_operation_identity import (
     canonical_identity,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
+from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS, JSON_MEANING_VECTORS
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("vector", CONTEXTUAL_PRODUCTS, ids=lambda vector: vector.name)
+def test_deployed_contextual_product_identity_matches_literal(vector, semantic_db_engine):
+    value = {
+        "body": "body:one",
+        "kind": "kind:one",
+        "subject": "local",
+        "subject_context": {
+            "project_id": vector.project,
+            "subject": "local",
+            "original_source": vector.source,
+            "analyzed_scope": json.loads(vector.scope),
+        },
+    }
+    with semantic_db_engine.connect() as connection, connection.begin():
+        connection.exec_driver_sql("SET TRANSACTION READ ONLY")
+        actual = connection.execute(
+            text(
+                "SELECT data.ddo_identity('product', data.ddo_json_meaning(CAST(:value AS jsonb)))"
+            ),
+            {"value": json.dumps(value)},
+        ).scalar_one()
+    assert actual == "product:" + sha256(vector.literal).hexdigest()
+
+
+@pytest.mark.db
+def test_deployed_subject_context_json_meaning_has_literal_vectors(semantic_db_engine):
+    with semantic_db_engine.connect() as connection, connection.begin():
+        connection.exec_driver_sql("SET TRANSACTION READ ONLY")
+        for value, expected in JSON_MEANING_VECTORS:
+            actual = connection.execute(
+                text("SELECT data.ddo_json_meaning(CAST(:value AS jsonb))"), {"value": value}
+            ).scalar_one()
+            assert actual == expected
 
 
 @pytest.mark.db
@@ -95,25 +132,7 @@ def test_json_subject_context_encoding_matches_literals_and_python(semantic_db_e
     start = source.index("CREATE OR REPLACE FUNCTION data.ddo_json_meaning(")
     end = source.index("CREATE OR REPLACE FUNCTION data.ddo_identity(", start)
     helper = source[start:end].replace("data.ddo_json_meaning", "pg_temp.ddo_json_meaning")
-    vectors = [
-        ("null", ["null"]),
-        ("true", ["boolean", True]),
-        ('"1"', ["string", "1"]),
-        ("1", ["decimal", "1"]),
-        ("1.0", ["decimal", "1"]),
-        ("1e6", ["decimal", "1000000"]),
-        ("-0.0", ["decimal", "0"]),
-        (
-            '{"page":1,"slots":[false,"x",null]}',
-            [
-                "mapping",
-                [
-                    ["page", ["decimal", "1"]],
-                    ["slots", ["sequence", [["boolean", False], ["string", "x"], ["null"]]]],
-                ],
-            ],
-        ),
-    ]
+    vectors = JSON_MEANING_VECTORS
     with semantic_db_engine.connect() as connection:
         transaction = connection.begin()
         try:

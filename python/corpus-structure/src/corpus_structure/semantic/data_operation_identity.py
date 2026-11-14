@@ -404,34 +404,8 @@ def recipe_fingerprint(
     )
 
 
-def subject_identity(
-    *, original_source: Any, projection: Any, occurrence: Any, context: Any, order: Any
-) -> CanonicalIdentity:
-    return canonical_identity(
-        "subject",
-        {
-            "original_source": original_source,
-            "projection": projection,
-            "occurrence": occurrence,
-            "context": context,
-            "order": order,
-        },
-    )
-
-
 def body_identity(body: Any) -> CanonicalIdentity:
     return canonical_identity("body", body)
-
-
-def product_identity(*, kind: str, subject: str, body: str) -> CanonicalIdentity:
-    return canonical_identity(
-        "product",
-        {
-            "kind": _identifier(kind, "kind fingerprint"),
-            "subject": _identifier(subject, "subject identity"),
-            "body": _identifier(body, "body digest"),
-        },
-    )
 
 
 @dataclass(frozen=True)
@@ -471,7 +445,7 @@ def profile_identities(fields: Iterable[ProfileField]) -> ProfileIdentities:
 def contextual_product_identity(
     *, kind: str, context: SubjectContext, body: str
 ) -> CanonicalIdentity:
-    """Current publication identity; the pure legacy helper does not authorize it."""
+    """Complete contextual identity used by current native publication."""
     return canonical_identity(
         "product",
         {
