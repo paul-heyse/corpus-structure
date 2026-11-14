@@ -37,6 +37,8 @@ class Bindings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     invocation_id: str | None = None
     run_id: int | None = None
+    demand_id: str | None = None
+    runtime_id: str | None = None
     provider_invocation: str | None = None
     task_id: int | None = None
     attempt: int | None = None

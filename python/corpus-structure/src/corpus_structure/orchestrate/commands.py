@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from corpus_structure.orchestrate.semantic import SourceRunCreated
 
 
-from .source_request import SourceRequestError, SourceWorkflow
+from .source_request import SourceRequestError
 
 CommandError = SourceRequestError
 
@@ -87,83 +87,6 @@ class TaskListing(BaseModel):
     tasks: list[TaskRow]
     total: int
     limit: int
-
-
-def start_bound_run(
-    engine: Engine,
-    *,
-    release_id: str,
-    realization_id: str,
-    project_id: str,
-    domain: str | None = None,
-    method_settings: Any,
-    phase: int = 0,
-    domains: Path | None = None,
-    fresh: Sequence[str] = (),
-    slice: str | None = None,
-    scope: str | None = None,
-    whole_document: bool = False,
-    source_membership: Literal["direct", "descendants"] | None = None,
-    corpus: str | None = None,
-    agent_mode: str = "complete",
-    agent_reuse: str = "full",
-    registry_for: Any = None,
-    graph: Any = None,
-    native_product: ProductReference | None = None,
-    integrated_product: ProductReference | None = None,
-    extraction_policy: str = "phase0",
-    m1_configuration: str = "default",
-    record_policy: dict[str, Any] | None = None,
-    source_only: bool = False,
-    characterization_views: Sequence[ProductReference] = (),
-    workflow: SourceWorkflow | None = None,
-    on_created: Callable[[SourceRunCreated], None] | None = None,
-):
-    from .source_operation import run_source_operation
-    from .source_request import SourceRunRequest, source_selection, source_workflow
-
-    if workflow is not None and (
-        extraction_policy != "phase0"
-        or m1_configuration != "default"
-        or record_policy is not None
-        or source_only
-        or characterization_views
-    ):
-        raise SourceRequestError("explicit workflow cannot combine legacy workflow selectors")
-    request = SourceRunRequest(
-        project_id=project_id,
-        release_id=release_id,
-        realization_id=realization_id,
-        domain=domain,
-        selection=source_selection(
-            slice=slice, scope=scope, whole_document=whole_document, corpus=corpus
-        ),
-        workflow=workflow
-        if workflow is not None
-        else source_workflow(
-            extraction_policy=extraction_policy,
-            m1_configuration=m1_configuration,
-            record_policy=record_policy,
-            source_only=source_only,
-            characterization_views=characterization_views,
-        ),
-        membership=source_membership,
-        native_product=native_product,
-        integrated_product=integrated_product,
-        fresh=tuple(fresh),
-        phase=phase,
-        agent_mode=agent_mode,
-        agent_reuse=agent_reuse,
-    )
-    return run_source_operation(
-        engine,
-        request,
-        method_settings,
-        domains=domains,
-        graph=graph,
-        registry_for=registry_for,
-        on_created=on_created,
-    ).run
 
 
 def resolve_source_domain(

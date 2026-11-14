@@ -177,6 +177,17 @@ def freeze_demand(
     root_operations = set(targets) | {relation.producer for relation in discovery}
     for target in tuple(root_operations):
         root_operations.update(graph.closure((target,)))
+    # A selected fan-in dependency can run on discovered members while its
+    # consumer runs on the document root. Do not also manufacture that child's
+    # source-view obligation at the document's whole-document context. Explicit
+    # top-level targets/producers retain their independently requested root work.
+    member_operations = set()
+    for relation in discovery:
+        member_operations.add(relation.target)
+        member_operations.update(graph.closure((relation.target,)))
+    root_operations.difference_update(
+        member_operations - set(targets) - {relation.producer for relation in discovery}
+    )
     if not supplied.keys() <= closure:
         raise ValueError("selection is outside the requested closure")
     identities = {(item.owner, item.domain): item.key for item in model.identities}

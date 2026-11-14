@@ -17,9 +17,9 @@ from corpus_structure.orchestrate.source_progress import SourceOperationProgress
 
 
 class NextAction(BaseModel):
-    kind: Literal["watch", "inspect", "resume_run", "recover_result", "native_status"]
+    kind: Literal["watch", "inspect", "resume_demand", "recover_result", "native_status"]
     command: str
-    owner: Literal["managed_result", "semantic_run"]
+    owner: Literal["managed_result", "semantic_run", "native_demand"]
 
 
 class NativeInspection(BaseModel):
@@ -27,6 +27,8 @@ class NativeInspection(BaseModel):
     reason: str | None = None
     assurance: Literal["native"] = "native"
     run: dict[str, Any] | None = None
+    demand: dict[str, Any] | None = None
+    execution_receipts: tuple[dict[str, Any], ...] = ()
     task: dict[str, Any] | None = None
     receipt_observations: tuple[int, ...] | None = None
     counts: dict[str, int] | None = None
@@ -75,8 +77,9 @@ def native_inspection(
     bindings = manifest.details.get("observation_bindings", {})
     run_id = bindings.get("run_id")
     target = manifest.details.get("observation_target")
-    if run_id is None:
-        return NativeInspection(reason="No native run binding was acquired by this invocation.")
+    demand_id = bindings.get("demand_id")
+    if run_id is None and demand_id is None:
+        return NativeInspection(reason="No native demand or historical run binding was acquired.")
     if target is None:
         return NativeInspection(
             reason="The native storage binding is unavailable; no lookup was inferred."
@@ -90,6 +93,22 @@ def native_inspection(
             read_snapshot(engine) as conn,
         ):
             verify_target(conn, expected, purpose="read")
+            if demand_id is not None:
+                from corpus_structure.semantic.data_operation_service import read_data_demand
+
+                snapshot = read_data_demand(conn, demand_id, limit=min(selection.limit, 16))
+                for recorded, native in (("project", "project_id"), ("release_id", "release_id"), ("runtime_id", "runtime_id")):
+                    if bindings.get(recorded) is not None and bindings[recorded] != snapshot[native]:
+                        return NativeInspection(reason="Recorded demand custody differs from the native demand.")
+                return NativeInspection(
+                    availability="available",
+                    demand={key: snapshot[key] for key in (
+                        "demand_id", "project_id", "release_id", "runtime_id", "state",
+                        "read_id", "read_snapshot", "frontier_at", "trust_snapshot",
+                        "obligations", "uses", "continuation",
+                    ) if key in snapshot},
+                    detail_omissions=("demand: bounded native frontier page; counts are not a whole-demand denominator",),
+                )
             progress = commands.bound_status(
                 conn, run_id, project_id=bindings.get("project"), operation_region_limit=2
             )
@@ -303,39 +322,25 @@ def inspect_result(
                     owner="semantic_run",
                 )
             )
-            if native.availability == "available" and bindings.project is not None:
-                operation = native.operation
-                if (
-                    operation is not None
-                    and operation.selected_role == "primary"
-                    and operation.anchor_run_id is not None
-                ):
-                    if operation.view_readiness not in {"enriched", "source_only"}:
-                        command = shlex.join(
-                            [
-                                "ci",
-                                "run",
-                                "resume",
-                                str(operation.anchor_run_id),
-                                "--characterization",
-                                "--project",
-                                bindings.project,
-                            ]
-                        )
-                        actions.append(
-                            NextAction(kind="resume_run", command=command, owner="semantic_run")
-                        )
-                elif (
-                    (operation is None or operation.selected_role == "analytical")
-                    and native.run is not None
-                    and native.run.get("readiness") == "source_ready"
-                ):
-                    command = shlex.join(
-                        ["ci", "run", "resume", str(bindings.run_id), "--project", bindings.project]
-                    )
-                    actions.append(
-                        NextAction(kind="resume_run", command=command, owner="semantic_run")
-                    )
+        if bindings.demand_id is not None:
+            actions.append(NextAction(
+                kind="native_status", command=shlex.join(["ci", "demands", "read", bindings.demand_id]),
+                owner="native_demand",
+            ))
+            source_root = manifest.details.get("native_source_root")
+            if isinstance(source_root, str):
+                actions.append(NextAction(
+                    kind="resume_demand", command=shlex.join([
+                        "ci", "demands", "execute", bindings.demand_id,
+                        "--source-root", source_root,
+                    ]), owner="native_demand",
+                ))
+            if "native" in manifest.artifacts:
+                from corpus_structure.semantic.data_operation_json import wire_json_loads
+
+                retained = wire_json_loads(store.read_artifact(result, "native"))
+                if retained.get("demand_id") == bindings.demand_id:
+                    native.execution_receipts = tuple(retained.get("receipts", ()))
         if manifest.action in {"test", "test.retry"} and not manifest.custody_settled():
             actions.append(
                 NextAction(
@@ -385,6 +390,14 @@ def inspect_result(
             report.native = report.native.model_copy(
                 update={"operation": report.native.operation.without_details()}
             )
+        if len(report.model_dump_json().encode()) > selection.max_bytes and report.native.demand is not None:
+            report.native = report.native.model_copy(update={
+                "demand": {key: value for key, value in report.native.demand.items() if key in {
+                    "demand_id", "project_id", "release_id", "runtime_id", "state", "read_id", "read_snapshot", "frontier_at",
+                }},
+                "execution_receipts": (),
+                "detail_omissions": (*report.native.detail_omissions, "demand frontier, continuation and physical receipts: response byte limit; inspect ci demands read and retained native artifact"),
+            })
         if len(report.model_dump_json().encode()) > selection.max_bytes:
             report.provider_receipts_omitted += len(report.provider_receipts)
             report.provider_receipts = ()
@@ -441,7 +454,9 @@ def render_inspection(report: ResultInspection) -> Group:
             f"collection minimum {report.observations.collection_threshold}"
         ),
     ]
-    if report.native.availability == "available":
+    if report.native.demand is not None:
+        parts.append(Text(f"Native demand {report.native.demand['demand_id']}: {report.native.demand.get('state', 'unknown')}; bounded frontier, no inferred task denominator"))
+    elif report.native.availability == "available":
         parts.append(
             Text(
                 f"Native task counts: {report.native.counts}; "

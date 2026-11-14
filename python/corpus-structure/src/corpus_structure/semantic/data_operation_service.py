@@ -86,6 +86,7 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
         freeze_demand,
     )
     from .data_operation_source_sets import read_source_sets
+    from .data_operation_identity import semantic_value
     from .data_operation_support import OriginalSourceSelection
     from .identity import canonical_bytes
 
@@ -103,6 +104,7 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
                 choices=json_bytes(value.choices),
                 selected_dependencies=value.selected_dependencies,
                 replicate=value.replicate,
+                parameter_meaning=json_bytes(semantic_value(value.parameters)),
             )
             for value in request.selections
         ),
@@ -188,7 +190,7 @@ def execute_data_demand(
     locations = {}
     for source in sources.sources:
         path = root / source.filename
-        if Path(source.filename).is_absolute() or not path.resolve().is_relative_to(root):
+        if not path.resolve().is_relative_to(root):
             raise ValueError("runtime source location escapes its explicit root")
         locations[source.module] = path
     executor = NativeDemandExecutor(

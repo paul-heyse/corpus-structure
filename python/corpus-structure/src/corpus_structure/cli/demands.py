@@ -17,6 +17,8 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_service import (
     CreateDataDemand,
     DdoJsonValue,
+    NativeDemandRequest,
+    create_native_demand,
     cancel_data_demand,
     create_data_demand,
     read_data_demand,
@@ -164,59 +166,100 @@ def execute(
     json: JsonOpt = False,
 ) -> None:
     """Execute the frozen native frontier; repeat this action to resume the same intent."""
+    execute_request(
+        ctx, demand=demand, source_root=source_root, project=project,
+        execution_policy=execution_policy, limit=limit, max_rounds=max_rounds, json=json,
+    )
+
+
+def execute_request(
+    ctx: typer.Context, *, source_root: Path, demand: str | None = None,
+    request: NativeDemandRequest | None = None, source_request=None,
+    project: str | None = None, action: str = "demands.execute",
+    execution_policy: Path | None = None, limit: int = 100, max_rounds: int = 100,
+    json: bool = False,
+) -> None:
+    """One managed path for source creation, explicit native requests and exact resume."""
     from corpus_structure.cli.characterization_options import method_settings
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    from corpus_structure.orchestrate.source_reporting import (
+        record_native_demand, retain_native_demand_result,
+    )
     from corpus_structure.semantic.data_operation_service import execute_data_demand
 
+    if sum(value is not None for value in (demand, request, source_request)) != 1:
+        raise typer.BadParameter("select one source request, native request or retained demand")
     settings = state(ctx).settings()
     methods = method_settings(settings, execution_policy)
     with managed_operation(
-        result_store(ctx),
-        "demands.execute",
-        json=json,
-        expected=(ValueError, KeyError, OSError),
-        scope={"demand_id": demand},
+        result_store(ctx), action, json=json, expected=(ValueError, KeyError, OSError),
+        scope={"demand_id": demand, "project": project},
     ) as invocation:
-        with (
-            ENGINE(settings, purpose="write") as engine,
-            ENGINE(settings, purpose="admit") as admitted,
-        ):
+        invocation.manifest.details["native_source_root"] = str(source_root.resolve())
+        with ENGINE(settings, purpose="write") as engine, ENGINE(settings, purpose="admit") as admitted:
             with engine.begin() as connection:
                 target = acquired_target(connection, purpose="write")
-                invocation.record_target(target, None, None, None)
+                if source_request is not None:
+                    from corpus_structure.orchestrate.source_operation import prepare_source_demand
 
-            def retain(result):
-                native = wire_json_loads(result.snapshot)
-                report = {
-                    "demand_id": result.demand_id,
-                    "snapshot": native,
-                    "snapshot_standing": result.snapshot_standing,
-                    "receipt_count": result.receipt_count,
-                    "receipts_truncated": result.receipts_truncated,
-                    "receipts": [wire_json_loads(value) for value in result.receipts],
-                }
-                path = invocation.directory / "native.json"
-                path.write_bytes(json_bytes(report))
-                invocation.publish("native", path)
-                return report
-
+                    request = prepare_source_demand(connection, source_request)
+                if request is not None:
+                    if project is not None and request.project_id != project:
+                        raise ValueError("request belongs to another project")
+                    path = invocation.directory / "request.json"
+                    path.write_bytes(json_bytes(request.model_dump(mode="python")))
+                    invocation.publish("request", path)
+                    snapshot = create_native_demand(connection, request)
+                    demand = snapshot["demand_id"]
+                else:
+                    assert demand is not None
+                    snapshot = read_data_demand(connection, demand, limit=1)
+                    if project is not None and snapshot["project_id"] != project:
+                        raise ValueError("retained demand belongs to another project")
+                invocation.record_target(target, None, None, snapshot["release_id"])
+            record_native_demand(invocation, snapshot, target)
+            assert demand is not None
             try:
                 result = execute_data_demand(
-                    engine,
-                    demand,
-                    source_root=source_root,
-                    limit=limit,
-                    max_rounds=max_rounds,
-                    policy=methods.execution_policy,
-                    project_id=project,
-                    nemotron_endpoint=methods.nemotron_endpoint,
-                    admission_engine=admitted,
+                    engine, demand, source_root=source_root, limit=limit, max_rounds=max_rounds,
+                    policy=methods.execution_policy, project_id=project,
+                    nemotron_endpoint=methods.nemotron_endpoint, admission_engine=admitted,
                 )
             except NativeDemandExecutionError as error:
-                retain(error.result)
+                retain_native_demand_result(invocation, error.result)
                 raise
-            native = retain(result)
+            native = retain_native_demand_result(invocation, result)
         invocation.settle("passed", demand_id=demand, receipt_count=result.receipt_count)
+        report = DemandActionReport(id=invocation.id, native=native)
+    _emit_demand(report, json=json)
+
+
+@app.command("plan")
+def plan(
+    ctx: typer.Context,
+    request: Annotated[Path, typer.Option(help="Typed native choices to compile and freeze; '-' reads stdin.")],
+    json: JsonOpt = False,
+) -> None:
+    """Freeze declared operation choices and register the exact native demand."""
+    with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
+        parsed = NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+    with managed_operation(
+        result_store(ctx), "demands.plan", json=json, expected=(ValueError, KeyError, OSError)
+    ) as invocation:
+        request_path = invocation.directory / "request.json"
+        request_path.write_bytes(json_bytes(parsed.model_dump(mode="python")))
+        invocation.publish("request", request_path)
+        with ENGINE(state(ctx).settings(), purpose="write") as engine, engine.begin() as connection:
+            target = acquired_target(connection, purpose="write")
+            native = create_native_demand(connection, parsed)
+            invocation.record_target(target, None, None, parsed.release_id)
+        from corpus_structure.orchestrate.source_reporting import record_native_demand
+
+        record_native_demand(invocation, native, target)
+        path = invocation.directory / "native.json"
+        path.write_bytes(json_bytes(native))
+        invocation.publish("native", path)
+        invocation.settle("passed", demand_id=native["demand_id"])
         report = DemandActionReport(id=invocation.id, native=native)
     _emit_demand(report, json=json)
 

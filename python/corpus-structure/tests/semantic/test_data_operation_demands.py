@@ -92,6 +92,34 @@ def test_discovered_targets_are_not_seeded_on_unrelated_root_subjects():
     ]
 
 
+def test_selected_fanin_children_execute_only_on_discovered_contexts():
+    compiled = model(
+        operation("op:discover", profile="discovery"),
+        operation("op:base"),
+        operation("op:child", dependencies=["op:base"]),
+        operation("op:result", potential_dependencies=["op:child"]),
+    )
+    intent = freeze(
+        compiled,
+        selections=(OperationSelection("op:result", selected_dependencies=("op:child",)),),
+        discovery=(DiscoverySelection("op:discover", "result", "op:child", "passages"),),
+    )
+    assert set(intent.record["root_operations"]) == {"op:discover", "op:result"}
+    assert {item["operation"] for item in intent.record["operations"]} == {
+        "op:discover", "op:result", "op:child", "op:base"
+    }
+    explicit = freeze_demand(
+        compiled,
+        roots=(RootSubject("document:one", "source:one", b'{"whole":true}'),),
+        targets=("op:result", "op:base"),
+        selections=(OperationSelection("op:result", selected_dependencies=("op:child",)),),
+        discovery=(DiscoverySelection("op:discover", "result", "op:child", "passages"),),
+        inference="exact",
+        execution_profile="one",
+    )
+    assert set(explicit.record["root_operations"]) == {"op:discover", "op:result", "op:base"}
+
+
 @pytest.mark.parametrize(
     "role_name,origins,expected",
     [
