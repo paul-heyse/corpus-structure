@@ -518,14 +518,6 @@ def retained_math_syntax(
     the existing contextual resolver. Correlated private sequences that cannot be
     factored remain explicitly unavailable, never independently recombined.
     """
-    from lark import Tree
-    from lark.parse_tree_builder import ParseTreeBuilder
-
-    from .formal_evidence import macro_identity, math_grammar_identity
-
-    table = dict(macros or {})
-    classes = grammar.classify(table)
-    base = grammar.MathResult(latex, kind, ParseOutcome.FAILED, macros=table, classes=classes)
     candidates = []
     for pin, report in layers.items():
         if report.reference(pin.task_id) != pin:
@@ -559,6 +551,19 @@ def retained_math_syntax(
             ):
                 continue
             candidates.append((body, root))
+    return _restore_math_syntax(candidates, latex, macros=macros, kind=kind, max_nodes=max_nodes)
+
+
+def _restore_math_syntax(candidates, latex, *, macros=None, kind="any_value", max_nodes=20000):
+    """Shared retained DAG/callback restoration after the owning source lookup."""
+    from lark import Tree
+    from lark.parse_tree_builder import ParseTreeBuilder
+
+    from .formal_evidence import macro_identity, math_grammar_identity
+
+    table = dict(macros or {})
+    classes = grammar.classify(table)
+    base = grammar.MathResult(latex, kind, ParseOutcome.FAILED, macros=table, classes=classes)
     if len(candidates) != 1:
         category = "ambiguous_primary_input" if candidates else "missing_primary_input"
         return replace(base, failure=grammar.Failure(category, "PrimarySyntaxUnavailable"))
@@ -736,6 +741,57 @@ def retained_math_syntax(
     )
 
 
+class SourceNativeMathReadings:
+    """One source's retained formal inputs, without task/view identities or recognition.
+
+    The parent authenticates the nominal products and their selected native support.
+    This index preserves their actual coordinate and member references for consumers.
+    """
+
+    def __init__(self, source, products):
+        from .data_product_reference import DataProductReference
+
+        selected = source.value
+        coordinate = selected["source"]
+        self._inputs = {}
+        self._coordinate = coordinate
+        for product in products:
+            value = product.value.model_dump(mode="json", exclude_unset=True)
+            if value["source"] != coordinate:
+                raise ValueError("retained mathematical product belongs to another source")
+            body = product.inventory()
+            occurrences = {row["local_id"]: row for row in body["occurrences"]}
+            pin = DataProductReference(product.semantic_id)
+            for root in body["annotations"]:
+                inp = root.get("formal_input")
+                if inp is None or inp["representation"] != "recognized_latex":
+                    continue
+                parent = occurrences[inp["parent_occurrence"]]
+                for extent in parent["extents"]:
+                    if (
+                        "source_view_id" in extent
+                        or extent["projection"] != coordinate["projection"]
+                    ):
+                        raise ValueError("retained mathematical extent differs from its source")
+                    pointer = extent.get("native_pointer")
+                    if pointer is not None:
+                        self._inputs.setdefault((pointer, inp["text"]), []).append(
+                            (pin, body, root)
+                        )
+
+    def syntax(self, pointer, latex, *, macros=None, kind="any_value", max_nodes=20000):
+        return _restore_math_syntax(
+            [(body, root) for _, body, root in self._inputs.get((pointer, latex), ())],
+            latex,
+            macros=macros,
+            kind=kind,
+            max_nodes=max_nodes,
+        )
+
+    def inventory(self, pointer, latex, *, macros=None):
+        return _math_inventory(self._inputs.get((pointer, latex), ()), macros=macros)
+
+
 def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
     """Read raw positioned constituents and packing without a private lexical walk."""
     from .formal_evidence import macro_identity, math_grammar_identity
@@ -767,6 +823,13 @@ def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
                     "primary mathematical inventory differs from frozen source or macros"
                 )
             candidates.append((pin, body, row))
+    return _math_inventory(candidates, macros=macros)
+
+
+def _math_inventory(candidates, *, macros=None):
+    from .data_product_reference import member_reference
+    from .formal_evidence import macro_identity, math_grammar_identity
+
     if len(candidates) != 1:
         return dict(
             outcome="unavailable",
@@ -777,6 +840,11 @@ def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
             issues=["exact primary mathematical input is missing or competing"],
         )
     pin, body, root = candidates[0]
+    inp = root["formal_input"]
+    if inp["macro_identity"] != macro_identity(macros) or inp["grammar"] != math_grammar_identity(
+        macros
+    ):
+        raise ValueError("primary mathematical inventory differs from frozen macros")
     rows = [
         row
         for row in body["annotations"]
@@ -785,7 +853,7 @@ def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
     ids = {row["local_id"] for row in rows}
     nodes = [
         dict(
-            primary_node=dict(layer=pin.values(), local_id=row["local_id"]),
+            primary_node=member_reference(pin, row["local_id"]).values(),
             kind=row["kind"],
             formal=row["formal"],
             parts=[
@@ -802,7 +870,7 @@ def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
             text=latex[row["formal"]["start"] : row["formal"]["end"]],
             start=row["formal"]["start"],
             end=row["formal"]["end"],
-            primary_node=dict(layer=pin.values(), local_id=row["local_id"]),
+            primary_node=member_reference(pin, row["local_id"]).values(),
         )
         for row in rows
         if row["formal"]["node_kind"] == "token"
@@ -819,7 +887,7 @@ def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
     ]
     return dict(
         outcome=root["formal_input"]["syntax_outcome"],
-        input=dict(layer=pin.values(), local_id=root["local_id"]),
+        input=member_reference(pin, root["local_id"]).values(),
         nodes=nodes,
         lexical=sorted(tokens, key=lambda t: (t["start"], t["end"], t["kind"])),
         choices=choices,

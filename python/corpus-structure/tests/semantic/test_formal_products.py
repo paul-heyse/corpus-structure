@@ -150,6 +150,65 @@ def test_unprojected_recognized_formula_preserves_atom_and_unknown_correspondenc
     )
 
 
+@pytest.mark.parametrize("latex,expected", [("x+1", "ok"), ("f(x)", "ambiguous")])
+def test_source_native_math_readings_restore_retained_syntax_without_parser(
+    profile, monkeypatch, latex, expected
+):
+    from corpus_structure.methods.math import grammar
+    from corpus_structure.semantic.formal_forest import SourceNativeMathReadings
+
+    source = selected(
+        profile,
+        latex,
+        items=[
+            dict(
+                self_ref="#/texts/0",
+                label="formula",
+                text=latex,
+                orig=latex,
+                prov=[dict(page_no=1)],
+            )
+        ],
+        recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
+    )
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
+    readings = SourceNativeMathReadings(source, (product,))
+
+    def refuse_parse(*args, **kwargs):
+        pytest.fail("retained mathematical consumer reran recognition")
+
+    monkeypatch.setattr(grammar, "syntax", refuse_parse)
+    monkeypatch.setattr(grammar, "syntax_forest", refuse_parse)
+    syntax = readings.syntax("#/texts/0", latex)
+    assert syntax.status.value == expected, syntax.failure
+    assert syntax.tree is not None
+    inventory = readings.inventory("#/texts/0", latex)
+    assert inventory["input"]["product_id"] == product.semantic_id
+    assert inventory["input"]["member_id"] in {member.member_id for member in product.members}
+    assert all(
+        set(row["primary_node"]) == {"product_id", "member_id"} for row in inventory["nodes"]
+    )
+    assert readings.syntax("#/texts/999", latex).failure.category == "missing_primary_input"
+    competing = SourceNativeMathReadings(source, (product, product))
+    assert competing.syntax("#/texts/0", latex).failure.category == "ambiguous_primary_input"
+
+
+def test_source_native_math_readings_refuse_different_original_coordinate(profile):
+    from corpus_structure.semantic.formal_forest import SourceNativeMathReadings
+
+    source = selected(profile)
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
+    changed = source.value
+    changed["source"]["membership"] = "direct"
+    other = FrozenFormalSource.acquire(profile.prepared, changed)
+    with pytest.raises(ValueError, match="another source"):
+        SourceNativeMathReadings(other, (product,))
+
+
 def test_cooperative_cancellation_prevents_complete_product(profile):
     def cancel():
         raise RuntimeError("cancelled original request")
