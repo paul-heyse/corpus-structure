@@ -44,12 +44,18 @@ The PostgreSQL helper is rollback-only framing parity over already normalized ta
 native product normalization/admission and generated ports have scoped implementations whose acceptance belongs to the coordinator. Current
 selected execution/ABI12 and archived releases retain their original interpretation.
 
-**Implemented foundation, scoped Tested · 2026-11-13.** Current authoring emits effective
-model v3 with compiled graph projection interpretation. Semantic-reference, potential-producer
+**Implemented foundation; v5 bounded qualification in progress · 2026-11-14.** Current authoring emits effective
+model v5 with compiled graph projection interpretation. Semantic-reference, potential-producer
 and selected-dependency graph construction consumes those definitions; typed occurrence witnesses
-remain distinct from connectivity. V1 authoring/decoding is retired. Exact historical v2 reading
+remain distinct from connectivity. Effective identities retain owner, domain and key; the complete
+governing graph and implementation slices remain archived once. Fingerprints compute canonical
+witnesses transiently; framing, tagging, key algorithms and generic canonical identity witnesses
+are unchanged. Exact historical v2/v3/v4 reading preserves witness-bearing bytes and feature rules.
+V1 authoring/decoding is retired. Historical reading
 serves retained release/candidate interpretation only and cannot authorize current execution or
 synthesize missing projections. Primitive semantic body/parameter encodings are unchanged.
+
+> Decision: [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 Admitted Python slices retain standard builtin references per supplying function. Runtime ports
 check the callable's actual captured builtin bindings, including helpers/generated methods and

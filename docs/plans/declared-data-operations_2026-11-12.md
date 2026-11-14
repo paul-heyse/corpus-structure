@@ -1495,6 +1495,19 @@ contextual math analysis. Generic definition extraction preserves its actual ter
 question and paired raw observation/candidate products; D1 is not relabelled as that extraction.
 Proposed dossier membership remains distinct from DDO-10 protected assessment.
 
+**Archive efficiency repair, implementation complete; native qualification open · 2026-11-14.**
+Actual definition-demand receipt `2950f7ac49574c4a970e491119d89972` exposed the JSONB array limit
+while interpreting the complete effective archive. The captured-input
+[shape investigation](../design_review/evidence/2026-11-14_ddo-model-archive-shape/README.md)
+measured 223,217,117 model bytes, including 204,671,906 bytes of repeated identity witnesses.
+[ADR-0105](../adr/0105-compact-effective-identity-archives.md) selects current v5 identity headers
+and complete governing facts stored once, preserving canonical algorithms, generic identity witnesses,
+and exact read-only v2/v3/v4 custody. Existing fingerprint functions reconstruct witnesses without a
+new cache/registry. This complements typed binary staging rather than replacing it. Targeted compact
+archive/historical authority controls15 **passed**, `f0796a000d03479bb64cee0690825ba0`;
+actual native/provider replacement and current v5 successor remain required. Benefits are Proposed;
+no reduced size or duration is claimed measured. Frozen native files remain unchanged.
+
 Ordinary profile acquisition now supports explicit downstream composition, optional captured literal
 M1 configuration plus record schemas, optional contextual encoder snapshot/profile, mathematical
 policy and external protocol. These capture available capabilities; a native demand selects actual

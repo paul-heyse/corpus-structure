@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "ddo.tagged-wire-governance",
+  "title": "Tagged semantic wire traversal and frozen discovery producer successor",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can tag-directed recursive wire validation and exact frozen discovery producer traversal be registered as an immutable successor?",
+  "answers": [],
+  "method": "Complete rendered rollback upgrade and independent catalog verification; all eight native body changes and single ordinary physical-contract insertion inspected; exact registration verified.",
+  "commands": [
+    "uv run ci model change candidate 3596fa0693534dd4b3ccc3986cccd2e9 --json",
+    "uv run ci model change inspect-candidate febe7020105145a2a49a3b90ca9eab11 --view operations --limit 100 --json",
+    "uv run ci model change register febe7020105145a2a49a3b90ca9eab11 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change-traversal.yaml",
+      "role": "fixed-source request",
+      "sha256": "22af44ebb07bf2c58f60306da1be49ce3f718b078f4eaee2b3e211e46b48ff8b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/traversal-candidate.json",
+      "role": "v3 candidate and registration custody",
+      "sha256": "3d04435b54fefee55c00c4953266c3b99989f0455348a17fe923a0c72d6aab6a"
+    },
+    {
+      "path": "results/traversal-native-operations.json",
+      "role": "v3 candidate and registration custody",
+      "sha256": "165ff0cf10c1cffadfb9c8146e3adbafe831cca9a06bf49fd7a33f7c665a55e3"
+    },
+    {
+      "path": "results/traversal-registered-files.json",
+      "role": "v3 candidate and registration custody",
+      "sha256": "f415aa74290021097e562670eb743adfd8dd3577f296c7870aa841fa39d21925"
+    }
+  ],
+  "depends_on": [
+    "ddo.external-runtime-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Complete rollback candidate febe7020105145a2a49a3b90ca9eab11 passed; registration 5eab633fe97c43c9849c54d5224cb74a verified. Eight native body changes preserve owners and grants; one ordinary operation inserts the physical contract. Standard tag-directed Draft7 wire shapes retain constraints. Frozen incoming discovery producers are included without weakening source/binding checks. Native/provider functional results remain separate. Persistent database unchanged; no deployment, activation or cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
