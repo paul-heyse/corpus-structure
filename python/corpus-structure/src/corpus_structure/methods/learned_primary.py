@@ -1,7 +1,6 @@
 """Owned declared learned-provider producers on exact original source contexts."""
 
-from collections.abc import Generator
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from corpus_structure.semantic.construction_products import CharacterizationSnapshot
 from corpus_structure.semantic.contextual_native_products import execute_contextual_native
@@ -3216,8 +3215,6 @@ class GlinerDefinitionPrimaryOperation:
         "invocation shared provider lanes",
         "binding": {"operator": "all", "children": [{"operator": "scan", "roles": ["source"]}]},
         "opaque": [
-            {"reference": "corpus_structure.semantic.definition_model_products.extract_definition_products", "contract": "learned/profile-assets", "role": "owned-native-located-definition-plan"},
-            {"reference": "corpus_structure.semantic.definition_model_products.DefinitionExtractionOptions", "contract": "learned/profile-assets", "role": "explicit-authored-question-and-evaluation-choices"},
             {
                 "reference": "corpus_structure.semantic.learned_primary.execute_learned_primary",
                 "contract": "learned/profile-assets",
@@ -3614,7 +3611,5 @@ class GlinerDefinitionPrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource, term_entity: str = "defined term or expression", content_entity: str = "defining text or formula", attachment_relation: str = "term is defined or explained by", description_arm: str = "bare", evaluation_overlap: str = "") -> Generator[tuple, Any, LearnedPrimaryProducts]:
-        from corpus_structure.semantic.definition_model_products import DefinitionExtractionOptions, extract_definition_products
-
-        return extract_definition_products(self.profile, source, binding=self.binding, execution_owner=self.execution_owner, check_active=self.check_active, options=DefinitionExtractionOptions(term_entity, content_entity, attachment_relation, description_arm, evaluation_overlap))
+    def run(self, source: FrozenNativeSource, term_entity: str = "defined term or expression", content_entity: str = "defining text or formula", attachment_relation: str = "term is defined or explained by", description_arm: str = "bare", evaluation_overlap: str = "") -> LearnedPrimaryProducts:
+        return execute_learned_primary(self, source, definition_options=dict(term_entity=term_entity, content_entity=content_entity, attachment_relation=attachment_relation, description_arm=description_arm, evaluation_overlap=evaluation_overlap))

@@ -191,12 +191,14 @@ class PreparedLearnedPrimary:
         constructions=None,
         contextual=None,
         focuses=(),
+        definition_options=None,
     ):
         if self.family == "gliner_definitions":
-            from .definition_model_products import extract_definition_products
+            from .definition_model_products import DefinitionExtractionOptions, extract_definition_products
 
             return (yield from extract_definition_products(
-                self, source, binding=binding, execution_owner=execution_owner, check_active=check_active
+                self, source, binding=binding, execution_owner=execution_owner, check_active=check_active,
+                options=DefinitionExtractionOptions(**(definition_options or {}))
             ))
 
         from corpus_structure.methods.characterization_resources import (
@@ -874,7 +876,7 @@ def maverick_input(source, annotations, frame, block, mapping):
 
 
 def execute_learned_primary(
-    receiver, source, annotations=None, formal=None, constructions=None, contextual=None, focuses=()
+    receiver, source, annotations=None, formal=None, constructions=None, contextual=None, focuses=(), definition_options=None
 ):
     return receiver.profile.run(
         source,
@@ -886,6 +888,7 @@ def execute_learned_primary(
         constructions=constructions,
         contextual=contextual,
         focuses=focuses,
+        definition_options=definition_options,
     )
 
 
