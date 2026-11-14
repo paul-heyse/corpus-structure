@@ -1,36 +1,122 @@
-"""An actual sealed PDF is bounded before whole-product bytes cross to Python."""
+"""A native DDO PDF publication is bounded before whole-product detachment."""
 
 import pytest
+from sqlalchemy import select
 
-from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build, seal_pdf_build, validate_pdf_build
+from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
+from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
+from corpus_structure.semantic.data_operation_service import execute_data_demand
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.original_documents import acquire_original_document_selection
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.query import ReadLimit
-from pdf_acceptance_support import stage_complete_native
-from semantic.pdf_staging_support import private_build as private_build
+from semantic.data_operation_kernel_support import Kernel
+from semantic.data_operation_original_support import OriginalSeedRecipe
+from semantic.native_record_fixtures import RecordSourceRecipe
+from semantic.test_pdf_transform_demand_native import ROOT, _pdf_recipe
 
 
-def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_body(private_build, commit_writer_engine, commit_reader_engine, tmp_path, monkeypatch):
-    build = private_build
-    stage_complete_native(commit_writer_engine, build, tmp_path)
-    with commit_writer_engine.begin() as connection:
-        frozen = freeze_pdf_build(connection, build, kind="native")
-        prepare_pdf_build(connection, frozen)
-    validate_pdf_build(commit_writer_engine, frozen)
-    with commit_writer_engine.begin() as connection:
-        publication = seal_pdf_build(connection, frozen, "native")
-    pin = ProductReference(publication.task_id, publication.product_key, publication.logical_digest)
-    with commit_reader_engine.connect() as connection:
-        reader = PublishedPdfReader(connection, pin, read_budget=PublishedReadBudget(100_000, 16 * 1024 * 1024))
-        bound = reader.require_materialization_capacity()
-        # Independent literal content and its real streamed serialization establish a
-        # lower bound. The production scalar may conservatively include other custody.
-        encoded = b"".join(reader.iter_native_json())
-        assert b"independent expected text" in encoded
-        assert bound >= len(encoded) > len(b"independent expected text")
-        too_small = PublishedPdfReader(connection, pin, read_budget=PublishedReadBudget(100_000, bound - 1))
-        def forbidden_body():
-            raise AssertionError("source bytes fetched before aggregate input admission")
-        monkeypatch.setattr(too_small, "iter_native_json", forbidden_body)
-        with pytest.raises(ReadLimit, match="aggregate materialization"):
-            too_small.hydrate_document()
+def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_body(
+    scenario_seeds, tmp_path, monkeypatch
+):
+    from docling_core.types.doc import (
+        BoundingBox, DocItemLabel, DoclingDocument, ProvenanceItem, Size,
+    )
+
+    from corpus_structure.ingest import pdf_worker
+
+    def controlled_stream(
+        self, source, *, spool_root, record_root, build_id, release_id,
+        on_replay, check_active, **options,
+    ):
+        check_active()
+        document = DoclingDocument(name="Independent materialization source")
+        document.add_page(page_no=1, size=Size(width=200, height=300))
+        document.add_text(
+            label=DocItemLabel.TEXT, text="independent expected text",
+            prov=ProvenanceItem(
+                page_no=1, bbox=BoundingBox(l=10, t=20, r=150, b=40), charspan=(0, 25),
+            ),
+        )
+        streamed = StreamingPdfResult(
+            document, PdfStreamSpool(spool_root, check_active=check_active),
+            "success", (), self.recipe.to_bytes(), (),
+        )
+        occurrences = streamed.write_native_occurrence_batches(
+            record_root.with_name(record_root.name + "-occurrences"),
+            build_id=build_id, on_batch=on_replay,
+        )
+        records = streamed.write_record_batches(
+            record_root, build_id=build_id, release_id=release_id,
+            source_digest=source.digest, on_batch=on_replay,
+        )
+        return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
+
+    monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
+    recipe = OriginalSeedRecipe(RecordSourceRecipe(), _pdf_recipe(tmp_path))
+    with scenario_seeds.commit_clone(recipe) as clone:
+        kernel = Kernel(
+            clone.admin, clone.stage.kernel.preparation, clone.stage.kernel.identities,
+            recipe.target, clone,
+        )
+        document = table("kb.document")
+        with clone.admin.connect() as connection:
+            document_key = connection.execute(
+                select(document.c.key).where(document.c.id == clone.stage.source.document)
+            ).scalar_one()
+        with kernel.purpose("write").begin() as connection:
+            original = acquire_original_document_selection(
+                connection, project_id=clone.stage.source.project_id, document_key=document_key,
+            )
+            intent = freeze_demand(
+                kernel.model, roots=(original.root,), targets=("source.pdf/capture",),
+                original_sources=(original.selection(),), inference="pdf-materialization-test",
+                execution_profile=recipe.target.execution_profile,
+            )
+            demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
+                intent, project=clone.stage.source.project_id, release=kernel.prepared.release_id,
+                runtime=kernel.runtime,
+            )["demand_id"]
+        executed = execute_data_demand(
+            kernel.purpose("write"), demand, source_root=ROOT,
+            admission_engine=kernel.purpose("admit"),
+        )
+        assert executed.receipt_count == 1
+        intents, requests = table("ops.data_completion_intent"), table("ops.data_request")
+        with clone.admin.connect() as connection:
+            payload = connection.execute(
+                select(intents.c.payload).join_from(
+                    intents, requests, requests.c.id == intents.c.request_id,
+                ).where(requests.c.operation_id == "source.pdf/capture")
+            ).scalar_one()
+        assert isinstance(payload, dict)
+        (receipt,) = payload["execution_evidence"]["pdf_receipts"]
+        publication = receipt["publication"]
+        pin = ProductReference(
+            publication["task_id"], publication["product_key"], publication["logical_digest"],
+        )
+        with kernel.purpose("read").connect() as connection:
+            reader = PublishedPdfReader(
+                connection, pin, projection_context=kernel.prepared,
+                read_budget=PublishedReadBudget(100_000, 16 * 1024 * 1024),
+            )
+            bound = reader.require_materialization_capacity()
+            # Independent content and real streamed serialization establish a lower
+            # bound; the native scalar may conservatively include other custody.
+            encoded = b"".join(reader.iter_native_json())
+            assert b"independent expected text" in encoded
+            assert bound >= len(encoded) > len(b"independent expected text")
+            too_small = PublishedPdfReader(
+                connection, pin, projection_context=kernel.prepared,
+                read_budget=PublishedReadBudget(100_000, bound - 1),
+            )
+
+            def forbidden_body():
+                raise AssertionError("source bytes fetched before aggregate input admission")
+
+            monkeypatch.setattr(too_small, "iter_native_json", forbidden_body)
+            with pytest.raises(ReadLimit, match="aggregate materialization"):
+                too_small.hydrate_document()
