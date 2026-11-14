@@ -139,7 +139,7 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_external_completion(completion jsonb,r ops.data_request,producer_task bigint,producer_attempt integer,producer_holder text) RETURNS void
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE definition sem.data_operation_definition; receipt ops.data_external_receipt; wire jsonb; packet ops.data_external_packet;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;

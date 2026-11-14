@@ -1,7 +1,6 @@
 """Current pack journeys over independently authored, controlled PDF source paragraphs.
 
 
-from semantic.historical_agent_support import HistoricalAgentPublication
 The paragraph/answer author owns expected meaning. This helper supplies only native source
 custody, current pack preparation, task leasing and the production finalization boundary.
 """
@@ -28,7 +27,6 @@ from corpus_structure.evaluate.semantic import split_documents
 from corpus_structure.evaluate.split import SplitConfig
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from semantic.historical_agent_support import create_historical_agent_task
 from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -48,6 +46,7 @@ from corpus_structure.semantic.record_contracts import (
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.types import PreparedRelease
 from semantic import native_record_fixtures as source_fixture
+from semantic.historical_agent_support import HistoricalAgentPublication, create_historical_agent_task
 from semantic.native_record_fixtures import private_source as private_source
 
 

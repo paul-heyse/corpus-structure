@@ -17,7 +17,9 @@ def test_external_protocol_is_source_free_recipe_meaning_and_roundtrips():
     declared = external_declaration()
     model = compile_data_operations(declarations=declarations(declared))
     assert not model.implementation_slices
-    assert model.operations[0].external.instructions.startswith("Return the independently")
+    external = model.operations[0].external
+    assert external is not None
+    assert external.instructions.startswith("Return the independently")
     assert read_effective_data_operations(model.content).content == model.content
     changed = deepcopy(declared)
     changed["external"]["requested_model"] = "actual-model-assertion"
@@ -43,7 +45,9 @@ def test_external_protocol_refuses_unadmitted_authority(change):
             "reference": "missing.Factory",
             "method": "acquire",
         }
-    with pytest.raises(PreparationError):
+    expected = {"protected": "protected evaluator kinds", "reference-scope": "declared-input reference scope",
+                "effect-authorization": "native write authorization", "python-factory": "captured capability"}
+    with pytest.raises(PreparationError, match=expected[change]):
         compile_data_operations(declarations=declarations(declared, kinds=kinds))
 
 
@@ -82,7 +86,7 @@ def test_frozen_model_reuses_content_and_exact_decoding_without_caching_other_in
     first = model.content
     assert model.content is first
     decoded = read_effective_data_operations(first)
-    assert read_effective_data_operations(bytes(first)) is decoded
+    assert read_effective_data_operations(first) is decoded
     class CapturedBytes(bytes):
         pass
 

@@ -64,14 +64,14 @@ def test_mcp_registration_exposes_versioned_native_reads_and_explicit_render():
     from sqlalchemy import create_engine
 
     from corpus_structure.intervene.semantic_server import (
-        SemanticAgentSession,
-        build_semantic_server,
+        RetainedReaderBinding,
+        build_retained_reader_server,
     )
 
     engine = create_engine("sqlite://")
 
     async def check():
-        async with Client(build_semantic_server(SemanticAgentSession(engine, 1))) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1))) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert "inspect_source" in tools and "render_source_region" in tools
             request = tools["inspect_source"].input_schema["properties"]["request"]

@@ -11,7 +11,6 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
-from corpus_structure.semantic._operation_ids import SourceViewId
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.semantic.operations import OperationDescriptor, claim_tasks, create_task, record_method
 from corpus_structure.semantic.retained_agent_packets import _packet_for_unit
@@ -19,12 +18,14 @@ from corpus_structure.semantic.source_frames import capture_source_frame
 
 
 def create_historical_agent_task(conn: Connection, *, run_id: RunId, prepared: PreparedRelease,
-                                 configuration: Mapping[str, Any], source_view_id: SourceViewId,
+                                 configuration: Mapping[str, Any], source_view_id: int,
                                  unit_key: str, method_name: str = "agent.opus", trigger=None) -> TaskId:
     """Create one explicitly selected fixture task; no routing, graph or policy execution."""
     from corpus_structure.methods.llm.agent_opus import AgentOpusConfig
     from corpus_structure.methods.llm.producer import producer_binding
 
+    if type(source_view_id) is not int or source_view_id < 1:
+        raise ValueError("historical fixture requires an actual positive source-view row identifier")
     producer = producer_binding(method_name, configuration)
     ref = UnitRef(TaskUnitType.SOURCE_VIEW, source_view_id, unit_key)
     packet = _packet_for_unit(conn, run_id, prepared, ref, configuration)

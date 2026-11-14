@@ -87,7 +87,7 @@ def test_external_release_takeover_fences_old_producer_and_assertions(ddo_kernel
     second = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     new = second.claim(retained["packet_id"])
     assert new["attempt"] == old["attempt"] + 1
-    with pytest.raises(DBAPIError, match="fence|claim|attempt|lease"):
+    with pytest.raises(DBAPIError, match=r"fence|claim|attempt|lease"):
         first.read(retained["packet_id"], old)
     with pytest.raises(DBAPIError, match="assertion"):
         second.submit(
@@ -114,12 +114,11 @@ def test_external_release_takeover_fences_old_producer_and_assertions(ddo_kernel
 def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
     demand, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)
-    with pytest.raises(DBAPIError, match="capacity"):
-        with ddo_kernel["engine"].begin() as connection:
-            DataOperationStorage(connection).invoke(
-                "retain_external_data_packet",
-                {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 1},
-            )
+    with pytest.raises(DBAPIError, match="capacity"), ddo_kernel["engine"].begin() as connection:
+        DataOperationStorage(connection).invoke(
+            "retain_external_data_packet",
+            {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 1},
+        )
     with ddo_kernel["engine"].begin() as connection:
         retained = DataOperationStorage(connection).invoke(
             "retain_external_data_packet",
@@ -290,10 +289,9 @@ def test_native_product_page_preflights_body_and_bounds_complete_envelope_withou
         frontier = native.invoke("read_demand_result", {"demand_id": demand["demand_id"], "max_bytes": 1})
         assert frontier["view"] == "frontier" and frontier["uses"][0]["products"][0]["body_state"] == "not_requested"
     for bound, reason in ((1, "product page exceeds max_bytes"), (64, "page envelope exceeds max_bytes")):
-        with pytest.raises(DBAPIError, match=reason):
-            with ddo_kernel["engine"].begin() as connection:
-                DataOperationStorage(connection).invoke("read_demand_result", {
-                    "demand_id": demand["demand_id"], "view": "products", "max_bytes": bound})
+        with pytest.raises(DBAPIError, match=reason), ddo_kernel["engine"].begin() as connection:
+            DataOperationStorage(connection).invoke("read_demand_result", {
+                "demand_id": demand["demand_id"], "view": "products", "max_bytes": bound})
     with ddo_kernel["engine"].begin() as connection:
         completed = DataOperationStorage(connection).invoke("read_demand_result", {
             "demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000})
