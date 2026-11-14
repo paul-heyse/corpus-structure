@@ -1,0 +1,56 @@
+id: https://corpus-structure.dev/semantic/data-operation-candidate-inspection
+name: data_operation_candidate_inspection
+prefixes:
+  candidate: https://corpus-structure.dev/semantic/data-operation-candidate-inspection/
+default_prefix: candidate
+default_range: string
+imports: [observations, data_operation_source_discovery]
+classes:
+  DdoCandidateCoverage:
+    is_a: SourceRecordProduct
+    attributes:
+      family: {required: true}
+      scope: {required: true}
+      outcome: {required: true}
+      reason: {}
+      required_capability: {}
+  DdoCandidateValue:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      candidate_type: {required: true}
+      pin: {range: RecordSourcePin, inlined: true, required: true}
+      anchors: {range: RecordAnchor, inlined_as_list: true, multivalued: true}
+  DdoCandidateSourceRecord:
+    is_a: SourceRecord
+    mixins: [DdoCandidateValue]
+    attributes:
+      candidate_type: {equals_string: record}
+      anchors: {range: RecordAnchor, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoCandidateSourceContribution:
+    is_a: SourceContribution
+    mixins: [DdoCandidateValue]
+    attributes:
+      candidate_type: {equals_string: contribution}
+  DdoCandidatePacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSourceViewContext, inlined: true, required: true}
+      body: {range: DdoCandidateValue, inlined: true, required: true}
+  DdoCandidateInspectionReport:
+    is_a: SourceRecordProduct
+    description: Completed private candidate inspection, including an empty candidate set and exact coverage; never knowledge acceptance.
+    attributes:
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
+      inspection_outcome: {range: DdoCandidateInspectionOutcome, required: true}
+      standing: {required: true, equals_string: private_uncalibrated_candidates}
+      members: {range: DdoCandidatePacket, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      operations: {range: SourceContributionOperation, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      coordinate_texts: {range: RecordCoordinateText, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      coverage: {range: DdoCandidateCoverage, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      diagnostics_json: {required: true}
+enums:
+  DdoCandidateInspectionOutcome:
+    permissible_values: {produced: {}, empty: {}}
