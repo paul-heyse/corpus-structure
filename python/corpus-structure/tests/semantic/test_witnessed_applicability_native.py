@@ -14,10 +14,7 @@ from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityConfig,
     DefinitionApplicabilityMethod,
 )
-from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -29,7 +26,8 @@ from corpus_structure.semantic.operations import (
 )
 from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.witnessed_scenario_support import completed_metadata, completed_relationship_case
+from semantic.witnessed_scenario_support import (completed_metadata, completed_relationship_case,
+    _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result)
 
 
 @pytest.fixture
@@ -93,22 +91,16 @@ def applicable(private_source, monkeypatch, tmp_path):
         selection_refs=(ref,),
         applicability_scope="defining_occurrence",
     )
-    run = semantic.run_source_methods(
-        case.writer,
-        project_id="private-records",
-        prepared=case.prepared,
-        binding=OperationBinding(case.prepared.release_id, "wce-links", revision, b"{}"),
-        registry=MethodRegistry(
-            [DefinitionApplicabilityMethod()],
-            MethodsFile(
-                configs={"structure.definitions": {"default": cfg.model_dump(mode="json")}}
-            ),
-        ),
-        graph=Graph(
-            ((Stage.ASSEMBLE, (Step("structure.definitions/default"),)),), policy_propose=False
-        ),
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-    )
+    from corpus_structure.core.method import UnitRef, UnitView
+    from corpus_structure.core.vocab import TaskUnitType
+    method = DefinitionApplicabilityMethod()
+    identity, bound = _begin_witnessed_run(case,
+        OperationBinding(case.prepared.release_id, "wce-links", revision, b"{}"), ((method,cfg),))
+    ref = UnitRef(TaskUnitType.RUN, unit_key="definition-applicability:"+cfg.inputs.identity+":"+cfg.usage_id)
+    with _witnessed_reader(case, identity, bound, tmp_path) as ctx:
+        (result,) = method.run((UnitView(ref,ctx.run),), cfg, ctx)
+    _retain_witnessed_result(case, identity, method, cfg, result, stage="assemble")
+    run = SimpleNamespace(run_id=identity)
     with case.writer.connect() as conn:
         app_task = conn.execute(select(tasks).where(tasks.c.run_id == run.run_id)).mappings().one()
         body = conn.scalar(

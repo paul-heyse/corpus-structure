@@ -61,7 +61,7 @@ def _fixture_configuration(method, config):
     return params, sha256(canonical_bytes([method.name, method.version, params])).hexdigest()
 
 
-def _begin_witnessed_run(case, binding, configured, *, structural_admission=(), local_semantic_admission=()):
+def _begin_witnessed_run(case, binding, configured, *, structural_admission=(), local_semantic_admission=(), selected_sources=()):
     """Create genuine native custody for these finite sealed-consumer fixture families.
 
     This records declared inputs only. It selects no methods, schedules no graph,
@@ -82,8 +82,16 @@ def _begin_witnessed_run(case, binding, configured, *, structural_admission=(), 
         run = create_run(conn, project_id=case.project_id, binding=binding, kind="full",
             options={}, code_commit="sealed-witnessed-fixture", prepared=case.prepared)
         start_run(conn, run)
-        select_source_view(conn, run_id=run, source_run_id=RunId(case.run),
-            source_view_id=SourceViewId(case.view), projection_context=case.prepared)
+        if selected_sources:
+            from sqlalchemy import text
+            for source in selected_sources:
+                conn.execute(text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+                    {"source":canonical_bytes(source.model_dump(mode="json")).decode()}).scalar_one()
+                select_source_view(conn, run_id=run, source_run_id=RunId(source.run_id),
+                    source_view_id=SourceViewId(source.source_view_id), projection_context=case.prepared)
+        else:
+            select_source_view(conn, run_id=run, source_run_id=RunId(case.run),
+                source_view_id=SourceViewId(case.view), projection_context=case.prepared)
     return run, binding
 
 
