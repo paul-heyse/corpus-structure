@@ -61,7 +61,7 @@ def packet_bound_source_tasks(run_id: int, *, cut_id: int | None = None):
 
 def backfill_source_frames(engine: Engine, run_id: int) -> int:
     """Append missing origin frames after rebuilding and verifying their original packet hash."""
-    from corpus_structure.orchestrate.semantic import agent_packet
+    from .retained_agent_packets import retained_agent_packet
 
     from .releases import open_release
 
@@ -87,6 +87,6 @@ def backfill_source_frames(engine: Engine, run_id: int) -> int:
                 select(tasks.c.run_id, tasks.c.release_id).where(tasks.c.id == task_id)
             ).one()
             prepared = open_release(conn, task.release_id)
-            # agent_packet verifies recorded packet_hash before the identical capture routine.
-            agent_packet(conn, task.run_id, task_id, prepared)
+            # The sealed selection and original packet hash are both required.
+            retained_agent_packet(conn, task.run_id, task_id, prepared, sealed_context_run_id=run_id)
         return len(missing)

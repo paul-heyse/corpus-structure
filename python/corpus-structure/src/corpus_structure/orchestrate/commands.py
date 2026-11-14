@@ -16,10 +16,6 @@ from corpus_structure.settings import AnalyticsSettings
 
 from .source_progress import SourceOperationProgress, read_source_operation_progress
 
-if TYPE_CHECKING:
-    pass
-
-
 from .source_request import SourceRequestError
 
 CommandError = SourceRequestError
