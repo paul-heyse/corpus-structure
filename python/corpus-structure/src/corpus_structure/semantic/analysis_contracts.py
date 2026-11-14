@@ -959,10 +959,13 @@ def prepare_alignment_policy(prepared: PreparedRelease | None = None):
     return profile.alignment_policy
 
 
-def prepare_placement_policy(prepared: PreparedRelease | None = None):
+def prepare_placement_policy(prepared: PreparedRelease | None = None, *, context_profile: AnalysisContextProfile | None = None):
     from corpus_structure.methods.llm.cascade import PlacementPolicy
 
-    _, profile = _profile(prepared)
+    if context_profile is None:
+        _, profile = _profile(prepared)
+    else:
+        profile = context_profile.profile
     policy = profile.placement_policy
     assert policy is not None
     return PlacementPolicy(

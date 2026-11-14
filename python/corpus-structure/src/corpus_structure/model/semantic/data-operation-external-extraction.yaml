@@ -1,0 +1,53 @@
+id: https://corpus-structure.dev/semantic/data-operation-external-extraction
+name: data_operation_external_extraction
+prefixes:
+  dee: https://corpus-structure.dev/semantic/data-operation-external-extraction/
+default_prefix: dee
+default_range: string
+classes:
+  DdoExternalKnownEntity:
+    is_a: SourceRecordProduct
+    attributes:
+      entity_id: {required: true}
+      label: {required: true}
+      aliases: {multivalued: true, required: true}
+  DdoExternalExtractionPolicy:
+    is_a: SourceRecordProduct
+    description: Explicit authored context; supplied empty references do not assert canonical KB completeness.
+    attributes:
+      version: {required: true, equals_string: external-extraction-policy-1}
+      guideline: {required: true}
+      known_reference_standing: {required: true, equals_string: authored}
+      known_classes: {range: SourceValue, inlined: true, required: true}
+      known_entities: {range: DdoExternalKnownEntity, inlined: true, multivalued: true, required: true}
+      bootstrap_terms: {multivalued: true, required: true}
+      macros: {range: SourceValue, inlined: true, required: true}
+      context_sources: {multivalued: true, required: true}
+      scope_standing: {required: true, pattern: '^(supplied|explicitly-none)$'}
+  DdoExternalExtractionPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {required: true, equals_string: external-extraction-input-1}
+      unit_ref: {required: true}
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
+      frame: {range: SourceValue, inlined: true, required: true}
+      guideline: {required: true}
+      known_reference_standing: {required: true, equals_string: authored}
+      known_classes: {range: SourceValue, inlined: true, required: true}
+      known_entities: {range: DdoExternalKnownEntity, inlined: true, multivalued: true, required: true}
+      bootstrap_terms: {multivalued: true, required: true}
+      macros: {range: SourceValue, inlined: true, required: true}
+      native_observations: {range: SourceValue, inlined: true, required: true}
+      scope_standing: {required: true, pattern: '^(supplied|explicitly-none)$'}
+  DdoLocatedExternalExtraction:
+    is_a: SourceRecordProduct
+    description: Mechanically checked rich source report; no claims are selected or admitted into knowledge.
+    attributes:
+      version: {required: true, equals_string: located-external-extraction-1}
+      unit_ref: {required: true}
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
+      standing: {required: true, equals_string: unselected_source_report}
+      authored: {range: AgentAuthoredBatch, inlined: true, required: true}
+      stored: {range: AgentStoredBatch, inlined: true, required: true}
+      issues: {range: SourceValue, inlined: true, required: true}
+      known_reference_standing: {required: true, equals_string: authored}

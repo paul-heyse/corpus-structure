@@ -130,6 +130,12 @@ def build_external_server(
         """Resolve retained/committed/cancelled/superseded standing after uncertainty."""
         return report(lambda: current(ctx).inspect(packet_id))
 
+    @server.tool(annotations={"readOnlyHint": True})
+    def read_located_results(ctx: Context, demand_id: str, limit: int = 100,
+                             continuation: dict[str, Any] | None = None) -> ToolResult:
+        """Read complete rich source reports and placement diagnostics on one pinned native page."""
+        return report(lambda: current(ctx).located(demand_id, limit=limit, continuation=continuation))
+
     @server.tool()
     def release_packet(
         ctx: Context, packet_id: str, claim: dict[str, Any], reason: str

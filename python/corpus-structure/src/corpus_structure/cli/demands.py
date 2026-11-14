@@ -306,13 +306,8 @@ def register(root: typer.Typer) -> None:
 @app.command("external")
 def external(
     ctx: typer.Context,
-    action: Annotated[
-        Literal["queue", "claim", "read", "renew", "submit", "inspect", "reconcile", "release"],
-        typer.Argument(),
-    ],
-    request: Annotated[
-        Path, typer.Option(help="Exact external action arguments as JSON; '-' reads stdin.")
-    ],
+    action: Annotated[Literal["queue", "claim", "read", "renew", "submit", "inspect", "reconcile", "located", "release"], typer.Argument()],
+    request: Annotated[Path, typer.Option(help="Exact external action arguments as JSON; '-' reads stdin.")],
     project: Annotated[str | None, typer.Option(help="Native project scope.")] = None,
     demand: Annotated[
         str | None, typer.Option(help="Restrict packet claims to this demand.")
@@ -337,24 +332,14 @@ def external(
         settings = state(ctx).settings()
         with ENGINE(settings, purpose="write") as engine:
             with engine.begin() as connection:
-                invocation.record_target(
-                    acquired_target(connection, purpose="write"), None, None, None
-                )
-            session = ExternalDataSession(
-                engine, project or settings.runtime.default_project, demand_id=demand
-            )
-            operation = {
-                "queue": session.queue,
-                "claim": session.claim,
-                "read": session.read,
-                "renew": session.renew,
-                "submit": session.submit,
-                "inspect": session.inspect,
-                "reconcile": session.reconcile,
-                "release": session.release,
-            }[action]
+                invocation.record_target(acquired_target(connection, purpose="write"), None, None, None)
+            session = ExternalDataSession(engine, project or settings.runtime.default_project, demand_id=demand)
+            operation = {"queue": session.queue, "claim": session.claim, "read": session.read,
+                         "renew": session.renew, "submit": session.submit, "inspect": session.inspect,
+                         "reconcile": session.reconcile, "located": session.located,
+                         "release": session.release}[action]
             native = operation(**payload)
-        if action not in {"queue", "read", "inspect"}:
+        if action not in {"queue", "read", "inspect", "located"}:
             invocation.record_effect("native external " + action)
         report_path = invocation.directory / "native.json"
         report_path.write_bytes(json_bytes(native))

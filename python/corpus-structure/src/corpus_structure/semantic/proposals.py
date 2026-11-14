@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeIs
 
 import yaml
 from pydantic import BaseModel
@@ -24,6 +24,7 @@ from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
+    from .declared_proposal_frames import DeclaredProposalFrame, DeclaredProposalSource
     from .declared_record_sources import DeclaredNativeFrameSource
     from .product_reference import ProductReference
 
@@ -264,24 +265,30 @@ def native_frame_source(frame: NativeFrameSource) -> NativeFrameSource:
     )
 
 
+def _native_proposal_frame(frame) -> TypeIs[NativeProposalFrame | DeclaredProposalFrame]:
+    from .declared_proposal_frames import DeclaredProposalFrame
+
+    return isinstance(frame, (NativeProposalFrame, DeclaredProposalFrame))
+
+
 def native_frame_entries(
-    frame: NativeProposalFrame,
-) -> dict[str, tuple[NativeFrameSource, ProposalSentence]]:
-    entries: dict[str, tuple[NativeFrameSource, ProposalSentence]] = {
+    frame: NativeProposalFrame | DeclaredProposalFrame,
+) -> dict[str, tuple[NativeFrameSource | DeclaredProposalSource, ProposalSentence]]:
+    entries: dict[str, tuple[NativeFrameSource | DeclaredProposalSource, ProposalSentence]] = {
         sentence.id: (frame, sentence) for sentence in frame.sentences
     }
     if frame.context_sources and any(key.startswith("native_context:") for key in entries):
         raise ValueError("native context handle namespace is reserved")
     for source in frame.context_sources:
         for sentence in source.sentences:
-            handle = f"native_context:{source.source_view_id}:{sentence.id}"
+            handle = f"native_context:{source.source_key}:{sentence.id}"
             if handle in entries:
                 raise ValueError("duplicate native source evidence handle")
             entries[handle] = (source, sentence)
     return entries
 
 
-def native_statement_source(frame: NativeProposalFrame, anchor: str) -> NativeFrameSource:
+def native_statement_source(frame: NativeProposalFrame | DeclaredProposalFrame, anchor: str) -> NativeFrameSource | DeclaredProposalSource:
     entries = native_frame_entries(frame)
     if anchor in entries:
         return entries[anchor][0]
@@ -297,19 +304,12 @@ def native_statement_source(frame: NativeProposalFrame, anchor: str) -> NativeFr
         raise ProposalRefused("invalid qualified native address") from error
     candidates = []
     for source in sources:
-        if address.get("product_digest") != source.native_product.content_digest:
-            continue
         if "pointer" in address:
-            pointers = {
-                item.get("self_ref", item.get("pointer"))
-                for item in json.loads(source.native_context)["items"]
-            } | {source.section_pointer}
+            pointers = {item.get("self_ref", item.get("pointer")) for item in json.loads(source.native_context)["items"]} | {source.section_pointer}
             if address["pointer"] not in pointers:
                 continue
             expected = native_address(source, pointer=address["pointer"])
         else:
-            if address.get("source_view_id") != source.source_view_id:
-                continue
             try:
                 expected = native_address(source, start=address["start"], end=address["end"])
             except KeyError, TypeError, ValueError:
@@ -516,7 +516,7 @@ def native_source_frame(
 
 
 def statement_anchor(
-    anchor: str, frame: ProposalFrame | NativeProposalFrame, *, index: LocatorIndex | None = None
+    anchor: str, frame: ProposalFrame | NativeProposalFrame | DeclaredProposalFrame, *, index: LocatorIndex | None = None
 ) -> str:
     """Resolve a local handle through its frame, never through another packet's namespace.
 
@@ -524,7 +524,7 @@ def statement_anchor(
     consolidation boundary can additionally resolve an explicit source locator on the exact
     rendition; unsupported strings never become located statement identities.
     """
-    if isinstance(frame, NativeProposalFrame):
+    if _native_proposal_frame(frame):
         entries = native_frame_entries(frame)
         if anchor in entries:
             return entries[anchor][1].locator
@@ -782,10 +782,11 @@ def _refuse_rounded_decimals(prepared: PreparedRelease, batch: Mapping[str, Any]
 def locate_proposal(
     prepared: PreparedRelease,
     batch: Mapping[str, Any],
-    frame: ProposalFrame | NativeProposalFrame,
+    frame: ProposalFrame | NativeProposalFrame | DeclaredProposalFrame,
     *,
     macros: Mapping[str, MacroDef] | None = None,
     known_classes: Mapping[str, tuple[str, ...]] | None = None,
+    placement_policy=None,
 ) -> LocatedProposal:
     """Validate rich proposals and locate every citation without dropping items."""
     _refuse_rounded_decimals(prepared, batch)
@@ -842,7 +843,7 @@ def locate_proposal(
             statement["anchor"] = statement_anchor(statement["anchor"], frame)
     source_entries = (
         native_frame_entries(frame)
-        if isinstance(frame, NativeProposalFrame)
+        if _native_proposal_frame(frame)
         else {sentence.id: (frame, sentence) for sentence in frame.sentences}
     )
     sentences = {handle: sentence for handle, (_, sentence) in source_entries.items()}
@@ -850,13 +851,14 @@ def locate_proposal(
 
     from .analysis_contracts import prepare_placement_policy
 
-    placement_policy = prepare_placement_policy(prepared)
+    if placement_policy is None:
+        placement_policy = prepare_placement_policy(prepared)
     cascade = Cascade(
         frame.text,
         [
             FrameSentence(s.id, s.start, s.end)
             for s in frame.sentences
-            if not isinstance(frame, NativeProposalFrame) or not s.id.startswith("native_evidence:")
+            if not _native_proposal_frame(frame) or not s.id.startswith("native_evidence:")
         ],
         dict(macros or {}),
         policy=placement_policy,
@@ -884,7 +886,7 @@ def locate_proposal(
                 )
             handle = citation["sentence"]
             source, sentence = source_entries[handle]
-            native_alias = isinstance(frame, NativeProposalFrame) and (
+            native_alias = _native_proposal_frame(frame) and (
                 source is not frame or sentence.id.startswith("native_evidence:")
             )
             # Native aliases name one retained item/cell/formula piece. A quote outside that
