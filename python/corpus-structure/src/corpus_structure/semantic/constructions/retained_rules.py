@@ -273,7 +273,7 @@ def recognize_frames(
             view = annotation_view(
                 product,
                 text[product.block_start : product.block_end],
-                vocab,
+                _frame_vocabulary(),
                 required=_REQUIRED,
             )
             result = recognize_frame_result(view, layout=layout)
@@ -2069,7 +2069,7 @@ def _populate_source_readings(layer, view, native_pin, products, native_referenc
             restored = annotation_view(
                 product,
                 view.text[product.block_start : product.block_end],
-                _frame_vocabulary(),
+                vocab,
                 required=_REQUIRED,
             )
             result = recognize_local_qualifiers(

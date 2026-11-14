@@ -387,6 +387,8 @@ def construction_product_values(
                         for atom in supporting
                         for ref in atom_references.get(atom.occurrence, ())
                     ]
+    vocab = None
+    native_products = ()
     if native is not None:
         from .constructions.matching import (
             PreparedConstructions,
@@ -445,6 +447,7 @@ def construction_product_values(
             for selector in selected["selectors"]:
                 builder.record(NAMED_FAMILY, selector, "unknown", "named rules require retained native annotations")
         else:
+            assert vocab is not None
             populate_named_products(
                 builder, view, source, native,
                 PreparedAnnotationRules(vocab, rules=options.annotation_rules),
@@ -599,7 +602,9 @@ def validate_interpreted_product(
             continue
         container = named["native_container"]
         dependency = dependencies.get(container["product_id"])
-        blocks = [] if dependency is None else [
+        if dependency is None:
+            raise ValueError("named rule lacks its exact original native block")
+        blocks = [
             block["annotation"] for block in dependency.get("blocks", ())
             if block["annotation"]["block_id"] == container["block_id"]
         ]
