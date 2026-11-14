@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.input-custody",
+  "title": "Exact semantic inputs, unordered storage slots and provider fence custody",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can exact retained semantic source pins, member-specific support and provider logical fences be authenticated without persistent deployment?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-input-custody/change.yaml --json",
+    "uv run ci model change candidate 186a1fb54a1a4f9eaadeec42e340dbc2 --json",
+    "uv run ci model change inspect-candidate 6ce46f76dabb4f5baabd1993667745cf --view operations --json",
+    "uv run ci model change inspect-candidate 6ce46f76dabb4f5baabd1993667745cf --view sql --json",
+    "uv run ci model change register 6ce46f76dabb4f5baabd1993667745cf --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable successor request",
+      "sha256": "e27de0f6361686938ae09797f2130728e31f3bded0a6d18abf53ae1d3831d4df"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout file hashes",
+      "sha256": "5c8a7579a9e990ca94dddc4ab8dae20ff38b1e7b9b2e78f96512db9566455754"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 15,
+      "of": null,
+      "unit": null,
+      "note": "11 body changes, 4 publisher-private new functions; existing owners and ACLs unchanged"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and immutable registration passed for semantic_ddo_inputs_v1 after semantic_ddo_context_v1. Exact source/member references retain current read/trust and project authentication. Unordered storage slots do not alter source position meaning. Provider logical receipts retain exact native request/generation/task/attempt fences. Admission uses the existing protected guard. No persistent deployment, activation, adoption or functional/provider qualification is established. Persistent revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232, port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
