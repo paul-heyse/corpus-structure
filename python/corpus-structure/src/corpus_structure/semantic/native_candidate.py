@@ -13,6 +13,7 @@ from alembic.operations.ops import MigrationScript, MigrateOperation, UpgradeOps
 from alembic.migration import MigrationContext
 from pglast import ast
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
@@ -2340,5 +2341,27 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
         admit_native(connection, authoring.desired)
         admit_privileges(connection, policies)
         verify_frozen_catalog(connection, admission)
+    except DBAPIError as error:
+        import ast as python_ast
+        import traceback
+        state = getattr(error.orig, "sqlstate", None)
+        sites = [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == "native_candidate.py"]
+        context: dict[str, object] = {"operation_kind": "rendered_upgrade", "sqlstate": state}
+        if sites:
+            line = sites[-1]
+            context["source_line"] = line
+            calls = [node for node in python_ast.walk(python_ast.parse(python_source)) if isinstance(node, python_ast.Call) and node.lineno <= line <= (node.end_lineno or node.lineno) and isinstance(node.func, python_ast.Attribute)]
+            if calls:
+                call = min(calls, key=lambda node: (node.end_lineno or node.lineno) - node.lineno)
+                if not isinstance(call.func, python_ast.Attribute):
+                    raise NativeAuthoringError("invalid rendered operation site") from error
+                context["operation_kind"] = call.func.attr
+                if call.args and call.func.attr in {"native_transition", "privilege_transition"}:
+                    payload = python_ast.literal_eval(call.args[0])
+                    obj = payload.get("after") or payload.get("before")
+                    context["operation_identity"] = obj.get("identity", {"kind": obj.get("kind"), "name": obj.get("name")})
+        failure = NativeAuthoringError("rendered candidate operation refused; SQLSTATE " + str(state))
+        failure.authoring_context = context
+        raise failure from error
     finally:
         savepoint.rollback()

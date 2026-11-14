@@ -571,6 +571,11 @@ def author_native_candidate(
                 ),
                 "native_admission.sql": admission.encode(),
             }
+        except NativeAuthoringError as failure:
+            if failure.authoring_context is not None:
+                from corpus_structure.cli.observation_logging import logger
+                logger().error("Native authoring operation refused", kind="native_authoring_failure", **failure.authoring_context)
+            raise
         finally:
             transaction.rollback()
     return NativeCandidateResult(

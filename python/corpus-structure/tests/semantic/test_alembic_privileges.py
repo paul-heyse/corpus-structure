@@ -173,3 +173,30 @@ def test_rendered_candidate_executes_exact_upgrade_before_admission_and_rolls_ba
         assert observed == ["native", "catalog"]
         assert conn.scalar(text("SELECT to_regclass(:name)"), {"name": "public." + name}) is None
         assert conn.scalar(text("SELECT current_user")) == role
+
+
+def test_schema_normalization_orders_explicit_delegation_leaves_without_cascade(semantic_bare_engine):
+    from corpus_structure.semantic.native_objects import native_owner
+    schema = "acl_delegated_" + uuid4().hex[:10]
+    policy = {"kind": "schema", "name": schema, "owner": None,
+              "acl": [("corpus_sem_publisher", "CREATE", False), ("corpus_sem_publisher", "USAGE", False), ("corpus_sem_reader", "USAGE", False)], "columns": []}
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher WITH GRANT OPTION')
+        with native_owner(conn, "corpus_sem_publisher"):
+            conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_reader')
+        Operations(MigrationContext.configure(conn)).invoke(PrivilegeTransitionOp(None, policy, normalization=True))
+        admit_privileges(conn, [policy])
+        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+
+
+def test_rendered_candidate_failure_exposes_safe_site_without_sql_or_payload(semantic_bare_engine):
+    from types import SimpleNamespace
+    from corpus_structure.semantic.native_candidate import verify_rendered_candidate
+    source = "from alembic import op\ndef upgrade():\n    op.execute(\"SELECT 'private-payload-sentinel'::integer\")\n"
+    with semantic_bare_engine.begin() as conn:
+        with pytest.raises(NativeAuthoringError, match="SQLSTATE 22P02") as failure:
+            verify_rendered_candidate(conn, source, SimpleNamespace(desired=()), (), "unreachable")
+        assert failure.value.authoring_context == {"operation_kind": "execute", "sqlstate": "22P02", "source_line": 3}
+        assert "private-payload-sentinel" not in str(failure.value)
+        assert conn.scalar(text("SELECT 1")) == 1

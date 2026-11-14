@@ -8,6 +8,7 @@ from alembic.autogenerate import renderers
 from alembic.operations import MigrateOperation, Operations
 from alembic.runtime.plugins import Plugin
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from .native_objects import NativeAuthoringError, native_owner
 
@@ -111,6 +112,37 @@ def _expected(connection, policy):
     return result
 
 
+def _revoke_acl_edges(connection, policy, target, kind):
+    """Remove observed delegation leaves first; never cascade into implicit dependents."""
+    from networkx import DiGraph, NetworkXUnfeasible, lexicographical_topological_sort
+    if kind == "SCHEMA":
+        sql = "SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,NULL::text FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.nspname=:name AND a.grantee<>n.nspowner"
+    else:
+        sql = "SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,NULL::text FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE c.oid=to_regclass(:name) AND a.grantee<>c.relowner UNION ALL SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,at.attname FROM pg_attribute at CROSS JOIN pg_class c CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE c.oid=to_regclass(:name) AND at.attrelid=c.oid AND at.attnum>0 AND NOT at.attisdropped AND a.grantee<>c.relowner"
+    edges = connection.execute(text(sql), {"name": policy["name"]}).all()
+    graph = DiGraph()
+    graph.add_edges_from((grantor, grantee) for grantor, grantee, _, _ in edges)
+    try:
+        leaves = list(reversed(list(lexicographical_topological_sort(graph))))
+    except NetworkXUnfeasible as error:
+        raise NativeAuthoringError("cyclic privilege delegation requires explicit authoring intent") from error
+    quote = connection.dialect.identifier_preparer.quote
+    for recipient in leaves:
+        for grantor, grantee, privilege, column in edges:
+            if grantee != recipient:
+                continue
+            role = "PUBLIC" if grantee == "PUBLIC" else quote(grantee)
+            columns = " (" + quote(column) + ")" if column is not None else ""
+            try:
+                with native_owner(connection, grantor):
+                    connection.exec_driver_sql(f"REVOKE {privilege}{columns} ON {kind} {target} FROM {role}")
+            except DBAPIError as error:
+                state = getattr(error.orig, "sqlstate", None)
+                failure = NativeAuthoringError("declared privilege delegation refusal for " + policy["name"] + "; SQLSTATE " + str(state))
+                failure.authoring_context = {"operation_kind": "privilege", "object_kind": policy["kind"], "object_name": policy["name"], "sqlstate": state, "dependency_objects": [{"grantor": grantor, "grantee": grantee, "privilege": privilege, "column": column}]}
+                raise failure from error
+
+
 @Operations.register_operation("privilege_transition")
 class PrivilegeTransitionOp(MigrateOperation):
     before: PrivilegePolicy | LegacyPrivilegePolicy | None
@@ -148,6 +180,18 @@ class PrivilegeTransitionOp(MigrateOperation):
 
 @Operations.implementation_for(PrivilegeTransitionOp)
 def execute_privileges(operations, operation):
+    try:
+        _execute_privileges(operations, operation)
+    except DBAPIError as error:
+        selected = operation.after or operation.before
+        state = getattr(error.orig, "sqlstate", None)
+        diagnostic = {"operation_kind": "privilege", "object_kind": selected["kind"], "object_name": selected["name"], "sqlstate": state}
+        failure = NativeAuthoringError("privilege operation refused for " + selected["name"] + "; SQLSTATE " + str(state))
+        failure.authoring_context = diagnostic
+        raise failure from error
+
+
+def _execute_privileges(operations, operation):
     connection = operations.get_bind()
     if operations.migration_context.as_sql:
         raise NativeAuthoringError("privilege operations require a live connection")
@@ -191,10 +235,7 @@ def execute_privileges(operations, operation):
         current = observe_policy(connection, policy)
         if current is None:
             raise NativeAuthoringError("missing declared privilege object")
-        for grantee in sorted({row[0] for row in current["acl"]} | {"PUBLIC"}):
-            connection.exec_driver_sql(f"REVOKE ALL ON {kind} {target} FROM {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}")
-        for column, grantee, privilege, _grantable in current["columns"]:
-            connection.exec_driver_sql(f"REVOKE {privilege} ({quote(column)}) ON TABLE {target} FROM {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}")
+        _revoke_acl_edges(connection, policy, target, kind)
         for grantee, privilege, grantable in _expected(connection, policy)["acl"]:
             connection.exec_driver_sql(f"GRANT {privilege} ON {kind} {target} TO {("PUBLIC" if grantee == "PUBLIC" else quote(grantee))}" + (" WITH GRANT OPTION" if grantable else ""))
         if kind == "SCHEMA":

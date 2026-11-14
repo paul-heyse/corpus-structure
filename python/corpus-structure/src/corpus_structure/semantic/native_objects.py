@@ -26,6 +26,8 @@ from .prepared_sql import prepare_sql
 class NativeAuthoringError(ValueError):
     """Explicit native source, scope, catalog or transition refusal."""
 
+    authoring_context: dict[str, object] | None = None
+
 
 def _quote(value: str) -> str:
     return dialect(paramstyle="named").identifier_preparer.quote(value)
