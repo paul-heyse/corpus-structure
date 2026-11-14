@@ -242,17 +242,14 @@ def test_primary_functions_preserve_overlaps_scores_and_exact_focal_scope():
     )
     from semantic.structural_release_fixture import released_report
 
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.clause_classification import (
         ClauseClassificationConfig,
-        ClauseClassificationMethod,
+        project_retained_clause,
     )
     from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.structural_products import (
         ExternalSourceRef,
         StructuralInput,
-        StructuralProductReport,
     )
 
     view = selected.view
@@ -324,14 +321,8 @@ def test_primary_functions_preserve_overlaps_scores_and_exact_focal_scope():
         structural_source_frame=lambda *_args: selected.mapping.context.primary,
         retained_source_contribution=lambda _reference: retained,
     )
-    method = ClauseClassificationMethod()
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="function-fixture")),),
-        cfg,
-        SimpleNamespace(reader=reader, check_active=lambda: None),
-    )
-    structural = StructuralProductReport.model_validate(result.structural_product)
-    wire = released_report(structural, method=method.name, version=method.version)
+    structural, _detail = project_retained_clause(reader, cfg)
+    wire = released_report(structural, method="structure.clause_classification", version="3")
     (reading,) = wire["clause_classification"]["readings"]
     assert [(label["label"], label["accepted"]) for label in reading["function"]] == [
         ("definition", True),

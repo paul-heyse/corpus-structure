@@ -527,7 +527,7 @@ def _verify_primary_observation(root, manifest, retained, report, origins, paylo
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.clause_classification import (
         ClauseClassificationConfig,
-        ClauseClassificationMethod,
+        project_retained_clause,
     )
     from corpus_structure.methods.definition_applicability import (
         DefinitionComponentsConfig,
@@ -535,7 +535,7 @@ def _verify_primary_observation(root, manifest, retained, report, origins, paylo
     )
     from corpus_structure.methods.definition_declaration import (
         DeclarationComponentsConfig,
-        DeclarationComponentsMethod,
+        project_retained_declarations,
     )
     from corpus_structure.semantic.source_contexts import NativeSourcePin
 
@@ -553,28 +553,23 @@ def _verify_primary_observation(root, manifest, retained, report, origins, paylo
             "definition basis lacks exact retained annotation witness with primary match and scope"
         )
     reader, _layers = _primary_observation_reader(root, manifest, retained, report)
-    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     if (
         report.clause_classification is not None
         or body["method"] == "structure.definition_declaration_components"
     ):
         if report.clause_classification is not None:
-            method, cfg = (
-                ClauseClassificationMethod(),
-                ClauseClassificationConfig.model_validate(config),
-            )
+            project = project_retained_clause
+            version = "3"
+            cfg = ClauseClassificationConfig.model_validate(config)
             reader.retained_source_contribution = lambda _reference: next(payloads)
         else:
-            method, cfg = (
-                DeclarationComponentsMethod(),
-                DeclarationComponentsConfig.model_validate(config),
-            )
-        if body["operation_version"] != method.version or cfg.inputs != report.inputs:
+            project = project_retained_declarations
+            version = "2"
+            cfg = DeclarationComponentsConfig.model_validate(config)
+        if body["operation_version"] != version or cfg.inputs != report.inputs:
             raise ValueError("primary observation differs from its exact active method/input ABI")
-        (result,) = method.run((SimpleNamespace(ref=None),), cfg, ctx)
-        if StructuralProductReport.model_validate(
-            result.structural_product
-        ) != report or result.parse_detail != source_python(body["parse_detail"]):
+        projected, detail = project(reader, cfg)
+        if projected != report or detail != source_python(body["parse_detail"]):
             raise ValueError("primary observation differs from exact retained projection")
         return
     cfg = DefinitionComponentsConfig.model_validate(config)
@@ -725,11 +720,9 @@ def verify_model_observation_closure(root, manifest, products, scopes, inventory
 
 
 def verify_projected_definition_roles(root, manifest, products, structural_scopes):
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.definition_terms import (
         DefinitionTermsConfig,
-        DefinitionTermsMethod,
+        project_retained_definition_terms,
     )
     from corpus_structure.semantic.identity import canonical_bytes
 
@@ -780,21 +773,11 @@ def verify_projected_definition_roles(root, manifest, products, structural_scope
             or cfg.source_projection_digest != view.ref.projection_digest
         ):
             raise ValueError("projected definition role differs from configured source")
-        ctx = SimpleNamespace(
-            check_active=lambda: None,
-            reader=SimpleNamespace(
-                source_view=lambda _, view=view: view,
-                retained_structural_report=retained,
-            ),
-        )
-        (result,) = DefinitionTermsMethod().run(
-            (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key)),),
-            cfg,
-            ctx,
-        )
-        if canonical_bytes(result.contributions) != canonical_bytes(
+        reader = SimpleNamespace(retained_structural_report=retained)
+        contributions, operations, _coordinates = project_retained_definition_terms(reader, view, cfg)
+        if canonical_bytes(contributions) != canonical_bytes(
             body["contributions"]
-        ) or canonical_bytes(result.contribution_operations) != canonical_bytes(
+        ) or canonical_bytes(operations) != canonical_bytes(
             body["contribution_operations"]
         ):
             raise ValueError("projected definition role differs from its indexed source evidence")

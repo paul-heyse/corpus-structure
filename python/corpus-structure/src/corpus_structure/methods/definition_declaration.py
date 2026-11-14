@@ -9,8 +9,6 @@ from typing import Self
 
 from pydantic import Field, model_validator
 
-from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.constructions.retained_declarations import DeclarationNotQualified
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import record_source_pin
@@ -59,84 +57,55 @@ class DeclarationComponentsConfig(StructuralValue):
         return self
 
 
-class DeclarationComponentsMethod:
-    """A distinct declaration-only method; no change to the incumbent v9 ABI."""
+def project_retained_declarations(reader, cfg, *, check_active=lambda: None):
+    """Project genuinely retained inputs under the sealed producer ABI; no execution."""
+    from .model_observation import private_declaration_enabled
 
-    name = CHAIN_METHOD
-    version = "2"
-    family = MethodFamily.RESOLVE
-    unit_type = TaskUnitType.RUN
-    tier = MethodTier.DETERMINISTIC
-    confidence_source = None
-    Config = DeclarationComponentsConfig
-    resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
+    if cfg.inputs is None:
+        raise ValueError("declaration extraction requires exact selected inputs")
+    if not private_declaration_enabled(reader.prepared.manifest):
+        raise ValueError("declaration chain requires the matching released definition policy")
+    reader.validate_structural_inputs(cfg.inputs)
+    passages = {passage.passage_id: passage for passage in cfg.inputs.passages}
+    refs = {source.identity: source for source in cfg.inputs.sources}
+    from corpus_structure.semantic.product_reference import ProductReference
 
-    def select(self, run, cfg):
-        return (
-            (UnitRef(TaskUnitType.RUN, unit_key="definition-declarations:" + cfg.inputs.identity),)
-            if cfg.inputs is not None
-            else ()
-        )
-
-    def input_digest(self, unit, cfg):
-        return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
-
-    def run(self, units, cfg, ctx):
-        from .model_observation import private_declaration_enabled
-
-        if cfg.inputs is None:
-            raise ValueError("declaration extraction requires exact selected inputs")
-        if not private_declaration_enabled(ctx.reader.prepared.manifest):
-            raise ValueError("declaration chain requires the matching released definition policy")
-        ctx.reader.validate_structural_inputs(cfg.inputs)
-        passages = {passage.passage_id: passage for passage in cfg.inputs.passages}
-        refs = {source.identity: source for source in cfg.inputs.sources}
-        from corpus_structure.semantic.product_reference import ProductReference
-
-        # Resolve this task's frozen products once. Source-local selection keeps
-        # unrelated documents and incomplete sentence populations independent.
-        frozen = ctx.reader.characterization_layers(
-            tuple(ProductReference(**pin) for pin in cfg.characterization_layers)
-        )
-        by_source = {}
-        for pin, report in frozen.items():
-            for identity in report.payload["source_scope"]["source_view_ids"]:
-                by_source.setdefault(identity, {})[pin] = report
-        found = []
-        for item in cfg.selections:
-            ctx.check_active()
-            passage = passages[item.passage_id]
-            source_ref = refs[passage.source_ref]
-            view = ctx.reader.source_view(source_ref.source_view_id)
-            layers = by_source.get(source_ref.source_view_id, {})
-            found.append(primary_declaration_component(layers, view, passage))
-        report = StructuralProductReport(
-            kind="definition_components",
-            inputs=cfg.inputs,
-            definition_components=DefinitionComponentsProduct(
-                components=tuple(found),
-                stages=tuple(
-                    DefinitionStage(
-                        passage_id=item.passage_id,
-                        operation="attachment",
-                        outcome="succeeded",
-                        reason=(
-                            "Released declaration chain replayed from exact native parser roles."
-                        ),
-                    )
-                    for item in cfg.selections
-                ),
+    # Resolve this task's frozen products once. Source-local selection keeps
+    # unrelated documents and incomplete sentence populations independent.
+    frozen = reader.characterization_layers(
+        tuple(ProductReference(**pin) for pin in cfg.characterization_layers)
+    )
+    by_source = {}
+    for pin, report in frozen.items():
+        for identity in report.payload["source_scope"]["source_view_ids"]:
+            by_source.setdefault(identity, {})[pin] = report
+    found = []
+    for item in cfg.selections:
+        check_active()
+        passage = passages[item.passage_id]
+        source_ref = refs[passage.source_ref]
+        view = reader.source_view(source_ref.source_view_id)
+        layers = by_source.get(source_ref.source_view_id, {})
+        found.append(primary_declaration_component(layers, view, passage))
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=cfg.inputs,
+        definition_components=DefinitionComponentsProduct(
+            components=tuple(found),
+            stages=tuple(
+                DefinitionStage(
+                    passage_id=item.passage_id,
+                    operation="attachment",
+                    outcome="succeeded",
+                    reason=(
+                        "Released declaration chain replayed from exact native parser roles."
+                    ),
+                )
+                for item in cfg.selections
             ),
-        )
-        return tuple(
-            UnitResult(
-                ref=unit.ref,
-                outcome=ObservationOutcome.PRODUCED,
-                structural_product=report.model_dump(mode="json", exclude_none=True),
-                parse_detail={"version": CHAIN_VERSION},
-            )
-            for unit in units
-        )
+        ),
+    )
+    return report, {"version": CHAIN_VERSION}
 
 
 def _require(value):

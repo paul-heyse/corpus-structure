@@ -6,8 +6,6 @@ from typing import Literal, Self
 
 from pydantic import model_validator
 
-from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic.characterization import annotation_reference
@@ -306,110 +304,79 @@ def primary_clause_functions(layers, prepared, source, focus, examined):
     )
 
 
-class ClauseClassificationMethod:
-    name = "structure.clause_classification"
-    version = "3"
-    family = MethodFamily.RESOLVE
-    unit_type = TaskUnitType.RUN
-    tier = MethodTier.DETERMINISTIC
-    confidence_source = None
-    Config = ClauseClassificationConfig
-    resources = Resources(worker="cpu", batch_size=1)
-
-    def select(self, run, cfg):
-        return (
-            (UnitRef(TaskUnitType.RUN, unit_key="clause-classification:" + cfg.inputs.identity),)
-            if cfg.inputs is not None
-            else ()
+def project_retained_clause(reader, cfg, *, check_active=lambda: None):
+    """Project genuinely retained inputs under the sealed producer ABI; no execution."""
+    if cfg.inputs is None:
+        raise ValueError("clause projection requires selected exact inputs")
+    check_active()
+    reader.validate_structural_inputs(cfg.inputs)
+    passages = {p.passage_id: p for p in cfg.inputs.passages}
+    sources = {source.identity: source for source in cfg.inputs.sources}
+    primary, native, annotations = {}, {}, {}
+    for source_ref in dict.fromkeys(
+        passages[selection.passage_id].source_ref for selection in cfg.focuses
+    ):
+        source = sources[source_ref]
+        primary[source_ref] = reader.primary_characterization(
+            source.source_view_id, families=()
         )
-
-    def input_digest(self, unit, cfg):
-        return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
-
-    def run(self, units, cfg, ctx):
-        if cfg.inputs is None:
-            raise ValueError("clause projection requires selected exact inputs")
-        ctx.check_active()
-        ctx.reader.validate_structural_inputs(cfg.inputs)
-        passages = {p.passage_id: p for p in cfg.inputs.passages}
-        sources = {source.identity: source for source in cfg.inputs.sources}
-        primary, native, annotations = {}, {}, {}
-        for source_ref in dict.fromkeys(
-            passages[selection.passage_id].source_ref for selection in cfg.focuses
-        ):
-            source = sources[source_ref]
-            primary[source_ref] = ctx.reader.primary_characterization(
-                source.source_view_id, families=()
-            )
-            native[source_ref] = ctx.reader.structural_source_frame(cfg.inputs, source_ref)
-            if cfg.context_policy == "adjacent_sentences":
-                annotations[source_ref] = ctx.reader.structural_source_annotations(
-                    cfg.inputs, source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",)))
-                ).annotations
-        readings = []
-        for selection in cfg.focuses:
-            ctx.check_active()
-            passage = passages[selection.passage_id]
-            focus, preceding, following = clause_focus(
-                selection,
-                passage,
-                sources[passage.source_ref],
-                ctx.reader.retained_source_contribution(selection.frame),
-                annotations.get(passage.source_ref, ()),
-            )
-            examined = (
-                preceding.start if preceding is not None else focus.start,
-                following.end if following is not None else focus.end,
-            )
-            labels, references, digest_, disposition, reason = primary_clause_functions(
-                primary[passage.source_ref],
-                ctx.reader.prepared,
-                native[passage.source_ref],
-                focus,
-                examined,
-            )
-            context_digest = (
-                digest_
-                or sha256(
-                    canonical_bytes(
-                        [cfg.context_policy, selection.model_dump(mode="json"), examined]
-                    )
-                ).hexdigest()
-            )
-            readings.append(
-                ClauseModelReading(
-                    selection=selection,
-                    focus=focus,
-                    preceding=preceding,
-                    following=following,
-                    context_digest=context_digest,
-                    envelope=digest_,
-                    function=labels,
-                    presentation=(),
-                    disposition=disposition,
-                    reason=reason,
-                    primary_functions=references,
-                    primary_context=(),
+        native[source_ref] = reader.structural_source_frame(cfg.inputs, source_ref)
+        if cfg.context_policy == "adjacent_sentences":
+            annotations[source_ref] = reader.structural_source_annotations(
+                cfg.inputs, source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",)))
+            ).annotations
+    readings = []
+    for selection in cfg.focuses:
+        check_active()
+        passage = passages[selection.passage_id]
+        focus, preceding, following = clause_focus(
+            selection,
+            passage,
+            sources[passage.source_ref],
+            reader.retained_source_contribution(selection.frame),
+            annotations.get(passage.source_ref, ()),
+        )
+        examined = (
+            preceding.start if preceding is not None else focus.start,
+            following.end if following is not None else focus.end,
+        )
+        labels, references, digest_, disposition, reason = primary_clause_functions(
+            primary[passage.source_ref],
+            reader.prepared,
+            native[passage.source_ref],
+            focus,
+            examined,
+        )
+        context_digest = (
+            digest_
+            or sha256(
+                canonical_bytes(
+                    [cfg.context_policy, selection.model_dump(mode="json"), examined]
                 )
-            )
-        report = StructuralProductReport(
-            kind="clause_classification",
-            inputs=cfg.inputs,
-            clause_classification=ClauseClassificationProduct(
-                context_policy=cfg.context_policy, readings=tuple(readings)
-            ),
+            ).hexdigest()
         )
-        return tuple(
-            UnitResult(
-                ref=unit.ref,
-                outcome=ObservationOutcome.PRODUCED,
-                structural_product=report.model_dump(mode="json"),
-                parse_detail=dict(
-                    version="primary-clause-functions-1",
-                    characterization_layers=[
-                        pin.values() for layers in primary.values() for pin in layers
-                    ],
-                ),
+        readings.append(
+            ClauseModelReading(
+                selection=selection,
+                focus=focus,
+                preceding=preceding,
+                following=following,
+                context_digest=context_digest,
+                envelope=digest_,
+                function=labels,
+                presentation=(),
+                disposition=disposition,
+                reason=reason,
+                primary_functions=references,
+                primary_context=(),
             )
-            for unit in units
         )
+    report = StructuralProductReport(
+        kind="clause_classification",
+        inputs=cfg.inputs,
+        clause_classification=ClauseClassificationProduct(
+            context_policy=cfg.context_policy, readings=tuple(readings)
+        ),
+    )
+    return report, dict(version="primary-clause-functions-1", characterization_layers=[
+        pin.values() for layers in primary.values() for pin in layers])

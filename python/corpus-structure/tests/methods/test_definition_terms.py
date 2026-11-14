@@ -4,10 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import retained_definition_witnesses
-from corpus_structure.methods.definition_terms import DefinitionTermsConfig, DefinitionTermsMethod
+from corpus_structure.methods.definition_terms import DefinitionTermsConfig, project_retained_definition_terms
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
@@ -72,12 +70,8 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
         ),
         check_active=lambda: None,
     )
-    unit = SimpleNamespace(
-        ref=UnitRef(TaskUnitType.SOURCE_VIEW, source_view.ref.id, source_view.ref.key)
-    )
-    (result,) = DefinitionTermsMethod().run((unit,), cfg, ctx)
-    assert result.contributions is not None
-    (product,) = result.contributions
+    products, _operations, _coordinates = project_retained_definition_terms(ctx.reader, source_view, cfg)
+    (product,) = products
     assert product["anchors"][0]["source_piece"] == "Mean"
     assert product["anchors"][0]["start"] == 0 and product["anchors"][0]["end"] == 4
     assert source_python(product["value"])["role"] == "defined_term"
@@ -131,9 +125,8 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
     }
     role_cfg = cfg.model_copy(update={"component_refs": (), "role_refs": (role_ref,)})
     ctx.reader.retained_structural_report = lambda _: {"report": report}
-    (located,) = DefinitionTermsMethod().run((unit,), role_cfg, ctx)
-    assert located.contributions is not None
-    (role,) = located.contributions
+    located, _operations, _coordinates = project_retained_definition_terms(ctx.reader, source_view, role_cfg)
+    (role,) = located
     assert role["kind"] == "proposal"
     assert role["occurrence_id"] == product["occurrence_id"]
     assert source_python(role["value"]) == {
@@ -170,7 +163,7 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
         retained["report"]["inputs"]["sources"][0]
     ).identity
     with pytest.raises(ValueError, match="another original source"):
-        DefinitionTermsMethod().run((unit,), cfg, ctx)
+        project_retained_definition_terms(ctx.reader, source_view, cfg)
     with pytest.raises(ValueError, match="duplicate"):
         DefinitionTermsConfig(
             component_refs=(reference, reference),

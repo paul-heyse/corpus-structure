@@ -353,11 +353,12 @@ def test_primary_declaration_missing_or_substituted_native_evidence_refuses(fail
         primary_declaration_component(layers, view, passage)
 
 
-def test_active_method_and_detached_primary_replay_use_exact_same_evidence(monkeypatch):
+def test_retained_projection_and_detached_replay_use_exact_same_evidence(monkeypatch):
     from corpus_structure.methods.definition_declaration import (
         DeclarationChainSelection,
         DeclarationComponentsConfig,
-        DeclarationComponentsMethod,
+        CHAIN_METHOD,
+        project_retained_declarations,
     )
     from corpus_structure.methods.model_observation import (
         PRIVATE_DECLARATION_INPUT,
@@ -367,7 +368,6 @@ def test_active_method_and_detached_primary_replay_use_exact_same_evidence(monke
     from corpus_structure.semantic.structural_products import (
         ExternalSourceRef,
         StructuralInput,
-        StructuralProductReport,
     )
     from corpus_structure.serve import model_observation_replay as replay
 
@@ -428,13 +428,10 @@ def test_active_method_and_detached_primary_replay_use_exact_same_evidence(monke
             layers if set(references) == set(layers) else pytest.fail("wrong frozen primary pins")
         ),
     )
-    (result,) = DeclarationComponentsMethod().run(
-        (SimpleNamespace(ref=None),), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
-    )
-    report = StructuralProductReport.model_validate(result.structural_product)
+    report, detail = project_retained_declarations(reader, cfg)
     from semantic.structural_release_fixture import released_report
 
-    released = released_report(report, method=DeclarationComponentsMethod.name, version="2")
+    released = released_report(report, method=CHAIN_METHOD, version="2")
     chain = released["definition_components"]["components"][0]["declaration_chain"]
     assert chain["version"] == "definition-declaration-chain-2"
     assert "parser" not in chain and chain["primary_evidence"]
@@ -443,9 +440,9 @@ def test_active_method_and_detached_primary_replay_use_exact_same_evidence(monke
     retained = dict(
         configuration=cfg.model_dump(mode="json"),
         body=dict(
-            method=DeclarationComponentsMethod.name,
+            method=CHAIN_METHOD,
             operation_version="2",
-            parse_detail=source_value(result.parse_detail),
+            parse_detail=source_value(detail),
         ),
     )
     monkeypatch.setattr(replay, "_primary_observation_reader", lambda *_args: (reader, layers))
