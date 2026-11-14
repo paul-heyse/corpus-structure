@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection
 
 from .data_operation_admission import bound_data_operation_model
@@ -20,6 +20,125 @@ from .releases import load_release
 type DdoJsonValue = (
     bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
 )
+
+
+class DemandRoot(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    subject: str = Field(min_length=1)
+    original_source: str = Field(min_length=1)
+    analyzed_scope: dict[str, DdoJsonValue]
+
+
+class DemandOperationSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    operation: str = Field(min_length=1)
+    parameters: dict[str, DdoJsonValue] = Field(default_factory=dict)
+    choices: dict[str, DdoJsonValue] = Field(default_factory=dict)
+    selected_dependencies: tuple[str, ...] = ()
+    replicate: str | None = None
+
+
+class DemandDiscoverySelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    producer: str = Field(min_length=1)
+    output_role: str = Field(min_length=1)
+    target: str = Field(min_length=1)
+    population: str = Field(min_length=1)
+    target_role: str | None = None
+
+
+class DemandOriginalSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    reference: dict[str, DdoJsonValue]
+    selectors: tuple[dict[str, DdoJsonValue], ...] = Field(min_length=1)
+
+
+class NativeDemandRequest(BaseModel):
+    """Operator choices compiled against one admitted model, never a runtime registry.
+
+    Explicit targets are distinct from a source frontdoor's chosen default targets.
+    Only the effective model computes dependency closure and binding readiness.
+    Provider questions, candidate selections and numerical policy are operation
+    parameters/choices and are frozen before registering native demand custody.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    project_id: str = Field(min_length=1)
+    release_id: str = Field(min_length=1)
+    runtime_id: str = Field(min_length=1)
+    roots: tuple[DemandRoot, ...] = Field(min_length=1)
+    targets: tuple[str, ...] = Field(min_length=1)
+    selections: tuple[DemandOperationSelection, ...] = ()
+    discovery: tuple[DemandDiscoverySelection, ...] = ()
+    source_sets: dict[str, list[dict[str, DdoJsonValue]]] = Field(default_factory=dict)
+    original_sources: dict[str, DemandOriginalSelection] = Field(default_factory=dict)
+    inference: str = "declared"
+    execution_profile: str = Field(min_length=1)
+    strength: str = "value"
+
+
+def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent:
+    """Freeze exact choices using the compiled declarations and existing validators."""
+    from .data_operation_demands import (
+        DiscoverySelection,
+        OperationSelection,
+        RootSubject,
+        freeze_demand,
+    )
+    from .data_operation_source_sets import read_source_sets
+    from .data_operation_support import OriginalSourceSelection
+    from .identity import canonical_bytes
+
+    return freeze_demand(
+        bound_data_operation_model(prepared),
+        roots=tuple(
+            RootSubject(value.subject, value.original_source, json_bytes(value.analyzed_scope))
+            for value in request.roots
+        ),
+        targets=request.targets,
+        selections=tuple(
+            OperationSelection(
+                operation=value.operation,
+                parameters=json_bytes(value.parameters),
+                choices=json_bytes(value.choices),
+                selected_dependencies=value.selected_dependencies,
+                replicate=value.replicate,
+            )
+            for value in request.selections
+        ),
+        discovery=tuple(
+            DiscoverySelection(**value.model_dump()) for value in request.discovery
+        ),
+        source_sets=read_source_sets(request.source_sets),
+        original_sources=tuple(
+            OriginalSourceSelection(
+                name,
+                canonical_bytes(value.reference),
+                canonical_bytes(list(value.selectors)),
+            )
+            for name, value in request.original_sources.items()
+        ),
+        inference=request.inference,
+        execution_profile=request.execution_profile,
+    )
+
+
+def create_native_demand(connection: Connection, request: NativeDemandRequest) -> dict[str, Any]:
+    """Authenticate retained runtime custody before admitting the compiled intent."""
+    from .runtime_binding_store import runtime_binding_for_release
+
+    prepared = load_release(connection, request.release_id)
+    runtime_binding_for_release(connection, prepared, request.runtime_id)
+    intent = freeze_native_demand(prepared, request)
+    planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))
+    demand = planner.register(
+        intent,
+        project=request.project_id,
+        release=request.release_id,
+        runtime=request.runtime_id,
+        strength=request.strength,
+    )
+    return planner.resume(demand["demand_id"])
 
 
 def execute_data_demand(

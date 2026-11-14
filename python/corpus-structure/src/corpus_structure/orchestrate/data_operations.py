@@ -505,11 +505,11 @@ class NativeDemandExecutor:
                     sources=self.sources,
                 )
                 if selected.effects:
-                    from corpus_structure.semantic.data_operation_pdf_effect import (
-                        PdfCaptureEffectPort,
+                    from corpus_structure.semantic.data_operation_effects import (
+                        ReceiptBearingEffectPort,
                     )
 
-                    if not isinstance(port, PdfCaptureEffectPort):
+                    if not isinstance(port, ReceiptBearingEffectPort):
                         raise PortRefusal(
                             "declared effect has no admitted receipt-bearing effect owner"
                         )

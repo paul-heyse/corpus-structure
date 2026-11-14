@@ -103,6 +103,8 @@ def pdf_capture_operation_sources(
     if recipe.recipe_id != "docling-standard-pdf-stream-v1":
         raise ValueError("declared PDF capture requires the admitted owned stream recipe")
     path = Path(__file__).parents[1] / "ingest/pdf_capture.py"
+    effect = Path(__file__).with_name("data_operation_pdf_effect.py")
+    contract = Path(__file__).with_name("data_operation_effects.py")
     return PythonSourceCollection(
         (
             PythonSource(
@@ -111,6 +113,16 @@ def pdf_capture_operation_sources(
                 str(Path(__file__)),
             ),
             PythonSource("corpus_structure.ingest.pdf_capture", path.read_bytes(), str(path)),
+            PythonSource(
+                "corpus_structure.semantic.data_operation_pdf_effect",
+                effect.read_bytes(),
+                str(effect),
+            ),
+            PythonSource(
+                "corpus_structure.semantic.data_operation_effects",
+                contract.read_bytes(),
+                str(contract),
+            ),
         ),
         boundary_contracts=(
             pdf_capture_assets(recipe),

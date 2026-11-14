@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
+from .data_operation_effects import ReceiptBearingEffectPort
 from .data_operation_model import EffectContract
 from .data_operation_ports import PortRefusal
 from .pdf_publication import PdfExecutionReceipt, inspect_pdf_execution_receipt
@@ -18,7 +19,7 @@ PDF_CAPTURE_EFFECT = EffectContract(
 
 
 @dataclass(frozen=True)
-class PdfCaptureEffectPort:
+class PdfCaptureEffectPort(ReceiptBearingEffectPort):
     """An admitted PDF prepared capability with one inspectable native effect contract.
 
     No effect registry or permission callback is introduced. Existing native
