@@ -130,3 +130,13 @@ def test_historical_archive_cannot_acquire_new_witness_meaning():
     assert read_effective_data_operations(old.content).content == old.content
     with pytest.raises(ValueError, match="historical models cannot"):
         replace(compiled(group()), version=PREVIOUS_MODEL_VERSION).content
+
+
+def test_missing_body_field_is_not_an_implicit_null_witness():
+    operation = compiled(group()).operations[0]
+    rows = selected()
+    rows["source"][0]["body"].pop("document")
+    incomplete = pin()
+    incomplete.pop("document")
+    with pytest.raises(ValueError, match="no complete selected input member"):
+        validate_output_witnesses(operation, {"result": [{"records": [{"pin": incomplete}]}]}, rows)

@@ -131,6 +131,10 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
                             expected = [row["product"], row.get("member")] if source.field == "reference" else row.get(source.field)
                         else:
                             expected = _field(row["body"], source.field)
+                        if expected is None and comparison.encoding == "value" and not (
+                            source.projection == "selected-input" and source.field == "member"
+                        ):
+                            return False
                         if comparison.encoding != "value":
                             if not isinstance(actual, str):
                                 return False

@@ -902,6 +902,8 @@ BEGIN
  expected:=candidate->(comparison->'input'->>'field');
  ELSE expected:=coalesce(candidate->'body'#>data.ddo_witness_path(comparison->'input'->>'field'),'null'::jsonb);
  END IF;
+ IF coalesce(expected,'null'::jsonb)='null'::jsonb AND comparison->>'encoding'='value'
+ AND NOT (comparison->'input'->>'projection'='selected-input' AND comparison->'input'->>'field'='member') THEN complete:=false; EXIT; END IF;
  IF comparison->>'encoding'<>'value' THEN
  IF jsonb_typeof(actual)<>'string' THEN complete:=false; EXIT; END IF;
  actual:=(actual#>>'{}')::jsonb;
