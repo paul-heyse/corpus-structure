@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal
@@ -47,6 +48,7 @@ class _AnalysisKinds(BaseModel):
     contextual: tuple[DeclaredContextualMathAnalysis, ...] = ()
 
 
+@lru_cache(maxsize=1)
 def math_analysis_declarations():
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
@@ -55,7 +57,9 @@ def math_analysis_declarations():
 
 
 def math_analysis_assets(options):
-    return SourceArtifact("math-analysis/profile", canonical_bytes({"version": "declared-native-math-analysis-v1", "options": options.model_dump(mode="json"), "profile": asdict(acquire_analysis_context_profile()), "schema": math_analysis_declarations().content.decode(), "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES]}))
+    from .declared_math_products import _normalized_math_source
+
+    return SourceArtifact("math-analysis/profile", canonical_bytes({"version": "declared-native-math-analysis-v1", "options": options.model_dump(mode="json"), "profile": asdict(acquire_analysis_context_profile()), "schema": math_analysis_declarations().content.decode(), "algorithms": [(name, _normalized_math_source((_ROOT / name).read_bytes())) for name in _FILES]}))
 
 
 def math_analysis_operation_sources(options=None):
