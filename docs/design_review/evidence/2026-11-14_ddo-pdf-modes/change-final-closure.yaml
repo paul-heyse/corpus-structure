@@ -1,0 +1,7 @@
+baseline: 23bc2f226
+packs:
+- statistics
+native_predecessor: semantic_ddo_context_pdf_v1
+native_revision: semantic_ddo_pdf_closure_v1
+deployment: true
+deployment_profile: development

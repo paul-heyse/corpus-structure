@@ -43,6 +43,15 @@ contract or the existing narrow typed-port/source-migration controls. See the
 
 ## Responsibility and delivered contracts
 
+**Archive contract · 2026-11-14:** current effective model v5 archives the complete governing
+graph, kinds, operations, bindings, projections and admitted implementation slices. Effective
+identity records retain owner/domain/key, with canonical witnesses computed transiently by the
+existing fingerprint algorithms. Generic canonical identities still expose their witnesses.
+Historical v2/v3/v4 decoding preserves exact witness-bearing bytes and version-specific features,
+but cannot authorize current admission, projection or execution. This is the
+[ADR-0105](../../adr/0105-compact-effective-identity-archives.md) representation boundary, not
+permission to trim governing semantics or replace typed binary archive staging.
+
 One composed released model governs every supported domain operation: source capture and
 projection, derivation, discovery, selection, external work, publication, consolidation, and
 affected serving/evaluation behavior. Algorithms implement its contracts; they do not own

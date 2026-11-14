@@ -2,7 +2,7 @@
 
 **Status: Authorized foundation increment complete; scoped Tested, 2026-11-14. DDO-00–02 retain bounded completion.
 Reopened DDO-03/04/05, immediate SQLAlchemy/Alembic alignment, pure static reuse and the six bounded legacy removals are implemented with scoped evidence. Actual selected-view child publication now passes. Broader series qualification is not certified; earlier results retain their source/context bounds.
-DDO-06–08 execution resumed, 2026-11-14, against the closed foundation increment. Earlier cancelled receipts remain cancelled; bounded actual-provider and current-capability journeys are authorized for migrated families. DDO-09–12 retain their broader open scope. No deployment, activation or production cutover.**
+DDO-06–08 increment concluded at the operator’s stop boundary, 2026-11-14. Three targeted native/provider test identities remain unresolved; implemented repairs and their outstanding verification are recorded in the current closeout below. No further tests or repair execution are scheduled by this increment. Earlier failed/cancelled receipts retain their outcomes. DDO-09–12 remain open. No deployment, activation or production cutover.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no product scope or acceptance limits. Later operator-accepted test-system dependencies are
@@ -1154,7 +1154,7 @@ design-audit findings. CA-08/09 were added by the reassessment and are now close
 | DDO-CA-04 (F11/F13) | **Closed at DDO-04 boundary; scoped Tested, 2026-11-13.** Actual purpose principals enforce affected kind universes for fate, expansion, revocation and pending/zero-output reads. | Native purpose and unchanged-fate/trust controls passed in `07021252b8464b599428d0d3655957e0`; current-source replacements and inventory reconciliation are below. No new purpose defect remains in this scope. |
 | DDO-CA-05 (F05) | **Closed; scoped Tested, 2026-11-13.** Population ambiguity compares complete authenticated subject/original/scope context using JSONB meaning. Distinct page1/page2 members sharing a local subject reach child publication; duplicate complete contexts including equivalent numeric scopes refuse. | Frozen `semantic_ddo_projection_v1`; final native replacements10 `09ecb5f88e5f476a9ed8bcd226e30829` passed, including independent null-scope controls and actual captured-source publication/resume. No frozen predecessor was edited or deployed. |
 | DDO-CA-06 (NetworkX I01; F01/F02) | **Closed at DDO-01/03 boundary, 2026-11-13.** Effective v3 archives typed compiled projection definitions. Semantic graph validation and demand freezing consume their interpretation, preserving role occurrences, isolates and selected/potential distinctions. | Independent projection/demand/identity controls plus integrated263 pass. Later support/impact/serving/assessment integrations retain DDO-04/08/09/10 owners; their open scope does not reopen this prerequisite. |
-| DDO-CA-07 (hard-target retirement; Python I05) | **Former v1 authoring/decoder/alias retirement remains implemented; reassessed 2026-11-14.** Current format is v4; historical v2/v3 exact reading serves retained archive interpretation, with explicit current admission/projection/Python-port refusal. No current v1 fallback remains. | TS-19 helper removal is retained, not repeated. Preserve frozen migration/evidence bytes and required archive reading; the former remaining-v1 allegation in the retirement inventory is corrected below. This is not universal completion of caller/reader retirement. |
+| DDO-CA-07 (hard-target retirement; Python I05) | **Former v1 authoring/decoder/alias retirement remains implemented; reassessed 2026-11-14.** Current format is v5 (ADR-0105); historical v2/v3/v4 exact reading serves retained archive interpretation, with explicit current admission/projection/Python-port refusal. No current v1 fallback remains. | TS-19 helper removal is retained, not repeated. Preserve frozen migration/evidence bytes and required archive reading; the former remaining-v1 allegation in the retirement inventory is corrected below. This is not universal completion of caller/reader retirement. |
 | DDO-CA-08 (F02/F10/F11) | **Closed at DDO-03/04 boundary; scoped Tested, 2026-11-14.** Native selected provider identity comes from authenticated producing episode/release/recipe and captured profile attestations; candidate/request/admission use the same contract projection. Historical missing profiles remain unavailable. | Native provider-identity3 passed exact retry `c584d326d3ae46f59962b0fc5b9ba396`, including positive attachment, forged identity refusal and missing-producing-profile refusal. Runtime artifact controls passed in the initial31 cohort. `semantic_ddo_found_v1` is registered, not deployed; actual provider inference/family qualification remains separate. |
 | DDO-CA-09 (F07/F11/F13) | **Closed at DDO-04 boundary; scoped Tested, 2026-11-14.** One finite recursive support walk covers original/computational and selected replacement-use scopes for acquisition, continuation and sorted publication locks. Complete-support containment is retained. | Three-source/two-hop and rebound cases passed `20359b7ebaae4d09af4d18390bd97157`: unchanged continuation, old-pin revocation refusal, upstream nonzero epoch, C-scope locks and authentic retained-intent publication refusal with unchanged derivation counts. Earlier no-work-only variants are not the publication evidence. Remaining source discovery failure is separately open. |
 
@@ -1188,7 +1188,7 @@ retains scoped checks and remaining integration; other retirement rows remain op
 | **Blocked on missing public target — Reader/MCP/query/export/replay/cursors** | `serve/journey.py:48–137`, read.py, CLI query/export/eval, semantic_server, selected_source exports and review bundles retain run/task-origin selection. No DDO read-owner integration was found in serve/intervene; native CLI demand inspection is narrower than accepted DDO-10 public read/export behavior. | DDO-10 with DDO-09/11. Build pinned public read/resource/query/export/verify/detached replay and cursor contracts first, then migrate all registered tools/query recipes/export readers. Do not remove supported public behavior on the assumption that internal demand inspect is equivalent. |
 | **Migrate then remove — copied task reuse/consolidation meaning** | `semantic/operations.py:283–345` create_task twin lookup uses configuration/hash/release/runtime/realization and task_dependency_scope; execution_guards still validates reused_task_id. Cut and public readers dereference old origins. Declared request/product/support machinery exists but full currentness/substitution consumers are incomplete. | DDO-09 with DDO-06–08/10/11 callers. Replace old reuse equality and copied task representation with declared semantic requests, exact consumed bindings and admitted support substitution; retain authentic original execution lineage, current trust and independent nonreuse controls. |
 | **Reduce to required sealed reading — archives/runtime/old bundles** | archive_reader common authentication supports releases, CPU/inspection capsules; runtime_binding_store:68–85 has a real missing-runtime run fallback. Legacy runtime binding refuses current execution. Legacy structural source helpers remain used by review_bundle and replay readers and explicitly refuse target refs. | DDO-10/11. Inventory exact retained readers/recovery consumers, migrate current exports to explicit runtime/support pins, then remove current fallback entrypoints and retain only required sealed interpretation. Existing census proves classified roots, not byte integrity or mandatory rich current-reader compatibility. Required unknown custody blocks destructive steps, not removal of unrelated dead scaffolding. |
-| **Correct inventory, retain justified archive reading — CA-07** | Current v1 authoring/decoder/alias removal is implemented; `data_operation_model.py:761–800` reads current v4 and historical v2/v3 for archive_reader. Model admission/projection/Python-port checks refuse historical current execution. The previous retirement row cited removed v1 code. | CA-07 remains closed at its scoped boundary; remove the stale remaining-v1 allegation. Consolidate v2/v3 only after identifying actual sealed archive consumers and preserving their interpretation. No current execution fallback is justified by frozen migration retention. |
+| **Correct inventory, retain justified archive reading — CA-07** | Current v1 authoring/decoder/alias removal is implemented; `data_operation_model.py:761–800` reads current v5 and historical v2/v3/v4 for archive_reader. Model admission/projection/Python-port checks refuse historical current execution. The previous retirement row cited removed v1 code. | CA-07 remains closed at its scoped boundary; remove the stale remaining-v1 allegation. Consolidate historical readers only after identifying actual sealed archive consumers and preserving their interpretation. No current execution fallback is justified by frozen migration retention. |
 | **Unresolved — assessment-era adapters/old reference applicability** | characterization_assessment:927–929,1344–1361 uses a legacy_structural_graph for cases without semantic refs; record_gaps:214–280 compares frozen original-side grades; CLI golden passes legacy_split. Protected frames/grades have genuine custody. | DDO-10/11. Map exact reference-frame applicability and reviewed native correspondence before removing old pair/singleton interpretation. Preserve legitimate original-grade comparison and protected-answer boundaries. No automatic regrading or claim that the word legacy proves obsolescence. |
 | **Additional reduction opportunity — legacy schema/interchange compiler** | relational.compile_metadata defaults to legacy at schema/relational.py:595; interchange.compile_interchange:236–257 and schema tests still use it. model.compilers:651–656 retains its version marker; current native_source imports interchange._sql_arrow. | DDO-01/10 coordination with schema owner; not a newly failed accepted obligation. Separate genuine current Arrow/type conversion and compiler-custody markers from unused legacy table projections; migrate the finite consumers before shrinking the legacy target. Keep current generated DTO/vocabulary consumers. No whole-module deletion inferred. |
 | **Justified retain / not retirement candidates** | Query compatibility is target-required cross-release semantic binding, not archived Python execution. Current sentence/text/math kernels, protected reference comparison, CPU/provider custody, ops/PostgreSQL and scenario seeds have real consumers. Chandra's HTML is PDF-recognizer output; docs HTML is publishing. Nemotron's independent environment/worker preserves vendor/runtime and cancellation custody. Rust is a starter, with no competing DDO engine found. | Keep these capabilities. Do not remove a dependency solely because an obsolete adapter also imports it; check all current uses and regenerate through the owning generator. Frozen migrations, archived artifacts, evidence and plans stay exact. |
@@ -1484,9 +1484,47 @@ DDO-11 still owns persistent deployment, activation, adoption and cutover. Targe
 and genuine provider checks qualify only their selected scope; endpoint typing/lint and documentation
 checks do not establish the DDO-12 required union. Efficiency benefits remain Proposed, unmeasured.
 
+### Operator closeout and remaining failures · 2026-11-14
+
+The operator stopped further repair/testing so other structural work can proceed. All running test
+selections have settled; no test is left running. The already-active rollback-only native candidate
+also settled **passed**, `fb2b6c7ad5104646b3d1031dab5a9f01`, from preview
+`b23273664ffb4106b55a315df1bdd5b4`: seven native operations and zero ordinary operations.
+It is **not registered or deployed**. Checkout head remains `semantic_ddo_context_pdf_v1`; the
+persistent development database remains `semantic_bep_located_v2`. A proposed candidate name in
+[the request](../design_review/evidence/2026-11-14_ddo-pdf-modes/change-final-closure.yaml) does not
+mean a frozen migration exists. Reassess its exact source/predecessor premises after subsequent work;
+prepare a fresh preview/candidate if those premises change.
+
+There are **three unresolved test identities**, with their original failed receipts retained and held:
+
+| Identity and owning component | Last failed evidence | Implemented repair and remaining obligation |
+|---|---|---|
+| `tests/orchestrate/test_source_demand_native.py::test_two_language_regions_use_native_source_demand_and_exact_resume` — source frontdoor/native reads | `91dfed0d05a54a85ad1b50a6e09b904d`: execution returned, then the test’s all-product read exceeded the default native page-byte bound. Its final product assertions and exact-resume assertions were not reached. | The test now follows native continuation pins with one obligation per page. Native byte guards and production defaults are unchanged. **not_run after this repair**; reassess against the intervening structural work, then retry only this unresolved identity. |
+| `tests/semantic/test_native_definition_demand.py::test_actual_definition_demand_retains_provider_pair_and_exact_component_source` — learned/downstream acquisition | `91dfed0d05a54a85ad1b50a6e09b904d`: target preparation refused the policy artifact’s reserved `execution/` namespace. Earlier receipt `fe93ba6209b34a059be7233bd312cba0` exposed the missing authenticated policy. | Current acquisition uses `operation/model-observation.json` and explicit `declared_policy` authentication. Actual sealed releases retain their original exact lookup; there is no ambient fallback. **not_run after the namespace repair**; actual provider/component publication remains unqualified. |
+| `tests/semantic/test_pdf_transform_demand_native.py::test_native_organization_enrichment_and_integration_keep_real_receipts_and_exact_resume` — PDF domain facet | `af5adbc76fdd4ba6b313157b976cfbf6`: two missing published-reader call correspondences and one absent `PdfObservationProduct` boundary in a grouped failure. Earlier receipt-key failure is retained in `a52c8adf82b846d0b0a13965a5905755`. | The facet now captures the genuine shared reader action and exact call digests. The observation subtype/enum have one PDF schema owner with unchanged semantic IRIs. Focused independent control passed `d405c50c815c4c1a96b4dcfe881b44e1`; **the native journey is not_run after these repairs**. Native correspondence registration remains open. |
+
+Paths in the table are relative to `python/corpus-structure/`. No remaining failure is silently
+counted as passed because its proposed fix or prerequisite passed. Review these failures against
+the new structural work before choosing repairs; the existing edits need not dictate that work.
+When execution resumes, the unresolved selection is the two failed identities from `91df...` and
+the sole failed identity from `af5...`. Do not replay the passing parser/M1/historical cohorts.
+Broader DDO-06–08 acceptance and the DDO-12 required union remain open.
+
+Retained bounded successes: actual M1 GLiNER passed in `91dfed0d05a54a85ad1b50a6e09b904d`;
+historical resubmission/reference/backfill7 pass across `83ade696038e41b187a4beb3bc148043`,
+`510095283c1f456d93a38426be7bb8f9` and `52b461446c624db7879e8e720515297d`. New nested codec
+control passed in `3d00867230ea4bb9bdb0d24d35f974d8`; the PDF control passed its only replacement
+above. Configured Pyrefly passed `65b2a93c434d46e9aa4e5c88b978043a`, and Ruff passed
+`bf6bbb0d9aa44f4e8002fcb575b335c2`; E501 remains excluded. These keep their original source and
+context bounds. Full tests, broad checks, new provider retries and repository health sweeps are
+**not_run**, per operator. All worker edits were integrated and worktrees reconciled before removal;
+only main remains. The efficiency corrections and remaining original efficiency follow-up are
+retained in the implementation account below; benefits remain Proposed, unmeasured.
+
 ### Current integrated implementation and scoped evidence · 2026-11-14
 
-DDO-06–08 remain **in progress**. Implemented target slices include exact paged native hydration,
+DDO-06–08 acceptance remains **open; this execution increment is stopped by operator**. Implemented target slices include exact paged native hydration,
 authenticated receipt-bearing effects, Demand-only source/recovery frontdoors, acquired source/primary
 profiles, distinct formal/construction/declaration products, contextual CPU encoding/retrieval, finite
 interpretation, located GLiNER definitions and named/display definitions, predicate/scoped/artifact/
@@ -1495,7 +1533,7 @@ contextual math analysis. Generic definition extraction preserves its actual ter
 question and paired raw observation/candidate products; D1 is not relabelled as that extraction.
 Proposed dossier membership remains distinct from DDO-10 protected assessment.
 
-**Archive efficiency repair, implementation complete; native qualification open · 2026-11-14.**
+**Archive efficiency repair, implemented and scoped Tested; provider qualification remains bounded · 2026-11-14.**
 Actual definition-demand receipt `2950f7ac49574c4a970e491119d89972` exposed the JSONB array limit
 while interpreting the complete effective archive. The captured-input
 [shape investigation](../design_review/evidence/2026-11-14_ddo-model-archive-shape/README.md)
@@ -1505,8 +1543,137 @@ and complete governing facts stored once, preserving canonical algorithms, gener
 and exact read-only v2/v3/v4 custody. Existing fingerprint functions reconstruct witnesses without a
 new cache/registry. This complements typed binary staging rather than replacing it. Targeted compact
 archive/historical authority controls15 **passed**, `f0796a000d03479bb64cee0690825ba0`;
-actual native/provider replacement and current v5 successor remain required. Benefits are Proposed;
+the current v5 successor is registered below, and actual-provider replacements retain their separate scope. Benefits are Proposed;
 no reduced size or duration is claimed measured. Frozen native files remain unchanged.
+
+The v5/PDF successor is now registered as `semantic_ddo_pdf_modes_v1`: complete rollback
+candidate `4f316b521e754ab48454b06e007d8c79`, registration `df4c462755694d15a5134ad21929f6bc`
+and evidence finalize `4f4655f634c84c0fbfd638dc73db85c4` passed. The
+[authoring owner](../design_review/evidence/2026-11-14_ddo-pdf-modes/README.md) retains exact
+eleven native transitions and registered hashes. The persistent development database remains unchanged.
+Compact archive/historical controls15 passed as above; independent source review found no missed
+active version guard or changed key algorithm. The baseline shape record is finalized by
+`de8b44252d4d4dfdb5bfd97ff6a9ed9d`; its result remains partial because no individual binary
+JSONB sub-container was separately isolated.
+
+Final focused repairs preserve the target boundary: inherited acquisition records the actual
+Griffe method supplier and its captured module digest, with runtime code/global/static-method
+checks unchanged. Four failed PDF profile acquisition controls passed their only replacement
+`3812ab7e81074010914da0ea0ce4ca6d`; the preceding package-source2 and cancellation1 passed in
+`f829f3afe34243638d9e67c527428a18`. Native effect/factory3 and forged-preparation refusal1
+passed in `79f5b2ac43cf4a22abb24f73edcd922a`; its materialization control migrated to a real
+DDO capture and retained native receipt, then passed its sole replacement
+`1358f90f405f49b88260fcfc0f18ab9c`. These are controlled-provider native checks, not actual
+recognition provider qualification.
+
+Native unresolved3 replacement `1781aeeb1e7546df8a0fb5bcd24aefde` passed math-resume and
+retained external reconciliation2. M1 alone failed cardinality; narrowed native facts in
+`5a2a24ce4280485c84f518bc3a8ec432` exposed fabricated duplicate whole annotation rows. The
+shared Core lateral UNION relied on single-FROM auto-correlation, which SQLAlchemy intentionally
+does not apply. Both branches now explicitly correlate to the outer admitted row. No product or
+episode deduplication, arbitrary latest selection or relaxed scalar cardinality replaces exact
+custody. Registered `semantic_ddo_bound_rows_v1` carries the correction: complete rollback candidate
+`68a7fb915b304da7baee7d90ee400ba1`, registration `a1729eb925c34005bd355420d4b45ea4` and
+finalize `b5304bee91f74b12a84a0f2336c70831` passed. The sole empty M1 native replacement
+`6c9cfa7d1c994f0cb9d7d0a44e2c640a` passed after the subsequent population-parity correction.
+This removes a Cartesian amplification as well as correcting product/body/support correspondence.
+
+PDF child settlement now rechecks the result pipe after terminal exit, covering delivery between
+the timed poll and the exit observation while still requiring both an acknowledged result and
+successful process exit. The PDF journey's controlled recognition replaces the internal provider
+boundary, preserving the approved public implementation identity; independent observation lineage
+and forged sealed-receipt refusal remain checked. Historical fixture migration uses explicit
+administrative setup for document/method/task metadata and the current formal normalize family;
+writer claims and actual publication stay at their native boundaries. Earlier failed setup receipts
+and interrupted diagnostics remain retained. Worktree edits are integrated and both clean worktrees
+removed, with branches preserved.
+
+Configured endpoint types `52f42cfd62704007a9781341a1fbaa71` and Ruff
+`cd0f5e8537734848a1b1252c19ace1dd` **passed**, 2026-11-14. E501 remains excluded.
+Historical fixture replacements now pass as recorded below; final native/provider acceptance remains
+open at the operator stop boundary recorded above. No package completion or
+assembled-union qualification is implied. Full campaigns and repository health sweeps stay not_run.
+
+**Final runtime alignment · 2026-11-14.** Registered `semantic_ddo_context_pdf_v1` follows
+`semantic_ddo_bound_rows_v1`: rollback candidate `686fc77f906e45299a407e06a6429385` and
+registration `e597e3edb7f949d6b8b1aedf8eb10e89` and evidence finalize
+`2d41484c8451469187f2cb12a0d21584` passed, with exactly three native body changes,
+unchanged ownership/grants and no ordinary operations. The native discovery helper now admits
+the same complete frozen parent population as Python for an explicit original-source role;
+authentic producer/output, project/release, exact child membership, trust and read-boundary checks
+remain. Semantic witness and forall checks retain the full denominator, rather than a child subset.
+PDF transformations inspect the actual `product:<published key>` replay scope. Declared defaults
+are frozen even for captured scalar/default-only parameters, with owned copies and existing nominal
+and typed validation; missing and explicit null remain distinct.
+
+**Targeted consumer corrections · 2026-11-14.** Provider retry
+`fe93ba6209b34a059be7233bd312cba0` failed its three selected identities and retains those outcomes.
+The actual M1 report exposed a diagnostic projection reading a historical view field from a declared
+source. Current score observations now retain the genuine `source_key`; no physical view alias is
+invented, and archived observations remain unchanged. Contextual evaluation's broad characterization
+support role overlapped its formal/construction inputs and incorrectly required unique producer-local
+ordinals. It now accepts the actual retained source-annotation premises as an unordered set, matching
+the construction dependency contract; sequence validation remains strict elsewhere. Learned/downstream
+acquisition now freezes the existing release-owned model-observation policy explicitly, retaining exact
+policy digest checks rather than falling back to installed policy. PDF effect verification also uses
+the transformed publication's actual product replay key. Consumer preview `78f9bad1a9564049a5872ced88c5293a` passed with the same native prepared release
+and artifact identity as the context candidate; no additional native successor was authored. Fresh
+ordinary acquisition and targeted replacements follow; no passing cohort is selected again.
+Failing-only provider3 `91dfed0d05a54a85ad1b50a6e09b904d` passed actual M1 and failed2. The source
+execution completed, then its test's all-product read exceeded the native default page-byte bound;
+that test now follows exact native continuation pins with one obligation per page. The native byte
+guard and production defaults remain unchanged. Definition preparation hit the reviewed forbidden
+policy namespace; it now captures `operation/model-observation.json` and uses explicit `declared_policy`
+authentication. Genuine sealed execution retains its original exact policy entry, with no fallback. Review caught the initial policy capture's forbidden `execution/` namespace; current
+releases require an explicit target-owned entry while actual sealed releases keep their original
+exact lookup. PDF journey `af5adbc76fdd4ba6b313157b976cfbf6` got past receipt verification and failed
+at omitted published-section call correspondence and absent `PdfObservationProduct` schema closure.
+The PDF facet now includes the original `read_native_source` action with its exact module/function
+owner and unchanged fixed-call digests. `PdfObservationProduct` and its closed kind enum move from
+the legacy companion schema to the single PDF schema owner, preserving their original semantic IRIs.
+New independent observation-kind and exact published-read correspondence control1 passed its sole
+replacement `d405c50c815c4c1a96b4dcfe881b44e1`; its preceding failure remains retained. Rollback-only candidate authoring subsequently passed as recorded in the operator closeout above;
+registration and the three failing native/provider identities remain open. No further execution is
+scheduled in this increment.
+
+**Additional concrete efficiency correction; benefit Proposed, unmeasured.** Stack inspection
+during the source retry found `DataOperationStorage.invoke` rebuilding the complete physical/Core
+native capture on every call solely to check its operation name. The existing wire validator
+already owns the same closed inventory. Invocation now uses that validation directly; full capture
+and native/source correspondence remain at admission/authoring, and payload/result, permissions,
+source, trust and attempt checks remain at their required boundaries. This removes redundant work
+without introducing a cache, deferred check, registry or performance campaign. The earlier pure
+static-extraction reuse remains in place for identical captured inputs. A second concrete pure-codec correction is implemented: stack inspection of the source journey
+reached repeated canonical round-trips at every decoded subtree. Structural recursion now retains tag,
+arity, duplicate-key and primitive checks, followed by one complete-value canonical-equivalence check.
+Nested ordering, duplicate sets, optional-state distinctions and numeric spellings remain enforced;
+identity encoding and key algorithms are unchanged. Independent nested positive/refusal control1
+passed in `3d00867230ea4bb9bdb0d24d35f974d8`; independent source review found no blocking mismatch.
+This removes repeated descendant serialization without caching or deferring a permission/source/trust
+check. Benefit remains Proposed; no duration improvement is measured.
+
+Provider replacement `9c1fdfa2febc493eb1b016ffb4d3edb6` retained actual parser1 **passed**,
+M1/definition2 failed and source1 incomplete when interrupted before these repairs; custody settled.
+Only its three unresolved identities are retried, serially. The parser pass is bounded to its
+original source/context and is not replayed. Historical resubmission False passed `83ade696038e41b187a4beb3bc148043`. The six remaining
+identities in `510095283c1f456d93a38426be7bb8f9` passed resubmission True and both empty-reference
+cases; only the three remaining missing-frame/backfill failures are selected in
+`52b461446c624db7879e8e720515297d`, which **passed all three**. All seven historical identities
+therefore have scoped passing originals/replacements; the original failed receipts remain retained.
+Deliberate missing-frame setup now patches the actual module
+owner, and historical reused-task creation uses administrative setup custody.
+The corrected formal fixture preserves absent optional coverage fields, invokes the real retained
+math-scope kernel, and commits the bound historical run before administrative task setup.
+
+Documentation migration repaired 47 retired-source hyperlinks across 25 applicable documents,
+preserving exact historical paths and Git recovery instead of source stubs or false target aliases.
+`uv run ci docs check --json` **passed**, `28ed42376a3146f79bea552a5cc7d62b`, 1275 canonical
+pages/zero link errors before final receipt wording. Configured types
+`a1c5cb26f8194953b34e1b54f1e98af6` and Ruff `ec18b3e36d9040d3be3ad8fbec41e91c` passed.
+After the first consumer repairs, types `c53dee4f52db471f83e2e271585f90a1` and Ruff
+`2c495a347b39454e9fea54e26ea66460` passed. After PDF closure and codec changes, final configured
+types `65b2a93c434d46e9aa4e5c88b978043a` and Ruff `bf6bbb0d9aa44f4e8002fcb575b335c2` passed;
+E501 remains excluded. Intermediate typing failures remain retained.
 
 Ordinary profile acquisition now supports explicit downstream composition, optional captured literal
 M1 configuration plus record schemas, optional contextual encoder snapshot/profile, mathematical
@@ -1523,8 +1690,9 @@ remain. Historical fixture publication uses explicit real task/claim/frame/publi
 it supplies no current-provider qualification. The retained-reader MCP is explicitly selected; the
 ordinary external server uses native task-owned packet/result custody and bounded pinned reads.
 
-Remaining acceptance includes bounded native/provider journeys against the external/lifecycle
-successor and finite historical fixture checks. Configured typing and scoped lint now pass. Parser/interpretation flags and orphaned PM2 scheduler retirement are
+Remaining acceptance is the three unresolved identities and unregistered native correspondence
+recorded in the operator closeout. Historical fixture checks now pass. Configured typing and scoped
+lint passed at their recorded endpoints; no further test/check campaign is scheduled here. Parser/interpretation flags and orphaned PM2 scheduler retirement are
 implemented. No package completion or final assembled qualification is claimed.
 
 **Pinned-source boundary:** `SourceRunRequest.retained_sources` currently admits authenticated
@@ -1539,8 +1707,7 @@ candidates and registrations, scalar projection repair and exact retained artifa
 public authored-input service freezes a native demand and retains distinct authenticated authored
 admissions, without a private graph or invented compute/run/cut. Evidence finalization
 `f3513786891844748cbf90e9181e53e0` **passed**. The persistent database remains
-`semantic_bep_located_v2`; authored successors remain frozen. The subsequent external runtime
-successor below is the registered checkout head.
+`semantic_bep_located_v2`; authored successors remain frozen. The subsequent registered successors and current context/PDF checkout head are recorded above.
 
 The [external/lifecycle evidence](../design_review/evidence/2026-11-14_ddo-external-custody/README.md)
 retains registered `semantic_ddo_external_v1` and `semantic_ddo_external_v2`. The v1 complete
@@ -1558,7 +1725,7 @@ Runtime v2 preview `d8ccee373e30494da25b39f91068b62d`, complete rendered rollbac
 `cfbd973594d84c928d88b1467dcd0a41` and registration `44d3738d677e4ac2ba65d655f0f1eaf8`
 **passed**, 2026-11-14. All14 native body changes preserve ownership/grants; its only ordinary
 operation inserts the physical contract. Exact registration is verified; evidence finalization
-`3e6b26e7792147b9a2e634311bbda659` passed. Checkout head is `semantic_ddo_external_v2`;
+`3e6b26e7792147b9a2e634311bbda659` passed. The later registered checkout head is `semantic_ddo_context_pdf_v1`;
 persistent database remains unchanged. Provider4 `22237bc08f2d48b2b37c5a6461d7d7fe` was
 interrupted after one shared-wire failure, with one incomplete and two not_run; child custody
 settled. Functional/provider retries remain open and cover only unresolved or new identities.
@@ -1577,12 +1744,12 @@ this final retirement; new endpoint checks and finite historical publication che
 
 The bounded integration review also identified missing ordinary acquisition for reading-resolution
 and standalone contextual-encoder inventory dependencies, plus the missing target definition-term
-location bridge from component/role spans to contextual occurrence contributions. These retain
-DDO-07/08 ownership in this execution. Fixes must preserve explicit acquisition, actual selected
-semantic source/support pins and exact source/attachment coordinates; operation availability never
-forces inference or selects a provider. PDF selected-cell/inline enrichment and separate retained
-recognition integration are being mapped against their current capture replacements before any
-live contract-bound implementation is removed.
+location bridge from component/role spans to contextual occurrence contributions. These corrections are now implemented
+under DDO-07/08, preserving explicit acquisition, actual selected semantic source/support pins and
+exact source/attachment coordinates. Operation availability never forces inference or selects a
+provider. Declared PDF organization, selected-cell/inline enrichment and separate retained recognition
+integration replace their old executor shells, with real publication receipts and exact parent
+lineage. Pure kernels, sealed-reader semantics and provider/process custody remain.
 
 The v2 failing-only native17 replacement `724785c09e234333868a0b980a1f627c` retained14 passed,
 two failed and one incomplete before interruption, with child custody settled. Direct stack
@@ -1591,14 +1758,17 @@ computation. Standard tag-directed conditionals now preserve the same closed rec
 without traversing rejected payload branches; Python/native schemas retain one source. This is
 an additional concrete efficiency repair, separate from pure static-extraction reuse. Native
 permission, source, trust and attempt checks remain at their required boundaries; benefits remain
-Proposed, unmeasured. A new immutable successor and only unresolved native retries are required.
+Proposed, unmeasured. Registered `semantic_ddo_runtime_v3` carries this correction; complete rollback authoring, exact
+registration and evidence finalize `64a3cd38b566469d8d67ab68e321e6e5` passed. Only unresolved native
+identities are retried.
 The two failures concern the deliberately expired external lease fixture and M1 source/context
 discovery, not the14 passing identities. New wire/location/acquisition12 `8884a731799f480da526c7b7b60eaf00`
 passed8 (pure nested wire1 and exact location7), failed4 at native test fixture naming and
-HanLP fixture numerical intent. Corrected fixture-only replacements retry those4; earlier8 passes
-will not be replayed. Endpoint types `934b91e879ef4e88b4f2c9fd47d64a94` found fixture reader typing
-and overlooked root mathematical tests still importing retired wrappers; those migrations remain
-open. Frozen authoring files remain exact.
+HanLP fixture numerical intent. Corrected replacements are recorded below; earlier8 passes
+were not replayed. Endpoint types `934b91e879ef4e88b4f2c9fd47d64a94` found fixture reader typing
+and overlooked root mathematical tests still importing retired wrappers; those migrations are
+integrated. Later fixture typing diagnostics remain open until the endpoint repair. Frozen authoring
+files remain exact.
 
 All12 new wire/location/acquisition identities now have scoped passing originals/replacements:
 `8884a731799f480da526c7b7b60eaf00` passed8; `28a1974bc3084a5f9a35f2a1c21082f2` passed2
@@ -1687,8 +1857,8 @@ Source/default/registry callers and full family contracts remain active integrat
 
 ### Shared contract, source migration and native successor integration
 
-**Implemented, bounded checks below, 2026-11-13:** current effective v4 carries explicit terminal
-settlement, captured consumer-selection and prepared-factory correspondence. Historical v2/v3
+**Implemented, bounded checks below, updated 2026-11-14:** current effective v5 carries explicit terminal
+settlement, captured consumer-selection and prepared-factory correspondence. Historical v2/v3/v4
 reading stays exact; current admission does not reinterpret old stream bytes. Primary factory
 methods are colocated with their operation owners and freeze sentence/HanLP configuration into
 captured custody; the combined input helper is acquisition, not another producer-selection registry.

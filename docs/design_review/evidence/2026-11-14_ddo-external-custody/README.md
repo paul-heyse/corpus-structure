@@ -33,6 +33,18 @@ No custom validator, relaxed ingress or cached permission/source/trust check is 
 Benefits are Proposed, unmeasured; independent deep positive/negative checks assess correctness.
 This change requires another immutable native successor before the mathematical retry.
 
+The successor `semantic_ddo_runtime_v3` is registered and frozen. Preview
+`3596fa0693534dd4b3ccc3986cccd2e9`, complete rollback candidate
+`febe7020105145a2a49a3b90ca9eab11` and registration `5eab633fe97c43c9849c54d5224cb74a`
+passed; exact registration is verified. All eight body changes preserve owners/grants; the sole
+ordinary operation inserts the physical contract. [Summary](results/traversal-candidate.json),
+[all native transitions](results/traversal-native-operations.json) and
+[registered hashes](results/traversal-registered-files.json) retain custody. Evidence finalize
+`64a3cd38b566469d8d67ab68e321e6e5` passed. Incoming explicitly frozen discovery producers now
+participate in native consumed-producer traversal, preserving required source, support and binding
+checks. Actual native helper selection passed in `aa2d30aed754480ca49bc0b137972beb`; its other
+three identities failed and retain separate repair/retry obligations.
+
 The remaining two failures have separate owners: the external-reconciliation fixture used a
 one-second live lease before its explicitly controlled expiry; M1's scalar child source and
 complete contextual-source population lacked their distinct discovery associations. Passing14

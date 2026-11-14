@@ -17,6 +17,24 @@ replay may retain genuine legacy references during this unfinished transition, b
 must never be relabelled with invented legacy task/view identifiers. Shared static-extraction reuse
 belongs to the coordinator's efficiency follow-up before wider qualification resumes.
 
+PDF transformation acquisition explicitly selects standard, enriched or integrated source mode and
+an optional organization policy. Effect/factory pairs and sealed publisher receipts authenticate
+real native products, with selected structural-parent lineage retained by recognition observations.
+The shared reader admits a conservative aggregate materialization bound before whole native bodies
+or companions cross into Python; cancellation and request credit retain their existing owners.
+Pure enrichment/organization kernels remain independently callable. These contracts replace the
+former PDF executor shells; their presence does not establish actual-provider qualification.
+The facet includes its genuine shared native-reader action and exact fixed-call correspondence;
+recognition-observation nominal types live in the PDF schema with their existing semantic identities.
+It imports neither a replacement execution model nor the full historical companion schema.
+
+Current contextual evaluation consumes formal and construction products through their distinct roles;
+its supporting premises are retained source annotations as a set. Independent producer-local ordinals
+never establish a cross-producer sequence, and broad envelope matching must not duplicate those
+explicit inputs. Learned/downstream acquisition freezes the release-owned model-observation policy
+before execution; installed policy still must match its exact authenticated digest. Current M1 score
+diagnostics retain genuine semantic source keys without manufacturing historical view identifiers.
+
 ## DDO-07 — Source and primary operations
 
 Build a declaration-to-current-owner inventory from the actual registries and ad hoc entry points.

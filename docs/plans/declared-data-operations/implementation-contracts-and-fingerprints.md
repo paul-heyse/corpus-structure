@@ -48,6 +48,17 @@ documentation, explanations and execution. It is not independently editable. An 
 supplying declaration differs from the public subclass/exposed alias; both must remain inspectable.
 Nominal domain identifiers do not become interchangeable merely because Python represents them as int.
 
+Captured prepared capabilities resolve an inherited exposure through Griffe and record the actual
+supplying method path with its owning module digest. Runtime acquisition verifies that captured
+static method and its code/globals/import bindings. A synthetic alias or inherited subclass facade
+does not substitute for the actual supplier. The exposed callable surface and declaring surface
+remain distinct facts.
+
+The current effective archive stores derived identity headers without repeating full canonical
+witnesses ([ADR-0105](../../adr/0105-compact-effective-identity-archives.md)). Canonical framing,
+tagging and fingerprint inputs are unchanged; complete frozen governing facts reconstruct a witness
+through existing fingerprint functions. No new witness cache or registry owns a second interpretation.
+
 **Integration clarification · 2026-11-14.** Supplied JSON-schema kind artifacts own closed JSON
 shape; their explicit `nominal_namespace` permits local ranges only where the supplied artifact
 owns that namespace. Custom Pydantic validators and algorithm semantics remain actual producer
