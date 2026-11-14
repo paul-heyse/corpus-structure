@@ -1868,6 +1868,11 @@ definitions:
         type: integer
         minimum: 1
         maximum: 1000
+      max_bytes:
+        type: integer
+        minimum: 1
+        maximum: 67108864
+        default: 8388608
       trust_snapshot:
         $ref: '#/definitions/trust_snapshot'
       read_id:

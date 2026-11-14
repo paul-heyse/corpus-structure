@@ -254,6 +254,7 @@ def read_data_demand(
     *,
     continuation: dict[str, Any] | None = None,
     limit: int | None = None,
+    max_bytes: int | None = None,
     view: Literal["frontier", "products"] | None = None,
 ) -> dict[str, Any]:
     """Preserve all native continuation pins; new bounds and view are explicit overrides."""
@@ -262,6 +263,8 @@ def read_data_demand(
         raise ValueError("continuation belongs to another demand")
     if limit is not None:
         payload["limit"] = limit
+    if max_bytes is not None:
+        payload["max_bytes"] = max_bytes
     if view is not None:
         if continuation is not None and payload.get("view", view) != view:
             raise ValueError("continuation view differs from the explicit requested view")

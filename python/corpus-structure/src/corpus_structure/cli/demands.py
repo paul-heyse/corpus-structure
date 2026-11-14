@@ -112,6 +112,7 @@ def read(
         ),
     ] = None,
     limit: Annotated[int | None, typer.Option(min=1, max=1000)] = None,
+    max_bytes: Annotated[int | None, typer.Option(min=1, max=67108864, help="Complete product-page byte bound (default 8 MiB).")] = None,
     view: Annotated[Literal["frontier", "products"] | None, typer.Option()] = None,
     json: JsonOpt = False,
 ) -> None:
@@ -126,6 +127,7 @@ def read(
                 demand,
                 continuation=pins,
                 limit=limit,
+                max_bytes=max_bytes,
                 view=view,
             )
     _emit_demand(DemandSnapshot(snapshot), json=json)

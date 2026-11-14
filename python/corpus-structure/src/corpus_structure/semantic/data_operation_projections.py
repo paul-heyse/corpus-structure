@@ -1021,10 +1021,15 @@ def read_page(metadata):
         view=_var("selected_view", Text),
     )
     continuation = case(
-        (more, _obj(**pins, after=next_key, limit=_var("lim", BigInteger))), else_=null()
+        (more, _obj(**pins, after=next_key, limit=_var("lim", BigInteger), max_bytes=_var("selected_max_bytes", BigInteger))), else_=null()
     )
-    return select(
-        _obj(
+    body_bytes = (
+        select(func.coalesce(func.sum(func.octet_length(products.c.canonical_body.cast(Text))), 0))
+        .select_from(selected_uses.join(outputs, outputs.c.derivation_id == selected_uses.c.derivation_id)
+                     .join(products, products.c.id == outputs.c.product_id))
+        .scalar_subquery()
+    )
+    payload = _obj(
             payload=_obj(
                 **pins,
                 intent=selection,
@@ -1040,8 +1045,14 @@ def read_page(metadata):
                 populations=result_populations,
                 continuation=continuation,
             )
-        ).label("result")
+        )
+    # Frontier reads never inspect output bodies. Product pages count every
+    # actual returned row before building the body-bearing JSON aggregate.
+    within_budget = case(
+        (_var("selected_view", Text) == "products", body_bytes <= _var("selected_max_bytes", BigInteger)),
+        else_=literal(True),
     )
+    return select(case((within_budget, payload), else_=func.ops.ddo_result_bytes_refusal()).label("result"))
 
 
 def capture_projection_sources(*, physical_sources=None, linkml_types=None):
