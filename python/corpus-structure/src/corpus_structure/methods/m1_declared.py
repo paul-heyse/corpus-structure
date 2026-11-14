@@ -92,7 +92,7 @@ class M1SourceCandidatesOperation:
         "coverage": "exact-inspected-regions-with-explicit-partial-or-unavailable-coverage",
         "outcomes": ["success", "failed"],
         "precision": "original-native-half-open-extents",
-        "dependencies": ["source.selected_views/discovery", "segment.sentences/source-native"],
+        "dependencies": ["segment.sentences/source-native"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -107,12 +107,7 @@ class M1SourceCandidatesOperation:
         "binding": {
             "operator": "all",
             "children": [
-                {
-                    "operator": "forall",
-                    "roles": ["primary"],
-                    "population": "m1-primary-source",
-                    "children": [{"operator": "all", "children": []}],
-                },
+                {"operator": "scan", "roles": ["primary"]},
                 {"operator": "scan", "roles": ["annotations"]},
                 {
                     "operator": "forall",

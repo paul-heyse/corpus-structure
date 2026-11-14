@@ -22,7 +22,6 @@ from corpus_structure.semantic.composed import (
 from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
-    DiscoverySelection,
     OperationSelection,
     freeze_demand,
 )
@@ -146,6 +145,12 @@ def _case(scenario_seeds, *, empty):
                 document_key=selected.root.original_source,
                 name="original-document",
             )
+            from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
+            operation = "extract.m1_candidates"
+            required = {operation, *kernel.model.projection_graph("selected-dependencies").closure((operation,))}
+            discovery = tuple(relation for target_operation in sorted(required)
+                for relation in source_discovery_relations(kernel.model,
+                    "source.selected_views/discovery", "result", target_operation))
             intent = freeze_demand(
                 kernel.model,
                 roots=(original.root,),
@@ -156,15 +161,7 @@ def _case(scenario_seeds, *, empty):
                         parameters=canonical_bytes({"complete": True}),
                     ),
                 ),
-                discovery=tuple(
-                    DiscoverySelection(
-                        "source.selected_views/discovery",
-                        "result",
-                        "extract.m1_candidates",
-                        population,
-                    )
-                    for population in ("m1-primary-source", "m1-context-sources")
-                ),
+                discovery=discovery,
                 inference="m1-native-test",
                 execution_profile=target.execution_profile,
                 original_sources=(original.selection(), selected.selection()),

@@ -324,7 +324,8 @@ class ReadyDataRequest:
 
 
 def _population_context_matches(
-    row: dict, obligation: dict, *, source_set: str | None, source_sets: dict, project: str
+    row: dict, obligation: dict, *, source_set: str | None, source_sets: dict, project: str,
+    original_source_role: bool = False, discovery: tuple[dict, ...] = (),
 ) -> bool:
     """Use authenticated contexts, or an explicitly frozen exact member association."""
 
@@ -346,6 +347,27 @@ def _population_context_matches(
     if producer is None:
         return False
     if same_context(producer, obligation):
+        return True
+    if (
+        original_source_role
+        and row.get("complete") is True
+        and producer.get("original_source") == obligation["original_source"]
+        and all(isinstance(evidence.get(key), str) and evidence[key]
+            for key in ("product_id", "derivation_id", "admission_use_id", "member_role"))
+        and any(
+            relation["target"] == obligation["operation_id"]
+            and relation["producer"] == producer["operation_id"]
+            and relation["output_role"] == evidence["member_role"]
+            and relation["population"] == row["name"]
+            and relation.get("target_role") is None
+            for relation in discovery
+        )
+        and any(same_context(member, obligation) for member in row["members"])
+    ):
+        # Native close_data_population authenticates same project, released
+        # producer/output, derivation/use and complete membership. An exact
+        # child in that closure permits the declared original-source role to
+        # consume the whole context population; it does not create a subset.
         return True
     if source_set is None:
         return False
@@ -581,6 +603,8 @@ class DemandPlanner:
                 **binding_arguments,
             )
             prerequisites, pending = set(), list(operation["dependencies"])
+            pending.extend(relation["producer"] for relation in frozen["discovery"]
+                if relation["target"] == operation["operation"])
             while pending:
                 prerequisite = pending.pop()
                 if prerequisite not in prerequisites:
@@ -623,6 +647,8 @@ class DemandPlanner:
                             source_set=scope_name,
                             source_sets=source_sets,
                             project=snapshot["project_id"],
+                            original_source_role=(role.subject_target == "original-source" and role.subject_field is not None),
+                            discovery=tuple(frozen["discovery"]),
                         )
                     )
                 ]

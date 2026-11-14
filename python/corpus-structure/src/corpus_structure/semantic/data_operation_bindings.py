@@ -8,7 +8,7 @@ The SQL selections and checks are the authority; decoding never reselects produc
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -257,6 +257,124 @@ def effective_binding_parameters(
     return params
 
 
+@dataclass(frozen=True)
+class BindingScopes:
+    """The active role/population projection of one frozen binding expression."""
+
+    inactive: set[str]
+    negative: set[str]
+    populations: dict[str, str]
+    projections: dict[str, Literal["member", "qualified-context"]]
+    referenced_roles: Callable[[BindingExpression], set[str]]
+    selected_children: Callable[[BindingExpression], tuple[BindingExpression, ...]]
+
+
+def inspect_binding_scopes(expression: BindingExpression, role_names: tuple[str, ...], choice_values: Mapping[str, Any]) -> BindingScopes:
+    inactive = set()
+
+    def referenced_roles(node: BindingExpression) -> set[str]:
+        names = set(node.roles) | {field.role for field in node.fields}
+        names.update(operand.field.role for operand in node.operands if operand.field is not None)
+        for child in node.children:
+            names.update(referenced_roles(child))
+        return names
+
+    def selected_children(node: BindingExpression) -> tuple[BindingExpression, ...]:
+        if node.operator != "choice":
+            return node.children
+        selected = (
+            node.selected
+            if node.choice_parameter is None
+            else choice_values.get(node.choice_parameter)
+        )
+        if selected is None:
+            raise ValueError("missing frozen branch choice: " + str(node.choice_parameter))
+        if node.selected is not None and node.choice_parameter is not None:
+            raise ValueError("choice must have one static or demand selector")
+        matching = tuple(child for child in node.children if selected in referenced_roles(child))
+        if len(matching) != 1:
+            raise ValueError("choice must select exactly one declared branch")
+        active = referenced_roles(matching[0])
+        inactive.update(
+            role
+            for child in node.children
+            if child not in matching
+            for role in referenced_roles(child)
+            if role not in active
+        )
+        return matching
+
+    def visit_choices(node: BindingExpression) -> None:
+        for child in selected_children(node):
+            visit_choices(child)
+
+    visit_choices(expression)
+    negative_roles = set()
+    role_populations = {}
+    role_projections: dict[str, Literal["member", "qualified-context"]] = {}
+
+    def inspect_scopes(node: BindingExpression) -> None:
+        if node.operator == "absent":
+
+            def row_predicate(child: BindingExpression) -> bool:
+                return child.operator in {
+                    "all",
+                    "scan",
+                    "equal",
+                    "join",
+                    "literal",
+                    "range",
+                    "membership",
+                    "same",
+                    "distinct",
+                    "optional",
+                } and all(row_predicate(descendant) for descendant in child.children)
+
+            if not all(row_predicate(child) for child in node.children):
+                raise ValueError(
+                    "absence children must be row predicates, not nested aggregate or branch scopes"
+                )
+        names = node.roles or tuple(role_names)
+        associations: list[tuple[str, str | None, Literal["member", "qualified-context"]]] = []
+        if node.operator in {"forall", "absent"}:
+            associations.extend((name, node.population, "member") for name in names)
+            if node.operator == "absent":
+                negative_roles.update(names)
+        for operand in node.operands:
+            if operand.kind == "population":
+                if node.operator not in {"membership", "covers"}:
+                    raise ValueError(
+                        "population operands are supported only as membership universes"
+                    )
+                owners = {field.role for field in node.fields}
+                owners.update(
+                    value.field.role for value in node.operands if value.field is not None
+                )
+                if not owners:
+                    raise ValueError(
+                        "population operand requires a named input role for its identity witness"
+                    )
+                associations.extend(
+                    (name, operand.name, operand.population_projection) for name in owners
+                )
+        for name, population, projection_mode in associations:
+            if population is None:
+                raise ValueError("population binding requires an immutable named scope")
+            if name in role_populations and (
+                role_populations[name] != population or role_projections[name] != projection_mode
+            ):
+                raise ValueError(
+                    "one role cannot bind two population scopes; use distinct named roles"
+                )
+            role_populations[name] = population
+            role_projections[name] = projection_mode
+        for child in selected_children(node):
+            inspect_scopes(child)
+
+    inspect_scopes(expression)
+    return BindingScopes(inactive, negative_roles, role_populations, role_projections, referenced_roles, selected_children)
+
+
 def compile_binding(
     model: EffectiveDataOperationModel,
     operation: str,
@@ -311,108 +429,10 @@ def compile_binding(
     aliases = {}
     unavailable = []
     initial = []
-    inactive = set()
-
-    def referenced_roles(node):
-        names = set(node.roles) | {field.role for field in node.fields}
-        names.update(operand.field.role for operand in node.operands if operand.field is not None)
-        for child in node.children:
-            names.update(referenced_roles(child))
-        return names
-
-    def selected_children(node):
-        if node.operator != "choice":
-            return node.children
-        selected = (
-            node.selected
-            if node.choice_parameter is None
-            else choice_values.get(node.choice_parameter)
-        )
-        if selected is None:
-            raise ValueError("missing frozen branch choice: " + str(node.choice_parameter))
-        if node.selected is not None and node.choice_parameter is not None:
-            raise ValueError("choice must have one static or demand selector")
-        matching = tuple(child for child in node.children if selected in referenced_roles(child))
-        if len(matching) != 1:
-            raise ValueError("choice must select exactly one declared branch")
-        active = referenced_roles(matching[0])
-        inactive.update(
-            role
-            for child in node.children
-            if child not in matching
-            for role in referenced_roles(child)
-            if role not in active
-        )
-        return matching
-
-    def visit_choices(node):
-        for child in selected_children(node):
-            visit_choices(child)
-
-    visit_choices(expression)
-    negative_roles = set()
-    role_populations = {}
-    role_projections: dict[str, Literal["member", "qualified-context"]] = {}
-
-    def inspect_scopes(node):
-        if node.operator == "absent":
-
-            def row_predicate(child):
-                return child.operator in {
-                    "all",
-                    "scan",
-                    "equal",
-                    "join",
-                    "literal",
-                    "range",
-                    "membership",
-                    "same",
-                    "distinct",
-                    "optional",
-                } and all(row_predicate(descendant) for descendant in child.children)
-
-            if not all(row_predicate(child) for child in node.children):
-                raise ValueError(
-                    "absence children must be row predicates, not nested aggregate or branch scopes"
-                )
-        names = node.roles or tuple(roles)
-        associations: list[tuple[str, str | None, Literal["member", "qualified-context"]]] = []
-        if node.operator in {"forall", "absent"}:
-            associations.extend((name, node.population, "member") for name in names)
-            if node.operator == "absent":
-                negative_roles.update(names)
-        for operand in node.operands:
-            if operand.kind == "population":
-                if node.operator not in {"membership", "covers"}:
-                    raise ValueError(
-                        "population operands are supported only as membership universes"
-                    )
-                owners = {field.role for field in node.fields}
-                owners.update(
-                    value.field.role for value in node.operands if value.field is not None
-                )
-                if not owners:
-                    raise ValueError(
-                        "population operand requires a named input role for its identity witness"
-                    )
-                associations.extend(
-                    (name, operand.name, operand.population_projection) for name in owners
-                )
-        for name, population, projection_mode in associations:
-            if population is None:
-                raise ValueError("population binding requires an immutable named scope")
-            if name in role_populations and (
-                role_populations[name] != population or role_projections[name] != projection_mode
-            ):
-                raise ValueError(
-                    "one role cannot bind two population scopes; use distinct named roles"
-                )
-            role_populations[name] = population
-            role_projections[name] = projection_mode
-        for child in selected_children(node):
-            inspect_scopes(child)
-
-    inspect_scopes(expression)
+    scopes = inspect_binding_scopes(expression, tuple(roles), choice_values)
+    inactive, negative_roles = scopes.inactive, scopes.negative
+    role_populations, role_projections = scopes.populations, scopes.projections
+    referenced_roles, selected_children = scopes.referenced_roles, scopes.selected_children
     if discovery_roles and subject_context is None:
         raise ValueError("discovery input association requires its complete child context")
     for name, population in discovery_roles:

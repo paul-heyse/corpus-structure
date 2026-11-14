@@ -77,3 +77,41 @@ def test_two_populations_in_one_demand_keep_their_distinct_boolean_and_numeric_r
                 project="project:one",
             )
         ] == [index]
+
+
+def test_original_source_role_retains_complete_sibling_context_with_exact_frozen_parent():
+    from copy import deepcopy
+
+    obligation = dict(obligation_id="obligation:child", operation_id="op:consumer",
+        subject="source:child", original_source="original:book", analyzed_scope={"region": 1})
+    parent = dict(name="context-universe", complete=True, evidence=dict(product_id="product:views",
+        derivation_id="derivation:views", admission_use_id="use:views", member_role="result",
+        producer_context=dict(operation_id="op:chosen-discovery", subject="document:book",
+            original_source="original:book", analyzed_scope={"scope": "whole-document"})),
+        members=[dict(member_id="child", subject="source:child", original_source="original:book", analyzed_scope={"region": 1}),
+            dict(member_id="sibling", subject="source:sibling", original_source="original:book", analyzed_scope={"region": 2})])
+    relation = dict(producer="op:chosen-discovery", output_role="result", target="op:consumer", population="context-universe")
+    arguments = dict(source_set=None, source_sets={}, project="same-native-demand-project",
+        original_source_role=True, discovery=(relation,))
+    before = deepcopy(parent)
+    assert _population_context_matches(parent, obligation, **arguments)
+    assert parent == before and len(parent["members"]) == 2
+    assert not _population_context_matches(parent, obligation, **{**arguments, "original_source_role": False})
+    assert not _population_context_matches(parent, obligation, **{**arguments, "discovery": ()})
+    for change in ("open", "wrong-original", "different-child-scope", "wrong-output", "wrong-producer", "wrong-population", "missing-native-use"):
+        changed = deepcopy(parent)
+        if change == "open":
+            changed["complete"] = False
+        elif change == "wrong-original":
+            changed["evidence"]["producer_context"]["original_source"] = "another-original"
+        elif change == "different-child-scope":
+            changed["members"][0]["analyzed_scope"] = {"region": True}
+        elif change == "wrong-output":
+            changed["evidence"]["member_role"] = "another-output"
+        elif change == "wrong-producer":
+            changed["evidence"]["producer_context"]["operation_id"] = "unfrozen-discovery"
+        elif change == "wrong-population":
+            changed["name"] = "another-population"
+        else:
+            changed["evidence"].pop("admission_use_id")
+        assert not _population_context_matches(changed, obligation, **arguments), change

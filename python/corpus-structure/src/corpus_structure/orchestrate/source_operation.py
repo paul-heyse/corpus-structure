@@ -73,8 +73,6 @@ def prepare_source_demand(
 
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_kind_refinements import input_kind_refinements
-    from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.primary_operations import primary_operation_targets
@@ -181,43 +179,17 @@ def prepare_source_demand(
     closure = set(targets) | {producer}
     for target in tuple(closure):
         closure.update(graph.closure((target,)))
-    output = next(
-        role
-        for role in model.operation(producer).roles
-        if role.direction == "output" and role.name == "result"
-    )
-    member_kinds = set(derive_member_kinds(model, output.kind))
+    from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
+
     discoveries = []
     for operation_id in sorted(closure):
-        operation = model.operation(operation_id)
-        if operation.subject != "original-source-view":
-            continue
-        roles = [
-            role
-            for role in operation.roles
-            if role.direction == "input"
-            and role.support is not None
-            and "computation" in role.support.origins
-            and set(input_kind_refinements(model, (role.kind,))[role.kind]).intersection(
-                member_kinds
-            )
-        ]
-        if len(roles) > 1:
-            raise SourceRequestError(
-                "source target has ambiguous discovered-source roles: " + operation_id
-            )
-        discoveries.append(
-            DemandDiscoverySelection(
-                producer=producer,
-                output_role="result",
-                target=operation_id,
-                population="selected-source-views",
-                target_role=roles[0].name if roles else None,
-            )
-        )
-    root_targets = tuple(
-        target for target in targets if model.operation(target).subject != "original-source-view"
-    )
+        relations = source_discovery_relations(model, producer, "result", operation_id,
+            choices=supplied[operation_id].choices if operation_id in supplied else {})
+        discoveries.extend(DemandDiscoverySelection(producer=relation.producer,
+            output_role=relation.output_role, target=relation.target, population=relation.population,
+            target_role=relation.target_role) for relation in relations)
+    discovered_targets = {relation.target for relation in discoveries}
+    root_targets = tuple(target for target in targets if target not in discovered_targets)
     native = NativeDemandRequest(
         project_id=request.project_id,
         release_id=request.release_id,
