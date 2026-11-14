@@ -120,6 +120,21 @@ class BindingField:
 
 
 @dataclass(frozen=True)
+class OutputWitnessComparison:
+    output_field: str
+    input: BindingField
+    encoding: Literal["value", "json", "context-meaning-json"]
+
+
+@dataclass(frozen=True)
+class OutputWitnessGroup:
+    output_role: str
+    records: str
+    input_role: str
+    comparisons: tuple[OutputWitnessComparison, ...]
+
+
+@dataclass(frozen=True)
 class BindingOperand:
     """Typed value source; names resolve only in the frozen demand/projection universe."""
 
@@ -314,6 +329,7 @@ class EffectiveOperation:
     potential_dependencies: tuple[str, ...] = ()
     result_fields: tuple[tuple[str, str], ...] = ()
     consumer_selection: ConsumerSelectionCapability | None = None
+    output_witnesses: tuple[OutputWitnessGroup, ...] = ()
 
     @property
     def recipe(self) -> bytes:
@@ -338,6 +354,7 @@ class EffectiveOperation:
                 "replicate_policy": self.replicate_policy,
                 "support_policy": self.support_policy,
                 **({"result_fields": dict(self.result_fields)} if self.result_fields else {}),
+                **({"output_witnesses": [asdict(group) for group in self.output_witnesses]} if self.output_witnesses else {}),
             }
         )
 
@@ -541,6 +558,8 @@ class EffectiveDataOperationModel:
         record = asdict(self)
         for operation in record["operations"]:
             if self.version != MODEL_VERSION:
+                if operation["output_witnesses"]:
+                    raise ValueError("historical models cannot declare output witnesses")
                 operation.pop("consumer_selection")
                 operation["capabilities"].pop("stream_settlement")
                 operation["capabilities"].pop("prepared_factory")
@@ -551,6 +570,8 @@ class EffectiveDataOperationModel:
                     for name in ("source_set", "source_reference_field"):
                         if role["support"][name] is None:
                             role["support"].pop(name)
+            if not operation["output_witnesses"]:
+                operation.pop("output_witnesses")
             if not operation["result_fields"]:
                 operation.pop("result_fields")
         if self.version == ARCHIVED_MODEL_VERSION:
@@ -747,7 +768,9 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
             if cls is OperationRole and isinstance(value, dict):
                 value = {"subject_field": None, **value}
             if cls is EffectiveOperation and isinstance(value, dict):
-                value = {"result_fields": [], **value}
+                if historical_model and value.get("output_witnesses"):
+                    raise ValueError("historical models cannot declare output witnesses")
+                value = {"result_fields": [], "output_witnesses": [], **value}
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
             return build({**value, **historical}, cls)

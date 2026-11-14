@@ -846,6 +846,76 @@ BEGIN
  'holder',p->>'holder','failure_id',key,'replayed',replayed,'retained_intent_id',retained));
 END $$;
 
+-- Output witness mappings are authenticated operation meaning, evaluated before
+-- intent retention and again before publication. Each record uses one whole row.
+CREATE OR REPLACE FUNCTION data.ddo_witness_path(pointer text) RETURNS text[]
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ SELECT CASE WHEN pointer='' THEN ARRAY[]::text[] ELSE
+ ARRAY(SELECT replace(replace(value,'~1','/'),'~0','~') FROM unnest(string_to_array(CASE WHEN left(pointer,1)='/' THEN substr(pointer,2) ELSE pointer END,'/')) value) END
+$$;
+CREATE OR REPLACE FUNCTION data.ddo_witness_records(body jsonb,pointer text) RETURNS SETOF jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE current_values jsonb:=jsonb_build_array(body); following jsonb; part text; item jsonb;
+BEGIN
+ FOREACH part IN ARRAY data.ddo_witness_path(pointer) LOOP
+ following:='[]';
+ FOR item IN SELECT value FROM jsonb_array_elements(current_values) LOOP
+ IF part='*' THEN
+ IF jsonb_typeof(item)<>'array' THEN RAISE EXCEPTION 'output witness member step requires an array'; END IF;
+ following:=following||item;
+ ELSE
+ IF jsonb_typeof(item)<>'object' THEN RAISE EXCEPTION 'output witness property step requires a record'; END IF;
+ IF item ? part AND item->part<>'null'::jsonb THEN following:=following||jsonb_build_array(item->part); END IF;
+ END IF;
+ END LOOP;
+ current_values:=following;
+ END LOOP;
+ RETURN QUERY SELECT value FROM jsonb_array_elements(current_values);
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_assert_output_witnesses(r ops.data_request,completion jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE definition sem.data_operation_definition; witness jsonb; output jsonb; body jsonb; record jsonb; candidate jsonb; comparison jsonb; actual jsonb; expected jsonb; complete boolean; matched boolean;
+BEGIN
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
+ FOR witness IN SELECT value FROM jsonb_array_elements(coalesce(definition.support_contract->'output_witnesses','[]')) LOOP
+ FOR output IN SELECT value FROM jsonb_array_elements(completion->'outputs') WHERE value->>'role'=witness->>'output_role' LOOP
+ body:=output->'product'->'body';
+ IF output->>'member_id' IS NOT NULL THEN
+ SELECT member->'body' INTO STRICT body FROM jsonb_array_elements(output->'product'->'members') member WHERE member->>'member_id'=output->>'member_id';
+ END IF;
+ FOR record IN SELECT * FROM data.ddo_witness_records(data.ddo_json(data.ddo_normalize(body)),witness->>'records') LOOP
+ matched:=false;
+ FOR candidate IN
+ SELECT jsonb_build_object('product',product.id,'member',member.member_id,'reference',jsonb_build_array(product.id,member.member_id),
+ 'kind_contract',coalesce(member.kind_contract,product.kind_contract),'project_id',product.project_id,'subject',coalesce(member.subject,product.subject),
+ 'original_source',coalesce(member.original_source,product.original_source),'analyzed_scope',coalesce(member.analyzed_scope,product.analyzed_scope),
+ 'body',data.ddo_json(coalesce(member.body,product.canonical_body)))
+ FROM jsonb_array_elements(r.binding->'inputs') input
+ JOIN kb.data_product product ON product.id=input->>'product_id'
+ LEFT JOIN kb.data_product_member member ON member.product_id=product.id AND member.member_id=input->>'member_id'
+ WHERE input->>'role'=witness->>'input_role' AND (input->>'member_id' IS NULL OR member.member_id IS NOT NULL)
+ LOOP
+ complete:=true;
+ FOR comparison IN SELECT value FROM jsonb_array_elements(witness->'comparisons') LOOP
+ actual:=coalesce(record#>data.ddo_witness_path(comparison->>'output_field'),'null'::jsonb);
+ IF comparison->'input'->>'projection'='selected-input' THEN
+ expected:=candidate->(comparison->'input'->>'field');
+ ELSE expected:=coalesce(candidate->'body'#>data.ddo_witness_path(comparison->'input'->>'field'),'null'::jsonb);
+ END IF;
+ IF comparison->>'encoding'<>'value' THEN
+ IF jsonb_typeof(actual)<>'string' THEN complete:=false; EXIT; END IF;
+ actual:=(actual#>>'{}')::jsonb;
+ END IF;
+ IF comparison->>'encoding'='context-meaning-json' THEN expected:=data.ddo_json_meaning(expected); END IF;
+ IF actual IS DISTINCT FROM expected THEN complete:=false; EXIT; END IF;
+ END LOOP;
+ IF complete THEN matched:=true; EXIT; END IF;
+ END LOOP;
+ IF NOT matched THEN RAISE EXCEPTION 'output witness has no complete selected input member: %',(witness->>'output_role')||(witness->>'records'); END IF;
+ END LOOP;
+ END LOOP;
+ END LOOP;
+END $$;
 CREATE OR REPLACE FUNCTION ops.retain_data_completion_intent(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key text; old ops.data_completion_intent;
@@ -864,6 +934,7 @@ BEGIN
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id AND implementation_revision=p->'completion'->>'implementation_revision') THEN RAISE EXCEPTION 'completion differs from admitted request/implementation'; END IF;
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
  PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
+ PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM ops.data_completion_intent WHERE request_id=r.id AND generation=r.generation;
@@ -1073,6 +1144,7 @@ BEGIN
  IF result_state IN ('empty','failed') AND i.payload->'outputs'<>'[]'::jsonb THEN RAISE EXCEPTION 'non-success completion cannot publish outputs'; END IF;
  -- Reconciliation validates the original sealed producer, not the adopter's later fence.
  PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
+ PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
  FOR item IN SELECT value FROM jsonb_array_elements(i.payload->'inputs') LOOP
@@ -1416,6 +1488,7 @@ BEGIN
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]'),'accepted_kind_contracts',sem.ddo_input_kind_contracts(archived,role->>'kind')) ORDER BY ord),'[]') INTO expected_inputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='input';
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]')) ORDER BY ord),'[]') INTO expected_outputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='output';
  expected_support:=jsonb_build_object('policy',operation->'support_policy','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','capabilities',operation->'capabilities','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
+ IF coalesce(operation->'output_witnesses','[]')<>'[]'::jsonb THEN expected_support:=expected_support||jsonb_build_object('output_witnesses',operation->'output_witnesses'); END IF;
  IF o->'input_roles' IS DISTINCT FROM expected_inputs OR o->'output_roles' IS DISTINCT FROM expected_outputs
  OR o->'support_contract' IS DISTINCT FROM expected_support OR o->'profile' IS DISTINCT FROM operation->'profile'
  OR o->'binding' IS DISTINCT FROM (SELECT binding->'expression' FROM jsonb_array_elements(archived->'bindings') binding WHERE binding->>'semantic_id'=operation->>'binding')

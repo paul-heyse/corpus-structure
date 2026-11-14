@@ -118,6 +118,7 @@ _METADATA_FIELDS = {
     "support_policy",
     "result_fields",
     "consumer_selection",
+    "output_witnesses",
 }
 
 
@@ -1174,6 +1175,13 @@ def compile_data_operations(
             if len(set(result_fields.values())) != len(result_fields):
                 _fail(semantic_id, "result fields must identify distinct returned fields")
 
+        from .data_operation_output_witnesses import compile_output_witnesses
+
+        try:
+            output_witnesses = compile_output_witnesses(raw.get("output_witnesses", []), roles, kinds, aliases)
+        except ValueError as error:
+            _fail(semantic_id, str(error))
+
         def annotation_kind(annotation, role, owner=semantic_id):
             text = annotation or ""
             if text.endswith(" | None"):
@@ -1463,6 +1471,7 @@ def compile_data_operations(
             _strings(raw.get("potential_dependencies", []), semantic_id),
             tuple(sorted(result_fields.items())),
             selection,
+            output_witnesses,
         )
         operations.append(operation)
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)
