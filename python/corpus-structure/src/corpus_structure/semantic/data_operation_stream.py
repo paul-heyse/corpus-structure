@@ -22,7 +22,7 @@ class _Pull:
         try:
             stream = self.stream
             stream.check_active()
-            stream.parent.send_bytes(canonical_bytes({'pull': stream.ordinal}))
+            stream.parent.send_bytes(stream.credit())
             while not stream.parent.poll(0.1):
                 stream.check_active()
                 if stream.handle.future.done():
@@ -40,15 +40,19 @@ class _Pull:
                 stream.handle.collect()
                 raise RuntimeError('CPU stream closed without terminal evidence') from None
             frame = json.loads(content)
-            if (set(frame) != {'request', 'fence', 'ordinal', 'state', *(['value'] if frame.get('state') == 'item' else [])} or frame['request'] != stream.digest or frame['fence'] != stream.fence or type(frame['ordinal']) is not int or frame['ordinal'] != stream.ordinal):
-                raise ValueError('stream frame differs from admitted request or ordinal')
+            stream.validate_frame(frame)
             stream.child.close()  # child received its duplicate before its first response
             self.future.set_result(frame)
         except BaseException as error:
             self.future.set_exception(error)
 
     def collect(self):
-        return self.future.result()
+        try:
+            return self.future.result()
+        finally:
+            self.thread.join()
+            if self in self.stream.pulls:
+                self.stream.pulls.remove(self)
 
     def cancel(self):
         self.stream.handle.cancel()
@@ -76,6 +80,16 @@ class OwnedCPUStream:
             self.child.close()
             cpu._stream_transports.discard(self)
             raise
+
+    def credit(self):
+        return canonical_bytes({"pull": self.ordinal})
+
+    def validate_frame(self, frame):
+        if (set(frame) != {"request", "fence", "ordinal", "state", *(["value"] if frame.get("state") == "item" else [])}
+            or frame["request"] != self.digest or frame["fence"] != self.fence
+            or type(frame["ordinal"]) is not int or frame["ordinal"] != self.ordinal
+            or frame["state"] not in {"item", "complete"}):
+            raise ValueError("stream frame differs from admitted request or ordinal")
 
     def pull(self):
         return _Pull(self)
@@ -152,6 +166,87 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
         verify()
         check_active()
         return bytes(staged), reply
+    finally:
+        if stream is not None:
+            stream.close()
+
+
+class OwnedCPUCoroutine(OwnedCPUStream):
+    """Typed duplex continuation on the same owned iterator process and pipe."""
+
+    reply_content = None
+
+    def credit(self):
+        credit = {"pull": self.ordinal}
+        if self.ordinal:
+            if self.reply_content is None:
+                raise ValueError("CPU coroutine lacks its typed pending reply")
+            credit["reply"] = self.reply_content.decode()
+        content = canonical_bytes(credit)
+        if len(content) > self.max_bytes:
+            raise ValueError("CPU coroutine reply exceeds owned transport capacity")
+        return content
+
+    def validate_frame(self, frame):
+        if (set(frame) != {"request", "fence", "ordinal", "state", "value"}
+            or frame["request"] != self.digest or frame["fence"] != self.fence
+            or type(frame["ordinal"]) is not int or frame["ordinal"] != self.ordinal
+            or frame["state"] not in {"question", "complete"} or not isinstance(frame["value"], str)):
+            raise ValueError("CPU coroutine frame differs from pending question/fence")
+
+
+def plan_cpu_coroutine(descriptor, bound, signature, *, verify, execution_owner, check_active, answer_plan):
+    """Keep one original CPU generator alive across typed provider exchanges.
+
+    A waiting provider retains that process/state and admission. Its native host
+    plan releases its own GPU claim after each reply; no CPU replay or private pool
+    substitutes for the original continuation.
+    """
+    import json
+
+    from .data_operation_cpu import PythonCPUDescriptor, coroutine_adapters
+
+    if not isinstance(descriptor, PythonCPUDescriptor) or descriptor.invocation_form != "coroutine":
+        raise ValueError("CPU coroutine requires its acquired coroutine descriptor")
+    question_adapter, reply_adapter, result_adapter = coroutine_adapters(signature)
+    packet = descriptor.packet(bound.arguments, signature)
+    cpu, stream = execution_owner.cpu, None
+
+    def start():
+        nonlocal stream
+        verify()
+        check_active()
+        admission = cpu.try_admit(check_active, reservation=execution_owner.reservation)
+        if admission is None:
+            return None
+        try:
+            stream = OwnedCPUCoroutine(cpu, admission, packet, check_active)
+            return stream.pull()
+        except BaseException:
+            if not admission.submitted:
+                cpu.release_admission(admission)
+            raise
+
+    try:
+        (frame,) = yield (PreparedWork(start),)
+        while frame["state"] == "question":
+            verify()
+            check_active()
+            question = question_adapter.validate_json(frame["value"], strict=True)
+            answer = yield from answer_plan(question)
+            verify()
+            check_active()
+            stream.reply_content = reply_adapter.dump_json(reply_adapter.validate_python(answer, strict=True))
+            stream.ordinal += 1
+            (frame,) = yield (PreparedWork(stream.pull),)
+        encoded = frame["value"].encode()
+        result = result_adapter.validate_json(encoded, strict=True)
+        (reply,) = yield (PreparedWork(lambda: stream.handle),)
+        if json.loads(reply.content) != dict(turns=stream.ordinal, state="complete", result_digest=sha256(encoded).hexdigest()):
+            raise ValueError("CPU coroutine terminal differs from native process receipt")
+        verify()
+        check_active()
+        return result, reply
     finally:
         if stream is not None:
             stream.close()

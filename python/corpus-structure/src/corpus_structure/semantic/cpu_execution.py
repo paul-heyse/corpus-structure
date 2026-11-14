@@ -415,9 +415,9 @@ def _dispatch(
             _apply_native_thread_limits()
             if profile == "closed-python-stream":
                 from .data_operation_cpu import execute_python_stream
-                result = execute_python_stream(content, stream_connection, _worker_active, _apply_native_thread_limits, max_reply_bytes, {"slot": slot, "generation": generation})
+                result = execute_python_stream(content, stream_connection, _worker_active, _apply_native_thread_limits, max_reply_bytes, {"slot": slot, "generation": generation}, prepared_releases=_WORKER_RELEASES)
             else:
-                result = execute_python_call(content, _worker_active, _apply_native_thread_limits)
+                result = execute_python_call(content, _worker_active, _apply_native_thread_limits, prepared_releases=_WORKER_RELEASES)
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
             return CPUReply(

@@ -297,11 +297,6 @@ class _InvocationExecution:
         self._selected_operations = None
 
     def __enter__(self):
-        try:
-            self.cpu.prepare()
-        except BaseException:
-            self.__exit__()
-            raise
         return self
 
     def select_operations(self, operations):
@@ -316,6 +311,11 @@ class _InvocationExecution:
                 or self.executor.model.operation(operation).capabilities.prepared_factory is not None):
                 port = self.executor._port(operation)
                 self.native_hosts.declare(port.native_selections)
+                if getattr(port, "requires_prepared_schema", False):
+                    self.cpu.retain_schema = True
+        # Capture one schema capsule only for the frozen closure's actual
+        # prepared kernels, before request credits consume retained capacity.
+        self.cpu.prepare()
         self._selected_operations = selected
 
     def __exit__(self, *error):
