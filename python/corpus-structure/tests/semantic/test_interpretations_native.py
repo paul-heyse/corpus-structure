@@ -18,6 +18,83 @@ from semantic.native_record_fixtures import RecordSourceRecipe, candidate, compl
 from semantic.native_record_fixtures import private_source as private_source
 
 
+def _publish_historical_authored_fixture(case, *, kind, configuration):
+    """Seed genuine sealed-reader custody directly, without a retired application runner.
+
+    These controls qualify retained review queries. Current authored-input behavior is
+    covered by the separate native demand test; historical runs are never a resume route.
+    """
+    from hashlib import sha256
+    from pydantic import create_model
+    from corpus_structure.core.method import UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+    from corpus_structure.semantic._operation_calls import initialize_source_project, select_source_view
+    from corpus_structure.semantic._operation_ids import ProjectId, RealizationId, ReleaseId, RunId, SourceViewId
+    from corpus_structure.semantic.contributions import operation_identity
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.interpretations import interpretation_contribution
+    from corpus_structure.semantic.operations import (
+        OperationBinding, OperationDescriptor, claim_tasks, prepare_unit_completion, complete_task,
+        create_run, create_task, record_method, start_run,
+    )
+    source = configuration["source"]
+    identity = sha256(canonical_bytes([kind, configuration])).hexdigest()
+    realization = "historical-authored-fixture:" + identity
+    name = "interpret." + kind
+    method = OperationDescriptor(name, "1", "extract" if kind == "source_records" else "resolve",
+        "deterministic", TaskUnitType.SOURCE_VIEW, create_model("HistoricalAuthoredFixture"))
+    pin = {"source": case.view_row["key"], "native_product_task_id": source["native_task_id"],
+        "product_key": source["native_product_key"], "product_digest": source["native_content_digest"],
+        "projection_digest": source["projection_digest"], "recipe_digest": source["recipe_digest"],
+        "source_view_id": source["source_view_id"]}
+    with case.writer.begin() as conn:
+        conn.execute(text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+            {"source": canonical_bytes(source).decode()}).scalar_one()
+        initialize_source_project(conn, project_id=ProjectId(source["project_id"]),
+            release_id=ReleaseId(case.prepared.release_id), realization_id=RealizationId(realization),
+            projection_context=case.prepared)
+        run = create_run(conn, project_id=source["project_id"],
+            binding=OperationBinding(case.prepared.release_id, realization, 0, b"{}"),
+            kind="full", options={}, code_commit="historical-authored-native-control", prepared=case.prepared)
+        start_run(conn, run)
+        select_source_view(conn, run_id=run, source_run_id=RunId(source["run_id"]),
+            source_view_id=SourceViewId(source["source_view_id"]), projection_context=case.prepared)
+    # Configuration/task dimensions are fixture seed prerequisites. All actual
+    # claim, completion and sealed publication use the restricted writer below.
+    with case.clone.admin.begin() as conn:
+        config = record_method(conn, method, "historical-control", configuration, identity, prepared=case.prepared)
+        task = create_task(conn, run_id=run, config_id=config, stage="propose", unit_type="source_view",
+            unit_id=source["source_view_id"], unit_key=pin["source"], input_hash=identity)
+    with case.writer.begin() as conn:
+        (held,) = claim_tasks(conn, run_id=run, config_id=config, holder="historical-review-control")
+        assert held.task_id == task
+        ref = UnitRef(TaskUnitType.SOURCE_VIEW, source["source_view_id"], pin["source"])
+        if kind == "source_records":
+            result = UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED,
+                records=tuple(case.prepared.validate_json("SourceRecord", canonical_bytes(row)).model_dump(mode="python", exclude_none=True)
+                    for row in configuration["records"]))
+        else:
+            operation = operation_identity(name, "1", configuration, pin)
+            rows = tuple(interpretation_contribution(case.prepared, semantic_type=kind+".interpretation",
+                payload=row, operation_key=operation, item_key=str(index), pin=pin, anchors=())
+                for index, row in enumerate(configuration["reviews"]))
+            result = UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED, contributions=rows,
+                contribution_operations=({"operation_key": operation, "question": name,
+                    "operation_version": "1", "outcome": "succeeded",
+                    "inspected_count": len(rows), "emitted_count": len(rows)},))
+        completion = prepare_unit_completion(conn, task_id=task, attempt=held.attempt,
+            holder="historical-review-control", prepared=case.prepared, method=method,
+            configuration_hash=identity, source=pin["source"], result=result,
+            records=result.records if kind == "source_records" else None)
+        assert not completion.source_views
+        complete_task(conn, task_id=task, attempt=held.attempt, holder="historical-review-control",
+            prepared=case.prepared, observations=completion.rows, outcome=completion.outcome,
+            error=completion.error, envelope=completion.envelope)
+        cut = seal_cut(conn, run, "historical-review-final", final=True)
+    result = consolidate_cut(case.writer, cut, "historical-review-result:" + str(run))
+    return {"run_id": run, "cut_id": cut, "realization_id": result.realization_id}
+
+
 @pytest.fixture
 def interpretation_source_case(scenario_seeds):
     with scenario_seeds.rollback_family(InterpretationSourceRecipe()) as family:
@@ -165,14 +242,20 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     from corpus_structure.semantic.interpretation_queries import TerminologySelection
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.serve.interpretation_authoring import author_interpretations
     from corpus_structure.serve.record_results import RecordRequest, serve_record_results
     from corpus_structure.settings import Settings
 
     case = private_source
     records = (candidate(case), candidate(case, 1))
     with case.writer.begin() as conn:
-        complete(case, conn, records)
+        from corpus_structure.semantic.operations import complete_task, prepare_unit_completion
+        from semantic.native_record_fixtures import unit
+        completion = prepare_unit_completion(conn, task_id=case.task, attempt=case.held.attempt,
+            holder="records", prepared=case.prepared, method=case.method,
+            configuration_hash="private-config", source="private-unit", result=unit(case), records=records)
+        complete_task(conn, task_id=case.task, attempt=case.held.attempt, holder="records",
+            prepared=case.prepared, observations=completion.rows, outcome=completion.outcome,
+            error=completion.error, envelope=completion.envelope)
         cut = seal_cut(conn, case.run, "source-final", final=True)
     result = consolidate_cut(case.writer, cut, "review-filter-source-result")
     digest, _ = metadata_binding(case.prepared)
@@ -257,7 +340,7 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     )
     reference = cli("docs", "commands", "interpretations", "author", "--stdout")
     assert reference.exit_code == 0, reference.output
-    assert "private knowledge" in reference.stdout
+    assert "authored" in reference.stdout
     selected = Settings(
         database={
             "url": case.writer.url.set(drivername="postgresql").render_as_string(
@@ -279,19 +362,7 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     manifest = json.loads((contract_path / "manifest.json").read_bytes())
     assert manifest["release_id"] == case.prepared.release_id
     assert "structural_preflight_only" in manifest["limitations"]
-    input_path = tmp_path / "authored-review.json"
-    input_path.write_text(json.dumps(configuration))
-    completed = cli(
-        "interpretations",
-        "author",
-        case.prepared.release_id,
-        "terminology",
-        str(input_path),
-        "--json",
-        settings=lambda: selected,
-    )
-    assert completed.exit_code == 0, completed.output
-    authored = json.loads(completed.stdout)["body"]
+    authored = _publish_historical_authored_fixture(case, kind="terminology", configuration=configuration)
     selection = TerminologySelection(
         review_run_id=authored["run_id"],
         review_cut_id=authored["cut_id"],
@@ -348,14 +419,12 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     )
     later_record["record_id"] = record_identity(case.prepared.release_id, later_record)
     later_record["interpretation_id"] = interpretation_identity(later_record)
-    later = author_interpretations(
-        case.writer,
-        case.prepared,
+    later = _publish_historical_authored_fixture(
+        case,
         kind="source_records",
         configuration=dict(
             source=configuration["source"], records=[json.loads(json.dumps(later_record))]
         ),
-        settings=Settings(paths={"data_dir": tmp_path, "model_cache": tmp_path / "models"}),
     )
     with read_snapshot(case.writer) as conn:
         later_revision = conn.scalar(
@@ -392,12 +461,10 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     )
     unresolved = {k: v for k, v in measurement.items() if k not in {"unit", "quantity_kind"}}
     unresolved["outcome"] = "unresolved"
-    measured = author_interpretations(
-        case.writer,
-        case.prepared,
+    measured = _publish_historical_authored_fixture(
+        case,
         kind="measurement",
         configuration=dict(source=configuration["source"], reviews=[measurement, unresolved]),
-        settings=Settings(paths={"data_dir": tmp_path, "model_cache": tmp_path / "models"}),
     )
     from corpus_structure.semantic.interpretation_queries import collect_interpretation_uses
 
@@ -515,10 +582,8 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
 
     forged_source = dict(configuration["source"], native_content_digest="0" * 64)
     with pytest.raises(DBAPIError, match="original completed source custody"):
-        author_interpretations(
-            case.writer,
-            case.prepared,
+        _publish_historical_authored_fixture(
+            case,
             kind="measurement",
             configuration=dict(source=forged_source, reviews=[measurement]),
-            settings=Settings(paths={"data_dir": tmp_path, "model_cache": tmp_path / "models"}),
-        )
+            )
