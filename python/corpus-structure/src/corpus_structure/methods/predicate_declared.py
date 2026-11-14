@@ -58,7 +58,7 @@ class PredicateEvidenceOperation:
                         'coverage': 'exact-selected-source',
                         'identity_requirements': ['episode']}},
            {'name': 'result',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport',
+            'kind': 'https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport',
             'direction': 'output',
             'minimum': 1,
             'maximum': 1,
