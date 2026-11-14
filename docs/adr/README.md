@@ -75,6 +75,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0101](0101-verified-test-deployments.md) | Reuse verified native test deployments and choose isolation by claim | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0032](0032-native-test-deployment-equivalence.md) |
 | [ADR-0102](0102-reusable-native-scenario-seeds.md) | Reuse eligible committed scenarios through worker-local sealed seeds | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0048](0048-populated-native-scenarios.md) |
 | [ADR-0103](0103-ddo-privilege-policy.md) | Freeze complete table and schema privilege policy in compared operations | 2026-11-14 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0104](0104-ddo-discovery-input-association.md) | Bind discovery child inputs to explicit parent members | 2026-11-14 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

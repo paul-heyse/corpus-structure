@@ -1,7 +1,7 @@
 # Declared data operations — total governing model
 
-**Status: Foundation repairs implemented and scoped Tested, 2026-11-14. DDO-00–02 retain bounded completion.
-DDO-03/04 CA-08/09 and immediate SQLAlchemy/Alembic alignment are implemented with scoped native evidence. DDO-05 current child-binding integration remains open; broader qualification is not certified. Earlier results retain their source/context bounds.
+**Status: Authorized foundation increment complete; scoped Tested, 2026-11-14. DDO-00–02 retain bounded completion.
+Reopened DDO-03/04/05, immediate SQLAlchemy/Alembic alignment, pure static reuse and the six bounded legacy removals are implemented with scoped evidence. Actual selected-view child publication now passes. Broader series qualification is not certified; earlier results retain their source/context bounds.
 DDO-06–08 remain open; the current increment is concluded and its remaining tests were cancelled by the operator, 2026-11-14. DDO-09–12 retain their broader open scope. No deployment, activation or production cutover.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
@@ -276,6 +276,11 @@ Full union qualification and persistent deployment/activation/adoption remain se
 
 ## Foundation execution receipt · 2026-11-14
 
+**Authorized increment complete; scoped Tested.** All 31 selected native identities now have passing
+original/replacement receipts. These span documented source/native-head contexts; this is not a
+complete final-head union or qualification of the wider series. Only failing/changed identities
+were retried. New scoped controls and independent source review accompany the implementation.
+
 The authorized increment is reopened DDO-03/04/05, SQLA/Alembic I01–I05, pure static preparation
 reuse and the six bounded cleanup groups. DDO-00–02 keep their earlier bounded completion;
 larger driver/CPU/reference/public-reader/reuse migrations retain DDO-06–11 ownership.
@@ -356,25 +361,93 @@ The evidence owner retains failed/interrupted authoring attempts and the actual 
   Changed transitive cases and discovery failed `62f5f624947344ce8357845bc5131499`; exact3 retry
   `20359b7ebaae4d09af4d18390bd97157` settled **2passed/1failed**: both retained-intent
   transitive/rebound native cases passed; actual source discovery reaches the original two-child
-  `awaiting-inputs` failure after setup succeeds. Its exact failing1 investigation remains open.
+  `awaiting-inputs` failure after setup succeeds. Exact diagnostic1
+  `cf9437100b9e45e188f41641e9874998` confirms role-cardinality refusal for both source inputs;
+  there is no absent/unknown-input diagnosis. The associated declaration repair remains open.
   Earlier no-work-only variants are not credited as publication-refusal evidence. No passing cohort was rerun after a fix.
+- **Implemented; scoped native Tested:** [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
+  makes discovery input selection explicit with optional `DiscoverySelection.target_role`. Reuse
+  existing authenticated populations/bindings/witnesses to restrict that role to its exact parent
+  product/member before cardinality. Native registration/admission independently verify the same
+  association, context, producer and valid support. Absent association preserves old frozen meaning;
+  source profiling retains original/computed capability. No origin preference or cross-product body
+  deduplication. Focused closure requires absent/invalid-role controls, same-context wrong-member
+  native refusal with otherwise valid rebuilt keys, and actual two-scoped-child publication.
+  Source `0a8a60473` implements that association. New focused5 passed
+  `0a38ecbd5bc946868f5a18c0978ddfc3`; reviewer found missing pre-cardinality analyzed-scope equality,
+  fixed with exact changed1 passing `50a8bdda11364f9091b404c4a07ba882`. Source review closes that
+  finding; full-context/parent filtering is now explicit. Types `5da90ea50740433cb683047965fb8933`
+  and scoped Ruff passed after final formatting. Successor `semantic_ddo_drole_v1` is registered after `semantic_ddo_found_v1` (below).
+  Exact source retry `26d785913a624aab9f000f64e2d3e792` failed at wire ingress before native
+  association behavior: the authoritative closed discovery wire schema still had four properties.
+  Its fresh native head was built and verified; no passing identity was replayed. Source
+  `17391b934` adds optional identifier `target_role` to that one protocol schema, retaining closed
+  additional properties and absent-field meaning. Python and native SQL validation derive from the
+  same capture. Generated physical/type source IDs and protocol SHA changed; fate memberships and
+  public call shapes did not. New wire control1 `e5d1ee6367dc4f73b9e994219f36f6b9`, types
+  `e53eb2b1bae84b0aafc5b3c78ab013e9` and scoped Ruff passed; independent ingress-consumer review
+  found no remaining duplicate shape in services/Rust/scripts/domain configuration. Forward v2 is registered after immutable v1: preview
+  `5e06720b11284175be18219403660455`, full rollback candidate
+  `037eaddc1677428f87f70dcb9b7895b8`, registration `9b1b758fd5724871bcdd999588747277` and
+  evidence finalization `e2905dba6f00434db61baebaeb2ca87d` all passed. Seven native operations
+  update wire validation, two descriptors and four dependent projection-ID literals (query semantics
+  unchanged); zero privilege operations and one owned `sem.physical_contract` insertion bind the
+  new protocol/physical source identity. Exact source1 retry `6a71d58d9ef64e319beb7f3e0278e7ba`
+  **passed** from committed `d87f1acb8`, including actual two-child publication, native invalid-role
+  registration refusal and same-context original substitution refusal with valid rebuilt keys.
+  Its single native-required identity ran serially against newly built/freshly verified
+  `cs_sem_head_a931f08d5bdaf700`, deployment key
+  `a931f08d5bdaf7008ca6bae906168cc524ad171a691441d405bc05bbf8245d4e`, with no deployment-key gap.
+  Reporting is complete; source bytes were unchanged. There is no remaining actual child-binding
+  failure in this selected scope. Native provider/transitive passing cases were not replayed. These scoped closures do not broaden the earlier CA-08/09 receipt claims.
 - Typed authenticated candidate-count inspection now reports 19/212/5 directly without export/reopen.
   Focused v1/v2 and tamper-refusal2 passed `6fa27138d8004ac8bbdf6c86a4bd7fa8`; the evidence owner
   retains the preceding reporting/test-assertion failures. This CLI-only repair changes no frozen SQL.
 
+**Forward authoring repaired; actual successor registered, 2026-11-14:** preview
+`d8efd04f8b0f4e7c9da15123266eb429` passed, but actual candidate
+`33d506da4e884aeab95efa4a871088e8` refused the next-pass task trigger owner before registration;
+cleanup was established. Raw series definitions still assumed namespace ownership after the frozen
+predecessor had a publisher-owned parent. Source `cf772c04a` now derives staging trigger definitions
+before normalization from frozen parent facts, using declared target policy only for new/moved
+parents. Conflicting explicit literal owners and invalid bindings refuse; no live ownership is
+adopted and the owning-relation guard remains intact. The actual found/origeps/raw-definition
+regression passed `1bc7a9ba9f23432ca4450974ae96a9d3` after fixture-prerequisite failure
+`235bb23fc4b34a3fa860713d0f61be2a`; final types `00b9d102fd1540508055dd784b2cf7de` and scoped
+Ruff passed. Independent source review found no material blocker. Fresh preview
+`e0e4820bcfb846099c211e8924fd5781`, whole rendered-upgrade candidate
+`a149225c771e4f8ab803bbe388e295df`, immutable registration `15152b56c69f4a3ea382c390663288bc`
+and evidence finalization `7d871f19fb2245989d32ef3a8e80efca` all **passed**. This closes the
+I04/I05 raw-definition next-successor authoring gap at its scoped boundary. The seven native
+operations are one private membership helper, four binding/population functions and two descriptors;
+there are zero ordinary or privilege operations. The candidate has full rollback execution plus
+independent native/privilege/physical catalog verification. Registration inspection is verified and
+read-only target closure confirms the persistent revision/OID/system unchanged. Existing CA-08/09
+receipts retain their original bounds. The failed request/result and both immutable successors are in
+[governance evidence](../design_review/evidence/2026-11-14_ddo-foundation-governance/README.md).
+
 **passed:** final authored-source `uv run ci check --only types --json`,
 `6cc0709bd86f44d6bd14553d91dec3b6`, and scoped Ruff `85cf69340f2f479f9b016931dc00c9ef`;
 after CLI-only changes types `fb3d9a27f500469b8bfae9866ed67f6a` passed. Earlier failed diagnostic
-receipts are retained; final fixture/docs diagnostics are pending. E501 remains excluded.
-Independent bounded read-only review found no remaining material regression at `6d6c4443e` plus
-these fixture edits; source inspection is separate from native outcomes.
+receipts are retained. Final association types `5da90ea50740433cb683047965fb8933`, final authoring
+types `00b9d102fd1540508055dd784b2cf7de`, scoped Ruff and ADR lint
+`fe554253dab0467fb3e31747bf456c30` passed. ADR links/index failure
+`1444acaa0266472dadb7cb6f310ef4c2` was corrected. Final ingress types
+`e53eb2b1bae84b0aafc5b3c78ab013e9` and scoped Ruff passed. `uv run ci docs check --json`
+**passed**, `1776d71ceec64e2ea49676a67900deaa`, 1269 canonical pages/zero link errors before
+final receipt wording. Root `just turn-end` left product files unchanged. All58 named receipts
+are held; the final docs result is held separately. No test remains active. E501 remains excluded.
+Independent bounded read-only review found no remaining material regression in the integrated
+foundation, exact discovery association, frozen-parent trigger preparation and closed ingress
+consumers. Earlier identified scope/ownership/ingress gaps are corrected with targeted evidence;
+source inspection remains separate from native outcomes.
 All three worktrees were removed after integration and unchanged-byte checks, without losing
 managed receipts; branch references remain. New results live
 in main; named dependent receipts are held. Complete series qualification remains DDO-12.
 
 ## Execution queue and readiness
 
-DDO-00 is **complete at its scoped preparation boundary**; DDO-01/02 retain **bounded foundation completion**. DDO-03/04 CA-08/09 repairs and immediate SQLA/Alembic alignment are **implemented; scoped Tested, 2026-11-14**. DDO-05 retains the delivered resolver and now consumes the repaired native premises, but actual selected-view child-binding integration remains **open**. The findings table and foundation receipt own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. The previous DDO-06–08 increment ended at the operator's closeout boundary; its full/provider qualification stays cancelled. Only the authorized focused foundation checks and actual failing child-binding identity resume.
+DDO-00 is **complete at its scoped preparation boundary**; DDO-01/02 retain **bounded foundation completion**. DDO-03/04 CA-08/09 repairs and immediate SQLA/Alembic alignment are **implemented; scoped Tested, 2026-11-14**. Explicit discovery input association under ADR-0104 is implemented and scoped native Tested across DDO-03/04/05. DDO-05 retains the delivered resolver and consumes the repaired native premises; actual selected-view child-binding integration now passes. The findings table and foundation receipt own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. The previous DDO-06–08 increment ended at the operator's closeout boundary; its full/provider qualification stays cancelled. The authorized focused foundation checks are concluded; complete final-head/family/provider qualification remains with DDO-12.
 
 | Package | Prerequisite capability | Delivered behavior and completion boundary |
 |---|---|---|
@@ -1033,8 +1106,9 @@ facts and inspected configuration, schema/interchange generation, scripts, servi
 trust pinning. Both are now **closed at their scoped DDO-03/04 native boundary, 2026-11-14**, with
 positive/forgery/missing-custody provider controls and actual transitive/rebound publication-refusal
 checks in the [foundation receipt](#foundation-execution-receipt--2026-11-14). DDO-00–02 keep their
-bounded completion. DDO-05's actual selected-view child integration is still open despite repaired
-native premises. DDO-06–12 ordinary caller/family/serving/adoption/qualification work remains open.
+bounded completion. DDO-05's actual selected-view child integration now passes the exact
+replacement `6a71d58d9ef64e319beb7f3e0278e7ba`, with explicit parent/member/full-context binding
+and closed Python/native wire ingress. DDO-06–12 ordinary caller/family/serving/adoption/qualification work remains open.
 Existing narrow replay, purpose and qualified-context closures are not reopened.
 
 **Qualification:** read-only managed inspection confirms cancelled ordinary receipt
@@ -1058,9 +1132,9 @@ scaffolding need not wait for the whole cutover merely because it sits beside a 
 |---|---|
 | DDO-00 decisions, operation/consumer inventory and metadata preservation classification | **Complete at the dated preparation boundary.** ADR-0092–0095 and D1–D8 carry accepted targets. The inventory accounts for its 101-protocol, 34-phase0/17-M1 and declared local-owner universe; all 417 pending manifests and 73 historical-ID occurrences have conservative sealed dispositions. This is neither universal plugin discovery nor byte/replay/adoption verification. DDO-11 retains those operational obligations. |
 | DDO-01/02 effective facts, identities and source-sensitive recipes | **Complete at foundation scope, 2026-11-13.** Captured-builtin closure/authentication, compiled projection interpretation and current-format retirement are repaired. Effective facts and canonical codecs retain explicit unsupported-profile refusal; later family migrations do not become complete here. |
-| DDO-03 binding, suitable direct/prepared/stream/command ports and four native consumer forms | **Foundation implementation complete; scoped Tested, 2026-11-14.** CA-08/09 and I01–I03 corrections are implemented with targeted independent native controls. Earlier typed ports/source-migration evidence keeps its bounds. Ordinary caller migration remains DDO-06–08; full union qualification remains DDO-12. |
-| DDO-04 native products, support, exact intent/replay, purpose and pinned reads | **Foundation implementation complete; scoped Tested, 2026-11-14.** Registered `semantic_ddo_found_v1` and targeted provider/transitive/read/trust controls discharge CA-08/09 and immediate I01/I02/I04/I05. Registration and bounded tests do not establish deployment/adoption or full qualification. |
-| DDO-05 frozen demand, discovery, selected dependencies, support rebind/recovery and fan-in | **Native premises repaired; actual child integration open, 2026-11-14.** Selected closure/context/fan-in retain scoped controls; provider/transitive premises now have native evidence. Actual selected-view children still await inputs in the focused DDO-05/06/07 investigation. No complete readiness or family qualification is certified. |
+| DDO-03 binding, suitable direct/prepared/stream/command ports and four native consumer forms | **Foundation implementation complete; scoped Tested, 2026-11-14.** Explicit discovery-role association and closed wire ingress under ADR-0104 pass the actual source journey. CA-08/09 and I01–I03 corrections are implemented with targeted independent native controls. Earlier typed ports/source-migration evidence keeps its bounds. Ordinary caller migration remains DDO-06–08; full union qualification remains DDO-12. |
+| DDO-04 native products, support, exact intent/replay, purpose and pinned reads | **Foundation implementation complete; scoped Tested, 2026-11-14.** Explicit discovery-role native admission and wire ingress under ADR-0104 pass positive and independent refusal controls. Registered `semantic_ddo_found_v1` and targeted provider/transitive/read/trust controls discharge CA-08/09 and immediate I01/I02/I04/I05. Registration and bounded tests do not establish deployment/adoption or full qualification. |
+| DDO-05 frozen demand, discovery, selected dependencies, support rebind/recovery and fan-in | **Foundation implementation complete; scoped Tested, 2026-11-14.** Selected closure/context/fan-in retain scoped controls; provider/transitive premises and actual selected-view child publication now have native evidence. Exact associated input membership and native refusals pass. Full final-head/family/provider qualification remains open with DDO-06–12. |
 | Delivered DDO-06/07/08 execution and family increments | **Bounded implementation and scoped Tested results, 2026-11-14; broader packages open.** Owned streams, typed CPU coroutines, shared provider custody and explicit retained-demand CLI execution are integrated. The restricted positive CLI route passes. Default source/book/phase0 workflows and complete family/provider population have not switched; current native family qualification is cancelled with residual failures. See the current execution account below. |
 | NetworkX amendment | **Required DDO-01–05 contributions complete.** Compiled v3 projection interpretation now governs the delivered kernels/consumers; later impact, comparison, serving and export integrations remain open. |
 | DDO-06–12 wider replacement, reuse, serving, preservation/adoption and assembled qualification | **Open; no enclosing completion certified.** Existing migration/retirement obligations remain required. APIs or tests calling target helpers do not establish that ordinary entry points migrated. |
@@ -1081,7 +1155,7 @@ design-audit findings. CA-08/09 were added by the reassessment and are now close
 | DDO-CA-05 (F05) | **Closed; scoped Tested, 2026-11-13.** Population ambiguity compares complete authenticated subject/original/scope context using JSONB meaning. Distinct page1/page2 members sharing a local subject reach child publication; duplicate complete contexts including equivalent numeric scopes refuse. | Frozen `semantic_ddo_projection_v1`; final native replacements10 `09ecb5f88e5f476a9ed8bcd226e30829` passed, including independent null-scope controls and actual captured-source publication/resume. No frozen predecessor was edited or deployed. |
 | DDO-CA-06 (NetworkX I01; F01/F02) | **Closed at DDO-01/03 boundary, 2026-11-13.** Effective v3 archives typed compiled projection definitions. Semantic graph validation and demand freezing consume their interpretation, preserving role occurrences, isolates and selected/potential distinctions. | Independent projection/demand/identity controls plus integrated263 pass. Later support/impact/serving/assessment integrations retain DDO-04/08/09/10 owners; their open scope does not reopen this prerequisite. |
 | DDO-CA-07 (hard-target retirement; Python I05) | **Former v1 authoring/decoder/alias retirement remains implemented; reassessed 2026-11-14.** Current format is v4; historical v2/v3 exact reading serves retained archive interpretation, with explicit current admission/projection/Python-port refusal. No current v1 fallback remains. | TS-19 helper removal is retained, not repeated. Preserve frozen migration/evidence bytes and required archive reading; the former remaining-v1 allegation in the retirement inventory is corrected below. This is not universal completion of caller/reader retirement. |
-| DDO-CA-08 (F02/F10/F11) | **Closed at DDO-03/04 boundary; scoped Tested, 2026-11-14.** Native selected provider identity comes from authenticated producing episode/release/recipe and captured profile attestations; candidate/request/admission use the same contract projection. Historical missing profiles remain unavailable. | Provider3 passed exact retry `c584d326d3ae46f59962b0fc5b9ba396`, including positive attachment, forged identity refusal and missing-producing-profile refusal. Runtime artifact controls passed in the initial31 cohort. `semantic_ddo_found_v1` is registered, not deployed; actual provider inference/family qualification remains separate. |
+| DDO-CA-08 (F02/F10/F11) | **Closed at DDO-03/04 boundary; scoped Tested, 2026-11-14.** Native selected provider identity comes from authenticated producing episode/release/recipe and captured profile attestations; candidate/request/admission use the same contract projection. Historical missing profiles remain unavailable. | Native provider-identity3 passed exact retry `c584d326d3ae46f59962b0fc5b9ba396`, including positive attachment, forged identity refusal and missing-producing-profile refusal. Runtime artifact controls passed in the initial31 cohort. `semantic_ddo_found_v1` is registered, not deployed; actual provider inference/family qualification remains separate. |
 | DDO-CA-09 (F07/F11/F13) | **Closed at DDO-04 boundary; scoped Tested, 2026-11-14.** One finite recursive support walk covers original/computational and selected replacement-use scopes for acquisition, continuation and sorted publication locks. Complete-support containment is retained. | Three-source/two-hop and rebound cases passed `20359b7ebaae4d09af4d18390bd97157`: unchanged continuation, old-pin revocation refusal, upstream nonzero epoch, C-scope locks and authentic retained-intent publication refusal with unchanged derivation counts. Earlier no-work-only variants are not the publication evidence. Remaining source discovery failure is separately open. |
 
 ### Hard-target retirement and closely related adjacent code
@@ -1107,7 +1181,7 @@ retains scoped checks and remaining integration; other retirement rows remain op
 | **Implemented — orphan HTML profiles and one-time fixture builders** | `sources/siegrist.yaml`, `sources/toy.yaml` retain DOM selectors; code/test searches find no profile loader and `test_stage_b.py:85` asserts SourceProfile absent. Current pack configs select PDF. `fixtures/s0/build.py`, `fixtures/trace/build_segments.py/build_targets.py` reconstruct old renditions; only documented one-time builder links found. | PDF-10/11, cross-linked DDO-07/11. Remove active orphan profiles and obsolete executable regeneration instructions/builders once their finite fixture inputs are retained; fix toy README's implication of required historical HTML read compatibility. Keep authored fixtures, provenance, plans/evidence and inert records. No protected answers or historical bytes are rewritten. External invocation of these repository scripts is unknown, not a maintained runtime guarantee. |
 | **Implemented — current HTML synthesis retirement; identity kernel preserved** | `_cut_input`, `semantic/domain_operations.py:902–937`, supplies a native descriptor with `rendition_id=None`, macro-only content, or None. Yet `_project_cut:1457–1530,1554–1587` keeps author_markup/RenditionContent/project_markup and LocatorIndex fallbacks; `_evidence_link:363–376` keeps a rendition tuple. NativeProposalFrame/native_statement_source already supply current native interpretation. | DDO-07/09 with PDF-10/11 and DDO-11 custody reconciliation. Remove obsolete current synthesis/fallbacks, retaining truthful unsupported/partial standing for historical observations. Preserve `source_projection.statement_identity` used by current native statements/PDF journeys; retire `project_markup` and its HTML-only positive test rather than deleting the whole module. Reviewers differ on whether retained rows can reach the old branch; no live-data claim is made and inert rows stay preserved. ADR-0040 withdraws maintained HTML-result interpretation, not original custody. |
 | **Implemented — historical math context chain reduction** | `methods/math/context.py`, `source_context.prepare_source_math`, `spans.math_spans/read_spans` are reached only through the historical/test chain. Current `math/native.py` and `math/prepared.py` still use `_heads`, EarlyFunctionDeclaration, span types and extraction helpers. | DDO-08/PDF retirement. Remove or relocate only historical context/locator adapters and their mechanism tests; preserve native finite math helpers and independent expectations. Do not delete these mixed-use modules wholesale. |
-| **Migrate available target, then remove — ordinary drivers/selection/recovery** | Default CLI routes still reach source_operation/phase0/semantic registry and method.select; target DemandPlanner/NativeDemandExecutor and admitted bound/hydrated ports exist. `characterization.py:354–379,527–575,780–840` retains name/dependency/device maps and recovery anchors. | DDO-06/07/08. Migrate source/book/phase0 and reporting/cancellation/resume, including injected registry roots. Remove private selector/digest authority, SourceOperationLink grouping, manual dependency/freshness maps, stage permits and `max_active_stage_runs` only with their actual callers. Current child-binding failure and CA-08/09 are concrete shared prerequisites. |
+| **Migrate available target, then remove — ordinary drivers/selection/recovery** | Default CLI routes still reach source_operation/phase0/semantic registry and method.select; target DemandPlanner/NativeDemandExecutor and admitted bound/hydrated ports exist. `characterization.py:354–379,527–575,780–840` retains name/dependency/device maps and recovery anchors. | DDO-06/07/08. Migrate source/book/phase0 and reporting/cancellation/resume, including injected registry roots. Remove private selector/digest authority, SourceOperationLink grouping, manual dependency/freshness maps, stage permits and `max_active_stage_runs` only with their actual callers. The scoped child-binding and CA-08/09 prerequisites are now closed in the foundation receipt; ordinary driver integration remains required. |
 | **Migrate available target, then remove — legacy CPU facade/dispatch** | `cpu_execution.py:128–175,201–235,299–352,395–449,857–864,1107–1256` retains packets, _KernelReader/_KernelRun/_KernelContext, method dictionary/default legacy dispatch and cpu_method_plan/run_cpu_method. Formal/construction/contextual ordinary callers remain. Target acquired PythonCPUDescriptor calls and formal/construction/context ports exist. | DDO-06/07. Move those callers, remove old packets/Reader facade/dictionary/defaults and mechanism controls together. Retain CPUExecutionScope, real cancellation/retirement, byte reservation and receipts. Separately assess shrinking specialized formal packet dispatch (`:358–393,412–413,866–869`) onto the generic prepared-kernel call while preserving its timeout, kernel and validation: this is an improvement opportunity, not a new completion defect. |
 | **Migrate available target, then remove — combined native provider route and dual internal references** | `methods/native_evidence.py:425–710` still combines producers; separate annotation/canonical/HanLP declarations and shared hosting exist. `data_product_reference.py:90–115` accepts both semantic product/member and task refs; model_characterization, constructions, formal/contextual readers and StructuralInput consume the union. Actual semantic DeclaredStructuralSource/product/contribution refs already exist. | DDO-07/08, DDO-10/11 final reference retirement. Move ordinary publication/readers onto distinct target facts and real semantic refs, then remove combined routing and current dual-reference dispatch. Keep semantic conversion algorithms and any explicitly sealed old reader. Never synthesize legacy task/view IDs for target facts. |
 | **Blocked on missing target population — learned/M1/math/structural/authored/external** | `ci run parsers/interpret` still reach PM2 stage descriptors; interpretation_authoring builds its own registry/graph; old agent queues remain. Target learned and M1 candidate factories exist, but M1 formal/named rules explicitly refuse without real inputs. Math declared kernel is not full producer acquisition; dossier/predicate/scoped/definition/artifact/clause and finite/contextual/external families remain unfinished. | Existing DDO-07/08 inventory in the current increment account owns these, not new duplicate findings. Preserve exact model questions/raw observations/numerical policy and specialized algorithms. Deliver the missing producer/input/effect contract plus immediate consumers, then remove each old route. Declarations and selector-only APIs do not establish a replacement. |
@@ -1281,8 +1355,9 @@ D1–D8 and accepted decision records, preserving exact old review/evidence hist
 or evidence files. Authoring publication checks are separate from product qualification.
 
 **Current boundary, corrected 2026-11-14:** DDO-00–02 retain bounded completion. DDO-03/04
-CA-08/09 and immediate SQLA/Alembic alignment are implemented and scoped Tested; actual DDO-05
-selected-view child integration remains open. The foundation receipt owns that focused investigation.
+CA-08/09, immediate SQLA/Alembic alignment and actual DDO-05 selected-view child integration are
+implemented and scoped Tested. The foundation receipt closes this authorized increment and retains
+the original failures, exact replacements and source/context limits.
 DDO-06 owns production driver/physical execution integration; DDO-07/08 actual family/caller
 migrations, DDO-09/10 reuse/serving, DDO-11 preservation/deployment/cutover and DDO-12 assembled
 qualification. Retire their legacy routes with actual migrated consumers, preserving historical
@@ -1468,11 +1543,12 @@ cross-demand facts require current read/trust/project/kind/producer admission. E
 not every input context: explicitly frozen source views may be admitted under an authenticated
 whole-original-document root of the same document. Declared subject-field association retains each
 view's own scope through binding and support checks. Original facts retain authentic source/admission
-identity and have no invented computation episode. Current selected-view child fulfillment still fails.
+identity and have no invented computation episode. Actual selected-view child fulfillment now passes
+the explicit parent/member/full-context journey in the foundation receipt.
 
 | Family/responsibility | Integrated increment | Remaining obligation |
 |---|---|---|
-| Source and primary | Original document addressing and selected-view discovery; source profiling; one actual spaCy inference retains full annotations for canonical/construction consumers; compact summaries and separate source-only/full composition profiles | Resolve the two-view child binding failure; complete family/caller population and actual provider/native journeys; migrate ordinary drivers and retire superseded routing |
+| Source and primary | Original document addressing and selected-view discovery; source profiling; one actual spaCy inference retains full annotations for canonical/construction consumers; compact summaries and separate source-only/full composition profiles | Two-view child binding is resolved at scoped native scope; complete family/caller population and actual provider/native journeys; migrate ordinary drivers and retire superseded routing |
 | Learned primary | Declared Maverick, DiPO, D1 source/candidates and GLiNER cues/function factories; contextual CPU composition consumes their actual facts and retained formal/construction facts | Complete full profiles and authentic provider/native qualification; ordinary registry/default caller cutover |
 | M1 | Original resumable candidate kernel, existing GLiNER questions/failure dispositions, actual source/context selectors, shared provider coalescing and CPU coroutine plan; frozen numerical profile has stable typed timeout default | CPU and provider native journeys are incomplete at cancellation. Formula syntax and named rules explicitly refuse until their formal/rule inputs are bound. Finite and contextual interpretation families remain unstarted |
 | Structural | Declared comparison/condition factories use actual source, contribution, report and source-set pins; both M1 and structural capture the actual shared prepared-call adapter source | Genuine predicate/dossier/definition/relationship predecessors, ordinary callers and positive native/CPU qualification remain open |
@@ -1543,14 +1619,13 @@ to repair that historical evidence gap. Retain needed raw managed stores before 
 
 The immediate reopened DDO-03/04/05 work includes the accepted
 [SQLAlchemy/Alembic alignment amendment](#sqlalchemyalembic-alignment-amendment--accepted-2026-11-14),
-implemented with CA-08/09 and the current binding repair rather than deferred to new public readers.
+implemented with CA-08/09 and the current binding repair, with scoped receipts above. New public readers retain DDO-09/10 ownership.
 
-1. **DDO-06/07, current failure:** investigate why actual selected-view discovery children remain
-   `awaiting-inputs`, including authentic original/computed candidate selection and complete-context
-   binding. Preserve both scoped children and the frozen original selection. Remaining structural
-   changes may affect this path; no causal resolution is claimed. M1 CPU/provider journeys remain
-   incomplete, and their last fully reported failure was the shared binding-validator query repaired
-   by `semantic_ddo_origeps_v1`. No further retry is authorized by this closeout.
+1. **Selected child-binding failure closed; scoped Tested · 2026-11-14:** exact source journey
+   `6a71d58d9ef64e319beb7f3e0278e7ba` publishes both scoped children with explicit parent/member
+   association and independently refuses invalid roles/wrong same-context originals. Earlier
+   cardinality and closed-wire failures remain retained. Actual M1 CPU/provider journeys remain
+   incomplete and stopped; their qualification is separate from this resolved source journey.
 2. **Efficiency implemented; benefit Proposed, unmeasured · 2026-11-14:** pure static extraction
    now reuses identical ordinary immutable captured inputs with a bounded cache. The key covers
    schema/declarations/source bodies/filenames/stubs/boundaries, definitions/vocabularies and relevant
@@ -1565,8 +1640,8 @@ implemented with CA-08/09 and the current binding repair rather than deferred to
    Complete source/learned profiles, optional M1 formal/rule inputs, finite/contextual interpretation,
    math/scoped/definition/artifact/clause/dossier and external/effectful paths. Helpers and declarations
    do not close these obligations.
-4. **Qualification and adoption:** scoped independent assembled review, complete applicable functional /
+4. **Qualification and adoption:** whole-series independent assembled review, complete applicable functional /
    actual-provider / nonfunctional union, serving, preservation and cutover remain with DDO-06–12.
-   **not_run**: full `uv run ci test`, broad `uv run ci check`, repository health campaign and independent
-   assembled review at this increment. Do not restart cancelled tests or expand validation merely to
+   **not_run**: full `uv run ci test`, broad `uv run ci check`, repository health campaign and
+   whole-series assembled review. Bounded independent foundation reviews are recorded above. Do not restart cancelled tests or expand validation merely to
    close the checkpoint. No push, deployment or activation follows from this closeout.

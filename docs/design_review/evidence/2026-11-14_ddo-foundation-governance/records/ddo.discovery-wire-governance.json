@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "ddo.discovery-wire-governance",
+  "title": "Captured closed discovery-role wire schema and forward native registration",
+  "group": "Declared data operations",
+  "package": "DDO-03–05",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the captured optional discovery-role ingress schema reach Python/native authoring, physical custody and frozen forward products without changing predecessor bytes or the persistent database?",
+  "answers": [],
+  "method": "Shared captured wire-schema generation, focused valid/invalid closed-wire control, generated source-ID inspection, fixed-source preview, full rendered rollback upgrade with independent catalog checks, typed native-operation and parsed SQL inspection, exact owned ordinary-statement inspection, immutable registration and read-only target closure.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change-discovery-wire.yaml --json",
+    "uv run ci model change inspect 5e06720b11284175be18219403660455 --json",
+    "uv run ci model change candidate 5e06720b11284175be18219403660455 --json",
+    "uv run ci model change inspect-candidate 037eaddc1677428f87f70dcb9b7895b8 --view operations --limit 20 --json",
+    "uv run ci model change inspect-candidate 037eaddc1677428f87f70dcb9b7895b8 --view sql --limit 20 --json",
+    "uv run ci model change register 037eaddc1677428f87f70dcb9b7895b8 --json",
+    "uv run ci db status --maintenance --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change-discovery-wire.yaml",
+      "role": "fixed ingress source 17391b934dcb7446a3153018455cf3ba8d42aade",
+      "sha256": "4f299eb511ce355995f10b59be57c2d7fa083b144fe7287173014b7edb51208f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/discovery-wire-candidate-inspection.json",
+      "role": "exact retained authoring/registration inspection",
+      "sha256": "5f07971b98bf1286d711328973c86abecd08bbae4b46725b07f0088b97e9312b"
+    },
+    {
+      "path": "results/discovery-wire-operations.json",
+      "role": "exact retained authoring/registration inspection",
+      "sha256": "ba22dcd700142836916b08a2183a7191d900458df9489fcd35df5be6bca1487f"
+    },
+    {
+      "path": "results/discovery-wire-ordinary-inspection.json",
+      "role": "exact retained authoring/registration inspection",
+      "sha256": "cf9d43ec799f7aa33c99f063d63e821adf767b1c084e8ed88646e118187a253f"
+    },
+    {
+      "path": "results/discovery-wire-registered-files.json",
+      "role": "exact retained authoring/registration inspection",
+      "sha256": "348255d45dbf12d7713d869e7f21845873969a31cde13654be95a1e9f7489bd4"
+    },
+    {
+      "path": "results/discovery-wire-target-closure.json",
+      "role": "exact retained authoring/registration inspection",
+      "sha256": "82f243f283731a496efd9bfdfdf4b0b30e75c1e1f039b29add11510d5e7fbf3a"
+    }
+  ],
+  "depends_on": [
+    "ddo.discovery-role-governance"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": "wire validator, two descriptors, four dependent companion projection-ID literals; existing query semantics and ACLs unchanged"
+    },
+    {
+      "name": "privilege_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "existing policy unchanged"
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "publisher-owned INSERT into sem.physical_contract binding the changed captured protocol source"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Preview5e06720b11284175be18219403660455, whole rollback candidate037eaddc1677428f87f70dcb9b7895b8 and registration9b1b758fd5724871bcdd999588747277 passed. semantic_ddo_drole_v2 follows immutablev1. Actual source retry26d785913a624aab9f000f64e2d3e792 exposed the missed closed discovery-selection ingress field before native association behavior. One authoritative YAML optional identifier now feeds Python Draft7 and native wire schemas; null/empty/nonstring/unknown fields refuse, absence remains unchanged. Focused wire control e5d1ee6367dc4f73b9e994219f36f6b9 and types e53eb2b1bae84b0aafc5b3c78ab013e9 passed; scoped Ruff and independent ingress-consumer review passed. Raw protocol/physical closure updates generated source IDs and protocol SHA; fate memberships/public call shapes are unchanged. All7 typed native effects, parsed statement kinds, four projection-ID-only deltas and exact ordinary INSERT were inspected. Working database stays semantic_bep_located_v2, OID25921445/system7701811359771751232, PostgreSQL18.7 port5434. No deploy/activation/cutover. Final actual source-child behavior is a separate functional obligation owned by the coordinator, not established by this authoring record.",
+  "consumed_by": [
+    "DDO-03",
+    "DDO-04",
+    "DDO-05"
+  ]
+}

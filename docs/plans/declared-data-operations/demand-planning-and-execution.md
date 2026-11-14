@@ -28,8 +28,8 @@ introduced DDO-CA-03 (batch retirement after every claim is lost) and DDO-CA-05
 (qualified root-context identity). Their current disposition belongs to the coordinator's findings table.
 Complete context applies within one discovery population: equal local subject strings with distinct
 authenticated source/scope contexts remain distinct members. Native population closure
-preserves these qualified contexts; the coordinator owns its scoped evidence and the remaining actual
-source-view child binding failure. Do not infer full family qualification from the foundation repair.
+preserves these qualified contexts; the coordinator owns scoped evidence, including the now-passing
+actual source-view child binding journey. Do not infer full family qualification from the foundation repair.
 
 ## Outcome and foundation assessment
 
@@ -480,9 +480,8 @@ The [current audit](../declared-data-operations_2026-11-12.md#completion-audit--
 distinguishes the resolver from its native premises (CA-08/09): provider-sensitive attachment
 requires authenticated producing identity, and root/direct-SourceSet-only pins cannot attest
 transitive support. The [foundation receipt](../declared-data-operations_2026-11-12.md#foundation-execution-receipt--2026-11-14)
-owns implementation and scoped verification of these shared contracts. The selected-view child-binding
-failure remains with its
-existing DDO-06/07 owner. This note neither reopens the distinct CA-05 context repair nor resumes tests.
+owns implementation and scoped verification of these shared contracts. Actual selected-view child publication now has scoped native evidence in that receipt; larger
+family/caller qualification retains DDO-06/07 ownership. This note neither reopens the distinct CA-05 context repair nor resumes tests.
 
 
 ## Reopened foundation integration · 2026-11-14
@@ -503,9 +502,10 @@ pins for candidate resolution/continuation/attachment, and retain actual contrac
 identity in the semantic key/admission projections. Complete-context source/view identity and closed
 population witnesses remain required; do not weaken them to make the current children ready.
 
-Investigate the existing selected-view children remaining awaiting-inputs alongside these shared
-repairs, without assuming CA-08/09 or a representation change explains that failure. Keep actual
-child/fan-in and incomplete M1 obligations open until appropriate evidence exists. When verification
+The actual selected-view awaiting-inputs failure is closed at its scoped native boundary by
+explicit parent/member/full-context input association and captured closed wire ingress under
+ADR-0104; the coordinator retains exact positive/refusal evidence. Broader family/fan-in/M1
+qualification remains open until its own evidence exists. When verification
 is authorized, use focused binding evidence cases and affected failing/new journey identities;
 passing/full selections are not repeated after a fix. No tests resume through this amendment.
 Reuse identical captured static extraction before wider qualification resumes, under the existing

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "ddo.discovery-role-governance",
+  "title": "Explicit discovery input association with forward trigger ownership",
+  "group": "Declared data operations",
+  "package": "DDO-03–05",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the explicit discovery-role successor execute its exact forward upgrade and independent catalog admission after the registered foundation, while preserving frozen ownership facts and the development database?",
+  "answers": [],
+  "method": "Fixed-source preview; exact registered-base replay; whole rendered upgrade and independent native/privilege/physical catalog checks in rollback authoring; typed operation inspection, parsed SQL statement inspection and private helper SQL review; immutable registration; read-only target closure. Functional source-discovery qualification is separate.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change-discovery-role-forward.yaml --json",
+    "uv run ci model change inspect e0e4820bcfb846099c211e8924fd5781 --json",
+    "uv run ci model change candidate e0e4820bcfb846099c211e8924fd5781 --json",
+    "uv run ci model change inspect-candidate a149225c771e4f8ab803bbe388e295df --view operations --limit 20 --json",
+    "uv run ci model change inspect-candidate a149225c771e4f8ab803bbe388e295df --view sql --limit 20 --json",
+    "uv run ci model change register a149225c771e4f8ab803bbe388e295df --json",
+    "uv run ci db status --maintenance --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change-discovery-role.yaml",
+      "role": "retained original failed candidate request at 0a8a60473",
+      "sha256": "74c9881e9d93b1169c159fdd790cc13b66ca96b00b761bf56da9789cdbe79578"
+    },
+    {
+      "path": "change-discovery-role-forward.yaml",
+      "role": "corrected fixed-source authoring request at cf772c04a",
+      "sha256": "11d606759734505eff8991e5af9cfbf4893eae11e8d161762ebcb9976e679a6f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/discovery-role-attempts.json",
+      "role": "retained exact authoring/registration inspection",
+      "sha256": "c7c2680a7a22ed4d920f8b9126a9f2fb38e86fc6f1f83c3ae36650c13ccfc717"
+    },
+    {
+      "path": "results/discovery-role-candidate-inspection.json",
+      "role": "retained exact authoring/registration inspection",
+      "sha256": "601c2920c0beb1cb1a33b6d088bec79db73191cad7cefc536b3b264ee931b07d"
+    },
+    {
+      "path": "results/discovery-role-operations.json",
+      "role": "retained exact authoring/registration inspection",
+      "sha256": "4608b5fcbe63d2800392f14b77ce5aa4e9ff97a0168df86aee0f9d10bb252f76"
+    },
+    {
+      "path": "results/discovery-role-registered-files.json",
+      "role": "retained exact authoring/registration inspection",
+      "sha256": "6f073c2ca4b8ba7055143397cc9ca61353a146333640ed06ad98c20e7e2bce0d"
+    },
+    {
+      "path": "results/discovery-role-target-closure.json",
+      "role": "retained exact authoring/registration inspection",
+      "sha256": "9ac73b331e343169f8361fdb6b28249dc18e33cc8fd0ac11abb6111df90d225d"
+    }
+  ],
+  "depends_on": [
+    "ddo.foundation-governance"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": "one new private membership helper; four binding/population function bodies; two descriptors"
+    },
+    {
+      "name": "privilege_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "existing declared privilege policy unchanged"
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "no physical DDL or data steps"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Preview e0e4820bcfb846099c211e8924fd5781, complete rollback candidate a149225c771e4f8ab803bbe388e295df and registration 15152b56c69f4a3ea382c390663288bc passed. semantic_ddo_drole_v1 follows semantic_ddo_found_v1. Initial candidate33d506da4e884aeab95efa4a871088e8 refused raw namespace ownership after the predecessor parent became publisher-owned; cf772c04a derives staging owner from frozen facts before normalization, with declared target policy only for new/moved parents. Explicit literal-owner conflicts and invalid bindings refuse; no catalog owner adoption or guard weakening. Actual artifact/raw-definition regression1bc7a9ba9f23432ca4450974ae96a9d3 and types00b9d102fd1540508055dd784b2cf7de passed. Development target remains semantic_bep_located_v2, OID25921445/system7701811359771751232, PostgreSQL18.7 port5434. No deploy/activation/cutover. Actual source-child publication remains separately assessed in the owning plan.",
+  "consumed_by": [
+    "DDO-03",
+    "DDO-04",
+    "DDO-05"
+  ]
+}

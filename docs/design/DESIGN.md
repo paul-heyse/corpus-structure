@@ -448,6 +448,14 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Implemented; scoped native Tested · 2026-11-14.** Explicit discovery target input roles
+select their authenticated parent product/member. Native registration/admission independently check
+that association, context, producer and valid support; an equal body or broad origin acceptance
+cannot replace selected membership. Existing population custody remains authoritative.
+[D6](D6-orchestration-metrics-policies.md#native-demand-and-request-execution) owns the contract.
+
+> Decision: [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
+
 **Accepted target · 2026-11-13.** Native DDO attachment and publication reconstruct complete
 subject context from authenticated demand/request custody. Caller-supplied local names do not
 replace native context authority. D3 and the DDO coordinator own implementation scope.
@@ -677,6 +685,22 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Implemented; rollback authoring scoped Tested · 2026-11-14.** Compared frozen table/schema
+policies own complete grants, column ACLs, effective purpose CREATE denial and declared ownership.
+Initial missing legacy facts are explicitly unrecorded; later transitions retain exact before/after
+custody. Named first-party Core data steps compile to frozen SQL under preview staleness premises.
+[D3](D3-database.md#unified-operation-realization) owns realization and registration boundaries.
+
+> Decision: [ADR-0103](../adr/0103-ddo-privilege-policy.md)
+
+**Implemented; scoped native Tested · 2026-11-14.** Frozen discovery intent can explicitly
+associate a target input role with its selected parent product/member. Unassociated intent retains
+its meaning. Planner cardinality and native admission enforce the same declared relationship;
+no implicit origin preference or cross-product value deduplication supplies selection authority.
+[D6](D6-orchestration-metrics-policies.md#native-demand-and-request-execution) owns details.
+
+> Decision: [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
 
 **Accepted target · 2026-11-13.** Current DDO identity projections use the same explicit qualified
 subject context in Python and native correspondence. JSON scope numbers retain decimal value

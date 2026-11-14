@@ -313,9 +313,11 @@ legacy before facts unrecorded; later transitions use exact policy custody. Purp
 no table mutation/schema CREATE authority. Owned DDL preserves caller restoration and cross-owner
 FK authorization; the explicit walk still owns global retirement ordering. Named first-party data
 steps compile to frozen SQL under preview implementation custody; upgrades never resolve builders.
-Registered `semantic_ddo_found_v1` executes the whole upgrade and independently verifies catalogs
-in rollback-only authoring; it is not deployed. Complete policy includes explicit delegation order,
-empty column ACLs, evaluator-only protected tables and inherited trigger ownership. Shared Core
+Registered successors through `semantic_ddo_drole_v2` execute whole upgrades and independently
+verify catalogs in rollback-only authoring; they are not deployed. Complete policy includes explicit delegation order,
+empty column ACLs, evaluator-only protected tables and inherited trigger ownership. Raw trigger
+definitions acquire staging ownership from frozen parent facts before normalization; new/moved
+parents use declared target policy. Explicit owner/binding conflicts still refuse. Shared Core
 binding/read definitions and captured protocol value sets retain approved source/type inputs.
 Provider-sensitive candidates use authenticated producing custody; pinned reads/publication share
 transitive immutable and selected-use support scopes. The

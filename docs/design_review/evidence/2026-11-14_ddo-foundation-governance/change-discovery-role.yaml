@@ -1,0 +1,7 @@
+baseline: "0a8a60473b67abac188fef84557fbdacb698ee7b"
+packs:
+- statistics
+native_predecessor: semantic_ddo_found_v1
+native_revision: semantic_ddo_drole_v1
+deployment: true
+deployment_profile: development
