@@ -79,8 +79,31 @@ def interpretation_candidates(
     selected = [row for row in report["candidate_lists"] if row["list_id"] == list_id]
     if len(selected) != 1 or selected[0]["occurrence_id"] != occurrence_id:
         raise ValueError("frozen candidate list differs from selected occurrence")
+    inventories = [row for row in report["inventories"] if row["inventory_id"] == selected[0]["inventory_id"]]
+    if len(inventories) != 1:
+        raise ValueError("frozen candidate list inventory is unavailable")
+    definition_bindings = {
+        target.reference.component_id: "definition-component:" + target.reference.identity
+        for row in report.get("component_targets", ())
+        for target in (ExtractedComponentTarget.model_validate(row),)
+    }
+    return project_interpretation_candidates(selected[0], inventories[0], list_id, occurrence_id, anchors, definition_bindings=definition_bindings)
+
+
+def project_interpretation_candidates(
+    selected: Mapping[str, Any],
+    inventory: Mapping[str, Any],
+    list_id: str,
+    occurrence_id: str,
+    anchors: tuple[Mapping[str, Any], ...],
+    *,
+    definition_bindings: Mapping[str, str] | None = None,
+) -> InterpretationCandidateSet:
+    """One exact ordered projection for current native and retained sealed reports."""
+    if selected["occurrence_id"] != occurrence_id:
+        raise ValueError("frozen candidate list differs from selected occurrence")
     candidate_list = _CANDIDATE_LIST.validate_python(
-        {"profile_id": None, "query_vector_id": None, **selected[0]}
+        {"profile_id": None, "query_vector_id": None, **selected}
     )
     meaning = {
         key: value
@@ -89,18 +112,11 @@ def interpretation_candidates(
     }
     if numeric_identity("concept-candidates", meaning) != list_id:
         raise ValueError("frozen candidate list identity differs from its report")
-    inventories = [
-        row for row in report["inventories"] if row["inventory_id"] == candidate_list.inventory_id
-    ]
-    if len(inventories) != 1:
-        raise ValueError("frozen candidate list inventory is unavailable")
-    targets = _TARGET_REPRESENTATIONS.validate_python(inventories[0]["targets"])
+    if inventory["inventory_id"] != candidate_list.inventory_id:
+        raise ValueError("frozen candidate list inventory differs from selected inventory")
+    targets = _TARGET_REPRESENTATIONS.validate_python(inventory["targets"])
     by_id = {target.target_id: target for target in targets}
-    definition_bindings = {
-        target.reference.component_id: "definition-component:" + target.reference.identity
-        for row in report.get("component_targets", ())
-        for target in (ExtractedComponentTarget.model_validate(row),)
-    }
+    definition_bindings = {} if definition_bindings is None else definition_bindings
     ids = [c.target_id for c in candidate_list.candidates]
     if (
         len(by_id) != len(targets)

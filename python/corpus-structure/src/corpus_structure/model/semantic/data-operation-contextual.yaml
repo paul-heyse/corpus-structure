@@ -1,0 +1,42 @@
+id: https://corpus-structure.dev/semantic/data-operation-contextual
+name: data_operation_contextual
+prefixes:
+  contextual: https://corpus-structure.dev/semantic/data-operation-contextual/
+default_prefix: contextual
+default_range: string
+imports: [data_operation_candidate_inspection]
+classes:
+  DdoContextualInventory:
+    is_a: SourceRecordProduct
+    attributes:
+      inventory: {range: SourceValue, inlined: true, required: true}
+  DdoContextualVectors:
+    is_a: SourceRecordProduct
+    attributes:
+      profile: {range: SourceValue, inlined: true, required: true}
+      vectors: {range: SourceValue, inlined: true, required: true}
+  DdoContextualQuery:
+    is_a: SourceRecordProduct
+    attributes:
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
+      occurrence_id: {required: true}
+      lexical_query: {required: true}
+      query_vector_id: {required: true}
+      anchors: {range: RecordAnchor, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoContextualRetrievalPolicy:
+    is_a: SourceRecordProduct
+    attributes:
+      budget: {range: integer, required: true, minimum_value: 1}
+      channel_budget: {range: integer, required: true, minimum_value: 1}
+      constraints: {range: SourceValue, inlined: true, required: true}
+      witnesses: {range: SourceValue, inlined: true, required: true}
+      exclusions: {range: SourceValue, inlined: true, required: true}
+  DdoContextualRetrievalProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {required: true, equals_string: declared-contextual-retrieval-1}
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
+      anchors: {range: RecordAnchor, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+      inventory: {range: SourceValue, inlined: true, required: true}
+      candidate_list: {range: SourceValue, inlined: true, required: true}
+      relationship_decision: {range: SourceValue, inlined: true, required: true}
