@@ -1,86 +1,53 @@
-"""Authored private review runs using the ordinary leased source graph and publication."""
+"""Retain explicit authored inputs under native demand custody.
+
+Authorship is input standing. It neither creates a computational episode nor
+constructs a private registry, source run, consolidation cut or active selection.
+"""
 
 from __future__ import annotations
 
-from hashlib import sha256
-
-from corpus_structure.core.method import MethodSettings
-from corpus_structure.core.vocab import Stage
-from corpus_structure.methods.interpretations import (
-    AuthorSourceRecordsMethod,
-    MeasurementInterpretationMethod,
-    TerminologyInterpretationMethod,
-)
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
-from corpus_structure.orchestrate.semantic import run_source_methods
-from corpus_structure.semantic.domain_operations import consolidate_cut
+from corpus_structure.semantic.data_operation_demands import DemandPlanner
+from corpus_structure.semantic.data_operation_service import NativeDemandRequest, freeze_native_demand
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_support import AuthoredFactRef, read_original_source_reference
+from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.operations import OperationBinding, seal_cut
 
 
-def author_interpretations(engine, prepared, *, kind: str, configuration: dict, settings):
-    """Create a new review run; never activate/select or mutate the referenced source result."""
-    methods = {
-        "terminology": TerminologyInterpretationMethod,
-        "measurement": MeasurementInterpretationMethod,
-        "source_records": AuthorSourceRecordsMethod,
-    }
-    if kind not in methods:
-        raise ValueError("unknown authored interpretation kind")
-    method = methods[kind]()
-    cfg = method.Config.model_validate(configuration)
-    source = cfg.source
-    # Each input is explicitly pinned and retained in the method config/run dependency
-    # manifest. Native completion independently checks the target field and source focus.
-    identity = sha256(
-        canonical_bytes([prepared.release_id, kind, cfg.model_dump(mode="json")])
-    ).hexdigest()
-    realization = "interpretation-input:" + identity
-    from corpus_structure.semantic._operation_calls import initialize_source_project
-    from corpus_structure.semantic._operation_ids import ProjectId, RealizationId, ReleaseId
+def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
+    """Admit the exact typed facts frozen with their intended downstream demand.
 
-    with engine.begin() as conn:
-        initialize_source_project(
-            conn,
-            project_id=ProjectId(source.project_id),
-            release_id=ReleaseId(prepared.release_id),
-            realization_id=RealizationId(realization),
-            projection_context=prepared,
+    The supplied effective kind validates each body natively. The writer purpose,
+    immutable demand, exact root context and actual admitting principal remain
+    native authority; a caller's author string is retained as an assertion.
+    """
+    if not isinstance(request, NativeDemandRequest) or request.release_id != prepared.release_id:
+        raise ValueError("authored input requires its exact admitted release and native demand request")
+    names = tuple(
+        name for name, selected in request.original_sources.items()
+        if isinstance(read_original_source_reference(canonical_bytes(selected.reference)), AuthoredFactRef)
+    )
+    if not names:
+        raise ValueError("authored input requires at least one explicit authored-fact selection")
+    intent = freeze_native_demand(prepared, request)
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+
+    with engine.begin() as connection:
+        runtime_binding_for_release(connection, prepared, request.runtime_id)
+        storage = DataOperationStorage(connection)
+        registered = DemandPlanner(bound_data_operation_model(prepared), storage).register(
+            intent, project=request.project_id, release=prepared.release_id,
+            runtime=request.runtime_id, strength=request.strength,
         )
-    registry = MethodRegistry(
-        (method,),
-        MethodsFile(configs={method.name: {"authored": cfg.model_dump(mode="json")}}),
-        prepared=prepared,
-    )
-    report = run_source_methods(
-        engine,
-        project_id=source.project_id,
-        prepared=prepared,
-        binding=OperationBinding(prepared.release_id, realization, 0, b"{}"),
-        registry=registry,
-        graph=Graph(((Stage.PROPOSE, (Step(method.name + "/authored"),)),)),
-        method_settings=MethodSettings(
-            data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
-        ),
-        selected_sources=(source,),
-        corpus_record=None,
-    )
-    # Ordinary consolidation seals the completed result and projects the compact
-    # record/review read boundary. Private contribution standing remains unchanged.
-    with engine.begin() as conn:
-        final_cut = seal_cut(conn, report.run_id, "interpretation-final", final=True)
-    result = consolidate_cut(
-        engine, final_cut, "interpretation-result:" + identity + ":" + str(report.run_id)
-    )
-    return dict(
-        run_id=report.run_id,
-        cut_id=final_cut,
-        release_id=prepared.release_id,
-        realization_id=result.realization_id,
-        source_run_id=source.run_id,
-        source_cut_id=source.cut_id,
-        kind=kind,
-        standing="retained_private",
-        selected=False,
-    )
+        if registered.get("state") == "cancelled":
+            raise ValueError("cancelled demand cannot admit new authored facts")
+        snapshot = storage.invoke("read_demand_result", {"demand_id": registered["demand_id"], "limit": 1})
+        admissions = tuple(value for value in snapshot["original_source_admissions"]
+            if value["selection_name"] in names)
+        if len(admissions) != len(names) or any(value["evidence"].get("standing") != "authored" for value in admissions):
+            raise ValueError("native demand did not retain the exact authored fact admissions")
+    return {
+        "demand_id": registered["demand_id"], "release_id": prepared.release_id,
+        "runtime_id": request.runtime_id, "authored_admissions": admissions,
+        "standing": "authored", "selected": False,
+    }

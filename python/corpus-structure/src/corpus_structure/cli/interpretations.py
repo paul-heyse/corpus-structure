@@ -1,7 +1,7 @@
 """Pinned terminology lookup, interpretation reads and independent schema delivery."""
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 
@@ -270,7 +270,7 @@ def export_contract(
 @app.command(
     "author",
     epilog=(
-        "Example: ci interpretations author RELEASE terminology "
+        "Example: ci interpretations author RELEASE "
         "review.json --json\n\nDomain contract: [domain "
         "reader](docs/design/D8-agent-and-query-interfaces.md)"
     ),
@@ -279,10 +279,6 @@ def author(
     ctx: typer.Context,
     release: Annotated[
         str, typer.Argument(metavar="RELEASE", help="Archived semantic release ID.")
-    ],
-    kind: Annotated[
-        Literal["terminology", "measurement", "source_records"],
-        typer.Argument(metavar="KIND", help="Authored private contribution kind."),
     ],
     input: Annotated[
         Path,
@@ -296,14 +292,14 @@ def author(
     ],
     json: JsonOpt = False,
 ):
-    """Complete supplied reviews in a new private run under normal task custody.
+    """Retain typed authored facts frozen with an explicit native demand request.
 
-    First inspect the released input contract with `schema inspect`, or export the
-    portable contract with `interpretations export-contract`. Structural validation
-    checks shape; accepted validation checks the released constraints. Authoring
-    retains private knowledge; selecting it is a separate explicit operation.
+    INPUT is a NativeDemandRequest containing authored-fact original selections,
+    their actual kind contracts, complete root contexts and downstream targets.
+    Authoring admits those facts without running downstream inference or selecting
+    them as an active result. Inspect the admitted kind contract before authoring.
     """
-    import json as jsonlib
+    from pydantic import ValidationError
 
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.query import read_snapshot
@@ -311,6 +307,7 @@ def author(
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.interpretation_authoring import author_interpretations
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
     from corpus_structure.serve.interpretations import answer
 
     with failure_boundary(json):
@@ -319,9 +316,9 @@ def author(
         if len(content) > 4 * 1024**2:
             raise SemanticRefusal("authored review input exceeds 4MiB")
         try:
-            configuration = jsonlib.loads(content)
-        except (jsonlib.JSONDecodeError, UnicodeDecodeError) as error:
-            raise SemanticRefusal("authored review input must contain valid JSON") from error
+            request = NativeDemandRequest.model_validate_json(content)
+        except ValidationError as error:
+            raise SemanticRefusal("authored input must match the native demand request contract") from error
         selected = state(ctx).settings()
         with open_runtime_engine(
             selected, "ci-interpretation-authoring", purpose="write"
@@ -331,7 +328,7 @@ def author(
             result = answer(
                 "authored_review_result",
                 author_interpretations(
-                    engine, prepared, kind=kind, configuration=configuration, settings=selected
+                    engine, prepared, request=request
                 ),
             )
     emit(result, json=json)
