@@ -15,12 +15,12 @@ from corpus_structure.methods.model_characterization import (
     ModelCharacterizationConfig,
     ModelCharacterizationMethod,
 )
-from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.interpretation_questions import declared_families
 from corpus_structure.semantic.model_characterization import (
     CHARACTERIZATION_FAMILIES,
     question_manifest,
 )
+from corpus_structure.semantic.source_views import PreparedSourceView
 
 
 def inputs(prepared):

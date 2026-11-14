@@ -248,6 +248,7 @@ def test_primary_functions_preserve_overlaps_scores_and_exact_focal_scope():
         ClauseClassificationConfig,
         ClauseClassificationMethod,
     )
+    from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.structural_products import (
         ExternalSourceRef,
         StructuralInput,
@@ -255,6 +256,7 @@ def test_primary_functions_preserve_overlaps_scores_and_exact_focal_scope():
     )
 
     view = selected.view
+    assert isinstance(view, PreparedSourceView)
     source = ExternalSourceRef(
         project_id="fixture",
         run_id=1,

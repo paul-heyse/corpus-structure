@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "ddo.execution-admission",
+  "title": "Purpose-qualified bounded native execution acquisition",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the admission principal authenticate one selected native definition and runtime without direct protected-table access or all-model re-admission?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native authoring, typed operation/SQL inspection and exact immutable registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-execution-admission/change.yaml --json",
+    "uv run ci model change candidate b28708ffe5774ae8842c74c4e32c3803 --json",
+    "uv run ci model change inspect-candidate 8bbe70261a3e4506a034f3ff4fda1642 --view operations --json",
+    "uv run ci model change inspect-candidate 8bbe70261a3e4506a034f3ff4fda1642 --view sql --json",
+    "uv run ci model change register 8bbe70261a3e4506a034f3ff4fda1642 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "explicit immutable acquisition successor",
+      "sha256": "dd4642b80b0c95478e3e48c467479b7c1d248e5bf1b15ce5535cc2fffaf12100"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered checkout hashes",
+      "sha256": "e21d3f5354a39c5610210538e0bf6b66fc7ca76f141035a6b7987ca0fa1bc856"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": "three body changes, private implementation plus admission-only public wire wrapper"
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and immutable registration passed for semantic_ddo_acquire_v1 after semantic_ddo_admission_v1. inspect_data_execution exposes only one exact definition and optional same-release runtime hashes to the admission principal through the existing closed native wire. Protected tables retain their existing ACLs. No persistent deployment, activation, adoption or functional/provider qualification is established by authoring. Persistent revision remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on port5434.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

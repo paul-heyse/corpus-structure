@@ -32,6 +32,17 @@ from methods.native_evidence_support import native_source as native_source
 from methods.native_evidence_support import prepared as prepared
 
 
+def legacy_dependencies(builder):
+    from corpus_structure.semantic.characterization import LayerReport
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    result: dict[ProductReference, LayerReport] = {}
+    for pin, report in builder._dependencies.items():
+        assert isinstance(pin, ProductReference) and isinstance(report, LayerReport)
+        result[pin] = report
+    return result
+
+
 def token_population(source, builder, prepared):
     original, _ = builder_for(source, full=False)
     metadata(original)
@@ -61,7 +72,9 @@ def test_detected_unassigned_raw_subtokens_and_complete_group_candidates_survive
     builder.hypotheses()
     add_metadata(builder, ["maverick"])
     report = builder.finish(prepared, dependencies=builder._dependencies)
-    body = decode_layer(prepared, encode_layer(report), dependencies=builder._dependencies).payload
+    body = decode_layer(
+        prepared, encode_layer(report), dependencies=legacy_dependencies(builder)
+    ).payload
     mentions = [a for a in body["annotations"] if a["kind"] == "native.mention"]
     assert len(mentions) == 4
     assert [
@@ -185,7 +198,7 @@ def test_retained_native_reuse_does_not_invoke_any_provider(native_source, prepa
     report = native.finish(prepared, dependencies=native._dependencies)
     pin = report.reference(88)
     new = context_builder(native_source)
-    new.depend({pin: report, **native._dependencies})
+    new.depend({pin: report, **legacy_dependencies(native)})
     reuse_native(new, {pin: report})
     new.hypotheses()
     layer = new.finish(prepared, dependencies=new._dependencies)
@@ -316,9 +329,9 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(
         )
         for index, mention in enumerate(mentions)
     ]
-    report = validate_layer(prepared, data, dependencies=builder._dependencies)
+    report = validate_layer(prepared, data, dependencies=legacy_dependencies(builder))
     pin = report.reference(89)
-    evaluator = ContextualEvaluator({**builder._dependencies, pin: report})
+    evaluator = ContextualEvaluator({**legacy_dependencies(builder), pin: report})
     env = environment(context_layers=(pin,))
     roots = [AnnotationReference(pin, row["local_id"]) for row in data["terms"]]
     evaluated = [evaluator.evaluate(root, env) for root in roots]

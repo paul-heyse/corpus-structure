@@ -34,8 +34,8 @@ from corpus_structure.semantic.model_characterization import (
     project_gliner_cues,
 )
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.types import ResolvedDependencies
 from corpus_structure.semantic.source_views import PreparedSourceView
+from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.model_characterization_support import (
     builder as builder,
 )

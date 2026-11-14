@@ -1,0 +1,6 @@
+baseline: HEAD
+packs: [statistics]
+native_predecessor: semantic_ddo_admission_v1
+native_revision: semantic_ddo_acquire_v1
+deployment: true
+deployment_profile: development
