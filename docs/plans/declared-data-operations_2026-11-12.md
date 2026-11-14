@@ -1212,3 +1212,32 @@ observed a worker's premature v4 source edit against the v3 kernel. The edit was
 isolated worker checkout and only the failed identity was rerun. These bounded receipts establish
 the new execution frontdoor, not ordinary default-source family migration or DDO-06 closure.
 Source/default/registry callers and full family contracts remain active integration work.
+
+### Shared contract, source migration and native successor integration
+
+**Implemented, bounded checks below, 2026-11-13:** current effective v4 carries explicit terminal
+settlement, captured consumer-selection and prepared-factory correspondence. Historical v2/v3
+reading stays exact; current admission does not reinterpret old stream bytes. Primary factory
+methods are colocated with their operation owners and freeze sentence/HanLP configuration into
+captured custody; the combined input helper is acquisition, not another producer-selection registry.
+Actual family publication/default callers remain in progress.
+
+Finite `call_context` source migration supports explicit old/new owner correspondence, exact source
+call expressions and required lexical context. Declaration-owned old selectors retain a source/
+Griffe/class-colocation proof without gaining execution authority. Before-owner checks are not
+weakened globally. Focused migration5 `ac6100ba6f5e44159fda3487e04d3907`, preview/apply2
+`e432b608dbdc464aa7db0f16b127b33c`, old-selector proof1 `3b3b80de70a642cfb831251362779fc8`
+**passed** in the worker source context. The actual M1 producer/ordinary-caller migration remains
+open; source transformation capability alone is not adoption.
+
+Authored SCC classification uses the existing topology owner: actual cyclic members, blocked
+cyclic descendants, unrelated publishable claims and unavailable premises stay distinct. Independent
+pure1 `5f55bc36db1b4ee59359eff7e8a68709` and native1 `027015cc4c204c73993a0c9d1825064f`
+**passed**, before the v4 guard integration. The repaired claim semantics do not depend on that
+archive-version guard. These bounded checks do not qualify all DDO-08 operations.
+
+The [owned-execution native record](../design_review/evidence/2026-11-13_ddo-owned-execution/README.md)
+owns preview `7140393ec9e343f8ad0d46b1130f9ede`, rollback-only candidate
+`94b54246db1e44768860589106f1a580` and registration `7c84e38e315a42f0b333e0a38545488b`:
+**passed**, two body transitions/zero ordinary operations, unchanged owners/ACLs. New frozen
+`semantic_ddo_stream_v1` follows `semantic_ddo_projection_v1`; no persistent deployment/activation.

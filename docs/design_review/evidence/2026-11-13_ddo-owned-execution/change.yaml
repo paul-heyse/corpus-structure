@@ -1,0 +1,6 @@
+baseline: 5ea67ca21
+packs: [statistics]
+native_predecessor: semantic_ddo_projection_v1
+native_revision: semantic_ddo_stream_v1
+deployment: true
+deployment_profile: development

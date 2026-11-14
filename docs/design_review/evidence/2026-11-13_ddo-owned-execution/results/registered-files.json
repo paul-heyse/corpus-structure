@@ -1,0 +1,6 @@
+{
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_stream_v1.py": "f126cce60d967b639cf2719a8783f69f069c1b3bc9d1f60c60a22e81f675b752",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_stream_v1_admission.sql": "1865882ff4ab9a911af853a6acb96f9de2cad6df1ad7a67b61c5c6fc42dcd872",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_stream_v1_native.json": "e06e90d8671530f14b80c3eddd9c980118044bdf7677670da0aa24df727c8b8d",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_stream_v1_upgrade.txt": "71b6780a73a9da3939068564e7ca0ead077de1ed17d91eb4f7a8b8e4a3da64ca"
+}

@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "ddo.owned-execution-v4",
+  "title": "Effective v4 native admission successor",
+  "group": "Declared data operations",
+  "package": "DDO-06",
+  "finalized": "2026-11-13",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can current effective v4 capability interpretation be admitted through an immutable native successor without deploying the persistent database?",
+  "answers": [],
+  "method": "Managed preview, rollback-only native candidate authoring, direct typed operation/SQL inspection and exact frozen registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-13_ddo-owned-execution/change.yaml --json",
+    "uv run ci model change candidate 7140393ec9e343f8ad0d46b1130f9ede --json",
+    "uv run ci model change inspect-candidate 94b54246db1e44768860589106f1a580 --view operations --json",
+    "uv run ci model change inspect-candidate 94b54246db1e44768860589106f1a580 --view sql --json",
+    "uv run ci model change register 94b54246db1e44768860589106f1a580 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "bound successor authoring request",
+      "sha256": "f4294572543f65d579ce78adc2e6802b5bc95c83691451283ea3b1c5d152009f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "exact registered checkout file hashes; candidate custody retained by managed ID",
+      "sha256": "a66b24f0e96d65715aad7e263765f343bdeb020e1f0aad32300473c1ab9a3d49"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_body_changes",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ordinary_schema_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback-only candidate and registration passed for semantic_ddo_stream_v1 after semantic_ddo_projection_v1. Only the current archive version guard and its derived descriptor change, with unchanged owners and ACLs. Registration is not deployment, stream execution, provider execution or complete DDO-06 acceptance. Persistent target binding remains semantic_bep_located_v2 on the acquired OID/system.",
+  "consumed_by": [
+    "DDO-06"
+  ]
+}
