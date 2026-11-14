@@ -89,6 +89,8 @@ def current_authoring_provenance(model=None) -> NativeAuthoringProvenance:
 
 def relation_descriptor(relation) -> dict:
     """Complete named physical row shape; PK/FK vectors retain their declared order."""
+    from .alembic_privileges import DEFAULT_READ_ROLES
+
     columns = []
     for column in sorted(relation.columns, key=lambda column: column.name):
         kind = column.type.compile(dialect=dialect()).lower()
@@ -132,15 +134,7 @@ def relation_descriptor(relation) -> dict:
         )
     result = dict(
         relation=relation.fullname,
-        read_roles=relation.info.get(
-            "read_roles",
-            [
-                "corpus_sem_writer",
-                "corpus_sem_reader",
-                "corpus_sem_admitter",
-                "corpus_sem_evaluator",
-            ],
-        ),
+        read_roles=list(relation.info.get("read_roles", DEFAULT_READ_ROLES)),
         owner="corpus_sem_publisher",
         columns=columns,
         primary_key=[c.name for c in relation.primary_key.columns],

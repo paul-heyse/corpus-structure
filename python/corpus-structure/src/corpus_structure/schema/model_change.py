@@ -81,6 +81,7 @@ class ChangeRequest(NativeIntent):
     deployment: bool = False
     deployment_profile: DeploymentProfile | None = None
     source_migrations: tuple[SourceMigration, ...] = ()
+    data_steps: tuple[Literal["pdf-visual-mapping", "characterization-source-scope"], ...] = ()
 
 
 class FileEffect(BaseModel):
@@ -553,6 +554,12 @@ def prepare_preview(
                 "acquired_target",
             )
         )
+    if request.data_steps:
+        if not native or len(set(request.data_steps)) != len(request.data_steps):
+            raise model.ModelError(["data steps require unique named intent and native authoring"])
+        from corpus_structure.semantic.native_data_steps import builder_inputs
+        builder_path, builder_content = builder_inputs(root, preparation.PACKAGE_PATH)
+        current[builder_path.as_posix()] = builder_content.decode()
     return ChangePreview(
         workspace=str(root),
         head=head,

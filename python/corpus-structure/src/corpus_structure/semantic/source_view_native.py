@@ -268,7 +268,24 @@ def native_admission_sql(
                 if column["generated"]:
                     column["default"] = generated[column["name"]]
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
+    from .alembic_privileges import desired_policies, admission_comparison_sql
+    descriptor["privileges"] = list(desired_policies(target_metadata, native_objects))
+    for policy in descriptor["privileges"]:
+        if policy["kind"] != "schema":
+            continue
+        roles = {row[0] for row in policy["acl"] if row[1] == "USAGE"}
+        for function in functions.values():
+            if function["signature"].split(".", 1)[0] == policy["name"]:
+                roles.update(role for role in function.get("execute_roles", ()) if role.startswith("corpus_"))
+        for reader in descriptor.get("readers", ()):
+            if reader["relation"].split(".", 1)[0] == policy["name"]:
+                roles.update(reader["roles"])
+        policy["acl"] = sorted([[role, "USAGE", False] for role in roles] + [["corpus_sem_publisher", "CREATE", False]])
     required = admission_kernel()
+    policy_marker = " IF EXISTS(SELECT FROM pg_roles WHERE rolname='corpus_sem_evaluator'"
+    if policy_marker not in required:
+        raise ValueError("missing privilege admission insertion boundary")
+    required = required.replace(policy_marker, admission_comparison_sql() + policy_marker, 1)
     from .native_sql_body import admission_body_comparison
 
     body_comparison = (

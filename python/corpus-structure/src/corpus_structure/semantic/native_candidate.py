@@ -1729,8 +1729,10 @@ def load_native_state(path: Path, *, digest: str | None = None) -> tuple[NativeO
 def _parse_native_state(content: bytes, path: Path):
     try:
         payload = json.loads(content)
-        if payload["version"] != 1 or not isinstance(payload["desired"], list):
+        if payload["version"] not in {1, 2} or not isinstance(payload["desired"], list):
             raise ValueError("unsupported native state format")
+        from .alembic_privileges import native_operation_payloads
+        native_operation_payloads(payload)
         objects = tuple(NativeObject.from_payload(value) for value in payload["desired"])
         if len({item.identity for item in objects}) != len(objects):
             raise ValueError("duplicate native identity")
@@ -1813,6 +1815,7 @@ def _predecessor_source(connection, *, predecessor=None, predecessor_state=None)
     """Keep transitions and admission on one declared predecessor authority."""
     from .migrations import ALEMBIC_DIR
     from .source_view_native import _admission_descriptor
+    from .alembic_privileges import native_operation_payloads
 
     if predecessor is not None and predecessor_state is not None:
         raise NativeAuthoringError(
@@ -1865,7 +1868,7 @@ def _predecessor_source(connection, *, predecessor=None, predecessor_state=None)
         if state is None
         else frozenset(
             NativeIdentity.from_payload(item["before"]["identity"])
-            for item in state.get("operations", ())
+            for item in native_operation_payloads(state)
             if item["after"] is None and item["before"] is not None
         )
     )
@@ -2159,25 +2162,26 @@ def prepare_series_candidate(
             )
         )
     )
+    from .native_data_steps import require_frozen_data_prerequisites
+    require_frozen_data_prerequisites(existing, target_metadata)
     new_tables = [item for item in target_metadata.sorted_tables if item.fullname not in existing]
     scaffolding = connection.begin_nested()
     try:
         previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
         previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
-        task = target_metadata.tables.get("ops.task")
-        if task is not None and "data_request_id" in task.c:
-            for name, native_type in (("data_request_id", "text"), ("data_generation", "bigint")):
-                if connection.scalar(
-                    text(
-                        "SELECT NOT EXISTS(SELECT FROM pg_attribute "
-                        "WHERE attrelid='ops.task'::regclass "
-                        "AND attname=:name AND NOT attisdropped)"
-                    ),
-                    {"name": name},
-                ):
-                    connection.exec_driver_sql(
-                        "ALTER TABLE ops.task ADD COLUMN " + name + " " + native_type
-                    )
+        from sqlalchemy import inspect
+        from sqlalchemy.schema import CreateColumn
+        inspector = inspect(connection)
+        for relation in target_metadata.sorted_tables:
+            if relation.fullname not in existing:
+                continue
+            names = {column["name"] for column in inspector.get_columns(relation.name, schema=relation.schema)}
+            for column in relation.columns:
+                if column.name not in names:
+                    # Row-type resolution only: actual defaults/constraints remain migration effects.
+                    from sqlalchemy import Column
+                    temporary = Column(column.name, column.type, nullable=True)
+                    connection.exec_driver_sql("ALTER TABLE " + connection.dialect.identifier_preparer.format_table(relation) + " ADD COLUMN " + str(CreateColumn(temporary).compile(dialect=connection.dialect)))
         for relation in new_tables:
             # Migration authority creates cross-owner foreign keys, including
             # evaluator tables referencing ops cuts; runtime roles need no DDL ACLs.
@@ -2190,20 +2194,6 @@ def prepare_series_candidate(
                 + connection.dialect.identifier_preparer.format_table(relation)
                 + " OWNER TO corpus_sem_publisher"
             )
-        # The runtime reuse kernel binds the expanded existing run row type. Like
-        # new tables above, this prerequisite is rolled back before Alembic's diff.
-        run = target_metadata.tables.get("ops.run")
-        if (
-            run is not None
-            and "runtime_id" in run.c
-            and connection.scalar(
-                text(
-                    "SELECT NOT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.run'::regclass "
-                    "AND attname='runtime_id' AND NOT attisdropped)"
-                )
-            )
-        ):
-            connection.exec_driver_sql("ALTER TABLE ops.run ADD COLUMN runtime_id text")
         authoring = _prepare_series_authoring(
             connection,
             predecessor=predecessor,
@@ -2217,6 +2207,14 @@ def prepare_series_candidate(
         physical_contract = _physical_check_contract(connection, target_metadata, authoring)
     finally:
         scaffolding.rollback()
+    from .alembic_privileges import plugin as privileges_plugin
+    from .source_view_native import _admission_descriptor
+    descriptor = _admission_descriptor(authored_admission_sql(authoring))
+    previous_source = _predecessor_source(connection, predecessor=predecessor, predecessor_state=predecessor_state)
+    old_descriptor = _admission_descriptor(previous_source.admission)
+    before_policies = old_descriptor.get("privileges", ())
+    target_policies = descriptor["privileges"]
+    compared_privileges = []
     context = MigrationContext.configure(
         connection,
         opts={
@@ -2232,166 +2230,42 @@ def prepare_series_candidate(
                 defaults_plugin.name,
                 indexes_plugin.name,
                 native_plugin.name,
+                privileges_plugin.name,
             ],
             "native_authoring": authoring,
+            "declared_privileges": target_policies,
+            "predecessor_privileges": before_policies,
+            "legacy_privilege_tables": old_descriptor["tables"],
+            "compared_privileges": compared_privileges,
         },
     )
     candidate = produce_migrations(context, target_metadata)
     if candidate.upgrade_ops is not None:
-        from alembic.operations.ops import (
-            CreateForeignKeyOp,
-            CreateTableOp,
-            ExecuteSQLOp,
-            MigrateOperation,
-            ModifyTableOps,
-        )
+        from alembic.operations.ops import ModifyTableOps, CreateForeignKeyOp
         from sqlalchemy.schema import AddConstraint
-
-        previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
-        restore = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
-        publisher = "SET LOCAL ROLE corpus_sem_publisher"
-        ordered: list[MigrateOperation] = []
-        created = []
+        from .alembic_privileges import OwnedSQLOp, OwnedOperationsOp
+        from .source_view_native import _admission_descriptor
+        candidate.privilege_policies = target_policies
+        declared_owners = {row["relation"]: row.get("owner", "corpus_sem_publisher") for row in old_descriptor["tables"]}
+        ordered = []
         for item in candidate.upgrade_ops.ops:
-            if isinstance(item, CreateTableOp):
-                created.append(item)
-            if isinstance(item, ModifyTableOps) and item.schema == "eval":
+            if isinstance(item, ModifyTableOps):
+                owner = declared_owners.get(f"{item.schema}.{item.table_name}", "corpus_sem_publisher")
                 for change in item.ops:
-                    if (
-                        isinstance(change, CreateForeignKeyOp)
-                        and change.source_table == "reference_set"
-                        and change.referent_table == "run"
-                        and change.kw.get("referent_schema") == "ops"
-                        and change.local_cols == ["source_run_id"]
-                        and change.remote_cols == ["id"]
-                    ):
-                        # This source-only FK crosses existing owner boundaries.
-                        # Preserve a pre-existing capability; remove only the
-                        # column privilege introduced for this one DDL statement.
-                        foreign_key = str(
-                            AddConstraint(change.to_constraint()).compile(
-                                dialect=connection.dialect
-                            )
-                        ).replace("'", "''")
-                        ordered.append(
-                            ExecuteSQLOp(
-                                "DO $reference_fk$ DECLARE previous_name text:=current_user; "
-                                "introduced boolean:=NOT has_column_privilege("
-                                "'corpus_sem_publisher','ops.run','id','REFERENCES'); BEGIN "
-                                "IF introduced THEN GRANT REFERENCES(id) ON ops.run TO corpus_s"
-                                "em_publisher; END IF; "
-                                "SET LOCAL ROLE corpus_sem_publisher; EXECUTE '"
-                                + foreign_key
-                                + "'; "
-                                "EXECUTE format('SET LOCAL ROLE %I',previous_name); "
-                                "IF introduced THEN REVOKE REFERENCES(id) ON ops.run FROM corpu"
-                                "s_sem_publisher; END IF; "
-                                "END $reference_fk$"
-                            )
-                        )
+                    if isinstance(change, CreateForeignKeyOp):
+                        remote = change.kw.get("referent_schema", item.schema) + "." + change.referent_table
+                        statement = str(AddConstraint(change.to_constraint()).compile(dialect=connection.dialect))
+                        ordered.append(OwnedSQLOp(owner, statement, tuple((remote, column, declared_owners.get(remote, "corpus_sem_publisher")) for column in change.remote_cols)))
                     else:
-                        group = ModifyTableOps(item.table_name, [change], schema=item.schema)
-                        ordered.extend((ExecuteSQLOp(publisher), group, ExecuteSQLOp(restore)))
+                        ordered.append(OwnedOperationsOp(owner, [change]))
             else:
                 ordered.append(item)
-        # Keep migration-owned FK creation intact before transferring new data
-        # tables. No runtime principal receives direct mutation or reference ACLs.
-        for item in created:
-            relation = item.to_table()
-            name = connection.dialect.identifier_preparer.format_table(relation)
-            ordered.append(ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher"))
-        publisher_work: list[MigrateOperation] = []
-        if physical_contract is not None:
-            publisher_work.append(ExecuteSQLOp(physical_contract))
-        for item in created:
-            relation = item.to_table()
-            name = connection.dialect.identifier_preparer.format_table(relation)
-            roles = target_metadata.tables[relation.fullname].info.get(
-                "read_roles",
-                [
-                    "corpus_sem_writer",
-                    "corpus_sem_reader",
-                    "corpus_sem_admitter",
-                    "corpus_sem_evaluator",
-                ],
-            )
-            if not roles:
-                publisher_work.append(
-                    ExecuteSQLOp(
-                        "REVOKE ALL ON "
-                        + name
-                        + " FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,"
-                        "corpus_sem_evaluator,corpus_sem_fitter"
-                    )
-                )
-            if roles:
-                publisher_work.append(
-                    ExecuteSQLOp(
-                        "GRANT SELECT ON "
-                        + name
-                        + " TO "
-                        + ",".join(
-                            connection.dialect.identifier_preparer.quote(role) for role in roles
-                        )
-                    )
-                )
-        # Fitting is protected; ordinary parameter reads use their owned ops port.
-        for role in ("corpus_sem_fitter",):
-            if (
-                connection.scalar(
-                    text("SELECT has_schema_privilege(:role,'eval','USAGE')"), {"role": role}
-                )
-                is not True
-            ):
-                publisher_work.append(ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO " + role))
-        if (
-            connection.scalar(
-                text("SELECT has_schema_privilege('corpus_sem_reader','eval','USAGE')")
-            )
-            is True
-        ):
-            publisher_work.append(
-                ExecuteSQLOp("REVOKE USAGE ON SCHEMA eval FROM corpus_sem_reader")
-            )
-        if publisher_work:
-            ordered.extend((ExecuteSQLOp(publisher), *publisher_work, ExecuteSQLOp(restore)))
+        # Native and physical dependency retirement stays explicit. Privileges follow installation.
         candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
-        if any(item.schema == "ops" and item.table_name == "pdf_visual_index" for item in created):
-            # Build the derived locator from the exact existing artifact after
-            # installing its protected owner and in the same migration transaction.
-            candidate.upgrade_ops.ops.append(
-                ExecuteSQLOp("""
-                SELECT ops.index_pdf_visual_mapping(
-                    task_id, product_key, descriptor->'observation'->>'mapped_evidence_digest'
-                ) FROM ops.pdf_product_body
-                WHERE descriptor->'observation' ? 'mapped_evidence_digest'
-                ORDER BY task_id, product_key
-            """)
-            )
-        if any(
-            item.schema == "kb" and item.table_name == "characterization_source_scope"
-            for item in created
-        ):
-            # Rebuild only derived scope metadata from immutable admitted products;
-            # original layer bytes, releases and source identities stay untouched.
-            candidate.upgrade_ops.ops.extend(
-                (
-                    ExecuteSQLOp(publisher),
-                    ExecuteSQLOp("""
-                INSERT INTO kb.characterization_source_scope
-                    (task_id,product_key,content_digest,source_view_id,body)
-                SELECT p.task_id,p.product_key,p.content_digest,
-                       (pin->>'source_view_id')::bigint,pin
-                FROM ops.characterization_product p
-                CROSS JOIN LATERAL jsonb_array_elements(
-                    p.payload->'source_scope'->'source_views') pin
-                ORDER BY p.task_id,p.product_key,(pin->>'source_view_id')::bigint
-                ON CONFLICT DO NOTHING
-                """),
-                    ExecuteSQLOp(restore),
-                )
-            )
+        candidate.upgrade_ops.ops.extend(compared_privileges)
+        if physical_contract is not None:
+            candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))
     return candidate, authoring
 
 

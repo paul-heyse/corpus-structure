@@ -287,13 +287,16 @@ def _read(name, digest):
 def upgrade():
     state = json.loads(_read(NATIVE_STATE_FILE, NATIVE_STATE_SHA256))
     _read(NATIVE_ADMISSION_FILE, NATIVE_ADMISSION_SHA256)
-    if state["version"] != 1 or state["predecessor"] != down_revision:
+    if state["version"] not in {{1, 2}} or state["predecessor"] != down_revision:
         raise RuntimeError("incompatible native predecessor")
     source = _read(NATIVE_UPGRADE_FILE, NATIVE_UPGRADE_SHA256)
     namespace = {{}}
     exec(compile(source, NATIVE_UPGRADE_FILE, "exec"), namespace)
     namespace["upgrade"]()
     admit_native(op.get_bind(), tuple(NativeObject.from_payload(item) for item in state["desired"]))
+    if state["version"] == 2:
+        from corpus_structure.semantic.alembic_privileges import admit_privileges
+        admit_privileges(op.get_bind(), state["privileges"])
 
 
 def downgrade():

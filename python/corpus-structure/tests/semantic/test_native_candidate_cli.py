@@ -134,6 +134,7 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
         if fail:
             raise SemanticRefusal("candidate refused")
         return SimpleNamespace(
+            privilege_policies=(),
             upgrade_ops=UpgradeOps(
                 [
                     NativeTransitionOp(retired, None),
@@ -215,45 +216,12 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
         assert events == ["connect", "begin", "rollback", "closed"]
         operations = json.loads((out / "native_operations.json").read_bytes())
         assert [NativeObject.from_payload(item) for item in operations["desired"]] == [recreated]
-        restored = [NativeTransitionOp.from_payload(item) for item in operations["operations"]]
+        restored = [NativeTransitionOp.from_payload(item["payload"]) for item in operations["operations"]]
         assert [(item.before, item.after) for item in restored] == [
             (retired, None),
             (recreated, None),
             (None, recreated),
         ]
-
-
-def test_native_candidate_restores_deployment_role_instead_of_authoring_login(monkeypatch):
-    from alembic import op
-    from alembic.operations.ops import ExecuteSQLOp, UpgradeOps
-
-    from corpus_structure.cli.schema import _native_candidate_python
-
-    statements = []
-    connection = SimpleNamespace(
-        exec_driver_sql=lambda sql: SimpleNamespace(scalar_one=lambda: "deployment_owner"),
-        dialect=SimpleNamespace(
-            identifier_preparer=SimpleNamespace(quote=lambda name: '"' + name + '"')
-        ),
-    )
-    monkeypatch.setattr(op, "get_bind", lambda: connection)
-    monkeypatch.setattr(op, "execute", statements.append)
-    source = _native_candidate_python(
-        UpgradeOps(
-            [
-                ExecuteSQLOp("SET LOCAL ROLE corpus_sem_publisher"),
-                ExecuteSQLOp("SET LOCAL ROLE authoring_owner"),
-            ]
-        ),
-        "SET LOCAL ROLE authoring_owner",
-    )
-    namespace = {}
-    exec(compile(source, "candidate.py", "exec"), namespace)
-    namespace["upgrade"]()
-    assert statements == [
-        "SET LOCAL ROLE corpus_sem_publisher",
-        'SET LOCAL ROLE "deployment_owner"',
-    ]
 
 
 def test_explicit_overload_owner_keeps_each_abi_and_its_grants(monkeypatch):

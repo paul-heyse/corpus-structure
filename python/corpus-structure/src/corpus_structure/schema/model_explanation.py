@@ -12,7 +12,7 @@ class NativeOperationExplanation(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     ordinal: int
     identity: dict[str, JsonValue]
-    action: Literal["create", "change", "retire", "recreate"]
+    action: Literal["create", "change", "retire", "recreate", "normalize"]
     changed_properties: tuple[str, ...]
     before_owner: str | None
     after_owner: str | None
@@ -40,9 +40,24 @@ def explain_native_operations(
     if type(after) is not int or after < 0 or type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("invalid native operation page selection")
     payload = json.loads(raw)
-    if payload.get("version") != 1 or not isinstance(payload.get("operations"), list):
+    if payload.get("version") not in {1, 2} or not isinstance(payload.get("operations"), list):
         raise ValueError("unsupported frozen native operation artifact")
     operations = payload["operations"]
+    if payload["version"] == 2:
+        normalized = []
+        for record in operations:
+            if record.get("kind") == "native":
+                normalized.append(record["payload"])
+            elif record.get("kind") == "privilege":
+                value = record["payload"]
+                def projected(policy):
+                    if policy is None:
+                        return None
+                    return {"identity": {"kind": policy["kind"], "name": policy["name"]}, "catalog": policy}
+                normalized.append({"version": 1, "before": projected(value["before"]), "after": projected(value["after"]), "normalization": value["normalization"]})
+            else:
+                raise ValueError("unsupported frozen operation kind")
+        operations = normalized
     if after > len(operations):
         raise ValueError("native operation continuation is outside its population")
     output = []
@@ -57,7 +72,9 @@ def explain_native_operations(
             NativeOperationExplanation(
                 ordinal=ordinal,
                 identity=selected["identity"],
-                action="recreate"
+                action="normalize"
+                if item.get("normalization")
+                else "recreate"
                 if item.get("recreate")
                 else "create"
                 if before is None
@@ -331,7 +348,15 @@ def explanation_from_native(raw: bytes, previous: ModelChangeExplanation | None 
 
     payload = json.loads(raw)
     changes = list(previous.changes if previous else ())
+    diagnostics = list(previous.diagnostics if previous else ())
     for ordinal, item in enumerate(payload.get("operations", ()), 1):
+        if payload.get("version") == 2:
+            if item["kind"] == "privilege":
+                diagnostics.append({"code": "declared-privilege-transition", "ordinal": ordinal, "transition": item["payload"]})
+                continue
+            if item["kind"] != "native":
+                raise ValueError("unsupported frozen operation kind")
+            item = item["payload"]
         sides = []
         for side in ("before", "after"):
             obj = item.get(side)
@@ -341,7 +366,7 @@ def explanation_from_native(raw: bytes, previous: ModelChangeExplanation | None 
         source_basis="retained preview source plus frozen native transitions",
         custody=previous.custody if previous else {},
         changes=tuple(changes),
-        diagnostics=previous.diagnostics if previous else (),
+        diagnostics=tuple(diagnostics),
         impact=previous.impact if previous else None,
         native_observation="rollback-only candidate catalog observation; not deployment",
     )

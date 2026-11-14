@@ -1509,6 +1509,7 @@ def candidate(
                                 else {}
                             ),
                             target_metadata=target_metadata,
+                            data_steps=staged.request.data_steps,
                             retire=retired,
                             recreate=recreated,
                         )

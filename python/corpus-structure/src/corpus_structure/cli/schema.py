@@ -410,8 +410,7 @@ def _render_native_candidate(result):
 
 
 def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
-    """Render role restoration against the upgrade caller, never the authoring login."""
-    import ast
+    """Render operation-owned role custody without author-login restoration strings."""
 
     from alembic.autogenerate import render_python_code
 
@@ -419,39 +418,11 @@ def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
         "from alembic import op\nimport sqlalchemy as sa\n"
         "from sqlalchemy import Text\nfrom sqlalchemy.dialects import postgresql\n"
         "import pgvector.sqlalchemy\n"
-        "from corpus_structure.semantic import alembic_native\n\n"
+        "from corpus_structure.semantic import alembic_native, alembic_privileges\n\n"
         "from corpus_structure.schema.relational import Vector\n\n"
         "def upgrade():\n" + render_python_code(upgrade_ops) + "\n"
     )
-    module = ast.parse(source)
-    function = next(item for item in module.body if isinstance(item, ast.FunctionDef))
-
-    class RestoreRole(ast.NodeTransformer):
-        def visit_Call(self, node: ast.Call) -> ast.AST:
-            if (
-                isinstance(node.func, ast.Attribute)
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "op"
-                and node.func.attr == "execute"
-                and node.args
-                and isinstance(node.args[0], ast.Constant)
-                and node.args[0].value == restore_sql
-            ):
-                return ast.parse(
-                    'op.execute("SET LOCAL ROLE " + '
-                    "op.get_bind().dialect.identifier_preparer.quote(_migration_role))",
-                    mode="eval",
-                ).body
-            return self.generic_visit(node)
-
-    RestoreRole().visit(function)
-    function.body.insert(
-        0,
-        ast.parse(
-            '_migration_role = op.get_bind().exec_driver_sql("SELECT current_user").scalar_one()'
-        ).body[0],
-    )
-    return ast.unparse(ast.fix_missing_locations(module)) + "\n"
+    return source
 
 
 def author_native_candidate(
@@ -465,6 +436,7 @@ def author_native_candidate(
     target_metadata: MetaData | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
+    data_steps: tuple[str, ...] = (),
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
@@ -515,6 +487,8 @@ def author_native_candidate(
     )
     if assert_explicit_route(selected)["dbname"] != authoring_database:
         raise SemanticRefusal("configured authoring database conflicts with its libpq route")
+    if len(set(data_steps)) != len(data_steps):
+        raise NativeAuthoringError("named data steps must be unique")
     target_metadata = metadata if target_metadata is None else target_metadata
     with (
         open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,
@@ -566,7 +540,12 @@ def author_native_candidate(
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:
                 raise NativeAuthoringError("single-connection candidate has no upgrade operations")
-            native = [item for item in upgrade_ops.ops if isinstance(item, NativeTransitionOp)]
+            from corpus_structure.semantic.alembic_privileges import PrivilegeTransitionOp, OwnedSQLOp, operation_record
+            from corpus_structure.semantic.native_data_steps import build_data_step
+            for step in data_steps:
+                statement = str(build_data_step(step, target_metadata).compile(dialect=conn.dialect, compile_kwargs={"literal_binds": True}))
+                upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", statement))
+            native = [item for item in upgrade_ops.ops if isinstance(item, (NativeTransitionOp, PrivilegeTransitionOp))]
             migration_role = conn.exec_driver_sql("SELECT current_user").scalar_one()
             python_source = _native_candidate_python(
                 upgrade_ops,
@@ -581,9 +560,10 @@ def author_native_candidate(
                 "native_candidate.py": python_source.encode(),
                 "native_operations.json": canonical_bytes(
                     {
-                        "version": 1,
+                        "version": 2,
                         "predecessor": predecessor,
-                        "operations": [item.payload() for item in native],
+                        "operations": [operation_record(item) for item in native],
+                        "privileges": list(script.privilege_policies),
                         "desired": [item.payload() for item in authoring.desired],
                     }
                 ),

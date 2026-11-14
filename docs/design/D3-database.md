@@ -307,7 +307,14 @@ No operational database is deployed by this target acceptance.
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
 
-> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
+**Accepted target; authoring integration Proposed · 2026-11-14.** Compared frozen table/schema
+privilege operations replace creation-only grants. An explicit initial normalization marks missing
+legacy before facts unrecorded; later transitions use exact policy custody. Purpose roles retain
+no table mutation/schema CREATE authority. Owned DDL preserves caller restoration and cross-owner
+FK authorization; the explicit walk still owns global retirement ordering. Named first-party data
+steps compile to frozen SQL under preview implementation custody; upgrades never resolve builders.
+
+> Decision: [ADR-0103](../adr/0103-ddo-privilege-policy.md), [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
