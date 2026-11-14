@@ -1,0 +1,26 @@
+id: https://corpus-structure.dev/semantic/data-operation-pdf-capture
+name: data_operation_pdf_capture
+prefixes:
+  dpc: https://corpus-structure.dev/semantic/data-operation-pdf-capture/
+default_prefix: dpc
+default_range: string
+classes:
+  DdoPdfCaptureHealth:
+    is_a: SourceRecordProduct
+    attributes:
+      conversion: {required: true}
+      display_coverage: {required: true}
+      inline_coverage: {required: true}
+      cell_coverage: {required: true}
+  DdoPdfCapture:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: The exact whole sealed publication projection authenticated by the PDF owner. Physical build/attempt attribution is in its original PDF execution receipt.
+    attributes:
+      document: {required: true}
+      source_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      logical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      schema_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      kind: {equals_string: native, required: true}
+      health: {range: DdoPdfCaptureHealth, inlined: true, required: true}
