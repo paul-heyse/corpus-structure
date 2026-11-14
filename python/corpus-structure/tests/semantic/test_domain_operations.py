@@ -324,6 +324,7 @@ def test_native_scientific_comparison_preserves_facts_and_uncertainty(
         domain_formula_source.writer,
         tmp_path / "source.pdf",
         domain_case_recipe(formulas=formulas),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "evaluated")
     with commit_writer_engine.connect() as conn:
@@ -541,6 +542,7 @@ def test_scientific_restriction_profile_never_drops_uninterpreted_domain(
         domain_formula_source.writer,
         tmp_path / "source.pdf",
         domain_case_recipe(formulas=("\\sqrt{x^2}", "x"), condition=condition),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "evaluated")
     with commit_writer_engine.connect() as conn:
@@ -574,6 +576,7 @@ def test_independent_source_binding_disagreement_persists_one_compact_group(
         domain_formula_source.writer,
         tmp_path / "source.pdf",
         domain_case_recipe(formulas=("x",), report_count=2, global_person_identity=True),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "evaluated")
     with read_session(commit_reader_engine, "evaluated") as session:
@@ -613,6 +616,7 @@ def test_authored_alternatives_retain_source_reason_without_duplicate_fact_group
         domain_formula_source.writer,
         tmp_path / "source.pdf",
         domain_case_recipe(formulas=formulas, authored_alternative=True),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "evaluated")
     with read_session(commit_reader_engine, "evaluated") as session:
@@ -681,6 +685,7 @@ def test_recorded_math_fallbacks_and_constants_drive_native_science(
             formulas=("\\A", "x") if operand == "fallback" else ("\\frac{1}{e}", "e^{-1}"),
             math={"macros": {"\\A": "x", "unused": "z"}, "constants": ["e", "\\pi"]},
         ),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "evaluated")
     with read_session(commit_reader_engine, "evaluated") as session:
@@ -727,6 +732,7 @@ def test_unqualified_log_domain_is_not_cancelled_into_accepted_equivalence(
         domain_formula_source.writer,
         tmp_path / "source.pdf",
         domain_case_recipe(formulas=("e^{\\ln x}", "x"), math={"constants": ["e"]}),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "evaluated")
     with read_session(commit_reader_engine, "evaluated") as session:
@@ -760,6 +766,7 @@ def test_conflicting_recorded_constant_profiles_refuse_cut(domain_formula_source
             math={"constants": ["e"]},
             second_math={"constants": []},
         ),
+        admin=domain_formula_source.admin,
     ).result
     with pytest.raises(
         DomainOperationRefused, match="incompatible recorded mathematical constant profiles"

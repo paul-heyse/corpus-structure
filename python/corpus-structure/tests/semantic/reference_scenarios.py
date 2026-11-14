@@ -91,15 +91,7 @@ def publish_reference_case(
         "packet_cap_chars": 18000,
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
-    with writer.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="reference",
-            binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
-            kind="full",
-            options={"agent_configs": {"agent.opus/extract": config}, "domain": domain},
-            code_commit="authored-current-reference",
-        )
+    with admin.begin() as conn:
         document = register_document(
             conn,
             project_id="reference",
@@ -109,8 +101,18 @@ def publish_reference_case(
             metadata={"page": "reference.pdf"},
             mime="application/pdf",
         )
+    with writer.begin() as conn:
+        run = create_run(
+            conn,
+            project_id="reference",
+            binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
+            kind="full",
+            options={"agent_configs": {"agent.opus/extract": config}, "domain": domain},
+            code_commit="authored-current-reference",
+        )
     views = publish_controlled_pdf_views(
         writer,
+        admin=admin,
         prepared=prepared,
         run_id=run,
         document_id=document,
@@ -121,7 +123,7 @@ def publish_reference_case(
 
     with writer.begin() as conn:
         run, config = bind_primary_agent_run(
-            conn, run, prepared, tuple(v.ref.id for v in views), config
+            conn, run, prepared, tuple(v.ref.id for v in views), config, admin=admin
         )
         tasks = tuple(
             create_historical_agent_task(
@@ -131,6 +133,7 @@ def publish_reference_case(
                 configuration=config,
                 source_view_id=v.ref.id,
                 unit_key=v.ref.key,
+                admin=admin,
             )
             for v in views
         )

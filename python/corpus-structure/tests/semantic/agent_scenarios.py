@@ -232,7 +232,7 @@ class QueuedResubmissionStage:
 
 
 def publish_resubmission_source(
-    preparation, engine, path, *, model="automated-resubmission", domain=None, fresh=False
+    preparation, engine, path, *, admin, model="automated-resubmission", domain=None, fresh=False
 ):
     prepared = preparation.prepared
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
@@ -248,6 +248,16 @@ def publish_resubmission_source(
         "packet_cap_chars": 18000,
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
+    with admin.begin() as conn:
+        document = register_document(
+            conn,
+            project_id="resubmit",
+            source_uri="source.html",
+            original_path=str(path),
+            original=original,
+            metadata={"page": "source.html"},
+            mime="application/pdf",
+        )
     with engine.begin() as conn:
         run = create_run(
             conn,
@@ -271,17 +281,9 @@ def publish_resubmission_source(
             },
             code_commit="test",
         )
-        document = register_document(
-            conn,
-            project_id="resubmit",
-            source_uri="source.html",
-            original_path=str(path),
-            original=original,
-            metadata={"page": "source.html"},
-            mime="application/pdf",
-        )
     (view,) = publish_controlled_pdf_views(
         engine,
+        admin=admin,
         prepared=prepared,
         run_id=run,
         document_id=document,
@@ -291,7 +293,7 @@ def publish_resubmission_source(
     return ResubmissionSourceStage(preparation, document, run, view, canonical_bytes(config))
 
 
-def queue_resubmission_agent(source, engine):
+def queue_resubmission_agent(source, engine, *, admin):
     prepared, run, view, config = (
         source.preparation.prepared,
         source.run,
@@ -301,7 +303,7 @@ def queue_resubmission_agent(source, engine):
     from semantic.primary_native_support import bind_primary_agent_run
 
     with engine.begin() as conn:
-        run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
+        run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config, admin=admin)
         locator = view.ref.key
         (task,) = (
             create_historical_agent_task(
@@ -311,6 +313,7 @@ def queue_resubmission_agent(source, engine):
                 configuration=config,
                 source_view_id=view.ref.id,
                 unit_key=locator,
+                admin=admin,
             ),
         )
     return QueuedResubmissionStage(source, run, task, locator)
@@ -339,8 +342,8 @@ def build_resubmission_case(
     )
     prepared = preparation.prepared
     persist_resubmission_release(admin, engine, preparation, composed=composed)
-    source = publish_resubmission_source(preparation, engine, path, model=model, domain=domain)
-    queued = queue_resubmission_agent(source, engine)
+    source = publish_resubmission_source(preparation, engine, path, admin=admin, model=model, domain=domain)
+    queued = queue_resubmission_agent(source, engine, admin=admin)
     return prepared, queued.run, queued.task, queued.locator
 
 
@@ -357,6 +360,7 @@ def build_resubmission_source_recipe(recipe, admin, writer, directory, *, purpos
         preparation,
         writer,
         directory / "source.pdf",
+        admin=admin,
         model=case.model,
         domain=case.domain,
     )
@@ -370,7 +374,7 @@ def build_resubmission_recipe(recipe, admin, writer, directory, *, purpose_engin
         directory,
         purpose_engine=purpose_engine,
     )
-    return queue_resubmission_agent(source, writer)
+    return queue_resubmission_agent(source, writer, admin=admin)
 
 
 register_scenario_builder(ResubmissionSourceRecipe, build_resubmission_source_recipe)
@@ -496,15 +500,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
         "packet_cap_chars": 18000,
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
-    with writer.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="native-consumer",
-            binding=OperationBinding(prepared.release_id, "native-input", 0, b"{}"),
-            kind="full",
-            options={"agent_configs": {"agent.opus/extract": configuration}},
-            code_commit="native-consumer-test",
-        )
+    with admin.begin() as conn:
         config = record_method(
             conn,
             SimpleNamespace(
@@ -530,6 +526,15 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             original_path=str(path),
             original=original,
             mime="application/pdf",
+        )
+    with writer.begin() as conn:
+        run = create_run(
+            conn,
+            project_id="native-consumer",
+            binding=OperationBinding(prepared.release_id, "native-input", 0, b"{}"),
+            kind="full",
+            options={"agent_configs": {"agent.opus/extract": configuration}},
+            code_commit="native-consumer-test",
         )
         source = create_task(
             conn,
@@ -676,6 +681,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             prepared,
             tuple(v.id for v in selected_source_views(conn, run)),
             configuration,
+            admin=admin,
         )
         task = create_historical_agent_task(
             conn,
@@ -684,6 +690,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             configuration=configuration,
             source_view_id=view,
             unit_key=draft.key,
+            admin=admin,
         )
     return prepared, run, task, view, draft.key
 
@@ -857,8 +864,8 @@ def build_exclusion_recipe(recipe, admin, writer, directory, *, purpose_engine=N
         )
     )
     persist_resubmission_release(admin, writer, preparation, composed=True)
-    source = publish_resubmission_source(preparation, writer, directory / "exclusions.pdf")
-    queued = queue_resubmission_agent(source, writer)
+    source = publish_resubmission_source(preparation, writer, directory / "exclusions.pdf", admin=admin)
+    queued = queue_resubmission_agent(source, writer, admin=admin)
     result = submit_exclusion_case(
         queued,
         writer,

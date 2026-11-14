@@ -293,14 +293,14 @@ class DomainSourceStage:
             read_original(connection, self.document, prepared=self.preparation.prepared)
 
 
-def publish_domain_source(preparation, writer, path, *, duplicate=False, statement_packets=None):
+def publish_domain_source(preparation, writer, path, *, admin, duplicate=False, statement_packets=None):
     prepared = preparation.prepared
     double_source = duplicate or statement_packets == "different"
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 
     paragraphs = ("Alice is here.",) * (2 if double_source else 1)
     original = write_controlled_pdf(path, paragraphs)
-    with writer.begin() as conn:
+    with admin.begin() as conn:
         document = register_document(
             conn,
             project_id="p",
@@ -313,6 +313,7 @@ def publish_domain_source(preparation, writer, path, *, duplicate=False, stateme
         document_key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
         ).scalar_one()
+    with writer.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -325,6 +326,7 @@ def publish_domain_source(preparation, writer, path, *, duplicate=False, stateme
         )
     views = publish_controlled_pdf_views(
         writer,
+        admin=admin,
         prepared=prepared,
         run_id=run,
         document_id=document,
@@ -349,26 +351,28 @@ class ClaimedDomainTask:
     lease: Any
 
 
-def create_domain_source_task(source, writer, *, math=None, duplicate=False):
+def create_domain_source_task(source, writer, *, math=None, duplicate=False, admin: Engine | None = None):
     prepared, run, views = source.preparation.prepared, source.run, source.views
     with writer.begin() as conn:
         view = views[0]
-        cid = record_method(
-            conn,
-            SimpleNamespace(
-                name="agent.opus",
-                version=SEMANTIC_AGENT_VERSION,
-                family="agent",
-                tier="agent",
-                confidence_source="agent",
-                unit_type="source_view",
-                Config=DomainFixtureConfig,
-            ),
-            "extract",
-            {"math": math} if math is not None else {},
-            "config",
-            prepared=prepared,
-        )
+        from contextlib import nullcontext
+        with admin.begin() if admin is not None else nullcontext(conn) as metadata_connection:
+            cid = record_method(
+                metadata_connection,
+                SimpleNamespace(
+                    name="agent.opus",
+                    version=SEMANTIC_AGENT_VERSION,
+                    family="agent",
+                    tier="agent",
+                    confidence_source="agent",
+                    unit_type="source_view",
+                    Config=DomainFixtureConfig,
+                ),
+                "extract",
+                {"math": math} if math is not None else {},
+                "config",
+                prepared=prepared,
+            )
         sentence_offsets = (("s1", 0, 14),) + ((("s2", 15, 29),) if duplicate else ())
         frame = native_source_frame(view, sentence_offsets)
         from corpus_structure.semantic.proposals import proposal_packet
@@ -540,13 +544,14 @@ def build_domain_case(admin: Engine, writer: Engine, path: Path, **options):
         preparation,
         writer,
         path,
+        admin=admin,
         duplicate=recipe.duplicate,
         statement_packets=recipe.statement_packets,
     )
-    return finish_domain_case(source, writer, path, recipe).result
+    return finish_domain_case(source, writer, path, recipe, admin=admin).result
 
 
-def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> CompletedDomainStage:
+def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe, *, admin: Engine | None = None) -> CompletedDomainStage:
     """Finish a published prefix with this consumer's declarations, task and proposal."""
     import json
 
@@ -563,7 +568,7 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
     statement_packets, attribute_assertions = recipe.statement_packets, recipe.attribute_assertions
     isolated_entity, unselected_report = recipe.isolated_entity, recipe.unselected_report
     run, views = source.run, source.views
-    task_stage = create_domain_source_task(source, writer, math=math, duplicate=duplicate)
+    task_stage = create_domain_source_task(source, writer, math=math, duplicate=duplicate, admin=admin)
     claimed = claim_domain_source_task(task_stage, writer)
     cid, task, frame = task_stage.configuration, task_stage.task, task_stage.frame
     lease, view = claimed.lease, views[0]
@@ -888,7 +893,9 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
         foreign_original = write_controlled_pdf(
             path.with_name("outside-cut.pdf"), ("Alice is here.", "Outside cut report.")
         )
-        with writer.begin() as conn:
+        if admin is None:
+            raise ValueError("foreign historical source requires its explicit metadata setup engine")
+        with admin.begin() as conn:
             foreign_document = register_document(
                 conn,
                 project_id="p",
@@ -903,6 +910,7 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
                     table("kb.document").c.id == foreign_document
                 )
             ).scalar_one()
+        with writer.begin() as conn:
             foreign_run = create_run(
                 conn,
                 project_id="p",
@@ -913,6 +921,7 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe) -> Comple
             )
         (foreign_view,) = publish_controlled_pdf_views(
             writer,
+            admin=admin,
             prepared=prepared,
             run_id=foreign_run,
             document_id=foreign_document,
@@ -974,6 +983,7 @@ def build_domain_source_recipe(recipe, admin, writer, directory, *, purpose_engi
         preparation,
         writer,
         directory / "source.pdf",
+        admin=admin,
         duplicate=recipe.duplicate,
         statement_packets=recipe.statement_packets,
     )
@@ -981,7 +991,7 @@ def build_domain_source_recipe(recipe, admin, writer, directory, *, purpose_engi
 
 def build_domain_recipe(recipe, admin, writer, directory, *, purpose_engine=None):
     source = build_domain_source_recipe(recipe.source_recipe, admin, writer, directory)
-    return finish_domain_case(source, writer, directory / "source.pdf", recipe)
+    return finish_domain_case(source, writer, directory / "source.pdf", recipe, admin=admin)
 
 
 register_scenario_builder(DomainSourceRecipe, build_domain_source_recipe)

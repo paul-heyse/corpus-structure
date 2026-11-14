@@ -238,6 +238,7 @@ def test_native_actual_reading_reason_roundtrip(domain_formula_source, tmp_path)
         domain_formula_source.writer,
         tmp_path / "source.pdf",
         domain_case_recipe(formulas=("\\frac{",)),
+        admin=domain_formula_source.admin,
     ).result
     consolidate_cut(commit_writer_engine, cut, "reading-reason")
     assessments = table("data.assessment")

@@ -112,7 +112,7 @@ def imported_declaration_case(admin, writer, tmp_path):
         "packet_cap_chars": 18000,
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
-    with writer.begin() as conn:
+    with admin.begin() as conn:
         document = register_document(
             conn,
             project_id="p",
@@ -122,6 +122,7 @@ def imported_declaration_case(admin, writer, tmp_path):
             metadata={"page": "next"},
             mime="application/pdf",
         )
+    with writer.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -134,6 +135,7 @@ def imported_declaration_case(admin, writer, tmp_path):
         )
     (view,) = publish_controlled_pdf_views(
         writer,
+        admin=admin,
         prepared=prepared,
         run_id=run,
         document_id=document,
@@ -144,7 +146,7 @@ def imported_declaration_case(admin, writer, tmp_path):
 
     with writer.begin() as conn:
         run, configuration = bind_primary_agent_run(
-            conn, run, prepared, (view.ref.id,), configuration, method="agent.general"
+            conn, run, prepared, (view.ref.id,), configuration, method="agent.general", admin=admin
         )
         (task,) = (
             create_historical_agent_task(
@@ -155,6 +157,7 @@ def imported_declaration_case(admin, writer, tmp_path):
                 method_name="agent.general",
                 source_view_id=view.ref.id,
                 unit_key=view.ref.key,
+                admin=admin,
             ),
         )
         packet = historical_agent_packet(conn, run, task, prepared)

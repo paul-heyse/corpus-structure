@@ -32,6 +32,7 @@ def create_historical_agent_task(
     unit_key: str,
     method_name: str = "agent.opus",
     trigger=None,
+    admin: Engine | None = None,
 ) -> TaskId:
     """Create one explicitly selected fixture task; no routing, graph or policy execution."""
     from corpus_structure.methods.llm.agent_opus import AgentOpusConfig
@@ -48,22 +49,24 @@ def create_historical_agent_task(
         "configuration:"
         + sha256(canonical_bytes([producer.method, producer.version, configuration])).hexdigest()
     )
-    config = record_method(
-        conn,
-        OperationDescriptor(
-            producer.method,
-            producer.version,
-            "agent",
-            "agent",
-            TaskUnitType.SOURCE_VIEW,
-            AgentOpusConfig,
-            "agent",
-        ),
-        "extract",
-        configuration,
-        config_hash,
-        prepared=prepared,
-    )
+    from contextlib import nullcontext
+    with admin.begin() if admin is not None else nullcontext(conn) as metadata_connection:
+        config = record_method(
+            metadata_connection,
+            OperationDescriptor(
+                producer.method,
+                producer.version,
+                "agent",
+                "agent",
+                TaskUnitType.SOURCE_VIEW,
+                AgentOpusConfig,
+                "agent",
+            ),
+            "extract",
+            configuration,
+            config_hash,
+            prepared=prepared,
+        )
     runs = table("ops.run")
     run = conn.execute(select(runs).where(runs.c.id == run_id)).mappings().one()
     input_hash = (

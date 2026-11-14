@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Engine, select
 
 from corpus_structure.core.vocab import Stage
 from corpus_structure.semantic.characterization_store import read_inventory
@@ -68,7 +68,7 @@ def stage_primary_layers(case, run, sources):
     return pins
 
 
-def publish_primary_fixture(conn, run, prepared, method, params):
+def publish_primary_fixture(conn, run, prepared, method, params, *, admin: Engine | None = None):
     """Publish one explicitly chosen historical characterization family under real custody.
 
     Callers supply its complete source/configuration; this does not select a graph,
@@ -101,9 +101,11 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     config = method.Config.model_validate(params)
     canonical = canonical_numbers(config.model_dump(mode="json"))
     configuration_hash = config_key(method.name, method.version, canonical)
-    config_id = record_method(
-        conn, method, "primary-control", canonical, configuration_hash, prepared=prepared
-    )
+    from contextlib import nullcontext
+    with admin.begin() if admin is not None else nullcontext(conn) as metadata_connection:
+        config_id = record_method(
+            metadata_connection, method, "primary-control", canonical, configuration_hash, prepared=prepared
+        )
     run_view = SimpleNamespace(reader=reader)
     (ref,) = method.select(run_view, config)
     input_hash = "primary-control:" + method.name
@@ -158,7 +160,7 @@ def publish_primary_fixture(conn, run, prepared, method, params):
     return result.characterization_layer.reference(task_id)
 
 
-def publish_primary_layers(conn, run, prepared, identities, *, formal=False):
+def publish_primary_layers(conn, run, prepared, identities, *, formal=False, admin: Engine | None = None):
     """Run real primary producers and publish their products under owned claims."""
     from pydantic import BaseModel
 
@@ -198,7 +200,7 @@ def publish_primary_layers(conn, run, prepared, identities, *, formal=False):
             characterization_layers=[pin.values() for pin in pins],
             **options,
         )
-        pins.append(publish_primary_fixture(conn, run, prepared, method, params))
+        pins.append(publish_primary_fixture(conn, run, prepared, method, params, admin=admin))
 
     publish(SealedNativeFixture(), dict(characterization_profile="spacy_only"))
     if formal:
@@ -209,7 +211,7 @@ def publish_primary_layers(conn, run, prepared, identities, *, formal=False):
 
 
 def bind_primary_agent_run(
-    conn, capture_run, prepared, identities, configuration: dict[str, Any], *, method="agent.opus"
+    conn, capture_run, prepared, identities, configuration: dict[str, Any], *, method="agent.opus", admin: Engine | None = None
 ):
     """Freeze real primary pins before authoring an agent run over the original views."""
     import json
@@ -222,7 +224,7 @@ def bind_primary_agent_run(
 
     runs = table("ops.run")
     original = conn.execute(select(runs).where(runs.c.id == capture_run)).mappings().one()
-    pins = publish_primary_layers(conn, capture_run, prepared, identities, formal=True)
+    pins = publish_primary_layers(conn, capture_run, prepared, identities, formal=True, admin=admin)
     configuration = dict(configuration, characterization_layers=[pin.values() for pin in pins])
     key = method + "/" + configuration["mode"]
     options = dict(original["options"])

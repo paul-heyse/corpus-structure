@@ -771,7 +771,7 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
         # frames. Current consolidation refuses this state before evaluation can begin.
         earlier.setattr(source_frames, "load_source_frames", lambda conn, task_ids: {})
         prepared, origin_run, task, locator = queue_resubmission_agent(
-            resubmission_historical_source.stage, commit_writer_engine
+            resubmission_historical_source.stage, commit_writer_engine, admin=resubmission_historical_source.admin
         ).result
         with commit_writer_engine.begin() as conn:
             source = (

@@ -58,7 +58,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
     class SourceConfig(BaseModel):
         pass
 
-    with commit_writer_engine.begin() as conn:
+    with commit_db_engine.begin() as conn:
         document = register_document(
             conn,
             project_id="p",
@@ -71,6 +71,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
         ).scalar_one()
+    with commit_writer_engine.begin() as conn:
         run = create_run(
             conn,
             project_id="p",
@@ -81,6 +82,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         )
     (view,) = publish_controlled_pdf_views(
         commit_writer_engine,
+        admin=commit_db_engine,
         prepared=prepared,
         run_id=run,
         document_id=document,
@@ -91,22 +93,23 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         unit_locator = view.ref.key
         frame = native_source_frame(view, (("s1", 0, len(source)),))
         packet = proposal_packet(prepared, frame, guideline="", configuration={})
-        config = record_method(
-            conn,
-            SimpleNamespace(
-                name="agent.opus",
-                version=SEMANTIC_AGENT_VERSION,
-                family="agent",
-                tier="agent",
-                confidence_source="agent",
-                unit_type="source_view",
-                Config=SourceConfig,
-            ),
-            "extract",
-            {},
-            "config",
-            prepared=prepared,
-        )
+        with commit_db_engine.begin() as metadata_connection:
+            config = record_method(
+                metadata_connection,
+                SimpleNamespace(
+                    name="agent.opus",
+                    version=SEMANTIC_AGENT_VERSION,
+                    family="agent",
+                    tier="agent",
+                    confidence_source="agent",
+                    unit_type="source_view",
+                    Config=SourceConfig,
+                ),
+                "extract",
+                {},
+                "config",
+                prepared=prepared,
+            )
         task = create_task(
             conn,
             run_id=run,

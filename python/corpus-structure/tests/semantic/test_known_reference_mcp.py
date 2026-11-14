@@ -123,15 +123,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         "sentences": SentenceConfig().model_dump(mode="json"),
     }
     e = commit_writer_engine
-    with e.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="known",
-            binding=OperationBinding(prepared.release_id, "input", 1, b"{}"),
-            kind="full",
-            options={"agent_configs": {"agent.opus/extract": configuration}},
-            code_commit="native-known",
-        )
+    with commit_db_engine.begin() as conn:
         document = register_document(
             conn,
             project_id="known",
@@ -141,9 +133,19 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             metadata={"page": "source.html"},
             mime="application/pdf",
         )
+    with e.begin() as conn:
+        run = create_run(
+            conn,
+            project_id="known",
+            binding=OperationBinding(prepared.release_id, "input", 1, b"{}"),
+            kind="full",
+            options={"agent_configs": {"agent.opus/extract": configuration}},
+            code_commit="native-known",
+        )
 
     (view,) = publish_controlled_pdf_views(
         e,
+        admin=commit_db_engine,
         prepared=prepared,
         run_id=run,
         document_id=document,
@@ -154,7 +156,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
 
     with e.begin() as conn:
         run, configuration = bind_primary_agent_run(
-            conn, run, prepared, (view.ref.id,), configuration
+            conn, run, prepared, (view.ref.id,), configuration, admin=commit_db_engine
         )
         locator = view.ref.key
         (agent,) = (
@@ -165,6 +167,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
                 configuration=configuration,
                 source_view_id=view.ref.id,
                 unit_key=locator,
+                admin=commit_db_engine,
             ),
         )
         packet = historical_agent_packet(conn, run, agent, prepared)
