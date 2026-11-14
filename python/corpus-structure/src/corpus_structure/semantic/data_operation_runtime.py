@@ -141,6 +141,7 @@ def validate_data_operation_runtime(binding: RuntimeBinding, prepared: PreparedR
         ):
             raise ValueError("target runtime does not retain its captured implementation inputs")
         from .data_operation_provider_profiles import runtime_profiles
+
         profiles = runtime_profiles(model, tuple(sources))
         if manifest["version"] == HISTORICAL_VERSION:
             if profiles:

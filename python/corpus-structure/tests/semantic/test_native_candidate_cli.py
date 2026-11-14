@@ -141,7 +141,7 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
                     NativeTransitionOp(recreated, None),
                     NativeTransitionOp(None, recreated),
                 ]
-            )
+            ),
         ), NativeAuthoring(
             desired=(recreated,),
             predecessor=(retired, recreated),
@@ -217,7 +217,9 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
         assert events == ["connect", "begin", "rollback", "closed"]
         operations = json.loads((out / "native_operations.json").read_bytes())
         assert [NativeObject.from_payload(item) for item in operations["desired"]] == [recreated]
-        restored = [NativeTransitionOp.from_payload(item["payload"]) for item in operations["operations"]]
+        restored = [
+            NativeTransitionOp.from_payload(item["payload"]) for item in operations["operations"]
+        ]
         assert [(item.before, item.after) for item in restored] == [
             (retired, None),
             (recreated, None),

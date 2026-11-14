@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -1348,18 +1349,22 @@ def test_static_correspondence_input_changes_cannot_hit_old_preparation(change):
     python_port_identity(model, sources, model.operations[0].semantic_id)
     source = sources.sources[0]
     if change == "body":
-        changed = replace(sources, sources=(replace(source, content=source.content + b"\n# captured source changed\n"),))
+        changed = replace(
+            sources,
+            sources=(replace(source, content=source.content + b"\n# captured source changed\n"),),
+        )
     elif change == "stub":
-        changed = replace(sources, sources=(replace(source, stub=b"def claim_source_item(index: int) -> str: ...\n"),))
+        changed = replace(
+            sources,
+            sources=(replace(source, stub=b"def claim_source_item(index: int) -> str: ...\n"),),
+        )
     elif change == "boundary":
         changed = replace(sources, boundary_contracts=(SourceArtifact("extra-contract", b"{}"),))
     else:
         changed = replace(sources, interpreter="python-3.14-changed-context")
     # Some changes are neutral under the admitted interpretation and some refuse;
     # neither can borrow preparation under the previous captured context.
-    try:
+    with suppress(PortRefusal, ValueError):
         python_port_identity(model, changed, model.operations[0].semantic_id)
-    except (PortRefusal, ValueError):
-        pass
     assert _prepared_python_sources.cache_info().misses == 2
     assert _prepared_python_sources.cache_info().hits == 0

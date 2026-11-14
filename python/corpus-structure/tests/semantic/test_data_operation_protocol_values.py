@@ -9,7 +9,11 @@ from sqlalchemy import ARRAY, Column
 from sqlalchemy.sql.type_api import TypeEngine
 
 from corpus_structure.schema.model import ModelError
-from corpus_structure.schema.physical import compile_physical, physical_source_closure, physical_sources_id
+from corpus_structure.schema.physical import (
+    compile_physical,
+    physical_source_closure,
+    physical_sources_id,
+)
 from corpus_structure.schema.relational import compile_metadata, render_typed_column_class
 from corpus_structure.semantic import _data_operation_fates
 from corpus_structure.semantic.data_operation_protocol import protocol_value_sets
@@ -17,9 +21,20 @@ from corpus_structure.semantic.metadata import PHYSICAL_MODEL
 from corpus_structure.semantic.typed_generation import generated_fates
 
 HISTORY = (
-    "known-absent", "unknown", "unavailable", "invalid", "closed", "awaiting-discovery",
-    "awaiting-inputs", "awaiting-population", "not-applicable", "failed", "cancelled", "partial",
-    "attached", "fulfilled",
+    "known-absent",
+    "unknown",
+    "unavailable",
+    "invalid",
+    "closed",
+    "awaiting-discovery",
+    "awaiting-inputs",
+    "awaiting-population",
+    "not-applicable",
+    "failed",
+    "cancelled",
+    "partial",
+    "attached",
+    "fulfilled",
 )
 
 
@@ -36,12 +51,21 @@ def test_captured_protocol_owns_distinct_fate_and_selector_sets():
     assert values["HistoricalFate"] == HISTORY
     assert values["VisibleFate"] == (*HISTORY, "waiting")
     assert values["RevocationSelectorKind"] == (
-        "derivation", "recipe", "runtime", "product", "original-source", "original-admission"
+        "derivation",
+        "recipe",
+        "runtime",
+        "product",
+        "original-source",
+        "original-admission",
     )
     md = compile_physical(sources)
     fate = md.tables["ops.demand_use"].c.fate
     assert fate.info["enum"] == HISTORY
-    assert all("'waiting'" not in str(item.sqltext) for item in fate.table.constraints if hasattr(item, "sqltext"))
+    assert all(
+        "'waiting'" not in str(item.sqltext)
+        for item in fate.table.constraints
+        if hasattr(item, "sqltext")
+    )
     assert Path(_data_operation_fates.__file__).read_text() == generated_fates()
 
 
@@ -53,7 +77,9 @@ def test_protocol_only_edit_changes_physical_identity_and_constraint():
     changed = sources | {"data-operation-native.yaml": yaml.safe_dump(protocol).encode()}
     after = compile_physical(changed).tables["ops.demand_use"]
     assert physical_sources_id(sources) != physical_sources_id(changed)
-    assert tuple(after.c.fate.info["enum"]) == tuple(value for value in HISTORY if value != "partial")
+    assert tuple(after.c.fate.info["enum"]) == tuple(
+        value for value in HISTORY if value != "partial"
+    )
     before_checks = {str(c.name) for c in before.constraints if hasattr(c, "sqltext")}
     after_checks = {str(c.name) for c in after.constraints if hasattr(c, "sqltext")}
     assert before_checks != after_checks

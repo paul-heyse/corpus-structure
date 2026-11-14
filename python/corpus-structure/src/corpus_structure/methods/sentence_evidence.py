@@ -82,12 +82,16 @@ class SentenceEvidenceOperation:
             },
         ],
         "assets": [
-            {"reference": "spacy-provider-inference-profile", "contract": "sentences/provider-inference-profile", "role": "provider-inference-profile"},
+            {
+                "reference": "spacy-provider-inference-profile",
+                "contract": "sentences/provider-inference-profile",
+                "role": "provider-inference-profile",
+            },
             {
                 "reference": "spacy-original-model-profile",
                 "contract": "sentences/profile-assets",
                 "role": "learned-parser-model-and-layout",
-            }
+            },
         ],
         "output_witnesses": [
             {

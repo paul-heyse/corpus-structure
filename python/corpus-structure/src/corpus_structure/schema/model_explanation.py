@@ -50,11 +50,23 @@ def explain_native_operations(
                 normalized.append(record["payload"])
             elif record.get("kind") == "privilege":
                 value = record["payload"]
+
                 def projected(policy):
                     if policy is None:
                         return None
-                    return {"identity": {"kind": policy["kind"], "name": policy["name"]}, "catalog": policy}
-                normalized.append({"version": 1, "before": projected(value["before"]), "after": projected(value["after"]), "normalization": value["normalization"]})
+                    return {
+                        "identity": {"kind": policy["kind"], "name": policy["name"]},
+                        "catalog": policy,
+                    }
+
+                normalized.append(
+                    {
+                        "version": 1,
+                        "before": projected(value["before"]),
+                        "after": projected(value["after"]),
+                        "normalization": value["normalization"],
+                    }
+                )
             else:
                 raise ValueError("unsupported frozen operation kind")
         operations = normalized
@@ -352,7 +364,13 @@ def explanation_from_native(raw: bytes, previous: ModelChangeExplanation | None 
     for ordinal, item in enumerate(payload.get("operations", ()), 1):
         if payload.get("version") == 2:
             if item["kind"] == "privilege":
-                diagnostics.append({"code": "declared-privilege-transition", "ordinal": ordinal, "transition": item["payload"]})
+                diagnostics.append(
+                    {
+                        "code": "declared-privilege-transition",
+                        "ordinal": ordinal,
+                        "transition": item["payload"],
+                    }
+                )
                 continue
             if item["kind"] != "native":
                 raise ValueError("unsupported frozen operation kind")

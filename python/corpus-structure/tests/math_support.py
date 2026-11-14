@@ -31,18 +31,18 @@ from math_worker_transport import configure_worker_transport
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
+from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.methods.math.grammar import PARSE_SECONDS
 from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
 from corpus_structure.methods.math.spans import (
+    MATH_KINDS,
     MathExtraction,
+    MathSpan,
     SpanReading,
     SpanValue,
     extract,
     formula_values,
 )
-
-from corpus_structure.core.vocab import SegmentKind
-from corpus_structure.methods.math.grammar import PARSE_SECONDS
-from corpus_structure.methods.math.spans import MATH_KINDS, MathSpan
 
 _ENVIRONMENT_OPENER = "\\begin"
 
@@ -235,7 +235,6 @@ def primary_scope_fixture(content, binders):
     from spacy.lang.en import English
     from spacy.tokens import Doc
 
-    from corpus_structure.core.vocab import SegmentKind
     from corpus_structure.ingest.sentences import make_doc
     from corpus_structure.semantic.constructions.math_scope import (
         MathScopeReadings,

@@ -13,7 +13,11 @@ from types import MappingProxyType
 
 from sqlalchemy import Table
 
-from corpus_structure.schema.physical import compile_physical, physical_source_closure, physical_sources_id
+from corpus_structure.schema.physical import (
+    compile_physical,
+    physical_source_closure,
+    physical_sources_id,
+)
 
 PHYSICAL_MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "physical.yaml"
 
@@ -27,7 +31,9 @@ def physical_model_id(root: Path) -> str:
 
 PHYSICAL_MODEL_ID = physical_model_id(PHYSICAL_MODEL)
 metadata = compile_physical(
-    physical_source_closure(PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes())
+    physical_source_closure(
+        PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
+    )
 )
 tables = MappingProxyType(dict(metadata.tables))
 SCHEMAS = frozenset({"sem", "data", "ops", "kb", "eval"})

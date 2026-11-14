@@ -17,8 +17,8 @@ from corpus_structure.semantic.proposals import (
     locate_proposal,
 )
 from corpus_structure.semantic.refusals import SemanticReason, decode_semantic_reason
-from semantic.semantic_reason_producers_support import release as release
 from semantic.proposals_support import native_frame
+from semantic.semantic_reason_producers_support import release as release
 
 
 def cut(
@@ -31,9 +31,9 @@ def cut(
     custom_binding=False,
 ):
     prepared = release(custom_binding)
-    frame = native_frame(ProposalFrame(
-        "unit", "The source names x.", (ProposalSentence("s", "sentence", 0, 19),)
-    ))
+    frame = native_frame(
+        ProposalFrame("unit", "The source names x.", (ProposalSentence("s", "sentence", 0, 19),))
+    )
     raw: dict[str, Any] = {
         "unit_ref": "unit",
         "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],

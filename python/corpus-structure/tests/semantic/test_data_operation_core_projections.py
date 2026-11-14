@@ -96,8 +96,11 @@ def test_core_projection_capture_consumes_explicit_counterfactual_metadata_witho
 
 
 @pytest.mark.parametrize("change", ["retire", "rename", "reclassify"])
-def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_ambient_fallback(change, monkeypatch, tmp_path):
+def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_ambient_fallback(
+    change, monkeypatch, tmp_path
+):
     import yaml
+
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic import data_operation_storage as storage
     from corpus_structure.semantic.metadata import metadata
@@ -117,7 +120,10 @@ def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_amb
     # remains coherent independently of the fixed current read function's support.
     assert proposed.sorted_tables
     monkeypatch.setattr(storage, "_ROOT", tmp_path / "unavailable-installed-model")
-    names = {relation.fullname for relation in storage.data_operation_immutable_relations(proposed, sources)}
+    names = {
+        relation.fullname
+        for relation in storage.data_operation_immutable_relations(proposed, sources)
+    }
     assert "ops.data_attempt_failure" not in names
     assert "ops.data_derivation" in names
     assert ("ops.renamed_attempt_failure" in names) is (change == "rename")

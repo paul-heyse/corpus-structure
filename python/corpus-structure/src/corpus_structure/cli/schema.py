@@ -541,12 +541,25 @@ def author_native_candidate(
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:
                 raise NativeAuthoringError("single-connection candidate has no upgrade operations")
-            from corpus_structure.semantic.alembic_privileges import PrivilegeTransitionOp, OwnedSQLOp, operation_record
+            from corpus_structure.semantic.alembic_privileges import (
+                OwnedSQLOp,
+                PrivilegeTransitionOp,
+                operation_record,
+            )
             from corpus_structure.semantic.native_data_steps import build_data_step
+
             for step in data_steps:
-                statement = str(build_data_step(step, target_metadata).compile(dialect=conn.dialect, compile_kwargs={"literal_binds": True}))
+                statement = str(
+                    build_data_step(step, target_metadata).compile(
+                        dialect=conn.dialect, compile_kwargs={"literal_binds": True}
+                    )
+                )
                 upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", statement))
-            native = [item for item in upgrade_ops.ops if isinstance(item, (NativeTransitionOp, PrivilegeTransitionOp))]
+            native = [
+                item
+                for item in upgrade_ops.ops
+                if isinstance(item, (NativeTransitionOp, PrivilegeTransitionOp))
+            ]
             migration_role = conn.exec_driver_sql("SELECT current_user").scalar_one()
             python_source = _native_candidate_python(
                 upgrade_ops,
@@ -557,7 +570,9 @@ def author_native_candidate(
             # physical row types in scope; rebuilding after its savepoint rolls
             # back cannot resolve those types and would author a second answer.
             admission = authored_admission_sql(authoring)
-            verify_rendered_candidate(conn, python_source, authoring, script.privilege_policies, admission)
+            verify_rendered_candidate(
+                conn, python_source, authoring, script.privilege_policies, admission
+            )
             products = {
                 "native_candidate.py": python_source.encode(),
                 "native_operations.json": canonical_bytes(
@@ -574,7 +589,12 @@ def author_native_candidate(
         except NativeAuthoringError as failure:
             if failure.authoring_context is not None:
                 from corpus_structure.cli.observation_logging import logger
-                logger().error("Native authoring operation refused", kind="native_authoring_failure", **failure.authoring_context)
+
+                logger().error(
+                    "Native authoring operation refused",
+                    kind="native_authoring_failure",
+                    **failure.authoring_context,
+                )
             raise
         finally:
             transaction.rollback()

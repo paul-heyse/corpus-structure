@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import cast
 
 from alembic.autogenerate import produce_migrations
-from alembic.operations.ops import MigrationScript, MigrateOperation, UpgradeOps
 from alembic.migration import MigrationContext
+from alembic.operations.ops import MigrateOperation, MigrationScript, UpgradeOps
 from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -20,7 +20,6 @@ from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
 from .alembic_privileges import PrivilegePolicy, policy_fact
-
 from .companion_projection_native import companion_projection_definitions
 from .metadata import SCHEMAS, metadata
 from .native_objects import (
@@ -45,7 +44,6 @@ class SeriesCandidate:
     @property
     def upgrade_ops(self) -> UpgradeOps | None:
         return self.migration.upgrade_ops
-
 
 
 def _shape_definition(connection, sql, *, source):
@@ -1747,6 +1745,7 @@ def _parse_native_state(content: bytes, path: Path):
         if payload["version"] not in {1, 2} or not isinstance(payload["desired"], list):
             raise ValueError("unsupported native state format")
         from .alembic_privileges import native_operation_payloads
+
         native_operation_payloads(payload)
         objects = tuple(NativeObject.from_payload(value) for value in payload["desired"])
         if len({item.identity for item in objects}) != len(objects):
@@ -1828,9 +1827,9 @@ class _PredecessorSource:
 
 def _predecessor_source(connection, *, predecessor=None, predecessor_state=None):
     """Keep transitions and admission on one declared predecessor authority."""
+    from .alembic_privileges import native_operation_payloads
     from .migrations import ALEMBIC_DIR
     from .source_view_native import _admission_descriptor
-    from .alembic_privileges import native_operation_payloads
 
     if predecessor is not None and predecessor_state is not None:
         raise NativeAuthoringError(
@@ -1929,7 +1928,9 @@ def _prepare_series_authoring(
     owned_authoring=False,
 ):
     """Normalize native definitions against the authoring transaction row types."""
-    products = series_native_definitions(connection, include_selected=include_selected, target_metadata=target_metadata)
+    products = series_native_definitions(
+        connection, include_selected=include_selected, target_metadata=target_metadata
+    )
     source = _predecessor_source(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
@@ -2178,6 +2179,7 @@ def prepare_series_candidate(
         )
     )
     from .native_data_steps import require_frozen_data_prerequisites
+
     require_frozen_data_prerequisites(existing, target_metadata)
     new_tables = [item for item in target_metadata.sorted_tables if item.fullname not in existing]
     scaffolding = connection.begin_nested()
@@ -2186,17 +2188,27 @@ def prepare_series_candidate(
         previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
         from sqlalchemy import inspect
         from sqlalchemy.schema import CreateColumn
+
         inspector = inspect(connection)
         for relation in target_metadata.sorted_tables:
             if relation.fullname not in existing:
                 continue
-            names = {column["name"] for column in inspector.get_columns(relation.name, schema=relation.schema)}
+            names = {
+                column["name"]
+                for column in inspector.get_columns(relation.name, schema=relation.schema)
+            }
             for column in relation.columns:
                 if column.name not in names:
                     # Row-type resolution only: actual defaults/constraints remain migration effects.
                     from sqlalchemy import Column
+
                     temporary = Column(column.name, column.type, nullable=True)
-                    connection.exec_driver_sql("ALTER TABLE " + connection.dialect.identifier_preparer.format_table(relation) + " ADD COLUMN " + str(CreateColumn(temporary).compile(dialect=connection.dialect)))
+                    connection.exec_driver_sql(
+                        "ALTER TABLE "
+                        + connection.dialect.identifier_preparer.format_table(relation)
+                        + " ADD COLUMN "
+                        + str(CreateColumn(temporary).compile(dialect=connection.dialect))
+                    )
         for relation in new_tables:
             # Migration authority creates cross-owner foreign keys, including
             # evaluator tables referencing ops cuts; runtime roles need no DDL ACLs.
@@ -2224,8 +2236,11 @@ def prepare_series_candidate(
         scaffolding.rollback()
     from .alembic_privileges import plugin as privileges_plugin
     from .source_view_native import _admission_descriptor
+
     descriptor = _admission_descriptor(authored_admission_sql(authoring))
-    previous_source = _predecessor_source(connection, predecessor=predecessor, predecessor_state=predecessor_state)
+    previous_source = _predecessor_source(
+        connection, predecessor=predecessor, predecessor_state=predecessor_state
+    )
     old_descriptor = _admission_descriptor(previous_source.admission)
     before_policies = old_descriptor.get("privileges", ())
     target_policies = descriptor["privileges"]
@@ -2256,20 +2271,48 @@ def prepare_series_candidate(
     )
     candidate = produce_migrations(context, target_metadata)
     if candidate.upgrade_ops is not None:
-        from alembic.operations.ops import ModifyTableOps, CreateForeignKeyOp
+        from alembic.operations.ops import CreateForeignKeyOp, ModifyTableOps
         from sqlalchemy.schema import AddConstraint
-        from .alembic_privileges import OwnedSQLOp, OwnedOperationsOp
+
+        from .alembic_privileges import OwnedOperationsOp, OwnedSQLOp
         from .source_view_native import _admission_descriptor
-        declared_owners = {row["relation"]: row.get("owner", "corpus_sem_publisher") for row in old_descriptor["tables"]}
+
+        declared_owners = {
+            row["relation"]: row.get("owner", "corpus_sem_publisher")
+            for row in old_descriptor["tables"]
+        }
         ordered: list[MigrateOperation] = []
         for item in candidate.upgrade_ops.ops:
             if isinstance(item, ModifyTableOps):
-                owner = declared_owners.get(f"{item.schema}.{item.table_name}", "corpus_sem_publisher")
+                owner = declared_owners.get(
+                    f"{item.schema}.{item.table_name}", "corpus_sem_publisher"
+                )
                 for change in item.ops:
                     if isinstance(change, CreateForeignKeyOp):
-                        remote = change.kw.get("referent_schema", item.schema) + "." + change.referent_table
-                        statement = str(AddConstraint(change.to_constraint()).compile(dialect=connection.dialect))
-                        ordered.append(OwnedSQLOp(owner, statement, tuple((remote, column, declared_owners.get(remote, "corpus_sem_publisher")) for column in change.remote_cols)))
+                        remote = (
+                            change.kw.get("referent_schema", item.schema)
+                            + "."
+                            + change.referent_table
+                        )
+                        statement = str(
+                            AddConstraint(change.to_constraint()).compile(
+                                dialect=connection.dialect
+                            )
+                        )
+                        ordered.append(
+                            OwnedSQLOp(
+                                owner,
+                                statement,
+                                tuple(
+                                    (
+                                        remote,
+                                        column,
+                                        declared_owners.get(remote, "corpus_sem_publisher"),
+                                    )
+                                    for column in change.remote_cols
+                                ),
+                            )
+                        )
                     else:
                         ordered.append(OwnedOperationsOp(owner, [change]))
             else:
@@ -2309,17 +2352,28 @@ def verify_frozen_catalog(connection, admission):
     using the same predicates and independently observed PostgreSQL catalog facts.
     """
     from .native_products import function_bodies
+
     body = function_bodies(admission)["data.require_execution_release"]
     try:
-        physical = body[body.index(" IF NOT EXISTS(SELECT FROM sem.physical_contract"):body.index(" IF EXISTS(SELECT FROM sem.release archived")]
-        catalog = body[body.index(" SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')"):body.index(" IF NOT EXISTS(SELECT FROM sem.deployment_admission")]
+        physical = body[
+            body.index(" IF NOT EXISTS(SELECT FROM sem.physical_contract") : body.index(
+                " IF EXISTS(SELECT FROM sem.release archived"
+            )
+        ]
+        catalog = body[
+            body.index(
+                " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')"
+            ) : body.index(" IF NOT EXISTS(SELECT FROM sem.deployment_admission")
+        ]
     except ValueError as error:
         raise NativeAuthoringError("frozen guard lacks the authoring catalog boundaries") from error
     connection.exec_driver_sql(
         "DO $candidate_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; BEGIN "
         "expected:=data.execution_contract_descriptor(); "
         "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem'; "
-        + physical + catalog + " END $candidate_catalog$;",
+        + physical
+        + catalog
+        + " END $candidate_catalog$;",
         execution_options={"no_parameters": True},
     )
 
@@ -2327,8 +2381,10 @@ def verify_frozen_catalog(connection, admission):
 def verify_rendered_candidate(connection, python_source, authoring, policies, admission):
     """Execute the exact generated upgrade and independent admission inside a savepoint."""
     from alembic.operations import Operations
+
     from .alembic_privileges import admit_privileges
     from .native_objects import admit_native
+
     role = connection.exec_driver_sql("SELECT current_user").scalar_one()
     savepoint = connection.begin_nested()
     try:
@@ -2344,13 +2400,24 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
     except DBAPIError as error:
         import ast as python_ast
         import traceback
+
         state = getattr(error.orig, "sqlstate", None)
-        sites = [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == "native_candidate.py" and frame.lineno is not None]
+        sites = [
+            frame.lineno
+            for frame in traceback.extract_tb(error.__traceback__)
+            if frame.filename == "native_candidate.py" and frame.lineno is not None
+        ]
         context: dict[str, object] = {"operation_kind": "rendered_upgrade", "sqlstate": state}
         if sites:
             line = sites[-1]
             context["source_line"] = line
-            calls = [node for node in python_ast.walk(python_ast.parse(python_source)) if isinstance(node, python_ast.Call) and node.lineno <= line <= (node.end_lineno or node.lineno) and isinstance(node.func, python_ast.Attribute)]
+            calls = [
+                node
+                for node in python_ast.walk(python_ast.parse(python_source))
+                if isinstance(node, python_ast.Call)
+                and node.lineno <= line <= (node.end_lineno or node.lineno)
+                and isinstance(node.func, python_ast.Attribute)
+            ]
             if calls:
                 call = min(calls, key=lambda node: (node.end_lineno or node.lineno) - node.lineno)
                 if not isinstance(call.func, python_ast.Attribute):
@@ -2359,8 +2426,12 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
                 if call.args and call.func.attr in {"native_transition", "privilege_transition"}:
                     payload = python_ast.literal_eval(call.args[0])
                     obj = payload.get("after") or payload.get("before")
-                    context["operation_identity"] = obj.get("identity", {"kind": obj.get("kind"), "name": obj.get("name")})
-        failure = NativeAuthoringError("rendered candidate operation refused; SQLSTATE " + str(state))
+                    context["operation_identity"] = obj.get(
+                        "identity", {"kind": obj.get("kind"), "name": obj.get("name")}
+                    )
+        failure = NativeAuthoringError(
+            "rendered candidate operation refused; SQLSTATE " + str(state)
+        )
         failure.authoring_context = context
         raise failure from error
     finally:

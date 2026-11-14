@@ -66,9 +66,14 @@ def _source_view(inputs):
             _fail("operation_source", artifact, "required source module is unavailable")
         supplied[name] = artifacts[artifact]
     roots = list(supplied)
-    for filename, document in physical_model_documents(retained_physical_sources(artifacts)).items():
+    for filename, document in physical_model_documents(
+        retained_physical_sources(artifacts)
+    ).items():
         name = aliases.get(filename.removesuffix(".yaml"), filename.removesuffix(".yaml"))
-        if filename not in {"physical.yaml", "pdf-records.yaml", "pdf-staging.yaml"} and name in supplied:
+        if (
+            filename not in {"physical.yaml", "pdf-records.yaml", "pdf-staging.yaml"}
+            and name in supplied
+        ):
             _fail("operation_source", name, "physical import conflicts with a declared module")
         supplied[name] = yaml.safe_dump(document, sort_keys=False).encode()
     schemas = {}

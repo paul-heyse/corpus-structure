@@ -767,13 +767,19 @@ def _semantic_nodes(content: bytes, names: tuple[str, ...]):
 
 def sentence_provider_asset(selection):
     from corpus_structure.methods.native_profiles import spacy_observation_policy
+
     from .data_operation_provider_profiles import profile_asset
-    return profile_asset("sentences/provider-inference-profile", selection, spacy_observation_policy())
+
+    return profile_asset(
+        "sentences/provider-inference-profile", selection, spacy_observation_policy()
+    )
 
 
 def sentence_provider_attestation(selection):
     from corpus_structure.methods.native_profiles import spacy_observation_policy
+
     from .data_operation_provider_profiles import profile_attestation
+
     return profile_attestation(selection, spacy_observation_policy())
 
 
@@ -1045,8 +1051,13 @@ class PreparedSentencePort:
         if any(Path(source.filename).read_bytes() != source.content for source in sources.sources):
             raise PortRefusal("sentence acquired source archive changed")
         from .data_operation_provider_profiles import operation_profile
+
         profile = operation_profile(self.operation, sources.boundary_contracts)
-        if profile is None or profile["identity"] != sentence_provider_attestation(self.profile.selection)["identity"]:
+        if (
+            profile is None
+            or profile["identity"]
+            != sentence_provider_attestation(self.profile.selection)["identity"]
+        ):
             raise PortRefusal("acquired sentence provider differs from captured semantic profile")
         retained = {artifact.name: artifact for artifact in self.custody}
         if len(retained) != len(self.custody) or any(

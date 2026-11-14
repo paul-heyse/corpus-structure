@@ -15,6 +15,7 @@ from corpus_structure.ingest.sentences import SentenceConfig, split
 from corpus_structure.methods.math.scope import resolve_scopes
 from corpus_structure.methods.math.spans import extract, formula_values
 
+
 def load(env: Any, name: str) -> dict[str, Any]:
     return json.loads((env.data / f"{name}.json").read_text(encoding="utf-8"))
 

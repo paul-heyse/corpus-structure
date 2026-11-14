@@ -526,7 +526,9 @@ def hanlp_profile_assets(selection):
 
 def hanlp_provider_asset(selection):
     from corpus_structure.methods.native_profiles import hanlp_observation_policy
+
     from .data_operation_provider_profiles import profile_asset
+
     if selection is None:
         selection = prepare_hanlp_selection()
     return profile_asset("hanlp/provider-inference-profile", selection, hanlp_observation_policy())
@@ -534,7 +536,9 @@ def hanlp_provider_asset(selection):
 
 def hanlp_provider_attestation(selection):
     from corpus_structure.methods.native_profiles import hanlp_observation_policy
+
     from .data_operation_provider_profiles import profile_attestation
+
     if selection is None:
         selection = prepare_hanlp_selection()
     return profile_attestation(selection, hanlp_observation_policy())
@@ -573,7 +577,11 @@ def hanlp_operation_sources(selection, *, sentence_configuration=None, include_d
             ),
             PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),
         ),
-        boundary_contracts=(hanlp_profile_assets(selection), hanlp_execution_custody(selection), hanlp_provider_asset(selection)),
+        boundary_contracts=(
+            hanlp_profile_assets(selection),
+            hanlp_execution_custody(selection),
+            hanlp_provider_asset(selection),
+        ),
     )
     if not include_dependencies:
         return own
@@ -611,10 +619,13 @@ class PreparedHanlpPort:
         from corpus_structure.methods.pm2_hanlp_products import _constituency, _dependency_graph
 
         from .data_operation_prepared_products import verify_prepared_product
-
         from .data_operation_provider_profiles import operation_profile
+
         profile = operation_profile(self.operation, self.sources.boundary_contracts)
-        if profile is None or profile["identity"] != hanlp_provider_attestation(self.profile.selection)["identity"]:
+        if (
+            profile is None
+            or profile["identity"] != hanlp_provider_attestation(self.profile.selection)["identity"]
+        ):
             raise ValueError("acquired HanLP provider differs from captured semantic profile")
         verify_prepared_product(
             self.identity,

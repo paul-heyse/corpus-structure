@@ -180,7 +180,9 @@ REBOUND_DOWNSTREAM = "urn:rebound-support-dependent"
 def _rebound_recipe():
     assert CHAIN.declaration_content is not None
     document = json.loads(CHAIN.declaration_content)
-    consumer = next(operation for operation in document["operations"] if operation["id"] == DOWNSTREAM)
+    consumer = next(
+        operation for operation in document["operations"] if operation["id"] == DOWNSTREAM
+    )
     consumer["potential_dependencies"] = [PRODUCER, CONSUMER]
     role = consumer["roles"][0]
     role["presence"] = "required"
@@ -194,7 +196,9 @@ def _rebound_recipe():
     dependent["roles"][0]["support"]["provenance"] = "exact"
     dependent["roles"][0]["support"]["identity_requirements"] = ["episode"]
     document["operations"].append(dependent)
-    return replace(CHAIN, name="rebound-selected-support-scopes", declaration_content=canonical_bytes(document))
+    return replace(
+        CHAIN, name="rebound-selected-support-scopes", declaration_content=canonical_bytes(document)
+    )
 
 
 REBOUND = _rebound_recipe()
@@ -202,39 +206,88 @@ REBOUND = _rebound_recipe()
 
 @pytest.mark.db
 @pytest.mark.parametrize("ddo_kernel", [REBOUND], indirect=True, ids=["rebound-scopes"])
-def test_read_and_publication_pin_selected_rebound_support_in_addition_to_original_episode(ddo_kernel):
+def test_read_and_publication_pin_selected_rebound_support_in_addition_to_original_episode(
+    ddo_kernel,
+):
     # B's original fact supports A. An equivalent B fact will later be produced
     # with independent required support from C, without changing A's computation.
     _, _, _, request_b = attach(ddo_kernel, subject="subject:B", original_source="source:B")
     fence_b = claim(ddo_kernel, request_b)
     original_b = publish(ddo_kernel, fence_b, retain(ddo_kernel, fence_b, outputs=(41,)))
-    demand_a, _, (ready_a,) = _demand(ddo_kernel, _entry(ddo_kernel, original_b), source="source:A", operation=DOWNSTREAM, inference="rebound:A")
+    demand_a, _, (ready_a,) = _demand(
+        ddo_kernel,
+        _entry(ddo_kernel, original_b),
+        source="source:A",
+        operation=DOWNSTREAM,
+        inference="rebound:A",
+    )
     original_a = _complete_ready(ddo_kernel, ready_a, value=42)
 
     _, _, _, request_c = attach(ddo_kernel, subject="subject:C", original_source="source:C")
     fence_c = claim(ddo_kernel, request_c)
     original_c = publish(ddo_kernel, fence_c, retain(ddo_kernel, fence_c, outputs=(41,)))
-    _, _, (replacement_b,) = _demand(ddo_kernel, _entry(ddo_kernel, original_c), source="source:B", subject="subject:B", scope=b'{"page":1}', operation=CONSUMER, inference="replacement:B")
+    _, _, (replacement_b,) = _demand(
+        ddo_kernel,
+        _entry(ddo_kernel, original_c),
+        source="source:B",
+        subject="subject:B",
+        scope=b'{"page":1}',
+        operation=CONSUMER,
+        inference="replacement:B",
+    )
     equivalent_b = _complete_ready(ddo_kernel, replacement_b, value=41)
     assert _entry(ddo_kernel, equivalent_b).reference == _entry(ddo_kernel, original_b).reference
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke("revoke_data_support", {"project_id": "ddo-test", "original_source": "source:B", "selector_kind": "derivation", "selector": original_b["derivation_id"], "reason": "replace B support with independently produced equivalent value"})
+        DataOperationStorage(connection).invoke(
+            "revoke_data_support",
+            {
+                "project_id": "ddo-test",
+                "original_source": "source:B",
+                "selector_kind": "derivation",
+                "selector": original_b["derivation_id"],
+                "reason": "replace B support with independently produced equivalent value",
+            },
+        )
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         assert planner.ready(planner.resume(demand_a["demand_id"]), authorization=b"{}") == ()
         assert planner.fulfilled_request_ids
         current_a = planner.resume(demand_a["demand_id"])
-        assert any(use["derivation_id"] == original_a["derivation_id"] and use["fate"] == "fulfilled" for use in current_a["uses"])
+        assert any(
+            use["derivation_id"] == original_a["derivation_id"] and use["fate"] == "fulfilled"
+            for use in current_a["uses"]
+        )
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 4
 
-    demand_d, pinned, (ready_d,) = _demand(ddo_kernel, _entry(ddo_kernel, original_a), source="source:D", operation=REBOUND_DOWNSTREAM, inference="inspect-rebound:A")
+    demand_d, pinned, (ready_d,) = _demand(
+        ddo_kernel,
+        _entry(ddo_kernel, original_a),
+        source="source:D",
+        operation=REBOUND_DOWNSTREAM,
+        inference="inspect-rebound:A",
+    )
     with ddo_kernel["engine"].begin() as connection:
         scope_c = connection.scalar(text("SELECT ops.ddo_scope('ddo-test','source:C')"))
-        locked = connection.scalar(text("SELECT ops.ddo_lock_support('ddo-test','source:D',CAST(:support AS jsonb))"), {"support": json.dumps(json.loads(ready_d.binding)["support"])})
+        locked = connection.scalar(
+            text("SELECT ops.ddo_lock_support('ddo-test','source:D',CAST(:support AS jsonb))"),
+            {"support": json.dumps(json.loads(ready_d.binding)["support"])},
+        )
         assert locked[scope_c] == 0
-        DataOperationStorage(connection).invoke("revoke_data_support", {"project_id": "ddo-test", "original_source": "source:C", "selector_kind": "derivation", "selector": original_c["derivation_id"], "reason": "withdraw selected replacement support"})
+        DataOperationStorage(connection).invoke(
+            "revoke_data_support",
+            {
+                "project_id": "ddo-test",
+                "original_source": "source:C",
+                "selector_kind": "derivation",
+                "selector": original_c["derivation_id"],
+                "reason": "withdraw selected replacement support",
+            },
+        )
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        with pytest.raises(DBAPIError, match="pins or current trust differ"), connection.begin_nested():
+        with (
+            pytest.raises(DBAPIError, match="pins or current trust differ"),
+            connection.begin_nested(),
+        ):
             planner.resume(demand_d["demand_id"], read_id=pinned["read_id"])
         current = planner.resume(demand_d["demand_id"])
         assert current["trust_snapshot"][scope_c] == 1

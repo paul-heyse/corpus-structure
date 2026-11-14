@@ -95,7 +95,9 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     declarations["classes"]["PdfRecordMembership"]["attributes"]["ordinal"]["minimum_value"] = 2
     del declarations["enums"]["PdfNativeRecordFamily"]["permissible_values"]["cell"]
     record_path.write_text(yaml.safe_dump(declarations, sort_keys=False))
-    changed = compile_physical(physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes()))
+    changed = compile_physical(
+        physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes())
+    )
     changed_id = physical_model_id(copied)
     changed.info["physical_model_id"] = changed_id
     ddl = str(CreateTable(changed.tables["kb.pdf_record_membership"]).compile(dialect=dialect()))
@@ -628,7 +630,9 @@ def test_independent_model_role_edit_changes_wire_selection(tmp_path):
     declarations = yaml.safe_load(PHYSICAL_MODEL.with_name("pdf-staging.yaml").read_bytes())
     declarations["classes"]["PdfRecordAccess"]["annotations"]["pds:record_boundary_role"] = "upload"
     (tmp_path / "pdf-staging.yaml").write_text(yaml.safe_dump(declarations, sort_keys=False))
-    changed = compile_physical(physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes()))
+    changed = compile_physical(
+        physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes())
+    )
     assert "kb.pdf_record_access" in derived_record_tables()
     assert "kb.pdf_record_access" not in derived_record_tables(changed)
     assert "kb.pdf_record_access" in record_upload_tables(changed)

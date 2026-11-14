@@ -87,14 +87,26 @@ def native_frame(original=None):
     original = frame() if original is None else original
     context = dict(
         pieces=[dict(kind="native_text", item_ref="#/texts/0", start=0, end=len(original.text))],
-        items=[dict(self_ref="#/texts/0")], ancestors=[], health={},
+        items=[dict(self_ref="#/texts/0")],
+        ancestors=[],
+        health={},
     )
     value = NativeProposalFrame(
-        original.unit_ref, original.text, (), 1, ProductReference(1, "native", "a" * 64),
-        "#/groups/0", "direct", sha256(canonical_bytes(context)).hexdigest(), "b" * 64,
+        original.unit_ref,
+        original.text,
+        (),
+        1,
+        ProductReference(1, "native", "a" * 64),
+        "#/groups/0",
+        "direct",
+        sha256(canonical_bytes(context)).hexdigest(),
+        "b" * 64,
         canonical_bytes(context).decode(),
     )
-    return replace(value, sentences=tuple(
-        replace(sentence, locator=native_address(value, start=sentence.start, end=sentence.end))
-        for sentence in original.sentences
-    ))
+    return replace(
+        value,
+        sentences=tuple(
+            replace(sentence, locator=native_address(value, start=sentence.start, end=sentence.end))
+            for sentence in original.sentences
+        ),
+    )

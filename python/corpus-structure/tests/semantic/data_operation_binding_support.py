@@ -67,7 +67,9 @@ def binding_source_recipe():
 
     # The source now contains captured Core projection placeholders. Resolve the
     # production template once before selecting its three independent codec helpers.
-    return BindingSourceRecipe(native_sql(native_protocol_sources()).encode(), binding_native_sql().encode())
+    return BindingSourceRecipe(
+        native_sql(native_protocol_sources()).encode(), binding_native_sql().encode()
+    )
 
 
 def build_binding_source(recipe, admin, writer, directory, *, purpose_engine=None):
@@ -670,10 +672,30 @@ class TypedBindingEvidenceCase:
 # The planner may expose SQL unknown; the protected interpreter instead refuses
 # a selected unknown operand. These are deliberately independent expectations.
 TYPED_BINDING_EVIDENCE_CASES = (
-    TypedBindingEvidenceCase("integer-beyond-bigint", "integer", ["integer", "1208925819614629174706177"], ["integer", "1208925819614629174706177"], True),
-    TypedBindingEvidenceCase("adjacent-float", "float", ["float", "0x1.0000000000000p+0"], ["float", "0x1.0000000000001p+0"], False),
+    TypedBindingEvidenceCase(
+        "integer-beyond-bigint",
+        "integer",
+        ["integer", "1208925819614629174706177"],
+        ["integer", "1208925819614629174706177"],
+        True,
+    ),
+    TypedBindingEvidenceCase(
+        "adjacent-float",
+        "float",
+        ["float", "0x1.0000000000000p+0"],
+        ["float", "0x1.0000000000001p+0"],
+        False,
+    ),
     TypedBindingEvidenceCase("typed-null", "integer", ["null"], ["integer", "1"], None, True),
     TypedBindingEvidenceCase("missing-field", "integer", None, ["integer", "1"], None, True),
-    TypedBindingEvidenceCase("leap-day-boundary", "date", ["date", "2000-02-29"], ["date", "2000-03-01"], False),
-    TypedBindingEvidenceCase("adjacent-utc-instants", "datetime", ["datetime", "2000-01-01T00:00:00+00:00"], ["datetime", "2000-01-01T00:00:00.000001+00:00"], False),
+    TypedBindingEvidenceCase(
+        "leap-day-boundary", "date", ["date", "2000-02-29"], ["date", "2000-03-01"], False
+    ),
+    TypedBindingEvidenceCase(
+        "adjacent-utc-instants",
+        "datetime",
+        ["datetime", "2000-01-01T00:00:00+00:00"],
+        ["datetime", "2000-01-01T00:00:00.000001+00:00"],
+        False,
+    ),
 )

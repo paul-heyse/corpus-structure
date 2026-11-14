@@ -13,7 +13,11 @@ VALUE_SET_PATHS = {
     "HistoricalFate": ("definitions", "historical_fate", "enum"),
     "VisibleFate": ("definitions", "visible_fate", "enum"),
     "RevocationSelectorKind": (
-        "definitions", "revoke_data_support_request", "properties", "selector_kind", "enum"
+        "definitions",
+        "revoke_data_support_request",
+        "properties",
+        "selector_kind",
+        "enum",
     ),
 }
 
@@ -42,7 +46,10 @@ def protocol_value_sets(content: bytes) -> dict[str, tuple[str, ...]]:
 
 def recordable_fate_sql(content: bytes) -> str:
     """Compile a finite literal list, with SQL quoting independent of its values."""
-    return ",".join("'" + value.replace("'", "''") + "'" for value in protocol_value_sets(content)["RecordableFate"])
+    return ",".join(
+        "'" + value.replace("'", "''") + "'"
+        for value in protocol_value_sets(content)["RecordableFate"]
+    )
 
 
 def generated_fate_source(content: bytes) -> str:

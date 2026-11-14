@@ -1,6 +1,11 @@
 # Status
 
-_Updated 2026-11-14. Current DDO increment concluded; native DDO-03/04 and DDO-05 dependency readiness remain open, now including accepted SQLAlchemy/Alembic alignment. DDO-06–12 remain open. Remaining tests cancelled by operator. No persistent deployment, activation or cutover._
+_Updated 2026-11-14. Foundation execution resumed: reopened DDO-03/04/05, accepted SQLAlchemy/Alembic alignment, pure-preparation reuse and six bounded cleanup groups. Focused new/affected checks authorized; cancelled provider journeys, full campaigns and health sweeps stay stopped. No persistent deployment, activation or cutover._
+
+## Foundation execution in progress · 2026-11-14
+
+- Authoring, six cleanup groups and protocol/cache are integrated through `3259414c7`; CA-08/09/Core source is merged at `c2f1c585e`, with functional verification and integrated fixes still open. The [foundation receipt](docs/plans/declared-data-operations_2026-11-12.md#foundation-execution-receipt--in-progress-2026-11-14) owns new scoped results and the whole-upgrade rollback-authoring repair. No successor registered or persistent change; one combined final-source successor replaces the intermediate two-head authoring sequence to avoid duplicate replay.
+- Final pre-candidate typing passed `d3bdd152b74440c3a5a42cdf29ec75ac`; Ruff passed `b78b96b20b784f3b87ed89b36c737e0b`. Scoped cleanup/protocol, typed-native and captured-input controls passed with their retained failures/replacements in the coordinator; provider/trust/rebind native cases await the successor. These are bounded results, not full qualification.
 
 ## Completion audit · 2026-11-14
 

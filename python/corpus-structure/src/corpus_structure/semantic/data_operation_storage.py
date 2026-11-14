@@ -1010,7 +1010,8 @@ def data_operation_immutable_relations(target_metadata, physical_sources):
     relations = []
     for model_class, definition in sorted(declaration["classes"].items()):
         selected = [
-            table for table in target_metadata.tables.values()
+            table
+            for table in target_metadata.tables.values()
             if table.info.get("model_class") == model_class
         ]
         if len(selected) != 1:
@@ -1018,7 +1019,9 @@ def data_operation_immutable_relations(target_metadata, physical_sources):
         relation = selected[0]
         immutability = definition.get("annotations", {}).get("ph:immutability")
         if relation.info.get("immutability") != immutability:
-            raise ValueError("approved DDO table immutability differs from captured class: " + model_class)
+            raise ValueError(
+                "approved DDO table immutability differs from captured class: " + model_class
+            )
         if immutability == "intrinsic":
             relations.append(relation)
     return tuple(relations)
@@ -1093,7 +1096,8 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
     captured_map = _captured(captured)
     physical_sources = {
         source.name.removeprefix("native/projection-physical/"): source.content
-        for source in captured if source.name.startswith("native/projection-physical/")
+        for source in captured
+        if source.name.startswith("native/projection-physical/")
     }
     if target_metadata is None:
         from corpus_structure.schema.physical import compile_physical

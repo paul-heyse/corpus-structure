@@ -168,7 +168,11 @@ def test_all_data_children_are_pinned_to_the_realization_release() -> None:
 
 
 def test_metadata_deterministic_and_fixed() -> None:
-    again = compile_physical(physical_source_closure(PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()))
+    again = compile_physical(
+        physical_source_closure(
+            PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
+        )
+    )
     dialect = postgresql.dialect()
     for name, item in metadata.tables.items():
         assert str(CreateTable(item).compile(dialect=dialect)) == str(

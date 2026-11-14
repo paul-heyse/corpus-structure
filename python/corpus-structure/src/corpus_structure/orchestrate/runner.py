@@ -11,7 +11,6 @@ from sqlalchemy import Connection
 from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import RunKind, Stage, TaskUnitType
 
-
 UnitSource = Callable[[Connection, Any, Any], Iterable[UnitRef]]
 
 

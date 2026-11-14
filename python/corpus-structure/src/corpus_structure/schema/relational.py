@@ -98,8 +98,8 @@ from sqlalchemy.dialects.postgresql import (
     TIMESTAMP,
 )
 from sqlalchemy.schema import DefaultClause
-from sqlalchemy.types import TypeEngine
 from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
+from sqlalchemy.types import TypeEngine
 
 from corpus_structure.schema.model import (
     Invariant,
@@ -610,8 +610,12 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     expected = "read-projections" if read_only else "physical"
     if str(view.schema.id) != "https://corpus-structure.org/model/semantic/" + expected:
         raise ModelError(["semantic target requires its trusted physical module"])
-    if any(ci_annotations(enum).get("ph:values_from") is not None for enum in view.all_enums().values()):
-        raise ModelError(["referenced physical value sets require compile_physical with captured inputs"])
+    if any(
+        ci_annotations(enum).get("ph:values_from") is not None for enum in view.all_enums().values()
+    ):
+        raise ModelError(
+            ["referenced physical value sets require compile_physical with captured inputs"]
+        )
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
     # Trusted physical imports may contribute stored relations. Imported payload
     # classes without a physical subset remain boundary types, never tables.

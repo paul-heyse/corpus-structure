@@ -65,8 +65,13 @@ def _enum_references(document: dict[str, Any]):
         if not isinstance(reference, str) or "#/" not in reference:
             raise ModelError(["physical enum reference requires a local source and JSON pointer"])
         source, pointer = reference.split("#", 1)
-        if (not source or PurePosixPath(source).name != source or ":" in source
-            or source in {".", ".."} or not source.endswith(".yaml")):
+        if (
+            not source
+            or PurePosixPath(source).name != source
+            or ":" in source
+            or source in {".", ".."}
+            or not source.endswith(".yaml")
+        ):
             raise ModelError(["physical enum reference must name a flat local source"])
         if enum.get("permissible_values"):
             raise ModelError(["physical enum cannot author values beside a referenced value set"])
@@ -123,7 +128,11 @@ def resolve_physical_value_sets(document: dict[str, Any], sources: Mapping[str, 
             or any(not isinstance(item, str) or not item for item in value)
             or len(value) != len(set(value))
         ):
-            raise ModelError([f"physical enum reference is not a nonempty distinct string set: {source}#{pointer}"])
+            raise ModelError(
+                [
+                    f"physical enum reference is not a nonempty distinct string set: {source}#{pointer}"
+                ]
+            )
         enum["permissible_values"] = {item: {} for item in value}
         # The resolved LinkML view owns values; dependency custody remains in sources.
         del enum["annotations"]["ph:values_from"]
@@ -149,12 +158,17 @@ def physical_model_documents(
     closure, documents = _source_documents(root, sources.get)
     if set(closure) != set(sources):
         raise ModelError(["unexpected sources in the physical declaration closure"])
-    return {name: resolve_physical_value_sets(document, closure) for name, document in documents.items()}
+    return {
+        name: resolve_physical_value_sets(document, closure) for name, document in documents.items()
+    }
 
 
 def compile_physical(
-    sources: Mapping[str, bytes], *, linkml_types: bytes | None = None,
-    root: str = PHYSICAL_ROOT, target: str = "semantic"
+    sources: Mapping[str, bytes],
+    *,
+    linkml_types: bytes | None = None,
+    root: str = PHYSICAL_ROOT,
+    target: str = "semantic",
 ) -> MetaData:
     """Compile the exact closure. The only nonlocal import is the pinned LinkML types."""
     root_name = root

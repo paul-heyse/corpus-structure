@@ -170,9 +170,15 @@ def test_profiled_runtime_refuses_missing_forged_or_historical_profile_attestati
 def _unprofiled_recipe():
     assert PINNED.declaration_content is not None
     document = json.loads(PINNED.declaration_content)
-    consumer = next(operation for operation in document["operations"] if operation["id"] == CONSUMER)
+    consumer = next(
+        operation for operation in document["operations"] if operation["id"] == CONSUMER
+    )
     consumer["roles"][0]["support"]["identity_requirements"] = ["provider"]
-    return replace(PINNED, name="missing-producing-provider-custody", declaration_content=canonical_bytes(document))
+    return replace(
+        PINNED,
+        name="missing-producing-provider-custody",
+        declaration_content=canonical_bytes(document),
+    )
 
 
 UNPROFILED = _unprofiled_recipe()
@@ -180,10 +186,18 @@ UNPROFILED = _unprofiled_recipe()
 
 @pytest.mark.db
 @pytest.mark.parametrize("ddo_kernel", [UNPROFILED], indirect=True, ids=["unprofiled-event"])
-def test_producing_event_without_captured_profile_cannot_satisfy_provider_sensitive_role(ddo_kernel):
+def test_producing_event_without_captured_profile_cannot_satisfy_provider_sensitive_role(
+    ddo_kernel,
+):
     _, episode, _ = _produce(ddo_kernel, subject="subject:B", value=42)
     with ddo_kernel["engine"].connect() as connection:
-        assert connection.scalar(text("SELECT ops.ddo_episode_provider_identity(:episode)"), {"episode": episode["derivation_id"]}) is None
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_episode_provider_identity(:episode)"),
+                {"episode": episode["derivation_id"]},
+            )
+            is None
+        )
     demand = _register(ddo_kernel, _entry(ddo_kernel, episode))
     _, ready = _ready(ddo_kernel, demand)
     assert ready == ()

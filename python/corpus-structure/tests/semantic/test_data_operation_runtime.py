@@ -75,11 +75,19 @@ def test_target_runtime_rejects_changed_bytes_and_detached_attestation():
 
 def test_unprofiled_historical_runtime_v1_retains_exact_reading():
     from hashlib import sha256
+
     release = prepared()
-    binding = prepare_data_operation_runtime(release, (SourceArtifact("worker.py", b"one"),), execution_profile="execution:one", observed={})
+    binding = prepare_data_operation_runtime(
+        release,
+        (SourceArtifact("worker.py", b"one"),),
+        execution_profile="execution:one",
+        observed={},
+    )
     manifest = json.loads(binding.manifest)
     assert manifest.pop("provider_profiles") == {}
     manifest["version"] = "data-operation-runtime-binding-v1"
     content = canonical_bytes(manifest)
-    historical = replace(binding, runtime_id="runtime:" + sha256(content).hexdigest(), manifest=content)
+    historical = replace(
+        binding, runtime_id="runtime:" + sha256(content).hexdigest(), manifest=content
+    )
     validate_runtime_binding(historical, release)

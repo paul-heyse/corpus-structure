@@ -1464,7 +1464,9 @@ def _project_cut(
         descriptor = descriptors[observation["id"]]
         if observation["id"] not in parsed:
             coverage_row(
-                "claim_proposal", observation["observation_key"], "partial",
+                "claim_proposal",
+                observation["observation_key"],
+                "partial",
                 "current native source frame unavailable; historical proposal retained",
             )
             continue
@@ -1480,7 +1482,9 @@ def _project_cut(
                 statement["anchor"] = statement_anchor(statement["anchor"], descriptor["frame"])
             else:
                 coverage_row(
-                    "statement", source + "/" + statement["id"], "partial",
+                    "statement",
+                    source + "/" + statement["id"],
+                    "partial",
                     "explicit unresolved external statement reference",
                 )
 
