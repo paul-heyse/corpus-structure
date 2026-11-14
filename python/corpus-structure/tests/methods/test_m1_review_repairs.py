@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import Engine
 
-from corpus_structure.core.method import MethodSettings
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
 from corpus_structure.orchestrate.m1 import RetainedIntegratedConfig, RetainedIntegratedPdf
 from corpus_structure.semantic.product_reference import ProductReference
@@ -223,8 +222,6 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
     rows.clear()
     with pytest.raises(ValueError, match="exact corpus member"):
         method.select(run, cfg)
-
-
 
 
 def test_configured_descriptions_change_pack_conditioning_without_changing_released_roles():

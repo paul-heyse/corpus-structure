@@ -10,7 +10,6 @@ from pydantic import JsonValue
 
 from corpus_structure.core.method import SourceViewRef, UnitRef
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import GlinerWorkerError
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release

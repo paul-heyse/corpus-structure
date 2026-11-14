@@ -156,6 +156,7 @@ def source_annotation_rows(value):
 def retained_source_annotation_products(source, native):
     """Restore captured blocks once from an authenticated nominal annotation input."""
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+
     from .declared_record_sources import DeclaredNativeFrameSource
 
     value = json.loads(native.content)
@@ -166,9 +167,15 @@ def retained_source_annotation_products(source, native):
     if not rows:
         return ()
     frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
-    return restore_annotations(rows, source=frame, profile=AnnotationProfile(
-        SentenceConfig.model_validate(value["configuration"]), execution_profile=value["execution_profile"]
-    ), require_complete=False)
+    return restore_annotations(
+        rows,
+        source=frame,
+        profile=AnnotationProfile(
+            SentenceConfig.model_validate(value["configuration"]),
+            execution_profile=value["execution_profile"],
+        ),
+        require_complete=False,
+    )
 
 
 def source_annotation_member_values(value: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
@@ -243,22 +250,30 @@ def source_annotation_packets(prepared, model, value):
         original_source=value["source"]["document"],
         analyzed_scope=dict(source=value["source"], selectors=value["selectors"]),
     )
-    contracts = {name: manifest_contract(prepared, model, name) for name in ("DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")}
+    contracts = {
+        name: manifest_contract(prepared, model, name)
+        for name in ("DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")
+    }
     packets = []
     for row in source_annotation_member_values(value):
         name = "DdoNativeToken" if row["record_type"] == "token" else "DdoNativeSentence"
         body = {key: row[key] for key in ("local_id", "block_id", "ordinal", "start", "end")}
         body["record_type"] = "native_" + row["record_type"]
-        packets.append(dict(
-            member_id=row["local_id"],
-            kind_contract=contracts[name],
-            context=context,
-            body=body,
-        ))
-    return [*packets, annotation_manifest(
-        value,
-        kind_contract=contracts["DdoSourceAnnotationManifest"],
-    )]
+        packets.append(
+            dict(
+                member_id=row["local_id"],
+                kind_contract=contracts[name],
+                context=context,
+                body=body,
+            )
+        )
+    return [
+        *packets,
+        annotation_manifest(
+            value,
+            kind_contract=contracts["DdoSourceAnnotationManifest"],
+        ),
+    ]
 
 
 def annotation_manifest(value, *, kind_contract):

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import MethodSettings
-from corpus_structure.semantic.data_operation_service import DemandOperationSelection, DdoJsonValue
+from corpus_structure.semantic.data_operation_service import DdoJsonValue, DemandOperationSelection
 from corpus_structure.semantic.structural_products import ExternalSourceRef
 
 

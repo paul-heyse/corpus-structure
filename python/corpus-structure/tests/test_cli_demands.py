@@ -28,10 +28,13 @@ def routing(monkeypatch):
 
     monkeypatch.setattr(demands, "ENGINE", engine)
     monkeypatch.setattr(
-        demands, "read_data_demand",
+        demands,
+        "read_data_demand",
         lambda conn, demand, **options: {
-            "demand_id": demand, "project_id": "project:one",
-            "release_id": "release:one", "runtime_id": "runtime:one",
+            "demand_id": demand,
+            "project_id": "project:one",
+            "release_id": "release:one",
+            "runtime_id": "runtime:one",
         },
     )
     monkeypatch.setattr(

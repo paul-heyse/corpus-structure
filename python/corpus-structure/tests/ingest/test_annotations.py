@@ -775,7 +775,9 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         text,
         controlled.vocab,
     )
-    recipe = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())["annotation_rules"]
+    recipe = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())[
+        "annotation_rules"
+    ]
     rules = tuple(AnnotationRule.model_validate(r) for r in recipe)
     matches = PreparedAnnotationRules(controlled.vocab, rules=rules).match(view).matches
     passage = StructuralPassage(

@@ -1,18 +1,21 @@
 """Ordinary choices preserve source meaning while compiled declarations own execution."""
 
-from dataclasses import asdict
-from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
 
 from corpus_structure.orchestrate.source_request import (
-    NamedScope, SourceRunRequest, WholeDocument, method_settings, source_selection,
+    NamedScope,
+    SourceRunRequest,
+    WholeDocument,
+    method_settings,
+    source_selection,
 )
 from corpus_structure.semantic.data_operation_service import (
-    DemandOperationSelection, DemandRoot, NativeDemandRequest,
+    DemandOperationSelection,
+    DemandRoot,
+    NativeDemandRequest,
 )
 
 
@@ -22,27 +25,50 @@ def request(**changes):
     )
 
 
-@pytest.mark.parametrize("selection", [source_selection(), source_selection(scope="one"), source_selection(slice="one"), WholeDocument()])
+@pytest.mark.parametrize(
+    "selection",
+    [
+        source_selection(),
+        source_selection(scope="one"),
+        source_selection(slice="one"),
+        WholeDocument(),
+    ],
+)
 def test_typed_source_intent_roundtrips_exact_source_choices(selection):
-    value = request(selection=selection, workflow="capture", documents=("book",), membership="direct")
+    value = request(
+        selection=selection, workflow="capture", documents=("book",), membership="direct"
+    )
     assert SourceRunRequest.model_validate_json(value.model_dump_json()) == value
     assert value.runtime_id == "runtime" and value.documents == ("book",)
 
 
-@pytest.mark.parametrize("kwargs", [
-    {"slice": "one", "scope": "two"}, {"slice": "one", "whole_document": True},
-    {"scope": "one", "whole_document": True}, {"corpus": "old-dom"},
-])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"slice": "one", "scope": "two"},
+        {"slice": "one", "whole_document": True},
+        {"scope": "one", "whole_document": True},
+        {"corpus": "old-dom"},
+    ],
+)
 def test_source_selector_preflight_is_shared_and_pure(kwargs):
     with pytest.raises(ValueError):
         source_selection(**kwargs)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("graph", {}), ("registry_for", "owner"), ("fresh", ["text.formal_evidence"]),
-    ("realization_id", "legacy-run-input"), ("workflow", "m1-candidate"),
-    ("membership", "newest"), ("runtime_id", ""), ("domain", "../statistics"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("graph", {}),
+        ("registry_for", "owner"),
+        ("fresh", ["text.formal_evidence"]),
+        ("realization_id", "legacy-run-input"),
+        ("workflow", "m1-candidate"),
+        ("membership", "newest"),
+        ("runtime_id", ""),
+        ("domain", "../statistics"),
+    ],
+)
 def test_native_source_request_refuses_retired_authority_and_invalid_choices(field, value):
     with pytest.raises(ValidationError):
         request(**{field: value})
@@ -61,7 +87,10 @@ def test_shared_settings_factory_preserves_complete_settings_and_physical_policy
     configured = Settings()
     selected = method_settings(configured, {"workers": 1})
     assert selected.execution_policy.workers == 1
-    assert selected.execution_policy.max_owned_bytes == configured.characterization_execution.max_owned_bytes
+    assert (
+        selected.execution_policy.max_owned_bytes
+        == configured.characterization_execution.max_owned_bytes
+    )
     assert selected.nemotron_endpoint == configured.nemotron.endpoint
     assert selected.nemotron_worker == configured.nemotron.worker
     assert selected.model_cache == configured.paths.model_cache
@@ -70,22 +99,42 @@ def test_shared_settings_factory_preserves_complete_settings_and_physical_policy
 
 
 def test_explicit_operation_choices_and_source_context_are_frozen_independently():
-    from corpus_structure.semantic.data_operation_service import freeze_native_demand
     from semantic.data_operation_declaration_support import model, operation
 
-    compiled = model(operation("op:unused"), operation("op:base"), operation("op:result", potential_dependencies=["op:base"]))
-    root = DemandRoot(subject="source-view", original_source="book", analyzed_scope={"start": 3, "end": 8})
+    from corpus_structure.semantic.data_operation_service import freeze_native_demand
+
+    compiled = model(
+        operation("op:unused"),
+        operation("op:base"),
+        operation("op:result", potential_dependencies=["op:base"]),
+    )
+    root = DemandRoot(
+        subject="source-view", original_source="book", analyzed_scope={"start": 3, "end": 8}
+    )
     value = NativeDemandRequest(
-        project_id="p", release_id="r", runtime_id="t", roots=(root,),
-        targets=("op:result",), execution_profile="selected-provider",
-        selections=(DemandOperationSelection(operation="op:result", selected_dependencies=("op:base",)),),
+        project_id="p",
+        release_id="r",
+        runtime_id="t",
+        roots=(root,),
+        targets=("op:result",),
+        execution_profile="selected-provider",
+        selections=(
+            DemandOperationSelection(operation="op:result", selected_dependencies=("op:base",)),
+        ),
     )
     prepared = SimpleNamespace()
-    from corpus_structure.semantic import data_operation_service
     from unittest.mock import patch
+
+    from corpus_structure.semantic import data_operation_service
 
     with patch.object(data_operation_service, "bound_data_operation_model", return_value=compiled):
         frozen = freeze_native_demand(prepared, value)
-    assert frozen.record["roots"] == [{"subject": "source-view", "original_source": "book", "analyzed_scope": {"start": 3, "end": 8}}]
+    assert frozen.record["roots"] == [
+        {
+            "subject": "source-view",
+            "original_source": "book",
+            "analyzed_scope": {"start": 3, "end": 8},
+        }
+    ]
     assert {entry["operation"] for entry in frozen.record["operations"]} == {"op:base", "op:result"}
     assert frozen.record["execution_profile"] == "selected-provider"

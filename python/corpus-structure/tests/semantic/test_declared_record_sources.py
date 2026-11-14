@@ -69,10 +69,19 @@ def test_declared_projection_retains_old_artifact_and_governs_source_and_primary
         assert new["classes"]["RecordSourcePin"]["attributes"][required]["required"]
     old["classes"].pop("RecordSourcePin")
     new["classes"].pop("RecordSourcePin")
-    assert new["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"] == "DdoSemanticMemberReference"
-    assert old["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"] == "CharacterizationQualifiedReference"
+    assert (
+        new["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"]
+        == "DdoSemanticMemberReference"
+    )
+    assert (
+        old["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"]
+        == "CharacterizationQualifiedReference"
+    )
     assert "primary_layers" not in new["classes"]["SourceContributionOperation"]["attributes"]
-    assert new["classes"]["SourceContributionOperation"]["attributes"]["primary_products"]["range"] == "DdoSemanticProductReference"
+    assert (
+        new["classes"]["SourceContributionOperation"]["attributes"]["primary_products"]["range"]
+        == "DdoSemanticProductReference"
+    )
     assert declared_record_inputs(projected).sources == projected.sources
 
 

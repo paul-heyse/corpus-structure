@@ -119,8 +119,12 @@ def _semantic_assets(profile: str) -> SourceArtifact:
                 )
                 if profile == "construction"
                 else (),
-                named_rule_engine=(root.parent / "methods/annotation_rules.py").read_bytes().hex() if profile == "construction" else None,
-                native_view=(root.parent / "ingest/annotation_views.py").read_bytes().hex() if profile == "construction" else None,
+                named_rule_engine=(root.parent / "methods/annotation_rules.py").read_bytes().hex()
+                if profile == "construction"
+                else None,
+                native_view=(root.parent / "ingest/annotation_views.py").read_bytes().hex()
+                if profile == "construction"
+                else None,
                 typed_profile=_semantic_nodes(
                     (root / "construction_products.py").read_bytes(), selected[profile]
                 ),
@@ -239,13 +243,26 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
 
 
 def construction_configuration(options=None):
-    options = ConstructionOptions() if options is None else ConstructionOptions.model_validate(options)
-    return SourceArtifact("characterization/construction-configuration", canonical_bytes(options.model_dump(mode="json")))
+    options = (
+        ConstructionOptions() if options is None else ConstructionOptions.model_validate(options)
+    )
+    return SourceArtifact(
+        "characterization/construction-configuration",
+        canonical_bytes(options.model_dump(mode="json")),
+    )
 
 
-def construction_operation_sources(*, include_dependencies=True, construction_options=None) -> PythonSourceCollection:
+def construction_operation_sources(
+    *, include_dependencies=True, construction_options=None
+) -> PythonSourceCollection:
     own = _operation_sources("construction_characterization", "construction")
-    own = replace(own, boundary_contracts=(*own.boundary_contracts, construction_configuration(construction_options)))
+    own = replace(
+        own,
+        boundary_contracts=(
+            *own.boundary_contracts,
+            construction_configuration(construction_options),
+        ),
+    )
     if not include_dependencies:
         return own
     from .formal_products import formal_operation_sources
@@ -254,13 +271,17 @@ def construction_operation_sources(*, include_dependencies=True, construction_op
     return combine_primary_sources(formal_operation_sources(), own)
 
 
-def contextual_operation_sources(*, include_dependencies=True, construction_options=None) -> PythonSourceCollection:
+def contextual_operation_sources(
+    *, include_dependencies=True, construction_options=None
+) -> PythonSourceCollection:
     own = _operation_sources("contextual_interpretation", "contextual")
     if not include_dependencies:
         return own
     from .primary_operations import combine_primary_sources
 
-    return combine_primary_sources(construction_operation_sources(construction_options=construction_options), own)
+    return combine_primary_sources(
+        construction_operation_sources(construction_options=construction_options), own
+    )
 
 
 def document_view_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
@@ -434,7 +455,9 @@ class PreparedCharacterizationPort(ABC):
 
     def construction_options(self):
         assets = {asset.name: asset for asset in self.custody}
-        return ConstructionOptions.model_validate_json(assets["characterization/construction-configuration"].content)
+        return ConstructionOptions.model_validate_json(
+            assets["characterization/construction-configuration"].content
+        )
 
     def _verify(self):
         import sys
@@ -465,11 +488,24 @@ class PreparedCharacterizationPort(ABC):
             self.operation,
             self.sources,
             self.custody,
-            assets=(_semantic_assets(self.family), _execution_custody(), *((construction_configuration(self.construction_options()),) if self.family == "construction" else ())),
+            assets=(
+                _semantic_assets(self.family),
+                _execution_custody(),
+                *(
+                    (construction_configuration(self.construction_options()),)
+                    if self.family == "construction"
+                    else ()
+                ),
+            ),
             functions=functions,
             authorize=self.authorize,
             required_sources=self.operation_sources(
-                include_dependencies=False, **({"construction_options": self.construction_options()} if self.family == "construction" else {})
+                include_dependencies=False,
+                **(
+                    {"construction_options": self.construction_options()}
+                    if self.family == "construction"
+                    else {}
+                ),
             ),
         )
 
@@ -743,7 +779,11 @@ class PreparedCharacterizationPort(ABC):
             return self._completion(None, binding)
         if isinstance(inputs, _ConstructionInputs):
             product = PreparedConstructionProfile(self.prepared, self.model).run(
-                inputs.source, inputs.formal, self.construction_options(), sentences=inputs.native, check_active=check_active
+                inputs.source,
+                inputs.formal,
+                self.construction_options(),
+                sentences=inputs.native,
+                check_active=check_active,
             )
         elif isinstance(inputs, _ContextualInputs):
             product = PreparedContextualProfile(self.prepared, self.model).run(
@@ -832,7 +872,13 @@ class PreparedCharacterizationPort(ABC):
         root = Path(__file__).parent
         sources = tuple(
             (
-                "corpus_structure." + (root / name).resolve().relative_to(root.parent).as_posix().removesuffix(".py").replace("/", "."),
+                "corpus_structure."
+                + (root / name)
+                .resolve()
+                .relative_to(root.parent)
+                .as_posix()
+                .removesuffix(".py")
+                .replace("/", "."),
                 str((root / name).resolve()),
                 bytes.fromhex(content),
             )

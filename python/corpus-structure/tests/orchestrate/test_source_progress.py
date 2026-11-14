@@ -344,9 +344,11 @@ def test_native_progress_queries_parse_and_page_under_exact_uuid_scope(monkeypat
                             input_realization_id="input",
                             status="finished",
                             sealed=True,
-                            options={"source_operation": SourceOperationLink(
-                                operation_id=OPERATION, role="capture"
-                            ).model_dump(mode="json")},
+                            options={
+                                "source_operation": SourceOperationLink(
+                                    operation_id=OPERATION, role="capture"
+                                ).model_dump(mode="json")
+                            },
                             has_demand=False,
                         ),
                         dict(

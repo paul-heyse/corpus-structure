@@ -4,32 +4,53 @@ import pytest
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import app
-from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument, source_selection
+from corpus_structure.orchestrate.source_request import (
+    SourceRunRequest,
+    WholeDocument,
+    source_selection,
+)
 
 
 @pytest.mark.parametrize("command", ["run", "ingest", "regenerate"])
 @pytest.mark.parametrize("selection", ["--slice", "--scope"])
 def test_whole_document_conflict_refuses_before_execution(command, selection, tmp_path):
-    result = CliRunner().invoke(app, [
-        command, "--source-root", str(tmp_path), "--semantic-release", "release", "--runtime", "runtime",
-        "--whole-document", selection, "selected",
-    ])
+    result = CliRunner().invoke(
+        app,
+        [
+            command,
+            "--source-root",
+            str(tmp_path),
+            "--semantic-release",
+            "release",
+            "--runtime",
+            "runtime",
+            "--whole-document",
+            selection,
+            "selected",
+        ],
+    )
     assert result.exit_code != 0
     assert "mutually exclusive" in result.output
 
 
 def test_resume_refuses_new_source_projection(tmp_path):
     for args in (["--whole-document"], ["--source-membership", "direct"]):
-        result = CliRunner().invoke(app, ["regenerate", "--demand", "demand:one", "--source-root", str(tmp_path), *args])
+        result = CliRunner().invoke(
+            app, ["regenerate", "--demand", "demand:one", "--source-root", str(tmp_path), *args]
+        )
         assert result.exit_code == 2
         assert "owns its source and workflow selections" in result.output
 
 
 def test_explicit_whole_document_is_frozen_without_default_scope_authority():
     value = SourceRunRequest(
-        project_id="project", release_id="release", runtime_id="runtime",
-        workflow="capture", selection=source_selection(whole_document=True),
-        documents=("book",), membership="direct",
+        project_id="project",
+        release_id="release",
+        runtime_id="runtime",
+        workflow="capture",
+        selection=source_selection(whole_document=True),
+        documents=("book",),
+        membership="direct",
     )
     restored = SourceRunRequest.model_validate_json(value.model_dump_json())
     assert isinstance(restored.selection, WholeDocument)

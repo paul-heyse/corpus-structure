@@ -625,9 +625,12 @@ def test_dense_native_structure_emits_only_the_explicit_context_target_cells(mon
     assert len({index for group in captured for index in group["cells"]}) == 270
 
 
-@pytest.mark.parametrize("obsolete", ("annotation_rules", "formula_syntax", "formula_syntax_input_policy"))
+@pytest.mark.parametrize(
+    "obsolete", ("annotation_rules", "formula_syntax", "formula_syntax_input_policy")
+)
 def test_literal_candidate_configuration_rejects_superseded_primary_branches(obsolete):
     from pydantic import ValidationError
+
     from corpus_structure.orchestrate.m1 import registry
 
     baseline = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")

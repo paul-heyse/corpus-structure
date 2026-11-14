@@ -79,7 +79,9 @@ def interpretation_candidates(
     selected = [row for row in report["candidate_lists"] if row["list_id"] == list_id]
     if len(selected) != 1 or selected[0]["occurrence_id"] != occurrence_id:
         raise ValueError("frozen candidate list differs from selected occurrence")
-    inventories = [row for row in report["inventories"] if row["inventory_id"] == selected[0]["inventory_id"]]
+    inventories = [
+        row for row in report["inventories"] if row["inventory_id"] == selected[0]["inventory_id"]
+    ]
     if len(inventories) != 1:
         raise ValueError("frozen candidate list inventory is unavailable")
     definition_bindings = {
@@ -87,7 +89,14 @@ def interpretation_candidates(
         for row in report.get("component_targets", ())
         for target in (ExtractedComponentTarget.model_validate(row),)
     }
-    return project_interpretation_candidates(selected[0], inventories[0], list_id, occurrence_id, anchors, definition_bindings=definition_bindings)
+    return project_interpretation_candidates(
+        selected[0],
+        inventories[0],
+        list_id,
+        occurrence_id,
+        anchors,
+        definition_bindings=definition_bindings,
+    )
 
 
 def project_interpretation_candidates(

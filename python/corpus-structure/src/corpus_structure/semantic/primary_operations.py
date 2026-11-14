@@ -29,7 +29,11 @@ def primary_operation_targets(workflow: str, *, captured: bool) -> tuple[str, ..
             raise ValueError("capture requires an actual declared PDF capture input")
         return ("source.pdf_views/discovery",)
     if workflow == "characterize":
-        return ("text.compose_view/captured-full-native" if captured else "text.compose_view/full-native",)
+        return (
+            "text.compose_view/captured-full-native"
+            if captured
+            else "text.compose_view/full-native",
+        )
     if workflow == "phase0":
         raise ValueError(
             "phase0 target requires completed mathematical extraction, normalization and symbol-scope "

@@ -1,13 +1,13 @@
 """Owned preparation lifetimes preserve fresh admission and mutable-value isolation."""
 
-from contextlib import contextmanager, nullcontext
+from contextlib import nullcontext
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-from corpus_structure.core.method import MethodSettings, SourceViewRef
+from corpus_structure.core.method import SourceViewRef
 from corpus_structure.semantic.cpu_execution import (
     CapacityExceeded,
     CPUExecutionScope,
@@ -108,8 +108,6 @@ def test_standalone_source_view_unit_uses_bounded_inputs_and_release_affinity(mo
         assert execution.cpu.budget.used_bytes == 0
     with pytest.raises(ValueError, match="closed"):
         execution.require_release("release")
-
-
 
 
 def test_regional_source_hydrates_once_but_each_reader_owns_mutable_working_values(monkeypatch):

@@ -413,16 +413,6 @@ def test_local_text_only_relation_endpoints_are_unresolved_not_first_equal_strin
     }
 
 
-
-
-
-
-
-
-
-
-
-
 def test_failed_whole_group_preserves_located_term_and_unlocated_alias():
     ctx = context("term means value")
     pack = definition_pack()

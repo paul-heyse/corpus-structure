@@ -18,9 +18,9 @@ from corpus_structure.semantic.data_operation_service import (
     CreateDataDemand,
     DdoJsonValue,
     NativeDemandRequest,
-    create_native_demand,
     cancel_data_demand,
     create_data_demand,
+    create_native_demand,
     read_data_demand,
 )
 from corpus_structure.semantic.storage_target import acquired_target
@@ -167,23 +167,37 @@ def execute(
 ) -> None:
     """Execute the frozen native frontier; repeat this action to resume the same intent."""
     execute_request(
-        ctx, demand=demand, source_root=source_root, project=project,
-        execution_policy=execution_policy, limit=limit, max_rounds=max_rounds, json=json,
+        ctx,
+        demand=demand,
+        source_root=source_root,
+        project=project,
+        execution_policy=execution_policy,
+        limit=limit,
+        max_rounds=max_rounds,
+        json=json,
     )
 
 
 def execute_request(
-    ctx: typer.Context, *, source_root: Path, demand: str | None = None,
-    request: NativeDemandRequest | None = None, source_request=None,
-    project: str | None = None, action: str = "demands.execute",
-    execution_policy: Path | None = None, limit: int = 100, max_rounds: int = 100,
+    ctx: typer.Context,
+    *,
+    source_root: Path,
+    demand: str | None = None,
+    request: NativeDemandRequest | None = None,
+    source_request=None,
+    project: str | None = None,
+    action: str = "demands.execute",
+    execution_policy: Path | None = None,
+    limit: int = 100,
+    max_rounds: int = 100,
     json: bool = False,
 ) -> None:
     """One managed path for source creation, explicit native requests and exact resume."""
     from corpus_structure.cli.characterization_options import method_settings
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
     from corpus_structure.orchestrate.source_reporting import (
-        record_native_demand, retain_native_demand_result,
+        record_native_demand,
+        retain_native_demand_result,
     )
     from corpus_structure.semantic.data_operation_service import execute_data_demand
 
@@ -192,11 +206,17 @@ def execute_request(
     settings = state(ctx).settings()
     methods = method_settings(settings, execution_policy)
     with managed_operation(
-        result_store(ctx), action, json=json, expected=(ValueError, KeyError, OSError),
+        result_store(ctx),
+        action,
+        json=json,
+        expected=(ValueError, KeyError, OSError),
         scope={"demand_id": demand, "project": project},
     ) as invocation:
         invocation.manifest.details["native_source_root"] = str(source_root.resolve())
-        with ENGINE(settings, purpose="write") as engine, ENGINE(settings, purpose="admit") as admitted:
+        with (
+            ENGINE(settings, purpose="write") as engine,
+            ENGINE(settings, purpose="admit") as admitted,
+        ):
             with engine.begin() as connection:
                 target = acquired_target(connection, purpose="write")
                 if source_request is not None:
@@ -225,9 +245,15 @@ def execute_request(
             assert demand is not None
             try:
                 result = execute_data_demand(
-                    engine, demand, source_root=source_root, limit=limit, max_rounds=max_rounds,
-                    policy=methods.execution_policy, project_id=project,
-                    nemotron_endpoint=methods.nemotron_endpoint, admission_engine=admitted,
+                    engine,
+                    demand,
+                    source_root=source_root,
+                    limit=limit,
+                    max_rounds=max_rounds,
+                    policy=methods.execution_policy,
+                    project_id=project,
+                    nemotron_endpoint=methods.nemotron_endpoint,
+                    admission_engine=admitted,
                 )
             except NativeDemandExecutionError as error:
                 retain_native_demand_result(invocation, error.result)
@@ -241,7 +267,9 @@ def execute_request(
 @app.command("plan")
 def plan(
     ctx: typer.Context,
-    request: Annotated[Path, typer.Option(help="Typed native choices to compile and freeze; '-' reads stdin.")],
+    request: Annotated[
+        Path, typer.Option(help="Typed native choices to compile and freeze; '-' reads stdin.")
+    ],
     json: JsonOpt = False,
 ) -> None:
     """Freeze declared operation choices and register the exact native demand."""

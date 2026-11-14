@@ -604,7 +604,7 @@ class ConstructionOperation:
                 "reference": "construction-profile",
                 "contract": "characterization/construction-assets",
                 "role": "semantic-implementation-and-schema-assets",
-            }
+            },
         ],
     }
 

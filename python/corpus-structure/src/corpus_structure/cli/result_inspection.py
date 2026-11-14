@@ -97,17 +97,41 @@ def native_inspection(
                 from corpus_structure.semantic.data_operation_service import read_data_demand
 
                 snapshot = read_data_demand(conn, demand_id, limit=min(selection.limit, 16))
-                for recorded, native in (("project", "project_id"), ("release_id", "release_id"), ("runtime_id", "runtime_id")):
-                    if bindings.get(recorded) is not None and bindings[recorded] != snapshot[native]:
-                        return NativeInspection(reason="Recorded demand custody differs from the native demand.")
+                for recorded, native in (
+                    ("project", "project_id"),
+                    ("release_id", "release_id"),
+                    ("runtime_id", "runtime_id"),
+                ):
+                    if (
+                        bindings.get(recorded) is not None
+                        and bindings[recorded] != snapshot[native]
+                    ):
+                        return NativeInspection(
+                            reason="Recorded demand custody differs from the native demand."
+                        )
                 return NativeInspection(
                     availability="available",
-                    demand={key: snapshot[key] for key in (
-                        "demand_id", "project_id", "release_id", "runtime_id", "state",
-                        "read_id", "read_snapshot", "frontier_at", "trust_snapshot",
-                        "obligations", "uses", "continuation",
-                    ) if key in snapshot},
-                    detail_omissions=("demand: bounded native frontier page; counts are not a whole-demand denominator",),
+                    demand={
+                        key: snapshot[key]
+                        for key in (
+                            "demand_id",
+                            "project_id",
+                            "release_id",
+                            "runtime_id",
+                            "state",
+                            "read_id",
+                            "read_snapshot",
+                            "frontier_at",
+                            "trust_snapshot",
+                            "obligations",
+                            "uses",
+                            "continuation",
+                        )
+                        if key in snapshot
+                    },
+                    detail_omissions=(
+                        "demand: bounded native frontier page; counts are not a whole-demand denominator",
+                    ),
                 )
             progress = commands.bound_status(
                 conn, run_id, project_id=bindings.get("project"), operation_region_limit=2
@@ -323,18 +347,31 @@ def inspect_result(
                 )
             )
         if bindings.demand_id is not None:
-            actions.append(NextAction(
-                kind="native_status", command=shlex.join(["ci", "demands", "read", bindings.demand_id]),
-                owner="native_demand",
-            ))
+            actions.append(
+                NextAction(
+                    kind="native_status",
+                    command=shlex.join(["ci", "demands", "read", bindings.demand_id]),
+                    owner="native_demand",
+                )
+            )
             source_root = manifest.details.get("native_source_root")
             if isinstance(source_root, str):
-                actions.append(NextAction(
-                    kind="resume_demand", command=shlex.join([
-                        "ci", "demands", "execute", bindings.demand_id,
-                        "--source-root", source_root,
-                    ]), owner="native_demand",
-                ))
+                actions.append(
+                    NextAction(
+                        kind="resume_demand",
+                        command=shlex.join(
+                            [
+                                "ci",
+                                "demands",
+                                "execute",
+                                bindings.demand_id,
+                                "--source-root",
+                                source_root,
+                            ]
+                        ),
+                        owner="native_demand",
+                    )
+                )
             if "native" in manifest.artifacts:
                 from corpus_structure.semantic.data_operation_json import wire_json_loads
 
@@ -390,14 +427,34 @@ def inspect_result(
             report.native = report.native.model_copy(
                 update={"operation": report.native.operation.without_details()}
             )
-        if len(report.model_dump_json().encode()) > selection.max_bytes and report.native.demand is not None:
-            report.native = report.native.model_copy(update={
-                "demand": {key: value for key, value in report.native.demand.items() if key in {
-                    "demand_id", "project_id", "release_id", "runtime_id", "state", "read_id", "read_snapshot", "frontier_at",
-                }},
-                "execution_receipts": (),
-                "detail_omissions": (*report.native.detail_omissions, "demand frontier, continuation and physical receipts: response byte limit; inspect ci demands read and retained native artifact"),
-            })
+        if (
+            len(report.model_dump_json().encode()) > selection.max_bytes
+            and report.native.demand is not None
+        ):
+            report.native = report.native.model_copy(
+                update={
+                    "demand": {
+                        key: value
+                        for key, value in report.native.demand.items()
+                        if key
+                        in {
+                            "demand_id",
+                            "project_id",
+                            "release_id",
+                            "runtime_id",
+                            "state",
+                            "read_id",
+                            "read_snapshot",
+                            "frontier_at",
+                        }
+                    },
+                    "execution_receipts": (),
+                    "detail_omissions": (
+                        *report.native.detail_omissions,
+                        "demand frontier, continuation and physical receipts: response byte limit; inspect ci demands read and retained native artifact",
+                    ),
+                }
+            )
         if len(report.model_dump_json().encode()) > selection.max_bytes:
             report.provider_receipts_omitted += len(report.provider_receipts)
             report.provider_receipts = ()
@@ -455,7 +512,11 @@ def render_inspection(report: ResultInspection) -> Group:
         ),
     ]
     if report.native.demand is not None:
-        parts.append(Text(f"Native demand {report.native.demand['demand_id']}: {report.native.demand.get('state', 'unknown')}; bounded frontier, no inferred task denominator"))
+        parts.append(
+            Text(
+                f"Native demand {report.native.demand['demand_id']}: {report.native.demand.get('state', 'unknown')}; bounded frontier, no inferred task denominator"
+            )
+        )
     elif report.native.availability == "available":
         parts.append(
             Text(

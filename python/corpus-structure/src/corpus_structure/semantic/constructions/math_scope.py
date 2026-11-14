@@ -100,7 +100,17 @@ class PreparedScopeCues:
         )
 
 
-def populate_math_scope(layer, view, dependencies, vocab, *, binders, rules=(), check_active=lambda: None, admitted=lambda a, b: True):
+def populate_math_scope(
+    layer,
+    view,
+    dependencies,
+    vocab,
+    *,
+    binders,
+    rules=(),
+    check_active=lambda: None,
+    admitted=lambda a, b: True,
+):
     """Project the sealed layer representation into the shared native cue kernel."""
     blocks = []
     fields = []
@@ -111,7 +121,10 @@ def populate_math_scope(layer, view, dependencies, vocab, *, binders, rules=(), 
         for row in body["annotations"]:
             parts = [e for oid in row["occurrences"] for e in occurrences[oid]["extents"]]
             if parts:
-                sentences[row["local_id"]] = (min(e["start"] for e in parts), max(e["end"] for e in parts))
+                sentences[row["local_id"]] = (
+                    min(e["start"] for e in parts),
+                    max(e["end"] for e in parts),
+                )
         blocks.append((pin, container, doc, columns, offset, end, sentences))
     for pin, report in dependencies.items():
         body = report.payload
@@ -122,39 +135,113 @@ def populate_math_scope(layer, view, dependencies, vocab, *, binders, rules=(), 
                 extents = occurrences[inp["parent_occurrence"]]["extents"]
                 if all(e["source_view_id"] == view.ref.id for e in extents):
                     fields.append((pin, row["local_id"], inp, extents))
-    _populate_math_scope(layer, view, blocks, vocab, source_key=view.ref.id, projection=view.ref.projection_digest, formal_fields=fields, binders=binders, rules=rules, check_active=check_active, admitted=admitted)
+    _populate_math_scope(
+        layer,
+        view,
+        blocks,
+        vocab,
+        source_key=view.ref.id,
+        projection=view.ref.projection_digest,
+        formal_fields=fields,
+        binders=binders,
+        rules=rules,
+        check_active=check_active,
+        admitted=admitted,
+    )
 
 
-def populate_math_scope_products(layer, view, source, native, formal, vocab, *, binders, rules=(), check_active=lambda: None, admitted=lambda a, b: True):
+def populate_math_scope_products(
+    layer,
+    view,
+    source,
+    native,
+    formal,
+    vocab,
+    *,
+    binders,
+    rules=(),
+    check_active=lambda: None,
+    admitted=lambda a, b: True,
+):
     """Consume authentic native blocks/formal fields without a Reader or view surrogate."""
     import json
+
     from corpus_structure.semantic.data_product_reference import DataProductReference
     from corpus_structure.semantic.sentence_products import source_annotation_member_values
+
     from .matching import retained_native_documents
 
     blocks, fields = [], []
     if native is not None:
         pin = DataProductReference(native.semantic_id)
         rows = source_annotation_member_values(json.loads(native.content))
-        tokens = {(row["block_id"], row["ordinal"]): row for row in rows if row["record_type"] == "token"}
-        sentences = {row["local_id"]: (row["start"], row["end"]) for row in rows if row["record_type"] == "sentence"}
+        tokens = {
+            (row["block_id"], row["ordinal"]): row for row in rows if row["record_type"] == "token"
+        }
+        sentences = {
+            row["local_id"]: (row["start"], row["end"])
+            for row in rows
+            if row["record_type"] == "sentence"
+        }
         for block, doc, annotations, start, end in retained_native_documents(source, native, vocab):
             columns = {}
             for index, annotation in annotations.items():
                 token = tokens[block, annotation["native_token"]["index"]]
-                columns[index] = dict(local_id=token["local_id"], native_token={"source_role": token["role"], **({"sentence": token["sentence_ref"]} if "sentence_ref" in token else {})})
+                columns[index] = dict(
+                    local_id=token["local_id"],
+                    native_token={
+                        "source_role": token["role"],
+                        **({"sentence": token["sentence_ref"]} if "sentence_ref" in token else {}),
+                    },
+                )
             blocks.append((pin, block, doc, columns, start, end, sentences))
     for product in formal:
         value = json.loads(product.content)
-        occurrences = {packet["member_id"]: packet["body"] for packet in value["members"] if packet["body"]["record_type"] == "occurrence"}
+        occurrences = {
+            packet["member_id"]: packet["body"]
+            for packet in value["members"]
+            if packet["body"]["record_type"] == "occurrence"
+        }
         for packet in value["members"]:
             inp = packet["body"].get("formal_input")
             if inp is not None:
-                fields.append((DataProductReference(product.semantic_id), packet["member_id"], inp, occurrences[inp["parent_occurrence"]]["extents"]))
-    _populate_math_scope(layer, view, blocks, vocab, source_key=view.key, projection=view.projection, formal_fields=fields, binders=binders, rules=rules, check_active=check_active, admitted=admitted)
+                fields.append(
+                    (
+                        DataProductReference(product.semantic_id),
+                        packet["member_id"],
+                        inp,
+                        occurrences[inp["parent_occurrence"]]["extents"],
+                    )
+                )
+    _populate_math_scope(
+        layer,
+        view,
+        blocks,
+        vocab,
+        source_key=view.key,
+        projection=view.projection,
+        formal_fields=fields,
+        binders=binders,
+        rules=rules,
+        check_active=check_active,
+        admitted=admitted,
+    )
 
 
-def _populate_math_scope(layer, view, blocks, vocab, *, source_key, projection, formal_fields, binders, rules, check_active, admitted):
+def _populate_math_scope(
+    layer,
+    view,
+    blocks,
+    vocab,
+    *,
+    source_key,
+    projection,
+    formal_fields,
+    binders,
+    rules,
+    check_active,
+    admitted,
+):
     policy = policy_identity(binders, rules)
     if len({rule.rule_id for rule in rules}) != len(rules):
         raise ValueError("math source rule identities must be unique")
@@ -308,9 +395,7 @@ def _populate_math_scope(layer, view, blocks, vocab, *, source_key, projection, 
                 if b - 1 not in atoms:
                     raise ValueError("math clause cue lacks its exact retained native atom")
                 member(cue, atoms[b - 1], "target")
-        layer.record(
-            FAMILY, dict(projection=projection, start=offset, end=end), "complete"
-        )
+        layer.record(FAMILY, dict(projection=projection, start=offset, end=end), "complete")
         examined.append((offset, end))
     patterns = [(rule, re.compile(rule.pattern)) for rule in rules]
     native = {item["self_ref"]: item for item in (*view.ancestors, *view.items)}
@@ -328,9 +413,17 @@ def _populate_math_scope(layer, view, blocks, vocab, *, source_key, projection, 
         opaque = literal != view.text[a:b]
         if patterns and opaque:
             for pin, key, inp, extents in formal_fields:
-                if (inp["representation"] == "recognized_latex" and inp["text"] == literal
-                    and extents and all(e["projection"] == projection and e["native_pointer"] == pointer for e in extents)
-                    and min(e["start"] for e in extents) == a and max(e["end"] for e in extents) == b):
+                if (
+                    inp["representation"] == "recognized_latex"
+                    and inp["text"] == literal
+                    and extents
+                    and all(
+                        e["projection"] == projection and e["native_pointer"] == pointer
+                        for e in extents
+                    )
+                    and min(e["start"] for e in extents) == a
+                    and max(e["end"] for e in extents) == b
+                ):
                     field_premises.append(member_reference(pin, key).values())
             if len(field_premises) != 1:
                 layer.record(
@@ -428,25 +521,46 @@ def retained_math_scope(layers, view, *, binders, rules=()):
         if report.reference(pin.task_id) != pin:
             raise ValueError("math source projection requires exact primary layer pins")
         body = report.payload
-        views = [row for row in body["source_scope"]["source_views"] if row["source_view_id"] == view.ref.id]
+        views = [
+            row
+            for row in body["source_scope"]["source_views"]
+            if row["source_view_id"] == view.ref.id
+        ]
         if not views:
             continue
-        if (len(views) != 1 or body["base_document"] != view.ref.native_product.values()
+        if (
+            len(views) != 1
+            or body["base_document"] != view.ref.native_product.values()
             or views[0]["projection_digest"] != view.ref.projection_digest
-            or views[0]["recipe_digest"] != view.ref.recipe_digest):
+            or views[0]["recipe_digest"] != view.ref.recipe_digest
+        ):
             raise ValueError("math source projection differs from selected source")
         if FAMILY in body["operation"]["produced_families"]:
             selected.append((pin, body))
-    return _read_math_scope(selected, view.pieces, len(view.text), view.ref.projection_digest, lambda extent: extent["source_view_id"] == view.ref.id, binders=binders, rules=rules)
+    return _read_math_scope(
+        selected,
+        view.pieces,
+        len(view.text),
+        view.ref.projection_digest,
+        lambda extent: extent["source_view_id"] == view.ref.id,
+        binders=binders,
+        rules=rules,
+    )
 
 
 def retained_math_scope_products(products, source, *, binders, rules=()):
     """Read governed construction inventories with their exact source and policy closure."""
     import json
+
     from corpus_structure.semantic.data_product_reference import DataProductReference
 
     selected = []
-    names = {"occurrence": "occurrences", "annotation": "annotations", "term": "terms", "membership": "memberships"}
+    names = {
+        "occurrence": "occurrences",
+        "annotation": "annotations",
+        "term": "terms",
+        "membership": "memberships",
+    }
     value = source.value
     for product in products:
         body = json.loads(product.content)
@@ -460,7 +574,15 @@ def retained_math_scope_products(products, source, *, binders, rules=()):
         inventory["coverage"] = body["coverage"]
         if any(row["family"] == FAMILY for row in body["coverage"]):
             selected.append((DataProductReference(product.semantic_id), inventory))
-    return _read_math_scope(selected, value["pieces"], len(value["text"]), value["source"]["projection"], lambda extent: extent["projection"] == value["source"]["projection"], binders=binders, rules=rules)
+    return _read_math_scope(
+        selected,
+        value["pieces"],
+        len(value["text"]),
+        value["source"]["projection"],
+        lambda extent: extent["projection"] == value["source"]["projection"],
+        binders=binders,
+        rules=rules,
+    )
 
 
 def _read_math_scope(sources, pieces, text_length, projection, belongs, *, binders, rules):
@@ -474,10 +596,7 @@ def _read_math_scope(sources, pieces, text_length, projection, belongs, *, binde
 
         def extent(row, *, occurrences=occurrences):
             parts = [e for oid in row["occurrences"] for e in occurrences[oid]["extents"]]
-            if not parts or any(
-                not belongs(e) or e["projection"] != projection
-                for e in parts
-            ):
+            if not parts or any(not belongs(e) or e["projection"] != projection for e in parts):
                 raise ValueError("math source fact has no exact literal support")
             return min(e["start"] for e in parts), max(e["end"] for e in parts)
 
@@ -487,10 +606,7 @@ def _read_math_scope(sources, pieces, text_length, projection, belongs, *, binde
                 return False
             # A selected fact must be wholly supported by this exact view and
             # projection. Equal projection digests never rebase sibling view IDs.
-            if not parts or any(
-                not belongs(e) or e["projection"] != projection
-                for e in parts
-            ):
+            if not parts or any(not belongs(e) or e["projection"] != projection for e in parts):
                 raise ValueError("math source fact has no exact literal support")
             return True
 

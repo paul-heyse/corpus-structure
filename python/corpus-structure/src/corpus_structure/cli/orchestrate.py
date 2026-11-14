@@ -16,8 +16,12 @@ from rich.text import Text
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.core.vocab import TaskStatus
 
-project_app = typer.Typer(help="Register a project and immutable original documents.", no_args_is_help=True)
-run_app = typer.Typer(help="Execute or inspect immutable native demands.", invoke_without_command=True)
+project_app = typer.Typer(
+    help="Register a project and immutable original documents.", no_args_is_help=True
+)
+run_app = typer.Typer(
+    help="Execute or inspect immutable native demands.", invoke_without_command=True
+)
 
 
 @contextmanager
@@ -72,22 +76,43 @@ def project_init(
     settings = state(ctx).settings()
     with _refusals(json), ENGINE(settings) as engine, engine.begin() as connection:
         report = project.init_bound_project(
-            connection, domain=domain, corpus=corpus,
-            release_id=semantic_release, realization_id=realization,
+            connection,
+            domain=domain,
+            corpus=corpus,
+            release_id=semantic_release,
+            realization_id=realization,
             name=name or settings.runtime.default_project,
         )
     emit(report, json=json, render=lambda value: _table("project", value))
 
 
 def execute_source_choices(
-    ctx, *, action, workflow, source_root, request=None, project=None,
-    semantic_release=None, runtime=None, domain=None, slice=None, scope=None,
-    whole_document=False, source_membership="descendants", document=None,
-    source=None, target=None, operation_options=None, execution_profile="source-native",
-    execution_policy=None, json=False,
+    ctx,
+    *,
+    action,
+    workflow,
+    source_root,
+    request=None,
+    project=None,
+    semantic_release=None,
+    runtime=None,
+    domain=None,
+    slice=None,
+    scope=None,
+    whole_document=False,
+    source_membership="descendants",
+    document=None,
+    source=None,
+    target=None,
+    operation_options=None,
+    execution_profile="source-native",
+    execution_policy=None,
+    json=False,
 ):
     from corpus_structure.orchestrate.source_request import (
-        RetainedSourceSelection, SourceRunRequest, source_selection,
+        RetainedSourceSelection,
+        SourceRunRequest,
+        source_selection,
     )
     from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
@@ -95,9 +120,24 @@ def execute_source_choices(
     from .demands import execute_request
 
     if request is not None:
-        if any(value is not None for value in (
-            semantic_release, runtime, domain, slice, scope, operation_options,
-        )) or whole_document or document or source or target or source_membership != "descendants":
+        if (
+            any(
+                value is not None
+                for value in (
+                    semantic_release,
+                    runtime,
+                    domain,
+                    slice,
+                    scope,
+                    operation_options,
+                )
+            )
+            or whole_document
+            or document
+            or source
+            or target
+            or source_membership != "descendants"
+        ):
             raise typer.BadParameter("--request owns its source and operation selections")
         with _refusals(json):
             parsed = SourceRunRequest.model_validate(json_loads(request.read_bytes()))
@@ -109,22 +149,36 @@ def execute_source_choices(
         with _refusals(json):
             parsed = SourceRunRequest(
                 project_id=project or state(ctx).settings().runtime.default_project,
-                release_id=semantic_release, runtime_id=runtime, domain=domain,
+                release_id=semantic_release,
+                runtime_id=runtime,
+                domain=domain,
                 selection=source_selection(slice=slice, scope=scope, whole_document=whole_document),
-                workflow=workflow, membership=source_membership,
+                workflow=workflow,
+                membership=source_membership,
                 documents=tuple(document or ()),
-                retained_sources=tuple(RetainedSourceSelection.model_validate(
-                    json_loads(value.read_bytes())
-                ) for value in source or ()),
+                retained_sources=tuple(
+                    RetainedSourceSelection.model_validate(json_loads(value.read_bytes()))
+                    for value in source or ()
+                ),
                 targets=tuple(target or ()),
-                selections=tuple(DemandOperationSelection.model_validate(value) for value in (
-                    json_loads(operation_options.read_bytes()) if operation_options is not None else ()
-                )),
+                selections=tuple(
+                    DemandOperationSelection.model_validate(value)
+                    for value in (
+                        json_loads(operation_options.read_bytes())
+                        if operation_options is not None
+                        else ()
+                    )
+                ),
                 execution_profile=execution_profile,
             )
     execute_request(
-        ctx, source_request=parsed, source_root=source_root, project=project,
-        action=action, execution_policy=execution_policy, json=json,
+        ctx,
+        source_request=parsed,
+        source_root=source_root,
+        project=project,
+        action=action,
+        execution_policy=execution_policy,
+        json=json,
     )
 
 
@@ -132,7 +186,9 @@ def execute_source_choices(
 def run(
     ctx: typer.Context,
     source_root: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
-    demand: Annotated[str | None, typer.Option(help="Execute or resume exact retained intent.")] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Execute or resume exact retained intent.")
+    ] = None,
     request: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     project: Annotated[str | None, typer.Option()] = None,
     semantic_release: Annotated[str | None, typer.Option()] = None,
@@ -142,9 +198,20 @@ def run(
     scope: Annotated[str | None, typer.Option()] = None,
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
-    document: Annotated[list[str] | None, typer.Option(help="Exact registered document key; repeat.")] = None,
-    source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False, help="Exact retained source reference and selectors JSON; repeat.")] = None,
-    target: Annotated[list[str] | None, typer.Option(help="Explicit declared operation target; repeat.")] = None,
+    document: Annotated[
+        list[str] | None, typer.Option(help="Exact registered document key; repeat.")
+    ] = None,
+    source: Annotated[
+        list[Path] | None,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            help="Exact retained source reference and selectors JSON; repeat.",
+        ),
+    ] = None,
+    target: Annotated[
+        list[str] | None, typer.Option(help="Explicit declared operation target; repeat.")
+    ] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     execution_profile: Annotated[str, typer.Option()] = "source-native",
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
@@ -156,22 +223,61 @@ def run(
     if source_root is None:
         raise typer.BadParameter("execution requires --source-root for captured executable bytes")
     if demand is not None:
-        if request is not None or any(value is not None for value in (
-            semantic_release, runtime, domain, slice, scope, operation_options,
-        )) or whole_document or document or source or target or source_membership != "descendants" or execution_profile != "source-native":
-            raise typer.BadParameter("a retained demand owns its original source and workflow choices")
+        if (
+            request is not None
+            or any(
+                value is not None
+                for value in (
+                    semantic_release,
+                    runtime,
+                    domain,
+                    slice,
+                    scope,
+                    operation_options,
+                )
+            )
+            or whole_document
+            or document
+            or source
+            or target
+            or source_membership != "descendants"
+            or execution_profile != "source-native"
+        ):
+            raise typer.BadParameter(
+                "a retained demand owns its original source and workflow choices"
+            )
         from .demands import execute_request
 
-        execute_request(ctx, demand=demand, source_root=source_root, project=project,
-                        execution_policy=execution_policy, json=json)
+        execute_request(
+            ctx,
+            demand=demand,
+            source_root=source_root,
+            project=project,
+            execution_policy=execution_policy,
+            json=json,
+        )
         return
     execute_source_choices(
-        ctx, action="run", workflow="phase0", source_root=source_root, request=request,
-        project=project, semantic_release=semantic_release, runtime=runtime, domain=domain,
-        slice=slice, scope=scope, whole_document=whole_document,
-        source_membership=source_membership, document=document, source=source,
-        target=target, operation_options=operation_options, execution_profile=execution_profile,
-        execution_policy=execution_policy, json=json,
+        ctx,
+        action="run",
+        workflow="phase0",
+        source_root=source_root,
+        request=request,
+        project=project,
+        semantic_release=semantic_release,
+        runtime=runtime,
+        domain=domain,
+        slice=slice,
+        scope=scope,
+        whole_document=whole_document,
+        source_membership=source_membership,
+        document=document,
+        source=source,
+        target=target,
+        operation_options=operation_options,
+        execution_profile=execution_profile,
+        execution_policy=execution_policy,
+        json=json,
     )
 
 
@@ -190,7 +296,9 @@ def run_cancel(
 @run_app.command("resume")
 def run_resume(
     ctx: typer.Context,
-    demand: Annotated[str, typer.Argument(help="Exact native demand ID; historical run IDs are inspection only.")],
+    demand: Annotated[
+        str, typer.Argument(help="Exact native demand ID; historical run IDs are inspection only.")
+    ],
     source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     project: Annotated[str | None, typer.Option()] = None,
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
@@ -198,8 +306,14 @@ def run_resume(
 ) -> None:
     from .demands import execute_request
 
-    execute_request(ctx, demand=demand, source_root=source_root, project=project,
-                    execution_policy=execution_policy, json=json)
+    execute_request(
+        ctx,
+        demand=demand,
+        source_root=source_root,
+        project=project,
+        execution_policy=execution_policy,
+        json=json,
+    )
 
 
 def _render_tasks(result: BaseModel) -> RenderableType:
@@ -262,7 +376,6 @@ def tasks(
     emit(listing, json=json, render=_render_tasks)
 
 
-
 def ingest(
     ctx: typer.Context,
     source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
@@ -283,11 +396,24 @@ def ingest(
 ) -> None:
     """Capture registered originals and discover the explicitly selected source scope."""
     execute_source_choices(
-        ctx, action="ingest", workflow="capture", source_root=source_root, request=request,
-        project=project, semantic_release=semantic_release, runtime=runtime, domain=domain,
-        slice=slice, scope=scope, whole_document=whole_document,
-        source_membership=source_membership, document=document, target=target,
-        operation_options=operation_options, execution_policy=execution_policy, json=json,
+        ctx,
+        action="ingest",
+        workflow="capture",
+        source_root=source_root,
+        request=request,
+        project=project,
+        semantic_release=semantic_release,
+        runtime=runtime,
+        domain=domain,
+        slice=slice,
+        scope=scope,
+        whole_document=whole_document,
+        source_membership=source_membership,
+        document=document,
+        target=target,
+        operation_options=operation_options,
+        execution_policy=execution_policy,
+        json=json,
     )
 
 
@@ -313,11 +439,25 @@ def run_characterize_command(
 ) -> None:
     """Characterize an exact retained source selection or explicit new capture."""
     execute_source_choices(
-        ctx, action="run.characterize", workflow="characterize", source_root=source_root,
-        request=request, project=project, semantic_release=semantic_release, runtime=runtime,
-        domain=domain, slice=slice, scope=scope, whole_document=whole_document,
-        source_membership=source_membership, document=document, source=source, target=target,
-        operation_options=operation_options, execution_policy=execution_policy, json=json,
+        ctx,
+        action="run.characterize",
+        workflow="characterize",
+        source_root=source_root,
+        request=request,
+        project=project,
+        semantic_release=semantic_release,
+        runtime=runtime,
+        domain=domain,
+        slice=slice,
+        scope=scope,
+        whole_document=whole_document,
+        source_membership=source_membership,
+        document=document,
+        source=source,
+        target=target,
+        operation_options=operation_options,
+        execution_policy=execution_policy,
+        json=json,
     )
 
 
@@ -329,8 +469,14 @@ def _execute_declared_request(ctx, request, source_root, action, execution_polic
 
     with _refusals(json):
         selection = NativeDemandRequest.model_validate(json_loads(request.read_bytes()))
-    execute_request(ctx, request=selection, source_root=source_root, action=action,
-                    execution_policy=execution_policy, json=json)
+    execute_request(
+        ctx,
+        request=selection,
+        source_root=source_root,
+        action=action,
+        execution_policy=execution_policy,
+        json=json,
+    )
 
 
 @run_app.command("parsers")

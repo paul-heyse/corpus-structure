@@ -85,8 +85,8 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
         RootSubject,
         freeze_demand,
     )
-    from .data_operation_source_sets import read_source_sets
     from .data_operation_identity import semantic_value
+    from .data_operation_source_sets import read_source_sets
     from .data_operation_support import OriginalSourceSelection
     from .identity import canonical_bytes
 
@@ -108,9 +108,7 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
             )
             for value in request.selections
         ),
-        discovery=tuple(
-            DiscoverySelection(**value.model_dump()) for value in request.discovery
-        ),
+        discovery=tuple(DiscoverySelection(**value.model_dump()) for value in request.discovery),
         source_sets=read_source_sets(request.source_sets),
         original_sources=tuple(
             OriginalSourceSelection(

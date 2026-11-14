@@ -106,7 +106,10 @@ def test_selected_fanin_children_execute_only_on_discovered_contexts():
     )
     assert set(intent.record["root_operations"]) == {"op:discover", "op:result"}
     assert {item["operation"] for item in intent.record["operations"]} == {
-        "op:discover", "op:result", "op:child", "op:base"
+        "op:discover",
+        "op:result",
+        "op:child",
+        "op:base",
     }
     explicit = freeze_demand(
         compiled,

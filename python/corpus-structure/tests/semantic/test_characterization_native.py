@@ -1658,8 +1658,6 @@ def test_characterization_completion_retains_exact_cost_and_fences_replay(
         )
 
 
-
-
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_retained_characterization_does_not_require_unrelated_producer_readiness(
     characterization_source, commit_writer_engine, commit_db_engine
@@ -1710,10 +1708,6 @@ def test_retained_characterization_does_not_require_unrelated_producer_readiness
     finally:
         with commit_db_engine.begin() as conn:
             conn.exec_driver_sql(row["definition"])
-
-
-
-
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)

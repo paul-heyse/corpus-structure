@@ -85,7 +85,9 @@ def hydration_case(monkeypatch, native_rollback):
             SimpleNamespace(owner="operation", domain="eligibility", key="eligibility"),
         ),
         operation=lambda _: SimpleNamespace(
-            roles=tuple(SimpleNamespace(name=name, kind="kind") for name in ("left", "right", "empty"))
+            roles=tuple(
+                SimpleNamespace(name=name, kind="kind") for name in ("left", "right", "empty")
+            )
         ),
     )
     statements = []
@@ -146,7 +148,9 @@ def test_hydration_preserves_repeated_pins_scopes_multiplicity_and_absence(hydra
         ),
     )
     assert [value.value() for value in result.role("left")] == [
-        {"text": "two"}, {"text": "one"}, {"text": "one"}
+        {"text": "two"},
+        {"text": "one"},
+        {"text": "one"},
     ]
     assert [value.member for value in result.role("right")] == [first, first]
     assert result.role("empty") == ()
@@ -158,9 +162,7 @@ def test_hydration_preserves_repeated_pins_scopes_multiplicity_and_absence(hydra
 def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, count, queries):
     hydrate, statements = hydration_case
     member = _member()
-    result = hydrate(
-        [(member, 7)], (ResolvedRoleBinding("left", "present", (member,) * count),)
-    )
+    result = hydrate([(member, 7)], (ResolvedRoleBinding("left", "present", (member,) * count),))
     assert len(result.role("left")) == count
     assert all(value.value() == 7 for value in result.role("left"))
     assert len(statements) == queries
@@ -177,11 +179,29 @@ def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, c
         {"analyzed_scope": b"null"},
         {"support_evidence": b"{}"},
         {"support_episodes": ("episode:other",), "support_references": ()},
-        {"support_references": (ComputationalSupportReference(derivation_id="episode:one", admission_use_id="use:other"),)},
+        {
+            "support_references": (
+                ComputationalSupportReference(
+                    derivation_id="episode:one", admission_use_id="use:other"
+                ),
+            )
+        },
         {"position": 1},
         {"multiplicity": 2},
     ],
-    ids=["product", "member", "kind", "subject", "original", "scope", "support", "episodes", "references", "position", "multiplicity"],
+    ids=[
+        "product",
+        "member",
+        "kind",
+        "subject",
+        "original",
+        "scope",
+        "support",
+        "episodes",
+        "references",
+        "position",
+        "multiplicity",
+    ],
 )
 def test_hydration_requires_every_retained_pin(hydration_case, changes):
     hydrate, _ = hydration_case

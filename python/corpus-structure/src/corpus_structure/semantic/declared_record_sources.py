@@ -119,9 +119,17 @@ def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
     )
     if prior not in (canonical_attributes, module["classes"]["RecordSourcePin"]["attributes"]):
         raise ValueError("declared record projection refuses an independently changed source pin")
+
     def governed_references(value):
         if isinstance(value, dict):
-            return {key: ("DdoSemanticMemberReference" if key == "range" and item == "CharacterizationQualifiedReference" else governed_references(item)) for key, item in value.items()}
+            return {
+                key: (
+                    "DdoSemanticMemberReference"
+                    if key == "range" and item == "CharacterizationQualifiedReference"
+                    else governed_references(item)
+                )
+                for key, item in value.items()
+            }
         if isinstance(value, list):
             return [governed_references(item) for item in value]
         return value

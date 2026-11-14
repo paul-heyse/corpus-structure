@@ -250,10 +250,13 @@ def hydrate_consumer_selection(
     hydrated, used = {}, 0
     # Thirteen binds per VALUES row stay well below the extended-query parameter
     # ceiling. Pages bound SQL/driver state; the owned packet bound spans all pages.
-    for page in batched(selected_members, 1024):
+    for page in batched(selected_members, 1024, strict=False):
         members, records = {}, []
         for role_ordinal, member_ordinal, role, member in page:
-            if member.kind_contract not in read.accepted_kind_contracts[declarations[role.role].kind]:
+            if (
+                member.kind_contract
+                not in read.accepted_kind_contracts[declarations[role.role].kind]
+            ):
                 raise ValueError("retained consumer member no longer has one admitted body")
             members[role_ordinal, member_ordinal] = member
             records.append(
@@ -515,7 +518,7 @@ def resolve_prepared_factory(model, sources, operation):
         from .data_operation_effects import ReceiptBearingEffectPort
 
         implementations = (
-            (result, result.wrapped) if isinstance(result, ReceiptBearingEffectPort) else (result,)
+            (result, result.effect_implementation()) if isinstance(result, ReceiptBearingEffectPort) else (result,)
         )
         for implementation in implementations:
             if hasattr(implementation, "plan_python"):
@@ -529,7 +532,9 @@ def resolve_prepared_factory(model, sources, operation):
                     raise PortRefusal("prepared port type differs from its captured owner")
                 method = implementation.plan_python
                 original_method = method.__func__ if inspect.ismethod(method) else method
-                verify_callable(original_method.__module__ + "." + original_method.__qualname__, method)
+                verify_callable(
+                    original_method.__module__ + "." + original_method.__qualname__, method
+                )
         return result
 
     return acquire

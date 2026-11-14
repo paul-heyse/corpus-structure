@@ -16,7 +16,13 @@ from corpus_structure.semantic.data_operation_service import (
     execute_data_demand,
 )
 
-from .source_request import NamedScope, NamedSlice, PackDefault, SourceRequestError, SourceRunRequest
+from .source_request import (
+    NamedScope,
+    NamedSlice,
+    PackDefault,
+    SourceRequestError,
+    SourceRunRequest,
+)
 
 CommandError = SourceRequestError
 
@@ -80,21 +86,31 @@ def prepare_source_demand(
     else:
         acquired_views = ()
         pack = (domains or DOMAINS) / domain
-        scopes = yaml.safe_load((pack / "slices.yaml").read_text()) if (pack / "slices.yaml").exists() else {}
+        scopes = (
+            yaml.safe_load((pack / "slices.yaml").read_text())
+            if (pack / "slices.yaml").exists()
+            else {}
+        )
         scope = (
-            request.selection.name if isinstance(request.selection, NamedScope)
-            else scopes.get("default_scope") if isinstance(request.selection, PackDefault)
+            request.selection.name
+            if isinstance(request.selection, NamedScope)
+            else scopes.get("default_scope")
+            if isinstance(request.selection, PackDefault)
             else None
         )
         _, selected = records(
-            documents, scopes.get("slices", scopes),
+            documents,
+            scopes.get("slices", scopes),
             slice=request.selection.name if isinstance(request.selection, NamedSlice) else None,
-            scope=scope, corpus=None,
+            scope=scope,
+            corpus=None,
         )
         sections = selected["sections"] if selected is not None else []
     originals = tuple(
         acquire_original_document_selection(
-            connection, project_id=request.project_id, document_key=value["key"],
+            connection,
+            project_id=request.project_id,
+            document_key=value["key"],
             name="original:" + str(index),
         )
         for index, value in enumerate(documents)
@@ -119,19 +135,29 @@ def prepare_source_demand(
     producer = "source.pdf_views/discovery" if captured else "source.selected_views/discovery"
     selection = DemandOperationSelection(
         operation=producer,
-        parameters={"sections": sections, "membership": request.membership} if captured else {"complete": True},
+        parameters={"sections": sections, "membership": request.membership}
+        if captured
+        else {"complete": True},
     )
     if producer in supplied and supplied[producer] != selection:
-        raise SourceRequestError("source discovery parameters differ from the selected source scope")
+        raise SourceRequestError(
+            "source discovery parameters differ from the selected source scope"
+        )
     supplied[producer] = selection
     graph = model.projection_graph(
         "selected-dependencies",
-        selected_dependencies=tuple((name, value.selected_dependencies) for name, value in supplied.items()),
+        selected_dependencies=tuple(
+            (name, value.selected_dependencies) for name, value in supplied.items()
+        ),
     )
     closure = set(targets) | {producer}
     for target in tuple(closure):
         closure.update(graph.closure((target,)))
-    output = next(role for role in model.operation(producer).roles if role.direction == "output" and role.name == "result")
+    output = next(
+        role
+        for role in model.operation(producer).roles
+        if role.direction == "output" and role.name == "result"
+    )
     member_kinds = set(derive_member_kinds(model, output.kind))
     discoveries = []
     for operation_id in sorted(closure):
@@ -139,49 +165,88 @@ def prepare_source_demand(
         if operation.subject != "original-source-view":
             continue
         roles = [
-            role for role in operation.roles
-            if role.direction == "input" and role.support is not None
+            role
+            for role in operation.roles
+            if role.direction == "input"
+            and role.support is not None
             and "computation" in role.support.origins
-            and set(input_kind_refinements(model, (role.kind,))[role.kind]).intersection(member_kinds)
+            and set(input_kind_refinements(model, (role.kind,))[role.kind]).intersection(
+                member_kinds
+            )
         ]
         if len(roles) > 1:
-            raise SourceRequestError("source target has ambiguous discovered-source roles: " + operation_id)
-        discoveries.append(DemandDiscoverySelection(
-            producer=producer, output_role="result", target=operation_id,
-            population="selected-source-views", target_role=roles[0].name if roles else None,
-        ))
-    root_targets = tuple(target for target in targets if model.operation(target).subject != "original-source-view")
+            raise SourceRequestError(
+                "source target has ambiguous discovered-source roles: " + operation_id
+            )
+        discoveries.append(
+            DemandDiscoverySelection(
+                producer=producer,
+                output_role="result",
+                target=operation_id,
+                population="selected-source-views",
+                target_role=roles[0].name if roles else None,
+            )
+        )
+    root_targets = tuple(
+        target for target in targets if model.operation(target).subject != "original-source-view"
+    )
     native = NativeDemandRequest(
-        project_id=request.project_id, release_id=request.release_id, runtime_id=request.runtime_id,
-        roots=tuple(DemandRoot(
-            subject=value.root.subject, original_source=value.root.original_source,
-            analyzed_scope={"document": value.reference.document_key, "scope": "whole-document"},
-        ) for value in originals),
+        project_id=request.project_id,
+        release_id=request.release_id,
+        runtime_id=request.runtime_id,
+        roots=tuple(
+            DemandRoot(
+                subject=value.root.subject,
+                original_source=value.root.original_source,
+                analyzed_scope={
+                    "document": value.reference.document_key,
+                    "scope": "whole-document",
+                },
+            )
+            for value in originals
+        ),
         targets=tuple(dict.fromkeys((*root_targets, producer))),
-        selections=tuple(supplied.values()), discovery=tuple(discoveries),
-        original_sources={value.name: DemandOriginalSelection(
-            reference=value.selection().record()["reference"],
-            selectors=tuple(value.selection().record()["selectors"]),
-        ) for value in (*originals, *acquired_views)},
-        inference=request.inference, execution_profile=request.execution_profile,
+        selections=tuple(supplied.values()),
+        discovery=tuple(discoveries),
+        original_sources={
+            value.name: DemandOriginalSelection(
+                reference=value.selection().record()["reference"],
+                selectors=tuple(value.selection().record()["selectors"]),
+            )
+            for value in (*originals, *acquired_views)
+        },
+        inference=request.inference,
+        execution_profile=request.execution_profile,
     )
     return native
 
 
 def run_source_operation(
-    engine, request: SourceRunRequest, method_settings, *, source_root: Path,
-    admission_engine=None, domains: Path | None = None, on_registered=None,
+    engine,
+    request: SourceRunRequest,
+    method_settings,
+    *,
+    source_root: Path,
+    admission_engine=None,
+    domains: Path | None = None,
+    on_registered=None,
 ):
     from corpus_structure.semantic.releases import load_release
 
     with engine.begin() as connection:
         prepared = load_release(connection, request.release_id)
-        native_request = prepare_source_demand(connection, request, domains=domains, prepared=prepared)
+        native_request = prepare_source_demand(
+            connection, request, domains=domains, prepared=prepared
+        )
         snapshot = create_native_demand(connection, native_request, prepared=prepared)
     if on_registered is not None:
         on_registered(snapshot)
     return execute_data_demand(
-        engine, snapshot["demand_id"], source_root=source_root,
-        project_id=request.project_id, policy=method_settings.execution_policy,
-        admission_engine=admission_engine, nemotron_endpoint=method_settings.nemotron_endpoint,
+        engine,
+        snapshot["demand_id"],
+        source_root=source_root,
+        project_id=request.project_id,
+        policy=method_settings.execution_policy,
+        admission_engine=admission_engine,
+        nemotron_endpoint=method_settings.nemotron_endpoint,
     )

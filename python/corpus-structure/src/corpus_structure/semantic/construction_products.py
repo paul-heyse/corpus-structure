@@ -16,6 +16,8 @@ from typing import Any, ClassVar
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+
 from .characterization import (
     attachment_policies,
     occurrence_id,
@@ -28,8 +30,6 @@ from .constructions.layers import ConstructionLayer, ConstructionSource
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
-from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
-
 from .data_product_reference import DataProductReference, member_reference, reference_inputs
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
@@ -57,7 +57,10 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
 
     model = yaml.safe_load(content)
     original = yaml.safe_load(characterization)["classes"]
-    family = {"CharacterizationAttachmentBasis", *(name for name in original if name.startswith("CharacterizationNavigation"))}
+    family = {
+        "CharacterizationAttachmentBasis",
+        *(name for name in original if name.startswith("CharacterizationNavigation")),
+    }
     while True:
         expanded = family | {name for name, body in original.items() if body.get("is_a") in family}
         if expanded == family:
@@ -73,7 +76,8 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
                 key: (
                     "DdoSemanticMemberReference"
                     if key == "range" and item == "CharacterizationQualifiedReference"
-                    else target(item) if key == "range" and item in family
+                    else target(item)
+                    if key == "range" and item in family
                     else retarget(item)
                 )
                 for key, item in value.items()
@@ -146,7 +150,9 @@ class ConstructionOptions(BaseModel):
 
 def load_construction_options(domain: Path) -> ConstructionOptions:
     """Acquire domain-authored rules once before freezing operation custody."""
-    return ConstructionOptions.model_validate(yaml.safe_load((domain / "construction.yaml").read_bytes()))
+    return ConstructionOptions.model_validate(
+        yaml.safe_load((domain / "construction.yaml").read_bytes())
+    )
 
 
 def interpreted_member_contracts(prepared, model):
@@ -302,7 +308,11 @@ def construction_product_values(
         {"selectors": selected["selectors"]},
         {"key": "text.constructions/source-native"},
         semantic=True,
-        families=(*FAMILIES, "construction.math_scope", *(("construction.named_rules",) if options.annotation_rules else ())),
+        families=(
+            *FAMILIES,
+            "construction.math_scope",
+            *(("construction.named_rules",) if options.annotation_rules else ()),
+        ),
     )
     atom_references = {}
     for product in formal:
@@ -396,14 +406,18 @@ def construction_product_values(
             retained_native_documents,
             retained_native_vocab,
         )
-
-        from .sentence_products import retained_source_annotation_products
         from .constructions.retained_rules import populate_source_reading_products
+        from .sentence_products import retained_source_annotation_products
 
         native_products = retained_source_annotation_products(source, native)
         vocab = retained_native_vocab(source, native)
         populate_source_reading_products(
-            builder, view, source, native, annotation_products=native_products, vocab=vocab,
+            builder,
+            view,
+            source,
+            native,
+            annotation_products=native_products,
+            vocab=vocab,
             check_active=check_active,
             admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
         )
@@ -433,11 +447,18 @@ def construction_product_values(
                     for selector in selected["selectors"]:
                         builder.record(family, selector, "partial", "; ".join(unavailable))
     from .constructions.math_scope import populate_math_scope_products
+
     if native is None:
         vocab = None
     populate_math_scope_products(
-        builder, view, source, native, formal, vocab,
-        binders=options.math_scope_binders, rules=options.math_domain_rules,
+        builder,
+        view,
+        source,
+        native,
+        formal,
+        vocab,
+        binders=options.math_scope_binders,
+        rules=options.math_domain_rules,
         check_active=check_active,
         admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
     )
@@ -446,11 +467,19 @@ def construction_product_values(
 
         if native is None:
             for selector in selected["selectors"]:
-                builder.record(NAMED_FAMILY, selector, "unknown", "named rules require retained native annotations")
+                builder.record(
+                    NAMED_FAMILY,
+                    selector,
+                    "unknown",
+                    "named rules require retained native annotations",
+                )
         else:
             assert vocab is not None
             populate_named_products(
-                builder, view, source, native,
+                builder,
+                view,
+                source,
+                native,
                 PreparedAnnotationRules(vocab, rules=options.annotation_rules),
                 annotation_products=native_products,
                 check_active=check_active,
@@ -606,19 +635,32 @@ def validate_interpreted_product(
         if dependency is None:
             raise ValueError("named rule lacks its exact original native block")
         blocks = [
-            block["annotation"] for block in dependency.get("blocks", ())
+            block["annotation"]
+            for block in dependency.get("blocks", ())
             if block["annotation"]["block_id"] == container["block_id"]
         ]
         if len(blocks) != 1 or blocks[0]["dependency_digest"] != named["dependency_digest"]:
             raise ValueError("named rule lacks its exact original native block")
         members = {packet["member_id"]: packet["body"] for packet in dependency["members"]}
-        for ref in (*named["nodes"], *(ref for binding in named["bindings"] for ref in (
-            binding["head"], *binding["members"], *binding.get("antecedent_members", ())
-        ))):
+        for ref in (
+            *named["nodes"],
+            *(
+                ref
+                for binding in named["bindings"]
+                for ref in (
+                    binding["head"],
+                    *binding["members"],
+                    *binding.get("antecedent_members", ()),
+                )
+            ),
+        ):
             token = members.get(ref["member_id"])
-            if (ref["product_id"] != container["product_id"] or token is None
+            if (
+                ref["product_id"] != container["product_id"]
+                or token is None
                 or token.get("record_type") != "native_token"
-                or token["block_id"] != container["block_id"]):
+                or token["block_id"] != container["block_id"]
+            ):
                 raise ValueError("named rule token leaves its exact original native block")
     policies = attachment_policies(prepared)
 

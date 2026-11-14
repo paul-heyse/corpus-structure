@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, JsonValue
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.vocab import TaskStatus
 from corpus_structure.semantic.pm2_coverage import ScopeCoverage, scope_coverage
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.settings import AnalyticsSettings
 
 from .source_progress import SourceOperationProgress, read_source_operation_progress
 
 if TYPE_CHECKING:
-    from corpus_structure.orchestrate.semantic import SourceRunCreated
+    pass
 
 
 from .source_request import SourceRequestError

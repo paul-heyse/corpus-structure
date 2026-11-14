@@ -18,8 +18,14 @@ class SourceProjectReport(BaseModel):
 
 
 def init_bound_project(
-    conn: Connection, *, domain: str, corpus: Path, release_id: str,
-    realization_id: str, name: str | None = None, domains: Path | None = None,
+    conn: Connection,
+    *,
+    domain: str,
+    corpus: Path,
+    release_id: str,
+    realization_id: str,
+    name: str | None = None,
+    domains: Path | None = None,
 ) -> SourceProjectReport:
     """Register pack-declared PDF originals against explicit admitted interpretation.
 
@@ -44,7 +50,9 @@ def init_bound_project(
     for owner in ("ingest.pdf", "ingest.pdf_integrated"):
         for configuration in configurations.get(owner, {}).values():
             values = configuration.get("originals", ())
-            if not isinstance(values, (list, tuple)) or any(not isinstance(value, str) or not value for value in values):
+            if not isinstance(values, (list, tuple)) or any(
+                not isinstance(value, str) or not value for value in values
+            ):
                 raise ProjectError("PDF inventory requires exact original paths")
             originals.extend(values)
     originals = tuple(dict.fromkeys(originals))
@@ -65,17 +73,27 @@ def init_bound_project(
 
     project_id = name or domain
     initialize_source_project(
-        conn, project_id=ProjectId(project_id), release_id=ReleaseId(release_id),
-        realization_id=RealizationId(realization_id), projection_context=prepared,
+        conn,
+        project_id=ProjectId(project_id),
+        release_id=ReleaseId(release_id),
+        realization_id=RealizationId(realization_id),
+        projection_context=prepared,
     )
     for uri, original, raw in acquired:
         register_document(
-            conn, project_id=project_id, source_uri=uri, original_path=str(original),
-            original=raw, mime="application/pdf", title=original.stem,
+            conn,
+            project_id=project_id,
+            source_uri=uri,
+            original_path=str(original),
+            original=raw,
+            mime="application/pdf",
+            title=original.stem,
             metadata={"input_format": "pdf", "source_inventory": "configured-pdf-originals"},
             prepared=prepared,
         )
     return SourceProjectReport(
-        project=project_id, release_id=release_id, realization_id=realization_id,
+        project=project_id,
+        release_id=release_id,
+        realization_id=realization_id,
         documents=len(acquired),
     )
