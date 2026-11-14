@@ -1202,7 +1202,8 @@ BEGIN
  || (SELECT coalesce(jsonb_object_agg(field,data.ddo_json(data.ddo_field(data.ddo_field(packet,'body'),field))),'{}')
  FROM unnest(ARRAY['coordinates','roles','endpoints','coverage','choices']) field
  WHERE data.ddo_field(data.ddo_field(packet,'body'),field) IS NOT NULL)), '[]')
- FROM jsonb_array_elements(coalesce(data.ddo_field(fact->'meaning_body','members')->1,'[]')) packet)));
+ FROM jsonb_array_elements(CASE WHEN fact->'meaning_body'->>0='mapping'
+ THEN coalesce(data.ddo_field(fact->'meaning_body','members')->1,'[]') ELSE '[]'::jsonb END) packet)));
  identity:=ops.ddo_digest(p->'reference');
  key:='original-admission:'||ops.ddo_digest(jsonb_build_array(d.id,p->>'selection_name',identity,p->'selectors',product));
  INSERT INTO ops.original_source_admission VALUES(key,d.id,d.project_id,d.release_id,p->>'selection_name',identity,
