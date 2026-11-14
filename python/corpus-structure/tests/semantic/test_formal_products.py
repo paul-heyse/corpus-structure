@@ -944,3 +944,27 @@ def test_declared_formal_adapter_refuses_scope_substitution_or_duplicate_product
     narrowed = FrozenFormalSource.acquire(profile.prepared, changed)
     with pytest.raises(ValueError, match="analyzed scope"):
         declared_formal_layers((product,), narrowed)
+def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_foreign_source(profile):
+    from corpus_structure.methods.structural_products import threshold_readings
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    text = "revenue > 25000 USD\nComparison basis: annual gross revenue."
+    source = selected(profile, text)
+    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+    primary = FormalSourceReadings.from_products((product,), source)
+    coordinate = source.value["source"]
+    # This address is an independently authored pure reader fixture, not a native
+    # admission claim. All parser fields and primary member addresses above are real.
+    address = DeclaredStructuralSource(source=canonical_bytes(["fixture:native-source", None]).decode(), source_product="fixture:native-source", kind_contract="kind:fixture-source", subject=coordinate["document_subject"], document=coordinate["document"], projection_digest=coordinate["projection"], section_pointer=coordinate["section_pointer"], membership=coordinate["membership"], project_id="fixture", original_source=coordinate["document"], analyzed_scope_meaning="{}")
+    passage = StructuralPassage(passage_id="p", source_ref=address.identity, start=0, end=len(text), text=text, scope="selected")
+    (field,) = threshold_readings(passage, source=address, primary_layers=primary)
+    assert field.typed is not None and field.typed.value == "25000"
+    assert field.typed.unit == "USD" and field.typed.basis == "annual gross revenue"
+    assert field.typed.primary_formal is not None and field.typed.primary_formal.product_id == product.semantic_id
+    assert field.typed.primary_basis is not None and field.typed.primary_basis.product_id == product.semantic_id
+    assert all("layer" not in value for value in (field.typed.primary_formal.values(), field.typed.primary_basis.values()))
+    with pytest.raises(ValueError, match="another original source"):
+        threshold_readings(passage, source=address.model_copy(update={"document": "document:foreign"}), primary_layers=primary)

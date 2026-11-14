@@ -387,7 +387,7 @@ class DossierOperation:
         self.inputs = inputs
 
     def select_hydrated(self, inputs):
-        return tuple(inputs.role(role) for role in ("sources", "components", "definitions", "comparisons", "candidates", "relationships"))
+        return inputs.role("sources"), inputs.one("components"), inputs.role("definitions"), inputs.role("comparisons"), inputs.role("candidates"), inputs.role("relationships")
 
     def run(self, sources: tuple[dict, ...], components: dict, definitions: tuple[dict, ...], comparisons: tuple[dict, ...], candidates: tuple[dict, ...], relationships: tuple[dict, ...], component_id: str, candidate_selections: str = "[]", comparison_selections: str = "[]", extra_passages: str = "[]", question: str = "Assemble the selected retained definition dossier.", scope: str = "selected", inventory_id: str = "explicit-native-dossier", policy_id: str = "exact-retained-dossier-v1", member_budget: int = 12, representation_policy: str = "supported-facet-greedy-1") -> dict:
         return execute_dossier(self, sources, components, definitions, comparisons, candidates, relationships, component_id=component_id, candidate_selections=candidate_selections, comparison_selections=comparison_selections, extra_passages=extra_passages, question=question, scope=scope, inventory_id=inventory_id, policy_id=policy_id, member_budget=member_budget, representation_policy=representation_policy)

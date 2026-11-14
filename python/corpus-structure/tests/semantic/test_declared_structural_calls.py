@@ -59,7 +59,7 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         assert operation.consumer_selection is not None
         assert operation.capabilities.prepared_factory is not None
         assert operation.dependencies == ()
-        assert len(operation.output_witnesses) == 3
+        assert len(operation.output_witnesses) == (4 if operation.semantic_id == "structure.compare/declared" else 3)
 
 
 def exact_source(document, product, subject):
@@ -133,7 +133,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
                             "kind": "predicate_reading",
                             "question_version": "6",
                             "frame": "frame",
-                            "scope": passage.passage_id,
+                            "scope": "actual-primary-block",
                         },
                     },
                     {
@@ -141,7 +141,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
                         "pin": pin,
                         "component": {
                             "kind": "predicate_frame",
-                            "scope": passage.passage_id,
+                            "scope": "actual-primary-block",
                             "frame_members": [
                                 {
                                     "role": "predicate",
@@ -238,6 +238,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             for member, source in zip(source_members, sources, strict=True)
         ),
         "reports": tuple(header(member, {}) for member in report_members),
+        "formal": (),
     }
     outputs = {"result": (current.model_dump(mode="json"),)}
     validate_output_witnesses(model.operation("structure.compare/declared"), outputs, selected)

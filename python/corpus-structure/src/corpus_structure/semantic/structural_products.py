@@ -1331,6 +1331,7 @@ class DeclaredStructuralInputPin(DeclaredProductRef):
 
 
 class DeclaredComparisonReport(DeclaredStructuralProductReport):
+    formal_input: tuple[DeclaredStructuralInputPin, ...] = ()
     kind: Literal["qualified_comparison"] = "qualified_comparison"
     comparison: DeclaredComparisonProduct
     dossier: None = None

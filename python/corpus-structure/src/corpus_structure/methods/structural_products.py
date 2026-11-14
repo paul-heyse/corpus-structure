@@ -47,6 +47,7 @@ from corpus_structure.semantic.structural_products import (
     RevisionSuccession,
     StructuralInput,
     StructuralProductReport,
+    DeclaredStructuralProductReport,
     StructuralValue,
 )
 
@@ -60,8 +61,29 @@ def _located(passage, text: str, start: int) -> LocatedDefinitionSpan:
     )
 
 
-def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession | None:
-    if primary_layers is None or not left.effective_version or not right.effective_version:
+def _declared_primary(reference):
+    from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
+    return DeclaredPrimaryReference.model_validate(reference.values())
+
+
+def _formal_source(primary, source):
+    if not isinstance(primary, FormalSourceReadings):
+        return source
+    if _target_source(source):
+        if getattr(primary.source, "coordinate", None) != source.coordinate:
+            raise ValueError("formal reading index belongs to another original source")
+    elif primary.source != source:
+        raise ValueError("formal reading index belongs to another original source")
+    return primary.source
+
+
+def _target_source(source):
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    return isinstance(source, DeclaredStructuralSource)
+
+
+def _succession(left, right, *, sources, primary_layers, primary_readings=None):
+    if primary_layers is None and not primary_readings or not left.effective_version or not right.effective_version:
         return None
     if (
         left.effective_version == right.effective_version
@@ -71,11 +93,16 @@ def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession |
         or not (left.end <= right.start or right.end <= left.start)
     ):
         return None
+    from corpus_structure.semantic.structural_products import DeclaredRevisionSuccession
+    target = _target_source(sources[left.source_ref])
+    succession_type = DeclaredRevisionSuccession if target else RevisionSuccession
     lineages = {}
     for passage in (left, right):
+        if (primary_readings or {}).get(passage.source_ref, primary_layers) is None:
+            return None
         facts = lexical_fact_readings(
-            primary_layers,
-            sources[passage.source_ref],
+            (primary_readings or {}).get(passage.source_ref, primary_layers),
+            _formal_source((primary_readings or {}).get(passage.source_ref, primary_layers), sources[passage.source_ref]),
             kind="formal.clause_lineage",
             start=passage.start,
             end=passage.end,
@@ -86,8 +113,8 @@ def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession |
     witnesses = []
     for newer, older in ((left, right), (right, left)):
         declarations = lexical_fact_readings(
-            primary_layers,
-            sources[older.source_ref],
+            (primary_readings or {}).get(older.source_ref, primary_layers),
+            _formal_source((primary_readings or {}).get(older.source_ref, primary_layers), sources[older.source_ref]),
             kind="formal.revision_declaration",
             start=older.start,
             end=older.end,
@@ -96,8 +123,8 @@ def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession |
             continue
         (declaration,) = declarations
         successions = lexical_fact_readings(
-            primary_layers,
-            sources[newer.source_ref],
+            (primary_readings or {}).get(newer.source_ref, primary_layers),
+            _formal_source((primary_readings or {}).get(newer.source_ref, primary_layers), sources[newer.source_ref]),
             kind="formal.revision_succession",
             start=newer.start,
             end=newer.end,
@@ -109,7 +136,7 @@ def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession |
             ):
                 continue
             witnesses.append(
-                RevisionSuccession(
+                succession_type(
                     older_id=older.passage_id,
                     newer_id=newer.passage_id,
                     evidence=_located(newer, fact.text, fact.start - newer.start),
@@ -117,10 +144,10 @@ def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession |
                         older, declaration.text, declaration.start - older.start
                     ),
                     primary_witnesses=(
-                        declaration.reference,
-                        fact.reference,
-                        lineages[older.passage_id].reference,
-                        lineages[newer.passage_id].reference,
+                        *(_declared_primary(value) if target else value for value in (
+                            declaration.reference, fact.reference, lineages[older.passage_id].reference,
+                            lineages[newer.passage_id].reference,
+                        )),
                     ),
                 )
             )
@@ -250,7 +277,15 @@ def compare_clauses(
     cancelled=lambda: False,
     typed_groups=False,
     primary_layers=None,
+    primary_readings=None,
 ):
+    from corpus_structure.semantic.structural_products import (
+        DeclaredStructuralInput, DeclaredStructuralProductReport, DeclaredComparisonProduct, DeclaredDimensionComparison,
+    )
+    target = isinstance(inputs, DeclaredStructuralInput)
+    report_type = DeclaredStructuralProductReport if target else StructuralProductReport
+    comparison_type = DeclaredComparisonProduct if target else ComparisonProduct
+    dimension_type = DeclaredDimensionComparison if target else DimensionComparison
     if left.passage_id == right.passage_id:
         raise ValueError("comparison requires distinct original passages")
     passages = {p.passage_id: p for p in inputs.passages}
@@ -267,6 +302,7 @@ def compare_clauses(
             b,
             sources={source.identity: source for source in inputs.sources},
             primary_layers=primary_layers,
+            primary_readings=primary_readings,
         )
         if a.scope == b.scope
         else None
@@ -348,7 +384,7 @@ def compare_clauses(
                 threshold_consequence = True
                 reason = "Exact threshold consequence only; other rule dimensions remain separate."
         dimensions.append(
-            DimensionComparison(
+            dimension_type(
                 dimension=dimension,
                 outcome=lexical,
                 **({"left_group": lg, "right_group": rg} if grouped else {"left": x, "right": y}),
@@ -400,10 +436,10 @@ def compare_clauses(
             "unestablished",
             "Missing or changed applicability dimensions remain material.",
         )
-    return StructuralProductReport(
+    return report_type(
         kind="qualified_comparison",
         inputs=inputs,
-        comparison=ComparisonProduct(
+        comparison=comparison_type(
             left_id=a.passage_id,
             right_id=b.passage_id,
             left_reading=left_reading,
@@ -419,14 +455,17 @@ def compare_clauses(
 
 
 def _threshold_inventory(passage, source, primary_layers):
-    from corpus_structure.semantic.structural_products import TypedPremise
+    from corpus_structure.semantic.structural_products import TypedPremise, DeclaredTypedPremise, DeclaredClauseField
 
     if source is None or primary_layers is None:
         return (), False
+    field_type = DeclaredClauseField if _target_source(source) else ClauseField
+    premise_type = DeclaredTypedPremise if _target_source(source) else TypedPremise
+    original = _formal_source(primary_layers, source)
     fields, complete = formal_field_readings(
-        primary_layers, source, family="formal.threshold", start=passage.start, end=passage.end
+        primary_layers, original, family="formal.threshold", start=passage.start, end=passage.end
     )
-    bases = comparison_basis_readings(primary_layers, source, start=passage.start, end=passage.end)
+    bases = comparison_basis_readings(primary_layers, original, start=passage.start, end=passage.end)
     basis = bases[0] if len(bases) == 1 else None
     results = []
     for field in fields:
@@ -437,11 +476,11 @@ def _threshold_inventory(passage, source, primary_layers):
             complete = False
             continue
         results.append(
-            ClauseField(
+            field_type(
                 dimension="threshold_unit",
                 lexical_value=field.text,
                 evidence=(passage.passage_id,),
-                typed=TypedPremise(
+                typed=premise_type(
                     span=_located(passage, field.text, field.start - passage.start),
                     grammar=field.grammar,
                     state="parsed",
@@ -449,12 +488,12 @@ def _threshold_inventory(passage, source, primary_layers):
                     comparator=value["comparator"],
                     quantity=value.get("quantity"),
                     unit=value.get("unit"),
-                    primary_formal=field.reference,
+                    primary_formal=_declared_primary(field.reference) if _target_source(source) else field.reference,
                     basis=None if basis is None else basis.value,
                     basis_evidence=None
                     if basis is None
                     else _located(passage, basis.text, basis.start - passage.start),
-                    primary_basis=None if basis is None else basis.reference,
+                    primary_basis=None if basis is None else _declared_primary(basis.reference) if _target_source(source) else basis.reference,
                 ),
             )
         )
@@ -472,7 +511,7 @@ def _literal_reading(span, source, primary_layers):
     offered = []
     for family in ("formal.date", "formal.identifier", "formal.quantity", "formal.interval"):
         fields, _complete = formal_field_readings(
-            primary_layers, source, family=family, start=span.start, end=span.end
+            primary_layers, _formal_source(primary_layers, source), family=family, start=span.start, end=span.end
         )
         offered.extend(
             field
@@ -501,7 +540,7 @@ def _literal_reading(span, source, primary_layers):
     else:
         return None, None
     try:
-        return ComparisonLiteral.model_validate(literal), field.reference
+        return ComparisonLiteral.model_validate(literal), _declared_primary(field.reference) if _target_source(source) else field.reference
     except ValueError:
         # Exact primary syntax remains available outside this bounded domain projection.
         return None, None
@@ -532,6 +571,8 @@ def comparison_host_evidence(component, frame, frame_id):
 
 
 def _group_fields(passage, members, incomplete, *, source=None, primary_layers=None):
+    from corpus_structure.semantic.structural_products import DeclaredClauseFieldGroup
+    group_type = DeclaredClauseFieldGroup if _target_source(source) else ClauseFieldGroup
     def extents(member):
         if member.spans is not None:
             return member.spans
@@ -545,32 +586,32 @@ def _group_fields(passage, members, incomplete, *, source=None, primary_layers=N
 
     ordered = tuple(sorted(members, key=order))
     if not ordered:
-        return ClauseFieldGroup(state="unresolved" if incomplete else "absent")
+        return group_type(state="unresolved" if incomplete else "absent")
     if incomplete:
-        return ClauseFieldGroup(state="unresolved", grouping="unresolved", members=ordered)
+        return group_type(state="unresolved", grouping="unresolved", members=ordered)
     if len(ordered) == 1:
-        return ClauseFieldGroup(state="present", grouping="singleton", members=ordered)
+        return group_type(state="present", grouping="singleton", members=ordered)
     connectors, facts = [], []
     for left, right in pairwise(ordered):
         left_spans, right_spans = extents(left), extents(right)
         if not left_spans or not right_spans or source is None or primary_layers is None:
-            return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
+            return group_type(state="present", grouping="unresolved", members=ordered)
         fact = coordination_reading(
-            primary_layers, source, start=left_spans[-1].end, end=right_spans[0].start
+            primary_layers, _formal_source(primary_layers, source), start=left_spans[-1].end, end=right_spans[0].start
         )
         if fact is None:
-            return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
+            return group_type(state="present", grouping="unresolved", members=ordered)
         facts.append(fact)
         connectors.append(_located(passage, fact.text, fact.start - passage.start))
     words = {fact.value for fact in facts}
     if len(words) != 1 or not words <= {"and", "or"}:
-        return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
-    return ClauseFieldGroup(
+        return group_type(state="present", grouping="unresolved", members=ordered)
+    return group_type(
         state="present",
         grouping="conjunction" if words == {"and"} else "disjunction",
         members=ordered,
         witnesses=tuple(connectors),
-        primary_witnesses=tuple(fact.reference for fact in facts),
+        primary_witnesses=tuple(_declared_primary(fact.reference) if _target_source(source) else fact.reference for fact in facts),
     )
 
 
@@ -578,9 +619,14 @@ def read_retained_clause(
     passage, source, reference, retained, *, predicate_version=None, primary_layers=None
 ):
     """Compose the admitted frame roles and the immutable host qualifier population."""
+    from corpus_structure.semantic.structural_products import DeclaredClauseField, DeclaredClauseFieldGroup, DeclaredClauseReading
+    target = _target_source(source)
+    field_type = DeclaredClauseField if target else ClauseField
+    group_type = DeclaredClauseFieldGroup if target else ClauseFieldGroup
+    reading_type = DeclaredClauseReading if target else ClauseReading
     if reference.project_id != source.project_id:
         raise ValueError("reading belongs to another project")
-    primary = FormalSourceReadings(primary_layers, source) if primary_layers is not None else None
+    primary = primary_layers if isinstance(primary_layers, FormalSourceReadings) else FormalSourceReadings(primary_layers, source) if primary_layers is not None else None
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
     reading = rows[reference.contribution_id]
     component = reading.get("component", {})
@@ -608,10 +654,14 @@ def read_retained_clause(
         frame_component.get("kind") != "predicate_frame"
         or frame["pin"] != pin
         or not source_matches
-        or any(
+        or not target and any(
             part.get("scope") != passage.passage_id
             or part.get("effective_version") != passage.effective_version
             for part in (component, frame_component)
+        )
+        or target and (
+            component.get("scope") != frame_component.get("scope")
+            or component.get("effective_version") != frame_component.get("effective_version")
         )
     ):
         raise ValueError("retained frame differs from exact selected passage")
@@ -639,7 +689,7 @@ def read_retained_clause(
             _literal_reading(spans[0], source, primary) if len(spans) == 1 else (None, None)
         )
         members[dimension].append(
-            ClauseField(
+            field_type(
                 dimension=dimension,
                 lexical_value=" ".join(span.text for span in spans),
                 spans=tuple(spans),
@@ -688,7 +738,7 @@ def read_retained_clause(
     for dimension, value in (("parent", passage.parent), ("version", passage.effective_version)):
         if value is not None:
             members[dimension].append(
-                ClauseField(
+                field_type(
                     dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
                 )
             )
@@ -726,7 +776,7 @@ def read_retained_clause(
     if primary is not None:
         for span in exception_spans:
             facts = lexical_fact_readings(
-                primary, source, kind="formal.exception_empty", start=span.start, end=span.end
+                primary, _formal_source(primary, source), kind="formal.exception_empty", start=span.start, end=span.end
             )
             if len(facts) == 1:
                 (fact,) = facts
@@ -744,18 +794,18 @@ def read_retained_clause(
         )
     ):
         (fact,) = empty
-        groups["exception"] = ClauseFieldGroup(
+        groups["exception"] = group_type(
             state="empty",
             witnesses=(_located(passage, fact.text, fact.start - passage.start),),
-            primary_witnesses=(fact.reference,),
+            primary_witnesses=(_declared_primary(fact.reference) if target else fact.reference,),
         )
     condition = groups["condition"]
     threshold = groups["threshold_unit"]
     if threshold.members and "unresolved" in (condition.state, condition.grouping):
-        groups["threshold_unit"] = ClauseFieldGroup(
+        groups["threshold_unit"] = group_type(
             state="unresolved", grouping="unresolved", members=threshold.members
         )
-    return ClauseReading(
+    return reading_type(
         passage_id=passage.passage_id,
         groups=groups,
         focus=located_focus,
@@ -1331,9 +1381,10 @@ def produce_structural_comparison(
     left_retained,
     right_retained,
     primary_layers,
+    primary_readings=None,
     predicate_version="6",
     check_active=lambda: None,
-) -> StructuralProductReport:
+) -> StructuralProductReport | DeclaredStructuralProductReport:
     """Compose exact selected source/read inventories without acquiring a Reader."""
     passages = {passage.passage_id: passage for passage in inputs.passages}
     sources = {source.identity: source for source in inputs.sources}
@@ -1351,7 +1402,7 @@ def produce_structural_comparison(
                 reference,
                 retained,
                 predicate_version=predicate_version,
-                primary_layers=primary_layers,
+                primary_layers=(primary_readings or {}).get(passage.source_ref, primary_layers),
             )
         )
     return compare_clauses(
@@ -1362,6 +1413,7 @@ def produce_structural_comparison(
         right_reading=right_reading,
         typed_groups=True,
         primary_layers=primary_layers,
+        primary_readings=primary_readings,
     )
 
 
@@ -1377,7 +1429,7 @@ def produce_structural_dossier(
     member_budget=12,
     policy="supported-facet-greedy-1",
     check_active=lambda: None,
-) -> StructuralProductReport:
+) -> StructuralProductReport | DeclaredStructuralProductReport:
     """Resolve the selected immutable predecessor closure before representation."""
     check_active()
     if dossier_root(root_component, retained) != root:
@@ -1413,9 +1465,11 @@ def produce_structural_dossier(
     )
 
 
-def produce_condition_qualification(inputs, *, attachment, retained) -> StructuralProductReport:
+def produce_condition_qualification(inputs, *, attachment, retained):
     """Qualify only the exact retained source-supported directed attachment."""
-    return StructuralProductReport(
+    from corpus_structure.semantic.structural_products import DeclaredStructuralInput
+    report_type = DeclaredStructuralProductReport if isinstance(inputs, DeclaredStructuralInput) else StructuralProductReport
+    return report_type(
         kind="condition_qualification",
         inputs=inputs,
         condition_qualification=condition_qualification(inputs, attachment, retained),
@@ -1942,8 +1996,12 @@ def condition_qualification(inputs, attachment, retained):
     from corpus_structure.semantic.structural_products import (
         ConditionQualificationProduct,
         ConditionRoleCitation,
+        DeclaredConditionQualificationProduct,
+        DeclaredStructuralInput,
     )
 
+    target = isinstance(inputs, DeclaredStructuralInput)
+    product_type = DeclaredConditionQualificationProduct if target else ConditionQualificationProduct
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
     relation = rows.get(attachment.contribution_id)
     if (
@@ -1958,14 +2016,16 @@ def condition_qualification(inputs, attachment, retained):
         component["host_contribution_id"],
     )
     version = component["question_version"]
-    effective = component.get("effective_version")
+    effective = inputs.passages[0].effective_version if target else component.get("effective_version")
+    primary_scope = component["scope"]
+    primary_version = component.get("effective_version")
     relation_kind = component["qualifier_kind"]
     if (
         component["kind"] != "predicate_qualifier"
         or component["question"] != "source_predicate_interpretation"
         or version != "6"
         or relation_kind not in {"condition", "assumption"}
-        or component["scope"] != inputs.scope
+        or not target and component["scope"] != inputs.scope
         or tuple((e["role"], e["contribution_id"]) for e in relation["endpoints"])
         != (("qualifier", qualifier_id), ("host", host_id))
     ):
@@ -1981,8 +2041,8 @@ def condition_qualification(inputs, attachment, retained):
             or value["kind"] != kind
             or value["question"] != "source_predicate_frames"
             or value["question_version"] != version
-            or value["scope"] != inputs.scope
-            or value.get("effective_version") != effective
+            or value["scope"] != (primary_scope if target else inputs.scope)
+            or value.get("effective_version") != (primary_version if target else effective)
             or row["contribution_id"] not in relation["members"]
         ):
             raise ValueError("condition statement differs from the retained endpoint scope")
@@ -2081,7 +2141,7 @@ def condition_qualification(inputs, attachment, retained):
             )
         return tuple(locations)
 
-    return ConditionQualificationProduct(
+    return product_type(
         relation=relation_kind,
         attachment=attachment,
         effective_version=effective,

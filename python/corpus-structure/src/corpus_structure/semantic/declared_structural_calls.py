@@ -40,6 +40,7 @@ _PATHS = (
     "semantic/declared_record_sources.py",
     "semantic/contributions.py",
     "semantic/formal_readings.py",
+    "semantic/formal_products.py",
 )
 
 
@@ -114,8 +115,12 @@ def structural_operation_sources():
 
 def structural_inputs(bundle):
     from .declared_candidate_products import candidate_inspection_inputs
+    from .formal_products import formal_product_inputs
 
-    return candidate_inspection_inputs(bundle)
+    bundle = candidate_inspection_inputs(bundle)
+    if "data_operation_characterization" not in {source.name for source in bundle.sources}:
+        bundle = formal_product_inputs(bundle)
+    return bundle
 
 
 @dataclass(frozen=True)
@@ -167,9 +172,20 @@ class PreparedStructuralInputs:
         from .contributions import contribution_identity
         from .declared_candidate_products import candidate_member_values
 
-        checked = self.prepared.validate_json(
-            "DdoCandidateInspectionReport", json_bytes(report)
-        ).model_dump(mode="python", exclude_unset=True)
+        from .data_operation_admission import bound_data_operation_model
+        from .data_operation_kind_refinements import input_kind_contracts
+
+        selected = member or self.member(name)
+        model = bound_data_operation_model(self.prepared)
+        root = self.prepared.index.definitions["DdoPredicateInspectionReport"].iri
+        accepted = input_kind_contracts(model, (root,))[root]
+        if selected.kind_contract not in accepted:
+            raise ValueError("structural reading requires its actual predicate producer capability")
+        owners = [identity.owner for identity in model.identities if identity.domain == "kind" and identity.key == selected.kind_contract]
+        if len(owners) != 1:
+            raise ValueError("structural reading lacks its exact concrete input kind")
+        definition = next(definition for definition in self.prepared.definitions if definition.iri == owners[0])
+        checked = self.prepared.validate_json(definition.name, json_bytes(report)).model_dump(mode="python", exclude_unset=True)
         reference = DeclaredContributionRef.from_bound(
             member or self.member(name), project=self.project, contribution_id=identifier
         )
@@ -235,11 +251,17 @@ def _passage(frame, *, passage_id, start, end, scope, version="", parent=""):
     )
 
 
-def execute_comparison(receiver, sources, reports, **selection):
+def execute_comparison(receiver, sources, reports, formal, **selection):
     from corpus_structure.methods.structural_products import produce_structural_comparison
 
     from .declared_record_sources import DeclaredNativeFrameSource
     from .structural_products import DeclaredComparisonReport, DeclaredStructuralInput
+    from .data_operation_admission import bound_data_operation_model
+    from .data_operation_model import SubjectContext
+    from .data_product_reference import DataProductReference
+    from .formal_products import validate_formal_product
+    from .formal_readings import FormalSourceReadings
+    from .source_products import FrozenNativeSource
 
     profile = receiver.profile
     profile.check_active()
@@ -285,6 +307,27 @@ def execute_comparison(receiver, sources, reports, **selection):
         version=selection["right_version"],
         parent=selection["right_parent"],
     )
+    model = bound_data_operation_model(profile.prepared)
+    retained_formal = {a.identity: [], b.identity: []}
+    lexical = {a.identity: [], b.identity: []}
+    (formal_role,) = (role for role in profile.roles if role.role == "formal")
+    for member, raw in zip(formal_role.members, formal, strict=True):
+        matches = [(reference, frame) for reference, frame in dict(((a, left), (b, right))).items() if raw["source"] == frame.value["source"] and raw["selectors"] == frame.value["selectors"]]
+        if len(matches) != 1 or member.member is not None:
+            raise ValueError("comparison formal product lacks its exact whole selected original scope")
+        address, frame = matches[0]
+        source = FrozenNativeSource.acquire(profile.prepared, frame.value)
+        context = SubjectContext(profile.project, member.subject, member.original_source, member.analyzed_scope)
+        product = validate_formal_product(profile.prepared, raw, source, model=model, subject_context=context)
+        if product.semantic_id != member.product:
+            raise ValueError("comparison formal body differs from its exact native product")
+        retained_formal[address.identity].append((DataProductReference(product.semantic_id), product.inventory()))
+        lexical[address.identity].extend(raw["lexicon"])
+    primary_readings = {
+        address.identity: FormalSourceReadings._from_retained(frame.value, retained_formal[address.identity], lexical[address.identity])
+        for address, frame in dict(((a, left), (b, right))).items()
+        if retained_formal[address.identity]
+    }
     inputs = DeclaredStructuralInput(
         question=selection["question"],
         scope=selection["scope"],
@@ -299,6 +342,7 @@ def execute_comparison(receiver, sources, reports, **selection):
                     right_ref.product_id,
                     left_ref.contribution_id,
                     right_ref.contribution_id,
+                    *(member.product for member in formal_role.members),
                 )
             )
         ),
@@ -315,6 +359,7 @@ def execute_comparison(receiver, sources, reports, **selection):
         left_retained=left_retained,
         right_retained=right_retained,
         primary_layers=None,
+        primary_readings=primary_readings,
         check_active=profile.check_active,
     )
     return DeclaredComparisonReport.model_validate(
@@ -322,6 +367,7 @@ def execute_comparison(receiver, sources, reports, **selection):
             **report.model_dump(mode="python"),
             "sources_input": profile.references("sources"),
             "reports_input": profile.references("reports"),
+            "formal_input": profile.references("formal"),
         }
     ).model_dump(mode="json")
 
