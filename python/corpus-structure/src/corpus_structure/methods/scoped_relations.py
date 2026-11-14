@@ -3,7 +3,8 @@
 import json
 import re
 from collections.abc import Iterable
-from typing import Any, Literal, Self, cast
+from typing import Any, Literal, Self, cast, TypedDict, NotRequired
+from collections.abc import Sequence
 
 from pydantic import Field, JsonValue, model_validator
 
@@ -239,7 +240,25 @@ def _table_schematics(items, text, *, navigation, pointer):
     return selected
 
 
-def _scalar_procedure_readings(proposals, passages) -> Iterable[dict[str, Any]]:
+class ScalarProcedureReading(TypedDict):
+    action: tuple[int, int]
+    actor: Sequence[tuple[int, int]]
+    object: Sequence[tuple[int, int]]
+    modality: Sequence[tuple[int, int]]
+    conditions: Sequence[tuple[int, int]]
+    exceptions: Sequence[tuple[int, int]]
+    orders: Sequence[tuple[tuple[int, int], tuple[int, int]]]
+    voice: str
+    polarity: str
+    behavior: str
+    clause_role: str
+    dependency: str
+    reading_key: NotRequired[str]
+    predicate_token: NotRequired[int]
+    block: NotRequired[str]
+
+
+def _scalar_procedure_readings(proposals, passages) -> Iterable[ScalarProcedureReading]:
     """Project compatible one-span procedure roles for existing structural readers."""
     for annotation, result in proposals:
         predicates = {
@@ -303,14 +322,14 @@ def _scalar_procedure_readings(proposals, passages) -> Iterable[dict[str, Any]]:
                         orders.append((subordinate[0], action))
             yield dict(
                 action=action,
-                **roles,
-                **qualifiers,
+                actor=roles["actor"], object=roles["object"],
+                modality=qualifiers["modality"], conditions=qualifiers["conditions"], exceptions=qualifiers["exceptions"],
                 orders=tuple(orders),
                 voice=frame.voice,
                 polarity=frame.polarity,
                 behavior=frame.interpretation,
                 clause_role=frame.reading,
-                dependency=annotation.dependency_digest,
+                dependency="annotation:" + annotation.dependency_digest,
                 reading_key=f"{annotation.block_id}:{frame.variant}:{frame.predicate.tokens}",
             )
 
@@ -328,7 +347,7 @@ def retained_action_extent(contributions, link):
     return matches[0] if len(matches) == 1 else None
 
 
-def retained_procedure_readings(contributions, passages):
+def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProcedureReading]:
     """Project scalar procedure roles from already characterized predicate facts."""
     by_id = {row["contribution_id"]: row for row in contributions}
     frames = {identifier: row["component"] for identifier, row in by_id.items() if row.get("component", {}).get("kind") == "predicate_frame"}
@@ -372,7 +391,7 @@ def retained_procedure_readings(contributions, passages):
                 positions = tuple(position for other in subordinate for member in other["frame_members"] if member["role"] == "predicate" for position in exact(member, local))
                 if len(positions) == 1 and cue["variant"] in {"before", "after"}:
                     orders.append((action[0], positions[0]) if cue["variant"] == "before" else (positions[0], action[0]))
-        yield dict(action=action[0], **fields, **{name: tuple(values) for name, values in qualifiers.items()}, orders=tuple(orders), voice=reading["voice"], polarity=reading["polarity"], behavior=reading["reading"], clause_role=frame["grammatical_reading"], dependency_reference=frame["annotation"], predicate_token=frame["predicate_token"], block=frame["block"], reading_key=f"{frame['block']}:{frame['variant']}:{(frame['predicate_token'],)}")
+        yield dict(action=action[0], actor=fields["actor"], object=fields["object"], modality=tuple(qualifiers["modality"]), conditions=tuple(qualifiers["conditions"]), exceptions=tuple(qualifiers["exceptions"]), orders=tuple(orders), voice=reading["voice"], polarity=reading["polarity"], behavior=reading["reading"], clause_role=frame["grammatical_reading"], dependency=frame["annotation"], predicate_token=frame["predicate_token"], block=frame["block"], reading_key=f"{frame['block']}:{frame['variant']}:{(frame['predicate_token'],)}")
 
 
 def located_participant(frame, context, pin, dependency, operation, start, end, *, role, pointer, region, extra=None, dependencies=(), reading_key=None):
@@ -511,12 +530,10 @@ def discover_relations(
     if not frame.text:
         raise ValueError("structural joins require a nonempty source projection")
     source_pieces = tuple(piece for piece in native["pieces"] if not declared or any(a <= piece["start"] < piece["end"] <= b for a, b in frame.selected_ranges))
-    context = NativeSourceContext(
-        frame, (), (source_slice(frame, 0, len(frame.text)),),
-        "native structural composition", "scoped-source-joins-1", "selected source",
-        max_chars=max(1, len(frame.text)), max_pieces=max(1, len(source_pieces)),
-        **({"max_sources": 1, "version": 2, "preparation": PreparedNativeSources((frame,), max_sources=1)} if declared else {}),
-    )
+    if declared:
+        context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "native structural composition", "scoped-source-joins-1", "selected source", max_chars=max(1, len(frame.text)), max_pieces=max(1, len(source_pieces)), max_sources=1, version=2, preparation=PreparedNativeSources((frame,), max_sources=1))
+    else:
+        context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "native structural composition", "scoped-source-joins-1", "selected source", max_chars=max(1, len(frame.text)), max_pieces=max(1, len(source_pieces)))
     pin = record_source_pin(frame)
     dependency = pin["source_product"] if declared else "native:" + str(frame.native_product.task_id) if hasattr(frame, "native_product") else "native:" + str(pin["native_product_task_id"])
     # The unchanged geometry/artifact operation has an independent identity.
@@ -1076,7 +1093,9 @@ def discover_relations(
         pin,
         None if passages is None else tuple(p.passage_id for p in passages),
     )
+    readings: list[ScalarProcedureReading]
     if declared:
+        assert retained_predicates is not None
         products.extend(retained_predicates)
         for coordinate in retained_coordinate_texts:
             coordinates[canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})] = coordinate
@@ -1085,7 +1104,7 @@ def discover_relations(
     else:
         predicate_proposals = predicate_results(frame, annotations, source_pieces, items)
         readings = [
-            *(dict(reading) for reading in procedure_frames(frame.text, tuple(a for a in annotations if not isinstance(a, AnnotationProduct)))),
+            *(ScalarProcedureReading(action=base["action"], actor=base["actor"], object=base["object"], modality=base["modality"], conditions=base["conditions"], exceptions=base["exceptions"], orders=base["orders"], voice=base["voice"], polarity=base["polarity"], behavior=base["behavior"], clause_role=base["clause_role"], dependency="annotation:" + base["dependency"]) for base in procedure_frames(frame.text, tuple(a for a in annotations if not isinstance(a, AnnotationProduct)))),
             *_scalar_procedure_readings(predicate_proposals, passages),
         ]
     for reading in readings:
@@ -1132,7 +1151,7 @@ def discover_relations(
                 pointer=original["item_ref"],
                 region=original["item_ref"],
                 extra=extra,
-                dependencies=(action_reading["dependency_reference"] if declared else "annotation:" + action_reading["dependency"],),
+                dependencies=(action_reading["dependency"],),
                 operation=procedure_op,
                 reading_key=reading.get("reading_key") if role == "procedure_action" else None,
             )

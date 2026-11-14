@@ -24,7 +24,7 @@ def selected_definition_applicability(
 ):
     """Reuse compatibility policy only after authenticating meaning and physical usage."""
     from corpus_structure.methods.definition_applicability import (
-        applicability_reading_values, is_defining_occurrence,
+        applicability_assessment, is_defining_occurrence,
     )
     from .source_contexts import (
         NativeSourceContext, PreparedNativeSources, evidence_anchor, source_slice,
@@ -75,7 +75,8 @@ def selected_definition_applicability(
             *(ApplicabilityPremise(dimension=dimension, state="inapplicable" if introduction else "unknown", evidence=(usage_id, component.term.passage_id), reason="Same defining occurrence under the explicit introduction policy; no transfer asserted." if introduction else "No authenticated transfer correspondence has been established.") for dimension in ("parameterization", "convention")),
         ),
     )
-    return DeclaredStructuralDefinitionReading(**applicability_reading_values(inputs, usage_id, candidate, defining_occurrence=introduction))
+    assessment = applicability_assessment(inputs, usage_id, candidate, defining_occurrence=introduction)
+    return DeclaredStructuralDefinitionReading(target_id=candidate.target_id, component_ref=candidate.reference, link_ref=candidate.link_ref, component=candidate.component, outcome=assessment.outcome, evidence=assessment.evidence, premises=assessment.premises, reason=assessment.reason)
 
 
 def execute_definition_applicability(receiver, source, components, relationship, *, component_id, decision_id, edge_id, usage_id, start, end, scope, effective_version, parent, defining_occurrence):

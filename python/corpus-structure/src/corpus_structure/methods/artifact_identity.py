@@ -36,6 +36,7 @@ from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import (
     DeclaredArtifactRecord,
+    DeclaredArtifactNomination,
     StructuralInput,
     StructuralProductReport,
     StructuralValue,
@@ -91,10 +92,10 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
     rows = discover_relations(frame, source_work=source_work, primary_layers=primary_layers)[
         "contributions"
     ]
-    return identity_records(frame, inputs, source_ref, rows, index)
+    return identity_records(frame, inputs, source_ref, rows, index, record_type=ArtifactRecord)
 
 
-def identity_records(frame, inputs, source_ref, rows, index, *, artifact_type=SourceArtifactOccurrence, reference_type=ArtifactReferenceDesignator, record_type=ArtifactRecord, primary_reference=lambda reference: reference):
+def identity_records(frame, inputs, source_ref, rows, index, *, artifact_type=SourceArtifactOccurrence, reference_type=ArtifactReferenceDesignator, record_type: type[_Record], primary_reference=lambda reference: reference) -> tuple[_Record, ...]:
     """Source-bound artifact assembly shared by native and sealed address owners."""
     from .witnessed_source_links import retained_artifact_fields
 
@@ -194,6 +195,7 @@ def identity_records(frame, inputs, source_ref, rows, index, *, artifact_type=So
 
 
 _Record = TypeVar("_Record", ArtifactRecord, DeclaredArtifactRecord)
+_Nomination = TypeVar("_Nomination", ArtifactNomination, DeclaredArtifactNomination)
 
 def artifact_cohort(records: list[_Record]) -> tuple[_Record, ...]:
     cohort: dict[tuple[str, str, str], _Record] = {}
@@ -351,10 +353,11 @@ def retained_artifact_nomination(
         source_key=lambda pin: pin["source_view_id"],
         navigation_for=lambda pin: navigation_index(primary_layers, pin["projection_digest"], source_view_id=pin["source_view_id"]),
         origin_fields=lambda pin: {"origin_source_view_id": pin["source_view_id"]},
+        nomination_type=ArtifactNomination,
     )
 
 
-def artifact_nomination(inputs, records, reference, contributions, *, sources, source_key, navigation_for, origin_fields, endpoint_type=ArtifactNominationEndpoint, nomination_type=ArtifactNomination, primary_reference=lambda reference: reference):
+def artifact_nomination(inputs, records, reference, contributions, *, sources, source_key, navigation_for, origin_fields, endpoint_type=ArtifactNominationEndpoint, nomination_type: type[_Nomination], primary_reference=lambda reference: reference) -> _Nomination:
     """Join original source origins through their actual nominal address owner."""
     if reference.contribution_id not in inputs.dependencies:
         raise ValueError("artifact nomination outside declared dependencies")

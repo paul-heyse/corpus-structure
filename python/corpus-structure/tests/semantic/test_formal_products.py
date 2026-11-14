@@ -924,12 +924,16 @@ def test_declared_formal_adapter_retains_inline_symbol_addresses_without_task_al
     retained = declared_formal_layers((product,), source)
     value = source.value
     equations = tuple(inline_equations(value["text"], value["pieces"], {item["self_ref"]: item for item in value["items"]}, None, max_chars=2048, primary_layers=retained, projection=value["source"]["projection"]))
-    assert len(equations) == 1 and equations[0].primary_input["product_id"] == product.semantic_id
+    assert len(equations) == 1
+    assert equations[0].primary_input is not None
+    assert equations[0].primary_input["product_id"] == product.semantic_id
     symbols, status = inline_symbols(value["text"], equations[0], primary_layers=retained, projection=value["source"]["projection"])
     assert status == "parsed"
     assert [value["text"][symbol.start:symbol.end] for symbol in symbols] == ["x"]
-    assert all(symbol.primary_node["product_id"] == product.semantic_id for symbol in symbols)
-    assert all("task_id" not in symbol.primary_node for symbol in symbols)
+    for symbol in symbols:
+        assert symbol.primary_node is not None
+        assert symbol.primary_node["product_id"] == product.semantic_id
+        assert "task_id" not in symbol.primary_node
 
 
 def test_declared_formal_adapter_refuses_scope_substitution_or_duplicate_product(profile):

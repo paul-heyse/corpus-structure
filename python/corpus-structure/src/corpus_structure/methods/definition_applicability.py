@@ -33,6 +33,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionBasisWitness,
+    DefinitionOutcome,
     DefinitionComponentsProduct,
     DefinitionProduct,
     DefinitionRoleCandidate,
@@ -1282,12 +1283,19 @@ def assess_applicability(
     *,
     defining_occurrence: bool = False,
 ) -> StructuralDefinitionReading:
-    return StructuralDefinitionReading(**applicability_reading_values(
-        inputs, usage_id, candidate, defining_occurrence=defining_occurrence
-    ))
+    assessment = applicability_assessment(inputs, usage_id, candidate, defining_occurrence=defining_occurrence)
+    return StructuralDefinitionReading(target_id=candidate.target_id, component_ref=candidate.reference, link_ref=candidate.link_ref, component=candidate.component, outcome=assessment.outcome, evidence=assessment.evidence, premises=assessment.premises, reason=assessment.reason)
 
 
-def applicability_reading_values(inputs, usage_id, candidate, *, defining_occurrence=False):
+@dataclass(frozen=True)
+class ApplicabilityAssessment:
+    outcome: DefinitionOutcome
+    evidence: tuple[str, ...]
+    premises: tuple[ApplicabilityPremise, ...]
+    reason: str
+
+
+def applicability_assessment(inputs, usage_id, candidate, *, defining_occurrence=False) -> ApplicabilityAssessment:
     """Reference-neutral compatibility policy shared by current and sealed readers."""
     usage = next(p for p in inputs.passages if p.passage_id == usage_id)
     component = candidate.component
@@ -1337,6 +1345,7 @@ def applicability_reading_values(inputs, usage_id, candidate, *, defining_occurr
         ),
     )
     states = {p.state for p in premises}
+    outcome: DefinitionOutcome
     if "incompatible" in states:
         outcome = "incompatible"
     elif "unknown" in states or component.interpretation == "unresolved":
@@ -1347,11 +1356,7 @@ def applicability_reading_values(inputs, usage_id, candidate, *, defining_occurr
             if component.interpretation == "definition"
             else "applicable_explanation"
         )
-    return dict(
-        target_id=candidate.target_id,
-        component_ref=candidate.reference,
-        link_ref=candidate.link_ref,
-        component=component,
+    return ApplicabilityAssessment(
         outcome=outcome,
         evidence=(usage_id, component.term.passage_id, component.content.passage_id),
         premises=premises,

@@ -50,7 +50,7 @@ def test_retained_procedure_scalar_projection_preserves_roles_voice_and_partiali
     (reading,) = tuple(retained_procedure_readings(rows, (SimpleNamespace(start=0, end=14),)))
     assert reading["action"] == (2, 4) and reading["actor"] == ((0, 1),) and reading["object"] == ((5, 8),)
     assert reading["conditions"] == ((10, 14),) and reading["voice"] == "active" and reading["polarity"] == "negative"
-    assert reading["dependency_reference"] == "annotation:actual-primary"
+    assert reading["dependency"] == "annotation:actual-primary"
     members[-1]["outcome"] = "partial"
     (narrowed,) = tuple(retained_procedure_readings(rows, (SimpleNamespace(start=0, end=14),)))
     assert narrowed["object"] == () and narrowed["actor"] == reading["actor"]

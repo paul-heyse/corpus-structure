@@ -969,7 +969,7 @@ class DeclaredDossierMember(StructuralValue):
     sense: Nonempty
     scope: Nonempty
     effective_version: str | None = None
-    relation_product_id: Nonempty
+    relation_product_id: Nonempty = Field(description="Domain report identity; the exact native product address is carried by the typed predecessor reference.")
     definition_interpretation: DefinitionInterpretation | None = None
     applicability_outcome: DefinitionOutcome | None = None
     comparison_binding: DeclaredDossierComparisonBinding | None = None

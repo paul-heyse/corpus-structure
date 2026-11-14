@@ -106,8 +106,10 @@ def test_native_artifact_discovery_keeps_known_absence_and_actual_semantic_witne
     (record,) = native_artifact_records(frame, selected, inputs, original.identity, "work:book", navigation)
     assert record.artifact.controlled_code == "2.1" and record.artifact.artifact_kind == "table"
     assert record.artifact.alias_state == "known_empty" and record.artifact.aliases == ()
+    assert record.artifact.alias_absence is not None
     assert record.artifact.alias_absence.text == "aliases: none"
     assert record.citations[0].text == "Table 2.1"
+    assert record.primary_node is not None
     assert record.primary_node.product_id == "product:navigation"
     assert record.primary_node == record.artifact.primary_node
     assert b"task_id" not in canonical_bytes(record.model_dump(mode="json"))
