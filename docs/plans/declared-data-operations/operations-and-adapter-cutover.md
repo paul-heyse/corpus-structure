@@ -159,3 +159,15 @@ coverage because a search returned no match. Remove former selectors/input diges
 manual dependency lists and mechanism-only controls with their migrated callers. Keep useful
 algorithm kernels, semantic expectations and original custody. DDO-10 reuses these finite supported
 transformations; it does not introduce another migration framework or runtime selection authority.
+
+## Retirement slices after the repository-wide audit · 2026-11-14
+
+The coordinator's [retirement assessment](../declared-data-operations_2026-11-12.md#hard-target-retirement-and-closely-related-adjacent-code)
+separates dead runner/descriptors and HTML-only adapters from live ordinary drivers. Remove independent
+unused scaffolding without waiting for full deployment. Migrate actual formal/construction/contextual
+callers to acquired CPU ports and internal task/semantic unions to genuine semantic references before
+retiring their facades. Preserve shared algorithms, process/provider custody and truthful historical
+standing. Target selection-only or declared-factory availability is insufficient for complete contextual,
+M1 formal/rule, finite, math, dossier and external/effectful production. Public query/export/replay
+replacement requires DDO-10's missing read contract; demand inspection alone is not that replacement.
+The coordinator owns dispositions and prerequisite order; this companion is not another progress ledger.

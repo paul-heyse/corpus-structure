@@ -78,7 +78,7 @@ signatures, locks, schemas and privilege grants; this document specifies their e
 | `adopt_data_completion_intent` | Authenticate a new exact claim against a retained immutable intent and return a native adoption binding without changing original producer attribution. |
 | `revoke_data_support`, `read_demand_result` | Serialized trust changes; pinned coverage/selection/result reads for execution and downstream consumers. |
 
-DDO-05 delivers resolved typed bindings, candidate logical requests, domain sufficiency reasons,
+DDO-05 implements resolved typed bindings, candidate logical requests, domain sufficiency reasons,
 population closure and resumable demand obligations. DDO-06 consumes them and delivers actual
 derivations/receipts, selected fulfillment and explicit failure/uncertainty outcomes. Product-family
 packages replace actual adapter reads and writers against these interfaces. Public read/evaluation
@@ -463,3 +463,12 @@ Preserve actual batch/stream/preparation/cancellation ports without redundant wr
 residency, bounded hydration and task fencing. Check changed implementation revision changes affected
 requests, new unrelated runtime provenance does not salt them, and resumptions consume the same archived
 interpretation. New recipe results can stop downstream work at equal admissible value/support.
+
+## Dependency-complete readiness correction · 2026-11-14
+
+The [current audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-14)
+keeps the resolver's delivered behavior distinct from incomplete native premises (CA-08/09).
+Provider-sensitive roles currently cannot attach, and a root/direct-SourceSet-only trust mapping
+cannot attest the full transitive support closure. Complete native readiness remains open until
+those shared contracts are implemented. The selected-view child-binding failure remains with its
+existing DDO-06/07 owner. This note neither reopens the distinct CA-05 context repair nor resumes tests.

@@ -33,6 +33,14 @@ includes the callable's actual builtin lookup environment; complete source/scope
 applies to distinct members of one discovery population. Pure topology kernels and member-family
 policies do not by themselves supply the accepted compiled graph projection interpretation.
 
+**Completion-audit correction · 2026-11-14:** the coordinator's CA-08/09 own incomplete native
+provider-selected input identity and transitive-support trust pins. Python/compiler support and safe
+native refusal do not establish the missing native capability. Preserve contract-selected provider
+identity from authenticated producing custody in both semantic and admission projections; read pins
+must cover relevant transitive support scopes. This corrects implementation status, not the accepted
+contract or the existing narrow typed-port/source-migration controls. See the
+[current audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-14).
+
 ## Responsibility and delivered contracts
 
 One composed released model governs every supported domain operation: source capture and

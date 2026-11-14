@@ -1,10 +1,15 @@
 # Status
 
-_Updated 2026-11-14. Current DDO increment concluded; DDO-06–08 remain open. Remaining tests cancelled by operator. No persistent deployment, activation or cutover._
+_Updated 2026-11-14. Current DDO increment concluded; completion audit reopens native DDO-03/04 scope and DDO-05 dependency readiness. DDO-06–12 remain open. Remaining tests cancelled by operator. No persistent deployment, activation or cutover._
+
+## Completion audit · 2026-11-14
+
+- **Interface-checked by source inspection:** three independent reviewers plus root repository-wide synthesis at production source `a15f2e197`; concurrent `c940b529e` changes only proposed review documentation and is preserved. CA-08 identifies missing native provider-selected input identity; CA-09 identifies missing transitive-support trust scopes in pinned reads. Safe refusal is not implementation completion.
+- The [retirement assessment](docs/plans/declared-data-operations_2026-11-12.md#hard-target-retirement-and-closely-related-adjacent-code) gives concrete remove-now scaffolding/HTML-only adapters, migrations to existing target CPU/reference/driver capabilities, genuinely missing family/public read prerequisites, and narrowly justified sealed historical reading. No production code/data was removed; tests/providers/builds/health checks/database operations were **not_run** for this audit. Prior cancellations remain in force.
 
 ## DDO authority and integrated scope
 
-- The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#producer-and-physical-owner-integration--2026-11-14) owns package/finding state, the integrated family inventory, receipts and remaining work. DDO-00–05 retain accepted foundation completion; DDO-06–12 remain open. Current worker tasks are concluded, edits/conflicts integrated on main, and all six auxiliary worktrees removed; branch references remain.
+- The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#completion-audit--2026-11-14) owns package/finding state, the integrated family inventory, receipts and remaining work. DDO-00–02 retain bounded foundation completion; DDO-03/04 and DDO-05 dependency-complete native readiness are open (CA-08/09); DDO-06–12 remain open. Current worker tasks are concluded, edits/conflicts integrated on main, and all six auxiliary worktrees removed; branch references remain.
 - Implemented: owned streams, typed CPU coroutines, shared provider residency/parent byte credit/coalescing and logical-fence receipts; exact grouped witnesses/source sets and pinned reuse. Explicit `ci run --demand ID --source-root ROOT` and `ci demands execute` use retained-demand execution; default source/book/phase0 caller migration and retirement remain open.
 - Integrated source/primary, learned, M1 and structural factories plus retained-math kernel work preserve real source/member/context identities. One spaCy inference retains full annotations for its consumers. Complete family/provider population, optional M1 formal/rule inputs, finite/contextual interpretations, math/scoped/definition/dossier and effectful paths remain open; declarations/helpers do not establish their qualification.
 - Native successors through [`semantic_ddo_origeps_v1`](docs/design_review/evidence/2026-11-14_ddo-original-episodes/README.md) are registered from passed rollback-only candidates. The coordinator links the complete immutable chain and exact inspection/registration evidence. Selected views retain their actual scopes under authenticated document roots; original facts have no invented computation episodes. Protected tables remain private.
@@ -22,7 +27,7 @@ _Updated 2026-11-14. Current DDO increment concluded; DDO-06–08 remain open. R
 
 ## Next DDO work and efficiency
 
-- The [owning remaining scope](docs/plans/declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up) includes the actual child-binding failure and incomplete M1 journeys alongside the unfinished family/caller/retirement work. Remaining structural changes may affect the failures; no resolution is claimed.
+- First repair CA-08/09 at their shared native owners and retain the existing child-binding obligation; independently removable scaffolding need not wait for final adoption. The [owning remaining scope](docs/plans/declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up) includes the actual child-binding failure and incomplete M1 journeys alongside the unfinished family/caller/retirement work. Remaining structural changes may affect the failures; no resolution is claimed.
 - **Proposed efficiency follow-up:** reuse pure static extraction for identical captured inputs, while keeping native permission, source, and trust checks at their required boundaries. Address repeated `python_port_identity` → `compile_data_operations` work using exact immutable input/analysis context and source/body-change invalidation before wider qualification resumes. Benefits are unmeasured; this closeout adds no cache or benchmark obligation.
 
 ## Test system: execution closed; qualification deferred · 2026-11-13
