@@ -99,6 +99,7 @@ from sqlalchemy.dialects.postgresql import (
 )
 from sqlalchemy.schema import DefaultClause
 from sqlalchemy.types import TypeEngine
+from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
 
 from corpus_structure.schema.model import (
     Invariant,
@@ -951,7 +952,7 @@ def render_typed_column_class(
             raise ModelError([f"invalid typed column name {column.name!r}"])
         if isinstance(column.type, JSONB):
             kind = "JsonValue"
-        elif isinstance(column.type, ARRAY):
+        elif isinstance(column.type, BaseARRAY):
             item_type = column.type.item_type.python_type
             if item_type is object:
                 raise ModelError([f"unsupported typed column {column}"])

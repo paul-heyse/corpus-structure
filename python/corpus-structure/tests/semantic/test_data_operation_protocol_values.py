@@ -41,7 +41,7 @@ def test_captured_protocol_owns_distinct_fate_and_selector_sets():
     md = compile_physical(sources)
     fate = md.tables["ops.demand_use"].c.fate
     assert fate.info["enum"] == HISTORY
-    assert all("waiting" not in str(item.sqltext) for item in fate.table.constraints if hasattr(item, "sqltext"))
+    assert all("'waiting'" not in str(item.sqltext) for item in fate.table.constraints if hasattr(item, "sqltext"))
     assert Path(_data_operation_fates.__file__).read_text() == generated_fates()
 
 

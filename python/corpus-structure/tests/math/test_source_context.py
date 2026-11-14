@@ -76,5 +76,6 @@ def test_native_source_timeout_remains_failure_not_an_absent_declaration(monkeyp
     value = operand(declarations=(declaration(),))
     result = value.syntax()
     assert result.status is ParseOutcome.FAILED
+    assert result.failure is not None
     assert result.failure.category == "timeout"
     assert calls == ["f(t)"]
