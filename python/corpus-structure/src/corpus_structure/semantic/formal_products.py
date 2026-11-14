@@ -710,7 +710,7 @@ def formal_operation_sources():
 
     path = Path(__file__).parents[1] / "methods/formal_evidence.py"
     return PythonSourceCollection(
-        (
+        (PythonSource("corpus_structure.semantic.formal_products", Path(__file__).read_bytes(), str(Path(__file__))),
             PythonSource(
                 "corpus_structure.methods.formal_evidence",
                 path.read_bytes(),

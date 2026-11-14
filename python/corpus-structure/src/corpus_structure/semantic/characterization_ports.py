@@ -11,7 +11,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from .construction_products import (
     CharacterizationSnapshot,
@@ -195,20 +195,29 @@ def _execution_custody() -> SourceArtifact:
 def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
     path = Path(__file__).parents[1] / "methods" / (module + ".py")
     return PythonSourceCollection(
-        (PythonSource("corpus_structure.methods." + module, path.read_bytes(), str(path)),),
+        (PythonSource("corpus_structure.semantic.characterization_ports", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods." + module, path.read_bytes(), str(path)),),
         boundary_contracts=(_semantic_assets(profile), _execution_custody()),
     )
 
 
-def construction_operation_sources() -> PythonSourceCollection:
-    return _operation_sources("construction_characterization", "construction")
+def construction_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
+    own = _operation_sources("construction_characterization", "construction")
+    if not include_dependencies:
+        return own
+    from .formal_products import formal_operation_sources
+    from .primary_operations import combine_primary_sources
+    return combine_primary_sources(formal_operation_sources(), own)
 
 
-def contextual_operation_sources() -> PythonSourceCollection:
-    return _operation_sources("contextual_interpretation", "contextual")
+def contextual_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
+    own = _operation_sources("contextual_interpretation", "contextual")
+    if not include_dependencies:
+        return own
+    from .primary_operations import combine_primary_sources
+    return combine_primary_sources(construction_operation_sources(), own)
 
 
-def document_view_operation_sources() -> PythonSourceCollection:
+def document_view_operation_sources(*, include_dependencies=True) -> PythonSourceCollection:
     return _operation_sources("characterization", "view")
 
 
@@ -218,13 +227,8 @@ def characterization_operation_sources() -> PythonSourceCollection:
         contextual_operation_sources(),
         document_view_operation_sources(),
     )
-    assets = {
-        asset.name: asset for collection in collections for asset in collection.boundary_contracts
-    }
-    return PythonSourceCollection(
-        tuple(source for collection in collections for source in collection.sources),
-        boundary_contracts=tuple(assets.values()),
-    )
+    from .primary_operations import combine_primary_sources
+    return combine_primary_sources(*collections)
 
 
 def execute_construction_kernel(
@@ -272,13 +276,14 @@ def execute_contextual_profile(receiver, source, formal, constructions, supporti
     )
 
 
-def execute_view_profile(receiver, sources, products, active):
+def execute_view_profile(receiver, sources, products, active, profile):
     return compose_enriched_document(
         receiver.profile.prepared,
         receiver.profile.model,
         sources,
         products,
         active=tuple(DataProductReference(product.semantic_id) for product in active),
+        profile=profile,
     )
 
 
@@ -322,6 +327,7 @@ class _DocumentInputs:
     sources: tuple[FrozenNativeSource, ...]
     products: tuple[RetainedCharacterizationProduct, ...]
     active: tuple[RetainedCharacterizationProduct, ...]
+    profile: str
 
 
 @dataclass(frozen=True)
@@ -382,7 +388,7 @@ class PreparedCharacterizationPort(ABC):
             assets=(_semantic_assets(self.family), _execution_custody()),
             functions=functions,
             authorize=self.authorize,
-            required_sources=self.operation_sources(),
+            required_sources=self.operation_sources(include_dependencies=False),
         )
 
     def _roles(self, values, binding):
@@ -408,7 +414,7 @@ class PreparedCharacterizationPort(ABC):
         if binding is not None and (
             not binding.sufficient
             or binding.operation != self.operation.semantic_id
-            or decode_semantic_value(json.loads(binding.parameters)) != {}
+            or set(decode_semantic_value(json.loads(binding.parameters))) != set(json.loads(self.operation.parameters))
         ):
             raise PortRefusal("characterization ingress differs from acquired binding")
         return result
@@ -522,12 +528,16 @@ class PreparedCharacterizationPort(ABC):
                 )
                 for value in roles["sources"]
             )
-            if not sources or binding.subject != sources[0].value["source"]["document"]:
+            if not sources or binding.subject != sources[0].value["source"]["document_subject"]:
                 raise PortRefusal("view subject is not its explicitly bound original document")
+            profile = decode_semantic_value(json.loads(binding.parameters))["profile"]
+            if profile not in self.profiles:
+                raise PortRefusal("composition profile is outside its admitted contract")
             return _DocumentInputs(
                 sources,
                 self._retained(roles["products"], binding, "products"),
                 self._retained(roles["active"], binding, "active"),
+                profile,
             )
         source = FrozenNativeSource.acquire(
             self.prepared, _body(self.prepared, "DdoSelectedNativeSource", roles["source"])
@@ -627,6 +637,7 @@ class PreparedCharacterizationPort(ABC):
                 active=tuple(
                     DataProductReference(product.semantic_id) for product in inputs.active
                 ),
+                profile=inputs.profile,
             )
         check_active()
         self._verify()
@@ -636,10 +647,10 @@ class PreparedCharacterizationPort(ABC):
         from .construction_products import validate_interpreted_product
         from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
 
+        if self.family == "view":
+            return self.invoke_python(values, binding=binding, check_active=check_active)
         self._verify()
         inputs = self._inputs(values, binding)
-        if isinstance(inputs, _DocumentInputs):
-            return self.invoke_python(values, binding=binding, check_active=check_active)
         source, formal = inputs.source, inputs.formal
         products = ()
         if isinstance(inputs, _ConstructionInputs):
@@ -749,6 +760,7 @@ class PreparedContextualPort(PreparedCharacterizationPort):
 
 class PreparedDocumentViewPort(PreparedCharacterizationPort):
     family = "view"
+    profiles = ("source_only", "selected_layers")
     operation_sources = staticmethod(document_view_operation_sources)
     bridge = staticmethod(execute_view_profile)
 
@@ -797,3 +809,37 @@ def resolve_contextual_port(prepared, model, operation, **admission):
 
 def resolve_document_view_port(prepared, model, operation, **admission):
     return _resolve(PreparedDocumentViewPort, prepared, model, operation, **admission)
+
+
+def full_document_view_operation_sources(*, sentence_configuration=None, hanlp_selection=None, include_dependencies=True):
+    own = _operation_sources("full_document_composition", "view")
+    from .primary_operations import combine_primary_sources
+    base = document_view_operation_sources(include_dependencies=False)
+    if not include_dependencies:
+        return combine_primary_sources(base, own)
+    if sentence_configuration is None or hanlp_selection is None:
+        raise ValueError("full composition requires explicitly acquired sentence and HanLP profiles")
+    from .canonical_sentences import canonical_sentence_operation_sources
+    from .hanlp_products import hanlp_operation_sources
+    from .source_discovery import source_discovery_operation_sources
+    return combine_primary_sources(
+        characterization_operation_sources(),
+        source_discovery_operation_sources(),
+        canonical_sentence_operation_sources(sentence_configuration=sentence_configuration),
+        hanlp_operation_sources(hanlp_selection, sentence_configuration=sentence_configuration),
+        own,
+    )
+
+
+class PreparedFullDocumentViewPort(PreparedDocumentViewPort):
+    profiles = ("full_characterization",)
+    operation_sources = staticmethod(full_document_view_operation_sources)
+
+    @property
+    def endpoint(self):
+        from corpus_structure.methods.full_document_composition import ComposeFullDocumentOperation
+        return ComposeFullDocumentOperation
+
+
+def resolve_full_document_view_port(prepared, model, operation, **admission):
+    return _resolve(PreparedFullDocumentViewPort, prepared, model, operation, **admission)

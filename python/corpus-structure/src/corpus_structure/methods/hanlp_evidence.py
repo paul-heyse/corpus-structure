@@ -69,7 +69,7 @@ class HanlpEvidenceOperation:
         "coverage": "exact-selected-canonical-sentences",
         "outcomes": ["success", "failed"],
         "precision": "native-one-based-heads-and-half-open-word-spans",
-        "dependencies": [],
+        "dependencies": ['segment.sentences/canonical-projection'],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],

@@ -782,7 +782,7 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None):
 
     path = Path(__file__).parents[1] / "methods/sentence_evidence.py"
     return PythonSourceCollection(
-        (PythonSource("corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)),),
+        (PythonSource("corpus_structure.semantic.sentence_products", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)),),
         boundary_contracts=(sentence_profile_assets(configuration), sentence_execution_custody(configuration)),
     )
 

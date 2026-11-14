@@ -49,7 +49,7 @@ class CanonicalSentenceProjection:
         "coverage": "exact-selected-original-blocks",
         "outcomes": ["success", "failed"],
         "precision": "exact-original-projection-offsets",
-        "dependencies": [],
+        "dependencies": ['segment.sentences/source-native'],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],

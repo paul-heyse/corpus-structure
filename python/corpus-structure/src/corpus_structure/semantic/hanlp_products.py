@@ -523,14 +523,19 @@ def hanlp_execution_custody(selection=None):
     )
 
 
-def hanlp_operation_sources(selection):
+def hanlp_operation_sources(selection, *, sentence_configuration=None, include_dependencies=True):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/hanlp_evidence.py"
-    return PythonSourceCollection(
-        (PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),),
+    own = PythonSourceCollection(
+        (PythonSource("corpus_structure.semantic.hanlp_products", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),),
         boundary_contracts=(hanlp_profile_assets(selection), hanlp_execution_custody(selection)),
     )
+    if not include_dependencies:
+        return own
+    from .canonical_sentences import canonical_sentence_operation_sources
+    from .primary_operations import combine_primary_sources
+    return combine_primary_sources(canonical_sentence_operation_sources(sentence_configuration=sentence_configuration), own)
 
 
 def execute_hanlp_profile(receiver, source, canonical):
@@ -593,7 +598,7 @@ class PreparedHanlpPort:
                 ("corpus_structure.methods.pm2_hanlp_products._constituency", _constituency),
             ),
             authorize=self.authorize,
-            required_sources=hanlp_operation_sources(self.profile.selection),
+            required_sources=hanlp_operation_sources(self.profile.selection, include_dependencies=False),
         )
 
     def _inputs(self, values, binding):

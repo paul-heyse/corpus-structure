@@ -202,18 +202,19 @@ def canonical_execution_custody():
     )
 
 
-def canonical_sentence_operation_sources():
+def canonical_sentence_operation_sources(*, sentence_configuration=None, include_dependencies=True):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/canonical_sentences.py"
-    return PythonSourceCollection(
-        (
-            PythonSource(
-                "corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)
-            ),
-        ),
+    own = PythonSourceCollection(
+        (PythonSource("corpus_structure.semantic.canonical_sentences", Path(__file__).read_bytes(), str(Path(__file__))), PythonSource("corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)),),
         boundary_contracts=(canonical_profile_assets(), canonical_execution_custody()),
     )
+    if not include_dependencies:
+        return own
+    from .primary_operations import combine_primary_sources
+    from .sentence_products import sentence_operation_sources
+    return combine_primary_sources(sentence_operation_sources(sentence_configuration), own)
 
 
 @dataclass(frozen=True)
@@ -269,7 +270,7 @@ class PreparedCanonicalPort:
                 ),
             ),
             authorize=self.authorize,
-            required_sources=canonical_sentence_operation_sources(),
+            required_sources=canonical_sentence_operation_sources(include_dependencies=False),
         )
 
     def _input(self, values, binding):

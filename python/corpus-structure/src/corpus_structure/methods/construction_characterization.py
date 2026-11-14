@@ -545,7 +545,7 @@ class ConstructionOperation:
         "coverage": "exact-selected-source-scope",
         "outcomes": ["success", "failed"],
         "precision": "retained-positioned-characterization",
-        "dependencies": [],
+        "dependencies": ['text.formal_evidence/source-native'],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
