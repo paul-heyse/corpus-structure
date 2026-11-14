@@ -1786,7 +1786,32 @@ class ClosedPythonSources:
                                 "callback-bearing key argument requires an admitted argument model",
                             )
                         )
-                    callee_kind, _ = expression_binding(expression)
+                    callee_kind, callee_targets = expression_binding(expression)
+
+                    def admitted_nominal_argument(kind, targets):
+                        # A nominal value is not its class object. Only an exact,
+                        # explicitly revisioned nominal boundary shared with the
+                        # receiving opaque bridge admits this data handoff.
+                        if kind != "instance" or callee_kind != "opaque" or not targets:
+                            return False
+                        bridges = tuple(boundary_for(target) for target in callee_targets)
+                        if not bridges or any(
+                            b is None or b.content_digest is None for b in bridges
+                        ):
+                            return False
+                        contracts = {(b.contract, b.content_digest) for b in bridges}
+                        for target in targets:
+                            boundary = boundary_for(target)
+                            if (
+                                boundary is None
+                                or boundary.reference != target
+                                or boundary.content_digest is None
+                                or (boundary.contract, boundary.content_digest) not in contracts
+                            ):
+                                return False
+                        for target in targets:
+                            reference(path, target, "implementation_determinant", location)
+                        return True
 
                     class ArgumentUses(cst.CSTVisitor):
                         def visit_Call(self, node):
@@ -1818,7 +1843,9 @@ class ClosedPythonSources:
                         def visit_Name(self, node):
                             if module.contexts.get(node) != ExpressionContext.LOAD:
                                 return
-                            kind, _ = expression_binding(node)
+                            kind, targets = expression_binding(node)
+                            if admitted_nominal_argument(kind, targets):
+                                return
                             if kind == "receiver" and callee_kind == "opaque":
                                 # The explicit prepared bridge owns this receiver's
                                 # resource/configuration contract; this is not a

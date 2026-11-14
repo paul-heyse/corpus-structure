@@ -6,12 +6,13 @@ from dataclasses import replace
 import griffe
 import pytest
 
+from corpus_structure.semantic.data_operation_model import OpaqueBoundary
 from corpus_structure.semantic.python_operation_sources import (
     ClosedPythonSources,
     PythonSource,
     PythonSourceCollection,
 )
-from corpus_structure.semantic.types import PreparationError
+from corpus_structure.semantic.types import PreparationError, SourceArtifact
 
 
 def sources(code, *profiles, module="example"):
@@ -200,3 +201,43 @@ def test_nominal_method_body_is_retained_but_unqualified_dispatch_withholds_iden
         for edge in first.edges
     )
     assert first.semantic_records() != second.semantic_records()
+
+
+@pytest.mark.parametrize(
+    ("argument", "nominal", "bridge", "admitted"),
+    [
+        ("item", "same", "same", True),
+        ("Item", "same", "same", False),
+        ("item.label", "same", "same", False),
+        ("item", None, "same", False),
+        ("item", "different", "same", False),
+        ("item", "same", None, False),
+    ],
+)
+def test_nominal_value_handoff_requires_exact_shared_revisioned_boundary(
+    argument, nominal, bridge, admitted
+):
+    code = (
+        "class Item:\n    value: str\n"
+        "    def label(self) -> str:\n        return self.value\n"
+        "def bridge(value) -> str:\n    return 'opaque'\n"
+        f"def run(item: Item) -> str:\n    return bridge({argument})\n"
+    )
+    captured = ClosedPythonSources(sources(code))
+    function = captured.resolve("example.run")
+    boundaries = tuple(
+        OpaqueBoundary(
+            reference=reference,
+            contract="example.nominal-transfer.v1",
+            role="prepared nominal data handoff",
+            content_digest=SourceArtifact("contract", revision.encode()).digest,
+        )
+        for reference, revision in (("example.Item", nominal), ("example.bridge", bridge))
+        if revision is not None
+    )
+    result = captured.implementation_slice(
+        "example.run", (captured._surface("example.run", function),), boundaries, ("item",)
+    )
+    assert result.complete is admitted
+    if not admitted:
+        assert any("escape" in unknown.reason for unknown in result.unknowns)
