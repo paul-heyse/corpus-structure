@@ -194,7 +194,7 @@ class AnnotationProduct:
 _PRODUCTS = TypeAdapter(tuple[AnnotationProduct, ...])
 
 
-def restore_annotations(rows, *, source, profile):
+def restore_annotations(rows, *, source, profile, require_complete=True):
     """Restore owned persisted columns under their exact source/profile identity.
 
     The enclosing SourceObservationBatch authenticates release/method/input custody;
@@ -223,9 +223,9 @@ def restore_annotations(rows, *, source, profile):
             != sha256(source.text[product.block_start : product.block_end].encode()).hexdigest()
         ):
             raise ValueError("persisted annotation text differs from its pinned source")
-        if any(
+        if (require_complete and any(
             column.status not in {"complete", "not_applicable"} for column in product.availability
-        ) or {column.attribute for column in product.availability} != set(_ATTRIBUTES):
+        )) or {column.attribute for column in product.availability} != set(_ATTRIBUTES):
             raise ValueError("persisted annotation columns do not satisfy the richer profile")
         if any(
             not product.block_start <= token.start < token.end <= product.block_end
