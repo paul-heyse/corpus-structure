@@ -37,6 +37,40 @@ test-scope change intervened. Findings citing the dirty files describe the state
 
 <a id="refresh-2026-11-13"></a>
 
+<a id="postgresql-tooling-reconciliation"></a>
+
+## Scoped reconciliation for the PostgreSQL tooling review · 2026-11-13
+
+**Interface-checked by source inspection, 2026-11-13.** The independent tooling reviewer
+consumed publication `28b4a53db` and its documented refinements, reconciling the relevant
+source through `787264d726fbbe0c4c43541976172f32db5f9651` plus live dirty support inspected
+that day. Historical evidence dates/conditions remain. This refresh covers only execution,
+acquisition, isolation and receipt premises for TS-24/25; later concurrent edits are excluded.
+
+- DTA-024's repeated worker deployment diagnosis remains. TS-04 supersedes the premise that
+  all narrowed managed selections request auto: one explicit ID is serial, multiple IDs cap
+  workers, paths remain auto. Historical durations establish no present speedup.
+- DTA-003/017's acquisition completeness, deployment/policy distinction and application-target
+  fence remain preservation constraints. SQL supplies actual-session observations.
+- DTA-026's TS-16 source uses the executor factory seam, injected short grace with an
+  independent production-value assertion and actual-child cancellation gate. Retained broken-lock
+  observations construct failure states the production ownership adapter handles. Plan results
+  retain their exact scope; this refresh reruns none.
+- DTA-030's dirty TS-01 source removes legacy template/stamp/retention and committing-fixture
+  paths, centralizes names/lifecycle rules and reports connected/leased residue. This changes
+  the inspected footprint without closing all affected consumers.
+- DTA-032's TS-03 source replaces repeated reads with one immutable process snapshot, nested
+  overrides and affected-cache bypass. Controls cover repeated/concurrent cold acquisition,
+  restoration and explicit sources. Native consumer qualification remains separate.
+- DTA-025/018/031's general preparation/isolation concerns remain applicable. This does not
+  reassess all consumers or the ongoing DDO transition.
+
+Inspected owners: native lifecycle support, qualification plugin/receipts, CLI testing,
+package/semantic conftests, first SQL consumer, CPU controls and snapshot/cache interfaces.
+The plan remains the scheduled-disposition owner. No new DTA ID is introduced;
+the [tooling review](../reviews/design_review_postgresql-tooling_2026-11-13.md) owns additional
+target finding F01.
+
 ## Refresh of 2026-11-13: what changed and what was found
 
 **What changed since 2026-11-12.** 133 test files changed (about 22,000 lines added), 63 of them

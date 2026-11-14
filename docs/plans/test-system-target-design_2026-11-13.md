@@ -166,20 +166,20 @@ binds. A package is not automatically one worker's assignment.
 | TS-03 | Implementation snapshot with override; fixtures moved off monkeypatched readers | — | DTA-032 | In progress |
 | TS-04 | Workers sized to explicit selections | — | F05, RC02 | Delivered; targeted checks passed |
 | TS-05 | Isolation classes, infrastructure base and commit fixture migration | TS-00, TS-01, TS-02 acquisition slice | (enables DTA-025, DTA-031) | Not started |
-| TS-06 | Support modules and import rules; recipe values and their builder registry replace fixture-name overrides; the statistics-pack fixtures merged into one support owner | — | DTA-009 | Not started |
+| TS-06 | Support modules and import rules; recipe values and their builder registry replace fixture-name overrides; the statistics-pack fixtures merged into one support owner | — | DTA-009 | In progress |
 | TS-07 | Staged builders; focused consumers request only what they read; preparation-specific recipe memo | TS-03 override scope, TS-05, TS-06 | DTA-018 | Not started |
 | TS-08 | The seed operation; the serving seed migrated onto it | TS-00, TS-01, TS-02 acquisition slice, TS-03, TS-06 | F03 | Not started |
 | TS-09 | Refusal contract helper and the named weak sites | — | DTA-001 | In progress |
 | TS-10 | Rollback families on seeds; pure SQL checks in the read class | TS-05, TS-07, TS-08, TS-09 per family | DTA-025 | Not started |
 | TS-11 | Commit-class consumers clone recipe seeds | TS-07, TS-08 | F03 | Not started |
-| TS-12 | Affinity by distinctive shared fixture names and consumer-qualified local fixtures; deduplicate equal groups | — | F02 | Not started |
+| TS-12 | Affinity by distinctive shared fixture names and consumer-qualified local fixtures; deduplicate equal groups | — | F02 | In progress |
 | TS-13 | Provider-only selection, controlled identities and aggregated prerequisites before setup; complete receipt/retry projection | — | DTA-028, DTA-018 (skips) | Not started |
 | TS-14 | Preservation assertions, redaction-order control, exact task state for stdio modes | TS-08 for the two-run comparison | DTA-006, DTA-027, DTA-016 residue | Not started |
-| TS-15 | One owner of the primary-layer assembly | — | DTA-029 | Not started |
-| TS-16 | CPU lifecycle controls without real grace waits or private initializer writes | — | DTA-026 | Implemented; targeted checks running |
-| TS-17 | DDO support modules, declaration builders, kernel recipes, `admit_kernel`, an interim per-test kernel fixture | TS-06 | DTA-031, DTA-009 (DDO) | Not started |
+| TS-15 | One owner of the primary-layer assembly | — | DTA-029 | In progress |
+| TS-16 | CPU lifecycle controls without real grace waits or private initializer writes | — | DTA-026 | Delivered; targeted checks passed |
+| TS-17 | DDO support modules, declaration builders, kernel recipes, `admit_kernel`, an interim per-test kernel fixture | TS-06 | DTA-031, DTA-009 (DDO) | In progress |
 | TS-18 | Kernel/source-function seeds, forged-graph rollback family and deterministic lease expiry | TS-05, TS-08, TS-09 per refusal family, TS-17; TS-07 for the two original recipes | DTA-031, DTA-018 (forged graph) | Not started |
-| TS-19 | Literal vectors for the contextual product identity; uncalled helpers removed | — | DTA-033 | Not started |
+| TS-19 | Literal vectors for the contextual product identity; uncalled helpers removed | — | DTA-033 | In progress |
 | TS-20 | Wire-checked double; authored compiled results and bounded protected native admission | TS-05, TS-08, TS-17, TS-18 binding seed slice | DTA-034 | Not started |
 | TS-21 | Cutover transfer of tests tied to retired machinery | TS-07, TS-17, and each retiring DDO package | DTA-035 | Gated on DDO |
 | TS-22 | DDO-12 evidence mapping, as a table in this series' companion, and the provider run | TS-13, DDO-12 | DTA-036 | Gated on DDO |
@@ -223,8 +223,8 @@ Deferred rows and the audit link here. Dispositions use the binding's vocabulary
 | [DTA-018](../design_review/test-audit/execution-and-qualification.md#dta-018) | TS-07, TS-13, TS-18 | Open | Named consumers request only what they read; no body-level provider skip follows scenario fixtures; the DDO forged-graph family registers only the demand it reads |
 | [DTA-024](../design_review/test-audit/execution-and-qualification.md#dta-024) | TS-02 | Open | Two consecutive narrowed runs name one head and the second records reuse and verification; an unnarrowed run names a run-private head; no per-process head remains |
 | [DTA-025](../design_review/test-audit/execution-and-qualification.md#dta-025) | TS-10 | Open | Every family in TS-10's scope list is migrated or holds the disposition stated there; each migrated family shows one seed and one family clone per worker; every case asserts positive control, exact reason and absence; no case body commits |
-| [DTA-026](../design_review/test-audit/execution-and-qualification.md#dta-026) | TS-16 | Open | No literal tied to five seconds; one value assertion; no writes of `_initializer` or `_initargs` |
-| [DTA-027](../design_review/test-audit/evidence-and-discrimination.md#dta-027) | TS-14 | Open | A clip-first implementation fails by construction |
+| [DTA-026](../design_review/test-audit/execution-and-qualification.md#dta-026) | TS-16 | Closed, 2026-11-13: 9af8d67168a94b3b866715acdde07d42 (28/28), post-type affected controls 0afe6c7e8901433b922ca8d1dff7ba66 (4/4) | No literal tied to five seconds; one value assertion; no writes of `_initializer` or `_initargs` |
+| [DTA-027](../design_review/test-audit/evidence-and-discrimination.md#dta-027) | TS-14 | Closed, 2026-11-13: 7a25573b85bb4579b46aef1695a9fb88 (2/2) | Independently sized stdout/diagnostic windows start inside the raw credential; exact masked output distinguishes redact-before-clip |
 | [DTA-028](../design_review/test-audit/support-structure.md#dta-028) | TS-13 | Open | No body reads an asset variable to choose its evidence class; receipts record the prerequisite |
 | [DTA-029](../design_review/test-audit/support-structure.md#dta-029) | TS-15 | Open | The seven copies call one owner with an explicit digest policy |
 | [DTA-030](../design_review/test-audit/retirement-transfer.md#dta-030) | TS-01 | Open | No source names `cs_tpl_` or `STAMP`; every created name matches a sweep rule |
@@ -238,6 +238,7 @@ Deferred rows and the audit link here. Dispositions use the binding's vocabulary
 | F02 (review) | TS-12 | Open | Each designated preparation runs on one worker per run |
 | F03 (review) | TS-08, TS-11 | Open | The builder of each recipe TS-11 lists runs once per worker; the serving seed uses the common operation |
 | F04 (review) | TS-01 | Open | A sweep that meets connected residue completes and reports the skip |
+| [PostgreSQL review F01](../design_review/reviews/design_review_postgresql-tooling_2026-11-13.md#f01--ambient-proveharness-inputs-can-alter-execution) | TS-24 | Open; target amended 2026-11-13 | Explicit prove/harness inputs ignore conflicting ambient configuration; unexpected psql exit cannot qualify selected cases |
 | F05 (review) | TS-04 | Closed, 2026-11-13 | Real one-ID receipt fd2b0feb1cea417cb05b5ce4cbf81198 requested/actual zero; capped three-ID receipt 7e09a210f721489e90d3972044ca2c67; root CLI integration f725721fa9624957973caccff0a6176c passed 18/18 |
 
 DTA-001–023 as they stood on 2026-11-05 remain with the completed
@@ -339,12 +340,12 @@ gates, into the DDO work. Targeted checks run per package during implementation;
 run happens once at complete scope (AGENTS.md). Receipts that show a head reused or one seed per
 worker are functional closure evidence. They are not speed claims.
 
-**Next executable work:** TS-00 (the two superseding ADRs), then TS-01 and TS-03 in parallel.
+**Current work:** TS-01 native validation and TS-03 final consumer checks, plus the operator-authorized native PDF prerequisite repair. Next: TS-02 acquisition foundation, then TS-05/08 consumers as their other prerequisites become available.
 
 ## Revision publication · 2026-11-13
 
 This revision integrates I01–I11 and the selected PostgreSQL tooling direction; it implements
-no package and closes no DTA/F/I finding. Architecture and ADR changes remain TS-00's work.
+no package and closed no DTA/F/I finding at publication `08dfd8d83`; the execution checkpoint below owns subsequent progress.
 
 - **passed:** `just turn-end`, `git diff --check`.
 - **passed:** `uv run ci docs check`, initial publication result
@@ -365,3 +366,60 @@ A real single-ID run recorded requested/actual zero (`fd2b0feb1cea417cb05b5ce4cb
 a real three-ID run recorded auto/cap-three/actual-three (`7e09a210f721489e90d3972044ca2c67`).
 Root CLI provisional facts/help integration passed 18/18 affected checks, `f725721fa9624957973caccff0a6176c`.
 Other packages remain open; these bounded results are not TS-23 qualification.
+
+TS-16 passed 28 controls (`9af8d67168a94b3b866715acdde07d42`) and four post-typing affected
+controls (`0afe6c7e8901433b922ca8d1dff7ba66`). Typing initially failed
+`7525c9df9b314dc488b50d65b3f5993a`; owning fixes passed
+`8b1df76ece564c60935d2d9317822dc8`. This is not the final repository gate.
+
+**Authorized prerequisite repair, operator 2026-11-13:** fix the native
+`ops.retain_pdf_original` recipe-digest ambiguity and qualify a normal forward successor, without
+resuming DDO execution or deploying to the persistent working database. Failed guard-family
+run `36b9f71e784440c8be83ef6d0f68ecf6` retained: 18 passed, 50 setup failures at that guard.
+[Repair evidence](../design_review/evidence/2026-11-13_test-system-pdf-guard-repair/README.md)
+owns preview/candidate/registration custody; no existing frozen migration bytes are edited.
+The first successor passed preview/candidate/registration and three exact guard/forward-deployment
+controls (`e0b76cad67e1435199d8009c1147d9a3`). The next native batch
+`e67fcd551fcc4a138b2d3d0ec24b6cdd` failed with 3 passed and 22 setup failures at
+`check_pdf_build`'s reference to removed `data_derivation.task_id`; its adjacent repair uses
+the current `producer_task_id` in a separate forward successor.
+
+**DDO alignment, operator 2026-11-13; Interface-checked by source inspection.** The DDO
+transition remains the baseline. Repairs and test migrations must follow its current model,
+not restore the prior architecture to satisfy callers. The PDF reuse query selects the original
+published task and associates it with the derivation's immutable producer task. Adoption's
+current publication fence remains separately authenticated by retain/adopt/publish. Current
+reuse still requires `ddo_support_valid`; readable historical receipts do not imply currently
+admissible support. Request/generation/intent and custody checks remain with those production
+owners. TS-21/22 remain gated; this repair resumes no DDO package or cutover.
+
+TS-01's pure naming/sweep controls passed 28 tests (`201bb6d3dac94f6cba93b63f97197b08`);
+native affected-consumer qualification remains open behind the PDF prerequisite. TS-03's
+snapshot controls, including concurrent cold acquisition and nested override/cache behavior,
+passed (`962c709485484712afd08df5c0faa649`); affected native consumer qualification remains
+open. The generated typed-column IDs were reconciled through their generator after confirming
+preexisting source/ID drift; no physical model change was made. Types passed
+`a23e8d279d0f467fa778242b4f893e2d` and scoped lint passed
+`017d334e34e6432d96f5ab8390e0454f`; these are bounded checks.
+
+An assigned-work CLI defect in evidence finalization is repaired at its owning layer: invalid
+or missing requested records now refuse diagnostically before any record is rewritten. Three
+targeted controls passed (`a130b37bfaed44b6b9740ce7634bd5d5`); failed original invocation
+`51102baee5474ef1af78229b6d8e8078` is retained. TS-06/15 support integration is in progress.
+
+TS-12's table now covers shared statistics preparation, consumer-qualified HanLP/run-scope
+preparation and the existing math closure. Actual isolated two-worker controls established
+shared imported preparation once, unrelated same-name exclusion and unchanged math grouping.
+Result `74551fe43d8b44708710e63db9bf211d` passed three and failed one diagnostic-stream
+assertion; the correction reads both pytest streams and passed its exact retry
+`8d36fdb1d6e44ccb99b8e6d96c53be7b`. Actual designated-consumer receipts and final integration
+remain open. TS-19's pure contextual literal vectors passed the full identity module,
+48/48 (`244f50becd69430793b5e485a9d5f179`); deployed-function/source-text controls and helper
+retirement remain open. TS-17 DDO support extraction is underway against the current model.
+
+TS-14's stdout/diagnostic redaction-order controls passed two identities
+(`7a25573b85bb4579b46aef1695a9fb88`). Initial test-authoring arithmetic failure
+`fc06ad71376a430d99c3ed1c2f706d8a` is retained (1 passed, 2 failed) and corrected using
+the explicit raw clipping offset. Other TS-14 preservation/task-state work remains open.
+The scoped PostgreSQL target review is published with a bounded diagnostic reconciliation;
+its F01 is scheduled in TS-24, not a replacement test-system qualification.

@@ -438,9 +438,10 @@ the helpers are gone, whichever package removed them.
 **One JSON-meaning table.** Three places hold JSON-meaning checks: storage `:2171–2198` (the
 deployed function), `test_data_operation_identity_native.py:90–136` (source text in `pg_temp`,
 the same eight vectors verbatim) and `test_data_operation_json.py:79–116` (source text, a
-different fractional-scope case). The eight-vector table moves to one place in the
-identity-native module, consumed by the deployed-function check (read class) and the source-text
-check (rollback class); the storage copy is deleted. The fractional case in the json module is a
+different fractional-scope case). The eight-vector table moves to one canonical support module
+(`semantic.data_operation_identity_vectors`), consumed by the deployed-function check (read
+class) and the source-text check (rollback class); the storage copy is deleted. This execution
+refinement preserves TS-06's prohibition on importing test modules as support. The fractional case in the json module is a
 different claim and stays.
 
 **Revealing failure.** Change the domain string in `contextual_product_identity` and in the SQL

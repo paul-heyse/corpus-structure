@@ -65,6 +65,12 @@ constraint/message/context detail where `throws_ok` alone is insufficient.
 
 Invoke pg_prove once per selected family batch, not once per assertion. Use its native
 TAP parser, controlled psql startup and `ON_ERROR_STOP=1`; never enable `--ignore-exit`.
+Invoke with `--norc` and explicit jobs, selected source, adapter/harness/formatter and harness
+rules; no prove state selection or ambient rules discovery. Normalize Perl module/preload and
+harness rules/spool inputs, supplying the intentional adapter path explicitly and retaining
+all output under the managed result. This addresses the scoped
+[review's F01](../../design_review/reviews/design_review_postgresql-tooling_2026-11-13.md#f01--ambient-proveharness-inputs-can-alter-execution);
+implementation and conflicting-configuration verification remain required.
 A small Perl adapter using `TAP::Parser`/`TAP::Harness` produces the bounded structured case
 report and retains raw TAP/stderr/process status under the existing managed result. It must
 use the same pgTAP source handler as pg_prove, not implement SQL launching or TAP parsing anew.
@@ -91,6 +97,22 @@ unexecuted or uncertain cases incomplete/not_run, never manufacture per-case pas
 path; retain independently authored envelopes and Python/app/purpose controls. No universal SQL
 registry or compatibility runner is required. Complete the item/provenance mapping before
 replacing the current qualified Python path; a bounded prototype cannot close TS-24.
+
+**Execution refinements, Proposed; source-inspected 2026-11-13.** Installed pgTAP emits
+four-space-indented child streams inside its bounded `# Subtest:` framing. Feed de-indented
+children and the enclosing stream to native TAP parsers; reject unexpected nested framing,
+TODO/SKIP substitutions and incomplete observations. Declare expected assertion counts
+independently: the first consumer's cases require 1, 2 per applicability parameter, or 4 for
+the partial/wrong-statement case. A generated plan cannot detect a deleted assertion alone.
+Batch validity must gate every member's qualification, because union accounting accepts passed
+pytest identities independently of a global batch failure. Retain completed observations as
+diagnostics when a malformed/unknown/duplicate/truncated batch cannot qualify.
+
+Keep every selected family member in the same final xdist affinity group, including any
+other group markers. Explicitly mark native applicability. Bind the actual psql session context
+to each executed logical node with `record_native_context(..., nodeid=...)`; the first
+requesting pytest item's context cannot attest its siblings. Do not infer completed case
+results from a cancelled buffered `runtests` call.
 
 **Acceptance:** a selected single case, subset and full family retain their logical IDs and
 independent expectations; two selected cases share stable preparation and one psql batch.
@@ -127,6 +149,10 @@ Pass those settings to PgAdmin and child psql/Python processes; do not assume PG
 can override an explicit application URL. Normalize conflicting libpq selectors, and record
 observed cluster identity. Do not inherit credentials or database names pointing at 18/corpus.
 All clones/seeds still use the existing naming/lease/acknowledged-cleanup owner.
+Scrub inherited routing, authentication, configuration and script-control variables before
+launching pg_virtualenv: the installed script consumes inherited `PGPORT` during creation.
+Provision the canonical principals required by the actual fixtures and keep their authenticated
+purpose credentials distinct from bootstrap superuser credentials.
 
 Retain one cluster for the complete selected cohort, with per-worker/case isolation inside it.
 The installed script's fast initialization (`--nosync`, `fsync=off`) is appropriate for this
@@ -142,6 +168,11 @@ children before shutting down the cohort. Its trap cleanup is not a claim of cra
 cleanup after SIGKILL. Preserve uncertain ownership/residue explicitly instead of dropping a
 similarly named cluster. No mutation of the persistent working database or other server is part
 of this route.
+
+The existing process/receipt supervisor must outlive the private cohort. Its inner command
+copies logs into the managed result before pg_virtualenv's traps remove temporary files.
+Host selection propagates through initial launch, supervisor invocation, retries and fresh
+unresolved-identity recollection; context comparison includes mode and actual incarnation.
 
 **Acceptance:** one cluster bootstrap serves a multi-case/multi-worker driver selection; direct
 SQL observes the selected endpoint and real login; conflicting parent libpq variables cannot
@@ -172,7 +203,8 @@ smallest owning integration if necessary. Benefits are structurally expected fro
 setup and client execution, without a benchmark quota or a claim that private startup is always
 cheaper than an already running server. No tests or probes were run while authoring this plan.
 
-The new runner/host boundary receives a scoped design/target review under the existing binding
-before TS-24/25 integration, with the applicable test diagnostic context current for that scope.
-This authoring turn initiates neither that review nor an audit. The assembled scope still receives
-TS-23's review; one coincident boundary needs one review, not duplicate ceremonies.
+The new runner/host boundary received the scoped
+[design/target review](../../design_review/reviews/design_review_postgresql-tooling_2026-11-13.md)
+on 2026-11-13, consuming a bounded reconciliation of the applicable test diagnostic account.
+Its Revise judgment is confined to F01's ambient runner inputs, now incorporated into this
+target but awaiting implementation and verification. TS-23 still owns assembled review.
