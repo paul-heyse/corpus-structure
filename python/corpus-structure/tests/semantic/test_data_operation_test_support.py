@@ -97,36 +97,62 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
 
     from corpus_structure.semantic.composed import data_operation_dependencies
     from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
-    from corpus_structure.semantic.data_operation_storage import native_operation_declarations, native_protocol_sources
-    from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
-    from corpus_structure.semantic.source_discovery import source_discovery_inputs, source_discovery_operation_sources
-    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle
+    from corpus_structure.semantic.data_operation_storage import (
+        native_operation_declarations,
+        native_protocol_sources,
+    )
+    from corpus_structure.semantic.source_discovery import (
+        source_discovery_inputs,
+        source_discovery_operation_sources,
+    )
+    from corpus_structure.semantic.types import (
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceArtifact,
+        SourceBundle,
+    )
     from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = source_discovery_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    bundle = source_discovery_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
     sources = source_discovery_operation_sources()
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*native, *capture_port_generator_sources())),
-        (native_operation_declarations(native),), sources)
+        (native_operation_declarations(native),),
+        sources,
+    )
     inputs = CapturedKernelInputs(bundle, dependencies, PreparationProfile(version="semantic-2"))
     recipe = KernelRecipe("actual-package-source-discovery", "", None, "", captured_inputs=inputs)
     original_write = Path.write_bytes
     captured_paths = {Path(source.filename) for source in sources.sources}
 
     def owned_write(path, content):
-        assert path not in captured_paths, "package source must never be materialized by a test fixture"
+        assert path not in captured_paths, (
+            "package source must never be materialized by a test fixture"
+        )
         return original_write(path, content)
 
     monkeypatch.setattr(Path, "write_bytes", owned_write)
     actual = prepare_kernel(recipe)
-    assert actual.model.operation("source.selected_views/discovery").semantic_id == "source.selected_views/discovery"
+    assert (
+        actual.model.operation("source.selected_views/discovery").semantic_id
+        == "source.selected_views/discovery"
+    )
     assert actual.bundle == bundle and actual.dependencies == dependencies
-    modified = replace(sources.sources[0], content=sources.sources[0].content + b"\n# changed custody\n")
+    modified = replace(
+        sources.sources[0], content=sources.sources[0].content + b"\n# changed custody\n"
+    )
     invalid_sources = replace(sources, sources=(modified, *sources.sources[1:]))
-    invalid = replace(inputs, dependencies=data_operation_dependencies(
-        ResolvedDependencies((*native, *capture_port_generator_sources())),
-        (native_operation_declarations(native),), invalid_sources))
+    invalid = replace(
+        inputs,
+        dependencies=data_operation_dependencies(
+            ResolvedDependencies((*native, *capture_port_generator_sources())),
+            (native_operation_declarations(native),),
+            invalid_sources,
+        ),
+    )
     with pytest.raises(ValueError, match="read-only file"):
         prepare_kernel(replace(recipe, name="changed-package-source", captured_inputs=invalid))

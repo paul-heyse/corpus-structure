@@ -110,6 +110,7 @@ def _prepare_kernel(recipe: KernelRecipe, directory: Path | None = None) -> Kern
     owner = TemporaryDirectory(prefix="ddo-" + recipe.name + "-") if directory is None else None
     directory = Path(owner.name) if owner is not None else directory
     assert directory is not None
+
     def source_file(name, content):
         path = Path(name)
         if path.is_absolute():
@@ -131,12 +132,18 @@ def _prepare_kernel(recipe: KernelRecipe, directory: Path | None = None) -> Kern
         for _module, name, content in recipe.python_sources:
             source_file(name, content)
         (directory / "target.yaml").write_text(recipe.manifest_text)
-        bundle, dependencies, profile, prepared = prepare_data_operation_inputs(directory, "target.yaml")
+        bundle, dependencies, profile, prepared = prepare_data_operation_inputs(
+            directory, "target.yaml"
+        )
     else:
         from corpus_structure.semantic.composed import read_data_operation_inputs
         from corpus_structure.semantic.prepare import prepare_release
 
-        if recipe.python_sources or recipe.additional_files or recipe.declaration_content is not None:
+        if (
+            recipe.python_sources
+            or recipe.additional_files
+            or recipe.declaration_content is not None
+        ):
             raise ValueError("captured kernel inputs cannot mix a second acquisition recipe")
         captured = recipe.captured_inputs
         bundle, dependencies, profile = captured.bundle, captured.dependencies, captured.profile

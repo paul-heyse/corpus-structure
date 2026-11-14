@@ -69,7 +69,7 @@ def test_dto_kind_only_source_materializes_local_nominal_graph_and_fixed_tuple()
 
 def test_nominal_namespace_refuses_external_unresolved_and_colliding_owners():
     for reference in ("https://example.test/Elsewhere", "#/$defs/Missing"):
-        with pytest.raises(ValueError, match="closed local|unresolved"):
+        with pytest.raises(ValueError, match=r"closed local|unresolved"):
             nominal_schema_kinds(
                 {"type": "object", "properties": {"item": {"$ref": reference}}},
                 namespace="urn:closed:",
