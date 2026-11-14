@@ -400,8 +400,17 @@ def resolve_prepared_factory(model, sources, operation):
         from .data_operation_pdf_effect import PdfCaptureEffectPort
         implementation = result.wrapped if isinstance(result, PdfCaptureEffectPort) else result
         if hasattr(implementation, "plan_python"):
+            concrete = type(implementation)
+            original_type = importlib.import_module(concrete.__module__)
+            if concrete.__module__ not in captured:
+                raise PortRefusal("prepared port type is outside acquired source")
+            for name in concrete.__qualname__.split("."):
+                original_type = inspect.getattr_static(original_type, name)
+            if original_type is not concrete:
+                raise PortRefusal("prepared port type differs from its captured owner")
             method = implementation.plan_python
-            verify_callable(type(implementation).__module__ + "." + type(implementation).__qualname__ + ".plan_python", method)
+            original_method = method.__func__ if inspect.ismethod(method) else method
+            verify_callable(original_method.__module__ + "." + original_method.__qualname__, method)
         return result
 
     return acquire
