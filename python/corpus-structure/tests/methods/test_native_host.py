@@ -766,3 +766,22 @@ def test_external_physical_uncertainty_quarantines_future_residency():
         residency.ensure(lambda: None)
     with pytest.raises(native_host.NativeRetirementUncertain, match="quarantined"):
         residency.close()
+
+
+def test_residency_public_inspection_preserves_closed_population_without_activation():
+    policy = CharacterizationExecutionPolicy()
+    residency = native_host.NativeHostResidency(policy)
+    selected = selection()
+    residency.declare((selected,))
+    assert residency.declared_selections == (selected,)
+    assert residency.live_process_id(selected.native.host) is None
+    assert residency.startup_observation(selected) is None
+    assert not residency.host_closed(selected.native.host)
+    assert residency.physical_drained
+    residency.configure_endpoint("http://frozen-endpoint")
+    assert residency.endpoint == "http://frozen-endpoint"
+    residency.close()
+    assert residency.physical_drained
+    assert residency.host_closed(selected.native.host)
+    with pytest.raises(Exception, match="closed"):
+        residency.configure_endpoint("http://changed-endpoint")

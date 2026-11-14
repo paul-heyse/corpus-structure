@@ -871,3 +871,75 @@ def test_coalesced_logical_requests_share_host_receipt_with_distinct_exact_range
     assert receipts[0].native_member_digests != receipts[1].native_member_digests
     for handle in handles:
         handle.retire()
+
+
+def test_borrowed_parent_credit_batches_without_readmission_or_early_release(runtime):
+    """Lifecycle control only: controlled replies do not qualify a provider."""
+    from corpus_structure.semantic.cpu_execution import OwnedByteReservation
+
+    execution, opened, _ = runtime
+    execution.policy = replace(execution.policy, max_native_reply_bytes=4096)
+    budget = OwnedByteBudget(65536)
+    execution.budget = budget
+    parents = [OwnedByteReservation(budget, 32768) for _ in range(2)]
+    selected = selection("d1")
+    handles = []
+    for ordinal, parent in enumerate(parents):
+        intent = execution.work(
+            work(str(ordinal), {"batch": [{"value": ordinal}]}, selected=selected),
+            reservation=parent,
+        )
+        handles.append(intent.try_submit())
+        parent.release()
+    assert budget.used_bytes == 65536
+    handles[0].flush()
+    for ordinal, handle in enumerate(handles):
+        handle.future.result(timeout=5)
+        assert handle.collect().payload["batch"][0]["value"] == ordinal
+    assert len(opened[0].requests) == 1
+    assert budget.used_bytes == 65536
+    for handle in handles:
+        assert handle.retire()
+    assert budget.used_bytes == 0
+    assert not execution._credits
+
+
+def test_borrowed_cohort_refuses_oversize_without_waiting_or_losing_parent_credit(runtime):
+    from corpus_structure.semantic.cpu_execution import CapacityExceeded, OwnedByteReservation
+
+    execution, opened, _ = runtime
+    execution.policy = replace(execution.policy, max_native_reply_bytes=1024)
+    requests = [work(str(i), {"batch": [{"value": i}]}, selected=selection("d1")) for i in range(2)]
+    sizes = [execution._request_size(request) + 1024 for request in requests]
+    execution.budget = OwnedByteBudget(sum(sizes))
+    parents = [OwnedByteReservation(execution.budget, size) for size in sizes]
+    handles = [execution.work(request, reservation=parent).try_submit() for request, parent in zip(requests, parents, strict=True)]
+    for parent in parents:
+        parent.release()
+    handles[0].flush()
+    for handle in handles:
+        with pytest.raises(CapacityExceeded, match="physical cohort"):
+            handle.future.result(timeout=5)
+        assert handle.retire()
+    assert execution.budget.used_bytes == 0
+    assert not opened
+
+
+def test_borrowed_uncertain_retirement_keeps_credit_until_residency_drains(runtime, monkeypatch):
+    from corpus_structure.methods.native_host import NativeRetirementUncertain
+    from corpus_structure.semantic.cpu_execution import OwnedByteReservation
+
+    execution, _, _ = runtime
+    parent = OwnedByteReservation(execution.budget, execution.budget.limit)
+    intent = execution.work(work("uncertain", {}), reservation=parent)
+    handle = intent.try_submit()
+    handle.future.set_result(resources.ProviderReply("uncertain", retirement_uncertain=True, error_message="physical custody retained"))
+    parent.release()
+    monkeypatch.setattr(type(execution.native_group), "physical_drained", False, raising=False)
+    with pytest.raises(NativeRetirementUncertain):
+        handle.collect().payload
+    assert not handle.retire()
+    assert execution.budget.used_bytes > 0
+    monkeypatch.setattr(type(execution.native_group), "physical_drained", True)
+    assert execution.retire()
+    assert execution.budget.used_bytes == 0

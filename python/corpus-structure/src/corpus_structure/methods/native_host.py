@@ -458,6 +458,40 @@ class NativeHostGroup:
         self._closed = False
         self._close_error = None
 
+    @property
+    def declared_selections(self):
+        with self._lock:
+            return tuple(self._selections.values())
+
+    def configure_endpoint(self, endpoint):
+        with self._lock:
+            self._active()
+            if self._serving and self.endpoint != endpoint:
+                raise Pm2WorkerRefused("native custody endpoint changed after serving")
+            self.endpoint = endpoint
+
+    def live_process_id(self, host_name):
+        with self._lock:
+            host = self._hosts.get(host_name)
+            return None if host is None or host._process is None else host._process.pid
+
+    def startup_observation(self, selection):
+        with self._lock:
+            host = self._hosts.get(selection.native.host)
+            return None if host is None else host.startup.get(selection.native.fingerprint)
+
+    def host_closed(self, host_name):
+        with self._lock:
+            host = self._hosts.get(host_name)
+            return self._closed or (host is not None and host.closed)
+
+    @property
+    def physical_drained(self):
+        with self._lock:
+            return self._close_error is None and (
+                self._closed or (self._thread is None and not self._serving)
+            )
+
     def declare(self, selections):
         with self._lock:
             self._active()
@@ -631,6 +665,42 @@ class NativeHostResidency:
             ) from self._quarantine
         if self._closed:
             raise CancelledError("native residency admission is closed")
+
+    @property
+    def declared_selections(self):
+        with self._condition:
+            return tuple(self._selections.values())
+
+    def configure_endpoint(self, endpoint):
+        with self._condition:
+            self._check()
+            if self._served and self.endpoint != endpoint:
+                raise Pm2WorkerRefused("native custody endpoint changed after serving")
+            if self._group is not None:
+                self._group.configure_endpoint(endpoint)
+            self.endpoint = endpoint
+
+    def live_process_id(self, host_name):
+        with self._condition:
+            return None if self._group is None else self._group.live_process_id(host_name)
+
+    def startup_observation(self, selection):
+        with self._condition:
+            return None if self._group is None else self._group.startup_observation(selection)
+
+    def host_closed(self, host_name):
+        with self._condition:
+            return self._closed or (
+                self._group is not None and self._group.host_closed(host_name)
+            )
+
+    @property
+    def physical_drained(self):
+        with self._condition:
+            return (
+                not self._active_calls and not self._suspended and self._quarantine is None
+                and (self._group is None or self._group.physical_drained)
+            )
 
     def declare(self, selections):
         with self._condition:

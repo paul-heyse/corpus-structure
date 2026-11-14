@@ -54,7 +54,7 @@ class HostedGliner:
         values.pop("snapshot")
         matches = [
             s
-            for s in self.group._selections.values()
+            for s in self.group.declared_selections
             if s.provider == "gliner"
             and canonical_bytes(s.native.parameters.get("gliner_profile"))
             == canonical_bytes(values)
@@ -91,8 +91,7 @@ class HostedGliner:
 
     @property
     def pid(self):
-        host = self.group._hosts.get("primary")
-        return None if host is None or host._process is None else host._process.pid
+        return self.group.live_process_id("primary")
 
     def _exchange(
         self,
@@ -228,8 +227,7 @@ class HostedPM2:
 
     @property
     def closed(self):
-        host = self.group._hosts.get(self.selection.native.host)
-        return self._closed or (host is not None and host.closed)
+        return self._closed or self.group.host_closed(self.selection.native.host)
 
     def infer(self, payload, *, check_active):
         return self.group.infer(self.selection, payload, check_active)

@@ -500,7 +500,7 @@ class NativeEvidenceMethod:
         selected_spacy = next(
             (
                 s
-                for s in providers.native_group._selections.values()
+                for s in providers.native_group.declared_selections
                 if s.provider == "spacy"
                 and s.native.parameters == sentence_cfg.model_dump(mode="json")
             ),
@@ -659,10 +659,7 @@ class NativeEvidenceMethod:
 
             if selected_spacy is not None:
                 row["execution_profile"] = source_value(selected_spacy.native.wire)
-                host = providers.native_group._hosts.get(selected_spacy.native.host)
-                observed = (
-                    None if host is None else host.startup.get(selected_spacy.native.fingerprint)
-                )
+                observed = providers.native_group.startup_observation(selected_spacy)
                 if observed is not None:
                     row["startup_observation"] = source_value(observed)
             row["availability"] = _availability(builder, "spacy")

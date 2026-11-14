@@ -22,11 +22,21 @@ from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_memb
 from .native_host import (
     NativeExecutionReceipt,
     NativeHostGroup,
+    NativeRetirementUncertain,
     host_request_frame_size,
     payload_digest,
 )
 from .native_profiles import NativeSelection, pm2_selection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
+
+
+def _retirement_uncertain(error):
+    from corpus_structure.core.work import PhysicalRetirementUncertain
+
+    return isinstance(error, PhysicalRetirementUncertain) or (
+        isinstance(error, BaseExceptionGroup)
+        and any(_retirement_uncertain(child) for child in error.exceptions)
+    )
 
 
 @dataclass(frozen=True)
@@ -172,6 +182,7 @@ class ProviderReply:
     error_type: str | None = None
     error_message: str | None = None
     execution_receipt: ProviderExecutionReceipt | None = None
+    retirement_uncertain: bool = False
 
     @property
     def startup(self):
@@ -179,6 +190,8 @@ class ProviderReply:
 
     @property
     def payload(self):
+        if self.retirement_uncertain:
+            raise NativeRetirementUncertain(self.error_message)
         if self.error_type is not None:
             if self.error_type == "CapacityExceeded":
                 from corpus_structure.semantic.cpu_execution import CapacityExceeded
@@ -199,6 +212,9 @@ class ProviderHandle:
     stopped: Event = field(default_factory=Event)
     collected: bool = False
     retired: bool = False
+    credit: Any = None
+    credit_owner: Any = None
+    uncertain: bool = False
 
     def flush(self):
         self.lane.flush()
@@ -259,12 +275,23 @@ class ProviderHandle:
     def retire(self):
         if not self.future.done():
             return False
+        if not self.future.cancelled():
+            error = self.future.exception()
+            self.uncertain = self.uncertain or _retirement_uncertain(error)
+            if error is None:
+                self.uncertain = self.uncertain or self.future.result().retirement_uncertain
+        if self.uncertain and not self.owner.native_group.physical_drained:
+            return False
         if not self.collected:
             self.collected = True
             self.lane.slots.release()
         if not self.retired:
             self.retired = True
-            self.owner.budget.release(self.reservation)
+            if self.credit is None:
+                self.owner.budget.release(self.reservation)
+            else:
+                self.credit.release()
+                self.owner._release_credit(self.credit_owner, self.reservation)
             self.owner._handles.discard(self)
         return True
 
@@ -405,6 +432,7 @@ class _Lane:
                 raise CapacityExceeded("native reply exceeds admitted byte capacity")
             return reply
         except Exception as error:
+            uncertain = _retirement_uncertain(error)
             try:
                 if (
                     not isinstance(error, (Pm2WorkerRefused, GlinerRefused))
@@ -413,6 +441,7 @@ class _Lane:
                 ):
                     self.discard()
             except BaseException as cleanup:
+                uncertain = uncertain or _retirement_uncertain(cleanup)
                 error.add_note("native teardown failed: " + str(cleanup))
             detail = "; ".join((str(error), *getattr(error, "__notes__", ())))[:1800]
             return ProviderReply(
@@ -420,6 +449,7 @@ class _Lane:
                 canonical_bytes(startup),
                 error_type=type(error).__name__,
                 error_message=detail,
+                retirement_uncertain=uncertain,
             )
         finally:
             self.current = None
@@ -504,33 +534,41 @@ class _PendingIntent:
     request: Any
     size: int
     held: bool = True
+    credit: Any = None
+    credit_owner: Any = None
+    allocation: int = 0
 
     def abandon(self):
         with self.owner._lock:
             if self.held:
                 self.held = False
-                self.owner.budget.release(self.size)
+                if self.credit is None:
+                    self.owner.budget.release(self.size)
+                else:
+                    self.credit.release()
+                    self.owner._release_credit(self.credit_owner, self.allocation)
                 self.owner._intents.discard(self)
 
 
 class ProviderExecution:
     """One owner, bounded admission and serialized exchange for each native provider."""
 
-    def __init__(self, budget, policy: CharacterizationExecutionPolicy):
+    def __init__(self, budget, policy: CharacterizationExecutionPolicy, *, native_group=None):
         self.budget, self.policy = budget, policy
         self._lanes = {}
         self._handles = set()
         self._intents = set()
+        self._credits = {}
+        self._credit_lock = Lock()
         self._stop = Event()
         self._lock = Lock()
         self.coalescing_providers = frozenset({"hanlp", "d1", "gliner", "spacy"})
-        self.native_group = NativeHostGroup(policy)
+        self._owns_native_group = native_group is None
+        self.native_group = NativeHostGroup(policy) if native_group is None else native_group
 
     def declare_native(self, selections, endpoint=None):
         if endpoint is not None:
-            if self.native_group._serving and self.native_group.endpoint != endpoint:
-                raise Pm2WorkerRefused("native custody endpoint changed after serving")
-            self.native_group.endpoint = endpoint
+            self.native_group.configure_endpoint(endpoint)
         self.native_group.declare(tuple(selections))
 
     def _request_size(self, request):
@@ -644,17 +682,22 @@ class ProviderExecution:
             if pending is not None and not pending.held:
                 lane.slots.release()
                 raise ValueError("native pending intent is no longer owned")
-            try:
-                self.budget.reserve(
-                    reservation if pending is None else self.policy.max_native_reply_bytes
-                )
-            except CapacityExceeded:
-                lane.slots.release()
-                return None
+            credit = None if pending is None else pending.credit
+            if credit is None:
+                try:
+                    self.budget.reserve(
+                        reservation if pending is None else self.policy.max_native_reply_bytes
+                    )
+                except CapacityExceeded:
+                    lane.slots.release()
+                    return None
             if pending is not None:
                 pending.held = False
                 self._intents.discard(pending)
-            handle = ProviderHandle(self, lane, request, reservation)
+            handle = ProviderHandle(
+                self, lane, request, reservation, credit=credit,
+                credit_owner=None if pending is None else pending.credit_owner,
+            )
             self._handles.add(handle)
             try:
                 lane.enqueue(handle)
@@ -755,6 +798,29 @@ class ProviderExecution:
             return False
         return True
 
+    def _cover_cohort(self, handles, combined):
+        """Keep both original envelopes and the physical cohort within parent credit."""
+        from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+        borrowed = [handle for handle in handles if handle.credit is not None]
+        if not borrowed:
+            return
+        if len(borrowed) != len(handles):
+            raise CapacityExceeded("native cohort cannot mix borrowed and separately owned credit")
+        required = self._request_size(combined) + self.policy.max_native_reply_bytes
+        owners = {handle.credit_owner: handle for handle in handles}
+        with self._credit_lock:
+            available = sum(owner.size - self._credits.get(owner, 0) for owner in owners)
+            if required > available:
+                raise CapacityExceeded("physical cohort and reply exceed participating request credit")
+            for owner, handle in owners.items():
+                take = min(required, owner.size - self._credits.get(owner, 0))
+                self._credits[owner] = self._credits.get(owner, 0) + take
+                handle.reservation += take
+                required -= take
+                if not required:
+                    break
+
     def exchange(self, lane, group):
         if (
             len(group) == 1
@@ -779,6 +845,7 @@ class ProviderExecution:
                     reply.payload_content,
                     error_type=reply.error_type,
                     error_message=reply.error_message,
+                    retirement_uncertain=reply.retirement_uncertain,
                 )
                 for handle in group
             ]
@@ -819,6 +886,7 @@ class ProviderExecution:
             combined_payload = self._pm2_payload(payloads, first.selection.provider)
             content = ordered_native_bytes(combined_payload)
             combined = PM2Work(first.selection, content, digest, borrowers)
+        self._cover_cohort(group, combined)
         synthetic = ProviderHandle(self, lane, combined, 0)
         reply = lane.execute(synthetic)
         if reply.error_type is not None:
@@ -828,6 +896,7 @@ class ProviderExecution:
                     reply.startup_content,
                     error_type=reply.error_type,
                     error_message=reply.error_message,
+                    retirement_uncertain=reply.retirement_uncertain,
                 )
                 for handle in group
             ]
@@ -1041,13 +1110,37 @@ class ProviderExecution:
 
         return PreparedWork(submit, abandon=abandon)
 
-    def work(self, request):
+    def _release_credit(self, owner, allocation):
+        # Called under the admission lock or after the lane has physically retired.
+        with self._credit_lock:
+            self._credits[owner] -= allocation
+            if not self._credits[owner]:
+                del self._credits[owner]
+
+    def work(self, request, *, reservation=None):
         size = self._request_size(request)
         with self._lock:
             if self._stop.is_set():
                 raise CancelledError("native invocation is closed")
-            self.budget.reserve(size)
-            intent = _PendingIntent(self, request, size)
+            if reservation is None:
+                self.budget.reserve(size)
+                intent = _PendingIntent(self, request, size)
+            else:
+                from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+                allocation = size + self.policy.max_native_reply_bytes
+                if reservation.budget is not self.budget:
+                    raise ValueError("provider credit belongs to another invocation budget")
+                with self._credit_lock:
+                    used = self._credits.get(reservation, 0)
+                    if used + allocation > reservation.size:
+                        raise CapacityExceeded("native request and reply exceed owned request credit")
+                    credit = reservation.share()
+                    self._credits[reservation] = used + allocation
+                intent = _PendingIntent(
+                    self, request, size, credit=credit, credit_owner=reservation,
+                    allocation=allocation,
+                )
             self._intents.add(intent)
         return PreparedWork(lambda: self.try_submit(request, intent), abandon=intent.abandon)
 
@@ -1067,17 +1160,22 @@ class ProviderExecution:
                 lane.close()
             except BaseException as error:
                 errors.append(error)
-        for handle in tuple(self._handles):
-            handle.retire()
-        try:
-            self.native_group.close()
-        except BaseException as error:
-            errors.append(error)
+        if self._owns_native_group:
+            try:
+                self.native_group.close()
+            except BaseException as error:
+                errors.append(error)
+        self.retire()
         if errors:
             failure = RuntimeError("native invocation teardown failed")
             for error in errors:
                 failure.add_note(str(error))
             raise failure
+
+
+    def retire(self):
+        """Retire completed handles after the borrowed residency has drained."""
+        return all([handle.retire() for handle in tuple(self._handles)])
 
 
 class PM2Client:
