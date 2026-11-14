@@ -2,7 +2,7 @@
 
 from typing import ClassVar
 
-from corpus_structure.semantic.contextual_operations import execute_retrieval_profile
+from corpus_structure.semantic.contextual_operations import execute_inventory_profile, execute_retrieval_profile
 
 
 class ContextualRetrievalOperation:
@@ -336,8 +336,6 @@ class ContextualInventoryOperation:
         self.execute = execute
 
     def run(self, selection: dict) -> dict:
-        from corpus_structure.semantic.contextual_operations import execute_inventory_profile
-
         return execute_inventory_profile(self, selection)
 
     @staticmethod
