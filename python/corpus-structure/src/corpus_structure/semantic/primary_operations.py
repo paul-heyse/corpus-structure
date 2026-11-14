@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from .composed import data_operation_dependencies
 from .python_operation_sources import PythonSourceCollection
-from .types import PreparationProfile, ResolvedDependencies, SourceBundle
+from .types import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle
 
 
 @dataclass(frozen=True)
@@ -52,6 +52,9 @@ def primary_operation_inputs(
     learned_selections=None,
     construction_options=None,
     sentence_selection=None,
+    math_options=None,
+    extra_sources: PythonSourceCollection | None = None,
+    declarations: tuple[SourceArtifact, ...] = (),
 ) -> PrimaryOperationInputs:
     """Acquire the selected full primary profile without starting a provider.
 
@@ -68,6 +71,7 @@ def primary_operation_inputs(
         full_document_view_operation_sources,
     )
     from .construction_products import construction_product_inputs
+    from .declaration_products import declaration_inputs, declaration_operation_sources
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
     from .formal_products import formal_operation_sources
@@ -86,6 +90,7 @@ def primary_operation_inputs(
     bundle = hanlp_product_inputs(
         construction_product_inputs(source_profile_inputs(source_discovery_inputs(bundle)))
     )
+    bundle = declaration_inputs(bundle)
     collections = (
         source_discovery_operation_sources(),
         source_profile_operation_sources(),
@@ -99,6 +104,7 @@ def primary_operation_inputs(
             include_dependencies=False,
         ),
         formal_operation_sources(),
+        declaration_operation_sources(),
         characterization_operation_sources(construction_options=construction_options),
         full_document_view_operation_sources(include_dependencies=False),
     )
@@ -117,6 +123,13 @@ def primary_operation_inputs(
         bundle = learned_primary_inputs(bundle)
         dependencies = characterization_question_dependencies(dependencies)
         collections = (*collections, learned_primary_operation_sources(learned_selections))
+    if math_options is not None:
+        from .declared_math_products import math_operation_declarations, math_operation_sources
+
+        collections = (*collections, math_operation_sources(math_options))
+        declarations = (*declarations, math_operation_declarations())
+    if extra_sources is not None:
+        collections = (*collections, extra_sources)
     combined = combine_primary_sources(*collections)
     native = native_protocol_sources()
     generator = capture_port_generator_sources()
@@ -128,7 +141,7 @@ def primary_operation_inputs(
                 dependencies.vocabularies,
                 dependencies.ontology_sources,
             ),
-            (native_operation_declarations(native),),
+            (native_operation_declarations(native), *declarations),
             combined,
         ),
         PreparationProfile(version="semantic-2"),

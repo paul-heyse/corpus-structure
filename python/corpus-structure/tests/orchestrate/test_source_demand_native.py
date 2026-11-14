@@ -151,6 +151,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         "text.hanlp_native/source-native",
         "text.formal_evidence/source-native",
         "text.constructions/source-native",
+        "text.declaration_syntax/source-native",
         "text.contextual_evaluation/source-native",
     }
     result = run_source_operation(
