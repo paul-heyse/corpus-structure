@@ -46,6 +46,31 @@ class SeriesCandidate:
         return self.migration.upgrade_ops
 
 
+def final_native_catalog(objects, policies):
+    """Project derived trigger ownership after explicit table policy transitions.
+
+    Transition operations retain their intermediate before/after owners. The final
+    admission snapshot instead describes the completed migration, where PostgreSQL
+    gives each trigger its parent table's declared owner.
+    """
+    owners = {policy["name"]: policy["owner"] for policy in policies if policy["kind"] == "table"}
+    result = []
+    for item in objects:
+        if item.identity.kind == "trigger" and item.identity.relation is not None:
+            parent = item.identity.schema + "." + item.identity.relation
+            if parent in owners:
+                if owners[parent] is None:
+                    raise NativeAuthoringError("declared parent table lacks its owner")
+                item = replace(
+                    item,
+                    catalog_json=json.dumps(
+                        {**item.catalog, "owner": owners[parent]}, sort_keys=True
+                    ),
+                )
+        result.append(item)
+    return tuple(result)
+
+
 def _shape_definition(connection, sql, *, source):
     prepared = prepare_sql(sql, source=source)
     for index, raw in enumerate(prepared.statements):
@@ -2323,7 +2348,9 @@ def prepare_series_candidate(
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
             candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))
-    return SeriesCandidate(candidate, tuple(map(policy_fact, target_policies))), authoring
+    return SeriesCandidate(candidate, tuple(map(policy_fact, target_policies))), replace(
+        authoring, desired=final_native_catalog(authoring.desired, target_policies)
+    )
 
 
 def definition_sql(definitions) -> str:

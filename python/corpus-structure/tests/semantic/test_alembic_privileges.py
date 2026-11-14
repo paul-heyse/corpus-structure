@@ -432,3 +432,51 @@ def test_owner_column_acl_is_removed_without_changing_implicit_owner_rights(sema
             {"name": policy["name"]},
         )
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+
+
+def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_bare_engine):
+    from corpus_structure.semantic.alembic_native import NativeTransitionOp
+    from corpus_structure.semantic.native_candidate import final_native_catalog
+    from corpus_structure.semantic.native_objects import (
+        admit_native,
+        definition_from_sql,
+        prepare_native_authoring,
+    )
+
+    schema = "final_owner_" + uuid4().hex[:10]
+    policy = {
+        "kind": "table",
+        "name": schema + ".sample",
+        "owner": "corpus_sem_publisher",
+        "acl": [],
+        "columns": [],
+    }
+    with semantic_bare_engine.begin() as conn:
+        original_owner = conn.scalar(text("SELECT current_user"))
+        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+        conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
+        conn.exec_driver_sql(
+            f'CREATE FUNCTION "{schema}".guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$'
+        )
+        trigger = definition_from_sql(
+            conn,
+            f'CREATE TRIGGER guarded BEFORE INSERT ON "{schema}".sample FOR EACH ROW EXECUTE FUNCTION "{schema}".guard()',
+            source="test:trigger",
+        )
+        authoring = prepare_native_authoring(conn, (trigger,), owned_authoring=True)
+        operations = Operations(MigrationContext.configure(conn))
+        for obj in authoring.desired:
+            operations.invoke(NativeTransitionOp(None, obj))
+        # The native transition's intermediate owner is still the actual predecessor table owner.
+        assert authoring.desired[0].expected_catalog(conn)["owner"] == original_owner
+        admit_native(conn, authoring.desired)
+        final = final_native_catalog(authoring.desired, [policy])
+        trigger_obj = next(obj for obj in final if obj.identity.kind == "trigger")
+        assert trigger_obj.catalog["owner"] == "corpus_sem_publisher"
+        Operations(MigrationContext.configure(conn)).invoke(
+            PrivilegeTransitionOp(None, policy, normalization=True)
+        )
+        admit_native(conn, final)
+        admit_privileges(conn, [policy])
+        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
