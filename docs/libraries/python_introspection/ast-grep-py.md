@@ -1473,3 +1473,874 @@ The benefit is conditional on how much of the analysis can genuinely be represen
 The resulting abstraction is best understood as a composable structural recognition and extraction engine, with limited native text derivation, rather than a general semantic-analysis framework.
 
 This addendum establishes the additional expressiveness available from that composition while preserving the original guide's distinction between structural recognition, source transformation, and semantic program analysis.
+
+# ast-grep-py — Addendum: Python Binding Semantics, Cross-Structural Matching, Parse Diagnostics, and Edit Correctness
+
+Target version: 0.51.2\
+Research date: November 13, 2026\
+Supplements: ast-grep-py — Comprehensive Python Library Overview (0.51.0) and its November 7, 2026 addendum (0.51.1)
+
+## Scope and version context
+
+This addendum documents additional behavior and capability interactions in the `ast-grep-py` Python binding, focusing on distinctions that affect structural query correctness, capture management, rule composition, parse validity, and source transformation.
+
+The most consequential distinction is between Python node-refinement methods and declarative relational rules. Although both operate through the Rust-based ast-grep engine, they do not necessarily search the same structural neighborhood. Another important distinction concerns the separation of syntax-node identity from the metavariable environment produced by a particular match.
+
+The addendum targets `ast-grep-py` 0.51.2, published November 11, 2026. The release includes a correction to identifier case conversion involving digits, as well as updates to underlying dependencies and grammar infrastructure. It does not introduce a new family of Python binding APIs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+1
+
+
+
+The explanations below distinguish documented public behavior from observations of upstream implementation. Code examples are illustrative and have not been independently executed against the 0.51.2 wheel.
+
+Primary references:
+
+- Release: [https://github.com/ast-grep/ast-grep/releases/tag/0.51.2](https://github.com/ast-grep/ast-grep/releases/tag/0.51.2?utm_source=chatgpt.com)
+- Python package: [https://pypi.org/project/ast-grep-py/0.51.2/](https://pypi.org/project/ast-grep-py/0.51.2/?utm_source=chatgpt.com)
+- Python binding implementation: [https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs?utm_source=chatgpt.com)
+- Python API: [https://ast-grep.github.io/guide/api-usage/py-api.html](https://ast-grep.github.io/guide/api-usage/py-api.html?utm_source=chatgpt.com)
+
+## 1. Imperative node refinement versus declarative relational matching
+
+Extends original §§4.2 and 5.1.
+
+### 1.1 Two interfaces with different traversal semantics
+
+Ast-grep provides relational matching through both the Python `SgNode` methods and nested declarative `Rule` objects.
+
+The operations appear similar, but their default search scopes are different.
+
+| Operation     | Python `SgNode` refinement                   | Declarative relational rule                                |
+| ------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| `inside`      | Searches successive ancestors up to the root | Immediate parent by default                                |
+| `has`         | Searches descendants recursively             | Immediate children by default                              |
+| `precedes`    | Searches subsequent siblings                 | Immediate following sibling by default                     |
+| `follows`     | Searches preceding siblings                  | Immediate preceding sibling by default                     |
+| Depth control | Traversal behavior is built into the method  | `stopBy` controls traversal extent                         |
+| Result        | `bool`                                       | Contributes to a matched rule and potentially its captures |
+
+The Python binding delegates `inside`, `has`, `precedes`, and `follows` to corresponding Rust core methods. Their implementations use `ancestors()`, depth-first descendant traversal, `next_all()`, and `prev_all()`, respectively.
+
+The declarative rule engine instead defaults `stopBy` to `"neighbor"`. Using `"end"` extends the search toward the relevant structural boundary. A rule-valued `stopBy` can establish a grammar-defined termination condition.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+This distinction means that the following two queries need not produce equivalent results.
+
+```
+from ast_grep_py import SgRoot
+
+source = """
+def compute(x):
+    if x > 0:
+        return x
+"""
+
+root = SgRoot(source, "python").root()
+function = root.find(kind="function_definition")
+
+if function is not None:
+    # Recursively examines descendants.
+    contains_return = function.has(kind="return_statement")
+
+# Declarative rule: immediate-child search by default.
+shallow = {
+    "rule": {
+        "kind": "function_definition",
+        "has": {"kind": "return_statement"},
+    }
+}
+
+# Declarative rule: recursive descendant search.
+deep = {
+    "rule": {
+        "kind": "function_definition",
+        "has": {
+            "kind": "return_statement",
+            "stopBy": "end",
+        },
+    }
+}
+
+shallow_matches = root.find_all(shallow)
+deep_matches = root.find_all(deep)
+
+```
+
+The function contains a `return_statement`, but that statement is nested inside the function's body and an `if_statement`. The imperative method searches that deeper structure; the first declarative rule does not.
+
+The second declarative rule uses `stopBy: "end"` to search descendants recursively, producing the corresponding structural containment behavior.
+
+### 1.2 Traversal direction and target-node identity
+
+An additional consequence is that relational predicates always operate relative to a designated target node.
+
+For example, `has` does not change the node being selected. It establishes that a node satisfying the principal rule contains another qualifying syntax node.
+
+Similarly, `inside` constrains a target using an enclosing node, but does not change the reported match into that enclosing node.
+
+This matters when the selected node is subsequently used for capture extraction, source-range reporting, or replacement.
+
+Consider a rule that identifies a function containing a particular call. The result represents the function node, not the contained call node. The contained call may be available through a metavariable capture, but the primary match remains the function.
+
+Using `stopBy: "end"` changes the search distance, not the identity of the primary target.
+
+### 1.3 Boolean refinement and capture availability
+
+The Python refinement methods return Boolean results. Their matcher evaluations do not return capture-bearing match objects.
+
+For example:
+
+```
+contains_call = function.has(
+    pattern="process($ARG)"
+)
+
+```
+
+This determines whether a qualifying call exists; it does not provide a separate `SgNode` representing the successful nested match or expose the captured `ARG` value.
+
+When a structural relationship and its captures must be retained together, the appropriate interface is a declarative configuration passed to `find()` or `find_all()`.
+
+This yields an important division of responsibility:
+
+Imperative refinement is suitable for Boolean structural tests on an existing node, including naturally recursive ancestor and descendant checks.
+
+Declarative relational matching is suitable when traversal depth, grammatical fields, multiple structural predicates, metavariable bindings, and transformations should be expressed as one matcher.
+
+Neither interface subsumes the other completely. Their different traversal defaults and result models should be preserved when translating between them.
+
+Sources:
+
+[https://docs.rs/ast-grep-core/latest/src/ast_grep_core/node.rs.html](https://docs.rs/ast-grep-core/latest/src/ast_grep_core/node.rs.html?utm_source=chatgpt.com)
+
+[https://ast-grep.github.io/guide/rule-config/relational-rule.html](https://ast-grep.github.io/guide/rule-config/relational-rule.html?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs?utm_source=chatgpt.com)
+
+## 2. Match environments, capture ownership, and node navigation
+
+Extends original §§5.2–5.4.
+
+### 2.1 A successful match contains more than a syntax-node reference
+
+An `SgNode` returned by a successful structural search represents a syntax node together with an environment containing information established during matching.
+
+This environment may contain single-node metavariable captures, variadic captures, and transformed string values.
+
+The Rust binding represents the underlying node through `NodeMatch`, which distinguishes the selected syntax node from the environment associated with its particular successful match.
+
+The distinction is important because a syntax node does not intrinsically own one universal set of metavariable captures.
+
+A single node can satisfy multiple matcher configurations. Different configurations can bind different metavariables, apply different constraints, or derive different transformations without changing the underlying syntax tree.
+
+The same source location can therefore participate in multiple match environments.
+
+### 2.2 Navigation constructs new node wrappers without inheriting the original environment
+
+The Python binding's traversal operations create new `SgNode` wrappers for the syntax nodes they return.
+
+Methods including `parent()`, `child()`, `children()`, `field()`, `field_children()`, and `ancestors()` construct wrappers around the corresponding structural nodes.
+
+The implementation of `get_match()` also converts the captured syntax node into a separate `NodeMatch` using `NodeMatch::from(...)`.
+
+Consequently, these operations preserve access to syntax structure, but do not automatically propagate the original match environment into the returned node.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+For example:
+
+```
+from ast_grep_py import SgRoot
+
+root = SgRoot("print(value)", "python").root()
+match = root.find(pattern="print($ARG)")
+
+if match is not None:
+    argument = match.get_match("ARG")
+
+    if argument is not None:
+        # The argument is a navigable syntax node.
+        name = argument.text()
+        kind = argument.kind()
+        parent = argument.parent()
+
+        # The captured node does not inherit the
+        # original match's ARG binding.
+        inherited = argument.get_match("ARG")
+        assert inherited is None
+
+```
+
+The original `match` remains the appropriate object from which to retrieve `ARG`.
+
+A separate structural navigation operation may return the same underlying syntax node, but not the original matcher-specific environment.
+
+This is different from systems in which semantic annotations or query bindings are stored globally on syntax-tree objects.
+
+### 2.3 Syntactic identity and match identity are separate concepts
+
+There are three useful conceptual identities:
+
+| Identity                | Meaning                                                              | Stability                                      |
+| ----------------------- | -------------------------------------------------------------------- | ---------------------------------------------- |
+| Syntax-node identity    | A particular node within a parsed syntax tree                        | Associated with the parse snapshot             |
+| Match identity          | A successful application of a particular matcher to a target node    | Depends on the matcher and capture environment |
+| Durable source identity | An externally assigned identity for an entity across source versions | Not supplied natively by ast-grep-py           |
+
+Two match results can refer to equivalent or identical syntax nodes while carrying different captures. Conversely, different syntax nodes can satisfy the same pattern without representing the same program entity.
+
+The Python binding's equality and hashing behavior is based on underlying node identifiers, not on the complete capture environment.
+
+Therefore, equality of `SgNode` objects should not be interpreted as equality of their matching configurations, derived values, or semantic meanings.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+This distinction is particularly important when storing structural matches in dictionaries, sets, indexes, or persistent analysis records.
+
+For example, deduplicating matches solely by syntax-node identity may discard different analytical facts established by different rules.
+
+### 2.4 Architectural significance
+
+Separating syntax nodes from match environments allows the same parsed source tree to support multiple independent structural analyses without mutating its nodes to attach rule-specific information.
+
+This resembles a query-result model in which the result contains both a selected entity and contextual bindings.
+
+For systems constructing structured facts from source, the meaningful record may therefore contain the target node's source identity, the rule or configuration used to select it, and the relevant captures or transformed values.
+
+That representation is an architectural possibility rather than a feature automatically managed by the Python binding.
+
+The principal lesson is that structural navigation and match-result extraction are complementary, but not interchangeable, operations.
+
+Source:
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs?utm_source=chatgpt.com)
+
+## 3. Cross-structural capture unification
+
+Extends original addendum §4.
+
+### 3.1 Captures can constrain later predicates at different syntax locations
+
+The original addendum establishes that relational rules can contribute metavariable captures and that `all` can control predicate evaluation order.
+
+A further consequence is that a metavariable captured by one predicate can constrain a later predicate that examines a different part of the syntax tree.
+
+Ast-grep's matching environment supports this form of cross-structural consistency.
+
+The engine processes matching predicates and retains bindings established by earlier successful rules. When a later rule encounters the same metavariable, it must respect the previously bound value rather than establishing an unrelated capture.
+
+Upstream demonstrates this with a JavaScript rule identifying functions containing a syntactically matching call to their own name.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+### 3.2 Example: matching a function with a syntactic self-call
+
+```
+from ast_grep_py import SgRoot
+
+source = """
+function calculate() {
+    helper();
+    calculate();
+}
+"""
+
+root = SgRoot(source, "javascript").root()
+
+config = {
+    "rule": {
+        "all": [
+            {
+                "pattern": "function $F() { $$$ }"
+            },
+            {
+                "has": {
+                    "pattern": "$F()",
+                    "stopBy": "end",
+                }
+            },
+        ]
+    }
+}
+
+matches = root.find_all(config)
+
+for match in matches:
+    function_name = match.get_match("F")
+    if function_name is not None:
+        print(function_name.text())
+
+```
+
+The first rule recognizes a function declaration and binds `F` to its declared name.
+
+The second rule searches the function's descendants for a call whose function-name syntax is consistent with that same binding.
+
+The explicit `all` list ensures that the declaration pattern is evaluated before the descendant predicate.
+
+The function body also contains `helper()`, but that call cannot independently redefine `F` after the declaration pattern has established its binding.
+
+A direct consequence is that ast-grep can enforce this syntactic relationship during matching instead of returning all functions and all calls for subsequent Python-side comparison.
+
+### 3.3 This is structural unification, not semantic identity resolution
+
+The resulting relationship is stronger than collecting unrelated captures, but weaker than proving recursive function invocation.
+
+For example, a function may contain a local variable that shadows its own name, or use language constructs that alter the binding of an identifier.
+
+Ast-grep can recognize the textual and structural correspondence between a declaration name and a call expression. It does not establish that the call resolves to that declaration.
+
+This distinction matters for source indexing and diagnostics. A structural self-call predicate can identify likely recursive functions, but it cannot independently establish a compiler-equivalent call graph.
+
+The feature is best understood as matcher-enforced syntactic unification across structurally related nodes.
+
+### 3.4 Evaluation order can change whether unification succeeds
+
+Consider reversing the two rules:
+
+```
+config = {
+    "rule": {
+        "all": [
+            {
+                "has": {
+                    "pattern": "$F()",
+                    "stopBy": "end",
+                }
+            },
+            {
+                "pattern": "function $F() { $$$ }"
+            },
+        ]
+    }
+}
+
+```
+
+Now the descendant predicate can establish `F` using the first qualifying call it encounters.
+
+If that call is `helper()`, the later declaration pattern must respect `F = helper`, even when the function's actual name is `calculate`.
+
+The engine does not automatically backtrack over arbitrary alternative bindings to find the best globally consistent assignment.
+
+Thus, `all` is more than a Boolean conjunction when its predicates establish or consume metavariable bindings. Its order can affect the successful matching path.
+
+Upstream explicitly documents this distinction and recommends ordered `all` rules when capture dependencies matter.
+
+Source:
+
+[https://ast-grep.github.io/advanced/faq.html](https://ast-grep.github.io/advanced/faq.html?utm_source=chatgpt.com)
+
+## 4. Parse-error metadata and the boundary of Python syntax inspection
+
+Extends original §2.1.
+
+### 4.1 A recoverable syntax tree is not a complete parse-validity report
+
+Tree-sitter can represent malformed source through error recovery rather than failing to produce a syntax tree.
+
+This is valuable when inspecting incomplete source, but it creates a distinction between obtaining a tree and knowing whether that tree represents syntactically valid input.
+
+The Rust ast-grep core exposes several node-inspection capabilities that help distinguish normal syntax from parser recovery artifacts.
+
+| Rust core method | Meaning                                                           | Python `SgNode` availability |
+| ---------------- | ----------------------------------------------------------------- | ---------------------------- |
+| `is_error()`     | Tests whether a node is an explicit parser error node             | Not exposed                  |
+| `is_missing()`   | Tests whether a node represents syntax inserted by error recovery | Not exposed                  |
+| `is_extra()`     | Tests whether a node is classified as extra syntax by its grammar | Not exposed                  |
+| `kind_id()`      | Returns the grammar-specific numeric syntax kind                  | Not exposed                  |
+| `kind()`         | Returns the grammar-specific kind name                            | Exposed                      |
+| `is_named()`     | Distinguishes named from unnamed syntax nodes                     | Exposed                      |
+| `range()`        | Returns the node's source location                                | Exposed                      |
+
+These distinctions are established by the Rust core's `Node` implementation and the Python binding's exported methods.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+### 4.2 Explicit errors and missing syntax represent different recovery mechanisms
+
+An explicit Tree-sitter error node records source text that the parser could not incorporate into a valid grammatical structure.
+
+Missing syntax is different. The parser may insert an expected token or construct into its recovered representation even though the corresponding text is absent from the original source.
+
+For example, a parser may recover from an incomplete expression by representing a missing expected token instead of treating the entire surrounding construct as one error node.
+
+These recovery forms have different implications.
+
+An explicit error node usually corresponds to a problematic source region. A missing node instead represents a grammatical expectation not satisfied by the supplied source.
+
+Detecting only nodes with kind `ERROR` is therefore not equivalent to examining all error-recovery metadata.
+
+An important additional distinction is that Tree-sitter's classification of extra nodes is not itself an error indicator. Grammars can designate ordinary comments or other syntax as extras. The presence of extra nodes must not automatically be interpreted as malformed source.
+
+### 4.3 What the Python binding can establish
+
+Python callers can inspect node kinds, ranges, named and unnamed children, and surrounding syntax.
+
+Where Tree-sitter exposes an explicit `ERROR` node through the normal syntax tree, its kind can be recognized using `kind()`.
+
+However, the Python binding does not expose the complete set of parser-status predicates provided by the Rust core.
+
+Consequently, a Python-side traversal that searches for error-kind nodes cannot generally establish the absence of missing syntax or reproduce all parser-level validity checks.
+
+This has implications for structural matching against incomplete code. A pattern may successfully match a recovered subtree even though some surrounding syntax is invalid or incomplete.
+
+An analyzer must distinguish the validity of a structural match from the validity of the source file containing it.
+
+### 4.4 Integration boundary
+
+For operations requiring complete parser-recovery diagnostics, the lower-level Python `tree_sitter` bindings or an appropriate language-specific parser can provide functionality beyond `ast-grep-py`.
+
+That integration requires attention to grammar compatibility and source snapshots. Two parser interfaces using different grammar versions can construct different trees for identical source text.
+
+Using an additional parser also creates an information-coordination boundary: syntax nodes obtained from separate parses do not automatically share identity, even when their source ranges coincide.
+
+The additional parser may therefore improve diagnostic completeness, but it is not a transparent extension of the existing `SgNode` objects.
+
+The precise characterization is that ast-grep-py provides useful syntax-tree inspection and error-tolerant matching, but not a complete Python interface to Tree-sitter's parser-recovery metadata.
+
+Sources:
+
+[https://docs.rs/ast-grep-core/latest/src/ast_grep_core/node.rs.html](https://docs.rs/ast-grep-core/latest/src/ast_grep_core/node.rs.html?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/ast_grep_py.pyi](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/ast_grep_py.pyi?utm_source=chatgpt.com)
+
+[https://tree-sitter.github.io/tree-sitter/](https://tree-sitter.github.io/tree-sitter/?utm_source=chatgpt.com)
+
+## 5. Positive-rule requirements and Python-specific rule construction
+
+Extends original §4.1.
+
+### 5.1 A valid rule requires a positive structural restriction
+
+Ast-grep's rule reference specifies that a rule must contain at least one positive predicate.
+
+A positive predicate restricts the syntax kinds that can satisfy the rule.
+
+The distinction is particularly relevant to the atomic rule vocabulary.
+
+| Predicate | Structural positivity                                          | Reason                                                                    |
+| --------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `kind`    | Positive                                                       | Restricts the target to specified syntax kinds                            |
+| `pattern` | Positive                                                       | Its effective pattern node establishes a syntax kind                      |
+| `regex`   | Not positive on its own                                        | Can match text belonging to arbitrary syntax kinds                        |
+| `not`     | Does not independently establish a positive target restriction | Negates another predicate rather than selecting an eligible syntax family |
+
+Other rule constructs can derive their validity through the positive subrules they contain.
+
+This is more than a performance consideration. A broad textual predicate does not necessarily establish a valid structural search rule simply because it contains a useful regular expression.
+
+The official rule reference explicitly requires positivity and identifies `regex` as nonpositive.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+For example, an identifier restricted by a textual naming convention can be expressed as:
+
+```
+rule = {
+    "kind": "identifier",
+    "regex": r"^debug_",
+}
+
+matches = root.find_all(**rule)
+
+```
+
+Here, `kind` selects the eligible syntax category while `regex` refines it according to the identifier's source text.
+
+This produces a different matcher from an unconstrained textual search over arbitrary syntax nodes.
+
+The structural restriction also allows the engine to exploit AST-kind-based candidate selection.
+
+### 5.2 Negation requires mapping-based syntax in Python
+
+The `not` composite operator is supported by the Python rule configuration, but Python's `not` keyword cannot be used as a normal keyword argument.
+
+The exported typing definitions account for this using a `TypedDict` with an explicit `"not"` key.
+
+An illustrative configuration is:
+
+```
+rule = {
+    "pattern": "print($ARG)",
+    "not": {
+        "inside": {
+            "kind": "function_definition",
+            "stopBy": "end",
+        }
+    },
+}
+
+matches = root.find_all(**rule)
+
+```
+
+This selects calls matching `print($ARG)` that are not enclosed by a Python function definition.
+
+The positive `pattern` establishes the target syntax; the negated relation excludes candidates in the specified structural context.
+
+An important distinction from ordinary Python Boolean expressions is that negation participates in the native matcher environment. In particular, successful negation does not establish captures from the predicate that failed to match.
+
+That behavior matters when later rules depend on metavariables introduced by earlier predicates.
+
+The Python rule-construction interface supports this declarative logic, but the host language's keyword syntax requires an explicit mapping for the `not` operator.
+
+Sources:
+
+[https://ast-grep.github.io/reference/rule.html](https://ast-grep.github.io/reference/rule.html?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/\_\_init\_\_.py](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/__init__.py?utm_source=chatgpt.com)
+
+## 6. Edit application: source generation versus verified transformation completeness
+
+Extends original §7.3.
+
+### 6.1 `commit_edits()` does not provide an edit-application report
+
+The Python binding's edit API separates edit construction from source generation.
+
+`replace()` creates a source-span edit, while `commit_edits()` produces rewritten source text from a collection of edits.
+
+The latter does not return a structured account of which edits succeeded, were skipped, or conflicted.
+
+In the implementation reviewed, `commit_edits()` sorts edits by their starting positions, converts Python character offsets into byte offsets, and processes the edits against the original source representation.
+
+When an edit begins before the end of the region already consumed by an earlier edit, it is skipped. The function ultimately returns a string.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+This means that successful return from `commit_edits()` establishes that rewritten text was generated, not that every requested edit was incorporated.
+
+### 6.2 Transformation completeness requires additional invariants
+
+For a source-transformation system that needs to prove complete application of its planned edits, several properties must be distinguished.
+
+| Property                     | Meaning                                                           | Native guarantee      |
+| ---------------------------- | ----------------------------------------------------------------- | --------------------- |
+| Edit creation                | A source node can produce a replacement edit                      | Supported             |
+| Source-coordinate conversion | Python character offsets are converted for native processing      | Supported             |
+| Non-overlapping application  | Nonconflicting edits can be composed into output text             | Supported             |
+| Conflict detection           | Every overlapping or competing edit is reported                   | Not exposed           |
+| Applied-edit accounting      | The caller receives a count or identity of applied edits          | Not exposed           |
+| Source-snapshot consistency  | Every edit is known to originate from the intended source version | Caller responsibility |
+| Output syntactic validity    | Rewritten text parses as valid code                               | Not guaranteed        |
+| Output semantic correctness  | The edit preserves intended program behavior                      | Not guaranteed        |
+
+The key architectural distinction is between a transformation engine that generates source and a transaction-like system that verifies the complete execution of a set of requested modifications.
+
+Ast-grep-py provides the former capability.
+
+### 6.3 Interval validation and conflict ordering
+
+Edits identify half-open source intervals:
+
+\\[ [start,\ end) \\]
+
+Two ordinary replacement intervals overlap when:
+
+\\[ \max(start_1,start_2)<\min(end_1,end_2) \\]
+
+A sequence of ordinary replacements can be checked for overlap after sorting by starting position.
+
+However, zero-length insertions introduce an additional distinction. Multiple insertions at the same source offset do not occupy overlapping nonempty intervals, yet their relative ordering can affect the resulting source text.
+
+Therefore, a generic interval-overlap test is not sufficient to establish deterministic edit composition for every possible edit set.
+
+Similarly, edits targeting enclosing and nested syntax nodes cannot generally be applied independently to the same source snapshot without a conflict policy.
+
+Possible policies include outermost-match precedence, innermost-match precedence, explicit rule priority, or multiple transformation passes with reparsing between passes.
+
+These are ways an external system can resolve conflicts; they are not automatically provided by `commit_edits()`.
+
+### 6.4 Source snapshots are part of edit correctness
+
+The offsets used by an `Edit` refer to the original source snapshot.
+
+This remains important even when the edits themselves have valid, nonoverlapping intervals.
+
+Suppose an edit is generated against source version A, then an unrelated transformation produces source version B. Applying the old edit offsets to B may modify the wrong syntax even if the offsets remain within the new string's bounds.
+
+The Python binding does not attach a durable external source-version identifier to each edit.
+
+An application requiring snapshot consistency must therefore associate the edits with the correct source representation outside the binding.
+
+This is particularly important when edits are generated by several independent analyses or collected across multiple stages.
+
+### 6.5 Architectural significance
+
+A reliable structural transformation system can distinguish three stages conceptually:
+
+Recognition: identify the syntax nodes and establish the captures needed to construct replacements.
+
+Edit composition: resolve conflicts, validate source intervals, and determine an unambiguous set of edits for one source snapshot.
+
+Post-edit validation: examine the generated source using the syntax or semantic checks appropriate to the transformation.
+
+Ast-grep-py can perform substantial work in recognition and source generation, including native matching and precise text-preserving replacements.
+
+It does not make the middle and final stages unnecessary.
+
+The distinction explains why a structural codemod can be syntactically targeted and source-preserving while still requiring explicit completeness and correctness checks.
+
+Source:
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/py_node.rs?utm_source=chatgpt.com)
+
+## 7. Identifier transformation: separator semantics and version-sensitive digit handling
+
+Extends original §6.3.
+
+### 7.1 Separator-sensitive conversion is a word-segmentation operation
+
+Ast-grep's `convert` transformation does more than change the capitalization of a string.
+
+For the separator-sensitive conversion targets, it first segments the input into words, transforms those words, and rejoins them according to the target case.
+
+The `separatedBy` property controls which input boundaries participate in that segmentation.
+
+The documented separator vocabulary is:
+
+| Separator    | Boundary recognized                                            |
+| ------------ | -------------------------------------------------------------- |
+| `Dash`       | Hyphen (`-`)                                                   |
+| `Dot`        | Period (`.`)                                                   |
+| `Space`      | Space                                                          |
+| `Slash`      | Forward slash (`/`)                                            |
+| `Underscore` | Underscore (`_`)                                               |
+| `CaseChange` | Transitions involving lowercase and uppercase letter sequences |
+
+By default, the documented transformation uses all available separator types. A caller can provide a narrower `separatedBy` list to restrict segmentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+This is especially useful when punctuation or capitalization has a domain-specific meaning that should not be normalized away.
+
+### 7.2 Case-change boundaries recognize acronym transitions
+
+`CaseChange` recognizes more than the simple transition between lowercase and uppercase letters.
+
+It also detects an acronym-like uppercase sequence followed by a capitalized word.
+
+For example, the documented algorithm recognizes:
+
+```
+XMLHttpRequest
+    ↓
+XML | Http | Request
+```
+
+This distinction matters because a naïve strategy that splits only before every uppercase character would fragment the acronym into individual letters.
+
+The native transformation can therefore handle several common naming conventions without requiring a custom Python regular expression for each case.
+
+However, this remains a text-based transformation. It does not know whether a particular identifier is an acronym, a symbol with special capitalization, or a name whose spelling should be preserved for semantic reasons.
+
+### 7.3 Separation is configurable; case conversion is not uniformly separator-sensitive
+
+`lowerCase`, `upperCase`, and `capitalize` are documented as non-separator-sensitive operations.
+
+By contrast, `camelCase`, `snakeCase`, `kebabCase`, and `pascalCase` use word segmentation.
+
+This distinction is important because specifying separators is meaningful only for conversion operations that actually split the source into words.
+
+For example:
+
+```
+config = {
+    "rule": {
+        "pattern": "process($NAME)"
+    },
+    "transform": {
+        "NORMALIZED": {
+            "convert": {
+                "source": "$NAME",
+                "toCase": "snakeCase",
+                "separatedBy": ["underscore"],
+            }
+        }
+    }
+}
+
+```
+
+In this configuration, the transformation is explicitly restricted to underscore-based segmentation rather than using all default separator forms.
+
+The resulting transformed value is still a string derived from the matched source, not a new syntax node.
+
+### 7.4 The 0.51.2 digit-boundary correction
+
+Ast-grep 0.51.2 includes a fix for incorrect word splitting when digit sequences precede lowercase letters.
+
+The upstream change identifies cases such as:
+
+```
+Input:            sha256sum
+Previous result:  sha25_6sum
+Corrected result: sha256sum
+```
+
+The earlier implementation could incorrectly treat the final digit of a sequence as though it were part of an uppercase acronym boundary.
+
+The correction restricts the relevant acronym-splitting condition so that it applies only when the preceding character is actually uppercase.
+
+The change does not simply disable splitting around digits. The upstream fix preserves other intended transitions involving identifiers such as `2FAEnabled`, `HTTP2Server`, and `base64Encode`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+This is a version-sensitive correctness improvement for identifier-normalization workflows.
+
+The relevant capability already existed in earlier releases; 0.51.2 corrects its behavior for particular inputs rather than introducing a new transformation operator.
+
+Sources:
+
+[https://ast-grep.github.io/reference/yaml/transformation.html](https://ast-grep.github.io/reference/yaml/transformation.html?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/pull/3070](https://github.com/ast-grep/ast-grep/pull/3070?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/releases/tag/0.51.2](https://github.com/ast-grep/ast-grep/releases/tag/0.51.2?utm_source=chatgpt.com)
+
+## 8. Additional Python inspection and distribution details
+
+Extends original §§5.3, 5.4, and 9.
+
+### 8.1 Native Python string representations
+
+The binding implements `SgNode.__str__()` and `SgNode.__repr__()`.
+
+The string representation reports the syntax kind and source range.
+
+The representation used by `repr()` also includes a shortened preview of the node's source text.
+
+These methods provide lightweight diagnostics for interactive inspection and debugging without requiring callers to retrieve each property separately.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+For example, an `SgNode` can be inspected using ordinary Python expressions:
+
+```
+print(node)
+print(repr(node))
+
+```
+
+These representations are intended for inspection rather than structured serialization.
+
+Their formatting is an implementation detail and should not be treated as a stable interchange format for downstream parsers or persistent indexes.
+
+### 8.2 `is_named_leaf()` is not equivalent to combining `is_named()` and `is_leaf()`
+
+The Rust core explicitly distinguishes `is_named_leaf()` from the Boolean expression:
+
+```
+node.is_named() and node.is_leaf()
+```
+
+The former concerns the node's named-child structure, whereas `is_leaf()` concerns the absence of children in general.
+
+A syntax node can have unnamed grammar tokens as children while having no named child nodes.
+
+Therefore, these predicates should not be substituted for one another when extracting terminal-like syntax elements or building normalized structural representations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source:
+
+[https://docs.rs/ast-grep-core/latest/src/ast_grep_core/node.rs.html](https://docs.rs/ast-grep-core/latest/src/ast_grep_core/node.rs.html?utm_source=chatgpt.com)
+
+### 8.3 Python 3.15 distribution availability
+
+The 0.51.2 release includes CPython 3.15-specific wheel distributions, extending the package's published binary compatibility beyond the Python versions described in the original guide.
+
+This is a distribution capability rather than a new runtime API.
+
+Availability should be assessed by interpreter and platform combination rather than by assuming that the presence of a wheel for one Python version guarantees corresponding wheels for every operating system and architecture.
+
+The published release files remain the authoritative source for those combinations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI
+
+
+
+Source:
+
+[https://pypi.org/project/ast-grep-py/0.51.2/#files](https://pypi.org/project/ast-grep-py/0.51.2/?utm_source=chatgpt.com#files)
+
+### 8.4 Keep Python coordinates distinct from CLI language-server changes
+
+The 0.51.2 ast-grep release also includes a fix to report language-server columns in UTF-16 code units.
+
+That change concerns the CLI's language-server functionality and should not be interpreted as changing the Python binding's source-coordinate model.
+
+The Python `Range` and `Edit` behavior described in the existing guide continues to distinguish Unicode character offsets from Tree-sitter's internal byte offsets.
+
+This is a useful example of why release changes in the shared ast-grep project must be attributed to the appropriate interface.
+
+Source:
+
+[https://github.com/ast-grep/ast-grep/releases/tag/0.51.2](https://github.com/ast-grep/ast-grep/releases/tag/0.51.2?utm_source=chatgpt.com)
+
+## 9. Combined architectural significance
+
+The additional semantics in this addendum clarify several important boundaries within ast-grep-py's structural-analysis model.
+
+Declarative matching is more than a search predicate. It can enforce relationships across syntax locations, reuse metavariable bindings, and accumulate capture information within one matcher evaluation.
+
+Syntax-tree navigation is independent of matcher-specific information. Nodes obtained through navigation remain structurally useful, but do not automatically inherit capture environments from earlier matches.
+
+Structural matching is not parse validation or semantic analysis. Tree-sitter's error recovery permits analysis of incomplete sources, while the Python binding exposes only part of the underlying parser-status information.
+
+Source editing is not transactional transformation. The binding can construct and apply precise edits, but does not independently establish complete application, deterministic conflict resolution, or post-edit correctness.
+
+These distinctions reveal opportunities to place substantial structural recognition and extraction work inside the native ast-grep matcher while keeping genuinely separate responsibilities—such as source-version management, semantic identity resolution, and transformation validation—outside it.
+
+The result is a more precise understanding of ast-grep-py as a composable structural query and source-rewriting engine, with a Python interface whose semantics must be understood independently from both the Rust core's complete capabilities and the ast-grep CLI.
