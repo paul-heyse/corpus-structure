@@ -22,24 +22,16 @@ class PrimaryOperationInputs:
     sources: PythonSourceCollection
 
 
-def primary_operation_targets(
-    workflow: str, *, captured: bool, pdf_mode: str = "standard"
-) -> tuple[str, ...]:
+def primary_operation_targets(workflow: str, *, captured: bool, pdf_mode: str = "standard", organized: bool = False) -> tuple[str, ...]:
     """Choose an explicit product capability; the admitted model owns its closure."""
     if pdf_mode not in {"standard", "enriched", "integrated"} or (
         not captured and pdf_mode != "standard"
     ):
         raise ValueError("PDF mode requires its actual captured source profile")
-    discovery = (
-        "source.pdf_views/discovery"
-        if pdf_mode == "standard"
-        else "source.pdf_" + pdf_mode + "_views/discovery"
-    )
-    composition = (
-        "text.compose_view/captured-full-native"
-        if pdf_mode == "standard"
-        else "text.compose_view/" + pdf_mode + "-captured-full-native"
-    )
+    if organized and captured and pdf_mode == "standard":
+        pdf_mode = "organized"
+    discovery = "source.pdf_views/discovery" if pdf_mode == "standard" else "source.pdf_" + pdf_mode + "_views/discovery"
+    composition = "text.compose_view/captured-full-native" if pdf_mode == "standard" else "text.compose_view/" + pdf_mode + "-captured-full-native"
     if workflow == "capture":
         if not captured:
             raise ValueError("capture requires an actual declared PDF capture input")
@@ -61,6 +53,7 @@ def primary_operation_inputs(
     hanlp_selection,
     dependencies: ResolvedDependencies | None = None,
     capture_sources: PythonSourceCollection | None = None,
+    pdf_organization_sources: PythonSourceCollection | None = None,
     pdf_enrichment_sources: PythonSourceCollection | None = None,
     pdf_integration_sources: PythonSourceCollection | None = None,
     learned_selections=None,
@@ -135,9 +128,21 @@ def primary_operation_inputs(
             pdf_views_operation_sources(capture_sources),
             captured_document_view_operation_sources(include_dependencies=False),
         )
-    if (
-        pdf_enrichment_sources is not None or pdf_integration_sources is not None
-    ) and capture_sources is None:
+    if pdf_enrichment_sources is not None or pdf_integration_sources is not None:
+        import json
+        expected_pdf_input = "source.pdf_sections/organize" if pdf_organization_sources is not None else "source.pdf/capture"
+        for mode, acquired_pdf in (("enriched", pdf_enrichment_sources), ("integrated", pdf_integration_sources)):
+            if acquired_pdf is not None:
+                acquired = next(asset for asset in acquired_pdf.boundary_contracts if asset.name == "pdf-" + mode + "/execution-custody")
+                if json.loads(acquired.content)["input_operation"] != expected_pdf_input:
+                    raise ValueError("PDF transformation source differs from the acquired organization profile")
+    if pdf_organization_sources is not None:
+        if capture_sources is None:
+            raise ValueError("PDF organization acquisition requires its Standard capture profile")
+        from .characterization_ports import organized_captured_document_view_operation_sources
+        from .pdf_views import pdf_views_operation_sources
+        collections = (*collections, pdf_views_operation_sources(capture_sources, mode="organized", transformation_sources=pdf_organization_sources), organized_captured_document_view_operation_sources())
+    if (pdf_enrichment_sources is not None or pdf_integration_sources is not None) and capture_sources is None:
         raise ValueError("PDF transformation acquisition requires its Standard capture profile")
     if pdf_enrichment_sources is not None:
         from .characterization_ports import enriched_captured_document_view_operation_sources

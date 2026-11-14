@@ -1,196 +1,24 @@
-"""Retained integrated adoption is a pure view projection, without another recognizer."""
+"""Target retained reconciliation keeps exact candidates and source uncertainty."""
 
 import json
-import logging
+from contextlib import contextmanager
+from dataclasses import asdict
 from hashlib import sha256
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
-from docling_core.types.doc import (
-    BoundingBox,
-    DocItemLabel,
-    DoclingDocument,
-    GroupLabel,
-    ProvenanceItem,
-    Size,
-)
-from ingest.retained_pdf_fixture import RetainedIntegratedPdf
+from docling_core.types.doc import BoundingBox, DocItemLabel, DoclingDocument, GroupLabel, ProvenanceItem, Size
 from pydantic import ValidationError
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.ingest import pdf_recognition_methods as methods
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
+from corpus_structure.ingest.pdf_recognition import NemotronRecipe
+from corpus_structure.ingest.pdf_recognition import PdfRecognitionRecoveryPolicy
+from corpus_structure.semantic.pdf_transforms import PdfIntegrationOptions, PreparedPdfTransform, SelectedPdfInput
 from corpus_structure.semantic.product_reference import ProductReference
 
 
-def test_fresh_and_retained_ingest_bind_distinct_method_contracts():
-    assert methods.IngestPdfIntegrated.name == RetainedIntegratedPdf.name
-    assert methods.IngestPdfIntegrated.version != RetainedIntegratedPdf.version
-
-
-def test_retained_integrated_projection_keeps_pin_without_inference_or_reconciliation(monkeypatch):
-    document = DoclingDocument(name="Retained selected source")
-    document.add_page(page_no=1, size=Size(width=200, height=300))
-    section = document.add_group(label=GroupLabel.SECTION, name="1 Selected")
-    document.add_text(
-        label=DocItemLabel.TEXT,
-        text="selected content",
-        parent=section,
-        prov=ProvenanceItem(page_no=1, bbox=BoundingBox(l=10, t=20, r=100, b=40), charspan=(0, 16)),
-    )
-    native = snapshot(document)
-    payload = publication_payload(
-        PdfConversion("a" * 64, b"{}", native, "success", (), (), (), None),
-        product_key="integrated",
-        schema_digest="b" * 64,
-        section_refs=frozenset({section.self_ref}),
-    )
-    reference = ProductReference(12, "integrated", "c" * 64)
-    seen = []
-
-    def retained(pin, *, document_id, selections, membership, scope, consumer_release):
-        seen.append(pin)
-        assert document_id == 1 and selections == () and membership == "descendants"
-        assert scope is None and consumer_release == "d" * 64
-        from corpus_structure.ingest.pdf_hierarchy import native_nodes
-
-        return methods._drafts(
-            document_id,
-            pin,
-            native,
-            payload["health"],
-            (section.self_ref,),
-            membership,
-            consumer_release,
-            document=document,
-            node_index=native_nodes(document),
-        )
-
-    def refuse(*args, **kwargs):
-        raise AssertionError("retained integrated adoption cannot perform inference")
-
-    monkeypatch.setattr(methods, "RecognitionWorker", refuse)
-    monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "d" * 64)
-    cfg = methods.PdfIntegratedIngestConfig(integrated_product=reference, membership="descendants")
-    unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
-    ctx: Any = SimpleNamespace(
-        reader=SimpleNamespace(native_section_drafts=retained, native_document=refuse),
-        run=SimpleNamespace(options={}),
-        logger=logging.getLogger(__name__),
-    )
-    result = methods.IngestPdfIntegrated().run([unit], cfg, ctx)[0]
-    assert result.outcome == ObservationOutcome.EMPTY, result.error
-    assert seen == [reference]
-    assert len(result.source_views) == 1
-    assert result.source_views[0].native_product == reference
-    assert "selected content" in result.source_views[0].text
-    archived = json.loads(methods.IngestPdfIntegrated().original_recipe(cfg))
-    assert archived["integrated_product"] == reference.values()
-    assert "recognition" not in archived
-    assert methods.IngestPdfIntegrated().original_recipe(
-        cfg.model_copy(
-            update={
-                "weights_digest": "e" * 64,
-                "max_regions": 1,
-            }
-        )
-    ) == methods.IngestPdfIntegrated().original_recipe(cfg)
-
-
-def test_retained_and_standard_pins_have_exclusive_roles():
-    reference = ProductReference(12, "integrated", "c" * 64)
-    with pytest.raises(ValidationError, match="either a Standard input"):
-        methods.PdfIntegratedIngestConfig(native_product=reference, integrated_product=reference)
-
-
-@pytest.mark.parametrize("already_organized", [False, True])
-def test_retained_native_uses_current_selector_without_conversion_or_gpu_transition(
-    monkeypatch, already_organized
-):
-    from corpus_structure.ingest import pdf_methods
-    from corpus_structure.ingest.pdf_hierarchy import native_nodes
-    from corpus_structure.ingest.pdf_section_views import NoQualifiedSections
-
-    document = DoclingDocument(name="Retained observation")
-    document.add_page(page_no=1, size=Size(width=200, height=300))
-    if already_organized:
-        parent = document.add_group(label=GroupLabel.SECTION, name="1.1: Retained")
-    else:
-        parent = None
-        document.add_heading(text="1.1: Retained", level=1)
-    text = document.add_text(label=DocItemLabel.TEXT, text="retained body", parent=parent)
-    original = b"%PDF-retained-observation"
-    values = publication_payload(
-        PdfConversion(
-            sha256(original).hexdigest(), b"{}", snapshot(document), "success", (), (), (), None
-        ),
-        product_key="organized" if already_organized else "native",
-        schema_digest="b" * 64,
-    )
-    reference = ProductReference(12, values["product_key"], "c" * 64)
-    organized = reference if already_organized else ProductReference(15, "organized", "d" * 64)
-    selected, hydrated, retained = [], [], []
-
-    def refuse(*args, **kwargs):
-        raise AssertionError("retained input must not recompute Standard or change GPU phases")
-
-    def native_sections(pin, **kwargs):
-        selected.append(pin)
-        if not already_organized and pin == reference:
-            raise NoQualifiedSections("raw native observation")
-        assert pin == organized
-        return (SimpleNamespace(native_product=organized),)
-
-    def native_document(pin, *, include_candidate_pages=True):
-        hydrated.append(pin)
-        if not already_organized and pin == reference:
-            return SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}")
-        assert pin == organized and include_candidate_pages is False
-        raise RuntimeError("controlled stop after current organized input resolution")
-
-    def retain(ref, draft):
-        assert ref.unit_id == 1 and draft.product_key == "organized"
-        retained.append(draft)
-        sections = [
-            node for node in native_nodes(draft.document).values() if str(node.label) == "section"
-        ]
-        assert len(sections) == 1 and sections[0].name == "1.1: Retained"
-        assert any(child.cref == text.self_ref for child in sections[0].children)
-        assert draft.companions["input"] == ({**reference.values(), "role": "structural"},)
-        return organized
-
-    monkeypatch.setattr(methods, "RecognitionWorker", refuse)
-    monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "release")
-    monkeypatch.setattr(pdf_methods, "_consumer_release", lambda ctx: "release")
-    method = methods.IngestPdfIntegrated()
-    monkeypatch.setattr(method._selector, "original_recipe", lambda cfg: b"{}")
-    unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
-    ctx: Any = SimpleNamespace(
-        reader=SimpleNamespace(
-            native_section_drafts=native_sections,
-            native_document=native_document,
-        ),
-        run=SimpleNamespace(options={}),
-        retain_pdf_records=retain,
-        produce_pdf_records=refuse,
-        logger=logging.getLogger(__name__),
-        settings=SimpleNamespace(nemotron_endpoint="unused"),
-    )
-    result = method.run([unit], methods.PdfIntegratedIngestConfig(native_product=reference), ctx)[0]
-    assert result.outcome == ObservationOutcome.FAILED
-    assert result.error == "RuntimeError: controlled stop after current organized input resolution"
-    assert selected == ([reference] if already_organized else [reference, organized])
-    assert hydrated == ([organized] if already_organized else [reference, organized])
-    assert len(retained) == (0 if already_organized else 1)
-
-
-def test_live_integration_retains_typed_candidates_and_distinct_valid_health_rows(
-    tmp_path, monkeypatch
-):
-    from corpus_structure.ingest import pdf_methods
+def test_live_integration_retains_typed_candidates_and_distinct_valid_health_rows(tmp_path, monkeypatch):
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -234,10 +62,6 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
     reference = ProductReference(12, "organized", "c" * 64)
     observed = []
     captures = []
-
-    def native(pin, *, include_candidate_pages=True):
-        assert pin == reference and include_candidate_pages is False
-        return SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}")
 
     def capture(pin, directory):
         assert pin == reference
@@ -295,47 +119,27 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         observed.append(candidates[0])
         return ProductReference(20, "integrated", "d" * 64)
 
-    monkeypatch.setattr(methods, "RecognitionWorker", NoProviderWorker)
-    monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "release")
-    monkeypatch.setattr(pdf_methods, "_consumer_release", lambda ctx: "release")
-    monkeypatch.setattr(methods, "_drafts", lambda *args, **kwargs: ())
-    monkeypatch.setattr(methods, "section_text_policy", lambda prepared: b"{}")
-    cfg = methods.PdfIntegratedIngestConfig(native_product=reference)
-    settings = SimpleNamespace(
-        nemotron_python="unused",
-        nemotron_worker="unused",
-        nemotron_endpoint="unused",
-        nemotron_receipts=tmp_path,
-        nemotron_timeout_seconds=1,
-    )
-    ctx: Any = SimpleNamespace(
-        reader=SimpleNamespace(
-            prepared=None,
-            native_section_drafts=lambda *args, **kwargs: (
-                SimpleNamespace(native_product=reference),
-            ),
-            native_document=native,
-            capture_pdf_candidates=capture,
-            pdf_context=lambda: context,
-        ),
-        run=SimpleNamespace(options={}),
-        settings=settings,
-        check_active=lambda: None,
-        retain_pdf_records=retain,
-        logger=logging.getLogger(__name__),
-    )
-    unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "fixture"))
-    result = methods.IngestPdfIntegrated().run([unit], cfg, ctx)[0]
-    assert result.outcome == ObservationOutcome.EMPTY, result.error
+    from corpus_structure.ingest import pdf_recognition
+    monkeypatch.setattr(pdf_recognition, "RecognitionWorker", NoProviderWorker)
+    recipe = NemotronRecipe("a" * 64, "b" * 64)
+    options = PdfIntegrationOptions(recovery_policy=None, integration_policy={})
+    profile = PreparedPdfTransform(None, None, {
+        "mode": "integrated", "options": options.model_dump(mode="json"),
+        "recognition_recipe": asdict(recipe),
+        "resources": {"python": "unused", "script": "unused", "endpoint": "unused", "receipts": str(tmp_path), "timeout_seconds": 1},
+    })
+    selected = SelectedPdfInput(SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}"), reference, capture(reference, tmp_path / "candidate-input"), ((section.self_ref, "descendants"),), context)
+    owner = SimpleNamespace(claim=SimpleNamespace(task_id=20))
+    # Controlled no-provider evidence cannot establish recognized coverage.
+    with contextmanager(profile._integrate)(selected, b"{}", (), owner, tmp_path / "selected", lambda: None) as draft:
+        retain(None, draft)
     assert len(observed) == 1
 
 
 def test_recovery_policy_rejects_unbounded_or_undeclared_recipes():
     for changed in (
-        {"max_attempts": 2},
-        {"min_identical_character_run": 63},
-        {"permitted_recipe_id": "unreviewed"},
-        {"eligible_finish_reason": "stop"},
+        {"max_attempts": 2}, {"min_identical_character_run": 63},
+        {"permitted_recipe_id": "unreviewed"}, {"eligible_finish_reason": "stop"},
     ):
         with pytest.raises(ValidationError):
-            methods.PdfRecognitionRecoveryPolicy.model_validate(changed)
+            PdfRecognitionRecoveryPolicy.model_validate(changed)

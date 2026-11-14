@@ -9193,6 +9193,31 @@ operations:
     cardinality: optional
     ordered: false
     result_source: model:PdfPublishedRevision
+  - id: read_pdf_materialization_bound
+    symbol: ops.read_pdf_materialization_bound
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_mode: scalar
+    result_fields:
+    - name: byte_bound
+      source: primitive:integer
+      nullable: false
+    cardinality: one
+    ordered: false
   - id: read_pdf_published_validation
     symbol: ops.read_pdf_published_validation
     parameters:

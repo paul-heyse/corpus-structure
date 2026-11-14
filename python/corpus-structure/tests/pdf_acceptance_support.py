@@ -44,44 +44,6 @@ from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
 
-class NoInferenceConverter(PdfConverter):
-    def _prepare(self) -> None:
-        raise AssertionError(
-            "controlled retained-input acceptance forbids PDF conversion inference"
-        )
-
-    def formula_stage(self):
-        raise AssertionError("controlled retained-input acceptance forbids formula inference")
-
-
-def no_inference_child(connection, recipe, assets):
-    from corpus_structure.ingest import pdf_worker
-
-    pdf_worker.PdfConverter = NoInferenceConverter
-    pdf_worker._native_child(connection, recipe, assets)
-
-
-class NoInferenceWorker(PdfWorker):
-    _child_target = staticmethod(no_inference_child)
-
-
-def install_no_inference_boundary(monkeypatch, directory: Path) -> None:
-    """Only acquisition is doubled; child compute, original backend and custody stay real."""
-
-    def forbidden_recognition(*args, **kwargs):
-        raise AssertionError("controlled retained-input acceptance forbids recognition inference")
-
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_recognition_methods.RecognitionWorker", forbidden_recognition
-    )
-    directory.mkdir(parents=True, exist_ok=True)
-    assets = PreparedPdfAssets(directory, b'{"fixture":"no-model-assets"}', (), ())
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_methods.prepare_pdf_assets", lambda recipe, **kwargs: assets
-    )
-    monkeypatch.setattr("corpus_structure.ingest.pdf_methods.PdfWorker", NoInferenceWorker)
-
-
 def retained_document(original: bytes, sections) -> PdfConversion:
     document = DoclingDocument(name="Controlled retained native source; no inference")
     for page_number, (title, paragraphs) in enumerate(sections, 1):

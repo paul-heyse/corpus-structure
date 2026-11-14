@@ -119,7 +119,7 @@ BEGIN
             "r)\n"
             " TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;\n"
         )
-    )
+    ) + pdf_materialization_bound_sql()
 
 
 def pdf_record_context_sql() -> str:
@@ -399,3 +399,55 @@ def pdf_companion_event_ctes(*, companions_sql: str, prefix: str) -> str:
     for name in ("companions", "fields", "events"):
         source = re.sub(r"\b" + name + r"\b", prefix + name, source)
     return source
+
+
+def pdf_materialization_bound_sql() -> str:
+    """Conservative encoded input bound, authenticated before whole-value transfer."""
+    return r"""
+CREATE OR REPLACE FUNCTION ops.read_pdf_materialization_bound(p_task bigint,p_product text,p_digest text)
+RETURNS bigint LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $bound$
+DECLARE published ops.pdf_published_revision; total numeric;
+BEGIN
+ SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
+ -- JSON string escaping expands each source byte by at most six bytes. Count
+ -- stream uses in the native export as well as the separately consumed companion
+ -- payloads. Repeated stream references therefore cannot evade this bound.
+ WITH events AS MATERIALIZED (
+   SELECT event FROM ops.read_pdf_native_events(p_task,p_product,p_digest) event
+ ), event_bytes AS (
+   SELECT coalesce(sum(octet_length(event::text)::numeric),0)*6 AS bytes FROM events
+ ), native_stream_bytes AS (
+   SELECT coalesce(sum(stream.byte_length::numeric),0)*6 AS bytes
+   FROM events JOIN ops.pdf_artifact_stream stream
+   ON stream.product_id=published.build_id AND stream.revision_id=published.build_id
+   AND stream.stream_id=events.event->>'value'
+   WHERE events.event->>'kind' IN ('parts','key_parts','extension')
+ ), companion_stream_bytes AS (
+   SELECT coalesce(sum(byte_length::numeric),0)*6 AS bytes FROM ops.pdf_artifact_stream
+   WHERE product_id=published.build_id AND revision_id=published.build_id
+ ), companion_bytes AS (
+   SELECT coalesce(sum(octet_length(to_jsonb(row_)::text)::numeric),0)*6 AS bytes
+   FROM kb.pdf_record_companion row_ WHERE product_id=published.build_id AND revision_id=published.build_id
+ ), companion_field_bytes AS (
+   SELECT coalesce(sum(octet_length(to_jsonb(row_)::text)::numeric),0)*6 AS bytes
+   FROM kb.pdf_record_companion_field row_ WHERE product_id=published.build_id AND revision_id=published.build_id
+ ), membership_bytes AS (
+   SELECT coalesce(sum(octet_length(to_jsonb(row_)::text)::numeric),0)*6 AS bytes
+   FROM kb.pdf_record_membership row_ WHERE product_id=published.build_id AND revision_id=published.build_id
+ ), artifact_bytes AS (
+   SELECT coalesce(sum(octet_length(content)::numeric),0) AS bytes FROM kb.source_artifact
+   WHERE artifact_digest IN (published.source_digest,published.schema_digest,published.recipe_digest)
+ )
+ SELECT event_bytes.bytes+native_stream_bytes.bytes+companion_stream_bytes.bytes+
+ companion_bytes.bytes+companion_field_bytes.bytes+membership_bytes.bytes+artifact_bytes.bytes
+ INTO total FROM event_bytes,native_stream_bytes,companion_stream_bytes,companion_bytes,
+ companion_field_bytes,membership_bytes,artifact_bytes;
+ IF total IS NULL OR total<0 OR total>9223372036854775807::numeric THEN
+   RAISE EXCEPTION 'PDF materialization bound exceeds signed integer capacity' USING ERRCODE='22003';
+ END IF;
+ RETURN total::bigint;
+END $bound$;
+REVOKE ALL ON FUNCTION ops.read_pdf_materialization_bound(bigint,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.read_pdf_materialization_bound(bigint,text,text)
+ TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
+"""

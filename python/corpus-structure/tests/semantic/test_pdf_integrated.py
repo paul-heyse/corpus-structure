@@ -651,15 +651,12 @@ def test_retained_recognition_page_callback_uses_observation_only_native_port(
 ):
     import json
 
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.ingest.pdf_recognition import (
         NemotronRecipe,
         PreparedRecognitionSource,
         RecognitionPage,
     )
-    from corpus_structure.ingest.pdf_recognition_methods import _retain_page
-    from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.semantic.pdf_transforms import retain_recognition_page
     from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
     from corpus_structure.semantic.product_reference import ProductReference
 
@@ -698,25 +695,18 @@ def test_retained_recognition_page_callback_uses_observation_only_native_port(
         ),
     )
     recipe = NemotronRecipe("1" * 64, "2" * 64)
-    unit = UnitRef(TaskUnitType.DOCUMENT, db.job.document)
-
-    def retain(ref, product):
-        assert ref == unit
+    def retain(product):
         assert product.values()["kind"] == "recognition_observation"
         return ProductReference(db.job.task, product.values()["product_key"], publish(db, product))
 
-    with db.writer.connect() as conn:
-        reader = BoundReader(conn, db.job.run, db.prepared, analysis=False)
-        reader.source_tasks[db.job.document] = db.job.task
-        context: Any = SimpleNamespace(reader=reader, retain_pdf_observation=retain)
-        retained = _retain_page(
-            page,
-            unit,
-            PreparedRecognitionSource.prepare(db.source.original),
-            recipe,
-            PreparedPdfOriginal(db.source.original),
-            context,
-        )
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+    with db.writer.connect() as connection:
+        context = pdf_context_for_task(connection, db.job.task)
+    retained = list(retain_recognition_page(
+        page, PreparedRecognitionSource.prepare(db.source.original), recipe,
+        PreparedPdfOriginal(db.source.original), context,
+        publish=retain, check_active=lambda: None,
+    ))
     assert len(retained) == 1
     reference, observed, response = retained[0]
     assert (

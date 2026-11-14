@@ -20,6 +20,8 @@ from pathlib import Path
 from threading import Event, Lock
 from typing import Any, Literal
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from corpus_structure.core.work import PhysicalRetirementUncertain
 
 from ..semantic.identity import canonical_bytes
@@ -42,6 +44,19 @@ _CLASS = re.compile(r"<class_[^>]+>")
 # PDFium forbids overlapping C API calls even on independent document handles. The
 # short render/open/close sections serialize; isolated parser/HTTP work can overlap.
 _PDFIUM_LOCK = Lock()
+
+
+class PdfRecognitionRecoveryPolicy(BaseModel):
+    """One release-bound, narrowly eligible recovery; never an unbounded generic retry."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    policy_id: Literal["length-repetition-recovery-v1"] = "length-repetition-recovery-v1"
+    eligible_finish_reason: Literal["length"] = "length"
+    min_identical_character_run: int = Field(default=64, ge=64)
+    max_attempts: Literal[1] = 1
+    permitted_recipe_id: Literal["nemotron-public-triple-union-repetition-recovery-v1"] = (
+        "nemotron-public-triple-union-repetition-recovery-v1"
+    )
 
 
 @dataclass(frozen=True, slots=True)

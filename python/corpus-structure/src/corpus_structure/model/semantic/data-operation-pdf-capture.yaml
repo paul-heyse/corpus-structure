@@ -37,3 +37,7 @@ classes:
     is_a: DdoPdfPublication
     attributes:
       kind: {equals_string: integrated, required: true}
+  DdoPdfOrganizedPublication:
+    is_a: DdoPdfPublication
+    attributes:
+      kind: {equals_string: native, required: true}

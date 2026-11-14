@@ -65,6 +65,7 @@ class PrimaryCaptureInputs(BaseModel):
     directory: str = Field(min_length=1)
     nemotron_endpoint: str | None = None
     require_nemotron_handoff: bool = False
+    organization_policy: str | None = None
     enrichment_options: str | None = None
     recognition: PrimaryRecognitionInputs | None = None
 
@@ -365,20 +366,17 @@ def _acquire_primary_profile(
             nemotron_endpoint=capture.nemotron_endpoint,
             require_nemotron_handoff=capture.require_nemotron_handoff,
         )
+        if capture.organization_policy is not None:
+            from pydantic import TypeAdapter
+            from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
+            from .pdf_transforms import pdf_transform_operation_sources
+            policy = TypeAdapter(SectionPolicy).validate_python(yaml.safe_load(read(capture.organization_policy)))
+            arguments["pdf_organization_sources"] = pdf_transform_operation_sources("organized", options=policy, directory=location(capture.directory))
+        input_operation = "source.pdf_sections/organize" if capture.organization_policy is not None else "source.pdf/capture"
         if capture.enrichment_options is not None:
             from .pdf_transforms import PdfEnrichmentOptions, pdf_transform_operation_sources
-
-            options = PdfEnrichmentOptions.model_validate(
-                yaml.safe_load(read(capture.enrichment_options))
-            )
-            arguments["pdf_enrichment_sources"] = pdf_transform_operation_sources(
-                "enriched",
-                recipe=recipe,
-                assets=assets,
-                options=options,
-                directory=location(capture.directory),
-                nemotron_endpoint=capture.nemotron_endpoint,
-            )
+            options = PdfEnrichmentOptions.model_validate(yaml.safe_load(read(capture.enrichment_options)))
+            arguments["pdf_enrichment_sources"] = pdf_transform_operation_sources("enriched", recipe=recipe, assets=assets, options=options, directory=location(capture.directory), nemotron_endpoint=capture.nemotron_endpoint, input_operation=input_operation)
         if capture.recognition is not None:
             from corpus_structure.ingest.pdf_recognition import NemotronRecipe
 
@@ -405,13 +403,7 @@ def _acquire_primary_profile(
             )
             if Path(resources.script).is_relative_to(root):
                 read(str(Path(resources.script).relative_to(root)))
-            arguments["pdf_integration_sources"] = pdf_transform_operation_sources(
-                "integrated",
-                options=options,
-                recognition_recipe=recognition_recipe,
-                resources=resources,
-                directory=location(capture.directory),
-            )
+            arguments["pdf_integration_sources"] = pdf_transform_operation_sources("integrated", options=options, recognition_recipe=recognition_recipe, resources=resources, directory=location(capture.directory), input_operation=input_operation)
     return arguments
 
 

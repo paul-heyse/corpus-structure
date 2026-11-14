@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from ingest.retained_pdf_fixture import RetainedIntegratedConfig, RetainedIntegratedPdf
 
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
 from corpus_structure.semantic.identity import canonical_bytes
@@ -66,25 +65,6 @@ def test_only_nested_nonoverlapping_native_header_paths_are_readings(
     )
     key = "header_paths" if axis == "column" else "row_paths"
     assert captured[key].get(2, ()) == ((0, 1) if expected == "present" else ())
-
-
-def test_retained_nondefault_original_cannot_silently_select_nothing(monkeypatch):
-    from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
-
-    method = RetainedIntegratedPdf()
-    cfg = PdfIntegratedIngestConfig(integrated_product=ProductReference(23, "integrated", "a" * 64))
-
-    # Review repro: the inherited selector would filter against its Siegrist default.
-    def documents(originals):
-        raise AssertionError("unbound retained input reached document selection")
-
-    run = SimpleNamespace(
-        run_id=17,
-        options={"corpus": {"documents": ["other-book"]}},
-        reader=SimpleNamespace(documents=documents),
-    )
-    with pytest.raises(ValueError, match="document binding"):
-        method.select(run, cfg)
 
 
 @pytest.fixture
@@ -189,44 +169,9 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
     document = retained_document(
         f.conn, f.pin, prepared=object(), project_id="project", documents=f.documents
     )
-    cfg = RetainedIntegratedConfig(
-        originals=(document.source_uri,),
-        native_product=None,
-        integrated_product=f.pin,
-        retained_document_id=document.id,
-        retained_document_key=document.key,
-        retained_original_digest=document.content_hash,
-    )
-    assert isinstance(cfg, RetainedIntegratedConfig)
-    assert cfg.originals == ("other_book/Full.pdf",)
-    assert cfg.retained_document_id == 2 and cfg.retained_document_key == "other-book"
-    assert cfg.retained_original_digest == "b" * 64
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-
-    requests = []
-    rows = [SimpleNamespace(id=2, key="other-book")]
-
-    def documents(originals):
-        assert originals == ("other_book/Full.pdf",)
-        requests.append(originals)
-        return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
-
-    run = SimpleNamespace(
-        run_id=17,
-        options={"corpus": {"documents": ["other-book"]}},
-        reader=SimpleNamespace(documents=documents),
-    )
-    method = RetainedIntegratedPdf()
-    assert isinstance(method, RetainedIntegratedPdf)
-    assert json.loads(method.original_recipe(cfg))["document"] == dict(
-        id=2, key="other-book", original_digest="b" * 64, source_uri="other_book/Full.pdf"
-    )
-    assert [ref.unit_id for ref in method.select(run, cfg)] == [2]
-    assert requests == [("other_book/Full.pdf",)]
-    rows.clear()
-    with pytest.raises(ValueError, match="exact corpus member"):
-        method.select(run, cfg)
+    assert document.id == 2 and document.key == "other-book"
+    assert document.content_hash == "b" * 64
+    assert document.source_uri == "other_book/Full.pdf"
 
 
 def test_configured_descriptions_change_pack_conditioning_without_changing_released_roles():

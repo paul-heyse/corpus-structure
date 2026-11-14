@@ -8,6 +8,7 @@ from corpus_structure.semantic.pdf_transforms import execute_pdf_integration
 
 class PdfIntegrationOperation:
     __data_operation__: ClassVar[dict] = {
+        "abstract": True,
         "id": "source.pdf_integrated/reconcile",
         "profile": "command",
         "subject": "original-document",
@@ -18,15 +19,17 @@ class PdfIntegrationOperation:
                 "name": "capture",
                 "parameter": "capture",
                 "direction": "input",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfCapture",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfPublication",
                 "minimum": 1,
                 "maximum": 1,
                 "collection": "scalar",
-                "presence": "required",
+                "presence": "alternative",
+                "alternatives": ["source.pdf/capture"],
+                "selected": "source.pdf/capture",
                 "support": {
                     "provenance": "exact",
                     "origins": ["computation"],
-                    "identity_requirements": ["episode"],
+                    "identity_requirements": ["episode", "alternative"],
                     "source": "same-original",
                     "coverage": "whole-document",
                 },

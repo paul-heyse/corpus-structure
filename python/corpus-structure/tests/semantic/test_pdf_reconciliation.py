@@ -663,12 +663,9 @@ def test_lexical_selection_does_not_request_math_but_explicit_comparison_does(
 def test_policy_demand_defaults_into_recipe_and_unsupported_demand_refuses(native_source):
     import json
 
-    from corpus_structure.ingest.pdf_recognition_methods import (
-        IngestPdfIntegrated,
-        PdfIntegratedIngestConfig,
-    )
+    from corpus_structure.ingest.pdf_recognition import NemotronRecipe
+    from corpus_structure.semantic.pdf_transforms import PdfIntegrationOptions, PreparedPdfTransform
     from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy
-    from corpus_structure.semantic.product_reference import ProductReference
 
     legacy = {
         "policy_id": "pdf-integration-v1",
@@ -676,14 +673,14 @@ def test_policy_demand_defaults_into_recipe_and_unsupported_demand_refuses(nativ
         "unmatched_action": "add",
         "specialized_crop_precedence": True,
     }
-    cfg = PdfIntegratedIngestConfig(
-        native_product=ProductReference(1, "native", "a" * 64), integration_policy=legacy
-    )
-    recipe = json.loads(IngestPdfIntegrated().original_recipe(cfg))
+    cfg = PdfIntegrationOptions(recovery_policy=None, integration_policy=legacy)
+    recognition = NemotronRecipe("a" * 64, "b" * 64)
+    profile = PreparedPdfTransform(None, None, {"mode": "integrated", "recognition_bytes": recognition.to_bytes().hex(), "options": cfg.model_dump(mode="json")})
+    recipe = json.loads(profile.recipe_bytes())
     assert cfg.integration_policy["comparison_demand"] == "lexical"
     assert normalize_pdf_integration_policy({}) == normalize_pdf_integration_policy()
     assert recipe["integration_policy"] == normalize_pdf_integration_policy(legacy)
     with pytest.raises(ValueError, match="only lexical"):
-        PdfIntegratedIngestConfig(integration_policy={**legacy, "comparison_demand": "symbolic"})
+        PdfIntegrationOptions(recovery_policy=None, integration_policy={**legacy, "comparison_demand": "symbolic"})
     with pytest.raises(ValueError, match="only lexical"):
         normalize_pdf_integration_policy({**legacy, "comparison_demand": "syntax"})

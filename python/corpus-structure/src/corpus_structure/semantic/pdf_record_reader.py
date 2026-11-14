@@ -235,7 +235,9 @@ class PublishedPdfReader:
         cancellation: BorrowerCancellation | None = None,
         projection_context: PreparedRelease | None = None,
         read_budget: PublishedReadBudget | None = None,
+        check_active: Callable[[], None] | None = None,
     ):
+        self.external_check_active = check_active
         self.read_budget = read_budget
         self.projection_context = projection_context
         self.conn, self.reference = conn, reference
@@ -278,6 +280,9 @@ class PublishedPdfReader:
         cancellation = getattr(self, "cancellation", None)
         if cancellation is not None:
             cancellation.check_active()
+        callback = getattr(self, "external_check_active", None)
+        if callback is not None:
+            callback()
 
     def _raw_rows(self, statement, *, payload_reserved=False):
         with self._read_scope():
@@ -735,8 +740,30 @@ class PublishedPdfReader:
                 ) from error
         return self._prepared_native_mapping
 
+    def require_materialization_capacity(self) -> int:
+        """Admit exact whole-product detachment before transferring its content."""
+        from ._operation_calls import read_pdf_materialization_bound
+        from ._operation_ids import TaskId
+        from .query import ReadLimit
+        self._check_active()
+        cached = getattr(self, "_materialization_bound", None)
+        bound = cached[1] if cached is not None and cached[0] == self.reference else None
+        if bound is None:
+            with self._read_scope():
+                bound = read_pdf_materialization_bound(self.conn, task_id=TaskId(self.reference.task_id), product_key=ProductKey(self.reference.product_key), content_digest=ContentDigest(self.reference.content_digest), projection_context=self.projection_context)
+            self._materialization_bound = (self.reference, bound)
+        budget = self.read_budget
+        if budget is None:
+            raise ValueError("whole PDF materialization requires an explicit invocation input budget")
+        if type(bound) is not int or bound < 0 or bound > budget.max_bytes:
+            raise ReadLimit("PDF aggregate materialization exceeds invocation input capacity", reason="work_limit")
+        self._check_active()
+        return bound
+
     def hydrate_document(self):
         """Explicit whole-value demand uses one ordered native cursor, without repairs."""
+        if getattr(self, "read_budget", None) is not None:
+            self.require_materialization_capacity()
         with closing(self.iter_native_json()) as chunks:
             value = json.loads(b"".join(chunks))
         self._check_active()
