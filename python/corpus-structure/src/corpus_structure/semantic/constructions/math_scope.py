@@ -318,6 +318,8 @@ def _populate_math_scope(
             starts.append(index == 0 or (row is not None and sentence != previous))
             if row:
                 previous = sentence
+        if prepared is None:
+            prepared = PreparedScopeCues(vocab, binders)
         doc = Doc(
             vocab,
             words=[token.text for token in native_doc],
@@ -370,8 +372,6 @@ def _populate_math_scope(
                     )
                     atoms[token.i] = atom
                     member(sentence, atom, "math_atom")
-        if prepared is None:
-            prepared = PreparedScopeCues(vocab, binders)
         matches = prepared.match(doc)
         for kind, a, b in matches:
             external = [
