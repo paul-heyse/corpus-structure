@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
+from contextlib import ExitStack
+from threading import Lock
+from typing import TYPE_CHECKING, Any
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
@@ -12,8 +14,10 @@ from fastmcp.tools import ToolResult
 from pydantic import RootModel
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_external import ExternalDataSession
 from corpus_structure.settings import Settings
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
 
 
 class ExternalReport(RootModel[dict[str, Any]]):
@@ -30,22 +34,28 @@ def build_external_server(
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict]:
         from corpus_structure.cli.observation_logging import child_capture
-        from corpus_structure.semantic.runtime import open_runtime_engine
 
         with child_capture() as observations:
             if session is not None:
-                yield {"external": session, "observation_writer": observations}
+                yield {"external": lambda: session, "observation_writer": observations}
                 return
             selected = settings or Settings()
-            with open_runtime_engine(
-                selected, "ci-mcp-external", max_size=4, purpose="write"
-            ) as engine:
-                yield {
-                    "external": ExternalDataSession(
-                        engine, project or selected.runtime.default_project, demand_id=demand
-                    ),
-                    "observation_writer": observations,
-                }
+            active = None
+            lock = Lock()
+            with ExitStack() as resources:
+                def external():
+                    nonlocal active
+                    with lock:
+                        if active is None:
+                            from corpus_structure.semantic.runtime import open_runtime_engine
+                            from corpus_structure.semantic.data_operation_external import ExternalDataSession
+
+                            engine = resources.enter_context(open_runtime_engine(
+                                selected, "ci-mcp-external", max_size=4, purpose="write"))
+                            active = ExternalDataSession(engine, project or selected.runtime.default_project, demand_id=demand)
+                        return active
+
+                yield {"external": external, "observation_writer": observations}
 
     server = FastMCP(
         "corpus-structure",
@@ -67,7 +77,7 @@ def build_external_server(
     server.add_middleware(ObservationMiddleware())
 
     def current(ctx: Context) -> ExternalDataSession:
-        return ctx.lifespan_context["external"]
+        return ctx.lifespan_context["external"]()
 
     def report(action) -> ToolResult:
         # The shared transport bound includes SDK metadata and text plus structured

@@ -684,3 +684,11 @@ def ddo_original_source(request, scenario_seeds):
     from semantic.data_operation_original_support import original_source_clone
 
     yield from original_source_clone(request, scenario_seeds)
+
+
+@pytest.fixture
+def ddo_application_settings(native_settings, ddo_kernel):
+    """Resolve actual purpose credentials before rebinding this DDO scenario's clone."""
+    database = ddo_kernel["engine"].url.database
+    assert database is not None
+    return settings_for_native_clone(native_settings, database)

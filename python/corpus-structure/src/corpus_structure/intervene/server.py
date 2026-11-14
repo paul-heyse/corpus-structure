@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastmcp import FastMCP
 
-from corpus_structure.semantic.data_operation_external import ExternalDataSession
 from corpus_structure.settings import Settings
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
 
 
 def build_server(

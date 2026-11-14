@@ -386,8 +386,8 @@ def test_fresh_mcp_registration_does_not_import_analysis_or_compiler() -> None:
 
     script = """
 import sys
-from corpus_structure.intervene.semantic_server import build_semantic_server
-server = build_semantic_server()
+from corpus_structure.intervene.server import build_server
+server = build_server()
 assert server.name == "corpus-structure"
 for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.semantic.prepare"):
     assert name not in sys.modules, name
