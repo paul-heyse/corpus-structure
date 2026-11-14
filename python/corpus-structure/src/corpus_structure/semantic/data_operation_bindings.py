@@ -575,6 +575,8 @@ def compile_binding(
             next(k.name for k in model.kinds if k.semantic_id == role.kind),
         }:
             raise ValueError("field projection differs from role kind")
+        if field.field in {"@product", "@member"}:
+            return aliases[field.role].c[field.field.removeprefix("@")]
         if field.field == "@context":
             if subject_context is None:
                 raise ValueError("qualified-context field requires full subject context")
@@ -632,6 +634,10 @@ def compile_binding(
         if operand.kind == "field":
             if operand.field is None:
                 raise ValueError("field operand lacks field")
+            if operand.field.field in {"@product", "@member"}:
+                if primitive_type(operand.value_type) != "string":
+                    raise ValueError("native header binding field requires string type")
+                return field_value(operand.field)
             if operand.field.field == "@context":
                 if operand.value_type != "subject-context":
                     raise ValueError("context fields require subject-context type")

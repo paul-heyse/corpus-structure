@@ -1584,3 +1584,57 @@ def test_sql_subject_field_can_target_original_source_without_relabeling_context
         assert read_effective_data_operations(archived.content).content == archived.content
         with pytest.raises(ValueError, match="historical"):
             _ = replace(schema, version=version).content
+
+
+@pytest.mark.parametrize("header,selected", [("@product", "p2"), ("@member", "m2")])
+def test_frozen_header_pin_selects_authentic_native_identity_before_hydration(
+    storage, header, selected
+):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "equal",
+        operands=(
+            BindingOperand("field", "string", BindingField("items", "urn:item", header)),
+            BindingOperand("parameter", "string", name="selected"),
+        ),
+    )
+    schema = model(expression, maximum=1, parameters={"selected": {"value_type": "string"}})
+    compiled = compile_binding(
+        schema, "urn:op", (projection,), subject="doc", parameters={"selected": selected}
+    )
+    result = execute_binding(connection, compiled)
+    assert result.status == "ready"
+    assert [(row.product, row.member) for row in result.roles[0].members] == [("p2", "m2")]
+    assert result.operation == "urn:op"
+
+
+def test_header_binding_field_is_compiled_as_reserved_typed_identity():
+    operation = declaration(
+        binding={
+            "operator": "equal",
+            "operands": [
+                {
+                    "kind": "field",
+                    "value_type": "string",
+                    "field": {"role": "items", "projection": "integer", "field": "@product"},
+                },
+                {"kind": "parameter", "name": "selected", "value_type": "string"},
+            ],
+        },
+        parameters={"selected": {"value_type": "string"}},
+    )
+    artifact = SourceArtifact(
+        "headers", canonical_bytes({"version": MODEL_VERSION, "operations": [operation]})
+    )
+    compiled = compile_data_operations(declarations=(artifact,))
+    assert compiled.bindings[-1].expression.operands[0].field.field == "@product"
+    operation["binding"]["operands"][0]["value_type"] = "integer"
+    with pytest.raises(ValueError, match="header binding fields"):
+        compile_data_operations(
+            declarations=(
+                SourceArtifact(
+                    "headers",
+                    canonical_bytes({"version": MODEL_VERSION, "operations": [operation]}),
+                ),
+            )
+        )

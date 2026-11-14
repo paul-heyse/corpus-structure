@@ -543,3 +543,26 @@ def test_native_subject_association_uses_explicit_original_source_and_retains_su
         )
         is True
     )
+
+
+@pytest.mark.db
+@pytest.mark.parametrize(
+    "header,selected", [("@product", "native-product"), ("@member", "native-member")]
+)
+def test_native_binding_header_is_authenticated_row_identity_not_body_property(
+    binding_native_connection, header, selected
+):
+    connection = binding_native_connection
+    facts = context(2)
+    facts["roles"]["items"][0].update(product="native-product", member="native-member")
+    node = {
+        "operator": "equal",
+        "operands": [
+            field(name=header, value_type="string"),
+            {"kind": "parameter", "name": "selected", "value_type": "string"},
+        ],
+    }
+    facts["parameters"]["selected"] = selected
+    assert evaluate(connection, node, facts) is True
+    facts["parameters"]["selected"] = "body-property-is-not-native-identity"
+    assert evaluate(connection, node, facts) is False

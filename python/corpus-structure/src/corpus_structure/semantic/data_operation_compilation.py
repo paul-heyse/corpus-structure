@@ -570,6 +570,9 @@ def _validate_binding_fields(
         if field.field == "@context":
             ranges.append("subject-context")
             continue
+        if field.field in {"@product", "@member"}:
+            ranges.append("primitive:string")
+            continue
         property_id = projection + "/property/" + field.field
         if property_id not in kinds:
             _fail(owner, "unresolved binding projection field " + property_id)
@@ -619,6 +622,10 @@ def _validate_binding_fields(
                 BindingExpression("literal", value=operand.value), kinds[expected], synthetic, owner
             )
         if operand.field is not None:
+            if operand.field.field in {"@product", "@member"}:
+                if expected != "primitive:string":
+                    _fail(owner, "native header binding fields require the primitive string type")
+                continue
             property_id = (
                 aliases.get(operand.field.projection, operand.field.projection)
                 + "/property/"

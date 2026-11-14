@@ -212,6 +212,14 @@ BEGIN
  field:=operand->'field';
  SELECT value INTO STRICT roledef FROM jsonb_array_elements(context->'roledefs') WHERE value->>'name'=field->>'role';
  IF field->>'projection'<>roledef->>'kind' AND NOT EXISTS(SELECT FROM jsonb_array_elements(context->'model'->'kinds') k WHERE k->>'semantic_id'=roledef->>'kind' AND k->>'name'=field->>'projection') THEN RAISE EXCEPTION 'native binding projection differs from qualified role'; END IF;
+ IF field->>'field' IN ('@product','@member') THEN
+ kind:=ops.ddo_binding_type(context,coalesce(operand->>'value_type','primitive:string'));
+ IF kind<>'string' THEN RAISE EXCEPTION 'native header binding field requires string type'; END IF;
+ FOR item IN SELECT value FROM jsonb_array_elements(coalesce(context->'roles'->(field->>'role'),'[]')) LOOP
+ result:=result||jsonb_build_array(ops.ddo_binding_scalar(item->substring(field->>'field' FROM 2),kind));
+ END LOOP;
+ RETURN result;
+ END IF;
  IF field->>'field'='@context' THEN
  IF operand->>'value_type' IS DISTINCT FROM 'subject-context' OR nullif(context->>'project_id','') IS NULL THEN RAISE EXCEPTION 'native qualified context lacks project/type'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(coalesce(context->'roles'->(field->>'role'),'[]')) LOOP
