@@ -174,6 +174,21 @@ def _revoke_acl_edges(connection, policy, target, kind, failure_context):
     """Remove observed delegation leaves first; never cascade into implicit dependents."""
     from networkx import DiGraph, NetworkXUnfeasible, lexicographical_topological_sort
 
+    quote = connection.dialect.identifier_preparer.quote
+    if kind == "TABLE":
+        # Ownership supplies implicit rights. Historical FK setup may nevertheless
+        # leave an explicit owner column grant; the declared empty column ACL must
+        # remove that row without changing those implicit ownership capabilities.
+        owner_columns = connection.execute(text(
+            "SELECT at.attname,pg_get_userbyid(a.grantor),a.privilege_type,pg_get_userbyid(c.relowner) "
+            "FROM pg_attribute at JOIN pg_class c ON c.oid=at.attrelid "
+            "CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE c.oid=to_regclass(:name) "
+            "AND at.attnum>0 AND NOT at.attisdropped AND a.grantee=c.relowner"
+        ), {"name": policy["name"]}).all()
+        for column, grantor, privilege, owner in owner_columns:
+            failure_context["dependency_objects"] = [{"grantor": grantor, "grantee": owner, "privilege": privilege, "column": column}]
+            with native_owner(connection, grantor):
+                connection.exec_driver_sql(f"REVOKE {privilege} ({quote(column)}) ON TABLE {target} FROM {quote(owner)}")
     if kind == "SCHEMA":
         sql = "SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,NULL::text FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.nspname=:name AND a.grantee<>n.nspowner"
     else:
@@ -262,6 +277,10 @@ def execute_privileges(operations, operation):
         )
         failure.authoring_context = diagnostic
         raise failure from error
+    except NativeAuthoringError as error:
+        if error.authoring_context is None:
+            error.authoring_context = diagnostic
+        raise
 
 
 def _execute_privileges(operations, operation, failure_context):
@@ -344,8 +363,12 @@ def _execute_privileges(operations, operation, failure_context):
             )
         if kind == "SCHEMA":
             _deny_purpose_create(connection, policy["name"])
-        if observe_policy(connection, policy) != _expected(connection, policy):
-            raise NativeAuthoringError("privilege after-state differs")
+        actual = observe_policy(connection, policy)
+        expected = _expected(connection, policy)
+        if actual != expected:
+            failure_context["expected_policy"] = expected
+            failure_context["observed_policy"] = actual
+            raise NativeAuthoringError("privilege after-state differs: " + policy["name"])
 
 
 @renderers.dispatch_for(PrivilegeTransitionOp)
