@@ -46,7 +46,7 @@ def test_demand_help_has_no_settings_or_database_effects(cli):
     def refuse():
         raise AssertionError("help must not resolve settings")
 
-    for action in ((), ("create",), ("read",), ("cancel",)):
+    for action in ((), ("create",), ("read",), ("cancel",), ("execute",)):
         result = cli("demands", *action, "--help", settings=refuse)
         assert result.exit_code == 0, result.output
 
@@ -166,3 +166,42 @@ def test_cancel_routes_original_demand_and_reason_and_retains_shared_status(
     assert opened == ["write"]
     assert seen == [("demand:one", "operator stopped")]
     assert json.loads(result.stdout)["native"]["requests"][0]["interest"] == "shared"
+
+
+def test_execute_retains_pending_native_fates_and_exact_resume_target(
+    cli,
+    tmp_path,
+    monkeypatch,
+    routing,
+):
+    from corpus_structure.orchestrate.data_operations import DemandAdvance
+    from corpus_structure.semantic import data_operation_service
+
+    seen = []
+    snapshot = {"demand_id": "demand:one", "state": "open", "uses": [{"fate": "awaiting-inputs"}]}
+
+    def execute(engine, demand, **kwargs):
+        seen.append((demand, kwargs["source_root"], kwargs["limit"], kwargs["max_rounds"]))
+        return DemandAdvance(demand, json.dumps(snapshot).encode(), (), 0)
+
+    monkeypatch.setattr(data_operation_service, "execute_data_demand", execute)
+    result = cli(
+        "demands",
+        "execute",
+        "demand:one",
+        "--source-root",
+        str(tmp_path),
+        "--limit",
+        "3",
+        "--max-rounds",
+        "2",
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
+    )
+    assert result.exit_code == 0, result.output
+    assert routing[0] == ["write"]
+    assert seen == [("demand:one", tmp_path, 3, 2)]
+    native = json.loads(result.stdout)["native"]
+    assert native["snapshot"] == snapshot
+    assert native["receipt_count"] == 0
+    assert native["snapshot_standing"] == "fresh-read"

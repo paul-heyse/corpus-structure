@@ -2,7 +2,7 @@
 
 **Status: DDO-00–05 complete at the accepted foundation boundary · 2026-11-13.
 Implementation, scoped retirement and applicable targeted qualification are complete for this scope.
-DDO-06–12 retain their broader open scope. No deployment, activation or production cutover.**
+DDO-06–08 execution is in progress; DDO-09–12 retain their broader open scope. No deployment, activation or production cutover.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no product scope or acceptance limits. Later operator-accepted test-system dependencies are
@@ -207,7 +207,7 @@ confirmation/decision route. This is plan adoption, not implementation or renewe
 
 ## Execution queue and readiness
 
-DDO-00 is **complete at its scoped preparation boundary**. DDO-01–05 are **complete at their accepted foundation boundary**, including CA-01/05/06/07 repairs and scoped retirement. The completion-audit findings table and the resumed execution receipt below own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. Only DDO-00–05 execution has resumed; the cancelled broad campaign is not restarted.
+DDO-00 is **complete at its scoped preparation boundary**. DDO-01–05 are **complete at their accepted foundation boundary**, including CA-01/05/06/07 repairs and scoped retirement. The completion-audit findings table and the resumed execution receipt below own current disposition and source/context-qualified evidence. DDO-06–12 remain **open**. DDO-06–08 execution is now authorized and in progress; the cancelled broad campaign is not restarted.
 Rows describe dependencies, not mandatory stage-wide
 barriers or separate agent assignments. Interface agreement permits design, not a claim of usable
 native behavior. Product-family slices carry immediate consumers; no late consumer repair phase.
@@ -1172,3 +1172,43 @@ DDO-06–12 completion is claimed.
 **Documentation publication:** `uv run ci docs check --json` passed `c5d40d6ecf3e4a3890a4329cb02edb95` (1,256 canonical pages, zero link errors); root `just turn-end` completed without final source mutation. Commits `b5d7c63ce` and `ffea0bd5f` contain the checked implementation; subsequent checkpoint edits change documentation only.
 
 Worktree-local managed stores and integrated patches are preserved, with original namespaces, under `build/ddo-worker-results/{builtins,projections,native}` before removing this execution's temporary worktrees. Read an older worker receipt through the corresponding `CORPUS_CI_RESULTS` store; current qualification uses the root receipts above. Pre-existing non-ancestor worktrees are preserved.
+
+## DDO-06–08 authorized execution · 2026-11-13
+
+Operator-authorized scope is DDO-06–08, starting at `2fbff1797`; DDO-00–05 foundations
+remain accepted. Execution is in progress, not completed by this authorization. The operator
+selected terminal settlement for owned streams: stage bounded items privately and publish only
+one declared completion/population after valid termination. Failed/cancelled prefixes confer no
+fulfillment. Effective v4 will carry explicit settlement and captured consumer capabilities;
+real historical interpretations stay exact and frozen predecessors are never rewritten.
+
+The shared executor/transport comes first, then authentic ordinary-driver/selection context,
+then producer-plus-immediate-consumer vertical migrations and retirement. The first actual M1
+migration uses explicit source/call correspondence; generic `method.select` receivers cannot be
+rewritten to M1 by spelling. Native Demand, pinned read/trust and bounded hydration supply the
+context. Source/primary and downstream/authored families integrate against that common route.
+DDO-06 closure includes its actual ordinary callers, not helper-only delivery.
+
+Only focused new/affected checks run. After a repair rerun only failing identities, never the
+full selection or an interrupted campaign. No full test campaign or repository health sweep is
+scheduled. DDO-09/10 retain broader reuse/serving/model-update interfaces; DDO-11 retains persistent
+deployment/adoption/activation; DDO-12 retains assembled book/provider/fault qualification.
+
+
+### Native execution frontdoor increment · 2026-11-13
+
+`ci demands execute DEMAND --source-root ROOT` now resumes the exact retained intent through
+NativeDemandExecutor. Source root selects physical locations only: retained release inputs,
+runtime custody and actual callable admission remain authoritative. Release loading returns its
+verified bundle/dependencies alongside the prepared release so execution does not reacquire and
+recompile the archive twice. The database connection closes before execution/capacity waits.
+Managed output retains pinned native state, bounded receipt count/standing and partial results
+on execution failure; successful command delivery does not imply all obligations fulfilled.
+
+**passed:** exact retained-source native execution/resume1 `262a9c118abe45b2bcc392c79bf03008`;
+CLI pending-fate/correlation1 `3b2b725894f4449e86acac69da0c3b9a`; help-without-settings passed in
+initial `80d813cd08344b8a8c61e084faaad6a0`. That initial receipt remains failed: its native setup
+observed a worker's premature v4 source edit against the v3 kernel. The edit was moved to the
+isolated worker checkout and only the failed identity was rerun. These bounded receipts establish
+the new execution frontdoor, not ordinary default-source family migration or DDO-06 closure.
+Source/default/registry callers and full family contracts remain active integration work.

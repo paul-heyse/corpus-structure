@@ -134,5 +134,73 @@ def cancel(
     emit(report, json=json)
 
 
+@app.command("execute")
+def execute(
+    ctx: typer.Context,
+    demand: Annotated[
+        str, typer.Argument(help="Exact retained native demand ID to execute or resume.")
+    ],
+    source_root: Annotated[
+        Path,
+        typer.Option(
+            exists=True,
+            file_okay=False,
+            help="Explicit root of the retained executable source locations.",
+        ),
+    ],
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+    max_rounds: Annotated[int, typer.Option(min=1)] = 100,
+    json: JsonOpt = False,
+) -> None:
+    """Execute the frozen native frontier; repeat this action to resume the same intent."""
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    from corpus_structure.semantic.data_operation_service import execute_data_demand
+    from corpus_structure.cli.characterization_options import method_settings
+
+    settings = state(ctx).settings()
+    with managed_operation(
+        result_store(ctx),
+        "demands.execute",
+        json=json,
+        expected=(ValueError, KeyError, OSError),
+    ) as invocation:
+        with ENGINE(settings, purpose="write") as engine:
+            with engine.begin() as connection:
+                target = acquired_target(connection, purpose="write")
+                invocation.record_target(target, None, None, None)
+
+            def retain(result):
+                native = jsonlib.loads(result.snapshot)
+                report = {
+                    "demand_id": result.demand_id,
+                    "snapshot": native,
+                    "snapshot_standing": result.snapshot_standing,
+                    "receipt_count": result.receipt_count,
+                    "receipts_truncated": result.receipts_truncated,
+                    "receipts": [jsonlib.loads(value) for value in result.receipts],
+                }
+                path = invocation.directory / "native.json"
+                path.write_bytes(canonical_bytes(report))
+                invocation.publish("native", path)
+                return report
+
+            try:
+                result = execute_data_demand(
+                    engine,
+                    demand,
+                    source_root=source_root,
+                    limit=limit,
+                    max_rounds=max_rounds,
+                    policy=method_settings(settings).execution_policy,
+                )
+            except NativeDemandExecutionError as error:
+                retain(error.result)
+                raise
+            native = retain(result)
+        invocation.settle("passed", demand_id=demand, receipt_count=result.receipt_count)
+        report = DemandActionReport(id=invocation.id, native=native)
+    emit(report, json=json)
+
+
 def register(root: typer.Typer) -> None:
     root.add_typer(app, name="demands")

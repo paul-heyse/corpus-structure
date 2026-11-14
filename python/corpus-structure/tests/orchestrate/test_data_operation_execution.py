@@ -77,6 +77,36 @@ def test_actual_callable_publishes_and_settled_resume_does_not_recompute(executa
         assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id IS NOT NULL")) == 0
 
 
+def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(executable):
+    from corpus_structure.semantic.data_operation_service import execute_data_demand
+
+    engine, prepared, runtime, sources, locations, _ = executable
+    model = bound_data_operation_model(prepared)
+    intent = freeze_demand(
+        model,
+        roots=(RootSubject("subject:service", "source:original", b"{}"),),
+        targets=("urn:ddo-execution:answer",),
+        inference="exact",
+        execution_profile="execution:test",
+    )
+    with engine.begin() as conn:
+        demand = DemandPlanner(model, DataOperationStorage(conn)).register(
+            intent,
+            project="execution",
+            release=prepared.release_id,
+            runtime=runtime.runtime_id,
+        )["demand_id"]
+    root = next(iter(locations.values())).parent
+    result = execute_data_demand(engine, demand, source_root=root)
+    assert result.demand_id == demand
+    assert result.receipt_count == 1
+    resumed = execute_data_demand(engine, demand, source_root=root)
+    assert resumed.receipt_count == 0
+    with engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM ops.run")) == 0
+
+
 def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(executable):
     engine, prepared, runtime, sources, locations, bundle = executable
     model = bound_data_operation_model(prepared)

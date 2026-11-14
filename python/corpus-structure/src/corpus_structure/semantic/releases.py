@@ -492,6 +492,12 @@ def verify_release(conn: Connection, release_id: str) -> PreparedRelease:
 
 
 def load_release(conn: Connection, release_id: str) -> PreparedRelease:
+    return load_release_inputs(conn, release_id)[3]
+
+
+def load_release_inputs(
+    conn: Connection, release_id: str
+) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
     """Reprepare once, offline, and compare every archived product and exact byte string."""
     table = _table("sem.release")
     row = (
@@ -573,7 +579,7 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
         _compare_rows(conn, "artifact", release_id, artifacts)
         for name, expected in _projection_rows(prepared).items():
             _compare_rows(conn, name, release_id, expected)
-        return prepared
+        return bundle, dependencies, profile, prepared
     except ReleaseConflict:
         raise
     except (
