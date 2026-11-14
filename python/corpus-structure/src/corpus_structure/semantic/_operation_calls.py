@@ -588,6 +588,64 @@ def create_run(
         return materialize_create_run(row)
 
 
+BEGIN_RUN_CONTRACT_DIGEST = "87b9b14f577c9a4ada55070fddc2334964994936c4c18f9ace3e9786513bf538"
+
+
+class _begin_runRequest(OperationResult):
+    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+
+
+_begin_run_function = func.ops.begin_run(
+    bindparam("run_id", type_=BigInteger()),
+    type_=BigInteger(),
+)
+_begin_run_statement = select(_begin_run_function)
+
+
+def prepare_begin_run(
+    *,
+    run_id: RunId,
+    projection_context: PreparedRelease | None = None,
+) -> Select[int]:
+    _request = _begin_runRequest(
+        run_id=run_id,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context, "start_run", "begin_run", BEGIN_RUN_CONTRACT_DIGEST
+        )
+    return _begin_run_statement.params(
+        **{
+            "run_id": _request.run_id,
+        }
+    )
+
+
+_begin_run_adapter = TypeAdapter(RunId)
+
+
+def materialize_begin_run(row: tuple[int]) -> RunId:
+    with native_result_scope("start_run", "begin_run", "run_id"):
+        checked = _begin_run_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def begin_run(
+    conn: Connection,
+    *,
+    run_id: RunId,
+    projection_context: PreparedRelease | None = None,
+) -> RunId:
+    _statement = prepare_begin_run(
+        run_id=run_id,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("start_run", "begin_run"):
+        row = _native_result.one()
+        return materialize_begin_run(row)
+
+
 METHOD_DEFINITION_CONTRACT_DIGEST = (
     "ba21fbc400515fa728f561a1fefb694423bfe8576ba00064a033073e64d147cb"
 )
@@ -1737,69 +1795,6 @@ def capture_cut(
     with native_result_scope("capture_cut", "capture_cut"):
         row = _native_result.one()
         return materialize_capture_cut(row)
-
-
-START_SOURCE_RUN_CONTRACT_DIGEST = (
-    "927770866e031c7cce77139dc258868611d1959016a3708a9f9c8d9bfd3a7594"
-)
-
-
-class _start_source_runRequest(OperationResult):
-    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
-
-
-_start_source_run_function = func.ops.start_source_run(
-    bindparam("run_id", type_=BigInteger()),
-    type_=BigInteger(),
-)
-_start_source_run_statement = select(_start_source_run_function)
-
-
-def prepare_start_source_run(
-    *,
-    run_id: RunId,
-    projection_context: PreparedRelease | None = None,
-) -> Select[int]:
-    _request = _start_source_runRequest(
-        run_id=run_id,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "execute_source",
-            "start_source_run",
-            START_SOURCE_RUN_CONTRACT_DIGEST,
-        )
-    return _start_source_run_statement.params(
-        **{
-            "run_id": _request.run_id,
-        }
-    )
-
-
-_start_source_run_adapter = TypeAdapter(RunId)
-
-
-def materialize_start_source_run(row: tuple[int]) -> RunId:
-    with native_result_scope("execute_source", "start_source_run", "run_id"):
-        checked = _start_source_run_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def start_source_run(
-    conn: Connection,
-    *,
-    run_id: RunId,
-    projection_context: PreparedRelease | None = None,
-) -> RunId:
-    _statement = prepare_start_source_run(
-        run_id=run_id,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("execute_source", "start_source_run"):
-        row = _native_result.one()
-        return materialize_start_source_run(row)
 
 
 END_SOURCE_RUN_CONTRACT_DIGEST = "778dff1e6b7ce7d6b045c4461882a852d80508c6cd1cf74b3b91dfe7a97bcf4d"
@@ -10785,4 +10780,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "02037e8892814fe3fbddbd2e637078942d205e53263425287f5b9113c121e593"
+CALL_CONTRACT_DIGEST = "4deed71ac83bb684085058a8fc9b803dc53f3623616a9cdb055ffb9c832e6bc2"

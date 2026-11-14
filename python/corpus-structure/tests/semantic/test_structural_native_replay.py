@@ -123,7 +123,8 @@ def _captured_clause(passage, source, layers):
     ]
     thresholds = threshold_readings(passage, source=source, primary_layers=layers)
     if len(thresholds) == 1:
-        fields.extend(thresholds)
+        assert all(isinstance(field, ClauseField) for field in thresholds)
+        fields.extend(field for field in thresholds if isinstance(field, ClauseField))
     return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
 
 

@@ -72,7 +72,8 @@ def read_clause(passage, *, source_inputs, **expected_roles):
         passage, source=source, primary_layers=formal_layers(source_inputs)
     )
     if len(thresholds) == 1:
-        fields.extend(thresholds)
+        assert all(isinstance(field, ClauseField) for field in thresholds)
+        fields.extend(field for field in thresholds if isinstance(field, ClauseField))
     return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
 
 

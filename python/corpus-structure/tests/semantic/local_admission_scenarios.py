@@ -142,7 +142,7 @@ def build_local_witness_recipe(recipe, admin, writer, directory, *, purpose_engi
     return LocalPublicationStage(replace(case, writer=None, clone=None), case.run, cut)
 
 
-def build_judged_source(original_case, selected, evaluator, monkeypatch, directory):
+def build_judged_source(original_case, selected, evaluator, monkeypatch, directory, *, admin):
     partition = selected.get("partition", "development")
     linked = completed_relationship_case(original_case, monkeypatch, directory, admin=admin)
     from corpus_structure.orchestrate.commands import finalize_bound_run
@@ -438,6 +438,7 @@ def build_judged_recipe(recipe, admin, writer, directory, *, purpose_engine):
             evaluator,
             patch,
             directory,
+            admin=admin,
         )
     return LocalPublicationStage(
         replace(case, writer=None, clone=None), run, cut, case.semantic_grades

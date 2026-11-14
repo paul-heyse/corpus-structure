@@ -129,8 +129,10 @@ def primary_operation_inputs(
     if math_options is not None:
         from .declared_math_products import math_operation_declarations, math_operation_sources
 
-        collections = (*collections, math_operation_sources(math_options))
-        declarations = (*declarations, math_operation_declarations())
+        from .declared_math_analysis import math_analysis_declarations, math_analysis_operation_sources
+
+        collections = (*collections, math_operation_sources(math_options), math_analysis_operation_sources(math_options))
+        declarations = (*declarations, math_operation_declarations(), math_analysis_declarations())
     if external_protocol is not None:
         from .external_extraction import (
             external_extraction_inputs, external_extraction_operation_sources,

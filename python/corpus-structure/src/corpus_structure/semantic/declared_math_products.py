@@ -34,6 +34,7 @@ NAMESPACE = "urn:corpus:math:"
 _ASSET = "math/declared-profile"
 _PATHS = (
     "methods/math/declared.py",
+    "methods/math/configuration.py",
     "methods/math/native.py",
     "methods/math/prepared.py",
     "methods/math/native_topology.py",
@@ -97,7 +98,7 @@ class DeclaredMathOptions(BaseModel):
     math_domain_rules: tuple[NativeDomainRule, ...] = ()
 
     def section(self):
-        from corpus_structure.methods.math.methods import MathSection
+        from corpus_structure.methods.math.configuration import MathSection
 
         return MathSection(
             macros=self.macros, constants=self.constants, native_domain_rules=self.math_domain_rules

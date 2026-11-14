@@ -139,7 +139,8 @@ def _witnessed_reader(case, run, binding, tmp_path, *, controlled_provider=False
             # The family explicitly substitutes its provider kernel; this is not
             # provider qualification or an authentic inference receipt claim.
             reader.provider_execution = SimpleNamespace(native_group=object())
-        view = BoundRunView(run, "full", 0, None, binding, case.prepared, {}, reader)
+        from corpus_structure.core.vocab import RunKind
+        view = BoundRunView(run, RunKind.FULL, 0, None, binding, case.prepared, {}, reader)
         yield MethodContext(view, reader, MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
             logging.getLogger("sealed-witnessed-fixture"), check_active=lambda:None)
 
@@ -301,6 +302,7 @@ def completed_component_case(case, tmp_path, *, admin=None):
             run, bound = _begin_witnessed_run(case,
                 OperationBinding(case.prepared.release_id, "wce-source", source_revision, b"{}"),
                 ((method, component_cfg),), structural_admission=structural_admission)
+            assert component_cfg.inputs is not None
             ref = UnitRef(TaskUnitType.RUN, unit_key="definition-components:"+component_cfg.inputs.identity)
             try:
                 with _witnessed_reader(case, run, bound, tmp_path, controlled_provider=True) as ctx:

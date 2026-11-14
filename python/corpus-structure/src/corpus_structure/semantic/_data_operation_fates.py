@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-PROTOCOL_SHA256 = "12adc57e900aa9e7844465f5899e95f32f4d411f4ec7069e2e4d9285f35a1e69"
+PROTOCOL_SHA256 = "439138b33daeb8daf89ee3fcddc9cde8eb5e257c02fa320142e99d289efe8137"
 
 type RecordableFate = Literal[
     "known-absent",
