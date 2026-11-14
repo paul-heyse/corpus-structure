@@ -5,6 +5,16 @@
 products and executable demand/attempt interfaces. This page owns migration work, not separate
 semantic definitions or current-state tables.
 
+The [current integration/closeout account](../declared-data-operations_2026-11-12.md#producer-and-physical-owner-integration--2026-11-14)
+owns the actual family inventory, cancelled qualification and remaining work. Source/primary,
+learned, M1, structural and retained-math increments do not close the complete replacement target
+below. Explicit retained-demand frontdoors are distinct from default source/book/phase0 caller
+adoption. M1 formal-syntax and named-rule profiles require their genuinely bound formal/rule inputs;
+an explicit refusal remains preferable to silently invoking a legacy reader or callback. Historical
+replay may retain genuine legacy references during this unfinished transition, but target products
+must never be relabelled with invented legacy task/view identifiers. Shared static-extraction reuse
+belongs to the coordinator's efficiency follow-up before wider qualification resumes.
+
 ## DDO-07 — Source and primary operations
 
 Build a declaration-to-current-owner inventory from the actual registries and ad hoc entry points.

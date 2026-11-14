@@ -27,8 +27,9 @@ The [completion audit](../declared-data-operations_2026-11-12.md#completion-audi
 introduced DDO-CA-03 (batch retirement after every claim is lost) and DDO-CA-05
 (qualified root-context identity). Their current disposition belongs to the coordinator's findings table.
 Complete context applies within one discovery population: equal local subject strings with distinct
-authenticated source/scope contexts remain distinct members. Current native population closure still
-groups only by local subject; CA-05 owns that residual repair and its close→expand→attach control.
+authenticated source/scope contexts remain distinct members. Native population closure
+preserves these qualified contexts; the coordinator owns its scoped evidence and the remaining actual
+source-view child binding failure. Do not infer full family qualification from the foundation repair.
 
 ## Outcome and foundation assessment
 
@@ -82,6 +83,19 @@ population closure and resumable demand obligations. DDO-06 consumes them and de
 derivations/receipts, selected fulfillment and explicit failure/uncertainty outcomes. Product-family
 packages replace actual adapter reads and writers against these interfaces. Public read/evaluation
 packages consume the same pinned demand result; they do not derive a second completion algorithm.
+
+Callable acquisition uses the admission purpose's bounded `inspect_data_execution` projection for
+one selected definition and optional same-release runtime hashes. Keep protected tables private;
+do not re-admit every model definition for each port. Compiled JSON field extraction uses the
+existing pure immutable helper under the existing purpose roles. These permissions do not grant
+direct table reads. Shared provider execution borrows the invocation's resident hosts and parent
+byte reservation; nested cohort/scatter receipts retain every logical request/generation/task/attempt
+fence rather than being flattened into unrelated host receipts.
+
+The [current coordinator account](../declared-data-operations_2026-11-12.md#producer-and-physical-owner-integration--2026-11-14)
+owns the cancelled qualification, residual binding work and pure static-extraction reuse follow-up.
+Static preparation may be shared only over identical immutable captured inputs and analysis context;
+native permission, source, runtime and current read/trust checks retain their own required boundaries.
 
 The [source-evolution amendment](source-evolution-and-migrations.md#package-slices-actual-consumers-and-retirement)
 consumes these working contracts when migrating actual callers. DDO-06/07 must expose authentic
@@ -150,6 +164,23 @@ A later changed root population is a new demand/binding. A resumed demand does n
 subjects that appeared meanwhile. Closed fan-in binds the exact complete member set; optional
 absence binds its qualified closed-population witness. Additions, deletions, ordering and optional
 presence therefore affect identity where they can affect the answer.
+
+**Contract clarification · 2026-11-14.** Execution roots do not enumerate every selected input
+context. An explicitly frozen selected native view can be admitted under an explicitly frozen
+whole-original-document root of the same authenticated original document. Reconstruct and check
+the actual document fact through the original-source bridge; preserve the selected reference,
+selectors, project and view scope. No ambient/latest query, admission-order dependency, invented
+root or legacy row identity supplies that relationship. A declared subject-field association can
+select these related view contexts for a document-level operation; ordinary same-subject inputs
+retain scope equality. Binding and selected-support validation consume the same admitted role
+association. Genuine semantic SourceSets pin actual products/members/contexts, while external
+references retain their original reference meaning; neither becomes a fake execution root.
+
+Original-source support has exact source/admission identity and no computation episode. An absent
+computation-episode projection matches the independently selected empty episode set; actual
+computational support still requires its exact nonempty episode list. Physical ledger slots may
+be dense even when unordered inputs have equal original positions. Preserve semantic/source
+positions and correlate support to the actual selected product/member, not position alone.
 
 Input resolution returns an admitted immutable manifest: subject, role-qualified values and exact
 selected support, ordering/multiplicity, outcome/coverage, membership/population witnesses and

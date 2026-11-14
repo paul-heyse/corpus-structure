@@ -48,6 +48,23 @@ documentation, explanations and execution. It is not independently editable. An 
 supplying declaration differs from the public subclass/exposed alias; both must remain inspectable.
 Nominal domain identifiers do not become interchangeable merely because Python represents them as int.
 
+**Integration clarification · 2026-11-14.** Supplied JSON-schema kind artifacts own closed JSON
+shape; their explicit `nominal_namespace` permits local ranges only where the supplied artifact
+owns that namespace. Custom Pydantic validators and algorithm semantics remain actual producer
+implementation/assets and runtime validation. Do not import candidate models into the static
+compiler, duplicate validators in the kind artifact, or salt a recipe with a fabricated hash to
+stand in for missing custody. Callable re-extraction reuses authenticated effective nominal-kind
+facts with their original source attribution; it does not expand the runtime archive to rediscover
+ambient models. Keyword argument labels are syntax, while their argument values retain normal
+lexical dependency checks.
+
+Prepared factory source acquisition includes the actual shared adapter implementation as well as
+the family factory/plan. A standard adapter type must satisfy captured-source correspondence; its
+being shared is not an exemption. The coordinator owns current evidence and the
+[static-extraction efficiency follow-up](../declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up):
+reuse immutable pure extraction over exact inputs/context, separately from native permission,
+source, runtime and trust admission. This is not authorization to cache mutable admission state.
+
 ### Consumed and delivered products
 
 | Product | Meaning, owner and consumers |
