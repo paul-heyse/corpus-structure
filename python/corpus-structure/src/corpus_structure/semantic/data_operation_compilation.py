@@ -1365,7 +1365,7 @@ def compile_data_operations(
             if output is None or len([role for role in roles if role.direction == "output"]) != 1 or record.get("terminal_outcome") not in outcomes:
                 _fail(semantic_id, "stream settlement requires one declared output and outcome")
             settlement = StreamSettlement("terminal-atomic", output.name, record["terminal_outcome"])
-        def captured_method(name):
+        def captured_method(name, *, semantic_id=semantic_id, origins=origins):
             if frontend is None or not isinstance(name, str) or not name.isidentifier():
                 _fail(semantic_id, "captured capability requires its supplied Python owner")
             origin = next((origin for origin in origins if origin.field == "callable"), None)
