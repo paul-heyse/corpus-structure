@@ -24,6 +24,7 @@ from .characterization import (
     validate_inventory_graph,
 )
 from .characterization_evidence import validate_evidence
+from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .data_operation_outcomes import successful_return_outcome
 from .formal_evidence import (
@@ -34,7 +35,6 @@ from .formal_evidence import (
     grammar_identity,
 )
 from .identity import canonical_bytes
-from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .python_operation_sources import PythonSourceCollection
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
@@ -581,6 +581,7 @@ def formal_product_values(
     )
 
     return append_manifest(value, member_contracts["manifest"])
+
 
 def prepare_formal_evidence(
     prepared: PreparedRelease, model: EffectiveDataOperationModel, *, grammar: str

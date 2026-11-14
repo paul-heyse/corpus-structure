@@ -28,12 +28,42 @@ def candidate_inspection_inputs(bundle):
         return bundle
     if root in existing:
         raise ValueError("candidate inspection inputs use a reserved schema root")
-    return SourceBundle(root, (*bundle.sources, SourceArtifact(name, _MODEL.read_bytes()), SourceArtifact(root, yaml.safe_dump({"id": "urn:corpus:candidate-inspection-root", "name": root, "imports": [bundle.root, name]}).encode())))
+    return SourceBundle(
+        root,
+        (
+            *bundle.sources,
+            SourceArtifact(name, _MODEL.read_bytes()),
+            SourceArtifact(
+                root,
+                yaml.safe_dump(
+                    {
+                        "id": "urn:corpus:candidate-inspection-root",
+                        "name": root,
+                        "imports": [bundle.root, name],
+                    }
+                ).encode(),
+            ),
+        ),
+    )
 
 
-def candidate_inspection_report(prepared, model, primary, context, *, inspection_outcome,
-    records=(), contributions=(), operations=(), coordinate_texts=(), coverage=(), diagnostics=None,
-    report_class="DdoCandidateInspectionReport", record_class="DdoCandidateSourceRecord", contribution_class="DdoCandidateSourceContribution"):
+def candidate_inspection_report(
+    prepared,
+    model,
+    primary,
+    context,
+    *,
+    inspection_outcome,
+    records=(),
+    contributions=(),
+    operations=(),
+    coordinate_texts=(),
+    coverage=(),
+    diagnostics=None,
+    report_class="DdoCandidateInspectionReport",
+    record_class="DdoCandidateSourceRecord",
+    contribution_class="DdoCandidateSourceContribution",
+):
     """Store each actual candidate once; empty output retains its inspection scope.
 
     The producer owns its assertions, raw scores and failure policy. A successful
@@ -43,22 +73,61 @@ def candidate_inspection_report(prepared, model, primary, context, *, inspection
     if inspection_outcome not in {"produced", "empty"}:
         raise ValueError("failed/unperformed inspection cannot publish a candidate report")
     pin = primary.pin.values()
-    if (pin["project_id"], pin["subject"], pin["original_source"], pin["analyzed_scope_meaning"]) != (context.project_id, context.subject, context.original_source, json_context_meaning(context.analyzed_scope).decode()):
-        raise ValueError("candidate inspection context differs from its actual bound primary source")
+    if (
+        pin["project_id"],
+        pin["subject"],
+        pin["original_source"],
+        pin["analyzed_scope_meaning"],
+    ) != (
+        context.project_id,
+        context.subject,
+        context.original_source,
+        json_context_meaning(context.analyzed_scope).decode(),
+    ):
+        raise ValueError(
+            "candidate inspection context differs from its actual bound primary source"
+        )
     kinds = {kind.name: kind.semantic_id for kind in model.kinds}
     contracts = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     packets = []
-    for candidate_type, class_name, identifier, values in (("record", record_class, "record_id", records), ("contribution", contribution_class, "contribution_id", contributions)):
+    for candidate_type, class_name, identifier, values in (
+        ("record", record_class, "record_id", records),
+        ("contribution", contribution_class, "contribution_id", contributions),
+    ):
         for value in values:
             if value.get("candidate_type", candidate_type) != candidate_type:
                 raise ValueError("candidate body cannot change its declared semantic family")
             body = {**value, "candidate_type": candidate_type}
-            checked = prepared.validate_json(class_name, json_bytes(body)).model_dump(mode="python", exclude_unset=True)
-            packets.append({"member_id": candidate_type + ":" + value[identifier], "kind_contract": contracts[kinds[class_name], "kind"], "context": {"subject": context.subject, "original_source": context.original_source, "analyzed_scope": json_loads(context.analyzed_scope)}, "body": checked})
+            checked = prepared.validate_json(class_name, json_bytes(body)).model_dump(
+                mode="python", exclude_unset=True
+            )
+            packets.append(
+                {
+                    "member_id": candidate_type + ":" + value[identifier],
+                    "kind_contract": contracts[kinds[class_name], "kind"],
+                    "context": {
+                        "subject": context.subject,
+                        "original_source": context.original_source,
+                        "analyzed_scope": json_loads(context.analyzed_scope),
+                    },
+                    "body": checked,
+                }
+            )
     if inspection_outcome == "empty" and packets:
         raise ValueError("empty inspection cannot carry produced candidates")
-    report = {"source_pin": pin, "inspection_outcome": inspection_outcome, "standing": "private_uncalibrated_candidates", "members": packets, "operations": operations, "coordinate_texts": coordinate_texts, "coverage": coverage, "diagnostics_json": json_bytes(diagnostics or {}).decode()}
-    return prepared.validate_json(report_class, json_bytes(report)).model_dump(mode="python", exclude_unset=True)
+    report = {
+        "source_pin": pin,
+        "inspection_outcome": inspection_outcome,
+        "standing": "private_uncalibrated_candidates",
+        "members": packets,
+        "operations": operations,
+        "coordinate_texts": coordinate_texts,
+        "coverage": coverage,
+        "diagnostics_json": json_bytes(diagnostics or {}).decode(),
+    }
+    return prepared.validate_json(report_class, json_bytes(report)).model_dump(
+        mode="python", exclude_unset=True
+    )
 
 
 def candidate_member_values(report, *, candidate_type):
@@ -69,4 +138,8 @@ def candidate_member_values(report, *, candidate_type):
     """
     if candidate_type not in {"record", "contribution"}:
         raise ValueError("unknown candidate member family")
-    return tuple({name: value for name, value in packet["body"].items() if name != "candidate_type"} for packet in report["members"] if packet["body"]["candidate_type"] == candidate_type)
+    return tuple(
+        {name: value for name, value in packet["body"].items() if name != "candidate_type"}
+        for packet in report["members"]
+        if packet["body"]["candidate_type"] == candidate_type
+    )

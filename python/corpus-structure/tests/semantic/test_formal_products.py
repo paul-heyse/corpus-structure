@@ -4,16 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic.original_documents import original_document_subject
-
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
     FrozenFormalSource,
     formal_product_inputs,
 )
+from corpus_structure.semantic.original_documents import original_document_subject
 from semantic.formal_products_support import (
     acquire_source as acquire_source,
 )

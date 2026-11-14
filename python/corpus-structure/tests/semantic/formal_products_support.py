@@ -71,6 +71,7 @@ def acquire_source(profile, value):
         value["text"], value["pieces"], value["items"], value.get("recognition", ())
     )
     from corpus_structure.semantic.original_documents import original_document_subject
+
     value["source"]["document_subject"] = original_document_subject(value["source"]["document"])
     value["source"]["projection"] = projection
     for selector in value["selectors"]:

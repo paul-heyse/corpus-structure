@@ -24,7 +24,6 @@ from pydantic import BaseModel
 from corpus_structure.ingest.sentences import (
     Block,
     SentenceConfig,
-    boundaries,
     make_doc,
     pipeline,
     prepare_layout,
@@ -227,6 +226,7 @@ def validate_source_annotations(
     prepared, model, value, source, *, receipts=(), subject_context=None, configuration=None
 ):
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+
     from .declared_record_sources import DeclaredNativeFrameSource
 
     checked = prepared.validate_json("DdoSourceAnnotations", canonical_bytes(value)).model_dump(
@@ -674,11 +674,6 @@ class PreparedSentenceProfile:
                                 },
                             )
                         )
-        context = dict(
-            subject=source_subject(selected["source"]),
-            original_source=selected["source"]["document"],
-            analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
-        )
         value = dict(
             source=selected["source"],
             selectors=selected["selectors"],
@@ -873,9 +868,9 @@ def sentence_profile_assets(
 
 
 def sentence_operation_sources(configuration: SentenceConfig | None = None, *, selection=None):
-    from .python_operation_sources import PythonSource, PythonSourceCollection
-
     from corpus_structure.methods.native_profiles import spacy_selection
+
+    from .python_operation_sources import PythonSource, PythonSourceCollection
 
     selection = (
         spacy_selection(configuration or SentenceConfig(exclude=("ner",)))
@@ -1229,7 +1224,6 @@ class PreparedSentencePort:
 
     @property
     def native_selections(self):
-        from corpus_structure.methods.native_profiles import spacy_selection
 
         return (self.profile.selection,)
 

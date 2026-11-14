@@ -22,6 +22,7 @@ from .characterization import (
     validate_attachment_basis,
     validate_inventory_graph,
 )
+from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
 from .data_operation_identity import body_identity, contextual_product_identity
@@ -30,8 +31,7 @@ from .data_product_reference import DataProductReference, member_reference, refe
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
-from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
-from .sentence_products import SourceAnnotations, SourceAnnotationReadings, sentence_product_inputs
+from .sentence_products import SourceAnnotationReadings, SourceAnnotations, sentence_product_inputs
 from .source_products import FrozenNativeSource, source_subject
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
@@ -316,7 +316,12 @@ def construction_product_values(
     if native is not None:
         native_body = json.loads(native.content)
         from .sentence_products import source_annotation_member_values
-        boundaries = [row for row in source_annotation_member_values(native_body) if row["record_type"] == "sentence"]
+
+        boundaries = [
+            row
+            for row in source_annotation_member_values(native_body)
+            if row["record_type"] == "sentence"
+        ]
         regions = [
             (max(a, row["start"]), min(b, row["end"]))
             for a, b in regions
@@ -447,6 +452,7 @@ def construction_product_values(
 
     return append_manifest(value, member_contracts["construction_manifest"])
 
+
 def validate_interpreted_product(
     prepared,
     model,
@@ -460,7 +466,9 @@ def validate_interpreted_product(
     checked = prepared.validate_json(product_type.kind_name, canonical_bytes(value)).model_dump(
         mode="json", exclude_unset=True
     )
-    packets = analytical_packets(checked, manifest_contract(prepared, model, product_type.manifest_name))
+    packets = analytical_packets(
+        checked, manifest_contract(prepared, model, product_type.manifest_name)
+    )
     selected = source.value
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
         raise ValueError("construction product changes its exact original source/scope")

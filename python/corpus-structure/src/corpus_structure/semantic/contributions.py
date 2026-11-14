@@ -30,7 +30,15 @@ def occurrence_identity(anchors: Sequence[Mapping[str, Any]]) -> str:
             {
                 **{k: v for k, v in anchor.items() if k not in {"anchor_id", "binding", "pin"}},
                 "pin": (
-                    {key: anchor["pin"][key] for key in ("document", "projection_digest", "section_pointer", "membership")}
+                    {
+                        key: anchor["pin"][key]
+                        for key in (
+                            "document",
+                            "projection_digest",
+                            "section_pointer",
+                            "membership",
+                        )
+                    }
                     if anchor["pin"].get("format") == "declared-native-source-v1"
                     else {key: anchor["pin"][key] for key in ("product_key", "product_digest")}
                 ),

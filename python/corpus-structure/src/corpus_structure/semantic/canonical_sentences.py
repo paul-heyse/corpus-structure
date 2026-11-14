@@ -105,13 +105,25 @@ def canonical_packet_values(inventory: dict, projection: dict) -> dict:
     """One flat typed projection, preserving actual original IDs/context and packet order."""
     from .sentence_products import source_annotation_member_values
     from .source_products import source_subject
-    context = dict(subject=source_subject(inventory["source"]), original_source=inventory["source"]["document"],
-                   analyzed_scope=dict(source=inventory["source"], selectors=inventory["selectors"]))
-    packets = [{"member_id": body["local_id"],
-                "kind_contract": projection["records"][body["record_type"]]["kind_contract"],
-                "context": context,
-                "body": {field: body[field] for field in projection["records"][body["record_type"]]["fields"] if field in body}}
-               for body in source_annotation_member_values(inventory)]
+
+    context = dict(
+        subject=source_subject(inventory["source"]),
+        original_source=inventory["source"]["document"],
+        analyzed_scope=dict(source=inventory["source"], selectors=inventory["selectors"]),
+    )
+    packets = [
+        {
+            "member_id": body["local_id"],
+            "kind_contract": projection["records"][body["record_type"]]["kind_contract"],
+            "context": context,
+            "body": {
+                field: body[field]
+                for field in projection["records"][body["record_type"]]["fields"]
+                if field in body
+            },
+        }
+        for body in source_annotation_member_values(inventory)
+    ]
     coverage = [row for row in inventory["coverage"] if row["family"] in projection["families"]]
     value = {
         **{key: inventory[key] for key in ("source", "selectors", "block_coverage")},
@@ -190,13 +202,26 @@ def canonical_profile_assets():
         if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
     ]
     from .sentence_products import _semantic_nodes
+
     return SourceArtifact(
         "canonical/profile-assets",
-        canonical_bytes(dict(definitions=selected, families=SPACY_FAMILIES[:2],
-            manifests=Path(__file__).with_name("characterization_manifests.py").read_bytes().hex(),
-            annotation_projection=_semantic_nodes(Path(__file__).with_name("sentence_products.py").read_bytes(),
-                ("_id", "source_annotation_member_values")),
-            original_subject=_semantic_nodes(Path(__file__).with_name("source_products.py").read_bytes(), ("source_subject",)))),
+        canonical_bytes(
+            dict(
+                definitions=selected,
+                families=SPACY_FAMILIES[:2],
+                manifests=Path(__file__)
+                .with_name("characterization_manifests.py")
+                .read_bytes()
+                .hex(),
+                annotation_projection=_semantic_nodes(
+                    Path(__file__).with_name("sentence_products.py").read_bytes(),
+                    ("_id", "source_annotation_member_values"),
+                ),
+                original_subject=_semantic_nodes(
+                    Path(__file__).with_name("source_products.py").read_bytes(), ("source_subject",)
+                ),
+            )
+        ),
     )
 
 

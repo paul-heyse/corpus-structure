@@ -40,9 +40,9 @@ def primary_operation_inputs(
         dependencies = ResolvedDependencies()
     from .canonical_sentences import canonical_sentence_operation_sources
     from .characterization_ports import (
+        captured_document_view_operation_sources,
         characterization_operation_sources,
         full_document_view_operation_sources,
-        captured_document_view_operation_sources,
     )
     from .construction_products import construction_product_inputs
     from .data_operation_artifacts import capture_port_generator_sources

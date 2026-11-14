@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from functools import cached_property
 from copy import deepcopy
+from dataclasses import dataclass, field
+from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
@@ -309,7 +309,6 @@ class DeclaredNativeFrameSource:
     @property
     def native_context(self):
         return self._context
-
 
     @cached_property
     def _native_columns(self):

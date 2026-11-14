@@ -690,15 +690,15 @@ class NativeHostResidency:
 
     def host_closed(self, host_name):
         with self._condition:
-            return self._closed or (
-                self._group is not None and self._group.host_closed(host_name)
-            )
+            return self._closed or (self._group is not None and self._group.host_closed(host_name))
 
     @property
     def physical_drained(self):
         with self._condition:
             return (
-                not self._active_calls and not self._suspended and self._quarantine is None
+                not self._active_calls
+                and not self._suspended
+                and self._quarantine is None
                 and (self._group is None or self._group.physical_drained)
             )
 

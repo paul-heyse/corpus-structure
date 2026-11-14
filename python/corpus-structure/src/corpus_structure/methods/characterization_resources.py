@@ -695,7 +695,11 @@ class ProviderExecution:
                 pending.held = False
                 self._intents.discard(pending)
             handle = ProviderHandle(
-                self, lane, request, reservation, credit=credit,
+                self,
+                lane,
+                request,
+                reservation,
+                credit=credit,
                 credit_owner=None if pending is None else pending.credit_owner,
             )
             self._handles.add(handle)
@@ -812,7 +816,9 @@ class ProviderExecution:
         with self._credit_lock:
             available = sum(owner.size - self._credits.get(owner, 0) for owner in owners)
             if required > available:
-                raise CapacityExceeded("physical cohort and reply exceed participating request credit")
+                raise CapacityExceeded(
+                    "physical cohort and reply exceed participating request credit"
+                )
             for owner, handle in owners.items():
                 take = min(required, owner.size - self._credits.get(owner, 0))
                 self._credits[owner] = self._credits.get(owner, 0) + take
@@ -1134,11 +1140,17 @@ class ProviderExecution:
                 with self._credit_lock:
                     used = self._credits.get(reservation, 0)
                     if used + allocation > reservation.size:
-                        raise CapacityExceeded("native request and reply exceed owned request credit")
+                        raise CapacityExceeded(
+                            "native request and reply exceed owned request credit"
+                        )
                     credit = reservation.share()
                     self._credits[reservation] = used + allocation
                 intent = _PendingIntent(
-                    self, request, size, credit=credit, credit_owner=reservation,
+                    self,
+                    request,
+                    size,
+                    credit=credit,
+                    credit_owner=reservation,
                     allocation=allocation,
                 )
             self._intents.add(intent)
@@ -1171,7 +1183,6 @@ class ProviderExecution:
             for error in errors:
                 failure.add_note(str(error))
             raise failure
-
 
     def retire(self):
         """Retire completed handles after the borrowed residency has drained."""

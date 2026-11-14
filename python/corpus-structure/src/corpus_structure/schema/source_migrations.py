@@ -370,10 +370,13 @@ def _selection_call_proofs(root, request, members, inputs):
                     isinstance(item, ast.AnnAssign)
                     and isinstance(item.target, ast.Name)
                     and item.target.id == "__selection_operation__"
-                ) or (isinstance(item, ast.Assign) and any(
-                    isinstance(target, ast.Name) and target.id == "__selection_operation__"
-                    for target in item.targets
-                )):
+                ) or (
+                    isinstance(item, ast.Assign)
+                    and any(
+                        isinstance(target, ast.Name) and target.id == "__selection_operation__"
+                        for target in item.targets
+                    )
+                ):
                     declarations.append(ast.literal_eval(item.value))
             if len(declarations) != 1 or declarations[0].get("id") != request.owner:
                 continue

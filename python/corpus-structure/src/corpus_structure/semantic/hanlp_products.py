@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from .canonical_sentences import CanonicalProduct
+from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .data_operation_outcomes import successful_return_outcome
 from .data_product_reference import DataProductMemberReference, reference_inputs
 from .identity import canonical_bytes
-from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .source_products import FrozenNativeSource, source_subject
 from .types import SourceArtifact, SourceBundle
 
@@ -52,7 +52,9 @@ def canonical_hanlp_rows(source, canonical):
     selected, value = source.value, canonical.value.model_dump(mode="json", exclude_unset=True)
     if any(value[key] != selected[key] for key in ("source", "selectors")):
         raise ValueError("HanLP canonical source/selector scope differs from original source")
-    rows = analytical_packets(value, manifest_contract(canonical.prepared, canonical.model, "DdoCanonicalManifest"))
+    rows = analytical_packets(
+        value, manifest_contract(canonical.prepared, canonical.model, "DdoCanonicalManifest")
+    )
     members = {row["member_id"]: row["body"] for row in rows}
     if len(rows) != len(members) or any(
         row["member_id"] != row["body"]["local_id"] for row in rows
@@ -257,7 +259,10 @@ class HanlpProduct:
     @property
     def value(self):
         checked = self.prepared.validate_json("DdoHanlpInventory", self.content)
-        analytical_packets(checked.model_dump(mode="json", exclude_unset=True), manifest_contract(self.prepared, self.model, "DdoHanlpManifest"))
+        analytical_packets(
+            checked.model_dump(mode="json", exclude_unset=True),
+            manifest_contract(self.prepared, self.model, "DdoHanlpManifest"),
+        )
         return checked
 
 
@@ -442,7 +447,9 @@ class PreparedHanlpProfile:
             alignments=alignments,
             members=packets,
         )
-        value = append_manifest(value, manifest_contract(self.prepared, self.model, "DdoHanlpManifest"))
+        value = append_manifest(
+            value, manifest_contract(self.prepared, self.model, "DdoHanlpManifest")
+        )
         product = HanlpProduct(canonical_bytes(value), self.prepared, self.model, tuple(receipts))
         _ = product.value
         return product
@@ -499,7 +506,10 @@ def hanlp_profile_assets(selection):
             dict(
                 definitions=definitions,
                 model=_MODEL.read_bytes().hex(),
-                manifests=Path(__file__).with_name("characterization_manifests.py").read_bytes().hex(),
+                manifests=Path(__file__)
+                .with_name("characterization_manifests.py")
+                .read_bytes()
+                .hex(),
                 provider=Path(pm2_hanlp.__file__).read_bytes().hex(),
                 native_validation=Path(pm2_hanlp_products.__file__).read_bytes().hex(),
                 families=HANLP_FAMILIES,

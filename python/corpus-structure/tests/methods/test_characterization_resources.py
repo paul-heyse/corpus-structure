@@ -913,7 +913,10 @@ def test_borrowed_cohort_refuses_oversize_without_waiting_or_losing_parent_credi
     sizes = [execution._request_size(request) + 1024 for request in requests]
     execution.budget = OwnedByteBudget(sum(sizes))
     parents = [OwnedByteReservation(execution.budget, size) for size in sizes]
-    handles = [execution.work(request, reservation=parent).try_submit() for request, parent in zip(requests, parents, strict=True)]
+    handles = [
+        execution.work(request, reservation=parent).try_submit()
+        for request, parent in zip(requests, parents, strict=True)
+    ]
     for parent in parents:
         parent.release()
     handles[0].flush()
@@ -933,11 +936,15 @@ def test_borrowed_uncertain_retirement_keeps_credit_until_residency_drains(runti
     parent = OwnedByteReservation(execution.budget, execution.budget.limit)
     intent = execution.work(work("uncertain", {}), reservation=parent)
     handle = intent.try_submit()
-    handle.future.set_result(resources.ProviderReply("uncertain", retirement_uncertain=True, error_message="physical custody retained"))
+    handle.future.set_result(
+        resources.ProviderReply(
+            "uncertain", retirement_uncertain=True, error_message="physical custody retained"
+        )
+    )
     parent.release()
     monkeypatch.setattr(type(execution.native_group), "physical_drained", False, raising=False)
     with pytest.raises(NativeRetirementUncertain):
-        handle.collect().payload
+        _ = handle.collect().payload
     assert not handle.retire()
     assert execution.budget.used_bytes > 0
     monkeypatch.setattr(type(execution.native_group), "physical_drained", True)

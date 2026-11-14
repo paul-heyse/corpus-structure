@@ -346,6 +346,7 @@ def retained_native_vocab(source, native):
         ("LIKE_NUM", "like_num"),
     )
     from ..sentence_products import source_annotation_member_values
+
     for token in source_annotation_member_values(body):
         if token["record_type"] != "token":
             continue
@@ -369,12 +370,17 @@ def retained_native_documents(source, native, vocab):
     text = source.value["text"]
     groups = {}
     from ..sentence_products import source_annotation_member_values
+
     for token in source_annotation_member_values(body):
         if token["record_type"] == "token":
             groups.setdefault(token["block_id"], []).append(token)
     for item in body["blocks"]:
         annotation = item["annotation"]
-        block = dict(block_id=annotation["block_id"], start=annotation["block_start"], end=annotation["block_end"])
+        block = dict(
+            block_id=annotation["block_id"],
+            start=annotation["block_start"],
+            end=annotation["block_end"],
+        )
         tokens = sorted(groups.get(block["block_id"], ()), key=lambda row: row["ordinal"])
         if not tokens:
             continue

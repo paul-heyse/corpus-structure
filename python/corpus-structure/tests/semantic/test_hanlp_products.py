@@ -7,8 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic.original_documents import original_document_subject
-
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.canonical_sentences import CanonicalProduct
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -21,6 +19,7 @@ from corpus_structure.semantic.hanlp_products import (
     resolve_hanlp_port,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.source_products import (
     FrozenNativeSource,
     native_projection_identity,
@@ -55,7 +54,7 @@ def inputs(profile):
     projection = native_projection_identity(text, pieces, items)
     coordinate = dict(
         document="document:original",
-            document_subject=original_document_subject("document:original"),
+        document_subject=original_document_subject("document:original"),
         section_pointer="#/texts/0",
         membership="direct",
         projection=projection,

@@ -98,30 +98,65 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
 
     full = model.operation("text.compose_view/full-native")
     inputs = {role.name: role for role in full.roles if role.direction == "input"}
-    assert set(inputs) == {"sources", "annotations", "canonical", "hanlp", "formal", "constructions", "contextual"}
-    assert all(role.presence == "alternative" and role.minimum == 0 and len(role.alternatives) == 1 for role in inputs.values())
+    assert set(inputs) == {
+        "sources",
+        "annotations",
+        "canonical",
+        "hanlp",
+        "formal",
+        "constructions",
+        "contextual",
+    }
+    assert all(
+        role.presence == "alternative" and role.minimum == 0 and len(role.alternatives) == 1
+        for role in inputs.values()
+    )
     assert full.outcomes == ("success", "empty", "failed")
     assert full.dependencies == ("source.selected_views/discovery",)
     assert "DdoCharacterizedProduct" not in inputs["annotations"].kind
-    assert model.operation("segment.sentences/source-native").roles[1].kind.endswith("/DdoSourceAnnotations")
+    assert (
+        model.operation("segment.sentences/source-native")
+        .roles[1]
+        .kind.endswith("/DdoSourceAnnotations")
+    )
 
 
-def test_captured_primary_profile_declares_capture_views_and_authentic_full_fanin(tmp_path, monkeypatch):
+def test_captured_primary_profile_declares_capture_views_and_authentic_full_fanin(
+    tmp_path, monkeypatch
+):
+    import pytest
+
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.methods import native_profiles
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
     from corpus_structure.semantic.pdf_capture import pdf_capture_operation_sources
     from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
-    import pytest
 
-    monkeypatch.setattr(native_profiles, "spacy_selection", lambda config: NativeSelection(
-        NativeProfile("spacy", {"controlled": "runtime"}, {}, config.model_dump(mode="json"), "float32", "cupy", 4, 1), tmp_path))
+    monkeypatch.setattr(
+        native_profiles,
+        "spacy_selection",
+        lambda config: NativeSelection(
+            NativeProfile(
+                "spacy",
+                {"controlled": "runtime"},
+                {},
+                config.model_dump(mode="json"),
+                "float32",
+                "cupy",
+                4,
+                1,
+            ),
+            tmp_path,
+        ),
+    )
     with pytest.raises(ValueError, match="actual captured capture dependency"):
         pdf_views_operation_sources()
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     recipe = PdfRecipe("0" * 40, "1" * 40, recipe_id="docling-standard-pdf-stream-v1")
-    capture = pdf_capture_operation_sources(recipe, PreparedPdfAssets(tmp_path, b"{}", ()), directory=tmp_path / "owned")
+    capture = pdf_capture_operation_sources(
+        recipe, PreparedPdfAssets(tmp_path, b"{}", ()), directory=tmp_path / "owned"
+    )
     acquired = primary_operation_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)),
         sentence_configuration=SentenceConfig(),
@@ -140,4 +175,6 @@ def test_captured_primary_profile_declares_capture_views_and_authentic_full_fani
     assert views.effects == ()
     for identity in (views.semantic_id, full.semantic_id):
         assert callable(resolve_prepared_factory(model, acquired.sources, identity))
-    assert model.operation("text.compose_view/full-native").dependencies == ("source.selected_views/discovery",)
+    assert model.operation("text.compose_view/full-native").dependencies == (
+        "source.selected_views/discovery",
+    )

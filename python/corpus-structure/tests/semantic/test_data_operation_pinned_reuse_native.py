@@ -105,7 +105,7 @@ def _ready(kernel, demand):
 
 def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(ddo_kernel):
     source_demand, original, product = _produce(ddo_kernel, subject="source-subject:B", value=42)
-    _, sibling, sibling_product = _produce(ddo_kernel, subject="source-subject:sibling", value=99)
+    _, _sibling, sibling_product = _produce(ddo_kernel, subject="source-subject:sibling", value=99)
     context = SubjectContext("ddo-test", "source-subject:B", "source:B", b'{"page":1}')
     entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
     with ddo_kernel["engine"].begin() as connection:
@@ -153,23 +153,26 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
         )
     _, untrusted = _ready(ddo_kernel, _register(ddo_kernel, entry, "revoked-source"))
     assert untrusted == ()
-    with ddo_kernel["engine"].begin() as connection:
-        with pytest.raises(DBAPIError, match="trust snapshot changed"), connection.begin_nested():
-            connection.execute(
-                text(
-                    "SELECT * FROM ops.data_binding_rows(:demand,:operation,CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
-                ),
-                {
-                    "demand": demand["demand_id"],
-                    "operation": CONSUMER,
-                    "trust": json.dumps(snapshot["trust_snapshot"]),
-                    "read": snapshot["read_id"],
-                    "subject": "focus:A",
-                    "source": "source:A",
-                    "scope": '{"focus":true}',
-                },
-            )
-    with pytest.raises(DBAPIError, match="support|revoked"):
+    with (
+        ddo_kernel["engine"].begin() as connection,
+        pytest.raises(DBAPIError, match="trust snapshot changed"),
+        connection.begin_nested(),
+    ):
+        connection.execute(
+            text(
+                "SELECT * FROM ops.data_binding_rows(:demand,:operation,CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
+            ),
+            {
+                "demand": demand["demand_id"],
+                "operation": CONSUMER,
+                "trust": json.dumps(snapshot["trust_snapshot"]),
+                "read": snapshot["read_id"],
+                "subject": "focus:A",
+                "source": "source:A",
+                "scope": '{"focus":true}',
+            },
+        )
+    with pytest.raises(DBAPIError, match=r"support|revoked"):
         _complete_ready(ddo_kernel, answer)
     with ddo_kernel["engine"].connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2

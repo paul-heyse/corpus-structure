@@ -30,8 +30,8 @@ from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
-    RetainedCharacterizationProduct,
     EnrichedDocumentProduct,
+    RetainedCharacterizationProduct,
     compose_enriched_document,
     compose_enriched_document_values,
 )
@@ -142,7 +142,17 @@ def _semantic_assets(profile: str) -> SourceArtifact:
                         "read_member_reference",
                     ),
                 ),
-                native_access=_semantic_nodes((root / "sentence_products.py").read_bytes(), ("_id", "source_annotation_member_values", "source_annotation_rows", "validate_source_annotations")) if profile == "construction" else (),
+                native_access=_semantic_nodes(
+                    (root / "sentence_products.py").read_bytes(),
+                    (
+                        "_id",
+                        "source_annotation_member_values",
+                        "source_annotation_rows",
+                        "validate_source_annotations",
+                    ),
+                )
+                if profile == "construction"
+                else (),
                 source_access=_semantic_nodes(
                     (root / "source_products.py").read_bytes(),
                     (
@@ -281,13 +291,26 @@ def execute_contextual_kernel(
     )
 
 
-def execute_view_kernel(sources: tuple[FrozenNativeSource, ...], products: tuple[CharacterizationSnapshot, ...],
-    active: tuple[DataProductReference, ...], profile: str, required_families: tuple[str, ...], assets: str,
-    *, check_active: Callable[[], None]) -> dict[str, Any]:
+def execute_view_kernel(
+    sources: tuple[FrozenNativeSource, ...],
+    products: tuple[CharacterizationSnapshot, ...],
+    active: tuple[DataProductReference, ...],
+    profile: str,
+    required_families: tuple[str, ...],
+    assets: str,
+    *,
+    check_active: Callable[[], None],
+) -> dict[str, Any]:
     if assets != _semantic_assets("view").digest:
         raise ValueError("composition child lacks acquired semantic assets")
-    return compose_enriched_document_values(sources, products, active=active, profile=profile,
-        required_families=required_families, check_active=check_active)
+    return compose_enriched_document_values(
+        sources,
+        products,
+        active=active,
+        profile=profile,
+        required_families=required_families,
+        check_active=check_active,
+    )
 
 
 def execute_construction_profile(receiver, source, formal, sentences=None):
@@ -316,7 +339,13 @@ def execute_view_profile(receiver, sources, products, active, profile):
 def _body(prepared, name, value):
     if isinstance(
         value,
-        (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct, SourceAnnotations, FrozenNativeSource),
+        (
+            FormalEvidenceProduct,
+            ConstructionProduct,
+            ContextualMeaningProduct,
+            SourceAnnotations,
+            FrozenNativeSource,
+        ),
     ):
         value = value.value
     if isinstance(value, BaseModel):
@@ -539,10 +568,19 @@ class PreparedCharacterizationPort(ABC):
             )
             if member.member is not None:
                 from .data_operation_model import SubjectContext
-                context = SubjectContext(binding.subject_context.project_id, member.subject,
-                    member.original_source, member.analyzed_scope)
-                product = replace(product, subject_context=context,
-                    selected_product=member.product, selected_member=member.member)
+
+                context = SubjectContext(
+                    binding.subject_context.project_id,
+                    member.subject,
+                    member.original_source,
+                    member.analyzed_scope,
+                )
+                product = replace(
+                    product,
+                    subject_context=context,
+                    selected_product=member.product,
+                    selected_member=member.member,
+                )
                 products.append(product)
             else:
                 products.append(self._selected_product(product, binding, name, len(products)))
@@ -568,8 +606,16 @@ class PreparedCharacterizationPort(ABC):
             if sources and binding.subject != sources[0].value["source"]["document_subject"]:
                 raise PortRefusal("view subject is not its explicitly bound original document")
             if getattr(self, "activate_all", False):
-                names = tuple(role.name for role in self.operation.roles if role.direction == "input" and role.name != "sources")
-                retained = tuple(product for name in names for product in self._retained(roles[name], binding, name))
+                names = tuple(
+                    role.name
+                    for role in self.operation.roles
+                    if role.direction == "input" and role.name != "sources"
+                )
+                retained = tuple(
+                    product
+                    for name in names
+                    for product in self._retained(roles[name], binding, name)
+                )
                 products, active = retained, retained
             else:
                 products = self._retained(roles["products"], binding, "products")
@@ -629,8 +675,11 @@ class PreparedCharacterizationPort(ABC):
     def _completion(self, product, binding=None):
         if product is None:
             from .data_operation_ports import PortCompletion, PortRefusal
+
             if not getattr(self, "allow_empty", False) or "empty" not in self.operation.outcomes:
-                raise PortRefusal("this composition contract does not admit a no-product completion")
+                raise PortRefusal(
+                    "this composition contract does not admit a no-product completion"
+                )
             return PortCompletion(self.operation.semantic_id, (), outcome="empty")
         if binding is not None:
             if binding.subject_context is None:
@@ -703,11 +752,23 @@ class PreparedCharacterizationPort(ABC):
         products = ()
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
-            arguments = dict(sources=inputs.sources,
-                products=tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in inputs.products),
-                active=tuple(DataProductReference(product.semantic_id) for product in inputs.active), profile=inputs.profile,
-                required_families=tuple(characterization_profiles(self.prepared).get("full_characterization", ())),
-                assets=_semantic_assets(self.family).digest, check_active=check_active)
+
+            arguments = dict(
+                sources=inputs.sources,
+                products=tuple(
+                    CharacterizationSnapshot(product.semantic_id, product.content)
+                    for product in inputs.products
+                ),
+                active=tuple(
+                    DataProductReference(product.semantic_id) for product in inputs.active
+                ),
+                profile=inputs.profile,
+                required_families=tuple(
+                    characterization_profiles(self.prepared).get("full_characterization", ())
+                ),
+                assets=_semantic_assets(self.family).digest,
+                check_active=check_active,
+            )
         else:
             source, formal = inputs.source, inputs.formal
         if isinstance(inputs, _ConstructionInputs):
@@ -767,7 +828,11 @@ class PreparedCharacterizationPort(ABC):
         )
         if isinstance(inputs, _DocumentInputs):
             checked = self.prepared.validate_json("DdoEnrichedDocumentView", reply.content)
-            product = EnrichedDocumentProduct(canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)), self.prepared, self.model)
+            product = EnrichedDocumentProduct(
+                canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),
+                self.prepared,
+                self.model,
+            )
         elif isinstance(inputs, _ConstructionInputs):
             product = validate_construction_product(
                 self.prepared,
@@ -915,16 +980,28 @@ def resolve_full_document_view_port(prepared, model, operation, **admission):
     return _resolve(PreparedFullDocumentViewPort, prepared, model, operation, **admission)
 
 
-def captured_document_view_operation_sources(*, capture_sources=None, sentence_configuration=None, hanlp_selection=None, include_dependencies=True):
+def captured_document_view_operation_sources(
+    *,
+    capture_sources=None,
+    sentence_configuration=None,
+    hanlp_selection=None,
+    include_dependencies=True,
+):
     from .primary_operations import combine_primary_sources
+
     own = _operation_sources("captured_document_composition", "view")
     base = full_document_view_operation_sources(include_dependencies=False)
     if not include_dependencies:
         return combine_primary_sources(base, own)
     from .pdf_views import pdf_views_operation_sources
-    return combine_primary_sources(full_document_view_operation_sources(
-        sentence_configuration=sentence_configuration, hanlp_selection=hanlp_selection),
-        pdf_views_operation_sources(capture_sources), own)
+
+    return combine_primary_sources(
+        full_document_view_operation_sources(
+            sentence_configuration=sentence_configuration, hanlp_selection=hanlp_selection
+        ),
+        pdf_views_operation_sources(capture_sources),
+        own,
+    )
 
 
 class PreparedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
@@ -932,7 +1009,10 @@ class PreparedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
 
     @property
     def endpoint(self):
-        from corpus_structure.methods.captured_document_composition import ComposeCapturedDocumentOperation
+        from corpus_structure.methods.captured_document_composition import (
+            ComposeCapturedDocumentOperation,
+        )
+
         return ComposeCapturedDocumentOperation
 
 
