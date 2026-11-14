@@ -793,7 +793,7 @@ def declaration_sentences(layers, view, passage):
     return tuple(found), tuple(evidence)
 
 
-def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
+def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, source_frame=None):
     """Index original canonical units and actual HanLP heads without re-recognition."""
     from ..data_product_reference import DataProductReference, member_reference
     from ..declared_record_sources import DeclaredNativeFrameSource
@@ -824,9 +824,13 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
         raise DeclarationNotQualified("declaration requires unique exact canonical sentences")
     if not candidates:
         return
-    if not native_products:
-        raise DeclarationNotQualified("declaration syntax requires original native annotation custody")
-    frame = DeclaredNativeFrameSource(source.content.decode(), canonical_bytes(native_products[0].source.values()).decode())
+    if source_frame is None:
+        if not native_products:
+            raise DeclarationNotQualified("declaration syntax requires an admitted original source frame")
+        source_frame = DeclaredNativeFrameSource(source.content.decode(), canonical_bytes(native_products[0].source.values()).decode())
+    if not isinstance(source_frame, DeclaredNativeFrameSource) or source_frame.value != selected:
+        raise DeclarationNotQualified("declaration frame differs from its exact selected original source")
+    frame = source_frame
     context = NativeSourceContext(
         frame, (), (source_slice(frame, 0, len(frame.text)),),
         "primary declaration roles", "primary-declaration-roles-1", "exact selected source",
@@ -911,7 +915,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted):
 
 def populate_declaration_products(
     layer, view, source, native, canonical, hanlp, *, annotation_products=None,
-    check_active=lambda: None, admitted=lambda start, end: True,
+    source_frame=None, check_active=lambda: None, admitted=lambda start, end: True,
 ):
     """Publish shared declaration syntax from independently acquired native products."""
     from ..sentence_products import retained_source_annotation_products
@@ -919,14 +923,17 @@ def populate_declaration_products(
     if DECLARATION_FAMILY not in layer.families:
         layer.families = (*layer.families, DECLARATION_FAMILY)
         layer.operation["produced_families"].append(DECLARATION_FAMILY)
-    if canonical is None or hanlp is None or native is None:
+    if canonical is None or hanlp is None or (source_frame is None and native is None):
         for selector in source.value["selectors"]:
-            layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax requires exact native, canonical and HanLP products")
+            layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax requires an admitted source frame and exact canonical and HanLP products")
         return
-    products = retained_source_annotation_products(source, native) if annotation_products is None else tuple(annotation_products)
+    products = (
+        tuple(annotation_products) if annotation_products is not None
+        else retained_source_annotation_products(source, native) if native is not None else ()
+    )
     try:
         produced = False
-        for selector, sentence, reason in _declared_sentences(source, products, canonical, hanlp, admitted=admitted):
+        for selector, sentence, reason in _declared_sentences(source, products, canonical, hanlp, admitted=admitted, source_frame=source_frame):
             check_active()
             produced = True
             if sentence is None:

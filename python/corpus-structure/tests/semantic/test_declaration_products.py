@@ -61,7 +61,10 @@ def case():
 
 def produce(source, native_products, canonical, hanlp):
     builder = ConstructionLayer(source.value["source"], {"selectors": source.value["selectors"]}, {"key": "text.constructions/source-native"}, semantic=True, families=(DECLARATION_FAMILY,))
-    populate_declaration_products(builder, ConstructionSource.from_native(source), source, object(), canonical, hanlp, annotation_products=native_products)
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
+    frame = DeclaredNativeFrameSource(source.content.decode(), canonical_bytes(native_products[0].source.values()).decode())
+    populate_declaration_products(builder, ConstructionSource.from_native(source), source, None, canonical, hanlp, source_frame=frame)
     facts = builder.facts()
     return CharacterizationSnapshot("product:declarations", canonical_bytes({"source": source.value["source"], "selectors": source.value["selectors"], "coverage": facts["coverage"], "members": [{"member_id": row["local_id"], "body": {"record_type": tag, **row}} for name, tag in (("terms", "term"), ("annotations", "annotation"), ("occurrences", "occurrence")) for row in facts[name]]}))
 

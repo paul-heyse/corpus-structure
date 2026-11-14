@@ -80,7 +80,7 @@ class PreparedDefinitionInputs:
             result.append(CharacterizationSnapshot(product.semantic_id, product.content))
         return tuple(result)
 
-    def declaration(self, source, constructions, hanlp, *, start, end, passage_id, scope, effective_version, parent):
+    def declaration(self, source, syntax, hanlp, *, start, end, passage_id, scope, effective_version, parent):
         from corpus_structure.methods.definition_declaration import primary_declaration_component_products
         from .data_operation_admission import bound_data_operation_model
         from .declared_record_sources import DeclaredNativeFrameSource
@@ -106,12 +106,12 @@ class PreparedDefinitionInputs:
             for selector in selected.value["selectors"]
         ):
             raise ValueError("definition passage exceeds its analyzed original source scope")
-        primary = self.retained("constructions", constructions, "DdoConstructionProduct", model, selected)
+        primary = self.retained("syntax", syntax, "DdoDeclarationSyntaxProduct", model, selected)
         support = self.retained("hanlp", hanlp, "DdoHanlpInventory", model, selected)
         component = primary_declaration_component_products(primary, selected, passage, supporting=support, source_pin=frame.pin.values())
         source_pin = DeclaredStructuralInputPin.from_bound(source_member, project=self.context.project_id)
-        primary_pins = tuple(DeclaredStructuralInputPin.from_bound(member, project=self.context.project_id) for member in self.members("constructions"))
-        dependencies = tuple(member.product for role in ("constructions", "hanlp") for member in self.members(role))
+        primary_pins = tuple(DeclaredStructuralInputPin.from_bound(member, project=self.context.project_id) for member in self.members("syntax"))
+        dependencies = tuple(member.product for role in ("syntax", "hanlp") for member in self.members(role))
         report = DeclaredDefinitionComponentsReport(
             inputs=DeclaredStructuralInput(question="Read the exact retained local declaration chain.", scope=scope, inventory_id="explicit-native-definition", policy_id="retained-declaration-chain-v2", sources=(reference,), passages=(passage,), dependencies=dependencies),
             definition_components=DeclaredDefinitionComponentsProduct(components=(component,), stages=(DefinitionStage(passage_id=passage_id, operation="attachment", outcome="succeeded", reason="Released declaration chain replayed from exact separately retained native syntax."),)),
@@ -121,8 +121,8 @@ class PreparedDefinitionInputs:
         return report.model_dump(mode="json", exclude_none=True)
 
 
-def execute_definition_declaration(receiver, source, constructions, hanlp, start, end, passage_id, scope, effective_version, parent):
-    return receiver.inputs.declaration(source, constructions, hanlp, start=start, end=end, passage_id=passage_id, scope=scope, effective_version=effective_version, parent=parent)
+def execute_definition_declaration(receiver, source, syntax, hanlp, start, end, passage_id, scope, effective_version, parent):
+    return receiver.inputs.declaration(source, syntax, hanlp, start=start, end=end, passage_id=passage_id, scope=scope, effective_version=effective_version, parent=parent)
 
 
 def definition_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
