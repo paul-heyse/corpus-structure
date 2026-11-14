@@ -171,8 +171,7 @@ def procedure_artifact_endpoint(rows, link, annotation, artifact_id, *, verb_ext
         for row in rows.values()
         if row.get("semantic_type") == "structural.located_participant"
         and (value := source_python(row["value"])).get("role") == "procedure_action"
-        and (value["source_pointer"], value["start"], value["end"])
-        == (link.pointer, *verb_extent)
+        and (value["source_pointer"], value["start"], value["end"]) == (link.pointer, *verb_extent)
         and link.witness.annotation in row["computation_dependencies"]
     ]
     if len(actions) != 1:
@@ -252,7 +251,11 @@ def named_definition_subject(
     source_view_id=None,
     navigation=None,
 ):
-    index = navigation if navigation is not None else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    index = (
+        navigation
+        if navigation is not None
+        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    )
     found = [
         (
             record.span("definition_subject"),
@@ -279,7 +282,11 @@ def retained_named_definition_subject(
     primary_layers, projection, *, start, cue_start, source_view_id=None, navigation=None
 ):
     """Return an exact subject plus its qualified primary support for contextual readers."""
-    index = navigation if navigation is not None else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    index = (
+        navigation
+        if navigation is not None
+        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    )
     found = [
         (
             record.span("definition_subject"),
@@ -325,7 +332,11 @@ def match_named_source_links(
         projection = annotations[0].source.projection_digest
     if source_view_id is None and annotations:
         source_view_id = annotations[0].source.source_view_id
-    index = navigation if navigation is not None else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    index = (
+        navigation
+        if navigation is not None
+        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    )
     matches, inspected = [], set()
     incomplete = not index.complete or bool(annotation_errors)
     by_pointer = {p["item_ref"]: p for p in pieces if p["kind"] == "native_text"}
@@ -394,9 +405,21 @@ def match_named_source_links(
 
 
 def named_source_links(
-    text, pieces, items, passages, *, primary_layers=None, projection=None, source_view_id=None, navigation=None
+    text,
+    pieces,
+    items,
+    passages,
+    *,
+    primary_layers=None,
+    projection=None,
+    source_view_id=None,
+    navigation=None,
 ):
-    index = (navigation if navigation is not None else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)).require()
+    index = (
+        navigation
+        if navigation is not None
+        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    ).require()
     found = []
     for passage in passages or ():
         for record in index.select("lexical_named_link"):
@@ -456,7 +479,11 @@ def ordered_recapped_declarations(
     premise passage is exact retained source, not a replacement query. Native
     whitespace substitution is local to cue matching and preserves coordinates.
     """
-    index = (navigation if navigation is not None else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)).require()
+    index = (
+        navigation
+        if navigation is not None
+        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    ).require()
     if (
         not 0 <= passage.start <= query.start < query.end <= passage.end <= len(text)
         or (passage.source_ref, passage.scope, passage.effective_version)
@@ -608,10 +635,22 @@ def ordered_recapped_declarations(
 
 
 def recapped_declarations(
-    text, pieces, items, passages, *, primary_layers=None, projection=None, source_view_id=None, navigation=None
+    text,
+    pieces,
+    items,
+    passages,
+    *,
+    primary_layers=None,
+    projection=None,
+    source_view_id=None,
+    navigation=None,
 ):
     """Resolve a named recap only within one complete selected passage and parent."""
-    index = (navigation if navigation is not None else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)).require()
+    index = (
+        navigation
+        if navigation is not None
+        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    ).require()
     physical = [
         p
         for p in pieces

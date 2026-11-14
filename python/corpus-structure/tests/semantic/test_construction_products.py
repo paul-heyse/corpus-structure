@@ -493,17 +493,51 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     assert scope.flags(0) == {"initial"}
     from corpus_structure.methods.predicate_contributions import declared_predicate_evidence
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-    from corpus_structure.semantic.sentence_products import retained_source_annotation_products, source_annotation_rows
-    from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+    from corpus_structure.semantic.sentence_products import (
+        retained_source_annotation_products,
+        source_annotation_rows,
+    )
+    from corpus_structure.semantic.source_contexts import (
+        NativeSourceContext,
+        PreparedNativeSources,
+        source_slice,
+    )
+
     rows = source_annotation_rows(json.loads(annotations.content))
     frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
-    native_context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "predicate target test", "retained-primary", "complete original", version=2, preparation=PreparedNativeSources((frame,)))
-    evidence = declared_predicate_evidence(frame, native_context, retained_source_annotation_products(source, annotations), dependency="native-product:" + annotations.semantic_id, primary_products=(product,), formal_products=(primary,))
+    native_context = NativeSourceContext(
+        frame,
+        (),
+        (source_slice(frame, 0, len(frame.text)),),
+        "predicate target test",
+        "retained-primary",
+        "complete original",
+        version=2,
+        preparation=PreparedNativeSources((frame,)),
+    )
+    evidence = declared_predicate_evidence(
+        frame,
+        native_context,
+        retained_source_annotation_products(source, annotations),
+        dependency="native-product:" + annotations.semantic_id,
+        primary_products=(product,),
+        formal_products=(primary,),
+    )
     assert evidence.inspection_complete
-    assert any(row["semantic_type"] == "structural.predicate_frame" for row in evidence.contributions)
-    assert all("product_id" in row["component"]["primary_node"] for row in evidence.contributions if row.get("component", {}).get("primary_node"))
-    assert not retained_math_scope_products((product,), source, binders=Binders(sentence_initial=("suppose",))).complete
-    bindings = [row for row in inventory["annotations"] if row["kind"] == "construction.named_binding"]
+    assert any(
+        row["semantic_type"] == "structural.predicate_frame" for row in evidence.contributions
+    )
+    assert all(
+        "product_id" in row["component"]["primary_node"]
+        for row in evidence.contributions
+        if row.get("component", {}).get("primary_node")
+    )
+    assert not retained_math_scope_products(
+        (product,), source, binders=Binders(sentence_initial=("suppose",))
+    ).complete
+    bindings = [
+        row for row in inventory["annotations"] if row["kind"] == "construction.named_binding"
+    ]
     assert len(bindings) == 1
     match = bindings[0]["named_match"]
     assert match["rule"] == "copula" and match["status"] == "matched"
@@ -578,22 +612,51 @@ def test_target_math_scope_keeps_unavailable_native_coverage_open(profiles):
 def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles):
     formal, construction = profiles
     text = "A uses x + y."
-    source = selected(formal, text, pieces=[
-        dict(start=0, end=7, kind="native_text", item_ref="#/texts/0", source_field="text"),
-        dict(start=7, end=12, kind="native_text", item_ref="#/texts/1", source_field="text"),
-        dict(start=12, end=13, kind="native_text", item_ref="#/texts/0", source_field="text"),
-    ], items=[
-        dict(self_ref="#/texts/0", label="paragraph", text=text, orig=text, prov=[dict(page_no=1)]),
-        dict(self_ref="#/texts/1", label="formula", parent="#/texts/0", text="x + y", orig="x + y", prov=[dict(page_no=1)]),
-    ])
+    source = selected(
+        formal,
+        text,
+        pieces=[
+            dict(start=0, end=7, kind="native_text", item_ref="#/texts/0", source_field="text"),
+            dict(start=7, end=12, kind="native_text", item_ref="#/texts/1", source_field="text"),
+            dict(start=12, end=13, kind="native_text", item_ref="#/texts/0", source_field="text"),
+        ],
+        items=[
+            dict(
+                self_ref="#/texts/0",
+                label="paragraph",
+                text=text,
+                orig=text,
+                prov=[dict(page_no=1)],
+            ),
+            dict(
+                self_ref="#/texts/1",
+                label="formula",
+                parent="#/texts/0",
+                text="x + y",
+                orig="x + y",
+                prov=[dict(page_no=1)],
+            ),
+        ],
+    )
     context = _publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     product = construction.run(source, (primary,), subject_context=context)
     inventory = product.inventory()
-    atoms = [row for row in inventory["annotations"] if row["kind"] == "grammar.terminal" and row.get("native_label") == "ATOM"]
+    atoms = [
+        row
+        for row in inventory["annotations"]
+        if row["kind"] == "grammar.terminal" and row.get("native_label") == "ATOM"
+    ]
     assert atoms
     by_id = {row["local_id"]: row for row in inventory["occurrences"]}
-    assert any([(extent["start"], extent["end"], extent["text"]) for extent in by_id[row["occurrences"][0]]["extents"]] == [(7, 12, "x + y")] for row in atoms)
+    assert any(
+        [
+            (extent["start"], extent["end"], extent["text"])
+            for extent in by_id[row["occurrences"][0]]["extents"]
+        ]
+        == [(7, 12, "x + y")]
+        for row in atoms
+    )
 
 
 def test_target_lexical_formal_root_keeps_paragraph_quantifier_and_predicate(profiles):

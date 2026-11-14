@@ -1572,26 +1572,76 @@ def compile_data_operations(
                 edges.append(SemanticEdge(semantic_id, parameter["kind"], "parameter-kind", name))
         external = None
         if raw.get("external") is not None:
-            record = _mapping(raw["external"], semantic_id, {"version", "instructions", "requested_actor", "requested_model", "reference_scope"})
-            if record.get("version") != "external-executor-v1" or record.get("reference_scope") != "declared-inputs-only":
-                _fail(semantic_id, "external execution requires its closed protocol and declared-input reference scope")
-            if surfaces or implementation_root is not None or factory is not None or selection is not None or forms != ("scalar",):
-                _fail(semantic_id, "authored external protocol cannot acquire a Python callable or batch/stream owner")
+            record = _mapping(
+                raw["external"],
+                semantic_id,
+                {
+                    "version",
+                    "instructions",
+                    "requested_actor",
+                    "requested_model",
+                    "reference_scope",
+                },
+            )
+            if (
+                record.get("version") != "external-executor-v1"
+                or record.get("reference_scope") != "declared-inputs-only"
+            ):
+                _fail(
+                    semantic_id,
+                    "external execution requires its closed protocol and declared-input reference scope",
+                )
+            if (
+                surfaces
+                or implementation_root is not None
+                or factory is not None
+                or selection is not None
+                or forms != ("scalar",)
+            ):
+                _fail(
+                    semantic_id,
+                    "authored external protocol cannot acquire a Python callable or batch/stream owner",
+                )
             exposed = {role.kind for role in roles}
             pending = list(exposed)
             while pending:
                 current = pending.pop()
                 for edge in edges:
-                    if edge.source == current and edge.target in kinds and edge.target not in exposed:
+                    if (
+                        edge.source == current
+                        and edge.target in kinds
+                        and edge.target not in exposed
+                    ):
                         exposed.add(edge.target)
                         pending.append(edge.target)
-            if any(json.loads(kinds[kind].facts).get("universe", "ordinary") == "evaluator" for kind in exposed):
-                _fail(semantic_id, "external packets/results cannot expose protected evaluator kinds")
+            if any(
+                json.loads(kinds[kind].facts).get("universe", "ordinary") == "evaluator"
+                for kind in exposed
+            ):
+                _fail(
+                    semantic_id, "external packets/results cannot expose protected evaluator kinds"
+                )
             if capability.preparation != "external":
                 _fail(semantic_id, "external protocol requires explicit external preparation")
-            if effects and any(effect.authorization != ("native-purpose:write",) or effect.idempotency != "external-packet" or effect.fulfillment != "native-publication-receipt" for effect in effects):
-                _fail(semantic_id, "external effects require native write authorization, packet idempotency and native publication receipt fulfillment")
-            external = ExternalExecutorContract("external-executor-v1", _text(record.get("instructions"), semantic_id), _text(record.get("requested_actor"), semantic_id), None if record.get("requested_model") is None else _text(record["requested_model"], semantic_id), "declared-inputs-only")
+            if effects and any(
+                effect.authorization != ("native-purpose:write",)
+                or effect.idempotency != "external-packet"
+                or effect.fulfillment != "native-publication-receipt"
+                for effect in effects
+            ):
+                _fail(
+                    semantic_id,
+                    "external effects require native write authorization, packet idempotency and native publication receipt fulfillment",
+                )
+            external = ExternalExecutorContract(
+                "external-executor-v1",
+                _text(record.get("instructions"), semantic_id),
+                _text(record.get("requested_actor"), semantic_id),
+                None
+                if record.get("requested_model") is None
+                else _text(record["requested_model"], semantic_id),
+                "declared-inputs-only",
+            )
         operation = EffectiveOperation(
             semantic_id,
             raw["profile"],

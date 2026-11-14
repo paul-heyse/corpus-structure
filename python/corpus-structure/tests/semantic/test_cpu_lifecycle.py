@@ -12,7 +12,8 @@ import pytest
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic import cpu_execution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, CPURequestCancelled
-from semantic.cpu_execution_support import packet, prepared as prepared
+from semantic.cpu_execution_support import packet
+from semantic.cpu_execution_support import prepared as prepared
 
 # One second permits real spawned-worker scheduling while bounding failure cleanup.
 _CLOSE_GRACE = 1.0

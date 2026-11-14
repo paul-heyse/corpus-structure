@@ -25,7 +25,9 @@ def test_external_protocol_is_source_free_recipe_meaning_and_roundtrips():
     assert identity(model, declared["id"]) != identity(newer, declared["id"])
 
 
-@pytest.mark.parametrize("change", ["protected", "reference-scope", "effect-authorization", "python-factory"])
+@pytest.mark.parametrize(
+    "change", ["protected", "reference-scope", "effect-authorization", "python-factory"]
+)
 def test_external_protocol_refuses_unadmitted_authority(change):
     declared = external_declaration()
     kinds = []
@@ -37,7 +39,10 @@ def test_external_protocol_refuses_unadmitted_authority(change):
     elif change == "effect-authorization":
         declared["effects"][0]["authorization"] = ["operator-assumed"]
     else:
-        declared["capabilities"]["prepared_factory"] = {"reference": "missing.Factory", "method": "acquire"}
+        declared["capabilities"]["prepared_factory"] = {
+            "reference": "missing.Factory",
+            "method": "acquire",
+        }
     with pytest.raises(PreparationError):
         compile_data_operations(declarations=declarations(declared, kinds=kinds))
 
@@ -45,11 +50,20 @@ def test_external_protocol_refuses_unadmitted_authority(change):
 def test_external_result_port_preserves_integer_meaning_and_refuses_receipt_injection():
     declared = external_declaration()
     model = compile_data_operations(declarations=declarations(declared))
-    packet = {"operation_id": declared["id"], "recipe": identity(model, declared["id"]),
-              "outcomes": ["success", "empty", "failed"], "binding": {"inputs": [], "support": []},
-              "implementation_revision": "external:" + identity(model, declared["id"]),
-              "result_contract": [{"role": "result", "kind_contract": identity(model, "primitive:integer", "kind"),
-                                   "schema": {"type": "integer"}}]}
+    packet = {
+        "operation_id": declared["id"],
+        "recipe": identity(model, declared["id"]),
+        "outcomes": ["success", "empty", "failed"],
+        "binding": {"inputs": [], "support": []},
+        "implementation_revision": "external:" + identity(model, declared["id"]),
+        "result_contract": [
+            {
+                "role": "result",
+                "kind_contract": identity(model, "primitive:integer", "kind"),
+                "schema": {"type": "integer"},
+            }
+        ],
+    }
     port = ExternalResultPort(json_bytes(packet), model, 10000)
     result = {"outcome": "success", "outputs": [{"role": "result", "body": 7}]}
     completion = port.completion(result)

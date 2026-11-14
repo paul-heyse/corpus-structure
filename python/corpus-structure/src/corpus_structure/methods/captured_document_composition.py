@@ -219,7 +219,11 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
                 {"operator": "collection", "roles": ["hanlp"], "collection": "sequence"},
                 {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
                 {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["declaration_syntax"], "collection": "sequence"},
+                {
+                    "operator": "collection",
+                    "roles": ["declaration_syntax"],
+                    "collection": "sequence",
+                },
                 {"operator": "collection", "roles": ["contextual"], "collection": "sequence"},
                 {
                     "operator": "membership",
@@ -672,5 +676,13 @@ class ComposeCapturedDocumentOperation(ComposeFullDocumentOperation):
     ) -> EnrichedDocumentProduct | None:
         if not sources:
             return None
-        products = (*annotations, *canonical, *hanlp, *formal, *constructions, *declaration_syntax, *contextual)
+        products = (
+            *annotations,
+            *canonical,
+            *hanlp,
+            *formal,
+            *constructions,
+            *declaration_syntax,
+            *contextual,
+        )
         return execute_view_profile(self, sources, products, products, profile)

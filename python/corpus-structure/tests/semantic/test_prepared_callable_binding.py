@@ -11,6 +11,8 @@ def test_prepared_callable_rejects_rebound_module_member(monkeypatch):
     original = data_operation_outcomes.successful_return_outcome
     owner = original.__module__ + "." + original.__qualname__
     _verify_prepared_callable(owner, original)
-    monkeypatch.setattr(data_operation_outcomes, "successful_return_outcome", lambda operation: "invented")
+    monkeypatch.setattr(
+        data_operation_outcomes, "successful_return_outcome", lambda operation: "invented"
+    )
     with pytest.raises(PortRefusal, match="runtime binding was replaced"):
         _verify_prepared_callable(owner, original)

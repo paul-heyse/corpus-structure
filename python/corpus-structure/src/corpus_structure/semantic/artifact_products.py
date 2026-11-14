@@ -16,7 +16,18 @@ from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
-_PATHS = ("methods/artifact_identity_declared.py", "semantic/artifact_products.py", "methods/artifact_identity.py", "methods/scoped_relations.py", "methods/witnessed_source_links.py", "semantic/artifact_identity.py", "semantic/structural_products.py", "semantic/constructions/navigation.py", "semantic/source_contexts.py", "semantic/declared_record_sources.py")
+_PATHS = (
+    "methods/artifact_identity_declared.py",
+    "semantic/artifact_products.py",
+    "methods/artifact_identity.py",
+    "methods/scoped_relations.py",
+    "methods/witnessed_source_links.py",
+    "semantic/artifact_identity.py",
+    "semantic/structural_products.py",
+    "semantic/constructions/navigation.py",
+    "semantic/source_contexts.py",
+    "semantic/declared_record_sources.py",
+)
 
 
 class ArtifactSourceSelection(BaseModel):
@@ -33,8 +44,15 @@ class ArtifactSourceSelection(BaseModel):
 
     @model_validator(mode="after")
     def explicit_work_mapping(self):
-        if self.end <= self.start or (self.source_work is None) != (self.mapping_provenance is None) or self.source_work == "" or self.mapping_provenance == "":
-            raise ValueError("artifact selection needs exact bounds and complete explicit source-work custody")
+        if (
+            self.end <= self.start
+            or (self.source_work is None) != (self.mapping_provenance is None)
+            or self.source_work == ""
+            or self.mapping_provenance == ""
+        ):
+            raise ValueError(
+                "artifact selection needs exact bounds and complete explicit source-work custody"
+            )
         return self
 
 
@@ -54,45 +72,130 @@ def artifact_inputs(bundle):
 
 
 def artifact_profile_assets():
-    return SourceArtifact("artifacts/profile-assets", canonical_bytes({"version": "declared-artifact-identity-v1", "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS]}))
+    return SourceArtifact(
+        "artifacts/profile-assets",
+        canonical_bytes(
+            {
+                "version": "declared-artifact-identity-v1",
+                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS],
+            }
+        ),
+    )
 
 
 def artifact_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
-    return PythonSourceCollection(tuple(PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve())) for name in ("methods/artifact_identity_declared.py", "semantic/artifact_products.py", "semantic/data_operation_prepared_call.py")), boundary_contracts=(artifact_profile_assets(),))
+    return PythonSourceCollection(
+        tuple(
+            PythonSource(
+                "corpus_structure." + name.removesuffix(".py").replace("/", "."),
+                (_ROOT / name).read_bytes(),
+                str((_ROOT / name).resolve()),
+            )
+            for name in (
+                "methods/artifact_identity_declared.py",
+                "semantic/artifact_products.py",
+                "semantic/data_operation_prepared_call.py",
+            )
+        ),
+        boundary_contracts=(artifact_profile_assets(),),
+    )
 
 
 def native_artifact_records(frame, source, inputs, source_ref, source_work, navigation):
     """Read only characterized artifacts, avoiding unrelated scoped joins and NLP."""
     from corpus_structure.methods.artifact_identity import identity_records
-    from corpus_structure.methods.scoped_relations import artifact_occurrence, artifact_spans, located_participant
-    from .contributions import operation_identity
-    from .source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
-    from .structural_products import DeclaredArtifactRecord, DeclaredArtifactReferenceDesignator, DeclaredPrimaryReference, DeclaredSourceArtifactOccurrence
+    from corpus_structure.methods.scoped_relations import (
+        artifact_occurrence,
+        artifact_spans,
+        located_participant,
+    )
 
     from .constructions.navigation import NativeNavigationIndex
+    from .contributions import operation_identity
+    from .source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+    from .structural_products import (
+        DeclaredArtifactRecord,
+        DeclaredArtifactReferenceDesignator,
+        DeclaredPrimaryReference,
+        DeclaredSourceArtifactOccurrence,
+    )
 
     if not isinstance(navigation, NativeNavigationIndex):
         raise ValueError("native artifact discovery requires its declared navigation reader")
     navigation.require()
-    context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "native artifacts", "source-artifact-occurrence-2", "exact selected source", max_chars=max(1, len(frame.text)), max_pieces=max(1, len(frame.pieces)), max_sources=1, version=2, preparation=PreparedNativeSources((frame,), max_sources=1))
+    context = NativeSourceContext(
+        frame,
+        (),
+        (source_slice(frame, 0, len(frame.text)),),
+        "native artifacts",
+        "source-artifact-occurrence-2",
+        "exact selected source",
+        max_chars=max(1, len(frame.text)),
+        max_pieces=max(1, len(frame.pieces)),
+        max_sources=1,
+        version=2,
+        preparation=PreparedNativeSources((frame,), max_sources=1),
+    )
     pin, rows = frame.pin.values(), []
     dependency = pin["source_product"]
     operation = operation_identity("structure.scoped_relations", "3", pin)
     items = {item["self_ref"]: item for item in json.loads(frame.native_context)["items"]}
     passages = tuple(passage for passage in inputs.passages if passage.source_ref == source_ref)
     for piece in frame.pieces:
-        if piece["kind"] != "native_text" or piece.get("cell_index") is not None or piece.get("source_field") in {"chart_title", "chart_cell_text"}:
+        if (
+            piece["kind"] != "native_text"
+            or piece.get("cell_index") is not None
+            or piece.get("source_field") in {"chart_title", "chart_cell_text"}
+        ):
             continue
         pointer, start, end = piece["item_ref"], piece["start"], piece["end"]
-        for found in artifact_spans(frame.text[start:end], navigation=navigation, pointer=pointer, start=start):
+        for found in artifact_spans(
+            frame.text[start:end], navigation=navigation, pointer=pointer, start=start
+        ):
             left, right = start + found["start"], start + found["end"]
-            if not any(a <= left < right <= b for a, b in frame.selected_ranges) or not any(passage.start <= left < right <= passage.end for passage in passages):
+            if not any(a <= left < right <= b for a, b in frame.selected_ranges) or not any(
+                passage.start <= left < right <= passage.end for passage in passages
+            ):
                 continue
-            participant, _coordinates = located_participant(frame, context, pin, dependency, operation, left, right, role="artifact_reference", pointer=pointer, region=pointer, extra={"primary_node": found["primary_node"]})
-            rows.append(artifact_occurrence(participant, found, items[pointer], source_work, dependency, start, artifact_type=DeclaredSourceArtifactOccurrence))
-    return identity_records(frame, inputs, source_ref, rows, navigation, artifact_type=DeclaredSourceArtifactOccurrence, reference_type=DeclaredArtifactReferenceDesignator, record_type=DeclaredArtifactRecord, primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(reference.values()))
+            participant, _coordinates = located_participant(
+                frame,
+                context,
+                pin,
+                dependency,
+                operation,
+                left,
+                right,
+                role="artifact_reference",
+                pointer=pointer,
+                region=pointer,
+                extra={"primary_node": found["primary_node"]},
+            )
+            rows.append(
+                artifact_occurrence(
+                    participant,
+                    found,
+                    items[pointer],
+                    source_work,
+                    dependency,
+                    start,
+                    artifact_type=DeclaredSourceArtifactOccurrence,
+                )
+            )
+    return identity_records(
+        frame,
+        inputs,
+        source_ref,
+        rows,
+        navigation,
+        artifact_type=DeclaredSourceArtifactOccurrence,
+        reference_type=DeclaredArtifactReferenceDesignator,
+        record_type=DeclaredArtifactRecord,
+        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
+            reference.values()
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -103,37 +206,100 @@ class PreparedArtifactInputs:
     check_active: Callable[[], None]
 
 
-def execute_artifact_identity(receiver, sources, constructions, nominations, *, selections, nomination_selections, policy, title_threshold, exclusions, known_anchor_ids):
-    from corpus_structure.methods.artifact_identity import artifact_cohort, artifact_nomination, declared_artifact_relationships
-    from .artifact_identity import ArtifactPairKey, ArtifactScoringPolicy, artifact_reference_resolutions, artifact_route_counts, native_alias_candidates, pair_candidates, score_pairs
-    from .constructions.navigation import NativeNavigationIndex
+def execute_artifact_identity(
+    receiver,
+    sources,
+    constructions,
+    nominations,
+    *,
+    selections,
+    nomination_selections,
+    policy,
+    title_threshold,
+    exclusions,
+    known_anchor_ids,
+):
+    from corpus_structure.methods.artifact_identity import (
+        artifact_cohort,
+        artifact_nomination,
+        declared_artifact_relationships,
+    )
+
+    from .artifact_identity import (
+        ArtifactPairKey,
+        ArtifactScoringPolicy,
+        artifact_reference_resolutions,
+        artifact_route_counts,
+        native_alias_candidates,
+        pair_candidates,
+        score_pairs,
+    )
     from .construction_products import CharacterizationSnapshot
+    from .constructions.navigation import NativeNavigationIndex
+    from .contributions import contribution_identity
+    from .data_operation_json import json_bytes
+    from .declared_candidate_products import candidate_member_values
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_calls import PreparedStructuralInputs, _passage
-    from .source_products import FrozenNativeSource
-    from .structural_products import DeclaredArtifactDeclaredEndpoint, DeclaredArtifactDeclaredRelationship, DeclaredArtifactIdentityProduct, DeclaredArtifactReport, DeclaredArtifactNomination, DeclaredArtifactNominationEndpoint, DeclaredPrimaryReference, DeclaredStructuralInput
     from .declared_structural_references import DeclaredContributionRef
-    from .declared_candidate_products import candidate_member_values
-    from .data_operation_json import json_bytes
-    from .contributions import contribution_identity
+    from .source_products import FrozenNativeSource
+    from .structural_products import (
+        DeclaredArtifactDeclaredEndpoint,
+        DeclaredArtifactDeclaredRelationship,
+        DeclaredArtifactIdentityProduct,
+        DeclaredArtifactNomination,
+        DeclaredArtifactNominationEndpoint,
+        DeclaredArtifactReport,
+        DeclaredPrimaryReference,
+        DeclaredStructuralInput,
+    )
 
     profile = receiver.inputs
     profile.check_active()
-    exact = PreparedStructuralInputs(profile.prepared, profile.roles, profile.context.project_id, profile.check_active)
+    exact = PreparedStructuralInputs(
+        profile.prepared, profile.roles, profile.context.project_id, profile.check_active
+    )
     (source_role,) = (role for role in profile.roles if role.role == "sources")
     (construction_role,) = (role for role in profile.roles if role.role == "constructions")
-    if len(sources) != len(source_role.members) or len(constructions) != len(construction_role.members) or any(member.member is not None or member.multiplicity != 1 for member in (*source_role.members, *construction_role.members)):
-        raise ValueError("artifact cohort requires its exact whole native source and construction products")
+    if (
+        len(sources) != len(source_role.members)
+        or len(constructions) != len(construction_role.members)
+        or any(
+            member.member is not None or member.multiplicity != 1
+            for member in (*source_role.members, *construction_role.members)
+        )
+    ):
+        raise ValueError(
+            "artifact cohort requires its exact whole native source and construction products"
+        )
     chosen = tuple(ArtifactSourceSelection.model_validate(value) for value in selections)
-    if not chosen or len({value.source_reference for value in chosen}) != len(chosen) or {value.source_reference for value in chosen} != {canonical_bytes([member.product, member.member]).decode() for member in source_role.members}:
+    if (
+        not chosen
+        or len({value.source_reference for value in chosen}) != len(chosen)
+        or {value.source_reference for value in chosen}
+        != {
+            canonical_bytes([member.product, member.member]).decode()
+            for member in source_role.members
+        }
+    ):
         raise ValueError("artifact source selections differ from the exact admitted cohort")
     frames, original, passages, selected_sources, indexes = {}, [], [], {}, {}
     unbound, provenance, used = [], [], set()
     for selection in chosen:
         member, body = exact.selected("sources", sources, selection.source_reference)
         source = FrozenNativeSource.acquire(profile.prepared, body)
-        frame = DeclaredNativeFrameSource.acquire(profile.prepared, body, member, project=profile.context.project_id)
-        reference, passage = _passage(frame, passage_id=selection.passage_id, start=selection.start, end=selection.end, scope=selection.scope, version=selection.effective_version, parent=selection.parent)
+        frame = DeclaredNativeFrameSource.acquire(
+            profile.prepared, body, member, project=profile.context.project_id
+        )
+        reference, passage = _passage(
+            frame,
+            passage_id=selection.passage_id,
+            start=selection.start,
+            end=selection.end,
+            scope=selection.scope,
+            version=selection.effective_version,
+            parent=selection.parent,
+        )
         if not any(a <= passage.start < passage.end <= b for a, b in frame.selected_ranges):
             raise ValueError("artifact passage exceeds its exact analyzed source scope")
         frames[reference.identity], selected_sources[reference.identity] = frame, source
@@ -141,11 +307,22 @@ def execute_artifact_identity(receiver, sources, constructions, nominations, *, 
         passages.append(passage)
         products = []
         for primary_member, primary in zip(construction_role.members, constructions, strict=True):
-            if (primary_member.subject, primary_member.original_source, primary_member.analyzed_scope) != (member.subject, member.original_source, member.analyzed_scope):
+            if (
+                primary_member.subject,
+                primary_member.original_source,
+                primary_member.analyzed_scope,
+            ) != (member.subject, member.original_source, member.analyzed_scope):
                 continue
-            if primary["source"] != source.value["source"] or primary["selectors"] != source.value["selectors"]:
-                raise ValueError("artifact navigation differs from its exact original source and analyzed scope")
-            products.append(CharacterizationSnapshot(primary_member.product, canonical_bytes(primary)))
+            if (
+                primary["source"] != source.value["source"]
+                or primary["selectors"] != source.value["selectors"]
+            ):
+                raise ValueError(
+                    "artifact navigation differs from its exact original source and analyzed scope"
+                )
+            products.append(
+                CharacterizationSnapshot(primary_member.product, canonical_bytes(primary))
+            )
             used.add(primary_member.product)
         indexes[reference.identity] = NativeNavigationIndex(tuple(products), source).require()
         if selection.source_work is None:
@@ -154,47 +331,171 @@ def execute_artifact_identity(receiver, sources, constructions, nominations, *, 
             provenance.append(selection.mapping_provenance)
     if used != {member.product for member in construction_role.members}:
         raise ValueError("artifact navigation contains an unrelated or unbound selected product")
-    chosen_nominations = tuple(ArtifactNominationSelection.model_validate(value) for value in nomination_selections)
+    chosen_nominations = tuple(
+        ArtifactNominationSelection.model_validate(value) for value in nomination_selections
+    )
     nomination_members = next(role.members for role in profile.roles if role.role == "nominations")
-    if len(nominations) != len(nomination_members) or any(member.member is not None or member.multiplicity != 1 for member in nomination_members):
+    if len(nominations) != len(nomination_members) or any(
+        member.member is not None or member.multiplicity != 1 for member in nomination_members
+    ):
         raise ValueError("artifact nominations require their exact whole native scoped reports")
-    expected_nominations = {canonical_bytes([member.product, member.member]).decode() for member in nomination_members}
-    if {selection.report_reference for selection in chosen_nominations} != expected_nominations or len({(selection.report_reference, selection.contribution_id) for selection in chosen_nominations}) != len(chosen_nominations):
-        raise ValueError("artifact nomination selections differ from the actual bound native report population")
-    inputs = DeclaredStructuralInput(question="Compare the explicitly selected source-work artifact cohort.", scope="explicit-native-artifact-cohort", inventory_id="admitted-artifact-sources", policy_id="artifact-identity-5", sources=tuple(original), passages=tuple(passages), dependencies=tuple(dict.fromkeys([member.product for member in (*source_role.members, *construction_role.members, *nomination_members)] + [selection.contribution_id for selection in chosen_nominations])))
+    expected_nominations = {
+        canonical_bytes([member.product, member.member]).decode() for member in nomination_members
+    }
+    if {
+        selection.report_reference for selection in chosen_nominations
+    } != expected_nominations or len(
+        {
+            (selection.report_reference, selection.contribution_id)
+            for selection in chosen_nominations
+        }
+    ) != len(chosen_nominations):
+        raise ValueError(
+            "artifact nomination selections differ from the actual bound native report population"
+        )
+    inputs = DeclaredStructuralInput(
+        question="Compare the explicitly selected source-work artifact cohort.",
+        scope="explicit-native-artifact-cohort",
+        inventory_id="admitted-artifact-sources",
+        policy_id="artifact-identity-5",
+        sources=tuple(original),
+        passages=tuple(passages),
+        dependencies=tuple(
+            dict.fromkeys(
+                [
+                    member.product
+                    for member in (
+                        *source_role.members,
+                        *construction_role.members,
+                        *nomination_members,
+                    )
+                ]
+                + [selection.contribution_id for selection in chosen_nominations]
+            )
+        ),
+    )
     records = []
     for selection, reference in zip(chosen, original, strict=True):
         if selection.source_work is not None:
-            records.extend(native_artifact_records(frames[reference.identity], selected_sources[reference.identity], inputs, reference.identity, selection.source_work, indexes[reference.identity]))
+            records.extend(
+                native_artifact_records(
+                    frames[reference.identity],
+                    selected_sources[reference.identity],
+                    inputs,
+                    reference.identity,
+                    selection.source_work,
+                    indexes[reference.identity],
+                )
+            )
     selected = artifact_cohort(records)
     retained_nominations = []
-    by_source = {frame.pin.values()["source"]: {"pin": frame.pin.values(), "projection": frame.value} for frame in frames.values()}
-    source_indexes = {frame.pin.values()["source"]: indexes[reference] for reference, frame in frames.items()}
+    by_source = {
+        frame.pin.values()["source"]: {"pin": frame.pin.values(), "projection": frame.value}
+        for frame in frames.values()
+    }
+    source_indexes = {
+        frame.pin.values()["source"]: indexes[reference] for reference, frame in frames.items()
+    }
     for selection in chosen_nominations:
         member, raw = exact.selected("nominations", nominations, selection.report_reference)
-        report = profile.prepared.validate_json("DdoScopedRelationsReport", json_bytes(raw)).model_dump(mode="json", exclude_unset=True)
-        if report["source_pin"]["source"] not in by_source or by_source[report["source_pin"]["source"]]["pin"] != report["source_pin"]:
-            raise ValueError("artifact nomination report is outside the exact selected native source cohort")
+        report = profile.prepared.validate_json(
+            "DdoScopedRelationsReport", json_bytes(raw)
+        ).model_dump(mode="json", exclude_unset=True)
+        if (
+            report["source_pin"]["source"] not in by_source
+            or by_source[report["source_pin"]["source"]]["pin"] != report["source_pin"]
+        ):
+            raise ValueError(
+                "artifact nomination report is outside the exact selected native source cohort"
+            )
         rows = candidate_member_values(report, candidate_type="contribution")
-        if any(contribution_identity(row) != row["contribution_id"] or row["pin"] != report["source_pin"] for row in rows):
+        if any(
+            contribution_identity(row) != row["contribution_id"]
+            or row["pin"] != report["source_pin"]
+            for row in rows
+        ):
             raise ValueError("artifact nomination changes its authentic source-bound contributions")
-        reference = DeclaredContributionRef.from_bound(member, project=profile.context.project_id, contribution_id=selection.contribution_id)
-        retained_nominations.append(artifact_nomination(inputs, selected, reference, rows, sources=by_source, source_key=lambda pin: pin["source"], navigation_for=lambda pin: source_indexes[pin["source"]], origin_fields=lambda pin: {"origin_source": pin["source"]}, endpoint_type=DeclaredArtifactNominationEndpoint, nomination_type=DeclaredArtifactNomination, primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(reference.values())))
+        reference = DeclaredContributionRef.from_bound(
+            member, project=profile.context.project_id, contribution_id=selection.contribution_id
+        )
+        retained_nominations.append(
+            artifact_nomination(
+                inputs,
+                selected,
+                reference,
+                rows,
+                sources=by_source,
+                source_key=lambda pin: pin["source"],
+                navigation_for=lambda pin: source_indexes[pin["source"]],
+                origin_fields=lambda pin: {"origin_source": pin["source"]},
+                endpoint_type=DeclaredArtifactNominationEndpoint,
+                nomination_type=DeclaredArtifactNomination,
+                primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
+                    reference.values()
+                ),
+            )
+        )
     aliases, _ = native_alias_candidates(selected)
     references = artifact_reference_resolutions(selected)
-    declarations = declared_artifact_relationships(selected, inputs, indexes, endpoint_type=DeclaredArtifactDeclaredEndpoint, relationship_type=DeclaredArtifactDeclaredRelationship, primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(reference.values()))
-    candidates = pair_candidates(selected, external_nominations=tuple(retained_nominations), declared_relationships=declarations, explicit_references=references, native_alias_pairs=aliases, title_threshold=title_threshold, exclusions=tuple(tuple(value) for value in exclusions), known_anchor_ids=tuple(known_anchor_ids))
+    declarations = declared_artifact_relationships(
+        selected,
+        inputs,
+        indexes,
+        endpoint_type=DeclaredArtifactDeclaredEndpoint,
+        relationship_type=DeclaredArtifactDeclaredRelationship,
+        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
+            reference.values()
+        ),
+    )
+    candidates = pair_candidates(
+        selected,
+        external_nominations=tuple(retained_nominations),
+        declared_relationships=declarations,
+        explicit_references=references,
+        native_alias_pairs=aliases,
+        title_threshold=title_threshold,
+        exclusions=tuple(tuple(value) for value in exclusions),
+        known_anchor_ids=tuple(known_anchor_ids),
+    )
     scoring = ArtifactScoringPolicy.model_validate(policy)
     scored = score_pairs(selected, candidates, scoring)
-    result = DeclaredArtifactReport(inputs=inputs, artifact_identity=DeclaredArtifactIdentityProduct(records=selected, pairs=scored, native_alias_pairs=tuple(ArtifactPairKey(left=left, right=right) for left, right in aliases), external_nominations=tuple(retained_nominations), explicit_references=references, declared_relationships=declarations, route_counts=artifact_route_counts(scored), policy=scoring, source_mapping_provenance=tuple(sorted(set(provenance))), unbound_sources=tuple(unbound), known_anchor_ids=tuple(sorted(known_anchor_ids))), sources_input=exact.references("sources"), reports_input=exact.references("constructions"))
+    result = DeclaredArtifactReport(
+        inputs=inputs,
+        artifact_identity=DeclaredArtifactIdentityProduct(
+            records=selected,
+            pairs=scored,
+            native_alias_pairs=tuple(
+                ArtifactPairKey(left=left, right=right) for left, right in aliases
+            ),
+            external_nominations=tuple(retained_nominations),
+            explicit_references=references,
+            declared_relationships=declarations,
+            route_counts=artifact_route_counts(scored),
+            policy=scoring,
+            source_mapping_provenance=tuple(sorted(set(provenance))),
+            unbound_sources=tuple(unbound),
+            known_anchor_ids=tuple(sorted(known_anchor_ids)),
+        ),
+        sources_input=exact.references("sources"),
+        reports_input=exact.references("constructions"),
+    )
     profile.check_active()
     return result.model_dump(mode="json", exclude_none=True)
 
 
-def artifact_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
+def artifact_kernel(
+    arguments: dict,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
+    *,
+    prepared: PreparedRelease,
+    check_active: Callable[[], None],
+) -> dict:
     from corpus_structure.methods.artifact_identity_declared import ArtifactIdentityOperation
 
-    return ArtifactIdentityOperation(PreparedArtifactInputs(prepared, roles, context, check_active)).run(**arguments)
+    return ArtifactIdentityOperation(
+        PreparedArtifactInputs(prepared, roles, context, check_active)
+    ).run(**arguments)
 
 
 @dataclass
@@ -214,15 +515,40 @@ class ArtifactCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("artifact call requires its exact qualified binding")
         signature = inspect.signature(artifact_kernel, eval_str=True)
-        bound = signature.bind(arguments=arguments.arguments, roles=binding.roles, context=binding.subject_context, prepared=self.prepared, check_active=check_active)
+        bound = signature.bind(
+            arguments=arguments.arguments,
+            roles=binding.roles,
+            context=binding.subject_context,
+            prepared=self.prepared,
+            check_active=check_active,
+        )
         captured = artifact_operation_sources()
-        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in captured.sources), "corpus_structure.semantic.artifact_products.artifact_kernel", (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
-        reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.verify, execution_owner=execution_owner, check_active=check_active)
-        return PreparedCallResult(json.loads(reply.content), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        descriptor = PythonCPUDescriptor(
+            tuple((source.module, source.filename, source.content) for source in captured.sources),
+            "corpus_structure.semantic.artifact_products.artifact_kernel",
+            (),
+            verification="prepared-kernel",
+            control_parameter="check_active",
+            prepared_parameter="prepared",
+            prepared_release_id=self.prepared.release_id,
+        )
+        reply = yield from plan_cpu_call(
+            descriptor,
+            bound,
+            signature,
+            verify=self.verify,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        return PreparedCallResult(
+            json.loads(reply.content),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
 
 def resolve_artifact_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.artifact_identity_declared import ArtifactIdentityOperation
+
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
@@ -230,6 +556,26 @@ def resolve_artifact_port(prepared, model, operation, *, identity, authorize, cu
     if selected.semantic_id != ArtifactIdentityOperation.__data_operation__["id"]:
         raise PortRefusal("artifact factory differs from its governing operation")
     receiver, plan = ArtifactIdentityOperation(None), ArtifactCallPlan(prepared)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.artifact_products.ArtifactCallPlan.plan", authorize, (artifact_profile_assets(),), artifact_operation_sources(), functions=(("corpus_structure.semantic.artifact_products.artifact_kernel", artifact_kernel), ("corpus_structure.semantic.artifact_products.execute_artifact_identity", execute_artifact_identity)), requires_prepared_schema=True)
+    port = PreparedOriginalCallPort(
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
+        "corpus_structure.semantic.artifact_products.ArtifactCallPlan.plan",
+        authorize,
+        (artifact_profile_assets(),),
+        artifact_operation_sources(),
+        functions=(
+            ("corpus_structure.semantic.artifact_products.artifact_kernel", artifact_kernel),
+            (
+                "corpus_structure.semantic.artifact_products.execute_artifact_identity",
+                execute_artifact_identity,
+            ),
+        ),
+        requires_prepared_schema=True,
+    )
     plan.port = port
     return port

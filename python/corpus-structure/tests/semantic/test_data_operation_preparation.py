@@ -249,9 +249,12 @@ def primary_profile_inputs(tmp_path):
     (root / "sentences.yaml").write_text(yaml.safe_dump(configuration.model_dump(mode="json")))
     for provider in ("spacy", "hanlp"):
         native = NativeProfile(
-            provider, {"fixture": "no provider execution"}, {"files": {}},
+            provider,
+            {"fixture": "no provider execution"},
+            {"files": {}},
             configuration.model_dump(mode="json") if provider == "spacy" else {},
-            "float32", "cupy" if provider == "spacy" else "torch",
+            "float32",
+            "cupy" if provider == "spacy" else "torch",
         )
         (root / (provider + ".json")).write_bytes(
             canonical_bytes(NativeSelection(native, root / "assets").declaration())
@@ -265,7 +268,9 @@ def primary_profile_inputs(tmp_path):
     return root
 
 
-def test_primary_manifest_uses_shared_composition_and_retains_exact_profile_files(tmp_path, monkeypatch):
+def test_primary_manifest_uses_shared_composition_and_retains_exact_profile_files(
+    tmp_path, monkeypatch
+):
     from types import SimpleNamespace
 
     from corpus_structure.semantic import primary_operations
@@ -276,7 +281,11 @@ def test_primary_manifest_uses_shared_composition_and_retains_exact_profile_file
 
     def compose(bundle, **arguments):
         seen.append(arguments)
-        return SimpleNamespace(bundle=bundle, dependencies=ResolvedDependencies(), profile=PreparationProfile(version="semantic-2"))
+        return SimpleNamespace(
+            bundle=bundle,
+            dependencies=ResolvedDependencies(),
+            profile=PreparationProfile(version="semantic-2"),
+        )
 
     monkeypatch.setattr(primary_operations, "primary_operation_inputs", compose)
     acquired = acquire_data_operation_inputs(root, "target.yaml")
@@ -288,11 +297,20 @@ def test_primary_manifest_uses_shared_composition_and_retains_exact_profile_file
     assert arguments["extra_sources"] is None
     assert [artifact.name for artifact in arguments["declarations"]] == ["operations"]
     captured = dict(acquired.files)
-    assert {"target.yaml", "schema.yaml", "operations.yaml", "sentences.yaml", "spacy.json", "hanlp.json"} == set(captured)
+    assert {
+        "target.yaml",
+        "schema.yaml",
+        "operations.yaml",
+        "sentences.yaml",
+        "spacy.json",
+        "hanlp.json",
+    } == set(captured)
     assert captured["spacy.json"] == (root / "spacy.json").read_bytes()
 
 
-@pytest.mark.parametrize("change", ["fingerprint", "provider", "configuration", "unavailable-assets"])
+@pytest.mark.parametrize(
+    "change", ["fingerprint", "provider", "configuration", "unavailable-assets"]
+)
 def test_primary_manifest_refuses_changed_or_unavailable_explicit_selection(tmp_path, change):
     root = primary_profile_inputs(tmp_path)
     value = json.loads((root / "spacy.json").read_bytes())

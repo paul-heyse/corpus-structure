@@ -919,16 +919,33 @@ def test_declared_formal_adapter_retains_inline_symbol_addresses_without_task_al
     from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 
     source = selected(profile)
-    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
     retained = declared_formal_layers((product,), source)
     value = source.value
-    equations = tuple(inline_equations(value["text"], value["pieces"], {item["self_ref"]: item for item in value["items"]}, None, max_chars=2048, primary_layers=retained, projection=value["source"]["projection"]))
+    equations = tuple(
+        inline_equations(
+            value["text"],
+            value["pieces"],
+            {item["self_ref"]: item for item in value["items"]},
+            None,
+            max_chars=2048,
+            primary_layers=retained,
+            projection=value["source"]["projection"],
+        )
+    )
     assert len(equations) == 1
     assert equations[0].primary_input is not None
     assert equations[0].primary_input["product_id"] == product.semantic_id
-    symbols, status = inline_symbols(value["text"], equations[0], primary_layers=retained, projection=value["source"]["projection"])
+    symbols, status = inline_symbols(
+        value["text"],
+        equations[0],
+        primary_layers=retained,
+        projection=value["source"]["projection"],
+    )
     assert status == "parsed"
-    assert [value["text"][symbol.start:symbol.end] for symbol in symbols] == ["x"]
+    assert [value["text"][symbol.start : symbol.end] for symbol in symbols] == ["x"]
     for symbol in symbols:
         assert symbol.primary_node is not None
         assert symbol.primary_node["product_id"] == product.semantic_id
@@ -939,7 +956,9 @@ def test_declared_formal_adapter_refuses_scope_substitution_or_duplicate_product
     from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 
     source = selected(profile)
-    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
     with pytest.raises(ValueError, match="repeats"):
         declared_formal_layers((product, product), source)
     changed = source.value
@@ -947,6 +966,8 @@ def test_declared_formal_adapter_refuses_scope_substitution_or_duplicate_product
     narrowed = FrozenFormalSource.acquire(profile.prepared, changed)
     with pytest.raises(ValueError, match="analyzed scope"):
         declared_formal_layers((product,), narrowed)
+
+
 def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_foreign_source(profile):
     from corpus_structure.methods.structural_products import threshold_readings
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
@@ -956,23 +977,58 @@ def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_fore
 
     text = "revenue > 25000 USD\nComparison basis: annual gross revenue."
     source = selected(profile, text)
-    product = profile.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
     primary = FormalSourceReadings.from_products((product,), source)
     coordinate = source.value["source"]
     # This address is an independently authored pure reader fixture, not a native
     # admission claim. All parser fields and primary member addresses above are real.
-    address = DeclaredStructuralSource(source=canonical_bytes(["fixture:native-source", None]).decode(), source_product="fixture:native-source", kind_contract="kind:fixture-source", subject=coordinate["document_subject"], document=coordinate["document"], projection_digest=coordinate["projection"], section_pointer=coordinate["section_pointer"], membership=coordinate["membership"], project_id="fixture", original_source=coordinate["document"], analyzed_scope_meaning="{}")
-    passage = StructuralPassage(passage_id="p", source_ref=address.identity, start=0, end=len(text), text=text, scope="selected")
+    address = DeclaredStructuralSource(
+        source=canonical_bytes(["fixture:native-source", None]).decode(),
+        source_product="fixture:native-source",
+        kind_contract="kind:fixture-source",
+        subject=coordinate["document_subject"],
+        document=coordinate["document"],
+        projection_digest=coordinate["projection"],
+        section_pointer=coordinate["section_pointer"],
+        membership=coordinate["membership"],
+        project_id="fixture",
+        original_source=coordinate["document"],
+        analyzed_scope_meaning="{}",
+    )
+    passage = StructuralPassage(
+        passage_id="p",
+        source_ref=address.identity,
+        start=0,
+        end=len(text),
+        text=text,
+        scope="selected",
+    )
     (field,) = threshold_readings(passage, source=address, primary_layers=primary)
     from corpus_structure.semantic.structural_products import DeclaredClauseField
+
     assert isinstance(field, DeclaredClauseField)
     assert field.typed is not None and field.typed.value == "25000"
     assert field.typed.unit == "USD" and field.typed.basis == "annual gross revenue"
-    assert field.typed.primary_formal is not None and field.typed.primary_formal.product_id == product.semantic_id
-    assert field.typed.primary_basis is not None and field.typed.primary_basis.product_id == product.semantic_id
-    assert all("layer" not in value for value in (field.typed.primary_formal.values(), field.typed.primary_basis.values()))
+    assert (
+        field.typed.primary_formal is not None
+        and field.typed.primary_formal.product_id == product.semantic_id
+    )
+    assert (
+        field.typed.primary_basis is not None
+        and field.typed.primary_basis.product_id == product.semantic_id
+    )
+    assert all(
+        "layer" not in value
+        for value in (field.typed.primary_formal.values(), field.typed.primary_basis.values())
+    )
     with pytest.raises(ValueError, match="another original source"):
-        threshold_readings(passage, source=address.model_copy(update={"document": "document:foreign"}), primary_layers=primary)
+        threshold_readings(
+            passage,
+            source=address.model_copy(update={"document": "document:foreign"}),
+            primary_layers=primary,
+        )
 
 
 def test_target_formal_profile_refuses_stale_captured_grammar(profile):
@@ -980,14 +1036,26 @@ def test_target_formal_profile_refuses_stale_captured_grammar(profile):
 
     source = selected(profile, "x+y=1")
     with pytest.raises(ValueError, match="effective grammar"):
-        replace(profile, grammar="obsolete").run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+        replace(profile, grammar="obsolete").run(
+            source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        )
 
 
 def test_target_distinct_original_projections_keep_disjoint_formal_members(profile):
     left, right = selected(profile, "x+y=1"), selected(profile, "x-y=2")
     assert left.value["source"]["document"] == right.value["source"]["document"]
     assert left.value["source"]["projection"] != right.value["source"]["projection"]
-    results = tuple(profile.run(source, FormalEvidenceOptions(math_start="formula"), subject_context=_publication_context(source)) for source in (left, right))
+    results = tuple(
+        profile.run(
+            source,
+            FormalEvidenceOptions(math_start="formula"),
+            subject_context=_publication_context(source),
+        )
+        for source in (left, right)
+    )
     members = [{member.member_id for member in product.members} for product in results]
     assert members[0] and members[1] and members[0].isdisjoint(members[1])
-    assert all(any(row["kind"] == "formal.symbol" for row in product.inventory()["annotations"]) for product in results)
+    assert all(
+        any(row["kind"] == "formal.symbol" for row in product.inventory()["annotations"])
+        for product in results
+    )

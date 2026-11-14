@@ -48,18 +48,23 @@ def structural_operation_declarations():
     """Capture DTO-generated shape bytes; the compiler never imports candidate DTOs."""
     from .nominal_schema_kinds import nominal_schema_kinds
     from .structural_products import (
-        DeclaredComparisonReport,
-        DeclaredConditionReport,
-        DeclaredDossierReport,
-        DeclaredDefinitionComponentsReport,
-        DeclaredDefinitionReport,
         DeclaredArtifactReport,
         DeclaredClauseReport,
+        DeclaredComparisonReport,
+        DeclaredConditionReport,
+        DeclaredDefinitionComponentsReport,
+        DeclaredDefinitionReport,
+        DeclaredDossierReport,
     )
 
     schema = TypeAdapter(
-        DeclaredComparisonReport | DeclaredConditionReport | DeclaredDossierReport |
-        DeclaredDefinitionComponentsReport | DeclaredDefinitionReport | DeclaredArtifactReport | DeclaredClauseReport
+        DeclaredComparisonReport
+        | DeclaredConditionReport
+        | DeclaredDossierReport
+        | DeclaredDefinitionComponentsReport
+        | DeclaredDefinitionReport
+        | DeclaredArtifactReport
+        | DeclaredClauseReport
     ).json_schema()
     return SourceArtifact(
         "structural/nominal-kinds.json",
@@ -170,10 +175,9 @@ class PreparedStructuralInputs:
 
     def contribution(self, name, report, frame, identifier, *, member=None):
         from .contributions import contribution_identity
-        from .declared_candidate_products import candidate_member_values
-
         from .data_operation_admission import bound_data_operation_model
         from .data_operation_kind_refinements import input_kind_contracts
+        from .declared_candidate_products import candidate_member_values
 
         selected = member or self.member(name)
         model = bound_data_operation_model(self.prepared)
@@ -181,11 +185,19 @@ class PreparedStructuralInputs:
         accepted = input_kind_contracts(model, (root,))[root]
         if selected.kind_contract not in accepted:
             raise ValueError("structural reading requires its actual predicate producer capability")
-        owners = [identity.owner for identity in model.identities if identity.domain == "kind" and identity.key == selected.kind_contract]
+        owners = [
+            identity.owner
+            for identity in model.identities
+            if identity.domain == "kind" and identity.key == selected.kind_contract
+        ]
         if len(owners) != 1:
             raise ValueError("structural reading lacks its exact concrete input kind")
-        definition = next(definition for definition in self.prepared.definitions if definition.iri == owners[0])
-        checked = self.prepared.validate_json(definition.name, json_bytes(report)).model_dump(mode="python", exclude_unset=True)
+        definition = next(
+            definition for definition in self.prepared.definitions if definition.iri == owners[0]
+        )
+        checked = self.prepared.validate_json(definition.name, json_bytes(report)).model_dump(
+            mode="python", exclude_unset=True
+        )
         reference = DeclaredContributionRef.from_bound(
             member or self.member(name), project=self.project, contribution_id=identifier
         )
@@ -254,14 +266,14 @@ def _passage(frame, *, passage_id, start, end, scope, version="", parent=""):
 def execute_comparison(receiver, sources, reports, formal, **selection):
     from corpus_structure.methods.structural_products import produce_structural_comparison
 
-    from .declared_record_sources import DeclaredNativeFrameSource
-    from .structural_products import DeclaredComparisonReport, DeclaredStructuralInput
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_model import SubjectContext
     from .data_product_reference import DataProductReference
+    from .declared_record_sources import DeclaredNativeFrameSource
     from .formal_products import validate_formal_product
     from .formal_readings import FormalSourceReadings
     from .source_products import FrozenNativeSource
+    from .structural_products import DeclaredComparisonReport, DeclaredStructuralInput
 
     profile = receiver.profile
     profile.check_active()
@@ -312,19 +324,34 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
     lexical = {a.identity: [], b.identity: []}
     (formal_role,) = (role for role in profile.roles if role.role == "formal")
     for member, raw in zip(formal_role.members, formal, strict=True):
-        matches = [(reference, frame) for reference, frame in dict(((a, left), (b, right))).items() if raw["source"] == frame.value["source"] and raw["selectors"] == frame.value["selectors"]]
+        matches = [
+            (reference, frame)
+            for reference, frame in dict(((a, left), (b, right))).items()
+            if raw["source"] == frame.value["source"]
+            and raw["selectors"] == frame.value["selectors"]
+        ]
         if len(matches) != 1 or member.member is not None:
-            raise ValueError("comparison formal product lacks its exact whole selected original scope")
+            raise ValueError(
+                "comparison formal product lacks its exact whole selected original scope"
+            )
         address, frame = matches[0]
         source = FrozenNativeSource.acquire(profile.prepared, frame.value)
-        context = SubjectContext(profile.project, member.subject, member.original_source, member.analyzed_scope)
-        product = validate_formal_product(profile.prepared, raw, source, model=model, subject_context=context)
+        context = SubjectContext(
+            profile.project, member.subject, member.original_source, member.analyzed_scope
+        )
+        product = validate_formal_product(
+            profile.prepared, raw, source, model=model, subject_context=context
+        )
         if product.semantic_id != member.product:
             raise ValueError("comparison formal body differs from its exact native product")
-        retained_formal[address.identity].append((DataProductReference(product.semantic_id), product.inventory()))
+        retained_formal[address.identity].append(
+            (DataProductReference(product.semantic_id), product.inventory())
+        )
         lexical[address.identity].extend(raw["lexicon"])
     primary_readings = {
-        address.identity: FormalSourceReadings._from_retained(frame.value, retained_formal[address.identity], lexical[address.identity])
+        address.identity: FormalSourceReadings._from_retained(
+            frame.value, retained_formal[address.identity], lexical[address.identity]
+        )
         for address, frame in dict(((a, left), (b, right))).items()
         if retained_formal[address.identity]
     }

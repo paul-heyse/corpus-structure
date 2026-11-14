@@ -372,7 +372,9 @@ def artifact_reference_resolutions(
     return tuple(resolutions)
 
 
-def artifact_score_status(a: ArtifactRecordValue, b: ArtifactRecordValue, *, excluded: bool = False):
+def artifact_score_status(
+    a: ArtifactRecordValue, b: ArtifactRecordValue, *, excluded: bool = False
+):
     numbering = label_relation(a.numbering, b.numbering)
     av, bv = a.artifact, b.artifact
     if excluded or artifact_scope(a) != artifact_scope(b) or numbering == "different_observed":
@@ -821,9 +823,7 @@ def artifact_identity_invariants(value: Any) -> Any:
             )
         else:
             valid_score = (
-                pair.model_probability is None
-                and pair.model_id is None
-                and not pair.model_evidence
+                pair.model_probability is None and pair.model_id is None and not pair.model_evidence
             )
         if not valid_score:
             raise ValueError("identity score lacks selected frozen model custody")
@@ -868,9 +868,7 @@ def artifact_identity_invariants(value: Any) -> Any:
             ):
                 raise ValueError("artifact declaration lacks its exact pair route")
             nominated.add(key)
-    if nominated != {
-        key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes
-    }:
+    if nominated != {key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes}:
         raise ValueError("external pair route lacks an authenticated nomination")
 
     alias_pairs = {(p.left, p.right) for p in value.native_alias_pairs}

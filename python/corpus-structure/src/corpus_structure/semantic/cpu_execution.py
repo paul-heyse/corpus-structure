@@ -212,7 +212,8 @@ def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
     packet = json.loads(content)
     if (
         not isinstance(packet, dict)
-        or not {"profile", "assets", "grammar", "source", "options", "member_contracts"} <= packet.keys()
+        or not {"profile", "assets", "grammar", "source", "options", "member_contracts"}
+        <= packet.keys()
         or packet["profile"] != "formal-source-native"
         or packet["assets"] != formal_profile_assets().digest
         or packet["grammar"] != grammar_identity()
@@ -379,11 +380,7 @@ class CPUHandle:
                 self.cancel()
             finally:
                 self._collected = True
-                retained = (
-                    0
-                    if self._reply is None
-                    else len(self._reply.content)
-                )
+                retained = 0 if self._reply is None else len(self._reply.content)
                 self.owner._collected(self.admission, retained)
         if self._error is not None:
             raise self._error
@@ -708,9 +705,7 @@ class CPUExecutionScope:
         return self._submit(admission, content, check_active, "closed-python")
 
     def submit_closed_python_stream(self, admission, content, connection, check_active):
-        return self._submit(
-            admission, content, check_active, "closed-python-stream", connection
-        )
+        return self._submit(admission, content, check_active, "closed-python-stream", connection)
 
     def _submit(
         self, admission, content, check_active, profile, stream_connection=None

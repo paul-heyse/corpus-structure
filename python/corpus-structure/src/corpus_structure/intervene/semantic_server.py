@@ -58,7 +58,8 @@ QUEUE_ACK_MAX_BYTES = 8 * 1024 * 1024
 READ_UNIT_MAX_BYTES = 8 * 1024 * 1024
 
 
-from .mcp_results import bounded_mcp_result as _bounded_mcp_result, _stamp_mcp_result
+from .mcp_results import _stamp_mcp_result
+from .mcp_results import bounded_mcp_result as _bounded_mcp_result
 
 
 def _invocation_event(task_id, attempt, holder, binding, event, **details):

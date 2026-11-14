@@ -2,9 +2,8 @@
 
 import json
 import re
-from collections.abc import Iterable
-from typing import Any, Literal, Self, cast, TypedDict, NotRequired
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any, Literal, NotRequired, Self, TypedDict, cast
 
 from pydantic import Field, JsonValue, model_validator
 
@@ -25,7 +24,6 @@ from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     NativeSourcePin,
-    SourceSlice,
     evidence_anchor,
     record_source_pin,
 )
@@ -322,8 +320,11 @@ def _scalar_procedure_readings(proposals, passages) -> Iterable[ScalarProcedureR
                         orders.append((subordinate[0], action))
             yield dict(
                 action=action,
-                actor=roles["actor"], object=roles["object"],
-                modality=qualifiers["modality"], conditions=qualifiers["conditions"], exceptions=qualifiers["exceptions"],
+                actor=roles["actor"],
+                object=roles["object"],
+                modality=qualifiers["modality"],
+                conditions=qualifiers["conditions"],
+                exceptions=qualifiers["exceptions"],
                 orders=tuple(orders),
                 voice=frame.voice,
                 polarity=frame.polarity,
@@ -338,10 +339,18 @@ def retained_action_extent(contributions, link):
     matches = []
     for row in contributions:
         component = row.get("component", {})
-        if component.get("kind") != "predicate_frame" or (component.get("annotation"), component.get("block"), component.get("predicate_token")) != (link.witness.annotation, link.witness.block, link.witness.tokens["verb"]):
+        if component.get("kind") != "predicate_frame" or (
+            component.get("annotation"),
+            component.get("block"),
+            component.get("predicate_token"),
+        ) != (link.witness.annotation, link.witness.block, link.witness.tokens["verb"]):
             continue
         for member in component["frame_members"]:
-            if member["role"] == "predicate" and member["outcome"] == "complete" and len(member["extents"]) == 1:
+            if (
+                member["role"] == "predicate"
+                and member["outcome"] == "complete"
+                and len(member["extents"]) == 1
+            ):
                 extent = member["extents"][0]
                 matches.append((extent["start"], extent["end"]))
     return matches[0] if len(matches) == 1 else None
@@ -350,7 +359,11 @@ def retained_action_extent(contributions, link):
 def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProcedureReading]:
     """Project scalar procedure roles from already characterized predicate facts."""
     by_id = {row["contribution_id"]: row for row in contributions}
-    frames = {identifier: row["component"] for identifier, row in by_id.items() if row.get("component", {}).get("kind") == "predicate_frame"}
+    frames = {
+        identifier: row["component"]
+        for identifier, row in by_id.items()
+        if row.get("component", {}).get("kind") == "predicate_frame"
+    }
 
     def exact(member, local):
         if member.get("outcome") != "complete" or len(member["extents"]) != 1:
@@ -362,19 +375,46 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
     for identifier, frame in frames.items():
         if frame["grammatical_reading"] not in {"active", "passive"}:
             continue
-        predicate = tuple(member for member in frame["frame_members"] if member["role"] == "predicate")
-        local = tuple((passage.start, passage.end) for passage in passages) if passages is not None else tuple((extent["start"], extent["end"]) for member in frame["frame_members"] if member["role"] == "focus" for extent in member["extents"])
+        predicate = tuple(
+            member for member in frame["frame_members"] if member["role"] == "predicate"
+        )
+        local = (
+            tuple((passage.start, passage.end) for passage in passages)
+            if passages is not None
+            else tuple(
+                (extent["start"], extent["end"])
+                for member in frame["frame_members"]
+                if member["role"] == "focus"
+                for extent in member["extents"]
+            )
+        )
         action = exact(predicate[0], local) if len(predicate) == 1 else ()
-        readings = tuple(row["component"] for row in contributions if row.get("component", {}).get("kind") == "predicate_reading" and row["component"]["frame"] == identifier)
+        readings = tuple(
+            row["component"]
+            for row in contributions
+            if row.get("component", {}).get("kind") == "predicate_reading"
+            and row["component"]["frame"] == identifier
+        )
         if len(action) != 1 or len(readings) != 1:
             continue
         (reading,) = readings
-        fields = {name: tuple(extent for member in frame["frame_members"] if member["role"] == name for extent in exact(member, local)) for name in ("actor", "object")}
+        fields = {
+            name: tuple(
+                extent
+                for member in frame["frame_members"]
+                if member["role"] == name
+                for extent in exact(member, local)
+            )
+            for name in ("actor", "object")
+        }
         qualifiers = {name: [] for name in ("modality", "conditions", "exceptions")}
         orders = []
         for row in contributions:
             relation = row.get("component", {})
-            if relation.get("kind") != "predicate_qualifier" or relation["host_contribution_id"] != identifier:
+            if (
+                relation.get("kind") != "predicate_qualifier"
+                or relation["host_contribution_id"] != identifier
+            ):
                 continue
             cue = by_id[relation["qualifier_contribution_id"]]["component"]
             if cue.get("host_state") != "located" or len(cue["extents"]) != 1:
@@ -383,25 +423,73 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
             span = (extent["start"], extent["end"])
             if not any(a <= span[0] < span[1] <= b for a, b in local):
                 continue
-            name = {"modality": "modality", "condition": "conditions", "exception": "exceptions"}.get(relation["qualifier_kind"])
+            name = {
+                "modality": "modality",
+                "condition": "conditions",
+                "exception": "exceptions",
+            }.get(relation["qualifier_kind"])
             if name is not None:
                 qualifiers[name].append(span)
             if relation["qualifier_kind"] == "order" and cue.get("subordinate_token") is not None:
-                subordinate = tuple(other for other in frames.values() if (other["annotation"], other["block"], other["predicate_token"]) == (frame["annotation"], frame["block"], cue["subordinate_token"]))
-                positions = tuple(position for other in subordinate for member in other["frame_members"] if member["role"] == "predicate" for position in exact(member, local))
+                subordinate = tuple(
+                    other
+                    for other in frames.values()
+                    if (other["annotation"], other["block"], other["predicate_token"])
+                    == (frame["annotation"], frame["block"], cue["subordinate_token"])
+                )
+                positions = tuple(
+                    position
+                    for other in subordinate
+                    for member in other["frame_members"]
+                    if member["role"] == "predicate"
+                    for position in exact(member, local)
+                )
                 if len(positions) == 1 and cue["variant"] in {"before", "after"}:
-                    orders.append((action[0], positions[0]) if cue["variant"] == "before" else (positions[0], action[0]))
-        yield dict(action=action[0], actor=fields["actor"], object=fields["object"], modality=tuple(qualifiers["modality"]), conditions=tuple(qualifiers["conditions"]), exceptions=tuple(qualifiers["exceptions"]), orders=tuple(orders), voice=reading["voice"], polarity=reading["polarity"], behavior=reading["reading"], clause_role=frame["grammatical_reading"], dependency=frame["annotation"], predicate_token=frame["predicate_token"], block=frame["block"], reading_key=f"{frame['block']}:{frame['variant']}:{(frame['predicate_token'],)}")
+                    orders.append(
+                        (action[0], positions[0])
+                        if cue["variant"] == "before"
+                        else (positions[0], action[0])
+                    )
+        yield dict(
+            action=action[0],
+            actor=fields["actor"],
+            object=fields["object"],
+            modality=tuple(qualifiers["modality"]),
+            conditions=tuple(qualifiers["conditions"]),
+            exceptions=tuple(qualifiers["exceptions"]),
+            orders=tuple(orders),
+            voice=reading["voice"],
+            polarity=reading["polarity"],
+            behavior=reading["reading"],
+            clause_role=frame["grammatical_reading"],
+            dependency=frame["annotation"],
+            predicate_token=frame["predicate_token"],
+            block=frame["block"],
+            reading_key=f"{frame['block']}:{frame['variant']}:{(frame['predicate_token'],)}",
+        )
 
 
-def located_participant(frame, context, pin, dependency, operation, start, end, *, role, pointer, region, extra=None, dependencies=(), reading_key=None):
+def located_participant(
+    frame,
+    context,
+    pin,
+    dependency,
+    operation,
+    start,
+    end,
+    *,
+    role,
+    pointer,
+    region,
+    extra=None,
+    dependencies=(),
+    reading_key=None,
+):
     """Project one genuine original-relative participant for structural consumers."""
     if not 0 <= start < end <= len(frame.text):
         raise ValueError("structural participant lies outside source")
     anchors, mapped_coordinates = [], []
-    for piece in context.map_span(
-        start, end, literal=frame.text[start:end], allow_multiple=True
-    ):
+    for piece in context.map_span(start, end, literal=frame.text[start:end], allow_multiple=True):
         anchor, coordinate = evidence_anchor(context, piece, native=True)
         anchors.append(anchor)
         mapped_coordinates.append(coordinate)
@@ -434,16 +522,23 @@ def located_participant(frame, context, pin, dependency, operation, start, end, 
     return row, tuple(mapped_coordinates)
 
 
-def artifact_occurrence(item, found, node, source_work, dependency, field_start, *, artifact_type=SourceArtifactOccurrence):
+def artifact_occurrence(
+    item,
+    found,
+    node,
+    source_work,
+    dependency,
+    field_start,
+    *,
+    artifact_type=SourceArtifactOccurrence,
+):
     """Project already characterized artifact facts, without unrelated structural work."""
     # Caption status comes from the original native label, not surface position.
     caption = node.get("label") == "caption"
     pointer = found["primary_record"].payload["pointer"]
     from .witnessed_source_links import retained_artifact_fields
 
-    aliases, _, title = retained_artifact_fields(
-        found["primary_record"], field_start
-    )
+    aliases, _, title = retained_artifact_fields(found["primary_record"], field_start)
 
     value = artifact_type.model_validate(
         dict(
@@ -501,20 +596,33 @@ def discover_relations(
     """
     if predicate_version != "6" or named_link_version != "4":
         raise ValueError("current scoped relations require primary predicate6 and navigation4")
-    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
     from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
     from corpus_structure.semantic.source_contexts import PreparedNativeSources, source_slice
+
     from .witnessed_source_links import navigation_index, symbol_declarations
 
     declared = isinstance(frame, DeclaredNativeFrameSource)
     native = json.loads(frame.native_context)
     if declared:
-        if not isinstance(navigation, NativeNavigationIndex) or formal_layers is None or retained_predicates is None:
-            raise ValueError("declared scoped relations require actual navigation, formal and retained predicate inputs")
+        if (
+            not isinstance(navigation, NativeNavigationIndex)
+            or formal_layers is None
+            or retained_predicates is None
+        ):
+            raise ValueError(
+                "declared scoped relations require actual navigation, formal and retained predicate inputs"
+            )
         if annotations or annotation_origin_task_id is not None:
-            raise ValueError("declared scoped relations cannot use task-addressed annotation custody")
-        if not {"source_predicate_frames", "source_predicate_interpretation"} <= {operation["question"] for operation in retained_predicate_operations}:
-            raise ValueError("declared scoped relations require actual retained predicate inspection outcomes")
+            raise ValueError(
+                "declared scoped relations cannot use task-addressed annotation custody"
+            )
+        if not {"source_predicate_frames", "source_predicate_interpretation"} <= {
+            operation["question"] for operation in retained_predicate_operations
+        }:
+            raise ValueError(
+                "declared scoped relations require actual retained predicate inspection outcomes"
+            )
         primary_layers = formal_layers
         navigation.require()
         legacy_view_id = None
@@ -524,18 +632,56 @@ def discover_relations(
             for annotation in annotations
             for pin, report in getattr(annotation, "primary_layers", {}).items()
         }
-        navigation = navigation if navigation is not None else navigation_index(primary_layers, frame.projection_digest, source_view_id=frame.source_view_id)
+        navigation = (
+            navigation
+            if navigation is not None
+            else navigation_index(
+                primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
+            )
+        )
         navigation.require()
         legacy_view_id = frame.source_view_id
     if not frame.text:
         raise ValueError("structural joins require a nonempty source projection")
-    source_pieces = tuple(piece for piece in native["pieces"] if not declared or any(a <= piece["start"] < piece["end"] <= b for a, b in frame.selected_ranges))
+    source_pieces = tuple(
+        piece
+        for piece in native["pieces"]
+        if not declared
+        or any(a <= piece["start"] < piece["end"] <= b for a, b in frame.selected_ranges)
+    )
     if declared:
-        context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "native structural composition", "scoped-source-joins-1", "selected source", max_chars=max(1, len(frame.text)), max_pieces=max(1, len(source_pieces)), max_sources=1, version=2, preparation=PreparedNativeSources((frame,), max_sources=1))
+        context = NativeSourceContext(
+            frame,
+            (),
+            (source_slice(frame, 0, len(frame.text)),),
+            "native structural composition",
+            "scoped-source-joins-1",
+            "selected source",
+            max_chars=max(1, len(frame.text)),
+            max_pieces=max(1, len(source_pieces)),
+            max_sources=1,
+            version=2,
+            preparation=PreparedNativeSources((frame,), max_sources=1),
+        )
     else:
-        context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "native structural composition", "scoped-source-joins-1", "selected source", max_chars=max(1, len(frame.text)), max_pieces=max(1, len(source_pieces)))
+        context = NativeSourceContext(
+            frame,
+            (),
+            (source_slice(frame, 0, len(frame.text)),),
+            "native structural composition",
+            "scoped-source-joins-1",
+            "selected source",
+            max_chars=max(1, len(frame.text)),
+            max_pieces=max(1, len(source_pieces)),
+        )
     pin = record_source_pin(frame)
-    dependency = pin["source_product"] if declared else "native:" + str(frame.native_product.task_id) if hasattr(frame, "native_product") else "native:" + str(pin["native_product_task_id"])
+    dependency = (
+        pin["source_product"]
+        if declared
+        else "native:" + str(frame.native_product.task_id)
+        if hasattr(frame, "native_product")
+        else "native:" + str(pin["native_product_task_id"])
+    )
     # The unchanged geometry/artifact operation has an independent identity.
     # Artifact cohort replay also reconstructs this identity from the source.
     op = operation_identity("structure.scoped_relations", "3", pin)
@@ -565,12 +711,24 @@ def discover_relations(
         if key in participants:
             return participants[key]
         row, mapped = located_participant(
-            frame, context, pin, dependency, operation, start, end,
-            role=role, pointer=pointer, region=region, extra=extra,
-            dependencies=dependencies, reading_key=reading_key,
+            frame,
+            context,
+            pin,
+            dependency,
+            operation,
+            start,
+            end,
+            role=role,
+            pointer=pointer,
+            region=region,
+            extra=extra,
+            dependencies=dependencies,
+            reading_key=reading_key,
         )
         for coordinate in mapped:
-            coordinates[canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})] = coordinate
+            coordinates[canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})] = (
+                coordinate
+            )
         products.append(row)
         participants[key] = row
         return row
@@ -763,8 +921,21 @@ def discover_relations(
                     region=pointer,
                     extra={"primary_node": found["primary_node"]},
                 )
-                from corpus_structure.semantic.structural_products import DeclaredSourceArtifactOccurrence
-                artifact = artifact_occurrence(item, found, node, source_work, dependency, piece["start"], artifact_type=DeclaredSourceArtifactOccurrence if declared else SourceArtifactOccurrence)
+                from corpus_structure.semantic.structural_products import (
+                    DeclaredSourceArtifactOccurrence,
+                )
+
+                artifact = artifact_occurrence(
+                    item,
+                    found,
+                    node,
+                    source_work,
+                    dependency,
+                    piece["start"],
+                    artifact_type=DeclaredSourceArtifactOccurrence
+                    if declared
+                    else SourceArtifactOccurrence,
+                )
                 caption = node.get("label") == "caption"
                 products.append(artifact)
                 code = normalized_code(found["controlled_code"])
@@ -1098,13 +1269,34 @@ def discover_relations(
         assert retained_predicates is not None
         products.extend(retained_predicates)
         for coordinate in retained_coordinate_texts:
-            coordinates[canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})] = coordinate
+            coordinates[
+                canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})
+            ] = coordinate
         predicate_proposals = ()
         readings = list(retained_procedure_readings(retained_predicates, passages))
     else:
         predicate_proposals = predicate_results(frame, annotations, source_pieces, items)
         readings = [
-            *(ScalarProcedureReading(action=base["action"], actor=base["actor"], object=base["object"], modality=base["modality"], conditions=base["conditions"], exceptions=base["exceptions"], orders=base["orders"], voice=base["voice"], polarity=base["polarity"], behavior=base["behavior"], clause_role=base["clause_role"], dependency="annotation:" + base["dependency"]) for base in procedure_frames(frame.text, tuple(a for a in annotations if not isinstance(a, AnnotationProduct)))),
+            *(
+                ScalarProcedureReading(
+                    action=base["action"],
+                    actor=base["actor"],
+                    object=base["object"],
+                    modality=base["modality"],
+                    conditions=base["conditions"],
+                    exceptions=base["exceptions"],
+                    orders=base["orders"],
+                    voice=base["voice"],
+                    polarity=base["polarity"],
+                    behavior=base["behavior"],
+                    clause_role=base["clause_role"],
+                    dependency="annotation:" + base["dependency"],
+                )
+                for base in procedure_frames(
+                    frame.text,
+                    tuple(a for a in annotations if not isinstance(a, AnnotationProduct)),
+                )
+            ),
             *_scalar_procedure_readings(predicate_proposals, passages),
         ]
     for reading in readings:
@@ -1129,7 +1321,14 @@ def discover_relations(
                     polarity=action_reading["polarity"],
                     behavior=action_reading["behavior"],
                     clause_role=action_reading["clause_role"],
-                    **({"predicate_token": action_reading["predicate_token"], "block": action_reading["block"]} if declared else {}),
+                    **(
+                        {
+                            "predicate_token": action_reading["predicate_token"],
+                            "block": action_reading["block"],
+                        }
+                        if declared
+                        else {}
+                    ),
                     role_states={
                         name: "located_linguistic_proposal"
                         if action_reading[name]
@@ -1212,9 +1411,16 @@ def discover_relations(
                     operation=procedure_op,
                 )
     # Diagnostics are retained independently of contribution count or solver success.
-    available = all(operation["outcome"] in {"succeeded", "empty"} for operation in retained_predicate_operations) if declared else any(
-        {"DEP", "POS"} <= {x.attribute for x in a.availability if x.status == "complete"}
-        for a in annotations
+    available = (
+        all(
+            operation["outcome"] in {"succeeded", "empty"}
+            for operation in retained_predicate_operations
+        )
+        if declared
+        else any(
+            {"DEP", "POS"} <= {x.attribute for x in a.availability if x.status == "complete"}
+            for a in annotations
+        )
     )
     emitted = sum(p["operation_key"] == procedure_op for p in products)
     extra_operations = (
@@ -1238,7 +1444,11 @@ def discover_relations(
                     else "No complete retained DEP/POS product; no absence is inferred."
                 )
             ),
-            inspected_count=sum(operation["inspected_count"] for operation in retained_predicate_operations) if declared else sum(len(a.tokens) for a in annotations),
+            inspected_count=sum(
+                operation["inspected_count"] for operation in retained_predicate_operations
+            )
+            if declared
+            else sum(len(a.tokens) for a in annotations),
             emitted_count=emitted,
             computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
         ),
@@ -1605,7 +1815,11 @@ def discover_relations(
                         link,
                         None if declared else procedure_annotations[link.witness.annotation],
                         artifact_deps[0],
-                        **({"verb_extent": retained_action_extent(retained_predicates, link)} if declared else {}),
+                        **(
+                            {"verb_extent": retained_action_extent(retained_predicates, link)}
+                            if declared
+                            else {}
+                        ),
                     )
                     if binding is not None:
                         action, caption, artifact = binding
@@ -1673,7 +1887,14 @@ def discover_relations(
         contributions=tuple(products),
         coordinates=tuple(coordinates.values()),
         extra_operations=tuple(
-            {**operation, **({"primary_products": [reference.values() for reference in primary_product_refs]} if declared else {"primary_layers": [pin.values() for pin in primary_layers]})}
+            {
+                **operation,
+                **(
+                    {"primary_products": [reference.values() for reference in primary_product_refs]}
+                    if declared
+                    else {"primary_layers": [pin.values() for pin in primary_layers]}
+                ),
+            }
             for operation in (
                 *extra_operations,
                 *predicate_operations,
@@ -1685,7 +1906,11 @@ def discover_relations(
         operation=dict(
             operation_key=op,
             question="source_structural_relations",
-            **({"primary_products": [reference.values() for reference in primary_product_refs]} if declared else {"primary_layers": [pin.values() for pin in primary_layers]}),
+            **(
+                {"primary_products": [reference.values() for reference in primary_product_refs]}
+                if declared
+                else {"primary_layers": [pin.values() for pin in primary_layers]}
+            ),
             operation_version="1",
             outcome="succeeded" if any(p["operation_key"] == op for p in products) else "empty",
             inspected_count=len(source_pieces),

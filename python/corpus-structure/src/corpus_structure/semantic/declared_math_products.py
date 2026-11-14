@@ -26,8 +26,8 @@ from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
 from .declared_record_sources import DeclaredNativeFrameSource
 from .declared_structural_references import DeclaredStructuralSource
-from .structural_products import DeclaredStructuralInputPin as DeclaredMathInput
 from .identity import canonical_bytes
+from .structural_products import DeclaredStructuralInputPin as DeclaredMathInput
 from .types import PreparedRelease, SourceArtifact
 
 NAMESPACE = "urn:corpus:math:"
@@ -312,27 +312,45 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
         if parent is None or not product.source.matches_pin(parent.pin.values()):
             raise ValueError("inherited declarations require their exact retained ancestor source")
         for row in product.source_declarations:
-            if row.get("role") != "function" or row.get("scope") != parent.source_key + ":section:" + parent.section_pointer:
+            if (
+                row.get("role") != "function"
+                or row.get("scope") != parent.source_key + ":section:" + parent.section_pointer
+            ):
                 continue
             before = before_descendant_columns(
-                parent_items=parent.items, parent_ancestors=parent.ancestors,
-                child_items=frame.items, child_ancestors=frame.ancestors,
-                ancestor=parent.section_pointer, child_pointer=frame.section_pointer,
+                parent_items=parent.items,
+                parent_ancestors=parent.ancestors,
+                child_items=frame.items,
+                child_ancestors=frame.ancestors,
+                ancestor=parent.section_pointer,
+                child_pointer=frame.section_pointer,
                 pointer=row["pointer"],
             )
             if before is None:
-                issues.append("ancestor declaration source order unavailable: " + str(row["pointer"]))
+                issues.append(
+                    "ancestor declaration source order unavailable: " + str(row["pointer"])
+                )
             if before is not True:
                 continue
-            declarations.append({
-                "symbol": row["symbol"], "role": "function", "authority": "source",
-                "source_id": frame.source_key,
-                "scope": frame.source_key + ":section:" + frame.section_pointer,
-                "start": 0, "end": len(frame.items),
-                "evidence": canonical_bytes({"ancestor_product": pin.product,
-                    "ancestor_source": product.source.model_dump(mode="json"),
-                    "declaration": row, "before_descendant": True}).decode(),
-            })
+            declarations.append(
+                {
+                    "symbol": row["symbol"],
+                    "role": "function",
+                    "authority": "source",
+                    "source_id": frame.source_key,
+                    "scope": frame.source_key + ":section:" + frame.section_pointer,
+                    "start": 0,
+                    "end": len(frame.items),
+                    "evidence": canonical_bytes(
+                        {
+                            "ancestor_product": pin.product,
+                            "ancestor_source": product.source.model_dump(mode="json"),
+                            "declaration": row,
+                            "before_descendant": True,
+                        }
+                    ).decode(),
+                }
+            )
     supplied = {value.source.section_pointer for value in inherited}
     missing = {
         row["self_ref"]
@@ -371,12 +389,19 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
         and all(row.result.status.value == "ok" for row in readings)
     )
     from corpus_structure.methods.math.source_context import _heads
+
     source_declarations = tuple(
-        {"symbol": name, "role": "function", "pointer": reading.pointer,
-         "recognized_start": bounds[0], "recognized_end": bounds[1],
-         "scope": reading.prepared.context.scope,
-         "rule_id": "function-definition-1"}
-        for reading in readings for name, bounds in _heads(reading.prepared.syntax())
+        {
+            "symbol": name,
+            "role": "function",
+            "pointer": reading.pointer,
+            "recognized_start": bounds[0],
+            "recognized_end": bounds[1],
+            "scope": reading.prepared.context.scope,
+            "rule_id": "function-definition-1",
+        }
+        for reading in readings
+        for name, bounds in _heads(reading.prepared.syntax())
     )
     return DeclaredMathOccurrenceProduct(
         source=DeclaredStructuralSource.model_validate(frame.pin.values()),
@@ -453,8 +478,11 @@ def math_kernel(
         acquire_analysis_context_profile(),
         check_active,
     )
-    receiver = {"occurrences": DeclaredMathOccurrences, "symbolic": DeclaredMathNormalization,
-                "scope": DeclaredMathScope}[phase](profile)
+    receiver = {
+        "occurrences": DeclaredMathOccurrences,
+        "symbolic": DeclaredMathNormalization,
+        "scope": DeclaredMathScope,
+    }[phase](profile)
     return receiver.run(**arguments)
 
 

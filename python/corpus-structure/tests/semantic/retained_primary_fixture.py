@@ -46,7 +46,10 @@ class _SealedPrimary:
     @staticmethod
     def select(run, cfg):
         base = ProductReference(**cfg.characterization_base_document)
-        refs = tuple(run.reader.source_view_ref(identity) for identity in cfg.characterization_source_scope["source_view_ids"])
+        refs = tuple(
+            run.reader.source_view_ref(identity)
+            for identity in cfg.characterization_source_scope["source_view_ids"]
+        )
         if not refs or any(ref is None or ref.native_product != base for ref in refs):
             raise ValueError("historical fixture source differs from its selected original base")
         documents = {ref.document_id for ref in refs if ref is not None}
@@ -57,6 +60,7 @@ class _SealedPrimary:
     def input_digest(self, unit, cfg):
         from corpus_structure.core.method import Digest
         from corpus_structure.semantic.identity import canonical_bytes
+
         return Digest(canonical_bytes(cfg.model_dump(mode="json")))
 
     def plan(self, units, cfg, ctx):
@@ -64,7 +68,16 @@ class _SealedPrimary:
         return self.run(units, cfg, ctx)
 
     def run(self, units, cfg, ctx):
-        return tuple(UnitResult(ref=unit.ref, outcome=ObservationOutcome.PRODUCED, characterization_layer=self.layer(unit.run.reader, cfg, ctx.characterization_operation(unit.ref))) for unit in units)
+        return tuple(
+            UnitResult(
+                ref=unit.ref,
+                outcome=ObservationOutcome.PRODUCED,
+                characterization_layer=self.layer(
+                    unit.run.reader, cfg, ctx.characterization_operation(unit.ref)
+                ),
+            )
+            for unit in units
+        )
 
 
 class SealedFormalFixture(_SealedPrimary):
@@ -74,14 +87,28 @@ class SealedFormalFixture(_SealedPrimary):
     @staticmethod
     def layer(reader, cfg, operation):
         from corpus_structure.semantic.characterization import validate_layer
-        from corpus_structure.semantic.formal_evidence import build_formal_layer, FAMILIES
+        from corpus_structure.semantic.formal_evidence import FAMILIES, build_formal_layer
         from corpus_structure.semantic.identity import canonical_bytes
+
         scope = cfg.characterization_source_scope
         payloads = []
         for identity in scope["source_view_ids"]:
             view = reader.source_view(identity)
-            selected = {**scope, "source_view_ids": [identity], "source_views": [row for row in scope["source_views"] if row["source_view_id"] == identity], "selectors": [row for row in scope["selectors"] if row["projection"] == view.ref.projection_digest]}
-            payloads.append(build_formal_layer(view, reader.prepared, operation, source_scope=selected).payload)
+            selected = {
+                **scope,
+                "source_view_ids": [identity],
+                "source_views": [
+                    row for row in scope["source_views"] if row["source_view_id"] == identity
+                ],
+                "selectors": [
+                    row
+                    for row in scope["selectors"]
+                    if row["projection"] == view.ref.projection_digest
+                ],
+            }
+            payloads.append(
+                build_formal_layer(view, reader.prepared, operation, source_scope=selected).payload
+            )
         value = {**payloads[0], "source_scope": scope}
         for inventory in ("occurrences", "annotations", "memberships", "roles", "terms", "choices"):
             rows = {}
@@ -93,16 +120,33 @@ class SealedFormalFixture(_SealedPrimary):
             value[inventory] = list(rows.values())
         coverage = []
         for family in FAMILIES:
-            parts = [next(row for row in payload["coverage"] if row["family"] == family) for payload in payloads]
+            parts = [
+                next(row for row in payload["coverage"] if row["family"] == family)
+                for payload in payloads
+            ]
             combined = {**parts[0]}
             for key in ("eligible", "examined", "unexamined"):
-                combined[key] = list({canonical_bytes(row): row for part in parts for row in part[key]}.values())
-            combined["outcome"] = "partial" if any(part["outcome"] not in {"complete", "empty"} for part in parts) else "complete" if any(part["outcome"] == "complete" for part in parts) else "empty"
+                combined[key] = list(
+                    {canonical_bytes(row): row for part in parts for row in part[key]}.values()
+                )
+            combined["outcome"] = (
+                "partial"
+                if any(part["outcome"] not in {"complete", "empty"} for part in parts)
+                else "complete"
+                if any(part["outcome"] == "complete" for part in parts)
+                else "empty"
+            )
             if combined["outcome"] == "partial":
-                combined["reason"] = "; ".join(dict.fromkeys(part["reason"] for part in parts if part.get("reason")))
+                combined["reason"] = "; ".join(
+                    dict.fromkeys(part["reason"] for part in parts if part.get("reason"))
+                )
             coverage.append(combined)
         value["coverage"] = coverage
-        value["outcome"] = "partial" if any(row["outcome"] not in {"complete", "empty"} for row in coverage) else "complete"
+        value["outcome"] = (
+            "partial"
+            if any(row["outcome"] not in {"complete", "empty"} for row in coverage)
+            else "complete"
+        )
         return validate_layer(reader.prepared, value)
 
 
@@ -112,15 +156,25 @@ class SealedConstructionFixture(_SealedPrimary):
 
     @staticmethod
     def layer(reader, cfg, operation):
-        from corpus_structure.semantic.constructions import FAMILIES, ConstructionLayer, ProtectedAtom
-        from corpus_structure.semantic.constructions.matching import PreparedConstructions, retained_documents
-        from corpus_structure.semantic.constructions.retained_rules import populate
+        from corpus_structure.semantic.constructions import (
+            FAMILIES,
+            ConstructionLayer,
+            ProtectedAtom,
+        )
+        from corpus_structure.semantic.constructions.matching import (
+            PreparedConstructions,
+            retained_documents,
+        )
         from corpus_structure.semantic.constructions.navigation import populate_navigation
+        from corpus_structure.semantic.constructions.retained_rules import populate
+
         base = cfg.characterization_base_document
         scope = cfg.characterization_source_scope
         pins = tuple(ProductReference(**row) for row in cfg.characterization_layers)
         dependencies = reader.characterization_layers(pins)
-        layer = ConstructionLayer(base, scope, operation, families=(*FAMILIES, "construction.navigation"))
+        layer = ConstructionLayer(
+            base, scope, operation, families=(*FAMILIES, "construction.navigation")
+        )
         layer.operation["required_layers"] = [pin.values() for pin in pins]
         vocab = English().vocab
         prepared = PreparedConstructions(vocab)
@@ -131,9 +185,16 @@ class SealedConstructionFixture(_SealedPrimary):
                 if piece["kind"] != "native_text":
                     continue
                 start, end = piece["start"], piece["end"]
-                atoms = (ProtectedAtom(0, end - start, layer.occurrence(view, start, end)),) if items.get(piece["item_ref"], {}).get("label") in {"formula", "reference", "reference_marker"} else ()
+                atoms = (
+                    (ProtectedAtom(0, end - start, layer.occurrence(view, start, end)),)
+                    if items.get(piece["item_ref"], {}).get("label")
+                    in {"formula", "reference", "reference_marker"}
+                    else ()
+                )
                 layer.region(view, start, end, atoms)
-            for pin, container, doc, columns, start, _end in retained_documents(dependencies, view, vocab):
+            for pin, container, doc, columns, start, _end in retained_documents(
+                dependencies, view, vocab
+            ):
                 layer.native(view, pin, container, doc, columns, start, prepared)
             for pin, report in dependencies.items():
                 if any(row["provider"] == "spacy" for row in report.payload.get("native_runs", ())):

@@ -2,7 +2,10 @@
 
 from pydantic import Field
 
-from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated, PdfIntegratedIngestConfig
+from corpus_structure.ingest.pdf_recognition_methods import (
+    IngestPdfIntegrated,
+    PdfIntegratedIngestConfig,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 
 
@@ -65,4 +68,3 @@ class RetainedIntegratedPdf(IngestPdfIntegrated):
         ):
             raise ValueError("M1 source task differs from its retained document binding")
         return super().run(units, cfg, ctx)
-

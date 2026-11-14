@@ -44,5 +44,3 @@ def bounded_mcp_result(
     if len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8")) > max_bytes:
         raise ReadLimit("complete MCP response exceeds byte budget", reason="oversized_item")
     return ToolResult.from_mcp_result(wire)
-
-

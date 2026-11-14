@@ -14,14 +14,12 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import ConfidenceSource, PolicyChain, TaskUnitType
 from corpus_structure.orchestrate.policy import (
     PolicyError,
     compile_policy,
     load_policy,
     parse_policy,
-    registry_configs,
     unit_language,
 )
 from corpus_structure.semantic.statement_types import statement_kinds
@@ -210,5 +208,3 @@ def test_source_execution_preserves_available_unknown_classification():
     assert rule.matches(
         {"unit": SimpleNamespace(kind="source_view", claim_bearing=None, statement_kind=None)}
     )
-
-

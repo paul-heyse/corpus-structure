@@ -13,8 +13,6 @@ from corpus_structure.semantic.data_operation_compilation import (
 )
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
-    RootSubject,
-    freeze_demand,
 )
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -125,13 +123,24 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
-    request = NativeDemandRequest.model_validate({
-        "project_id": context.project_id, "release_id": kernel.prepared.release_id,
-        "runtime_id": kernel.preparation.runtime.runtime_id,
-        "roots": [{"subject": context.subject, "original_source": context.original_source, "analyzed_scope": {}}],
-        "targets": ["urn:authored:consume"], "execution_profile": "execution:test",
-        "inference": "authored-test", "original_sources": {authored.name: authored.record()},
-    })
+    request = NativeDemandRequest.model_validate(
+        {
+            "project_id": context.project_id,
+            "release_id": kernel.prepared.release_id,
+            "runtime_id": kernel.preparation.runtime.runtime_id,
+            "roots": [
+                {
+                    "subject": context.subject,
+                    "original_source": context.original_source,
+                    "analyzed_scope": {},
+                }
+            ],
+            "targets": ["urn:authored:consume"],
+            "execution_profile": "execution:test",
+            "inference": "authored-test",
+            "original_sources": {authored.name: authored.record()},
+        }
+    )
     admitted = author_interpretations(kernel.engine, kernel.prepared, request=request)
     assert admitted["standing"] == "authored" and not admitted["selected"]
     assert "run_id" not in admitted and "cut_id" not in admitted

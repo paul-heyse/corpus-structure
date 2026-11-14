@@ -3,7 +3,6 @@
 from pathlib import Path
 
 
-
 def test_active_registry_has_no_html_writer_or_source_capture_module():
     from corpus_structure.semantic.pdf_capture import pdf_capture_operation_sources
 

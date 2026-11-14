@@ -438,8 +438,6 @@ def test_released_layer_and_wrong_host_control():
         validate_layer(release, invalid)
 
 
-
-
 @pytest.mark.parametrize("gap", [" ", "\t", "\n  "])
 def test_retained_working_doc_preserves_whitespace_and_native_named_dependencies(gap):
     from corpus_structure.semantic.characterization import LayerReport

@@ -14,13 +14,13 @@ from corpus_structure.methods.gliner import GlinerRefused
 from corpus_structure.methods.m1_annotations import consume_annotations
 from corpus_structure.methods.m1_source import M1Candidates, configured_packs
 from corpus_structure.methods.record_assembly import OCCURRENCE_POLICY, assemble_records
-from methods.domain_configuration import candidate_configuration
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     SourceSlice,
     SyntheticText,
 )
+from methods.domain_configuration import candidate_configuration
 from methods.m1_producer_support import (
     ROOT,
     ControlledDecoder,

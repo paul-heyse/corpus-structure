@@ -833,8 +833,11 @@ class NativeDemandExecutor:
                 def retain_packet(connection):
                     return DataOperationStorage(connection).invoke(
                         "retain_external_data_packet",
-                        {**claim.fence, "runtime_id": self.runtime.runtime_id,
-                         "max_bytes": self.policy.max_packet_bytes},
+                        {
+                            **claim.fence,
+                            "runtime_id": self.runtime.runtime_id,
+                            "max_bytes": self.policy.max_packet_bytes,
+                        },
                     )
 
                 owner.settle(claim, retain_packet)

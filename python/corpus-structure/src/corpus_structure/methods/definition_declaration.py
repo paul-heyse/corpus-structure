@@ -283,25 +283,47 @@ def primary_declaration_component(layers, view, passage):
 
 def primary_declaration_component_products(products, source, passage, *, supporting, source_pin):
     """Select the same domain chain from declared positioned syntax and native support."""
-    from corpus_structure.semantic.constructions.retained_declarations import declaration_sentences_products
+    from corpus_structure.semantic.constructions.retained_declarations import (
+        declaration_sentences_products,
+    )
     from corpus_structure.semantic.structural_products import (
-        DeclaredDeclarationChainWitness, DeclaredPrimaryReference,
+        DeclaredDeclarationChainWitness,
+        DeclaredPrimaryReference,
         declared_definition_component,
     )
 
-    sentences, evidence = declaration_sentences_products(products, source, passage, supporting=supporting)
+    sentences, evidence = declaration_sentences_products(
+        products, source, passage, supporting=supporting
+    )
     chain = _declaration_chain_from_sentences(sentences, passage)
     return declared_definition_component(
-        term=chain.term, content=chain.content, interpretation="definition", basis="declaration_chain",
+        term=chain.term,
+        content=chain.content,
+        interpretation="definition",
+        basis="declaration_chain",
         declaration_chain=DeclaredDeclarationChainWitness(
             version=CHAIN_VERSION,
-            primary_evidence=tuple(DeclaredPrimaryReference(**reference.values()) for reference in evidence),
-            scope_digest=sha256(canonical_bytes({"source": source_pin, "passage": [passage.start, passage.end], "policy": "primary-declaration-roles-1"})).hexdigest(),
-            label=chain.label, bindings=chain.bindings,
-            construction_frame=chain.construction_frame, construction_subject_token=chain.construction_subject_token,
-            naming_frame=chain.naming_frame, naming_antecedent_token=chain.naming_antecedent_token,
+            primary_evidence=tuple(
+                DeclaredPrimaryReference(**reference.values()) for reference in evidence
+            ),
+            scope_digest=sha256(
+                canonical_bytes(
+                    {
+                        "source": source_pin,
+                        "passage": [passage.start, passage.end],
+                        "policy": "primary-declaration-roles-1",
+                    }
+                )
+            ).hexdigest(),
+            label=chain.label,
+            bindings=chain.bindings,
+            construction_frame=chain.construction_frame,
+            construction_subject_token=chain.construction_subject_token,
+            naming_frame=chain.naming_frame,
+            naming_antecedent_token=chain.naming_antecedent_token,
         ),
-        scope=passage.scope, effective_version=passage.effective_version,
+        scope=passage.scope,
+        effective_version=passage.effective_version,
         evidence=(passage.passage_id,),
         reason="Exact retained native declaration roles and primary voice interpretations support this local definition chain; domain admission remains separate.",
     )

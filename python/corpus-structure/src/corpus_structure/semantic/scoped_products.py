@@ -15,7 +15,21 @@ from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
-_PATHS = ("methods/scoped_relations_declared.py", "semantic/scoped_products.py", "methods/scoped_relations.py", "methods/structural_roles.py", "methods/inline_formula_occurrences.py", "methods/witnessed_source_links.py", "semantic/declared_formal_readings.py", "semantic/constructions/navigation.py", "semantic/source_contexts.py", "semantic/declared_record_sources.py", "semantic/declared_candidate_products.py", "semantic/contributions.py", "semantic/record_contracts.py")
+_PATHS = (
+    "methods/scoped_relations_declared.py",
+    "semantic/scoped_products.py",
+    "methods/scoped_relations.py",
+    "methods/structural_roles.py",
+    "methods/inline_formula_occurrences.py",
+    "methods/witnessed_source_links.py",
+    "semantic/declared_formal_readings.py",
+    "semantic/constructions/navigation.py",
+    "semantic/source_contexts.py",
+    "semantic/declared_record_sources.py",
+    "semantic/declared_candidate_products.py",
+    "semantic/contributions.py",
+    "semantic/record_contracts.py",
+)
 
 
 def scoped_inputs(bundle):
@@ -28,13 +42,35 @@ def scoped_inputs(bundle):
 
 
 def scoped_profile_assets():
-    return SourceArtifact("scoped/profile-assets", canonical_bytes({"version": "declared-source-local-joins-v1", "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS]}))
+    return SourceArtifact(
+        "scoped/profile-assets",
+        canonical_bytes(
+            {
+                "version": "declared-source-local-joins-v1",
+                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS],
+            }
+        ),
+    )
 
 
 def scoped_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
-    return PythonSourceCollection(tuple(PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve())) for name in ("methods/scoped_relations_declared.py", "semantic/scoped_products.py", "semantic/data_operation_prepared_call.py")), boundary_contracts=(scoped_profile_assets(),))
+    return PythonSourceCollection(
+        tuple(
+            PythonSource(
+                "corpus_structure." + name.removesuffix(".py").replace("/", "."),
+                (_ROOT / name).read_bytes(),
+                str((_ROOT / name).resolve()),
+            )
+            for name in (
+                "methods/scoped_relations_declared.py",
+                "semantic/scoped_products.py",
+                "semantic/data_operation_prepared_call.py",
+            )
+        ),
+        boundary_contracts=(scoped_profile_assets(),),
+    )
 
 
 @dataclass(frozen=True)
@@ -48,10 +84,14 @@ class PreparedScopedInputs:
         return next(value.members for value in self.roles if value.role == role)
 
 
-def execute_scoped_relations(receiver, source, constructions, formal, predicates, *, passages, source_work):
+def execute_scoped_relations(
+    receiver, source, constructions, formal, predicates, *, passages, source_work
+):
     from corpus_structure.methods.scoped_relations import discover_relations
+
     from .construction_products import CharacterizationSnapshot
     from .constructions.navigation import NativeNavigationIndex
+    from .contributions import contribution_identity
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_json import json_bytes
     from .data_product_reference import DataProductReference
@@ -63,53 +103,159 @@ def execute_scoped_relations(receiver, source, constructions, formal, predicates
     from .formal_products import validate_formal_product
     from .source_products import FrozenNativeSource
     from .structural_products import StructuralPassage
-    from .contributions import contribution_identity
 
     profile = receiver.inputs
     profile.check_active()
     model = bound_data_operation_model(profile.prepared)
     (source_member,) = profile.members("source")
     selected = FrozenNativeSource.acquire(profile.prepared, source)
-    frame = DeclaredNativeFrameSource.acquire(profile.prepared, source, source_member, project=profile.context.project_id)
-    if any(member.member is not None or member.multiplicity != 1 for role in ("constructions", "formal", "predicates") for member in profile.members(role)):
+    frame = DeclaredNativeFrameSource.acquire(
+        profile.prepared, source, source_member, project=profile.context.project_id
+    )
+    if any(
+        member.member is not None or member.multiplicity != 1
+        for role in ("constructions", "formal", "predicates")
+        for member in profile.members(role)
+    ):
         raise ValueError("scoped relations require exact whole retained primary products")
     products, formal_products = [], []
     for member, value in zip(profile.members("constructions"), constructions, strict=True):
-        product = RetainedCharacterizationProduct.acquire(profile.prepared, model, profile.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri, canonical_bytes(value), subject_context=SubjectContext(profile.context.project_id, member.subject, member.original_source, member.analyzed_scope))
+        product = RetainedCharacterizationProduct.acquire(
+            profile.prepared,
+            model,
+            profile.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri,
+            canonical_bytes(value),
+            subject_context=SubjectContext(
+                profile.context.project_id,
+                member.subject,
+                member.original_source,
+                member.analyzed_scope,
+            ),
+        )
         if product.semantic_id != member.product:
             raise ValueError("scoped construction body differs from its selected product")
         products.append(CharacterizationSnapshot(product.semantic_id, product.content))
     navigation = NativeNavigationIndex(tuple(products), selected).require()
     for member, value in zip(profile.members("formal"), formal, strict=True):
-        product = validate_formal_product(profile.prepared, value, selected, model=model, subject_context=SubjectContext(profile.context.project_id, member.subject, member.original_source, member.analyzed_scope))
+        product = validate_formal_product(
+            profile.prepared,
+            value,
+            selected,
+            model=model,
+            subject_context=SubjectContext(
+                profile.context.project_id,
+                member.subject,
+                member.original_source,
+                member.analyzed_scope,
+            ),
+        )
         if product.semantic_id != member.product:
             raise ValueError("scoped formal body differs from its exact selected product")
         formal_products.append(product)
-    retained = profile.prepared.validate_json("DdoPredicateInspectionReport", json_bytes(predicates)).model_dump(mode="python", exclude_unset=True)
+    retained = profile.prepared.validate_json(
+        "DdoPredicateInspectionReport", json_bytes(predicates)
+    ).model_dump(mode="python", exclude_unset=True)
     if retained["source_pin"] != frame.pin.values():
         raise ValueError("scoped predicate inspection differs from its exact original source")
     rows = candidate_member_values(retained, candidate_type="contribution")
-    if any(contribution_identity(row) != row["contribution_id"] or row["pin"] != frame.pin.values() for row in rows):
-        raise ValueError("scoped predicate contribution differs from its actual source-bound identity")
+    if any(
+        contribution_identity(row) != row["contribution_id"] or row["pin"] != frame.pin.values()
+        for row in rows
+    ):
+        raise ValueError(
+            "scoped predicate contribution differs from its actual source-bound identity"
+        )
     reference = DeclaredStructuralSource.model_validate(frame.pin.values())
     chosen = tuple(StructuralPassage.model_validate(value) for value in passages)
     if not chosen:
-        chosen = tuple(StructuralPassage(passage_id="native-passage:" + sha256(canonical_bytes([reference.identity, start, end])).hexdigest(), source_ref=reference.identity, start=start, end=end, text=frame.text[start:end], scope=frame.source_key) for start, end in frame.selected_ranges)
-    if any(passage.source_ref != reference.identity or passage.text != frame.text[passage.start:passage.end] or not any(start <= passage.start < passage.end <= end for start, end in frame.selected_ranges) for passage in chosen):
+        chosen = tuple(
+            StructuralPassage(
+                passage_id="native-passage:"
+                + sha256(canonical_bytes([reference.identity, start, end])).hexdigest(),
+                source_ref=reference.identity,
+                start=start,
+                end=end,
+                text=frame.text[start:end],
+                scope=frame.source_key,
+            )
+            for start, end in frame.selected_ranges
+        )
+    if any(
+        passage.source_ref != reference.identity
+        or passage.text != frame.text[passage.start : passage.end]
+        or not any(
+            start <= passage.start < passage.end <= end for start, end in frame.selected_ranges
+        )
+        for passage in chosen
+    ):
         raise ValueError("scoped passage differs from its actual analyzed original source")
     if len({passage.passage_id for passage in chosen}) != len(chosen):
         raise ValueError("scoped source repeats an authored passage identity")
     diagnostics = json.loads(retained["diagnostics_json"])
-    errors = () if diagnostics.get("inspection_complete") is True else ("Retained predicate inspection has unavailable source coverage.",)
-    result = discover_relations(frame, source_work=source_work or None, passages=chosen, navigation=navigation, formal_layers=declared_formal_layers(formal_products, selected), retained_predicates=rows, retained_predicate_operations=tuple(retained["operations"]), retained_coordinate_texts=tuple(retained["coordinate_texts"]), primary_product_refs=tuple(DataProductReference(member.product) for role in ("constructions", "formal", "predicates") for member in profile.members(role)), annotation_errors=errors, inline_equations_enabled=True, witnessed_links_enabled=True, max_formula_chars=max(1, len(frame.text)))
+    errors = (
+        ()
+        if diagnostics.get("inspection_complete") is True
+        else ("Retained predicate inspection has unavailable source coverage.",)
+    )
+    result = discover_relations(
+        frame,
+        source_work=source_work or None,
+        passages=chosen,
+        navigation=navigation,
+        formal_layers=declared_formal_layers(formal_products, selected),
+        retained_predicates=rows,
+        retained_predicate_operations=tuple(retained["operations"]),
+        retained_coordinate_texts=tuple(retained["coordinate_texts"]),
+        primary_product_refs=tuple(
+            DataProductReference(member.product)
+            for role in ("constructions", "formal", "predicates")
+            for member in profile.members(role)
+        ),
+        annotation_errors=errors,
+        inline_equations_enabled=True,
+        witnessed_links_enabled=True,
+        max_formula_chars=max(1, len(frame.text)),
+    )
     profile.check_active()
-    return candidate_inspection_report(profile.prepared, model, frame, profile.context, inspection_outcome="produced" if result["contributions"] else "empty", contributions=result["contributions"], operations=(result["operation"], *result["extra_operations"]), coordinate_texts=result["coordinates"], coverage=tuple({"family": operation["question"], "scope": canonical_bytes(selected.value["selectors"]).decode(), "outcome": operation["outcome"], **({"reason": operation["reason"]} if "reason" in operation else {})} for operation in (result["operation"], *result["extra_operations"])), diagnostics={"formula_diagnostics": result["formula_diagnostics"], "retained_predicate_inspection_complete": not errors}, report_class="DdoScopedRelationsReport")
+    return candidate_inspection_report(
+        profile.prepared,
+        model,
+        frame,
+        profile.context,
+        inspection_outcome="produced" if result["contributions"] else "empty",
+        contributions=result["contributions"],
+        operations=(result["operation"], *result["extra_operations"]),
+        coordinate_texts=result["coordinates"],
+        coverage=tuple(
+            {
+                "family": operation["question"],
+                "scope": canonical_bytes(selected.value["selectors"]).decode(),
+                "outcome": operation["outcome"],
+                **({"reason": operation["reason"]} if "reason" in operation else {}),
+            }
+            for operation in (result["operation"], *result["extra_operations"])
+        ),
+        diagnostics={
+            "formula_diagnostics": result["formula_diagnostics"],
+            "retained_predicate_inspection_complete": not errors,
+        },
+        report_class="DdoScopedRelationsReport",
+    )
 
 
-def scoped_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
+def scoped_kernel(
+    arguments: dict,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
+    *,
+    prepared: PreparedRelease,
+    check_active: Callable[[], None],
+) -> dict:
     from corpus_structure.methods.scoped_relations_declared import ScopedRelationsOperation
 
-    return ScopedRelationsOperation(PreparedScopedInputs(prepared, roles, context, check_active)).run(**arguments)
+    return ScopedRelationsOperation(
+        PreparedScopedInputs(prepared, roles, context, check_active)
+    ).run(**arguments)
 
 
 @dataclass
@@ -129,15 +275,40 @@ class ScopedCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("scoped relation call requires its exact qualified binding")
         signature = inspect.signature(scoped_kernel, eval_str=True)
-        bound = signature.bind(arguments=arguments.arguments, roles=binding.roles, context=binding.subject_context, prepared=self.prepared, check_active=check_active)
+        bound = signature.bind(
+            arguments=arguments.arguments,
+            roles=binding.roles,
+            context=binding.subject_context,
+            prepared=self.prepared,
+            check_active=check_active,
+        )
         captured = scoped_operation_sources()
-        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in captured.sources), "corpus_structure.semantic.scoped_products.scoped_kernel", (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
-        reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.verify, execution_owner=execution_owner, check_active=check_active)
-        return PreparedCallResult(json.loads(reply.content), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        descriptor = PythonCPUDescriptor(
+            tuple((source.module, source.filename, source.content) for source in captured.sources),
+            "corpus_structure.semantic.scoped_products.scoped_kernel",
+            (),
+            verification="prepared-kernel",
+            control_parameter="check_active",
+            prepared_parameter="prepared",
+            prepared_release_id=self.prepared.release_id,
+        )
+        reply = yield from plan_cpu_call(
+            descriptor,
+            bound,
+            signature,
+            verify=self.verify,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        return PreparedCallResult(
+            json.loads(reply.content),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
 
 def resolve_scoped_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.scoped_relations_declared import ScopedRelationsOperation
+
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
@@ -145,6 +316,26 @@ def resolve_scoped_port(prepared, model, operation, *, identity, authorize, cust
     if selected.semantic_id != ScopedRelationsOperation.__data_operation__["id"]:
         raise PortRefusal("scoped relation factory differs from its governing operation")
     receiver, plan = ScopedRelationsOperation(None), ScopedCallPlan(prepared)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.scoped_products.ScopedCallPlan.plan", authorize, (scoped_profile_assets(),), scoped_operation_sources(), functions=(("corpus_structure.semantic.scoped_products.scoped_kernel", scoped_kernel), ("corpus_structure.semantic.scoped_products.execute_scoped_relations", execute_scoped_relations)), requires_prepared_schema=True)
+    port = PreparedOriginalCallPort(
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
+        "corpus_structure.semantic.scoped_products.ScopedCallPlan.plan",
+        authorize,
+        (scoped_profile_assets(),),
+        scoped_operation_sources(),
+        functions=(
+            ("corpus_structure.semantic.scoped_products.scoped_kernel", scoped_kernel),
+            (
+                "corpus_structure.semantic.scoped_products.execute_scoped_relations",
+                execute_scoped_relations,
+            ),
+        ),
+        requires_prepared_schema=True,
+    )
     plan.port = port
     return port

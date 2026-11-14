@@ -196,10 +196,12 @@ def test_primary_workflow_targets_do_not_relabel_characterization_as_phase0():
         "text.compose_view/captured-full-native",
     )
     assert primary_operation_targets("phase0", captured=True) == (
-        "text.compose_view/captured-full-native", "resolve.symbol_scope/declared",
+        "text.compose_view/captured-full-native",
+        "resolve.symbol_scope/declared",
     )
     assert primary_operation_targets("phase0", captured=False) == (
-        "text.compose_view/full-native", "resolve.symbol_scope/declared",
+        "text.compose_view/full-native",
+        "resolve.symbol_scope/declared",
     )
     with pytest.raises(ValueError, match="actual declared PDF capture"):
         primary_operation_targets("capture", captured=False)

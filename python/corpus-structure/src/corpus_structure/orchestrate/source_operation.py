@@ -43,7 +43,12 @@ def _default_profile_selections(model, targets, supplied):
                 alternatives = dependencies.intersection(role.alternatives)
                 if len(alternatives) > 1:
                     if role.selected is None:
-                        raise SourceRequestError("full profile requires an explicit alternative for " + target + "/" + role.name)
+                        raise SourceRequestError(
+                            "full profile requires an explicit alternative for "
+                            + target
+                            + "/"
+                            + role.name
+                        )
                     dependencies.difference_update(alternatives)
                     dependencies.add(role.selected)
             supplied[target] = DemandOperationSelection(

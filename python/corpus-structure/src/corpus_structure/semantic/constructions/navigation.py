@@ -835,28 +835,49 @@ def populate_navigation(
                     annotation_reference(pin, annotation["local_id"]).values()
                 )
     return _populate_navigation(
-        layer, view, products,
-        token_references=lambda block, index: tokens.get((f"spacy/{view.ref.id}/{block}/block", index), ()),
-        source_key=view.ref.id, projection=view.ref.projection_digest,
-        check_active=check_active, admitted=admitted,
+        layer,
+        view,
+        products,
+        token_references=lambda block, index: tokens.get(
+            (f"spacy/{view.ref.id}/{block}/block", index), ()
+        ),
+        source_key=view.ref.id,
+        projection=view.ref.projection_digest,
+        check_active=check_active,
+        admitted=admitted,
     )
 
 
 def populate_navigation_products(
-    layer, view, source, native, *, annotation_products=None,
-    check_active=lambda: None, admitted=lambda a, b: True,
+    layer,
+    view,
+    source,
+    native,
+    *,
+    annotation_products=None,
+    check_active=lambda: None,
+    admitted=lambda a, b: True,
 ):
     """Use exact native products and semantic member references in the shared kernel."""
     from ..data_product_reference import DataProductReference, member_reference
-    from ..sentence_products import retained_source_annotation_products, source_annotation_member_values
+    from ..sentence_products import (
+        retained_source_annotation_products,
+        source_annotation_member_values,
+    )
 
     products, tokens = (), {}
     if native is not None:
-        products = retained_source_annotation_products(source, native) if annotation_products is None else tuple(annotation_products)
+        products = (
+            retained_source_annotation_products(source, native)
+            if annotation_products is None
+            else tuple(annotation_products)
+        )
         coordinate = source.value["source"]
         body = json.loads(native.content)
         if body["source"] != coordinate or body["selectors"] != source.value["selectors"]:
-            raise ValueError("navigation native input differs from its original source and analyzed scope")
+            raise ValueError(
+                "navigation native input differs from its original source and analyzed scope"
+            )
         product = DataProductReference(native.semantic_id)
         for token in source_annotation_member_values(body):
             if token["record_type"] == "token":
@@ -864,22 +885,35 @@ def populate_navigation_products(
                     member_reference(product, token["local_id"]).values()
                 )
     return _populate_navigation(
-        layer, view, tuple(product for product in products if admitted(product.block_start, product.block_end)),
+        layer,
+        view,
+        tuple(product for product in products if admitted(product.block_start, product.block_end)),
         token_references=lambda block, index: tokens.get((block, index), ()),
-        source_key=view.key, projection=view.projection,
-        check_active=check_active, admitted=admitted,
+        source_key=view.key,
+        projection=view.projection,
+        check_active=check_active,
+        admitted=admitted,
     )
 
 
 def _populate_navigation(
-    layer, view, products, *, token_references, source_key, projection,
-    check_active, admitted,
+    layer,
+    view,
+    products,
+    *,
+    token_references,
+    source_key,
+    projection,
+    check_active,
+    admitted,
 ):
     """One finite navigation recognizer for retained native original coordinates."""
     from .nodes import identity
 
     items = {item["self_ref"]: item for item in (*view.ancestors, *view.items)}
-    pieces = [p for p in view.pieces if p["kind"] == "native_text" and admitted(p["start"], p["end"])]
+    pieces = [
+        p for p in view.pieces if p["kind"] == "native_text" and admitted(p["start"], p["end"])
+    ]
     incomplete = False
 
     def emit(
@@ -941,8 +975,7 @@ def _populate_navigation(
             context=dict(
                 focal=focal,
                 examined=[
-                    dict(projection=projection, start=a, end=b)
-                    for a, b in dict.fromkeys(regions)
+                    dict(projection=projection, start=a, end=b) for a, b in dict.fromkeys(regions)
                 ],
                 gaps=[],
             ),
@@ -1216,8 +1249,7 @@ def _populate_navigation(
             scope="primary",
         )
         for i, s in enumerate(layer.scope["selectors"])
-        if s["projection"] == projection
-        and s.get("start", 0) < s.get("end", len(view.text))
+        if s["projection"] == projection and s.get("start", 0) < s.get("end", len(view.text))
     )
     for match in named_source_links(view.text, pieces, items, selections):
         roles = dict(subject=match.left, cue=match.cue)
@@ -1417,7 +1449,9 @@ class NativeNavigationIndex(NavigationIndex):
             seen.add(reference)
             body = json.loads(product.content)
             if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
-                raise ValueError("navigation product differs from its exact original source and analyzed scope")
+                raise ValueError(
+                    "navigation product differs from its exact original source and analyzed scope"
+                )
             facts = product.inventory()
             occurrences = {row["local_id"]: row for row in facts["occurrences"]}
             self.coverage.extend(row for row in body["coverage"] if row["family"] == FAMILY)
@@ -1427,19 +1461,34 @@ class NativeNavigationIndex(NavigationIndex):
                     continue
                 if navigation["codec"] != CODEC or annotation["family"] != FAMILY:
                     raise ValueError("unsupported declared navigation codec or family")
-                if annotation.get("required_choices") or annotation.get("required_external_choices"):
+                if annotation.get("required_choices") or annotation.get(
+                    "required_external_choices"
+                ):
                     raise ValueError("navigation projection requires explicit analytical choices")
-                identifiers = [identifier for role in navigation["roles"] for identifier in role["occurrences"]]
+                identifiers = [
+                    identifier for role in navigation["roles"] for identifier in role["occurrences"]
+                ]
                 if any(identifier not in occurrences for identifier in identifiers):
                     raise ValueError("navigation role has an unknown declared source occurrence")
-                extents = [extent for identifier in identifiers for extent in occurrences[identifier]["extents"]]
+                extents = [
+                    extent
+                    for identifier in identifiers
+                    for extent in occurrences[identifier]["extents"]
+                ]
                 if not extents or any(
-                    extent.get("synthetic") or extent.get("projection") != projection
+                    extent.get("synthetic")
+                    or extent.get("projection") != projection
                     or not (0 <= extent["start"] < extent["end"] <= len(selected["text"]))
-                    or extent.get("text") != selected["text"][extent["start"]:extent["end"]]
+                    or extent.get("text") != selected["text"][extent["start"] : extent["end"]]
                     for extent in extents
                 ):
-                    raise ValueError("navigation roles require exact literal original source evidence")
-                self.records.append(NavigationRecord(
-                    member_reference(reference, annotation["local_id"]), navigation, occurrences,
-                ))
+                    raise ValueError(
+                        "navigation roles require exact literal original source evidence"
+                    )
+                self.records.append(
+                    NavigationRecord(
+                        member_reference(reference, annotation["local_id"]),
+                        navigation,
+                        occurrences,
+                    )
+                )

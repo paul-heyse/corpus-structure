@@ -6,11 +6,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from ingest.retained_pdf_fixture import RetainedIntegratedConfig, RetainedIntegratedPdf
 
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
-from ingest.retained_pdf_fixture import RetainedIntegratedConfig, RetainedIntegratedPdf
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.product_reference import ProductReference
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -145,7 +145,9 @@ def retained_input(monkeypatch):
 def test_exact_product_preflight_refuses_mismatched_custody(
     retained_input, monkeypatch, failure, match
 ):
-    from corpus_structure.semantic.retained_pdf_documents import retained_pdf_document as retained_document
+    from corpus_structure.semantic.retained_pdf_documents import (
+        retained_pdf_document as retained_document,
+    )
 
     f = retained_input
     if failure == "wrong_corpus":
@@ -179,13 +181,22 @@ def test_exact_product_preflight_refuses_mismatched_custody(
 
 
 def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
-    from corpus_structure.semantic.retained_pdf_documents import retained_pdf_document as retained_document
+    from corpus_structure.semantic.retained_pdf_documents import (
+        retained_pdf_document as retained_document,
+    )
 
     f = retained_input
     document = retained_document(
         f.conn, f.pin, prepared=object(), project_id="project", documents=f.documents
     )
-    cfg = RetainedIntegratedConfig(originals=(document.source_uri,), native_product=None, integrated_product=f.pin, retained_document_id=document.id, retained_document_key=document.key, retained_original_digest=document.content_hash)
+    cfg = RetainedIntegratedConfig(
+        originals=(document.source_uri,),
+        native_product=None,
+        integrated_product=f.pin,
+        retained_document_id=document.id,
+        retained_document_key=document.key,
+        retained_original_digest=document.content_hash,
+    )
     assert isinstance(cfg, RetainedIntegratedConfig)
     assert cfg.originals == ("other_book/Full.pdf",)
     assert cfg.retained_document_id == 2 and cfg.retained_document_key == "other-book"
@@ -249,9 +260,8 @@ def test_default_policy_is_baseline_and_described_is_explicit_experimental_selec
     assert baseline.model_dump(exclude={"pack_descriptions"}) == experimental.model_dump(
         exclude={"pack_descriptions"}
     )
-    assert (
-        canonical_bytes(baseline.model_dump(mode="json"))
-        != canonical_bytes(experimental.model_dump(mode="json"))
+    assert canonical_bytes(baseline.model_dump(mode="json")) != canonical_bytes(
+        experimental.model_dump(mode="json")
     )
 
 

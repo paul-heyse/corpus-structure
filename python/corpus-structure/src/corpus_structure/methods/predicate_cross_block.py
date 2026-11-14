@@ -8,10 +8,13 @@ from corpus_structure.semantic.constructions.retained_rules import (
 )
 
 
-def cross_block_qualifiers(frame, annotations, selected, hosts, population, native, pieces, *, primary_products=()):
+def cross_block_qualifiers(
+    frame, annotations, selected, hosts, population, native, pieces, *, primary_products=()
+):
     """Read exact shared relations; no sibling, lexical or dependency rule runs here."""
-    from .predicate_frames import _project, _reports
     from corpus_structure.semantic.data_product_reference import member_reference
+
+    from .predicate_frames import _project, _reports
 
     seen = set()
     for product in annotations:

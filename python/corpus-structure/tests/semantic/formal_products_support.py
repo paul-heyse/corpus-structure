@@ -1,7 +1,7 @@
 """Shared controlled inputs and builders for formal products support."""
 
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 
 import pytest
 

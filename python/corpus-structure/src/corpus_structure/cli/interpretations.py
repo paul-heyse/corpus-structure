@@ -302,12 +302,12 @@ def author(
     from pydantic import ValidationError
 
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.interpretation_authoring import author_interpretations
-    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
     from corpus_structure.serve.interpretations import answer
 
     with failure_boundary(json):
@@ -318,7 +318,9 @@ def author(
         try:
             request = NativeDemandRequest.model_validate_json(content)
         except ValidationError as error:
-            raise SemanticRefusal("authored input must match the native demand request contract") from error
+            raise SemanticRefusal(
+                "authored input must match the native demand request contract"
+            ) from error
         selected = state(ctx).settings()
         with open_runtime_engine(
             selected, "ci-interpretation-authoring", purpose="write"
@@ -327,8 +329,6 @@ def author(
                 prepared = open_release(conn, release)
             result = answer(
                 "authored_review_result",
-                author_interpretations(
-                    engine, prepared, request=request
-                ),
+                author_interpretations(engine, prepared, request=request),
             )
     emit(result, json=json)

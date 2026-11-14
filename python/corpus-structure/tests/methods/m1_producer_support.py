@@ -137,10 +137,10 @@ def owned_reader(source):
     from corpus_structure.ingest.sentences import pipeline
     from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
     from corpus_structure.methods.source_preparation import annotation_inputs
-    from methods.domain_configuration import candidate_configuration, annotation_configuration
     from corpus_structure.semantic.constructions.layers import ConstructionLayer
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
     from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+    from methods.domain_configuration import annotation_configuration
 
     cfg = annotation_configuration(ROOT / "domains/statistics")
     assert isinstance(cfg, M1AnnotationConfig)

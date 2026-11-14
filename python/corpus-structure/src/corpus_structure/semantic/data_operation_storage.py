@@ -69,11 +69,17 @@ def native_protocol_sources(
             Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
-        SourceArtifact("native/data-operation-external-receipts.py", Path(__file__).with_name("external_receipts.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-external-receipts.py",
+            Path(__file__).with_name("external_receipts.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-pdf-completion.sql", pdf_completion_native_sql().encode()
         ),
-        SourceArtifact("native/data-operation-pdf-effect-contract.py", Path(__file__).with_name("pdf_effect_contract.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-pdf-effect-contract.py",
+            Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
+        ),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
@@ -89,7 +95,10 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/data-operation-external.sql", _SQL.with_name("data_operation_external.sql").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-external.sql",
+            _SQL.with_name("data_operation_external.sql").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-recordable-fates.sql", recordable_fate_sql(protocol).encode()
         ),
@@ -751,7 +760,11 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
-                    **({"external": asdict(operation.external)} if operation.external is not None else {}),
+                    **(
+                        {"external": asdict(operation.external)}
+                        if operation.external is not None
+                        else {}
+                    ),
                     **(
                         {"provider_profile": profile}
                         if (profile := operation_profile(operation, captured_contracts)) is not None

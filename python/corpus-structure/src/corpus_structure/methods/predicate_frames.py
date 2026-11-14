@@ -43,19 +43,27 @@ from corpus_structure.semantic.constructions.retained_rules import (
 
 class PreparedPredicateReadings:
     """One invocation-owned index of supplied immutable primary inventories."""
+
     def __init__(self, products):
         import json
-        from corpus_structure.semantic.data_product_reference import DataProductReference
+
         from corpus_structure.semantic.data_operation_model import json_context_meaning
+        from corpus_structure.semantic.data_product_reference import DataProductReference
         from corpus_structure.semantic.identity import canonical_bytes
 
         self.products = tuple(products)
-        self.inventories = tuple((
-            DataProductReference(product.semantic_id),
-            body["source"],
-            json_context_meaning(canonical_bytes({"source": body["source"], "selectors": body["selectors"]})).decode(),
-            {**product.inventory(), "coverage": body["coverage"]},
-        ) for product in self.products for body in (json.loads(product.content),))
+        self.inventories = tuple(
+            (
+                DataProductReference(product.semantic_id),
+                body["source"],
+                json_context_meaning(
+                    canonical_bytes({"source": body["source"], "selectors": body["selectors"]})
+                ).decode(),
+                {**product.inventory(), "coverage": body["coverage"]},
+            )
+            for product in self.products
+            for body in (json.loads(product.content),)
+        )
 
     def __iter__(self):
         return iter(self.products)
@@ -65,7 +73,11 @@ class PreparedPredicateReadings:
 
 
 def prepare_predicate_readings(products):
-    return products if isinstance(products, PreparedPredicateReadings) else PreparedPredicateReadings(products)
+    return (
+        products
+        if isinstance(products, PreparedPredicateReadings)
+        else PreparedPredicateReadings(products)
+    )
 
 
 def _reports(product, primary_products=()):
@@ -77,25 +89,37 @@ def _reports(product, primary_products=()):
             raise ValueError("declared predicate input requires its original governed source pin")
         source = product.source.values()
         selected = []
-        for pin, coordinate, scope, inventory in prepare_predicate_readings(primary_products).inventories:
-            if (coordinate["document"] != source["original_source"]
+        for pin, coordinate, scope, inventory in prepare_predicate_readings(
+            primary_products
+        ).inventories:
+            if (
+                coordinate["document"] != source["original_source"]
                 or coordinate["projection"] != source["projection_digest"]
-                or scope != source["analyzed_scope_meaning"]):
+                or scope != source["analyzed_scope_meaning"]
+            ):
                 raise ValueError("predicate primary product differs from its exact original source")
             if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"]):
                 selected.append((pin, inventory))
     else:
         layers = getattr(product, "primary_layers", None)
         if not layers:
-            raise ValueError("predicate consumer requires exact retained primary construction products")
-        selected = [(pin, report.payload) for pin, report in layers.items() if PRIMARY_RULE_FAMILY in report.payload["operation"]["produced_families"]]
+            raise ValueError(
+                "predicate consumer requires exact retained primary construction products"
+            )
+        selected = [
+            (pin, report.payload)
+            for pin, report in layers.items()
+            if PRIMARY_RULE_FAMILY in report.payload["operation"]["produced_families"]
+        ]
     if not selected:
         raise ValueError("retained primary source-reading family is missing")
     return selected
 
 
 def primary_inventory(product, reference, *, primary_products=()):
-    matches = [body for pin, body in _reports(product, primary_products) if pin == reference.product]
+    matches = [
+        body for pin, body in _reports(product, primary_products) if pin == reference.product
+    ]
     if len(matches) != 1:
         raise ValueError("predicate reference lacks one exact primary product inventory")
     return matches[0]
@@ -103,7 +127,12 @@ def primary_inventory(product, reference, *, primary_products=()):
 
 def _projection(product):
     from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
-    return product.source.values()["projection_digest"] if isinstance(product.source, DeclaredSourcePin) else product.source.projection_digest
+
+    return (
+        product.source.values()["projection_digest"]
+        if isinstance(product.source, DeclaredSourcePin)
+        else product.source.projection_digest
+    )
 
 
 def _span(product, text, term, occurrences):

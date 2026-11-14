@@ -151,33 +151,96 @@ def test_contextual_inventory_freezes_explicit_targets_without_legacy_reader():
 
 
 def test_native_relationship_decoder_preserves_selected_target_carriers_and_rejects_absence():
-    from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
-    from corpus_structure.semantic.contextual_operations import admitted_contextual_inventory, contextual_relationship_binding
+    from corpus_structure.semantic.contextual_links import (
+        RelationshipConstraint,
+        RelationshipWitness,
+        select_relationships,
+    )
+    from corpus_structure.semantic.contextual_operations import (
+        admitted_contextual_inventory,
+        contextual_relationship_binding,
+    )
     from corpus_structure.semantic.contextual_retrieval import ChannelHit, fuse_candidates
 
     values = inputs()
     inventory = admitted_contextual_inventory(values["inventory"])
-    candidates = fuse_candidates(occurrence_id="occurrence", query=None, inventory=inventory, channels={"witness": (ChannelHit("one", 1.0),)}, budget=2, channel_budget=3)
-    witness = RelationshipWitness("actual-supported-witness", "occurrence", "one", "denotes", "source:original", inventory.scope, None, ("actual-evidence",), "explicit_source_cue", "supported")
-    decision = select_relationships(candidates=candidates, inventory=inventory, source_binding="source:original", scope=inventory.scope, effective_version=None, constraints=(RelationshipConstraint("meaning", ("denotes",), "mention", "concept", "one"),), witnesses=(witness,))
+    candidates = fuse_candidates(
+        occurrence_id="occurrence",
+        query=None,
+        inventory=inventory,
+        channels={"witness": (ChannelHit("one", 1.0),)},
+        budget=2,
+        channel_budget=3,
+    )
+    witness = RelationshipWitness(
+        "actual-supported-witness",
+        "occurrence",
+        "one",
+        "denotes",
+        "source:original",
+        inventory.scope,
+        None,
+        ("actual-evidence",),
+        "explicit_source_cue",
+        "supported",
+    )
+    decision = select_relationships(
+        candidates=candidates,
+        inventory=inventory,
+        source_binding="source:original",
+        scope=inventory.scope,
+        effective_version=None,
+        constraints=(RelationshipConstraint("meaning", ("denotes",), "mention", "concept", "one"),),
+        witnesses=(witness,),
+    )
     assert len(decision.selected_edges) == 1
-    product = {"version": "declared-contextual-retrieval-1", "source_pin": values["query"]["source_pin"], "anchors": values["query"]["anchors"], "inventory": values["inventory"]["inventory"], "candidate_list": source_value(asdict(candidates)), "relationship_decision": source_value(asdict(decision))}
-    selected = contextual_relationship_binding(product, decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id)
+    product = {
+        "version": "declared-contextual-retrieval-1",
+        "source_pin": values["query"]["source_pin"],
+        "anchors": values["query"]["anchors"],
+        "inventory": values["inventory"]["inventory"],
+        "candidate_list": source_value(asdict(candidates)),
+        "relationship_decision": source_value(asdict(decision)),
+    }
+    selected = contextual_relationship_binding(
+        product, decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id
+    )
     assert selected.edge.relation == "denotes"
     assert [value.target_id for value in selected.representations] == ["one"]
     assert selected.source_pin == {"source": "source:original"}
     with pytest.raises(ValueError, match="actually selected edge"):
-        contextual_relationship_binding(product, decision_id=decision.decision_id, edge_id="foreign")
+        contextual_relationship_binding(
+            product, decision_id=decision.decision_id, edge_id="foreign"
+        )
     with pytest.raises(ValueError, match="retained identity"):
-        contextual_relationship_binding(product, decision_id="foreign", edge_id=decision.selected_edges[0].edge_id)
+        contextual_relationship_binding(
+            product, decision_id="foreign", edge_id=decision.selected_edges[0].edge_id
+        )
 
 
 def test_current_definition_inventory_preserves_semantic_meaning_without_legacy_reference():
     from corpus_structure.semantic.contextual_operations import admitted_contextual_inventory
 
-    target = target_representation("actual-component", "current-native-product-and-member-reference", "alpha", "A source definition", type_name="definition", scope="selected")
-    meaning = {"term": "alpha", "content": "A source definition", "interpretation": "definition", "scope": "selected"}
-    selection = {"source_selection": "actual-authored-target-selection", "scope": "selected", "targets": source_value([asdict(target)]), "semantic_targets": source_value({target.target_id: meaning})}
+    target = target_representation(
+        "actual-component",
+        "current-native-product-and-member-reference",
+        "alpha",
+        "A source definition",
+        type_name="definition",
+        scope="selected",
+    )
+    meaning = {
+        "term": "alpha",
+        "content": "A source definition",
+        "interpretation": "definition",
+        "scope": "selected",
+    }
+    selection = {
+        "source_selection": "actual-authored-target-selection",
+        "scope": "selected",
+        "targets": source_value([asdict(target)]),
+        "semantic_targets": source_value({target.target_id: meaning}),
+    }
     product = contextual_inventory_values(selection)
     inventory = admitted_contextual_inventory(product)
     assert inventory.semantic_groups[0].meaning == meaning

@@ -142,12 +142,14 @@ def test_explicit_operation_choices_and_source_context_are_frozen_independently(
 
 
 def test_full_source_profile_recurses_declared_options_and_preserves_explicit_choices():
-    from corpus_structure.orchestrate.source_operation import _default_profile_selections
     from semantic.data_operation_declaration_support import model, operation
+
+    from corpus_structure.orchestrate.source_operation import _default_profile_selections
 
     compiled = model(
         operation("op:result", potential_dependencies=["op:child"]),
-        operation("op:child", potential_dependencies=["op:leaf"]), operation("op:leaf"),
+        operation("op:child", potential_dependencies=["op:leaf"]),
+        operation("op:leaf"),
     )
     full = _default_profile_selections(compiled, ("op:result",), {})
     assert full["op:result"].selected_dependencies == ("op:child",)

@@ -14,8 +14,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.reading_resolution_products import EVENT_PROCEDURE, RECIPE, reading_diagnostics
 from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.reading_resolution_products import (
+    EVENT_PROCEDURE,
+    RECIPE,
+    reading_diagnostics,
+)
 from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.record_policy import (
     FeatureInstance,
@@ -108,8 +112,6 @@ def _historical(reader, view, cfg):
             "historical source task correspondence is missing or ambiguous: " + "; ".join(errors)
         )
     return matches[0]
-
-
 
 
 class M1Readings:

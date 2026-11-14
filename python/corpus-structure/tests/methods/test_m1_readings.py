@@ -6,12 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import ObservationOutcome, Stage, TaskUnitType
+from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.m1_readings import EVENT_PROCEDURE, M1ReadingConfig, M1Readings
 from corpus_structure.methods.m1_source import M1Candidates, M1Config
-from methods.domain_configuration import candidate_configuration
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_policy import PolicyApplicability
+from methods.domain_configuration import candidate_configuration
 from methods.m1_producer_support import ROOT, ControlledDecoder, owned_reader, view
 
 

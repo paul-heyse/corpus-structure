@@ -2,8 +2,8 @@
 
 
 def pdf_completion_native_sql() -> str:
-    from dataclasses import asdict
     import json
+    from dataclasses import asdict
 
     from .pdf_effect_contract import PDF_CAPTURE_EFFECT, PDF_CAPTURE_FACTORY
 
@@ -56,4 +56,6 @@ BEGIN
 END $proof$;
 REVOKE ALL ON FUNCTION ops.ddo_require_pdf_completion(jsonb,bigint,bigint,text,text,text)
 FROM PUBLIC;
-""".replace("__PDF_CAPTURE_EFFECT__", json.dumps([asdict(PDF_CAPTURE_EFFECT)], separators=(",", ":"))).replace("__PDF_CAPTURE_FACTORY__", PDF_CAPTURE_FACTORY)
+""".replace(
+        "__PDF_CAPTURE_EFFECT__", json.dumps([asdict(PDF_CAPTURE_EFFECT)], separators=(",", ":"))
+    ).replace("__PDF_CAPTURE_FACTORY__", PDF_CAPTURE_FACTORY)

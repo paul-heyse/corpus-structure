@@ -98,6 +98,13 @@ def bind_execution_evidence(
         ):
             raise ValueError("provider logical receipt differs from native attempt")
     for receipt in checked.external_receipts:
-        if (receipt.request_id, receipt.generation, receipt.task_id, receipt.attempt, receipt.holder, receipt.runtime_id) != (*claim, fence["holder"], runtime_id):
+        if (
+            receipt.request_id,
+            receipt.generation,
+            receipt.task_id,
+            receipt.attempt,
+            receipt.holder,
+            receipt.runtime_id,
+        ) != (*claim, fence["holder"], runtime_id):
             raise ValueError("external receipt differs from native attempt/runtime")
     return checked.model_dump(mode="json")

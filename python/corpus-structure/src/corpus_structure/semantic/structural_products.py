@@ -12,10 +12,18 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import Field, JsonValue, TypeAdapter, model_validator
 
 from .artifact_identity import (
-    ArtifactIdentityProduct, ArtifactAliasSpan, ArtifactCitation, ArtifactSourceLabel,
-    ArtifactPair, ArtifactPairKey, ArtifactReferenceResolution, ArtifactRouteCount,
-    ArtifactScoringPolicy, source_artifact_invariants, artifact_nomination_invariants,
+    ArtifactAliasSpan,
+    ArtifactCitation,
+    ArtifactIdentityProduct,
+    ArtifactPair,
+    ArtifactPairKey,
+    ArtifactReferenceResolution,
+    ArtifactRouteCount,
+    ArtifactScoringPolicy,
+    ArtifactSourceLabel,
     artifact_identity_invariants,
+    artifact_nomination_invariants,
+    source_artifact_invariants,
 )
 from .characterization import AnnotationReference
 from .contextual_links import RetainedRelationshipDecisionRef
@@ -806,8 +814,6 @@ class DeclaredStructuralInput(StructuralInput):
     sources: tuple[DeclaredStructuralSource, ...] = Field(min_length=1)
 
 
-
-
 class DeclaredTypedPremise(StructuralValue):
     span: LocatedDefinitionSpan
     grammar: Nonempty
@@ -969,7 +975,9 @@ class DeclaredDossierMember(StructuralValue):
     sense: Nonempty
     scope: Nonempty
     effective_version: str | None = None
-    relation_product_id: Nonempty = Field(description="Domain report identity; the exact native product address is carried by the typed predecessor reference.")
+    relation_product_id: Nonempty = Field(
+        description="Domain report identity; the exact native product address is carried by the typed predecessor reference."
+    )
     definition_interpretation: DefinitionInterpretation | None = None
     applicability_outcome: DefinitionOutcome | None = None
     comparison_binding: DeclaredDossierComparisonBinding | None = None
@@ -1011,8 +1019,6 @@ class DeclaredConditionQualificationProduct(ConditionQualificationProduct):
     attachment: DeclaredContributionRef
 
 
-
-
 class DeclaredPrimaryReference(StructuralValue):
     product_id: Nonempty
     member_id: Nonempty
@@ -1020,6 +1026,7 @@ class DeclaredPrimaryReference(StructuralValue):
     @property
     def product(self):
         from .data_product_reference import DataProductReference
+
         return DataProductReference(self.product_id)
 
     @property
@@ -1175,8 +1182,16 @@ class DeclaredClauseClassificationProduct(StructuralValue):
     def inspected_closure(self) -> Self:
         inspected, unavailable = set(self.inspected_frames), set(self.unprojectable_frames)
         projected = {reading.selection.frame for reading in self.readings}
-        if len(inspected) != len(self.inspected_frames) or len(unavailable) != len(self.unprojectable_frames) or not unavailable <= inspected or projected & unavailable or projected | unavailable != inspected:
-            raise ValueError("clause inspection must retain its exact distinct inspected frame closure")
+        if (
+            len(inspected) != len(self.inspected_frames)
+            or len(unavailable) != len(self.unprojectable_frames)
+            or not unavailable <= inspected
+            or projected & unavailable
+            or projected | unavailable != inspected
+        ):
+            raise ValueError(
+                "clause inspection must retain its exact distinct inspected frame closure"
+            )
         if unavailable and self.inspection_outcome != "partial":
             raise ValueError("unprojectable clause frames require partial inspection")
         return self
@@ -1327,7 +1342,10 @@ class DeclaredStructuralProductReport(StructuralValue):
 
     @property
     def product_id(self):
-        return "structural:" + sha256(canonical_bytes(self.model_dump(mode="json", exclude_none=True))).hexdigest()
+        return (
+            "structural:"
+            + sha256(canonical_bytes(self.model_dump(mode="json", exclude_none=True))).hexdigest()
+        )
 
 
 class DeclaredStructuralInputPin(DeclaredProductRef):
@@ -1507,8 +1525,7 @@ def _structural_report_invariants(value: Any) -> Any:
                 if (
                     passage is None
                     or passage.scope != value.inputs.scope
-                    or passage.effective_version
-                    != value.condition_qualification.effective_version
+                    or passage.effective_version != value.condition_qualification.effective_version
                     or not passage.start <= span.start < span.end <= passage.end
                     or passage.text[span.start - passage.start : span.end - passage.start]
                     != span.text
@@ -1518,9 +1535,18 @@ def _structural_report_invariants(value: Any) -> Any:
     if value.clause_classification is not None:
         by_id = {p.passage_id: p for p in value.inputs.passages}
         readings = value.clause_classification.readings
-        if isinstance(value.clause_classification, DeclaredClauseClassificationProduct) and any(reference.product_id not in value.inputs.dependencies or reference.contribution_id not in value.inputs.dependencies for reference in value.clause_classification.inspected_frames):
-            raise ValueError("clause inspection lacks its actual retained native frame dependencies")
-        if (not readings and not isinstance(value.clause_classification, DeclaredClauseClassificationProduct)) or len({r.selection for r in readings}) != len(readings):
+        if isinstance(value.clause_classification, DeclaredClauseClassificationProduct) and any(
+            reference.product_id not in value.inputs.dependencies
+            or reference.contribution_id not in value.inputs.dependencies
+            for reference in value.clause_classification.inspected_frames
+        ):
+            raise ValueError(
+                "clause inspection lacks its actual retained native frame dependencies"
+            )
+        if (
+            not readings
+            and not isinstance(value.clause_classification, DeclaredClauseClassificationProduct)
+        ) or len({r.selection for r in readings}) != len(readings):
             raise ValueError("clause classification requires distinct selected focuses")
         for row in readings:
             passage = by_id.get(row.selection.passage_id)
@@ -1553,12 +1579,8 @@ def _structural_report_invariants(value: Any) -> Any:
             passage = by_id.get(span.passage_id)
             if (
                 passage is None
-                or not passage.start
-                <= candidate.window_start
-                < candidate.window_end
-                <= passage.end
-                or passage.text[span.start - passage.start : span.end - passage.start]
-                != span.text
+                or not passage.start <= candidate.window_start < candidate.window_end <= passage.end
+                or passage.text[span.start - passage.start : span.end - passage.start] != span.text
             ):
                 raise ValueError("definition role differs from original passage")
             cited.add(span.passage_id)
@@ -1571,7 +1593,9 @@ def _structural_report_invariants(value: Any) -> Any:
                 and chain.parser.contribution_id not in value.inputs.dependencies
             ):
                 raise ValueError("definition chain lacks its exact parser dependency")
-            if isinstance(chain, DeclaredDeclarationChainWitness) and any(ref.product_id not in value.inputs.dependencies for ref in chain.primary_evidence):
+            if isinstance(chain, DeclaredDeclarationChainWitness) and any(
+                ref.product_id not in value.inputs.dependencies for ref in chain.primary_evidence
+            ):
                 raise ValueError("definition chain lacks its exact primary product dependency")
             for span in (
                 component.term,
@@ -1609,8 +1633,7 @@ def _structural_report_invariants(value: Any) -> Any:
             return (
                 passage is not None
                 and passage.start <= span.start < span.end <= passage.end
-                and passage.text[span.start - passage.start : span.end - passage.start]
-                == span.text
+                and passage.text[span.start - passage.start : span.end - passage.start] == span.text
             )
 
         cited.update((value.comparison.left_id, value.comparison.right_id))
@@ -1627,10 +1650,7 @@ def _structural_report_invariants(value: Any) -> Any:
                 or not older.effective_version
                 or not newer.effective_version
                 or older.effective_version == newer.effective_version
-                or (
-                    bool(succession.primary_witnesses)
-                    and len(succession.primary_witnesses) != 4
-                )
+                or (bool(succession.primary_witnesses) and len(succession.primary_witnesses) != 4)
                 or not exact(succession.evidence)
                 or not exact(succession.older_evidence)
             ):
@@ -1649,9 +1669,7 @@ def _structural_report_invariants(value: Any) -> Any:
                 ):
                     raise ValueError("group witness differs from selected original passage")
                 for member in group.members:
-                    if member.dimension != dimension.dimension or member.evidence != (
-                        passage_id,
-                    ):
+                    if member.dimension != dimension.dimension or member.evidence != (passage_id,):
                         raise ValueError("group member differs from selected dimension/passage")
                     if member.spans and (
                         any(
@@ -1671,11 +1689,7 @@ def _structural_report_invariants(value: Any) -> Any:
                     if side.span is not None:
                         span = side.span
                         selected = next(
-                            (
-                                p
-                                for p in value.inputs.passages
-                                if p.passage_id == span.passage_id
-                            ),
+                            (p for p in value.inputs.passages if p.passage_id == span.passage_id),
                             None,
                         )
                         if (
@@ -1687,17 +1701,13 @@ def _structural_report_invariants(value: Any) -> Any:
                             != span.text
                             or side.lexical_value != span.text
                         ):
-                            raise ValueError(
-                                "clause field differs from its exact original source"
-                            )
+                            raise ValueError("clause field differs from its exact original source")
                         cited.add(span.passage_id)
                     if side.typed is not None:
                         span = side.typed.span
                         basis = side.typed.basis_evidence
                         if not exact(span) or (basis is not None and not exact(basis)):
-                            raise ValueError(
-                                "typed field differs from its exact original source"
-                            )
+                            raise ValueError("typed field differs from its exact original source")
                         cited.add(span.passage_id)
     if value.dossier:
         cited.update(m.passage_id for m in value.dossier.members)
@@ -1710,8 +1720,7 @@ def _structural_report_invariants(value: Any) -> Any:
                 passage is None
                 or span.passage_id != member.passage_id
                 or not passage.start <= span.start < span.end <= passage.end
-                or passage.text[span.start - passage.start : span.end - passage.start]
-                != span.text
+                or passage.text[span.start - passage.start : span.end - passage.start] != span.text
             ):
                 raise ValueError("dossier member citation differs from original source")
     if value.artifact_identity:
@@ -1723,9 +1732,7 @@ def _structural_report_invariants(value: Any) -> Any:
                     passage is None
                     or citation.source_ref != passage.source_ref
                     or not passage.start <= citation.start < citation.end <= passage.end
-                    or passage.text[
-                        citation.start - passage.start : citation.end - passage.start
-                    ]
+                    or passage.text[citation.start - passage.start : citation.end - passage.start]
                     != citation.text
                 ):
                     raise ValueError("artifact citation differs from its exact original source")
@@ -1748,10 +1755,15 @@ def _declaration_role_invariants(value: Any) -> Any:
         raise ValueError("declaration chain requires distinct ordered role occurrences")
     return value
 
+
 DeclaredStructuralReport = Annotated[
-    DeclaredComparisonReport | DeclaredDossierReport | DeclaredConditionReport |
-    DeclaredDefinitionComponentsReport | DeclaredDefinitionReport | DeclaredArtifactReport |
-    DeclaredClauseReport,
+    DeclaredComparisonReport
+    | DeclaredDossierReport
+    | DeclaredConditionReport
+    | DeclaredDefinitionComponentsReport
+    | DeclaredDefinitionReport
+    | DeclaredArtifactReport
+    | DeclaredClauseReport,
     Field(discriminator="kind"),
 ]
 _DECLARED_STRUCTURAL_REPORT = TypeAdapter(DeclaredStructuralReport)
@@ -1762,7 +1774,12 @@ def read_structural_product_report(value):
     if isinstance(value, (DeclaredStructuralProductReport, StructuralProductReport)):
         return value
     sources = value["inputs"]["sources"]
-    declared = [isinstance(source, DeclaredStructuralSource) or isinstance(source, dict) and source.get("format") == "declared-native-source-v1" for source in sources]
+    declared = [
+        isinstance(source, DeclaredStructuralSource)
+        or (isinstance(source, dict)
+        and source.get("format") == "declared-native-source-v1")
+        for source in sources
+    ]
     if any(declared):
         if not all(declared):
             raise ValueError("structural report cannot mix target and historical source protocols")
@@ -1795,9 +1812,7 @@ def _typed_premise_invariants(value: Any) -> Any:
                 or value.comparator is None
                 or not Decimal(value.value).is_finite()
             ):
-                raise ValueError(
-                    "typed threshold requires a finite numeric value and comparator"
-                )
+                raise ValueError("typed threshold requires a finite numeric value and comparator")
         except InvalidOperation as error:
             raise ValueError("typed threshold has an invalid decimal value") from error
     elif (
@@ -1872,8 +1887,7 @@ def _dossier_binding_invariants(value: Any) -> Any:
     if value.side == "right":
         left, right = right, left
     if (
-        (left.passage_id, right.passage_id)
-        != (value.comparison.left_id, value.comparison.right_id)
+        (left.passage_id, right.passage_id) != (value.comparison.left_id, value.comparison.right_id)
         or value.comparison.left_reading is None
         or any(
             span.passage_id != value.citation.passage_id
@@ -1945,7 +1959,11 @@ def _dossier_product_invariants(value: Any, *, selection_type=DossierComparisonS
             side=binding.side,
             relationship_ref=binding.relationship_ref,
             applicability_ref=binding.applicability_ref,
-            conflict_passage_id=(binding.conflict_evidence.passage_id if binding.conflict_evidence is not None else None),
+            conflict_passage_id=(
+                binding.conflict_evidence.passage_id
+                if binding.conflict_evidence is not None
+                else None
+            ),
         )
         not in value.comparison_selections
         for member in value.members
@@ -1978,9 +1996,7 @@ def _dossier_product_invariants(value: Any, *, selection_type=DossierComparisonS
     if (
         value.representation.membership_digest
         != sha256(
-            canonical_bytes(
-                [m.model_dump(mode="json", exclude_none=True) for m in value.members]
-            )
+            canonical_bytes([m.model_dump(mode="json", exclude_none=True) for m in value.members])
         ).hexdigest()
     ):
         raise ValueError("membership digest differs from full membership")

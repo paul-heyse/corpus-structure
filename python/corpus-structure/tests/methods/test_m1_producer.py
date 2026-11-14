@@ -65,13 +65,10 @@ def test_local_schema_survives_empty_record_outputs(monkeypatch):
     monkeypatch.setattr(
         method, "_resident", lambda _, *, providers, native_profile: LocalDecoder("empty")
     )
-    cfg = (
-        candidate_configuration(ROOT / "domains/statistics", "default")
-        .model_copy(
-            update={
-                "local_schema": {"entities": ["term"]},
-            }
-        )
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
+        update={
+            "local_schema": {"entities": ["term"]},
+        }
     )
     (result,) = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
@@ -155,8 +152,8 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
     from dataclasses import replace
 
     from corpus_structure.methods.gliner import GlinerRefused
-    from methods.domain_configuration import candidate_configuration
     from corpus_structure.semantic.contributions import bind_contributions
+    from methods.domain_configuration import candidate_configuration
 
     first, second = "Mean is average.", "Other is distinct."
     text = first + "\n" + second
@@ -218,9 +215,8 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
     monkeypatch.setattr(
         method, "close", lambda: pytest.fail("input refusal must not retire resident")
     )
-    cfg = (
-        candidate_configuration(ROOT / "domains/statistics", "default")
-        .model_copy(update={"local_schema": {"entities": ["term"]}})
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
+        update={"local_schema": {"entities": ["term"]}}
     )
     (result,) = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
@@ -340,14 +336,11 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
     method = m1_source.M1Candidates()
     worker = ControlledDecoder("empty")
     monkeypatch.setattr(method, "_resident", lambda _, *, providers, native_profile: worker)
-    cfg = (
-        candidate_configuration(ROOT / "domains/statistics", "default")
-        .model_copy(
-            update={
-                "region_pointers": ("#/texts/1",),
-                "source_projection_digest": selected.ref.projection_digest,
-            }
-        )
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
+        update={
+            "region_pointers": ("#/texts/1",),
+            "source_projection_digest": selected.ref.projection_digest,
+        }
     )
     (result,) = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
@@ -384,9 +377,8 @@ def test_projection_selection_is_metadata_only_and_never_silently_empty():
         source_view=lambda *_: pytest.fail("selector hydrated source bodies"),
     )
     run = SimpleNamespace(reader=reader)
-    cfg = (
-        candidate_configuration(ROOT / "domains/statistics", "default")
-        .model_copy(update={"source_projection_digest": body.projection_digest})
+    cfg = candidate_configuration(ROOT / "domains/statistics", "default").model_copy(
+        update={"source_projection_digest": body.projection_digest}
     )
     assert [ref.unit_id for ref in method.select(run, cfg)] == [body.id]
     with pytest.raises(m1_source.GlinerRefused, match="exactly one"):
@@ -403,9 +395,9 @@ def test_projection_selection_is_metadata_only_and_never_silently_empty():
 def test_context_relationship_diagnostics_cross_the_source_report_boundary(monkeypatch):
     from dataclasses import replace
 
-    from methods.domain_configuration import candidate_configuration
     from corpus_structure.semantic.observations import source_python, source_value
     from corpus_structure.semantic.source_contexts import ContextRelationship
+    from methods.domain_configuration import candidate_configuration
 
     source = view()
     method = m1_source.M1Candidates()
@@ -626,12 +618,8 @@ def test_dense_native_structure_emits_only_the_explicit_context_target_cells(mon
 )
 def test_literal_candidate_configuration_rejects_superseded_primary_branches(obsolete):
     from pydantic import ValidationError
-<<<<<<< HEAD
 
-    from corpus_structure.orchestrate.m1 import registry
-=======
     from methods.domain_configuration import candidate_configuration
->>>>>>> 2a9df32e9 (DDO remove test runtime catalogs while preserving kernel and retained-PDF controls; tests not_run)
 
     baseline = candidate_configuration(ROOT / "domains/statistics", "default")
     with pytest.raises(ValidationError, match=obsolete):

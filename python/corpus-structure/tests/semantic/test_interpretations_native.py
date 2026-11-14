@@ -14,7 +14,7 @@ from corpus_structure.semantic.interpretations import metadata_binding
 from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.query import read_snapshot
 from semantic.native_admission_scenarios import InterpretationSourceRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe, candidate, complete
+from semantic.native_record_fixtures import RecordSourceRecipe, candidate
 from semantic.native_record_fixtures import private_source as private_source
 
 
@@ -25,71 +25,173 @@ def _publish_historical_authored_fixture(case, *, kind, configuration):
     covered by the separate native demand test; historical runs are never a resume route.
     """
     from hashlib import sha256
+
     from pydantic import create_model
+
     from corpus_structure.core.method import UnitRef, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-    from corpus_structure.semantic._operation_calls import initialize_source_project, select_source_view
-    from corpus_structure.semantic._operation_ids import ProjectId, RealizationId, ReleaseId, RunId, SourceViewId
+    from corpus_structure.semantic._operation_calls import (
+        initialize_source_project,
+        select_source_view,
+    )
+    from corpus_structure.semantic._operation_ids import (
+        ProjectId,
+        RealizationId,
+        ReleaseId,
+        RunId,
+        SourceViewId,
+    )
     from corpus_structure.semantic.contributions import operation_identity
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.interpretations import interpretation_contribution
     from corpus_structure.semantic.operations import (
-        OperationBinding, OperationDescriptor, claim_tasks, prepare_unit_completion, complete_task,
-        create_run, create_task, record_method, start_run,
+        OperationBinding,
+        OperationDescriptor,
+        claim_tasks,
+        complete_task,
+        create_run,
+        create_task,
+        prepare_unit_completion,
+        record_method,
+        start_run,
     )
+
     source = configuration["source"]
     identity = sha256(canonical_bytes([kind, configuration])).hexdigest()
     realization = "historical-authored-fixture:" + identity
     name = "interpret." + kind
-    method = OperationDescriptor(name, "1", "extract" if kind == "source_records" else "resolve",
-        "deterministic", TaskUnitType.SOURCE_VIEW, create_model("HistoricalAuthoredFixture"))
-    pin = {"source": case.view_row["key"], "native_product_task_id": source["native_task_id"],
-        "product_key": source["native_product_key"], "product_digest": source["native_content_digest"],
-        "projection_digest": source["projection_digest"], "recipe_digest": source["recipe_digest"],
-        "source_view_id": source["source_view_id"]}
+    method = OperationDescriptor(
+        name,
+        "1",
+        "extract" if kind == "source_records" else "resolve",
+        "deterministic",
+        TaskUnitType.SOURCE_VIEW,
+        create_model("HistoricalAuthoredFixture"),
+    )
+    pin = {
+        "source": case.view_row["key"],
+        "native_product_task_id": source["native_task_id"],
+        "product_key": source["native_product_key"],
+        "product_digest": source["native_content_digest"],
+        "projection_digest": source["projection_digest"],
+        "recipe_digest": source["recipe_digest"],
+        "source_view_id": source["source_view_id"],
+    }
     with case.writer.begin() as conn:
-        conn.execute(text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
-            {"source": canonical_bytes(source).decode()}).scalar_one()
-        initialize_source_project(conn, project_id=ProjectId(source["project_id"]),
-            release_id=ReleaseId(case.prepared.release_id), realization_id=RealizationId(realization),
-            projection_context=case.prepared)
-        run = create_run(conn, project_id=source["project_id"],
+        conn.execute(
+            text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+            {"source": canonical_bytes(source).decode()},
+        ).scalar_one()
+        initialize_source_project(
+            conn,
+            project_id=ProjectId(source["project_id"]),
+            release_id=ReleaseId(case.prepared.release_id),
+            realization_id=RealizationId(realization),
+            projection_context=case.prepared,
+        )
+        run = create_run(
+            conn,
+            project_id=source["project_id"],
             binding=OperationBinding(case.prepared.release_id, realization, 0, b"{}"),
-            kind="full", options={}, code_commit="historical-authored-native-control", prepared=case.prepared)
+            kind="full",
+            options={},
+            code_commit="historical-authored-native-control",
+            prepared=case.prepared,
+        )
         start_run(conn, run)
-        select_source_view(conn, run_id=run, source_run_id=RunId(source["run_id"]),
-            source_view_id=SourceViewId(source["source_view_id"]), projection_context=case.prepared)
+        select_source_view(
+            conn,
+            run_id=run,
+            source_run_id=RunId(source["run_id"]),
+            source_view_id=SourceViewId(source["source_view_id"]),
+            projection_context=case.prepared,
+        )
     # Configuration/task dimensions are fixture seed prerequisites. All actual
     # claim, completion and sealed publication use the restricted writer below.
     with case.clone.admin.begin() as conn:
-        config = record_method(conn, method, "historical-control", configuration, identity, prepared=case.prepared)
-        task = create_task(conn, run_id=run, config_id=config, stage="propose", unit_type="source_view",
-            unit_id=source["source_view_id"], unit_key=pin["source"], input_hash=identity)
+        config = record_method(
+            conn, method, "historical-control", configuration, identity, prepared=case.prepared
+        )
+        task = create_task(
+            conn,
+            run_id=run,
+            config_id=config,
+            stage="propose",
+            unit_type="source_view",
+            unit_id=source["source_view_id"],
+            unit_key=pin["source"],
+            input_hash=identity,
+        )
     with case.writer.begin() as conn:
-        (held,) = claim_tasks(conn, run_id=run, config_id=config, holder="historical-review-control")
+        (held,) = claim_tasks(
+            conn, run_id=run, config_id=config, holder="historical-review-control"
+        )
         assert held.task_id == task
         ref = UnitRef(TaskUnitType.SOURCE_VIEW, source["source_view_id"], pin["source"])
         if kind == "source_records":
-            result = UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED,
-                records=tuple(case.prepared.validate_json("SourceRecord", canonical_bytes(row)).model_dump(mode="python", exclude_none=True)
-                    for row in configuration["records"]))
+            result = UnitResult(
+                ref=ref,
+                outcome=ObservationOutcome.PRODUCED,
+                records=tuple(
+                    case.prepared.validate_json("SourceRecord", canonical_bytes(row)).model_dump(
+                        mode="python", exclude_none=True
+                    )
+                    for row in configuration["records"]
+                ),
+            )
         else:
             operation = operation_identity(name, "1", configuration, pin)
-            rows = tuple(interpretation_contribution(case.prepared, semantic_type=kind+".interpretation",
-                payload=row, operation_key=operation, item_key=str(index), pin=pin, anchors=())
-                for index, row in enumerate(configuration["reviews"]))
-            result = UnitResult(ref=ref, outcome=ObservationOutcome.PRODUCED, contributions=rows,
-                contribution_operations=({"operation_key": operation, "question": name,
-                    "operation_version": "1", "outcome": "succeeded",
-                    "inspected_count": len(rows), "emitted_count": len(rows)},))
-        completion = prepare_unit_completion(conn, task_id=task, attempt=held.attempt,
-            holder="historical-review-control", prepared=case.prepared, method=method,
-            configuration_hash=identity, source=pin["source"], result=result,
-            records=result.records if kind == "source_records" else None)
+            rows = tuple(
+                interpretation_contribution(
+                    case.prepared,
+                    semantic_type=kind + ".interpretation",
+                    payload=row,
+                    operation_key=operation,
+                    item_key=str(index),
+                    pin=pin,
+                    anchors=(),
+                )
+                for index, row in enumerate(configuration["reviews"])
+            )
+            result = UnitResult(
+                ref=ref,
+                outcome=ObservationOutcome.PRODUCED,
+                contributions=rows,
+                contribution_operations=(
+                    {
+                        "operation_key": operation,
+                        "question": name,
+                        "operation_version": "1",
+                        "outcome": "succeeded",
+                        "inspected_count": len(rows),
+                        "emitted_count": len(rows),
+                    },
+                ),
+            )
+        completion = prepare_unit_completion(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="historical-review-control",
+            prepared=case.prepared,
+            method=method,
+            configuration_hash=identity,
+            source=pin["source"],
+            result=result,
+            records=result.records if kind == "source_records" else None,
+        )
         assert not completion.source_views
-        complete_task(conn, task_id=task, attempt=held.attempt, holder="historical-review-control",
-            prepared=case.prepared, observations=completion.rows, outcome=completion.outcome,
-            error=completion.error, envelope=completion.envelope)
+        complete_task(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="historical-review-control",
+            prepared=case.prepared,
+            observations=completion.rows,
+            outcome=completion.outcome,
+            error=completion.error,
+            envelope=completion.envelope,
+        )
         cut = seal_cut(conn, run, "historical-review-final", final=True)
     result = consolidate_cut(case.writer, cut, "historical-review-result:" + str(run))
     return {"run_id": run, "cut_id": cut, "realization_id": result.realization_id}
@@ -250,12 +352,30 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     with case.writer.begin() as conn:
         from corpus_structure.semantic.operations import complete_task, prepare_unit_completion
         from semantic.native_record_fixtures import unit
-        completion = prepare_unit_completion(conn, task_id=case.task, attempt=case.held.attempt,
-            holder="records", prepared=case.prepared, method=case.method,
-            configuration_hash="private-config", source="private-unit", result=unit(case), records=records)
-        complete_task(conn, task_id=case.task, attempt=case.held.attempt, holder="records",
-            prepared=case.prepared, observations=completion.rows, outcome=completion.outcome,
-            error=completion.error, envelope=completion.envelope)
+
+        completion = prepare_unit_completion(
+            conn,
+            task_id=case.task,
+            attempt=case.held.attempt,
+            holder="records",
+            prepared=case.prepared,
+            method=case.method,
+            configuration_hash="private-config",
+            source="private-unit",
+            result=unit(case),
+            records=records,
+        )
+        complete_task(
+            conn,
+            task_id=case.task,
+            attempt=case.held.attempt,
+            holder="records",
+            prepared=case.prepared,
+            observations=completion.rows,
+            outcome=completion.outcome,
+            error=completion.error,
+            envelope=completion.envelope,
+        )
         cut = seal_cut(conn, case.run, "source-final", final=True)
     result = consolidate_cut(case.writer, cut, "review-filter-source-result")
     digest, _ = metadata_binding(case.prepared)
@@ -362,7 +482,9 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     manifest = json.loads((contract_path / "manifest.json").read_bytes())
     assert manifest["release_id"] == case.prepared.release_id
     assert "structural_preflight_only" in manifest["limitations"]
-    authored = _publish_historical_authored_fixture(case, kind="terminology", configuration=configuration)
+    authored = _publish_historical_authored_fixture(
+        case, kind="terminology", configuration=configuration
+    )
     selection = TerminologySelection(
         review_run_id=authored["run_id"],
         review_cut_id=authored["cut_id"],
@@ -586,4 +708,4 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
             case,
             kind="measurement",
             configuration=dict(source=forged_source, reviews=[measurement]),
-            )
+        )

@@ -1533,7 +1533,6 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     from corpus_structure.core.method import MethodSettings
     from corpus_structure.core.vocab import Stage
     from corpus_structure.methods.characterization import ComposeViewMethod
-    from semantic.retained_primary_fixture import SealedFormalFixture
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
     from corpus_structure.orchestrate.runner import Graph, Step
@@ -1548,6 +1547,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
         capture_characterization_review,
     )
     from corpus_structure.serve.review_bundle import verify_review_bundle
+    from semantic.retained_primary_fixture import SealedFormalFixture
     from semantic.witnessed_scenario_support import completed_metadata
 
     publication = publish_selected(

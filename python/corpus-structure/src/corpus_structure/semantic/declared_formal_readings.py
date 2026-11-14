@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pydantic import BaseModel
 from typing import Any
+
+from pydantic import BaseModel
 
 from .data_product_reference import DataProductReference, member_reference
 from .identity import canonical_bytes
@@ -31,8 +32,12 @@ def declared_formal_layers(products, source):
         body = product.value
         if isinstance(body, BaseModel):
             body = body.model_dump(mode="json", exclude_unset=True)
-        if canonical_bytes(body["source"]) != canonical_bytes(selected["source"]) or canonical_bytes(body["selectors"]) != canonical_bytes(selected["selectors"]):
-            raise ValueError("formal inventory differs from its exact original source and analyzed scope")
+        if canonical_bytes(body["source"]) != canonical_bytes(
+            selected["source"]
+        ) or canonical_bytes(body["selectors"]) != canonical_bytes(selected["selectors"]):
+            raise ValueError(
+                "formal inventory differs from its exact original source and analyzed scope"
+            )
         reference = DataProductReference(product.semantic_id)
         if reference in result:
             raise ValueError("formal input repeats a selected native product")
@@ -44,8 +49,8 @@ def formal_member_reference(product, identifier):
     """Keep actual target addresses and exact historical replay addresses distinct."""
     if isinstance(product, DataProductReference):
         return member_reference(product, identifier)
-    from .product_reference import ProductReference
     from .characterization import annotation_reference
+    from .product_reference import ProductReference
 
     if isinstance(product, ProductReference):
         return annotation_reference(product, identifier)

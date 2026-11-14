@@ -1650,6 +1650,7 @@ def native_scope_layout(*, root, text, items, ancestors, pieces, domains=()):
 
     from corpus_structure.core.evidence import Segment
     from corpus_structure.core.vocab import SegmentKind
+
     from .native_topology import prepare_native_topology_columns
 
     native = {item["self_ref"]: item for item in items if item.get("label") == "formula"}
@@ -1764,7 +1765,6 @@ def native_scope_layout(*, root, text, items, ancestors, pieces, domains=()):
 def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     """Reuse positioned scope kernels on an in-memory lowering of one native section."""
 
-    from corpus_structure.core.evidence import Segment
     from corpus_structure.core.method import SourceObservationReference
     from corpus_structure.core.payloads import ValuePayload
     from corpus_structure.core.values import Formula, SetValue
@@ -1789,8 +1789,12 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     primary_scope = _primary_scope(ctx.reader, view, cfg.binders, section.native_domain_rules)
     domains = domain_blocks(view, section.native_domain_rules, primary_scope=primary_scope)
     content, math_segments, selected, topology, section_segments = native_scope_layout(
-        root=view.ref.section_pointer, text=view.text, items=view.items,
-        ancestors=view.ancestors, pieces=view.pieces, domains=domains,
+        root=view.ref.section_pointer,
+        text=view.text,
+        items=view.items,
+        ancestors=view.ancestors,
+        pieces=view.pieces,
+        domains=domains,
     )
     # This value is solely a pure-kernel lowering: it is never stored as kb.rendition.
     stored = ctx.reader.source_observations(view.ref.id, "extract.math", ObservationKind.MENTION)

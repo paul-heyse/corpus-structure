@@ -1,14 +1,14 @@
 """One source-bound private candidate inspection artifact for declared producers."""
 
-from pathlib import Path
 from hashlib import sha256
+from pathlib import Path
 
 import yaml
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import json_context_meaning
-from .identity import canonical_bytes
 from .declared_record_sources import declared_record_inputs
+from .identity import canonical_bytes
 from .source_products import source_product_inputs
 from .types import SourceArtifact, SourceBundle
 
@@ -52,7 +52,10 @@ def candidate_inspection_inputs(bundle):
 def candidate_member_id(candidate_type, value):
     """Address an actual interpretation, preserving shared domain record identity."""
     if candidate_type == "record":
-        return "record:" + sha256(canonical_bytes([value["record_id"], value["interpretation_id"]])).hexdigest()
+        return (
+            "record:"
+            + sha256(canonical_bytes([value["record_id"], value["interpretation_id"]])).hexdigest()
+        )
     if candidate_type == "contribution":
         return "contribution:" + value["contribution_id"]
     raise ValueError("unknown candidate member family")
@@ -163,7 +166,11 @@ def validate_bound_candidate_report(prepared, model, binding, role_name, value):
 
     if binding is None or not binding.sufficient:
         raise PortRefusal("candidate report requires its sufficient native binding")
-    declarations = [role for role in model.operation(binding.operation).roles if role.name == role_name and role.direction == "input"]
+    declarations = [
+        role
+        for role in model.operation(binding.operation).roles
+        if role.name == role_name and role.direction == "input"
+    ]
     selected = [role for role in binding.roles if role.role == role_name]
     if len(declarations) != 1 or len(selected) != 1:
         raise PortRefusal("candidate report requires its one declared input role")
@@ -172,10 +179,16 @@ def validate_bound_candidate_report(prepared, model, binding, role_name, value):
         raise PortRefusal("candidate report requires its exact scalar native member")
     member = members[0]
     accepted = input_kind_contracts(model, (declarations[0].kind,))[declarations[0].kind]
-    actual = [identity.owner for identity in model.identities if identity.domain == "kind" and identity.key == member.kind_contract]
+    actual = [
+        identity.owner
+        for identity in model.identities
+        if identity.domain == "kind" and identity.key == member.kind_contract
+    ]
     if member.kind_contract not in accepted or len(actual) != 1:
         raise PortRefusal("candidate report kind is outside its declared input family")
     definitions = [definition for definition in prepared.definitions if definition.iri == actual[0]]
     if len(definitions) != 1:
         raise PortRefusal("candidate report lacks its actual concrete nominal definition")
-    return prepared.validate_json(definitions[0].name, json_bytes(value)).model_dump(mode="python", exclude_unset=True)
+    return prepared.validate_json(definitions[0].name, json_bytes(value)).model_dump(
+        mode="python", exclude_unset=True
+    )

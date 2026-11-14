@@ -43,13 +43,15 @@ def math_profile():
     from corpus_structure.semantic.formal_evidence import grammar_identity
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    from corpus_structure.semantic.construction_products import construction_product_inputs
     from corpus_structure.semantic.characterization_ports import characterization_operation_sources
+    from corpus_structure.semantic.construction_products import construction_product_inputs
 
     bundle = construction_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
-    captured = combine_primary_sources(formal_operation_sources(), math_operation_sources(), characterization_operation_sources())
+    captured = combine_primary_sources(
+        formal_operation_sources(), math_operation_sources(), characterization_operation_sources()
+    )
     dependencies = data_operation_dependencies(
         ResolvedDependencies(), (math_operation_declarations(),), captured
     )
@@ -168,36 +170,76 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
         DeclaredMathNormalization(normalizer).run(source.value, changed)
 
 
-def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(math_profile, monkeypatch):
+def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
+    math_profile, monkeypatch
+):
     from corpus_structure.methods.math.declared import DeclaredMathScope
     from corpus_structure.semantic.construction_products import (
-        ConstructionOptions, PreparedConstructionProfile,
+        ConstructionOptions,
+        PreparedConstructionProfile,
     )
     from corpus_structure.semantic.constructions.math_scope import Binders
+
     source, formal, source_member, formal_member = _inputs(math_profile)
     binders = Binders(sentence_initial=("suppose",))
-    context = SubjectContext("outside-statistics", source_member.subject,
-        source_member.original_source, source_member.analyzed_scope)
+    context = SubjectContext(
+        "outside-statistics",
+        source_member.subject,
+        source_member.original_source,
+        source_member.analyzed_scope,
+    )
     model = bound_data_operation_model(math_profile.prepared)
     construction = PreparedConstructionProfile(math_profile.prepared, model).run(
-        source, (formal,), ConstructionOptions(math_scope_binders=binders), subject_context=context)
-    profile = PreparedMathInputs(math_profile.prepared,
-        (_role("source", (source_member,)), _role("formal", (formal_member,)),
-         _role("inherited", ()), _role("ancestor_sources", ())),
-        "outside-statistics", DeclaredMathOptions(math_scope_binders=binders),
-        acquire_analysis_context_profile(), lambda: None)
-    original = DeclaredMathOccurrences(profile).run(source.value, formal.value.model_dump(mode="json", exclude_unset=True))
-    occurrence_member = replace(formal_member, product="product:occurrences", kind_contract="kind:math")
-    normalizer = replace(profile, roles=(_role("source", (source_member,)), _role("occurrences", (occurrence_member,))))
+        source, (formal,), ConstructionOptions(math_scope_binders=binders), subject_context=context
+    )
+    profile = PreparedMathInputs(
+        math_profile.prepared,
+        (
+            _role("source", (source_member,)),
+            _role("formal", (formal_member,)),
+            _role("inherited", ()),
+            _role("ancestor_sources", ()),
+        ),
+        "outside-statistics",
+        DeclaredMathOptions(math_scope_binders=binders),
+        acquire_analysis_context_profile(),
+        lambda: None,
+    )
+    original = DeclaredMathOccurrences(profile).run(
+        source.value, formal.value.model_dump(mode="json", exclude_unset=True)
+    )
+    occurrence_member = replace(
+        formal_member, product="product:occurrences", kind_contract="kind:math"
+    )
+    normalizer = replace(
+        profile,
+        roles=(_role("source", (source_member,)), _role("occurrences", (occurrence_member,))),
+    )
     symbolic = DeclaredMathNormalization(normalizer).run(source.value, original)
-    scope_profile = replace(profile, roles=(_role("source", (source_member,)),
-        _role("occurrences", (occurrence_member,)), _role("symbolic", (replace(occurrence_member, product="product:symbolic"),)),
-        _role("constructions", (replace(formal_member, product=construction.semantic_id),)),
-        _role("inherited", ()), _role("ancestor_sources", ())))
+    scope_profile = replace(
+        profile,
+        roles=(
+            _role("source", (source_member,)),
+            _role("occurrences", (occurrence_member,)),
+            _role("symbolic", (replace(occurrence_member, product="product:symbolic"),)),
+            _role("constructions", (replace(formal_member, product=construction.semantic_id),)),
+            _role("inherited", ()),
+            _role("ancestor_sources", ()),
+        ),
+    )
     from corpus_structure.methods.math import grammar
-    monkeypatch.setattr(grammar, "syntax", lambda *_a, **_kw: pytest.fail("scope reparsed primary syntax"))
-    result = DeclaredMathProduct.model_validate(DeclaredMathScope(scope_profile).run(source.value, original,
-        symbolic, construction.value.model_dump(mode="json", exclude_unset=True)))
+
+    monkeypatch.setattr(
+        grammar, "syntax", lambda *_a, **_kw: pytest.fail("scope reparsed primary syntax")
+    )
+    result = DeclaredMathProduct.model_validate(
+        DeclaredMathScope(scope_profile).run(
+            source.value,
+            original,
+            symbolic,
+            construction.value.model_dump(mode="json", exclude_unset=True),
+        )
+    )
     assert result.phase == "scope" and result.outcome == "partial"
     assert "retained source binder coverage unavailable or incomplete" in result.issues
     assert result.items == ()
@@ -205,76 +247,196 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
     assert result.occurrence_input.product_id == "product:occurrences"
     assert result.symbolic_input is not None
     assert result.symbolic_input.product_id == "product:symbolic"
-    substituted = {**symbolic, "occurrence_input": {**symbolic["occurrence_input"], "product_id": "product:other"}}
+    substituted = {
+        **symbolic,
+        "occurrence_input": {**symbolic["occurrence_input"], "product_id": "product:other"},
+    }
     with pytest.raises(ValueError, match="correspondence"):
-        DeclaredMathScope(scope_profile).run(source.value, original, substituted,
-            construction.value.model_dump(mode="json", exclude_unset=True))
+        DeclaredMathScope(scope_profile).run(
+            source.value,
+            original,
+            substituted,
+            construction.value.model_dump(mode="json", exclude_unset=True),
+        )
 
 
-def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_offsets(math_profile, monkeypatch):
+def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_offsets(
+    math_profile, monkeypatch
+):
     """Independent retained-cue fixture; this is pure scope evidence, not NLP inference."""
     from corpus_structure.methods.math.declared import DeclaredMathScope
-    from corpus_structure.semantic.constructions.math_scope import Binders, FAMILY, policy_identity
+    from corpus_structure.semantic.constructions.math_scope import FAMILY, Binders, policy_identity
     from corpus_structure.semantic.constructions.nodes import identity
-    parts = (("formula", "x+1"), ("text", ". Suppose "), ("formula", "x=2"),
-        ("text", ". "), ("formula", "x+1"), ("text", "."))
+
+    parts = (
+        ("formula", "x+1"),
+        ("text", ". Suppose "),
+        ("formula", "x=2"),
+        ("text", ". "),
+        ("formula", "x+1"),
+        ("text", "."),
+    )
     text = "".join(value for _, value in parts)
     items, pieces, recognition = [], [], []
     offset = 0
     for index, (label, value) in enumerate(parts):
         pointer = "#/texts/" + str(index)
         items.append(dict(self_ref=pointer, label=label, text=value, orig=value))
-        pieces.append(dict(kind="native_text", start=offset, end=offset+len(value), item_ref=pointer, source_field="text"))
+        pieces.append(
+            dict(
+                kind="native_text",
+                start=offset,
+                end=offset + len(value),
+                item_ref=pointer,
+                source_field="text",
+            )
+        )
         offset += len(value)
         if label == "formula":
             recognition.append(dict(pointer=pointer, outcome="succeeded"))
-    source = selected(math_profile, text, items=items, pieces=pieces, recognition=recognition,
-        selectors=[dict(projection="b"*64, start=0, end=len(text))])
-    context = SubjectContext("outside-statistics", source_subject(source.value["source"]),
-        source.value["source"]["document"], canonical_bytes({"selectors":source.value["selectors"]}))
+    source = selected(
+        math_profile,
+        text,
+        items=items,
+        pieces=pieces,
+        recognition=recognition,
+        selectors=[dict(projection="b" * 64, start=0, end=len(text))],
+    )
+    context = SubjectContext(
+        "outside-statistics",
+        source_subject(source.value["source"]),
+        source.value["source"]["document"],
+        canonical_bytes({"selectors": source.value["selectors"]}),
+    )
     formal = math_profile.run(source, FormalEvidenceOptions(), subject_context=context)
-    pin = BoundRoleMember("product:source", "kind:source", context.subject, context.original_source,
-        context.analyzed_scope, b"{}", (), b"{}", member="selected")
+    pin = BoundRoleMember(
+        "product:source",
+        "kind:source",
+        context.subject,
+        context.original_source,
+        context.analyzed_scope,
+        b"{}",
+        (),
+        b"{}",
+        member="selected",
+    )
     formal_pin = replace(pin, product=formal.semantic_id, member=None, kind_contract="kind:formal")
     binders = Binders(sentence_initial=("suppose",))
-    profile = PreparedMathInputs(math_profile.prepared, (_role("source", (pin,)),
-        _role("formal", (formal_pin,)), _role("inherited", ()), _role("ancestor_sources", ())),
-        context.project_id, DeclaredMathOptions(math_scope_binders=binders), acquire_analysis_context_profile(), lambda:None)
-    original = DeclaredMathOccurrences(profile).run(source.value, formal.value.model_dump(mode="json", exclude_unset=True))
+    profile = PreparedMathInputs(
+        math_profile.prepared,
+        (
+            _role("source", (pin,)),
+            _role("formal", (formal_pin,)),
+            _role("inherited", ()),
+            _role("ancestor_sources", ()),
+        ),
+        context.project_id,
+        DeclaredMathOptions(math_scope_binders=binders),
+        acquire_analysis_context_profile(),
+        lambda: None,
+    )
+    original = DeclaredMathOccurrences(profile).run(
+        source.value, formal.value.model_dump(mode="json", exclude_unset=True)
+    )
     occurrence_pin = replace(formal_pin, product="product:occurrences", kind_contract="kind:math")
-    symbolic = DeclaredMathNormalization(replace(profile, roles=(_role("source", (pin,)),
-        _role("occurrences", (occurrence_pin,))))).run(source.value, original)
+    symbolic = DeclaredMathNormalization(
+        replace(profile, roles=(_role("source", (pin,)), _role("occurrences", (occurrence_pin,))))
+    ).run(source.value, original)
     projection = source.value["source"]["projection"]
     policy = policy_identity(binders, ())
     # Every cue has exact literal support; the independent fixture declares only
     # the middle sentence as a binder and supplies complete examined coverage.
-    extents = {"all": (0,len(text)), "sentence": (5,17), "initial": (5,12)}
+    extents = {"all": (0, len(text)), "sentence": (5, 17), "initial": (5, 12)}
     members: list[dict[str, JsonValue]] = []
-    for name,(start,end) in extents.items():
-        members.append({"body":{"record_type":"occurrence", "local_id":name,
-            "extents":[{"projection":projection,"native_pointer":piece["item_ref"],
-                "start":max(start,piece["start"]),"end":min(end,piece["end"]),
-                "text":text[max(start,piece["start"]):min(end,piece["end"])]}
-                for piece in pieces if piece["start"] < end and start < piece["end"]]}})
-    for name, kind, occurrence in (("policy","scope_policy","all"),
-            ("sentence","scope_sentence","sentence"),("initial","scope_initial","initial")):
-        members.append({"body":{"record_type":"annotation","local_id":"a:"+name,
-            "kind":"math."+kind,"family":FAMILY,"rule_id":identity("math-source-sentences",[]) if name=="sentence" else policy,
-            "occurrences":[occurrence]}})
-    members.append({"body":{"record_type":"membership","local_id":"m:sentence",
-        "group":"a:initial","role":"sentence","member":"a:sentence"}})
-    cues = {"source":source.value["source"],"selectors":source.value["selectors"],"members":members,
-        "coverage":[{"family":FAMILY,"availability":"available","outcome":"complete",
-            "examined":[{"projection":projection,"start":0,"end":len(text)}],"unexamined":[]}]}
-    scope_profile = replace(profile, roles=(_role("source",(pin,)),_role("occurrences",(occurrence_pin,)),
-        _role("symbolic",(replace(occurrence_pin,product="product:symbolic"),)),
-        _role("constructions",(replace(formal_pin,product="product:cues"),)),
-        _role("inherited",()),_role("ancestor_sources",())))
+    for name, (start, end) in extents.items():
+        members.append(
+            {
+                "body": {
+                    "record_type": "occurrence",
+                    "local_id": name,
+                    "extents": [
+                        {
+                            "projection": projection,
+                            "native_pointer": piece["item_ref"],
+                            "start": max(start, piece["start"]),
+                            "end": min(end, piece["end"]),
+                            "text": text[max(start, piece["start"]) : min(end, piece["end"])],
+                        }
+                        for piece in pieces
+                        if piece["start"] < end and start < piece["end"]
+                    ],
+                }
+            }
+        )
+    for name, kind, occurrence in (
+        ("policy", "scope_policy", "all"),
+        ("sentence", "scope_sentence", "sentence"),
+        ("initial", "scope_initial", "initial"),
+    ):
+        members.append(
+            {
+                "body": {
+                    "record_type": "annotation",
+                    "local_id": "a:" + name,
+                    "kind": "math." + kind,
+                    "family": FAMILY,
+                    "rule_id": identity("math-source-sentences", [])
+                    if name == "sentence"
+                    else policy,
+                    "occurrences": [occurrence],
+                }
+            }
+        )
+    members.append(
+        {
+            "body": {
+                "record_type": "membership",
+                "local_id": "m:sentence",
+                "group": "a:initial",
+                "role": "sentence",
+                "member": "a:sentence",
+            }
+        }
+    )
+    cues = {
+        "source": source.value["source"],
+        "selectors": source.value["selectors"],
+        "members": members,
+        "coverage": [
+            {
+                "family": FAMILY,
+                "availability": "available",
+                "outcome": "complete",
+                "examined": [{"projection": projection, "start": 0, "end": len(text)}],
+                "unexamined": [],
+            }
+        ],
+    }
+    scope_profile = replace(
+        profile,
+        roles=(
+            _role("source", (pin,)),
+            _role("occurrences", (occurrence_pin,)),
+            _role("symbolic", (replace(occurrence_pin, product="product:symbolic"),)),
+            _role("constructions", (replace(formal_pin, product="product:cues"),)),
+            _role("inherited", ()),
+            _role("ancestor_sources", ()),
+        ),
+    )
     from corpus_structure.methods.math import grammar
-    monkeypatch.setattr(grammar, "syntax", lambda *_a, **_kw:pytest.fail("scope reparsed primary syntax"))
-    actual = DeclaredMathScope(scope_profile).run(source.value,original,symbolic,cues)
-    assert [(row["pointer"],row["recognized_start"],row["recognized_end"],row["outcome"]) for row in actual["items"]] == [
-        ("#/texts/0",0,1,"unresolved"),("#/texts/2",0,1,"resolved"),("#/texts/4",0,1,"resolved")]
+
+    monkeypatch.setattr(
+        grammar, "syntax", lambda *_a, **_kw: pytest.fail("scope reparsed primary syntax")
+    )
+    actual = DeclaredMathScope(scope_profile).run(source.value, original, symbolic, cues)
+    assert [
+        (row["pointer"], row["recognized_start"], row["recognized_end"], row["outcome"])
+        for row in actual["items"]
+    ] == [
+        ("#/texts/0", 0, 1, "unresolved"),
+        ("#/texts/2", 0, 1, "resolved"),
+        ("#/texts/4", 0, 1, "resolved"),
+    ]
     for row in actual["items"][1:]:
         assert row["binding_pointer"] == "#/texts/2" and row["binding_start"] == 0
         assert row["binding_input"]["product_id"] == "product:occurrences"

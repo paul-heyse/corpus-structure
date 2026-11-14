@@ -33,8 +33,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionBasisWitness,
-    DefinitionOutcome,
     DefinitionComponentsProduct,
+    DefinitionOutcome,
     DefinitionProduct,
     DefinitionRoleCandidate,
     DefinitionStage,
@@ -1283,8 +1283,19 @@ def assess_applicability(
     *,
     defining_occurrence: bool = False,
 ) -> StructuralDefinitionReading:
-    assessment = applicability_assessment(inputs, usage_id, candidate, defining_occurrence=defining_occurrence)
-    return StructuralDefinitionReading(target_id=candidate.target_id, component_ref=candidate.reference, link_ref=candidate.link_ref, component=candidate.component, outcome=assessment.outcome, evidence=assessment.evidence, premises=assessment.premises, reason=assessment.reason)
+    assessment = applicability_assessment(
+        inputs, usage_id, candidate, defining_occurrence=defining_occurrence
+    )
+    return StructuralDefinitionReading(
+        target_id=candidate.target_id,
+        component_ref=candidate.reference,
+        link_ref=candidate.link_ref,
+        component=candidate.component,
+        outcome=assessment.outcome,
+        evidence=assessment.evidence,
+        premises=assessment.premises,
+        reason=assessment.reason,
+    )
 
 
 @dataclass(frozen=True)
@@ -1295,7 +1306,9 @@ class ApplicabilityAssessment:
     reason: str
 
 
-def applicability_assessment(inputs, usage_id, candidate, *, defining_occurrence=False) -> ApplicabilityAssessment:
+def applicability_assessment(
+    inputs, usage_id, candidate, *, defining_occurrence=False
+) -> ApplicabilityAssessment:
     """Reference-neutral compatibility policy shared by current and sealed readers."""
     usage = next(p for p in inputs.passages if p.passage_id == usage_id)
     component = candidate.component

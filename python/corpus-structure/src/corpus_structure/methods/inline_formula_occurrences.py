@@ -180,7 +180,8 @@ def inline_symbols(
         roots = [
             row
             for row in roots
-            if formal_member_reference(row[0], row[2]["local_id"]).values() == equation.primary_input
+            if formal_member_reference(row[0], row[2]["local_id"]).values()
+            == equation.primary_input
         ]
     if len(roots) != 1:
         return (), "ambiguous" if roots else "unsupported"

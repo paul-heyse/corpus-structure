@@ -61,9 +61,8 @@ def packet_bound_source_tasks(run_id: int, *, cut_id: int | None = None):
 
 def backfill_source_frames(engine: Engine, run_id: int) -> int:
     """Append missing origin frames after rebuilding and verifying their original packet hash."""
-    from .retained_agent_packets import retained_agent_packet
-
     from .releases import open_release
+    from .retained_agent_packets import retained_agent_packet
 
     tasks, cuts, frames = map(table, ("ops.task", "ops.input_cut", "ops.native_source_frame"))
     with engine.begin() as conn:
@@ -88,5 +87,7 @@ def backfill_source_frames(engine: Engine, run_id: int) -> int:
             ).one()
             prepared = open_release(conn, task.release_id)
             # The sealed selection and original packet hash are both required.
-            retained_agent_packet(conn, task.run_id, task_id, prepared, sealed_context_run_id=run_id)
+            retained_agent_packet(
+                conn, task.run_id, task_id, prepared, sealed_context_run_id=run_id
+            )
         return len(missing)

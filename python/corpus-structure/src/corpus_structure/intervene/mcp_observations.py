@@ -59,5 +59,3 @@ class ObservationMiddleware(Middleware):
             else:
                 event("mcp_tool_finished", "MCP tool finished", tool=context.message.name)
                 return result
-
-

@@ -382,9 +382,7 @@ def test_overlong_sentence_is_not_cut_and_cancellation_propagates(native_source)
         drive_prepared_work(_batch_sentences(LimitedWorker(), [entry], builder, cancel), cancel)
 
 
-def test_explicit_primary_scope_keeps_context_only_source_and_exact_base(
-    native_source
-):
+def test_explicit_primary_scope_keeps_context_only_source_and_exact_base(native_source):
     _, _, _, view, base, scope, _ = native_source
     from pydantic import BaseModel
 

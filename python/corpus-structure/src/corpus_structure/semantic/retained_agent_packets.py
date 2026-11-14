@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
+
 from .identity import canonical_bytes
 from .metadata import table
 from .operations import OperationConflict, run_view
@@ -117,7 +118,12 @@ def retained_agent_packet(
         raise OperationConflict("retained packet inspection requires a sealed historical run")
     if context_run != run_id:
         members, cuts = table("ops.cut_task"), table("ops.input_cut")
-        selected = conn.execute(select(members.c.origin_task_id).join(cuts, cuts.c.id == members.c.cut_id).where(cuts.c.run_id == context_run, members.c.origin_task_id == task_id).limit(1)).scalar_one_or_none()
+        selected = conn.execute(
+            select(members.c.origin_task_id)
+            .join(cuts, cuts.c.id == members.c.cut_id)
+            .where(cuts.c.run_id == context_run, members.c.origin_task_id == task_id)
+            .limit(1)
+        ).scalar_one_or_none()
         if selected != task_id:
             raise OperationConflict("packet origin is outside the sealed selected result")
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
@@ -159,4 +165,3 @@ def retained_agent_packet(
 
     capture_source_frame(conn, task_id, packet)
     return packet
-

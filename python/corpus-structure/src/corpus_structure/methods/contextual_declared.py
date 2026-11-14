@@ -2,7 +2,10 @@
 
 from typing import ClassVar
 
-from corpus_structure.semantic.contextual_operations import execute_inventory_profile, execute_retrieval_profile
+from corpus_structure.semantic.contextual_operations import (
+    execute_inventory_profile,
+    execute_retrieval_profile,
+)
 
 
 class ContextualRetrievalOperation:

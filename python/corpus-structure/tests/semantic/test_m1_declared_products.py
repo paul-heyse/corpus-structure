@@ -48,9 +48,7 @@ def record_schemas():
 def configuration():
     from methods.domain_configuration import candidate_configuration
 
-    return M1Config.model_validate(
-        candidate_configuration(ROOT / "domains/statistics", "default")
-    )
+    return M1Config.model_validate(candidate_configuration(ROOT / "domains/statistics", "default"))
 
 
 def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator():
@@ -245,10 +243,23 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
     (packet,) = report["members"]
     assert packet["member_id"].startswith("record:")
     alternative = {**records[0], "interpretation_id": "distinct-interpretation"}
-    alternatives = candidate_report(prepared, model, M1CandidateProduct(ObservationOutcome.PRODUCED, records=(*records, alternative), contributions=()), frame, SubjectContext("p", member.subject, member.original_source, member.analyzed_scope))
+    alternatives = candidate_report(
+        prepared,
+        model,
+        M1CandidateProduct(
+            ObservationOutcome.PRODUCED, records=(*records, alternative), contributions=()
+        ),
+        frame,
+        SubjectContext("p", member.subject, member.original_source, member.analyzed_scope),
+    )
     assert len({row["member_id"] for row in alternatives["members"]}) == 2
-    assert {row["body"]["record_id"] for row in alternatives["members"]} == {records[0]["record_id"]}
-    assert {row["body"]["interpretation_id"] for row in alternatives["members"]} == {records[0]["interpretation_id"], "distinct-interpretation"}
+    assert {row["body"]["record_id"] for row in alternatives["members"]} == {
+        records[0]["record_id"]
+    }
+    assert {row["body"]["interpretation_id"] for row in alternatives["members"]} == {
+        records[0]["interpretation_id"],
+        "distinct-interpretation",
+    }
     assert packet["body"]["candidate_type"] == "record"
     assert packet["body"]["record_id"] == records[0]["record_id"]
     kind = next(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, JsonValue
 from sqlalchemy import Connection, Engine
@@ -15,7 +15,6 @@ from corpus_structure.semantic.pm2_coverage import ScopeCoverage, scope_coverage
 from corpus_structure.settings import AnalyticsSettings
 
 from .source_progress import SourceOperationProgress, read_source_operation_progress
-
 from .source_request import SourceRequestError
 
 CommandError = SourceRequestError

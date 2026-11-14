@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import ClassVar
 
 from corpus_structure.semantic.characterization_ports import execute_contextual_profile
-from corpus_structure.semantic.construction_products import ConstructionProduct, ContextualMeaningProduct
+from corpus_structure.semantic.construction_products import (
+    ConstructionProduct,
+    ContextualMeaningProduct,
+)
 from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
 from corpus_structure.semantic.formal_products import FormalEvidenceProduct
 from corpus_structure.semantic.source_products import FrozenNativeSource

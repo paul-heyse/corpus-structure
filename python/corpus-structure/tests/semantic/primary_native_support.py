@@ -5,10 +5,10 @@ from typing import Any
 from sqlalchemy import select
 
 from corpus_structure.core.vocab import Stage
-from semantic.retained_primary_fixture import SealedConstructionFixture, SealedFormalFixture
 from corpus_structure.methods.native_evidence import NativeEvidenceMethod
 from corpus_structure.semantic.characterization_store import read_inventory
 from corpus_structure.semantic.metadata import table
+from semantic.retained_primary_fixture import SealedConstructionFixture, SealedFormalFixture
 
 
 def stage_primary_layers(case, run, sources):

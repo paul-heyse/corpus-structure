@@ -27,20 +27,26 @@ def derive_contribution_members(
     def resolve(pin):
         source = sources.get(pin["source_view_id"])
         view = views.get(pin["source_view_id"])
-        if source is None or view is None or any(
-            pin.get(k) != getattr(source, v)
-            for k, v in (
-                ("native_product_task_id", "native_task_id"),
-                ("product_key", "native_product_key"),
-                ("product_digest", "native_content_digest"),
-                ("projection_digest", "projection_digest"),
-                ("recipe_digest", "recipe_digest"),
+        if (
+            source is None
+            or view is None
+            or any(
+                pin.get(k) != getattr(source, v)
+                for k, v in (
+                    ("native_product_task_id", "native_task_id"),
+                    ("product_key", "native_product_key"),
+                    ("product_digest", "native_content_digest"),
+                    ("projection_digest", "projection_digest"),
+                    ("recipe_digest", "recipe_digest"),
+                )
             )
         ):
             raise ValueError("contribution source differs from original dossier source")
         return source, view
 
-    return _derive_contribution_members(inputs, reference, payload, root=root, resolve=resolve, member_type=DossierMember)
+    return _derive_contribution_members(
+        inputs, reference, payload, root=root, resolve=resolve, member_type=DossierMember
+    )
 
 
 def derive_declared_contribution_members(inputs, reference, payload, *, root=None):
@@ -57,7 +63,9 @@ def derive_declared_contribution_members(inputs, reference, payload, *, root=Non
             raise ValueError("contribution source differs from original dossier source")
         return source, view
 
-    return _derive_contribution_members(inputs, reference, payload, root=root, resolve=resolve, member_type=DeclaredDossierMember)
+    return _derive_contribution_members(
+        inputs, reference, payload, root=root, resolve=resolve, member_type=DeclaredDossierMember
+    )
 
 
 def _derive_contribution_members(inputs, reference, payload, *, root, resolve, member_type):

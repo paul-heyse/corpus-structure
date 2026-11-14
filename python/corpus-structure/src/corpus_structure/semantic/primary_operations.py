@@ -36,7 +36,9 @@ def primary_operation_targets(workflow: str, *, captured: bool) -> tuple[str, ..
         )
     if workflow == "phase0":
         return (
-            "text.compose_view/captured-full-native" if captured else "text.compose_view/full-native",
+            "text.compose_view/captured-full-native"
+            if captured
+            else "text.compose_view/full-native",
             "resolve.symbol_scope/declared",
         )
     raise ValueError("unknown declared primary workflow")
@@ -71,9 +73,9 @@ def primary_operation_inputs(
         full_document_view_operation_sources,
     )
     from .construction_products import construction_product_inputs
-    from .declaration_products import declaration_inputs, declaration_operation_sources
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
+    from .declaration_products import declaration_inputs, declaration_operation_sources
     from .formal_products import formal_operation_sources
     from .hanlp_products import hanlp_operation_sources, hanlp_product_inputs
     from .pdf_capture import pdf_capture_inputs

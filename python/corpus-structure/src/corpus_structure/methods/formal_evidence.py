@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from corpus_structure.semantic.formal_products import FormalEvidenceProduct, FrozenFormalSource, execute_formal_profile
+from corpus_structure.semantic.formal_products import (
+    FormalEvidenceProduct,
+    FrozenFormalSource,
+    execute_formal_profile,
+)
 
 
 class FormalEvidenceOperation:

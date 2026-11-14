@@ -19,7 +19,12 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import ContextRefused, evidence_anchor
 from corpus_structure.semantic.types import PreparedRelease
 
-from .predicate_frames import source_layout, primary_inventory, _projection, prepare_predicate_readings
+from .predicate_frames import (
+    _projection,
+    prepare_predicate_readings,
+    primary_inventory,
+    source_layout,
+)
 
 PREDICATE_QUALIFIER_CLASS = "PredicateQualifierComponent"
 MISSING_QUALIFIER = "Predicate qualifier declaration is missing from the selected release."
@@ -58,7 +63,9 @@ def predicate_results(frame, annotations, source_pieces, items, *, primary_produ
             predicate_frames(
                 frame.text,
                 (annotation,),
-                layout=source_layout(annotation, frame.text, source_pieces, items, primary_products=primary_products),
+                layout=source_layout(
+                    annotation, frame.text, source_pieces, items, primary_products=primary_products
+                ),
                 primary_products=primary_products,
             ),
         )
@@ -92,8 +99,21 @@ def _condition(
     start, end = extents[0]
     values = {}
     conflicted = False
-    from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
-    inventories = [(DataProductReference(product.semantic_id), product.inventory()) for product in formal_products] if formal_products else [(pin, report.payload) for pin, report in layers.items()] if hasattr(layers, "items") else ()
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductReference,
+        member_reference,
+    )
+
+    inventories = (
+        [
+            (DataProductReference(product.semantic_id), product.inventory())
+            for product in formal_products
+        ]
+        if formal_products
+        else [(pin, report.payload) for pin, report in layers.items()]
+        if hasattr(layers, "items")
+        else ()
+    )
     for pin, body in inventories:
         occurrences = {o["local_id"]: o for o in body["occurrences"]}
         for annotation in body["annotations"]:
@@ -156,6 +176,7 @@ def _primary_choices(annotation, reference, *, primary_products=()):
     if reference is None:
         raise ValueError("domain projection requires exact retained primary node identity")
     from corpus_structure.semantic.data_product_reference import member_reference
+
     body = primary_inventory(annotation, reference, primary_products=primary_products)
     row = next(
         (
@@ -188,7 +209,9 @@ def _primary_host(annotation, cue, target, *, primary_products=()):
     pin = cue.primary_ref.product
     relations = [
         row
-        for row in primary_inventory(annotation, cue.primary_ref, primary_products=primary_products)["roles"]
+        for row in primary_inventory(
+            annotation, cue.primary_ref, primary_products=primary_products
+        )["roles"]
         if row["owner"] == cue.primary_ref.local_id
         and row["member"] == target.primary_ref.local_id
         and row["role"] in {"host", "cross_block_host"}
@@ -442,7 +465,9 @@ def publish_predicate_evidence(
                 block=annotation.block_id,
                 primary_node=cue.primary_ref.values(),
                 primary_marker=cue.primary_marker_ref.values(),
-                primary_choices=_primary_choices(annotation, cue.primary_ref, primary_products=primary_products),
+                primary_choices=_primary_choices(
+                    annotation, cue.primary_ref, primary_products=primary_products
+                ),
                 cue_kind=kind,
                 variant=cue.variant,
                 host_state=host_state,
@@ -477,7 +502,9 @@ def publish_predicate_evidence(
             source_extents,
         ) = located
         host, reading_id = target.frame, target.reading
-        primary_body = primary_inventory(source_annotation, source_cue.primary_ref, primary_products=primary_products)
+        primary_body = primary_inventory(
+            source_annotation, source_cue.primary_ref, primary_products=primary_products
+        )
         primary_terms = {node["local_id"]: node for node in primary_body["terms"]}
         cue_node = primary_terms[source_cue.primary_ref.local_id]
         operators = [
@@ -532,9 +559,15 @@ def publish_predicate_evidence(
             qualifier_contribution_id=qualifier,
             host_contribution_id=host,
             qualifier_kind=kind,
-            primary_node=_primary_host(source_annotation, source_cue, target, primary_products=primary_products).values(),
+            primary_node=_primary_host(
+                source_annotation, source_cue, target, primary_products=primary_products
+            ).values(),
             primary_choices=_primary_choices(
-                source_annotation, _primary_host(source_annotation, source_cue, target, primary_products=primary_products), primary_products=primary_products
+                source_annotation,
+                _primary_host(
+                    source_annotation, source_cue, target, primary_products=primary_products
+                ),
+                primary_products=primary_products,
             ),
             **details,
         )
@@ -617,7 +650,9 @@ def publish_predicate_evidence(
                             ),
                             role=role,
                             primary_node=primary_ref.values(),
-                            primary_choices=_primary_choices(annotation, primary_ref, primary_products=primary_products),
+                            primary_choices=_primary_choices(
+                                annotation, primary_ref, primary_products=primary_products
+                            ),
                             token_indices=tokens,
                             extents=tuple(dict(start=a, end=b) for a, b in extents),
                             outcome=state if extents == span.extents else "partial",
@@ -628,7 +663,9 @@ def publish_predicate_evidence(
 
                 from corpus_structure.semantic.data_product_reference import member_reference
 
-                primary_body = primary_inventory(annotation, candidate.primary_ref, primary_products=primary_products)
+                primary_body = primary_inventory(
+                    annotation, candidate.primary_ref, primary_products=primary_products
+                )
                 primary_term = next(
                     t
                     for t in primary_body["terms"]
@@ -704,7 +741,9 @@ def publish_predicate_evidence(
                         annotation=dep,
                         block=annotation.block_id,
                         primary_node=candidate.primary_ref.values(),
-                        primary_choices=_primary_choices(annotation, candidate.primary_ref, primary_products=primary_products),
+                        primary_choices=_primary_choices(
+                            annotation, candidate.primary_ref, primary_products=primary_products
+                        ),
                         predicate_token=predicate_token,
                         variant=candidate.variant,
                         grammatical_reading=candidate.reading,
@@ -737,7 +776,9 @@ def publish_predicate_evidence(
                         state,
                         frame=host,
                         primary_node=candidate.primary_ref.values(),
-                        primary_choices=_primary_choices(annotation, candidate.primary_ref, primary_products=primary_products),
+                        primary_choices=_primary_choices(
+                            annotation, candidate.primary_ref, primary_products=primary_products
+                        ),
                         reading=interpretation,
                         voice=candidate.voice,
                         polarity=polarity,
@@ -830,7 +871,24 @@ def publish_predicate_evidence(
                     if annotation_origin_task_id is not None
                     else {}
                 ),
-                **({"primary_products": [{"product_id": product.semantic_id} for product in primary_products]} if primary_products else {"primary_layers": [pin.values() for pin in dict.fromkeys(pin for annotation, _ in results for pin in annotation.primary_layers)]}),
+                **(
+                    {
+                        "primary_products": [
+                            {"product_id": product.semantic_id} for product in primary_products
+                        ]
+                    }
+                    if primary_products
+                    else {
+                        "primary_layers": [
+                            pin.values()
+                            for pin in dict.fromkeys(
+                                pin
+                                for annotation, _ in results
+                                for pin in annotation.primary_layers
+                            )
+                        ]
+                    }
+                ),
                 computation_dependencies=tuple(dict.fromkeys((dependency, *retained))),
             )
         )
@@ -889,7 +947,9 @@ def declared_predicate_evidence(
     value = frame.value
     items = {item["self_ref"]: item for item in value["items"]}
     primary_products = prepare_predicate_readings(primary_products) if primary_products else ()
-    results = predicate_results(frame, annotations, value["pieces"], items, primary_products=primary_products)
+    results = predicate_results(
+        frame, annotations, value["pieces"], items, primary_products=primary_products
+    )
     products, coordinates = [], {}
     operations = publish_predicate_evidence(
         frame,

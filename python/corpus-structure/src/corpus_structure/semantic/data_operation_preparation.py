@@ -251,7 +251,9 @@ def _acquire_primary_profile(
             raise ValueError("explicit native selection assets are unavailable")
         return NativeSelection(native, assets)
 
-    configuration = SentenceConfig.model_validate(yaml.safe_load(read(profile.sentence_configuration)))
+    configuration = SentenceConfig.model_validate(
+        yaml.safe_load(read(profile.sentence_configuration))
+    )
     sentence = selection(profile.sentence_selection, "spacy")
     if sentence.native.parameters != configuration.model_dump(mode="json"):
         raise ValueError("sentence configuration differs from its frozen native selection")
@@ -289,10 +291,15 @@ def _acquire_primary_profile(
         recipe = PdfRecipe.from_bytes(read(capture.recipe))
         manifest = read(capture.assets_manifest)
         value = json.loads(manifest)
-        if not isinstance(value, dict) or set(value) != {"recipe", "repositories", "files"} or value["recipe"] != "pdf-model-assets-v1":
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"recipe", "repositories", "files"}
+            or value["recipe"] != "pdf-model-assets-v1"
+        ):
             raise ValueError("PDF assets require the existing prepared model manifest")
         assets = PreparedPdfAssets(
-            location(capture.assets_root), manifest,
+            location(capture.assets_root),
+            manifest,
             tuple((name, digest) for name, digest in value["files"]),
             tuple((name, revision) for name, revision in value["repositories"]),
         )
@@ -303,7 +310,9 @@ def _acquire_primary_profile(
             raise ValueError("PDF asset manifest requires unique relative artifact names")
         assets.verify()
         arguments["capture_sources"] = pdf_capture_operation_sources(
-            recipe, assets, directory=location(capture.directory),
+            recipe,
+            assets,
+            directory=location(capture.directory),
             nemotron_endpoint=capture.nemotron_endpoint,
             require_nemotron_handoff=capture.require_nemotron_handoff,
         )

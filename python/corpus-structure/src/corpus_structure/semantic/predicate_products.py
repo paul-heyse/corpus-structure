@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import inspect
 import json
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact
-from .data_operation_model import ResolvedRoleBinding, SubjectContext
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
@@ -46,7 +46,12 @@ def predicate_inputs(bundle):
 def predicate_profile_assets():
     return SourceArtifact(
         "predicates/profile-assets",
-        canonical_bytes({"version": "declared-retained-predicate-v1", "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS]}),
+        canonical_bytes(
+            {
+                "version": "declared-retained-predicate-v1",
+                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS],
+            }
+        ),
     )
 
 
@@ -54,7 +59,18 @@ def predicate_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     return PythonSourceCollection(
-        tuple(PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve())) for name in ("methods/predicate_declared.py", "semantic/predicate_products.py", "semantic/data_operation_prepared_call.py")),
+        tuple(
+            PythonSource(
+                "corpus_structure." + name.removesuffix(".py").replace("/", "."),
+                (_ROOT / name).read_bytes(),
+                str((_ROOT / name).resolve()),
+            )
+            for name in (
+                "methods/predicate_declared.py",
+                "semantic/predicate_products.py",
+                "semantic/data_operation_prepared_call.py",
+            )
+        ),
         boundary_contracts=(predicate_profile_assets(),),
     )
 
@@ -68,63 +84,160 @@ class PreparedPredicateInputs:
 
     def members(self, role, *, whole=True):
         selected = next(value for value in self.roles if value.role == role)
-        if any((whole and member.member is not None) or member.multiplicity != 1 for member in selected.members):
+        if any(
+            (whole and member.member is not None) or member.multiplicity != 1
+            for member in selected.members
+        ):
             raise ValueError("predicate input requires actual whole product inventories")
         return selected.members
 
     def subject_context(self, member):
         from .data_operation_model import SubjectContext
-        return SubjectContext(self.context.project_id, member.subject, member.original_source, member.analyzed_scope)
+
+        return SubjectContext(
+            self.context.project_id, member.subject, member.original_source, member.analyzed_scope
+        )
 
     def run(self, source, annotations, constructions, formal):
-        from corpus_structure.methods.predicate_contributions import declared_predicate_evidence, predicate_qualifier_refusal
+        from corpus_structure.methods.predicate_contributions import (
+            declared_predicate_evidence,
+            predicate_qualifier_refusal,
+        )
+
         from .construction_products import CharacterizationSnapshot
-        from .enriched_document_products import RetainedCharacterizationProduct
         from .data_operation_admission import bound_data_operation_model
         from .declared_candidate_products import candidate_inspection_report
         from .declared_record_sources import DeclaredNativeFrameSource
+        from .enriched_document_products import RetainedCharacterizationProduct
         from .formal_products import validate_formal_product
-        from .sentence_products import retained_source_annotation_products, validate_source_annotations
+        from .sentence_products import (
+            retained_source_annotation_products,
+            validate_source_annotations,
+        )
         from .source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
         from .source_products import FrozenNativeSource
 
         model = bound_data_operation_model(self.prepared)
         selected = FrozenNativeSource.acquire(self.prepared, source)
         (source_member,) = self.members("source", whole=False)
-        frame = DeclaredNativeFrameSource.acquire(self.prepared, source, source_member, project=self.context.project_id)
+        frame = DeclaredNativeFrameSource.acquire(
+            self.prepared, source, source_member, project=self.context.project_id
+        )
         (annotation_member,) = self.members("annotations")
-        native = validate_source_annotations(self.prepared, model, annotations, selected, subject_context=self.subject_context(annotation_member))
+        native = validate_source_annotations(
+            self.prepared,
+            model,
+            annotations,
+            selected,
+            subject_context=self.subject_context(annotation_member),
+        )
         if native.semantic_id != annotation_member.product:
             raise ValueError("predicate native body differs from its bound product")
         retained_formal = []
         for member, body in zip(self.members("formal"), formal, strict=True):
-            original = FrozenNativeSource.acquire(self.prepared, {**selected.value, "selectors": body["selectors"]})
-            product = validate_formal_product(self.prepared, body, original, model=model, subject_context=self.subject_context(member))
+            original = FrozenNativeSource.acquire(
+                self.prepared, {**selected.value, "selectors": body["selectors"]}
+            )
+            product = validate_formal_product(
+                self.prepared,
+                body,
+                original,
+                model=model,
+                subject_context=self.subject_context(member),
+            )
             if product.semantic_id != member.product:
                 raise ValueError("predicate formal body differs from its bound product")
             retained_formal.append(product)
         retained = []
         for member, body in zip(self.members("constructions"), constructions, strict=True):
-            product = RetainedCharacterizationProduct.acquire(self.prepared, model, self.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri, canonical_bytes(body), subject_context=self.subject_context(member))
+            product = RetainedCharacterizationProduct.acquire(
+                self.prepared,
+                model,
+                self.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri,
+                canonical_bytes(body),
+                subject_context=self.subject_context(member),
+            )
             if product.semantic_id != member.product:
                 raise ValueError("predicate construction body differs from its bound product")
             retained.append(CharacterizationSnapshot(product.semantic_id, product.content))
         products = retained_source_annotation_products(selected, native)
         self.check_active()
         if not frame.text:
-            return candidate_inspection_report(self.prepared, model, frame, self.context, report_class="DdoPredicateInspectionReport", inspection_outcome="empty", diagnostics={"inspection": "closed-empty-original-source"})
-        context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),), "declared retained predicate projection", "retained-primary-source-readings-v1", "exact bound original source", max_chars=len(frame.text), max_pieces=1, max_sources=1, version=2, preparation=PreparedNativeSources((frame,), max_sources=1))
-        evidence = declared_predicate_evidence(frame, context, products, dependency="native-product:" + native.semantic_id, primary_products=tuple(retained), formal_products=tuple(retained_formal), qualifier_preflight=lambda value: predicate_qualifier_refusal(self.prepared, value), check_active=self.check_active)
-        return candidate_inspection_report(self.prepared, model, frame, self.context, report_class="DdoPredicateInspectionReport", inspection_outcome="produced" if evidence.contributions else "empty", contributions=evidence.contributions, operations=evidence.operations, coordinate_texts=evidence.coordinate_texts, coverage=[{"family": row["question"], "scope": canonical_bytes(selected.value["selectors"]).decode(), "outcome": row["outcome"], **({"reason": row["reason"]} if "reason" in row else {})} for row in evidence.operations], diagnostics={"inspection_complete": evidence.inspection_complete, "primary_products": [product.semantic_id for product in retained]})
+            return candidate_inspection_report(
+                self.prepared,
+                model,
+                frame,
+                self.context,
+                report_class="DdoPredicateInspectionReport",
+                inspection_outcome="empty",
+                diagnostics={"inspection": "closed-empty-original-source"},
+            )
+        context = NativeSourceContext(
+            frame,
+            (),
+            (source_slice(frame, 0, len(frame.text)),),
+            "declared retained predicate projection",
+            "retained-primary-source-readings-v1",
+            "exact bound original source",
+            max_chars=len(frame.text),
+            max_pieces=1,
+            max_sources=1,
+            version=2,
+            preparation=PreparedNativeSources((frame,), max_sources=1),
+        )
+        evidence = declared_predicate_evidence(
+            frame,
+            context,
+            products,
+            dependency="native-product:" + native.semantic_id,
+            primary_products=tuple(retained),
+            formal_products=tuple(retained_formal),
+            qualifier_preflight=lambda value: predicate_qualifier_refusal(self.prepared, value),
+            check_active=self.check_active,
+        )
+        return candidate_inspection_report(
+            self.prepared,
+            model,
+            frame,
+            self.context,
+            report_class="DdoPredicateInspectionReport",
+            inspection_outcome="produced" if evidence.contributions else "empty",
+            contributions=evidence.contributions,
+            operations=evidence.operations,
+            coordinate_texts=evidence.coordinate_texts,
+            coverage=[
+                {
+                    "family": row["question"],
+                    "scope": canonical_bytes(selected.value["selectors"]).decode(),
+                    "outcome": row["outcome"],
+                    **({"reason": row["reason"]} if "reason" in row else {}),
+                }
+                for row in evidence.operations
+            ],
+            diagnostics={
+                "inspection_complete": evidence.inspection_complete,
+                "primary_products": [product.semantic_id for product in retained],
+            },
+        )
 
 
 def execute_predicate_profile(receiver, source, annotations, constructions, formal):
     return receiver.inputs.run(source, annotations, constructions, formal)
 
 
-def predicate_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
+def predicate_kernel(
+    arguments: dict,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
+    *,
+    prepared: PreparedRelease,
+    check_active: Callable[[], None],
+) -> dict:
     from corpus_structure.methods.predicate_declared import PredicateEvidenceOperation
-    return PredicateEvidenceOperation(PreparedPredicateInputs(prepared, roles, context, check_active)).run(**arguments)
+
+    return PredicateEvidenceOperation(
+        PreparedPredicateInputs(prepared, roles, context, check_active)
+    ).run(**arguments)
 
 
 @dataclass
@@ -144,15 +257,40 @@ class PredicateCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("predicate call requires its exact qualified binding")
         signature = inspect.signature(predicate_kernel, eval_str=True)
-        bound = signature.bind(arguments=arguments.arguments, roles=binding.roles, context=binding.subject_context, prepared=self.prepared, check_active=check_active)
+        bound = signature.bind(
+            arguments=arguments.arguments,
+            roles=binding.roles,
+            context=binding.subject_context,
+            prepared=self.prepared,
+            check_active=check_active,
+        )
         captured = predicate_operation_sources()
-        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in captured.sources), "corpus_structure.semantic.predicate_products.predicate_kernel", (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
-        reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.verify, execution_owner=execution_owner, check_active=check_active)
-        return PreparedCallResult(json.loads(reply.content), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        descriptor = PythonCPUDescriptor(
+            tuple((source.module, source.filename, source.content) for source in captured.sources),
+            "corpus_structure.semantic.predicate_products.predicate_kernel",
+            (),
+            verification="prepared-kernel",
+            control_parameter="check_active",
+            prepared_parameter="prepared",
+            prepared_release_id=self.prepared.release_id,
+        )
+        reply = yield from plan_cpu_call(
+            descriptor,
+            bound,
+            signature,
+            verify=self.verify,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        return PreparedCallResult(
+            json.loads(reply.content),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
 
 def resolve_predicate_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.predicate_declared import PredicateEvidenceOperation
+
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
@@ -161,6 +299,30 @@ def resolve_predicate_port(prepared, model, operation, *, identity, authorize, c
         raise PortRefusal("predicate factory differs from its governing operation")
     receiver = PredicateEvidenceOperation(None)
     plan = PredicateCallPlan(prepared)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.predicate_products.PredicateCallPlan.plan", authorize, (predicate_profile_assets(),), predicate_operation_sources(), functions=(("corpus_structure.semantic.predicate_products.predicate_kernel", predicate_kernel), ("corpus_structure.semantic.predicate_products.execute_predicate_profile", execute_predicate_profile), ("corpus_structure.semantic.predicate_products.PreparedPredicateInputs.run", PreparedPredicateInputs.run)), requires_prepared_schema=True)
+    port = PreparedOriginalCallPort(
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
+        "corpus_structure.semantic.predicate_products.PredicateCallPlan.plan",
+        authorize,
+        (predicate_profile_assets(),),
+        predicate_operation_sources(),
+        functions=(
+            ("corpus_structure.semantic.predicate_products.predicate_kernel", predicate_kernel),
+            (
+                "corpus_structure.semantic.predicate_products.execute_predicate_profile",
+                execute_predicate_profile,
+            ),
+            (
+                "corpus_structure.semantic.predicate_products.PreparedPredicateInputs.run",
+                PreparedPredicateInputs.run,
+            ),
+        ),
+        requires_prepared_schema=True,
+    )
     plan.port = port
     return port

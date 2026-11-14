@@ -159,8 +159,6 @@ def test_source_request_refuses_legacy_task_pin_execution_authority():
             )
 
 
-
-
 def test_owned_neighbor_context_preserves_pins_maps_and_failed_retrieval(controlled):
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import (

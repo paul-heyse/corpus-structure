@@ -448,8 +448,13 @@ def construction_product_values(
                     for selector in selected["selectors"]:
                         builder.record(family, selector, "partial", "; ".join(unavailable))
     from .constructions.navigation import populate_navigation_products
+
     populate_navigation_products(
-        builder, view, source, native, annotation_products=native_products,
+        builder,
+        view,
+        source,
+        native,
+        annotation_products=native_products,
         check_active=check_active,
         admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
     )
@@ -501,7 +506,12 @@ def construction_product_values(
                     "partial",
                     "native-dependent construction coverage unavailable; source grammar retained",
                 )
-    return interpreted_product_value(source, builder.facts(), member_contracts, (*formal, *((native,) if native is not None else ())))
+    return interpreted_product_value(
+        source,
+        builder.facts(),
+        member_contracts,
+        (*formal, *((native,) if native is not None else ())),
+    )
 
 
 def interpreted_product_value(source, facts, member_contracts, dependencies):
@@ -522,8 +532,7 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
         source=coordinate,
         selectors=selected["selectors"],
         dependencies=[
-            DataProductReference(product.semantic_id).values()
-            for product in dependencies
+            DataProductReference(product.semantic_id).values() for product in dependencies
         ],
         outcome=facts["outcome"],
         coverage=facts["coverage"],

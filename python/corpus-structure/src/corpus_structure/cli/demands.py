@@ -304,17 +304,28 @@ def register(root: typer.Typer) -> None:
 @app.command("external")
 def external(
     ctx: typer.Context,
-    action: Annotated[Literal["queue", "claim", "read", "renew", "submit", "inspect", "reconcile", "release"], typer.Argument()],
-    request: Annotated[Path, typer.Option(help="Exact external action arguments as JSON; '-' reads stdin.")],
+    action: Annotated[
+        Literal["queue", "claim", "read", "renew", "submit", "inspect", "reconcile", "release"],
+        typer.Argument(),
+    ],
+    request: Annotated[
+        Path, typer.Option(help="Exact external action arguments as JSON; '-' reads stdin.")
+    ],
     project: Annotated[str | None, typer.Option(help="Native project scope.")] = None,
-    demand: Annotated[str | None, typer.Option(help="Restrict packet claims to this demand.")] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Restrict packet claims to this demand.")
+    ] = None,
     json: JsonOpt = False,
 ) -> None:
     """Operate task-owned external packets without a parallel run/method queue."""
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
 
-    with managed_operation(result_store(ctx), "demands.external." + action, json=json,
-                           expected=(ValueError, KeyError, OSError, TypeError)) as invocation:
+    with managed_operation(
+        result_store(ctx),
+        "demands.external." + action,
+        json=json,
+        expected=(ValueError, KeyError, OSError, TypeError),
+    ) as invocation:
         payload = wire_json_loads(read_request_bytes(request))
         if not isinstance(payload, dict):
             raise ValueError("external action arguments must be a JSON object")
@@ -324,12 +335,22 @@ def external(
         settings = state(ctx).settings()
         with ENGINE(settings, purpose="write") as engine:
             with engine.begin() as connection:
-                invocation.record_target(acquired_target(connection, purpose="write"), None, None, None)
-            session = ExternalDataSession(engine, project or settings.runtime.default_project, demand_id=demand)
-            operation = {"queue": session.queue, "claim": session.claim, "read": session.read,
-                         "renew": session.renew, "submit": session.submit, "inspect": session.inspect,
-                         "reconcile": session.reconcile,
-                         "release": session.release}[action]
+                invocation.record_target(
+                    acquired_target(connection, purpose="write"), None, None, None
+                )
+            session = ExternalDataSession(
+                engine, project or settings.runtime.default_project, demand_id=demand
+            )
+            operation = {
+                "queue": session.queue,
+                "claim": session.claim,
+                "read": session.read,
+                "renew": session.renew,
+                "submit": session.submit,
+                "inspect": session.inspect,
+                "reconcile": session.reconcile,
+                "release": session.release,
+            }[action]
             native = operation(**payload)
         if action not in {"queue", "read", "inspect"}:
             invocation.record_effect("native external " + action)

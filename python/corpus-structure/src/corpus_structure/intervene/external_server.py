@@ -20,8 +20,13 @@ class ExternalReport(RootModel[dict[str, Any]]):
     pass
 
 
-def build_external_server(session: ExternalDataSession | None = None, *, project: str | None = None,
-                          demand: str | None = None, settings: Settings | None = None) -> FastMCP:
+def build_external_server(
+    session: ExternalDataSession | None = None,
+    *,
+    project: str | None = None,
+    demand: str | None = None,
+    settings: Settings | None = None,
+) -> FastMCP:
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict]:
         from corpus_structure.cli.observation_logging import child_capture
@@ -32,20 +37,30 @@ def build_external_server(session: ExternalDataSession | None = None, *, project
                 yield {"external": session, "observation_writer": observations}
                 return
             selected = settings or Settings()
-            with open_runtime_engine(selected, "ci-mcp-external", max_size=4, purpose="write") as engine:
-                yield {"external": ExternalDataSession(engine, project or selected.runtime.default_project,
-                                                       demand_id=demand), "observation_writer": observations}
+            with open_runtime_engine(
+                selected, "ci-mcp-external", max_size=4, purpose="write"
+            ) as engine:
+                yield {
+                    "external": ExternalDataSession(
+                        engine, project or selected.runtime.default_project, demand_id=demand
+                    ),
+                    "observation_writer": observations,
+                }
 
-    server = FastMCP("corpus-structure", lifespan=open_session, instructions=(
-        "Execute only authored native external packets. List packets with queue_next, claim one exact "
-        "packet, then read its complete immutable packet with read_packet. Follow its protocol.instructions "
-        "and declared-inputs-only reference scope; protected evaluator data is unavailable. Return only "
-        "outcome and outputs (each output has role and body). Supply honest actor/model assertions matching "
-        "the packet protocol. Renew the exact claim while working. submit_result retains the result and "
-        "publishes through native authority; packet delivery alone is never fulfillment. After uncertainty, "
-        "inspect_result and replay the same result, or reconcile_result under a native takeover claim; never repeat external work. "
-        "release_packet relinquishes logical permission without asserting a remote process stopped."
-    ))
+    server = FastMCP(
+        "corpus-structure",
+        lifespan=open_session,
+        instructions=(
+            "Execute only authored native external packets. List packets with queue_next, claim one exact "
+            "packet, then read its complete immutable packet with read_packet. Follow its protocol.instructions "
+            "and declared-inputs-only reference scope; protected evaluator data is unavailable. Return only "
+            "outcome and outputs (each output has role and body). Supply honest actor/model assertions matching "
+            "the packet protocol. Renew the exact claim while working. submit_result retains the result and "
+            "publishes through native authority; packet delivery alone is never fulfillment. After uncertainty, "
+            "inspect_result and replay the same result, or reconcile_result under a native takeover claim; never repeat external work. "
+            "release_packet relinquishes logical permission without asserting a remote process stopped."
+        ),
+    )
 
     from .mcp_observations import ObservationMiddleware
 
@@ -86,11 +101,24 @@ def build_external_server(session: ExternalDataSession | None = None, *, project
         return report(lambda: current(ctx).renew(claim, lease_seconds=lease_seconds))
 
     @server.tool()
-    def submit_result(ctx: Context, packet_id: str, claim: dict[str, Any], result: dict[str, Any],
-                      actor_assertion: str, model_assertion: str | None) -> ToolResult:
+    def submit_result(
+        ctx: Context,
+        packet_id: str,
+        claim: dict[str, Any],
+        result: dict[str, Any],
+        actor_assertion: str,
+        model_assertion: str | None,
+    ) -> ToolResult:
         """Admit the exact typed result with genuine native receipt and atomic publication."""
-        return report(lambda: current(ctx).submit(packet_id, claim, result,
-                                                actor_assertion=actor_assertion, model_assertion=model_assertion))
+        return report(
+            lambda: current(ctx).submit(
+                packet_id,
+                claim,
+                result,
+                actor_assertion=actor_assertion,
+                model_assertion=model_assertion,
+            )
+        )
 
     @server.tool()
     def reconcile_result(ctx: Context, packet_id: str, claim: dict[str, Any]) -> ToolResult:
@@ -103,7 +131,9 @@ def build_external_server(session: ExternalDataSession | None = None, *, project
         return report(lambda: current(ctx).inspect(packet_id))
 
     @server.tool()
-    def release_packet(ctx: Context, packet_id: str, claim: dict[str, Any], reason: str) -> ToolResult:
+    def release_packet(
+        ctx: Context, packet_id: str, claim: dict[str, Any], reason: str
+    ) -> ToolResult:
         """Relinquish only this exact packet claim; never assert remote physical retirement."""
         return report(lambda: current(ctx).release(packet_id, claim, reason=reason))
 

@@ -17,12 +17,16 @@ from semantic.external_scenarios import EXTERNAL
 
 
 @pytest.mark.parametrize("ddo_kernel", [EXTERNAL], indirect=True, ids=["external"])
-def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observations(ddo_kernel, tmp_path, monkeypatch):
+def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observations(
+    ddo_kernel, tmp_path, monkeypatch
+):
     demand, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
-        packet = DataOperationStorage(connection).invoke("retain_external_data_packet", {
-            **fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000})
+        packet = DataOperationStorage(connection).invoke(
+            "retain_external_data_packet",
+            {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000},
+        )
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test", demand_id=demand["demand_id"])
     store = ResultStore(tmp_path / "results")
     with store.operation("demands.external.transport", observations=True) as invocation:
@@ -32,7 +36,9 @@ def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observation
         def observation_endpoint(**_):
             yield invocation.observation_writer
 
-        monkeypatch.setattr("corpus_structure.cli.observation_logging.child_capture", observation_endpoint)
+        monkeypatch.setattr(
+            "corpus_structure.cli.observation_logging.child_capture", observation_endpoint
+        )
 
         async def exchange():
             async with Client(build_server(session)) as client:
@@ -41,12 +47,21 @@ def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observation
                 leased = await client.call_tool("claim_packet", {"packet_id": packet["packet_id"]})
                 actual = leased.structured_content
                 assert actual["attempt"] == fence["attempt"] + 1
-                read = await client.call_tool("read_packet", {"packet_id": packet["packet_id"], "claim": actual})
-                assert read.structured_content["packet"]["protocol"]["requested_actor"] == "controlled-external"
+                read = await client.call_tool(
+                    "read_packet", {"packet_id": packet["packet_id"], "claim": actual}
+                )
+                assert (
+                    read.structured_content["packet"]["protocol"]["requested_actor"]
+                    == "controlled-external"
+                )
 
                 async def refused(task):
                     bad = {**actual, "task_id": task}
-                    response = await client.call_tool("read_packet", {"packet_id": packet["packet_id"], "claim": bad}, raise_on_error=False)
+                    response = await client.call_tool(
+                        "read_packet",
+                        {"packet_id": packet["packet_id"], "claim": bad},
+                        raise_on_error=False,
+                    )
                     assert response.is_error
 
                 async with anyio.create_task_group() as group:
@@ -60,11 +75,16 @@ def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observation
     observations = store.read_observations(invocation.id).rows
     failures = [row for row in observations if row.kind == "mcp_tool_failed"]
     assert len(failures) == 2
-    assert {row.bindings.task_id for row in failures} == {actual["task_id"] + 1000000, actual["task_id"] + 2000000}
+    assert {row.bindings.task_id for row in failures} == {
+        actual["task_id"] + 1000000,
+        actual["task_id"] + 2000000,
+    }
     assert len({row.bindings.request_id for row in failures}) == 2
     assert all(row.bindings.invocation_id == invocation.id for row in failures)
     assert not any(row.kind == "provider_finished" for row in observations)
     with ddo_kernel["engine"].connect() as connection:
-        task = connection.execute(text("SELECT attempt,status FROM ops.task WHERE id=:task"), {"task": actual["task_id"]}).one()
+        task = connection.execute(
+            text("SELECT attempt,status FROM ops.task WHERE id=:task"), {"task": actual["task_id"]}
+        ).one()
         assert task.attempt == actual["attempt"] and task.status == "running"
     assert session.inspect(packet["packet_id"])["state"] == "awaiting-external"

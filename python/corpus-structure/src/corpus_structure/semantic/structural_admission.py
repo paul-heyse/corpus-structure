@@ -26,7 +26,8 @@ POLICIES = {
 
 
 def structural_statement(
-    report: StructuralProductReport | DeclaredStructuralProductReport, component_id: str | None = None
+    report: StructuralProductReport | DeclaredStructuralProductReport,
+    component_id: str | None = None,
 ) -> dict[str, Any]:
     """Project complete meaning and physical citations, without derivation aliases."""
     if report.kind not in POLICIES:

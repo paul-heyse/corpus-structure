@@ -8,14 +8,20 @@ from __future__ import annotations
 
 import dataclasses
 import typing
-from typing import Any
 from functools import lru_cache
 from importlib.metadata import version as _package_version
+from typing import Any
 
 from .data_operation_compilation import compile_data_operations as _STATIC_COMPILER
 from .python_operation_sources import PythonSource, PythonSourceCollection
-from .types import (SourceBundle, SourceArtifact, ClassDefinition, PropertyDefinition,
-                    VocabularySnapshot, VocabularyMember)
+from .types import (
+    ClassDefinition,
+    PropertyDefinition,
+    SourceArtifact,
+    SourceBundle,
+    VocabularyMember,
+    VocabularySnapshot,
+)
 
 # A process-local compilation cache cannot survive analyzer/compiler replacement.
 # Exact source and interpretation settings remain part of each cache key below.
@@ -74,12 +80,19 @@ def _prepared_python_sources(schema, declarations, sources, definitions, vocabul
     )
 
 
-
-def prepare_data_operation_model(schema=None, declarations=(), sources=None, *, definitions=None, vocabularies=()):
+def prepare_data_operation_model(
+    schema=None, declarations=(), sources=None, *, definitions=None, vocabularies=()
+):
     """Recompile substituted interpreters and nonordinary inputs without cache lookup."""
     from .data_operation_compilation import compile_data_operations
+
     values = (schema, declarations, sources, definitions, vocabularies)
     if compile_data_operations is _STATIC_COMPILER and _ordinary_static_input(values):
         return _prepared_python_sources(*values, _STATIC_COMPILER_CONTEXT)
-    return compile_data_operations(schema, declarations=declarations, python_sources=sources,
-        definitions=definitions, vocabularies=vocabularies)
+    return compile_data_operations(
+        schema,
+        declarations=declarations,
+        python_sources=sources,
+        definitions=definitions,
+        vocabularies=vocabularies,
+    )

@@ -19,9 +19,7 @@ import json
 import typing
 from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
-from functools import lru_cache
 from hashlib import sha256
-from importlib.metadata import version as _package_version
 from pathlib import Path
 from types import CodeType, MappingProxyType, ModuleType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
@@ -33,26 +31,23 @@ if TYPE_CHECKING:
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
-from .data_operation_static_preparation import (
-    _STATIC_COMPILER, _STATIC_COMPILER_CONTEXT, _ordinary_static_input, _prepared_python_sources,
-)
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
+from .data_operation_static_preparation import (
+    _STATIC_COMPILER,
+    _STATIC_COMPILER_CONTEXT,
+    _ordinary_static_input,
+    _prepared_python_sources,
+)
 from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
-from .python_operation_sources import PythonSource, PythonSourceCollection
+from .python_operation_sources import PythonSourceCollection
 from .types import (
-    ClassDefinition,
-    PropertyDefinition,
-    SourceArtifact,
     SourceBundle,
-    VocabularyMember,
-    VocabularySnapshot,
 )
 
 # Trusted references are captured once rather than reread from a mutable namespace
 # during invocation. Only consumed names participate in callable authentication.
 _STANDARD_BUILTINS = MappingProxyType(dict(vars(builtins)))
-
 
 
 class PortRefusal(ValueError):
@@ -788,7 +783,6 @@ def _untrusted_value(value: Any) -> Any:
     if isinstance(value, list):
         return [_untrusted_value(item) for item in value]
     return copy.deepcopy(value)
-
 
 
 def python_port_identity(

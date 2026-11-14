@@ -28,28 +28,116 @@ from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def prepared_ingress():
-    fields = SimpleNamespace(ancestors=("SemanticRecordFields",), properties=(SimpleNamespace(name="family", equals_string="table"), SimpleNamespace(name="value")))
-    return SimpleNamespace(release_id="controlled-release", index=SimpleNamespace(definitions={"ControlledFields": fields}), validate_json=lambda name, content: SimpleNamespace(model_dump=lambda **kwargs: json.loads(content)))
+    fields = SimpleNamespace(
+        ancestors=("SemanticRecordFields",),
+        properties=(
+            SimpleNamespace(name="family", equals_string="table"),
+            SimpleNamespace(name="value"),
+        ),
+    )
+    return SimpleNamespace(
+        release_id="controlled-release",
+        index=SimpleNamespace(definitions={"ControlledFields": fields}),
+        validate_json=lambda name, content: SimpleNamespace(
+            model_dump=lambda **kwargs: json.loads(content)
+        ),
+    )
 
 
 def candidate_report():
-    body = {"candidate_type": "record", "contract": "ControlledFields", "standing": "candidate", "family": "table", "record_id": "same-occurrence", "interpretation_id": "original-reading", "policy_version": "actual-source-policy", "computation_dependencies": ["native-group:one"], "fields": [{"role": "value", "state": "present", "evidence_status": "available", "kind": "literal"}], "anchors": [{"precision": "exact"}]}
-    return {"standing": "private_uncalibrated_candidates", "inspection_outcome": "produced", "source_pin": {"source": "actual-retained-source"}, "members": ({"member_id": "original-member", "kind_contract": "actual-record-kind", "context": {"subject": "original-occurrence"}, "body": body},), "diagnostics_json": json.dumps({"model_observations": [{"raw_confidence": 0.25}], "reports": [{"diagnostics": [{"group_dependency": "native-group:one", "code": "actual", "group": 0}, {"group_dependency": "native-group:one", "code": "actual", "group": 1}]}]})}
+    body = {
+        "candidate_type": "record",
+        "contract": "ControlledFields",
+        "standing": "candidate",
+        "family": "table",
+        "record_id": "same-occurrence",
+        "interpretation_id": "original-reading",
+        "policy_version": "actual-source-policy",
+        "computation_dependencies": ["native-group:one"],
+        "fields": [
+            {"role": "value", "state": "present", "evidence_status": "available", "kind": "literal"}
+        ],
+        "anchors": [{"precision": "exact"}],
+    }
+    return {
+        "standing": "private_uncalibrated_candidates",
+        "inspection_outcome": "produced",
+        "source_pin": {"source": "actual-retained-source"},
+        "members": (
+            {
+                "member_id": "original-member",
+                "kind_contract": "actual-record-kind",
+                "context": {"subject": "original-occurrence"},
+                "body": body,
+            },
+        ),
+        "diagnostics_json": json.dumps(
+            {
+                "model_observations": [{"raw_confidence": 0.25}],
+                "reports": [
+                    {
+                        "diagnostics": [
+                            {"group_dependency": "native-group:one", "code": "actual", "group": 0},
+                            {"group_dependency": "native-group:one", "code": "actual", "group": 1},
+                        ]
+                    }
+                ],
+            }
+        ),
+    }
 
 
 def feature():
     algorithm = RecordAlgorithm(features=(FEATURES[0],))
-    return FeatureInstance(algorithm=algorithm, applicability=PolicyApplicability(release_id="controlled-release", family="table", subset="controlled-subset", assumptions="independent fixed feature fixture"), parameters=LinearParameters(feature_signature=algorithm.feature_signature, names=("present_fraction",), coefficients=(3.0,), center=(0.5,), scale=(2.0,), intercept=-0.25), fit=FitDiagnostics(partition="feature_fit", frame_digest="a" * 64, reference_digest="b" * 64, coverage_digest="c" * 64, provenance="controlled previously fitted fixture", negative_count=2, positive_count=2, declared_origin_group_count=2, conditioning_assumptions="fixed finite fixture", converged=True, iterations=1, standing="fitted", reason="actual explicit parameters"))
+    return FeatureInstance(
+        algorithm=algorithm,
+        applicability=PolicyApplicability(
+            release_id="controlled-release",
+            family="table",
+            subset="controlled-subset",
+            assumptions="independent fixed feature fixture",
+        ),
+        parameters=LinearParameters(
+            feature_signature=algorithm.feature_signature,
+            names=("present_fraction",),
+            coefficients=(3.0,),
+            center=(0.5,),
+            scale=(2.0,),
+            intercept=-0.25,
+        ),
+        fit=FitDiagnostics(
+            partition="feature_fit",
+            frame_digest="a" * 64,
+            reference_digest="b" * 64,
+            coverage_digest="c" * 64,
+            provenance="controlled previously fitted fixture",
+            negative_count=2,
+            positive_count=2,
+            declared_origin_group_count=2,
+            conditioning_assumptions="fixed finite fixture",
+            converged=True,
+            iterations=1,
+            standing="fitted",
+            reason="actual explicit parameters",
+        ),
+    )
 
 
 def policy(instances=()):
-    return {"version": "reading-feature-policy-1", "recipe": RECIPE, "subset": "controlled-subset", "feature_instances": source_value([value.model_dump(mode="json") for value in instances])}
+    return {
+        "version": "reading-feature-policy-1",
+        "recipe": RECIPE,
+        "subset": "controlled-subset",
+        "feature_instances": source_value([value.model_dump(mode="json") for value in instances]),
+    }
 
 
 @lru_cache(maxsize=1)
 def compiled_readings():
     root = Path(__file__).parents[2] / "src/corpus_structure/model/semantic"
-    bundle = reading_resolution_inputs(SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)))
+    bundle = reading_resolution_inputs(
+        SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
+    )
     model = compile_data_operations(bundle, python_sources=reading_resolution_operation_sources())
     return model
 
@@ -95,18 +183,32 @@ def test_reading_resolution_keeps_unavailable_policy_honest_and_refuses_duplicat
     (event,) = resolved_reading_events(product)
     assert event["outcome"] == "not_run" and event["final_event_score"] is None
     with pytest.raises(ValueError, match="repeats a fitted instance"):
-        resolve_reading_values(prepared_ingress(), candidate_report(), policy((feature(), feature())))
+        resolve_reading_values(
+            prepared_ingress(), candidate_report(), policy((feature(), feature()))
+        )
 
 
 def test_candidate_consumer_validates_actual_refined_kind_without_dropping_fields():
     from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
-    from corpus_structure.semantic.declared_candidate_products import validate_bound_candidate_report
+    from corpus_structure.semantic.declared_candidate_products import (
+        validate_bound_candidate_report,
+    )
 
     model = compiled_readings()
     kind = next(value for value in model.kinds if value.name == "DdoResolvedReadingReport")
-    contract = next(value.key for value in model.identities if value.owner == kind.semantic_id and value.domain == "kind")
-    member = BoundRoleMember("actual-product", contract, "subject", "original", b"{}", b"{}", (), b"{}")
-    binding = SimpleNamespace(sufficient=True, operation="resolve.m1_readings/declared", roles=(ResolvedRoleBinding("candidates", "present", (member,)),))
+    contract = next(
+        value.key
+        for value in model.identities
+        if value.owner == kind.semantic_id and value.domain == "kind"
+    )
+    member = BoundRoleMember(
+        "actual-product", contract, "subject", "original", b"{}", b"{}", (), b"{}"
+    )
+    binding = SimpleNamespace(
+        sufficient=True,
+        operation="resolve.m1_readings/declared",
+        roles=(ResolvedRoleBinding("candidates", "present", (member,)),),
+    )
     calls = []
     value = {"reading_policy_digest": "actual-policy", "reading_events": source_value([])}
 
@@ -114,7 +216,9 @@ def test_candidate_consumer_validates_actual_refined_kind_without_dropping_field
         calls.append(name)
         return SimpleNamespace(model_dump=lambda **kwargs: json.loads(content))
 
-    prepared = SimpleNamespace(definitions=(SimpleNamespace(iri=kind.semantic_id, name=kind.name),), validate_json=validate)
+    prepared = SimpleNamespace(
+        definitions=(SimpleNamespace(iri=kind.semantic_id, name=kind.name),), validate_json=validate
+    )
     actual = validate_bound_candidate_report(prepared, model, binding, "candidates", value)
     assert calls == ["DdoResolvedReadingReport"]
     assert actual == value

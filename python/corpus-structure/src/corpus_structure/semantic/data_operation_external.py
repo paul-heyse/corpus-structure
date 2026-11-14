@@ -44,7 +44,11 @@ class ExternalResultPort:
             raise PortRefusal("external result requires exactly outcome and outputs")
         packet = wire_json_loads(self.packet)
         operation = self.model.operation(packet["operation_id"])
-        recipe = next(item.key for item in self.model.identities if item.owner == operation.semantic_id and item.domain == "recipe")
+        recipe = next(
+            item.key
+            for item in self.model.identities
+            if item.owner == operation.semantic_id and item.domain == "recipe"
+        )
         if operation.external is None or recipe != packet["recipe"]:
             raise PortRefusal("external result has no exact admitted protocol owner")
         if result["outcome"] not in packet["outcomes"]:
@@ -53,7 +57,11 @@ class ExternalResultPort:
             raise PortRefusal("external outputs require a bounded role/body array")
         roles = {role["role"]: role for role in packet["result_contract"]}
         identities = {(item.owner, item.domain): item.key for item in self.model.identities}
-        owners = {identities[role.kind, "kind"]: role.kind for role in operation.roles if role.direction == "output"}
+        owners = {
+            identities[role.kind, "kind"]: role.kind
+            for role in operation.roles
+            if role.direction == "output"
+        }
         positions, outputs = {}, []
         for output in result["outputs"]:
             if not isinstance(output, dict) or set(output) != {"role", "body"}:
@@ -67,15 +75,27 @@ class ExternalResultPort:
             position = positions.get(output["role"], 0)
             positions[output["role"]] = position + 1
             members = project_product_members(self.model, owners[role["kind_contract"]], body)
-            outputs.append({"role": output["role"], "position": position, "multiplicity": 1,
-                            "product": {"kind_contract": role["kind_contract"],
-                                        "body": semantic_value(body),
-                                        "members": [wire_json_loads(member) for member in members]}})
+            outputs.append(
+                {
+                    "role": output["role"],
+                    "position": position,
+                    "multiplicity": 1,
+                    "product": {
+                        "kind_contract": role["kind_contract"],
+                        "body": semantic_value(body),
+                        "members": [wire_json_loads(member) for member in members],
+                    },
+                }
+            )
         # Native retention independently enforces outcome-sensitive cardinality,
         # kind meaning/member schemas and exact input/support/output witnesses.
-        completion = {"outcome": result["outcome"], "outputs": outputs,
-                      "inputs": packet["binding"]["inputs"], "support": packet["binding"]["support"],
-                      "implementation_revision": packet["implementation_revision"]}
+        completion = {
+            "outcome": result["outcome"],
+            "outputs": outputs,
+            "inputs": packet["binding"]["inputs"],
+            "support": packet["binding"]["support"],
+            "implementation_revision": packet["implementation_revision"],
+        }
         if len(json_bytes(completion)) > self.max_reply_bytes:
             raise PortRefusal("external completion exceeds owned draft capacity")
         return completion
@@ -84,8 +104,15 @@ class ExternalResultPort:
 class ExternalDataSession:
     """Short native transactions; no connection or remote process held during agent work."""
 
-    def __init__(self, engine: Engine, project_id: str, *, demand_id: str | None = None,
-                 max_packet_bytes: int = 8 * 1024 * 1024, max_reply_bytes: int = 8 * 1024 * 1024):
+    def __init__(
+        self,
+        engine: Engine,
+        project_id: str,
+        *,
+        demand_id: str | None = None,
+        max_packet_bytes: int = 8 * 1024 * 1024,
+        max_reply_bytes: int = 8 * 1024 * 1024,
+    ):
         if not project_id or min(max_packet_bytes, max_reply_bytes) < 1:
             raise ValueError("external session requires project identity and positive byte bounds")
         self.engine, self.project_id, self.demand_id = engine, project_id, demand_id
@@ -105,28 +132,50 @@ class ExternalDataSession:
                 return DataOperationStorage(connection).invoke(operation, payload)
 
     def queue(self, *, limit: int = 1) -> dict:
-        return self._invoke("read_external_data_queue", {"project_id": self.project_id,
-                            **({"demand_id": self.demand_id} if self.demand_id else {}), "limit": limit})
+        return self._invoke(
+            "read_external_data_queue",
+            {
+                "project_id": self.project_id,
+                **({"demand_id": self.demand_id} if self.demand_id else {}),
+                "limit": limit,
+            },
+        )
 
     def claim(self, packet_id: str, *, lease_seconds: int = 300) -> dict:
         # Resolve the exact queue head in this session's scope; no caller task alias.
         # Explicit packet claim still authenticates current trust and task under lock.
-        return self._invoke("claim_external_data_packet", {"packet_id": packet_id,
-                            "project_id": self.project_id, **({"demand_id": self.demand_id} if self.demand_id else {}),
-                            "holder": self.holder, "lease_seconds": lease_seconds})
+        return self._invoke(
+            "claim_external_data_packet",
+            {
+                "packet_id": packet_id,
+                "project_id": self.project_id,
+                **({"demand_id": self.demand_id} if self.demand_id else {}),
+                "holder": self.holder,
+                "lease_seconds": lease_seconds,
+            },
+        )
 
     def renew(self, claim: dict, *, lease_seconds: int = 300) -> dict:
         return self._invoke("renew_data_request", {**_fence(claim), "lease_seconds": lease_seconds})
 
     def read(self, packet_id: str, claim: dict) -> dict:
-        read = self._invoke("read_external_data_packet", {"packet_id": packet_id,
-                            **_fence(claim), "max_bytes": self.max_packet_bytes})
+        read = self._invoke(
+            "read_external_data_packet",
+            {"packet_id": packet_id, **_fence(claim), "max_bytes": self.max_packet_bytes},
+        )
         if read["packet"]["project_id"] != self.project_id:
             raise PortRefusal("external packet belongs to another project")
         return read
 
-    def submit(self, packet_id: str, claim: dict, result: dict, *, actor_assertion: str,
-               model_assertion: str | None) -> dict:
+    def submit(
+        self,
+        packet_id: str,
+        claim: dict,
+        result: dict,
+        *,
+        actor_assertion: str,
+        model_assertion: str | None,
+    ) -> dict:
         read = self.read(packet_id, claim)
         packet = read["packet"]
         if packet["project_id"] != self.project_id:
@@ -136,19 +185,35 @@ class ExternalDataSession:
             model = bound_data_operation_model(prepared)
         port = ExternalResultPort(json_bytes(packet), model, self.max_reply_bytes)
         completion = port.completion(result)
-        retained = self._invoke("admit_external_data_result", {"packet_id": packet_id,
-                                **_fence(claim), "actor_assertion": actor_assertion,
-                                "model_assertion": model_assertion, "completion": completion}, replay=True)
+        retained = self._invoke(
+            "admit_external_data_result",
+            {
+                "packet_id": packet_id,
+                **_fence(claim),
+                "actor_assertion": actor_assertion,
+                "model_assertion": model_assertion,
+                "completion": completion,
+            },
+            replay=True,
+        )
         try:
-            publication = self._invoke("publish_data_derivation", {**_fence(claim),
-                                       "intent_id": retained["intent_id"]}, replay=True)
+            publication = self._invoke(
+                "publish_data_derivation",
+                {**_fence(claim), "intent_id": retained["intent_id"]},
+                replay=True,
+            )
         except DBAPIError:
             inspected = self.inspect(packet_id)
             if inspected["state"] != "committed":
                 raise
             return inspected
-        return {"packet_id": packet_id, "receipt": retained["receipt"],
-                "intent_id": retained["intent_id"], "publication": publication, "state": "committed"}
+        return {
+            "packet_id": packet_id,
+            "receipt": retained["receipt"],
+            "intent_id": retained["intent_id"],
+            "publication": publication,
+            "state": "committed",
+        }
 
     def reconcile(self, packet_id: str, claim: dict) -> dict:
         """Publish an existing exact retained intent without asking the actor again."""
@@ -156,10 +221,14 @@ class ExternalDataSession:
         if inspected["state"] == "committed":
             return inspected
         receipt = inspected["receipt"]
-        if inspected["state"] != "retained" or receipt is None or any(
-            receipt[name] != claim[name] for name in ("request_id", "generation", "task_id")
+        if (
+            inspected["state"] != "retained"
+            or receipt is None
+            or any(receipt[name] != claim[name] for name in ("request_id", "generation", "task_id"))
         ):
-            raise PortRefusal("reconciliation requires this packet's retained native result and task")
+            raise PortRefusal(
+                "reconciliation requires this packet's retained native result and task"
+            )
         payload = {**_fence(claim), "intent_id": inspected["intent_id"]}
         self._invoke("adopt_data_completion_intent", payload, replay=True)
         self._invoke("publish_data_derivation", payload, replay=True)
@@ -169,5 +238,8 @@ class ExternalDataSession:
         return self._invoke("inspect_external_data_result", {"packet_id": packet_id})
 
     def release(self, packet_id: str, claim: dict, *, reason: str) -> dict:
-        return self._invoke("release_external_data_packet", {"packet_id": packet_id,
-                            **_fence(claim), "reason": reason}, replay=True)
+        return self._invoke(
+            "release_external_data_packet",
+            {"packet_id": packet_id, **_fence(claim), "reason": reason},
+            replay=True,
+        )

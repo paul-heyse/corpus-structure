@@ -15,6 +15,7 @@ from docling_core.types.doc import (
     ProvenanceItem,
     Size,
 )
+from ingest.retained_pdf_fixture import RetainedIntegratedPdf
 from pydantic import ValidationError
 
 from corpus_structure.core.method import UnitRef
@@ -22,7 +23,6 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.ingest import pdf_recognition_methods as methods
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
-from ingest.retained_pdf_fixture import RetainedIntegratedPdf
 from corpus_structure.semantic.product_reference import ProductReference
 
 

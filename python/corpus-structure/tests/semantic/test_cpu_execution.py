@@ -18,7 +18,9 @@ from corpus_structure.semantic.cpu_execution import (
     release_capsule,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.cpu_execution_support import execute_formal, packet as packet, prepared as prepared
+from semantic.cpu_execution_support import execute_formal
+from semantic.cpu_execution_support import packet as packet
+from semantic.cpu_execution_support import prepared as prepared
 
 
 def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
@@ -35,7 +37,10 @@ def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
             assert execution.native_thread_reports[first_pid]["pools"] == first.native_pools
             layer = json.loads(first.content)
             assert any(
-                extent["text"] == "x≥2" for packet in layer["members"] if packet["body"]["record_type"] == "occurrence" for extent in packet["body"]["extents"]
+                extent["text"] == "x≥2"
+                for packet in layer["members"]
+                if packet["body"]["record_type"] == "occurrence"
+                for extent in packet["body"]["extents"]
             )
             assert execution.budget.used_bytes > len(first.content)
         with execute_formal(execution, packet(prepared), lambda: None) as second:
@@ -79,7 +84,10 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
     policy = CharacterizationExecutionPolicy(max_packet_bytes=64)
     execution = CPUExecutionScope(prepared, policy)
     try:
-        with pytest.raises(CapacityExceeded), execute_formal(execution, packet(prepared), lambda: None):
+        with (
+            pytest.raises(CapacityExceeded),
+            execute_formal(execution, packet(prepared), lambda: None),
+        ):
             pytest.fail("oversized input was submitted")
     finally:
         execution.close()
@@ -109,8 +117,7 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
                 with (
                     pytest.raises(RuntimeError, match="lost exact claim"),
                     execute_formal(
-                        execution,
-                        _identified_packet(prepared, "slow"), cancel_while_waiting
+                        execution, _identified_packet(prepared, "slow"), cancel_while_waiting
                     ),
                 ):
                     pytest.fail("cancelled claim returned a usable result")
@@ -176,7 +183,9 @@ def test_actual_child_error_and_misrouted_reply_are_not_polling_waits(
     assert execution.budget.used_bytes == 0
 
 
-def _gated_compute(content, max_reply_bytes, slot, generation, profile, stream_connection, started, release):
+def _gated_compute(
+    content, max_reply_bytes, slot, generation, profile, stream_connection, started, release
+):
     from time import monotonic
 
     from corpus_structure.semantic import cpu_execution
@@ -189,7 +198,9 @@ def _gated_compute(content, max_reply_bytes, slot, generation, profile, stream_c
             cpu_execution._worker_active()
             if monotonic() > deadline:
                 raise RuntimeError("test synchronization did not release CPU worker")
-    return cpu_execution._dispatch(content, max_reply_bytes, slot, generation, profile, stream_connection)
+    return cpu_execution._dispatch(
+        content, max_reply_bytes, slot, generation, profile, stream_connection
+    )
 
 
 def _identified_packet(prepared, identity):
@@ -295,7 +306,6 @@ def test_transient_byte_saturation_backpressures_before_second_submission(prepar
     finally:
         execution.close()
     assert execution.budget.used_bytes == 0
-
 
 
 def test_async_independent_cancel_generation_reuse_and_reply_retention(prepared, monkeypatch):

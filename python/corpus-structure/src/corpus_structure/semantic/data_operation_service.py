@@ -191,7 +191,10 @@ def execute_data_demand(
             from .data_operation_admission import bound_data_operation_model
             from .python_operation_sources import PythonSourceCollection
 
-            if any(operation.external is None for operation in bound_data_operation_model(prepared).operations):
+            if any(
+                operation.external is None
+                for operation in bound_data_operation_model(prepared).operations
+            ):
                 raise ValueError("Python operations require their captured source context")
             sources = PythonSourceCollection(())
         else:

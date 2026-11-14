@@ -59,7 +59,9 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         assert operation.consumer_selection is not None
         assert operation.capabilities.prepared_factory is not None
         assert operation.dependencies == ()
-        assert len(operation.output_witnesses) == (4 if operation.semantic_id == "structure.compare/declared" else 3)
+        assert len(operation.output_witnesses) == (
+            4 if operation.semantic_id == "structure.compare/declared" else 3
+        )
 
 
 def exact_source(document, product, subject):
