@@ -2395,7 +2395,7 @@ def prepare_series_candidate(
     )
     candidate = produce_migrations(context, target_metadata)
     if candidate.upgrade_ops is not None:
-        from alembic.operations.ops import CreateForeignKeyOp, ModifyTableOps
+        from alembic.operations.ops import CreateForeignKeyOp, CreateTableOp, ModifyTableOps
         from sqlalchemy.schema import AddConstraint
 
         from .alembic_privileges import OwnedOperationsOp, OwnedSQLOp
@@ -2404,6 +2404,9 @@ def prepare_series_candidate(
         declared_owners = {
             row["relation"]: row.get("owner", "corpus_sem_publisher")
             for row in old_descriptor["tables"]
+        }
+        target_owners = {
+            row["name"]: row["owner"] for row in target_policies if row["kind"] == "table"
         }
         ordered: list[MigrateOperation] = []
         for item in candidate.upgrade_ops.ops:
@@ -2439,6 +2442,12 @@ def prepare_series_candidate(
                         )
                     else:
                         ordered.append(OwnedOperationsOp(owner, [change]))
+            elif isinstance(item, CreateTableOp):
+                relation = f"{item.schema}.{item.table_name}" if item.schema else item.table_name
+                # Native triggers install as their declared table owner. Create
+                # the physical table under that same authority before installing
+                # its native dependents; final ACL normalization stays explicit.
+                ordered.append(OwnedOperationsOp(target_owners[relation], [item]))
             else:
                 ordered.append(item)
         # Native and physical dependency retirement stays explicit. Privileges follow installation.
