@@ -1241,3 +1241,50 @@ owns preview `7140393ec9e343f8ad0d46b1130f9ede`, rollback-only candidate
 `94b54246db1e44768860589106f1a580` and registration `7c84e38e315a42f0b333e0a38545488b`:
 **passed**, two body transitions/zero ordinary operations, unchanged owners/ACLs. New frozen
 `semantic_ddo_stream_v1` follows `semantic_ddo_projection_v1`; no persistent deployment/activation.
+
+### Producer and physical-owner integration · 2026-11-14
+
+**In progress; no DDO-06–08 completion claim.** The owned stream transport uses the existing
+CPU process owner, pull credit and fenced typed frames. Items remain private until valid terminal
+settlement. Uncertain submissions retain admission; physical drain precedes native failure settlement.
+One captured consumer hydration path supplies both actual invocation and grouped output witnesses.
+Whole-context population fan-in distinguishes project, subject, original source and analyzed scope,
+including equal local subjects under different scopes. The explicit mode alone removes the original
+physical product pin when selecting newly derived child products; historical member-mode meaning stays exact.
+
+The existing `ci run --demand DEMAND --source-root ROOT` entry point shares retained-demand execution
+with `ci demands execute`. Exact native JSON numbers survive request, snapshot and managed output.
+An optional project argument checks retained ownership before execution. These routes do not yet replace
+all ordinary default-source workflows or their registries. Source/primary and downstream caller migration,
+obsolete-route retirement and the remaining actual provider boundaries are still required.
+
+Grouped record-pin witnesses require every comparison in one output record to match one actual selected
+input member. Python and native retention/publication checks use that same contract; independent negative
+cases retain wrong product/member/context/scope/coordinate and forged hybrid inputs. Native qualification
+awaits the combined immutable successor for these checks, complete-context fan-in and source projection.
+The selected PDF support bridge authenticates the exact capture product/derivation and reuses the existing
+sealed publication validator and receipt, without a new ledger or newest-product lookup.
+
+M1 has one authoritative resumable candidate kernel preserving its original two GLiNER questions and
+failure dispositions. Its actual declared port is being integrated with typed duplex transport in the
+existing CPU owner; heavy generator advancement must stay in that process. One admission/process retains
+the algorithm's state while provider replies arrive, avoiding replay and a second pool. Complete source
+annotations will be retained once from the existing spaCy inference, then consumed by canonical, HanLP
+and M1 paths. Full-document composition consumes compact member projections.
+
+**passed:** new exact nominal-boundary controls6 in `2fe947c7bfe24f1ab26c3564ef7f3486`;
+its primary-profile compile failed and remains failed pending an exact replacement. Subsequent failed
+compile-only retries `f029334d2d134b2d9cb07423eca7a2b6` and `9ddc535328a04ec088287580134f7253`
+retain declaration predicate/literal errors; repairs do not rerun the six passing controls.
+**passed:** `uv run ci test --json --` the five previously environment-failed M1 producer identities,
+`085bf5449db24044b0c8252f322f9788`; new CLI pre-acquisition refusal controls3,
+`5ef12800b44c48dea9ef44311fa43dfe`. No complete-provider or whole-plan qualification follows.
+
+**passed, 2026-11-13:** four exact native stream terminal/invalid-prefix/shared-demand controls,
+`3637d8d91f8346d19377c3b299002f46`, replacing setup failure
+`e4c743bc977349aca49ece00f4a63257`. The failure exposed an operator-only type alias accidentally
+added to native-captured JSON codec source. That file was restored exactly and the alias moved to its
+service owner; no native guard was weakened. Later native-source changes need their own successor.
+
+All commands remain targeted. Passing identities are not repeated after repairs; no cancelled campaign,
+repository health sweep, persistent deployment, activation or adoption is resumed.
