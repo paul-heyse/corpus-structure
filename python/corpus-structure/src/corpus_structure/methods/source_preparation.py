@@ -1389,7 +1389,7 @@ def _widen_contexts(
                         ranges[-1] = (ranges[-1][0], end)
                     else:
                         ranges.append((start, end))
-                if declared_frame is None:
+                if declared_frame is None or declared_frame.contains_span(0, len(source.text)):
                     ranges = [(0, len(source.text))]
                 target_pieces = tuple(p for p in source_pieces if p["kind"] == "native_text")
                 overlaps = any(p["item_ref"] in local for p in target_pieces)
