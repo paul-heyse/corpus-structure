@@ -874,10 +874,18 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_assert_output_witnesses(r ops.data_request,completion jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE definition sem.data_operation_definition; witness jsonb; output jsonb; body jsonb; record jsonb; candidate jsonb; comparison jsonb; actual jsonb; expected jsonb; complete boolean; matched boolean;
+DECLARE definition sem.data_operation_definition; witness jsonb; output jsonb; body jsonb; record jsonb; candidate jsonb; candidates jsonb; comparison jsonb; actual jsonb; expected jsonb; complete boolean; matched boolean;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
  FOR witness IN SELECT value FROM jsonb_array_elements(coalesce(definition.support_contract->'output_witnesses','[]')) LOOP
+ SELECT coalesce(jsonb_agg(jsonb_build_object('product',product.id,'member',member.member_id,'reference',jsonb_build_array(product.id,member.member_id),
+ 'kind_contract',coalesce(member.kind_contract,product.kind_contract),'project_id',product.project_id,'subject',coalesce(member.subject,product.subject),
+ 'original_source',coalesce(member.original_source,product.original_source),'analyzed_scope',coalesce(member.analyzed_scope,product.analyzed_scope),
+ 'body',data.ddo_json(coalesce(member.body,product.canonical_body)))),'[]'::jsonb) INTO candidates
+ FROM jsonb_array_elements(r.binding->'inputs') input
+ JOIN kb.data_product product ON product.id=input->>'product_id'
+ LEFT JOIN kb.data_product_member member ON member.product_id=product.id AND member.member_id=input->>'member_id'
+ WHERE input->>'role'=witness->>'input_role' AND (input->>'member_id' IS NULL OR member.member_id IS NOT NULL);
  FOR output IN SELECT value FROM jsonb_array_elements(completion->'outputs') WHERE value->>'role'=witness->>'output_role' LOOP
  body:=output->'product'->'body';
  IF output->>'member_id' IS NOT NULL THEN
@@ -885,15 +893,7 @@ BEGIN
  END IF;
  FOR record IN SELECT * FROM data.ddo_witness_records(data.ddo_json(data.ddo_normalize(body)),witness->>'records') LOOP
  matched:=false;
- FOR candidate IN
- SELECT jsonb_build_object('product',product.id,'member',member.member_id,'reference',jsonb_build_array(product.id,member.member_id),
- 'kind_contract',coalesce(member.kind_contract,product.kind_contract),'project_id',product.project_id,'subject',coalesce(member.subject,product.subject),
- 'original_source',coalesce(member.original_source,product.original_source),'analyzed_scope',coalesce(member.analyzed_scope,product.analyzed_scope),
- 'body',data.ddo_json(coalesce(member.body,product.canonical_body)))
- FROM jsonb_array_elements(r.binding->'inputs') input
- JOIN kb.data_product product ON product.id=input->>'product_id'
- LEFT JOIN kb.data_product_member member ON member.product_id=product.id AND member.member_id=input->>'member_id'
- WHERE input->>'role'=witness->>'input_role' AND (input->>'member_id' IS NULL OR member.member_id IS NOT NULL)
+ FOR candidate IN SELECT value FROM jsonb_array_elements(candidates)
  LOOP
  complete:=true;
  FOR comparison IN SELECT value FROM jsonb_array_elements(witness->'comparisons') LOOP
