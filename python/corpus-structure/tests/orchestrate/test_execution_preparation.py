@@ -68,7 +68,7 @@ def test_standalone_source_view_unit_uses_bounded_inputs_and_release_affinity(mo
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.orchestrate.ready import owned_source_execution
-    from corpus_structure.orchestrate.semantic import _unit
+    from corpus_structure.semantic.retained_agent_packets import _unit
     from corpus_structure.semantic.operations import BoundReader
 
     prepared = SimpleNamespace(release_id="release")

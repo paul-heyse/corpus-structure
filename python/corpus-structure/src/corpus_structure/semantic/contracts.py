@@ -318,7 +318,6 @@ M1_IMPLEMENTATION_SOURCES = (
     ("records/gliner.py", "methods/gliner.py"),
     ("records/gliner-worker.py", "methods/gliner_worker.py"),
     ("records/source-contexts.py", "semantic/source_contexts.py"),
-    ("records/m1-graph.py", "orchestrate/m1.py"),
 )
 
 
@@ -346,7 +345,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.intervene.directions import record_direction
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
-    from corpus_structure.orchestrate import project, semantic
+    from corpus_structure.orchestrate import project
     from corpus_structure.orchestrate.pdf_streaming import run_private_pdf_build
 
     from . import (
@@ -397,7 +396,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "hold": operations.hold_agent_result,
             "record_direction": record_direction,
             "cut": operations.seal_cut,
-            "source_execution": semantic.run_source_methods,
             "end_run": operations.end_source_run,
             "register_document": operations.register_document,
             "read_original": operations.read_original,
@@ -1327,7 +1325,6 @@ def _read_analysis_implementation_inputs(
                 ("text/macros.py", "ingest/macros.py"),
                 ("parsing/native_adapters.py", "semantic/native_adapter_contracts.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
-                ("invocation/scheduler.py", "orchestrate/semantic.py"),
                 ("invocation/source_frames.py", "semantic/source_frames.py"),
                 ("invocation/proposals.py", "semantic/proposals.py"),
                 ("invocation/source_search.py", "serve/source_search.py"),
@@ -1408,7 +1405,6 @@ def _read_analysis_implementation_inputs(
                 ("pdf/health.py", "ingest/pdf_health.py"),
                 ("pdf/ocr.py", "ingest/pdf_ocr.py"),
                 ("pdf/ocr_contracts.py", "semantic/pdf_ocr_contracts.py"),
-                ("pdf/registry.py", "orchestrate/phase0.py"),
                 ("pdf/hierarchy.py", "ingest/pdf_hierarchy.py"),
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
@@ -1445,7 +1441,6 @@ def _read_analysis_implementation_inputs(
                 ("pdf/staging.py", "semantic/pdf_staging.py"),
                 ("pdf/record-product.py", "ingest/pdf_record_product.py"),
                 ("pdf/retained-stream.py", "ingest/pdf_retained_stream.py"),
-                ("orchestration/semantic.py", "orchestrate/semantic.py"),
                 ("orchestration/source-reader.py", "orchestrate/source_reader.py"),
                 ("pdf/publication.py", "semantic/pdf_publication.py"),
                 ("pdf/record-logical-identity.sql", "semantic/sql/pdf_record_logical_identity.sql"),
@@ -1958,7 +1953,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         )
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
-        "invocation/scheduler.py",
         "invocation/source_frames.py",
         "invocation/proposals.py",
         "records/records.py",
@@ -1993,7 +1987,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/health.py",
         "pdf/ocr.py",
         "pdf/ocr_contracts.py",
-        "pdf/registry.py",
         "pdf/hierarchy.py",
         "alignment/semantic_alignment.py",
         "placement/cascade.py",
@@ -2019,7 +2012,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/staging.py",
         "pdf/record-product.py",
         "pdf/retained-stream.py",
-        "orchestration/semantic.py",
         "orchestration/source-reader.py",
         "pdf/publication.py",
         "pdf/publication-native.py",

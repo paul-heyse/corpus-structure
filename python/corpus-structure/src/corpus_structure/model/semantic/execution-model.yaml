@@ -6588,53 +6588,6 @@ operations:
       semantic_type: CutId
     cardinality: one
     ordered: false
-- id: execute_source
-  inputs: &id040
-  - Run
-  - MethodDefinition
-  - MethodConfiguration
-  - TaskUnit
-  results: &id041
-  - Run
-  applicability:
-  - immutable_binding
-  - attempt_fence
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id042
-  - source_execution
-  outcomes: &id111
-  - source_ready
-  - awaiting_agent
-  outcome_domain: readiness
-  result_dimensions:
-  - {id: readiness, field: status, outcome_domain: readiness}
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: source_execution
-  transitions:
-  - run_start_source
-  projections: []
-  calls:
-  - id: start_source_run
-    symbol: ops.start_source_run
-    parameters:
-    - name: run_id
-      source: physical:ops.run.id
-      nullable: false
-      native_parameter: p_run
-      semantic_type: RunId
-    result_mode: scalar
-    result_fields:
-    - name: run_id
-      source: physical:ops.run.id
-      nullable: false
-      semantic_type: RunId
-    cardinality: one
-    ordered: false
 - id: end_run
   inputs: &id043
   - Run
@@ -11574,18 +11527,6 @@ implementations:
   required_capabilities:
   - execution.lifecycle.v1
 
-- id: source_execution
-  owner: orchestrate.semantic
-  symbol: run_source_methods
-  version: '1'
-  placement: core
-  input_concepts: *id040
-  result_concepts: *id041
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id042
-  required_capabilities: []
 - id: end_run
   owner: semantic.operations
   symbol: end_source_run
@@ -13109,7 +13050,6 @@ lifecycles:
   initial_states:
   - created
   transitions:
-  - run_start_source
   - run_final_cut
   - run_finish
   - run_fail_open
@@ -13685,22 +13625,6 @@ lifecycles:
   transitions: [pdf_private_abandon, pdf_private_freeze, pdf_private_publish]
 
 transitions:
-- id: run_start_source
-  lifecycle: run
-  operation: execute_source
-  from_states:
-  - created
-  to_states:
-  - running
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - immutable_binding
-  effects: []
-  outcomes: *id111
 - id: run_final_cut
   lifecycle: run
   operation: capture_cut
@@ -14699,10 +14623,6 @@ effect_definitions:
 - id: seal_source_production
   version: "1"
   meaning: seal source production
-- id: source_execution
-  version: "1"
-  meaning: source execution
-
 - id: atomic_private_pdf_stage
   version: '1'
   meaning: Fenced short-transaction private adoption and explicit abandonment; no
@@ -14769,7 +14689,6 @@ analysis_profiles:
   builtin_functions: [Gamma]
   local_declaration_rules: [function-definition-1]
   ownership:
-  - {id: source, concept: SourceView, operation: execute_source, lifetime: batch, dependencies: [release, source_view, profile]}
   - {id: comparison, concept: CandidateInput, operation: evaluate, lifetime: scope, dependencies: [release, snapshot, universe, policy]}
   - {id: publication, concept: AppendPublication, operation: publish, lifetime: operation, dependencies: [release, snapshot, content]}
   - {id: capture, concept: CapturedPacket, operation: capture_analytics, lifetime: detached, dependencies: [release, snapshot, projection, content]}

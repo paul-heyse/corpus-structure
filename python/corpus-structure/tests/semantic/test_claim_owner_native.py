@@ -423,7 +423,7 @@ def test_uncertain_intent_cannot_be_suppressed_on_normal_owner_exit(
 def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
     commit_db_engine, commit_writer_engine, tmp_path, monkeypatch
 ):
-    from corpus_structure.orchestrate.semantic import _retain_source_originals
+    from semantic.pdf_original_fixture import retain_fixture_originals
     from corpus_structure.semantic import operations
 
     prepared = prepare_operation_scenario(commit_db_engine, observations=True)
@@ -493,7 +493,7 @@ def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
     with claim_lifetime.maintained_claims(
         commit_writer_engine, owned, "owner", interval=0.01
     ) as owner:
-        _retain_source_originals(
+        retain_fixture_originals(
             commit_writer_engine, owned, method, Config(), "owner", prepared, owner
         )
         assert renewed_first.is_set()

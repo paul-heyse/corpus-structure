@@ -79,7 +79,6 @@ _REQUIRED_COMPONENTS = {
 # Independent implementation support: declarations cannot change resource semantics
 # without changing the producer/consumer that implements this bounded profile.
 _OWNERSHIP_SUPPORT = {
-    "source": ("SourceView", "execute_source", "batch", ("release", "source_view", "profile")),
     "comparison": (
         "CandidateInput",
         "evaluate",

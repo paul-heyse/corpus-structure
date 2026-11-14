@@ -355,12 +355,6 @@ SUPPORTED_EFFECTS = {
         },
         "version": "1",
     },
-    "execute_source": {
-        "effects": ("source_execution",),
-        "implementation": "source_execution",
-        "transitions": {"run_start_source": ()},
-        "version": "1",
-    },
     "explain": {"effects": (), "implementation": "explain", "transitions": {}, "version": "1"},
     "graph_project": {
         "effects": (),
@@ -560,7 +554,6 @@ SUPPORTED_EFFECT_VERSIONS = {
     "retain_held_diagnostics": "1",
     "schedule_pending_or_reused_or_skipped": "2",
     "seal_source_production": "1",
-    "source_execution": "1",
 }
 
 # Companion bundles share the existing task/publication lifecycle.
