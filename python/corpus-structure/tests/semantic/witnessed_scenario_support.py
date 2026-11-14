@@ -57,7 +57,8 @@ from semantic.native_record_fixtures import complete_contributions, contribution
 
 def _fixture_configuration(method, config):
     from hashlib import sha256
-    params = config.model_dump(mode="json", exclude_none=True)
+    from corpus_structure.orchestrate.registry import canonical_numbers
+    params = canonical_numbers(config.model_dump(mode="json", exclude_none=True))
     return params, sha256(canonical_bytes([method.name, method.version, params])).hexdigest()
 
 

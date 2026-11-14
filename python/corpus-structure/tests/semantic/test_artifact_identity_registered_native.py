@@ -2,22 +2,21 @@
 
 import json
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import MethodSettings
-from corpus_structure.core.vocab import Stage
+from corpus_structure.core.method import UnitRef, UnitView
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.artifact_identity import (
     ArtifactIdentityConfig,
     ArtifactIdentityMethod,
 )
 from corpus_structure.methods.scoped_relations import SourceWorkBinding
-from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.artifact_identity import (
     ArtifactDeclaredRelationship,
     ArtifactIdentityProduct,
@@ -49,7 +48,9 @@ from semantic.native_record_fixtures import (
 )
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.primary_native_support import publish_primary_layers
-from semantic.witnessed_scenario_support import completed_metadata
+from semantic.witnessed_scenario_support import (
+    completed_metadata, _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+)
 
 EDITIONS = (
     "Table 5.1 (numbering namespace: Main) (revision: old) Counts",
@@ -197,20 +198,17 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
     }
 
     def run():
-        return semantic.run_source_methods(
-            case.writer,
-            project_id="private-records",
-            prepared=case.prepared,
-            binding=OperationBinding(
-                case.prepared.release_id, "artifact-abi-native-source", revision, b"{}"
-            ),
-            registry=registry,
-            graph=Graph(
-                ((Stage.ASSEMBLE, (Step(method.name + "/default"),)),), policy_propose=False
-            ),
-            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            fresh=(method.name,),
+        run_id, bound = _begin_witnessed_run(
+            case,
+            OperationBinding(case.prepared.release_id, "artifact-abi-native-source", revision, b"{}"),
+            ((method, cfg),), selected_sources=inputs.sources,
         )
+        with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
+            unit = UnitView(UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity), ctx.run)
+            (result,) = method.run((unit,), cfg, ctx)
+        _retain_witnessed_result(case, run_id, method, cfg, result,
+                                 stage="assemble", admin=record_source_admin)
+        return SimpleNamespace(run_id=run_id)
 
     success = run()
     tasks, results, configs = (
@@ -332,7 +330,9 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
             .mappings()
             .one()
         )
-        assert failed["status"] in {"failed", "cancelled"}
+        # Refused completion is atomic: the fixture did not run a scheduler
+        # that terminalizes rejected tasks. Its real native task remains ready.
+        assert failed["status"] == "pending"
         assert (
             conn.scalar(select(results.c.task_id).where(results.c.task_id == failed["id"])) is None
         )

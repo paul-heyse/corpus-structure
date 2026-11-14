@@ -11,18 +11,18 @@ import pytest
 from native_refusals import native_refusal
 from sqlalchemy import select, text
 
-from corpus_structure.core.method import MethodSettings
-from corpus_structure.core.vocab import Stage
-from corpus_structure.orchestrate import semantic
+from corpus_structure.core.method import UnitRef, UnitView
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.operations import OperationBinding
 from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.witnessed_scenario_support import completed_metadata, completed_relationship_case
+from semantic.witnessed_scenario_support import (
+    completed_metadata, completed_relationship_case,
+    _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+)
 
 
 @pytest.mark.parametrize(
@@ -323,27 +323,21 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         selection_refs=(link_ref,),
         applicability_scope=mode,
     )
-    app_run = semantic.run_source_methods(
-        case.writer,
-        project_id="private-records",
-        prepared=case.prepared,
-        binding=OperationBinding(case.prepared.release_id, "wce-links", linked_revision, b"{}"),
-        registry=MethodRegistry(
-            [DefinitionApplicabilityMethod()],
-            MethodsFile(
-                configs={"structure.definitions": {"default": app_cfg.model_dump(mode="json")}}
-            ),
-        ),
-        graph=Graph(
-            ((Stage.ASSEMBLE, (Step("structure.definitions/default"),)),), policy_propose=False
-        ),
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    app_method = DefinitionApplicabilityMethod()
+    app_run, bound = _begin_witnessed_run(
+        case, OperationBinding(case.prepared.release_id, "wce-links", linked_revision, b"{}"),
+        ((app_method, app_cfg),), selected_sources=app_inputs.sources,
     )
+    with _witnessed_reader(case, app_run, bound, tmp_path) as ctx:
+        unit = UnitView(UnitRef(TaskUnitType.RUN,
+            unit_key="definition-applicability:"+app_inputs.identity+":"+app_cfg.usage_id), ctx.run)
+        (app_result,) = app_method.run((unit,), app_cfg, ctx)
+    _retain_witnessed_result(case, app_run, app_method, app_cfg, app_result, stage="assemble")
     with case.writer.connect() as conn:
         app_body = conn.execute(
             select(results.c.body)
             .join(tasks, tasks.c.id == results.c.task_id)
-            .where(tasks.c.run_id == app_run.run_id)
+            .where(tasks.c.run_id == app_run)
         ).scalar_one()
     assert app_body["structural_product"]["definition"]["readings"][0]["outcome"] == expected
     assert app_body["structural_product"]["standing"] == "private_proposal"
