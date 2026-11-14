@@ -9,7 +9,7 @@ from corpus_structure.semantic.formal_readings import (
     formal_field_readings,
     lexical_fact_readings,
 )
-from corpus_structure.semantic.structural_products import LocatedDefinitionSpan
+from corpus_structure.semantic.structural_products import ExternalSourceRef, LocatedDefinitionSpan
 from semantic.primary_formal_fixture import formal_layers
 from semantic.typed_structural_composition_support import threshold_inputs
 
@@ -69,6 +69,7 @@ def test_rival_layer_origins_and_invalid_domains_do_not_become_known_absence():
     inputs = threshold_inputs("X > 2 kg", "Date: 2025-02-30")
     layers = formal_layers(inputs)
     source, passage = inputs.sources[0], inputs.passages[0]
+    assert isinstance(source, ExternalSourceRef)
     pin = next(
         pin
         for pin, report in layers.items()

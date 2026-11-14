@@ -15,6 +15,7 @@ from corpus_structure.methods.model_characterization import (
     ModelCharacterizationConfig,
     ModelCharacterizationMethod,
 )
+from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.interpretation_questions import declared_families
 from corpus_structure.semantic.model_characterization import (
     CHARACTERIZATION_FAMILIES,
@@ -24,6 +25,8 @@ from corpus_structure.semantic.model_characterization import (
 
 def inputs(prepared):
     selected = scope()
+    view = selected.view
+    assert isinstance(view, PreparedSourceView)
     draft = builder(selected)
     cfg = ModelCharacterizationConfig(
         characterization_base_document=draft.base,
@@ -32,12 +35,12 @@ def inputs(prepared):
     )
     reader = SimpleNamespace(
         prepared=prepared,
-        source_views=lambda: (selected.view.ref,),
-        source_view=lambda identity: selected.view,
+        source_views=lambda: (view.ref,),
+        source_view=lambda identity: view,
         characterization_layers=lambda pins: {},
     )
     run = SimpleNamespace(reader=reader)
-    unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, selected.view.ref.document_id), run)
+    unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, view.ref.document_id), run)
     operation: dict[str, str] = {
         **{key: value for key, value in draft.operation.items() if isinstance(value, str)},
         "key": "text.model_characterization",

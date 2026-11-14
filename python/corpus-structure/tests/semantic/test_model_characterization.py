@@ -35,6 +35,7 @@ from corpus_structure.semantic.model_characterization import (
 )
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.types import ResolvedDependencies
+from corpus_structure.semantic.source_views import PreparedSourceView
 from semantic.model_characterization_support import (
     builder as builder,
 )
@@ -490,9 +491,9 @@ def test_compatible_hosts_are_one_explicit_offered_set_and_wrong_source_refuses(
         member["reference"]["local_id"] for member in frozen.payload["alternatives"][0]["members"]
     ] == ["host_B", "host_C"]
     wrong = scope("A B C")
-    wrong = replace(
-        wrong, view=replace(wrong.view, ref=replace(wrong.view.ref, projection_digest="e" * 64))
-    )
+    view = wrong.view
+    assert isinstance(view, PreparedSourceView)
+    wrong = replace(wrong, view=replace(view, ref=replace(view.ref, projection_digest="e" * 64)))
     with pytest.raises(ValueError, match="examined"):
         freeze_candidates(
             family, wrong, {pin: layer}, focus=ref("qualifier"), alternatives=alternatives

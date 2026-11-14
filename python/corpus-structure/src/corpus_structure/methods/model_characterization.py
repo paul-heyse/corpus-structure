@@ -293,7 +293,7 @@ class ModelCharacterizationMethod:
             return tuple(results)
 
     def _scopes(self, reader, cfg, builder):
-        from .native_evidence_layers import has_selected_native_text
+        from .native_evidence_layers import has_selected_native_text, source_identity
 
         scopes = []
         explicit = cfg.source_scopes
@@ -397,7 +397,7 @@ class ModelCharacterizationMethod:
             covered = [
                 (scope.examined[0], scope.examined[1])
                 for scope in scopes
-                if scope.view.ref.id == identity
+                if source_identity(scope.view) == identity
             ]
             for selector in selectors:
                 a, b = selector.get("start", 0), selector.get("end", len(view.text))
