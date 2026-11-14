@@ -427,12 +427,13 @@ fixture's lifetime.
 `:379` and stores its original under that live lease at `:380`, so a seed would stop before most
 of its work. It stays as it is. Builders that are the subject of their test keep building.
 
-**The one profile.** Which stage of `build_domain_case` carries the time is unknown. Before
-choosing its seed boundary, profile one default build once (wall time per stage boundary at
-`:199`, `:267`, `:306`, `:568`). If the release-and-views prefix dominates, seed by release prefix
-and let the 25 non-default sites share prefixes. If the later stages dominate, seed whole cases
-for the arguments that repeat (the 11 default sites and the family recipes) and leave singletons
-building. The result changes how much seeding helps that file, not the design.
+**Selected domain boundaries (operator-approved execution approach, 2026-11-13).**
+Seed the exact default whole case for the eleven identical complete consumers. Seed the
+release-and-views prefix for formulas variants, whose expressions, conditions and mathematical
+configuration differ later. Preparation consumes only formula capability; its key does not
+contain expression text. This removes repeated complete setup where identical and shares the
+stable prefix where later behavior varies. The coordinator's qualitative execution-fit rule
+supersedes the earlier mandatory timing profile; no measured speedup is claimed.
 
 **Consumers migrated.** `private_source` keeps its name and return shape; its body becomes
 "clone the recipe's seed, run the claimed stage". Sites that call the builders in the body move

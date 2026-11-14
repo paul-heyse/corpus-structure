@@ -161,30 +161,30 @@ binds. A package is not automatically one worker's assignment.
 | Package | Delivers | Needs | Findings | State |
 |---|---|---|---|---|
 | TS-00 | Baseline reconciliation; superseding ADRs including infrastructure RC05, with design sections amended | Operator decisions above | RC01, RC04, RC05 | Delivered; ADR lint passed |
-| TS-01 | One naming, lease and sweep authority; superseded lifecycle machinery removed; sweep skips residue still in use | — | DTA-030, F01, F04 | In progress |
-| TS-02 | Keyed, verified head deployment; run-private heads for qualification; receipts record the head | TS-00, TS-01 | DTA-024 | Not started |
-| TS-03 | Implementation snapshot with override; fixtures moved off monkeypatched readers | — | DTA-032 | In progress |
+| TS-01 | One naming, lease and sweep authority; superseded lifecycle machinery removed; sweep skips residue still in use | — | DTA-030, F01, F04 | Implemented; final integration open |
+| TS-02 | Keyed, verified head deployment; run-private heads for qualification; receipts record the head | TS-00, TS-01 | DTA-024 | Implemented; consecutive native reuse verified; qualification open |
+| TS-03 | Implementation snapshot with override; fixtures moved off monkeypatched readers | — | DTA-032 | Implemented; affected final-source checks open |
 | TS-04 | Workers sized to explicit selections | — | F05, RC02 | Delivered; targeted checks passed |
-| TS-05 | Isolation classes, infrastructure base and commit fixture migration | TS-00, TS-01, TS-02 acquisition slice | (enables DTA-025, DTA-031) | Not started |
-| TS-06 | Support modules and import rules; recipe values and their builder registry replace fixture-name overrides; the statistics-pack fixtures merged into one support owner | — | DTA-009 | In progress |
-| TS-07 | Staged builders; focused consumers request only what they read; preparation-specific recipe memo | TS-03 override scope, TS-05, TS-06 | DTA-018 | Not started |
-| TS-08 | The seed operation; the serving seed migrated onto it | TS-00, TS-01, TS-02 acquisition slice, TS-03, TS-06 | F03 | Not started |
+| TS-05 | Isolation classes, infrastructure base and commit fixture migration | TS-00, TS-01, TS-02 acquisition slice | (enables DTA-025, DTA-031) | Implemented; receipt-control cleanup and integration open |
+| TS-06 | Support modules and import rules; recipe values and their builder registry replace fixture-name overrides; the statistics-pack fixtures merged into one support owner | — | DTA-009 | Implemented; final consumer verification open |
+| TS-07 | Staged builders; focused consumers request only what they read; preparation-specific recipe memo | TS-03 override scope, TS-05, TS-06 | DTA-018 | In progress: record stages and domain/resubmission pure/persisted prefixes; remaining stages open |
+| TS-08 | The seed operation; the serving seed migrated onto it | TS-00, TS-01, TS-02 acquisition slice, TS-03, TS-06 | F03 | Implemented; serving migrated; qualification open |
 | TS-09 | Refusal contract helper and the named weak sites | — | DTA-001 | In progress |
-| TS-10 | Rollback families on seeds; pure SQL checks in the read class | TS-05, TS-07, TS-08, TS-09 per family | DTA-025 | Not started |
-| TS-11 | Commit-class consumers clone recipe seeds | TS-07, TS-08 | F03 | Not started |
-| TS-12 | Affinity by distinctive shared fixture names and consumer-qualified local fixtures; deduplicate equal groups | — | F02 | In progress |
-| TS-13 | Provider-only selection, controlled identities and aggregated prerequisites before setup; complete receipt/retry projection | — | DTA-028, DTA-018 (skips) | Not started |
-| TS-14 | Preservation assertions, redaction-order control, exact task state for stdio modes | TS-08 for the two-run comparison | DTA-006, DTA-027, DTA-016 residue | Not started |
-| TS-15 | One owner of the primary-layer assembly | — | DTA-029 | In progress |
+| TS-10 | Rollback families on seeds; pure SQL checks in the read class | TS-05, TS-07, TS-08, TS-09 per family | DTA-025 | In progress: record families |
+| TS-11 | Commit-class consumers clone recipe seeds | TS-07, TS-08 | F03 | In progress: required recipe consumers |
+| TS-12 | Affinity by distinctive shared fixture names and consumer-qualified local fixtures; deduplicate equal groups | — | F02 | Delivered; observed designated consumers passed |
+| TS-13 | Provider-only selection, controlled identities and aggregated prerequisites before setup; complete receipt/retry projection | — | DTA-028, DTA-018 (skips) | Implemented; managed selection/prerequisite checks passed; integration open |
+| TS-14 | Preservation assertions, redaction-order control, exact task state for stdio modes | TS-08 for the two-run comparison | DTA-006, DTA-027, DTA-016 residue | In progress: exact diagnostics, redaction, memberships and stdio verified; preservation sites remain |
+| TS-15 | One owner of the primary-layer assembly | — | DTA-029 | Implemented; affected consumer verification open |
 | TS-16 | CPU lifecycle controls without real grace waits or private initializer writes | — | DTA-026 | Delivered; targeted checks passed |
 | TS-17 | DDO support modules, declaration builders, kernel recipes, `admit_kernel`, an interim per-test kernel fixture | TS-06 | DTA-031, DTA-009 (DDO) | In progress |
 | TS-18 | Kernel/source-function seeds, forged-graph rollback family and deterministic lease expiry | TS-05, TS-08, TS-09 per refusal family, TS-17; TS-07 for the two original recipes | DTA-031, DTA-018 (forged graph) | Not started |
-| TS-19 | Literal vectors for the contextual product identity; uncalled helpers removed | — | DTA-033 | In progress |
-| TS-20 | Wire-checked double; authored compiled results and bounded protected native admission | TS-05, TS-08, TS-17, TS-18 binding seed slice | DTA-034 | Not started |
+| TS-19 | Literal vectors for the contextual product identity; uncalled helpers removed | — | DTA-033 | Implemented; literal/native checks passed; final isolation-route checks open |
+| TS-20 | Wire-checked double; authored compiled results and bounded protected native admission | TS-05, TS-08, TS-17, TS-18 binding seed slice | DTA-034 | In progress: checked double delivered; PostgreSQL full-result/admission open |
 | TS-21 | Cutover transfer of tests tied to retired machinery | TS-07, TS-17, and each retiring DDO package | DTA-035 | Gated on DDO |
 | TS-22 | DDO-12 evidence mapping, as a table in this series' companion, and the provider run | TS-13, DDO-12 | DTA-036 | Gated on DDO |
-| TS-24 | SQL-family batching with pgTAP/pg_prove, stable case identities and receipt integration | TS-04, TS-05, TS-08, TS-13 selection/provenance slice | Tooling direction, I07/I09 | Not started |
-| TS-25 | Supported private PostgreSQL cohort through pg_virtualenv; explicit endpoint and host context | TS-01, TS-05, TS-13 context slice; TS-24 for SQL consumers | Tooling direction, I02 | Not started |
+| TS-24 | SQL-family batching with pgTAP/pg_prove, stable case identities and receipt integration | TS-04, TS-05, TS-08, TS-13 selection/provenance slice | Tooling direction, I07/I09 | Implemented; full19/single/subset native runs passed; final integration open |
+| TS-25 | Supported private PostgreSQL cohort through pg_virtualenv; explicit endpoint and host context | TS-01, TS-05, TS-13 context slice; TS-24 for SQL consumers | Tooling direction, I02 | In progress: pure controls passed; actual private execution not_run |
 | TS-23 | Assembled review, final-source qualification, handoff | All non-DDO-gated packages including TS-24/25 | — | Not started |
 
 **What depends on what, by capability.**
@@ -340,7 +340,9 @@ gates, into the DDO work. Targeted checks run per package during implementation;
 run happens once at complete scope (AGENTS.md). Receipts that show a head reused or one seed per
 worker are functional closure evidence. They are not speed claims.
 
-**Current work:** TS-01 native validation and TS-03 final consumer checks, plus the operator-authorized native PDF prerequisite repair. Next: TS-02 acquisition foundation, then TS-05/08 consumers as their other prerequisites become available.
+**Current work:** TS-05 receipt-control cleanup, TS-07/10/11 scenario stages and consumer seeds,
+and TS-25 private-host integration. TS-18/20 follow the seed adapters; TS-21/22 remain gated.
+TS-23 assembled review and full qualification wait for complete non-gated functional scope.
 
 ## Revision publication · 2026-11-13
 
@@ -413,9 +415,11 @@ shared imported preparation once, unrelated same-name exclusion and unchanged ma
 Result `74551fe43d8b44708710e63db9bf211d` passed three and failed one diagnostic-stream
 assertion; the correction reads both pytest streams and passed its exact retry
 `8d36fdb1d6e44ccb99b8e6d96c53be7b`. Actual designated-consumer receipts and final integration
-remain open. TS-19's pure contextual literal vectors passed the full identity module,
-48/48 (`244f50becd69430793b5e485a9d5f179`); deployed-function/source-text controls and helper
-retirement remain open. TS-17 DDO support extraction is underway against the current model.
+remain open. TS-19's pure contextual literal vectors initially passed the full identity module,
+48/48 (`244f50becd69430793b5e485a9d5f179`). After removing the two uncalled prior-model helpers
+and their obsolete test, 47/47 passed (`e6f7f1c541154a2da03094d77369e39e`).
+Deployed-function/source-text controls remain open. TS-17 support extraction is implemented
+against the current model, with native verification open.
 
 TS-14's stdout/diagnostic redaction-order controls passed two identities
 (`7a25573b85bb4579b46aef1695a9fb88`). Initial test-authoring arithmetic failure
@@ -423,3 +427,74 @@ TS-14's stdout/diagnostic redaction-order controls passed two identities
 the explicit raw clipping offset. Other TS-14 preservation/task-state work remains open.
 The scoped PostgreSQL target review is published with a bounded diagnostic reconciliation;
 its F01 is scheduled in TS-24, not a replacement test-system qualification.
+
+**SQL capability guidance, operator 2026-11-13; Interface-checked.** Reviewed the references
+against pinned [SQLAlchemy2.1.6](../libraries/postgresql/sqlalchemy.md) (2.1.5 overview with
+2.1.6 addendum),
+[pglast8.7](../libraries/postgresql/pglast.md) and
+[SQLGlot30.27.0](../libraries/postgresql/sqlglot.md) references for SQL repairs and assurance.
+Use existing Core/pglast SQL-standard body composition and SQLGlot schema/scope qualification
+where those responsibilities arise. pglast's procedural tree is a raw structural representation,
+not catalog-resolved PL/pgSQL; SQLGlot's procedural/opaque fallback is not a complete procedure
+validator. Existing native authoring's plpgsql_check2.10 and real execution retain catalog,
+variable-binding and purpose semantics. This introduces no parallel SQL validator or DDO
+architecture change. The later mixed-selection setup failures are independently traced to
+pytest package-collector identity and repaired at fixture registration, not SQL.
+
+TS-06's shared statistics consumers passed 87/87
+(`1a393886a0a04452b5988cd0fe6bb2dc`); method support moves passed 115/115
+(`78690633b5084db6a5fba83734fe4830`). TS-17 now has canonical declaration/kernel/demand/port/
+binding support, ten explicit frozen recipes, one admission sequence and no DDO test-module or
+non-package relative imports. Pure consumer checks passed 229/229
+(`c2c8a477654b4ee0bc54c46ce1099d0e`). Ten recipe preparations and wire/routing controls passed
+in a retained partially failed run; corrected override and parameter controls passed separately
+(`53e40c4325dc4e17946e6762bb00d48c`, `611f479896654e798f5c42a2b2bf8253`).
+The original failed receipts remain; native recipe smoke and TS-18 seeds remain open.
+TS-20's checked routing double is implemented, but SQLite/Boolean/routing checks do not establish
+PostgreSQL full-result or protected native-admission evidence.
+
+The second PDF successor preview/candidate/registration passed; native union
+`fc82fd2a666343f2916dac2b2cea448e` failed (32 passed, 47 setup failures) because mixed
+module/root selections produced two pytest9.1.1 Package collector objects for one directory.
+FixtureDef registration bound the first by object identity. The early TS-05 correction places
+the eight fixture definitions in one canonical support owner registered at the package root;
+the exact 79-case collection probe now resolves every required fixture once without database
+work. Actual native verification is included in TS-02's focused smoke.
+
+TS-02's combined key/resolver/run-scope controls passed 64/64
+(`af64e865c2d549749aaec28456380dc8`). Its real native lifecycle/deployment checks and
+consecutive narrowed reuse checks are underway. A bounded scheduling view and startup stderr
+diagnostic repair are owed at the existing CLI owner, after work exposed unavailable routine
+views; transient failed startup `e3dd8a57b3cb454f8a1f7fdc6149c4bc` is retained.
+Doctor passed `4a68f18f73204b81b82f62013ddc5c15`; no broad qualification is claimed.
+
+## Remaining execution baseline · 2026-11-13
+
+Operator authorized the remaining execution approach. Implement foundations and actual consumers
+in coherent slices; no second execution-plan document is introduced. Domain seeds use whole
+exact-default scenarios and formulas release-and-views prefixes. Pure domain preparation keys
+formula capability, while expression text remains later-stage input. No benchmark gate follows.
+
+**passed:** TS-24 full19/39assertions `7d274292df2148beb6182197b2db1121`, single
+`73bc04e0242a4d389e67e2bddfa43438`, subset `192e5b44f2e14dc68a440a731dc3d7e7`.
+The latter two record the same head/key, reused and verified, from distinct processes.
+TS-13 managed package collection `5a70bf7f0c9644f19418da4ba4bd3b75` collected7314identities,
+1225native-required; execution remains not_run. Designated affinity consumers passed statistics87
+(`1a393886a0a04452b5988cd0fe6bb2dc`) and HanLP/run-scope15 (`e3eae4c8a6e7444d8cb3b1d47911b1dc`).
+Exact stdio states passed `de5170889d34474fa83993b9ff8c2124` (5selectedincludingstagecontrol).
+
+**failed:** TS-05/08 endpoint `3b38297dcc904d6eb5fcfe2b89ce98c8`,62selected/62passed,
+with incomplete native provenance for an injected prerequisite-refusal control that never connects.
+Repair its classification by making it pure; preserve enforcement. The bounded failures view must
+expose unresolved native identities/reasons. Other native fixture, seed, infrastructure and serving
+controls passed within this failed receipt; they do not establish final qualification.
+
+**passed:** TS-25 pure6 `c7537858ffcc40208a4780e3206f4172`; installed-tool readiness
+`uv run ci doctor --json`, `f06b4673feea406ca00764544b54cab4`.
+**not_run:** actual private-host execution and TS-23 broad gates. Before launch, move cluster
+credentials/data outside published artifacts, expose pre-bootstrap diagnostics and settle all
+owned child groups before trap cleanup. Preserve mode/new incarnation through retry and coverage.
+
+TS-17 native recipe smoke and TS-18 kernel/source-function seeds remain open. TS-20 wire checks
+are implemented; full PostgreSQL BindingResult and real-purpose protected admission remain open.
+No production DDO package, persistent deployment, adoption or cutover is resumed.

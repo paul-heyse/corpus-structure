@@ -69,6 +69,9 @@ addopts = [
     "-m", "not shared_cluster_fault",
 ]
 markers = [
+    "provider_evidence: opt-in actual provider evidence selected with ci test --providers-only",
+    "prerequisite(name): named external requirement checked before scenario setup",
+    "sql_family(family, case, assertions): finite native SQL family member",
     "db: uses the PostgreSQL test database",
     "shared_cluster_fault: exclusive serial controls that mutate shared PostgreSQL authentication",
 ]
@@ -88,9 +91,13 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 # Formatting owns line layout, including lines that cannot be usefully split.
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# Preserve the historical E501 directive in this immutable generated input.
+"python/corpus-structure/alembic/versions/0001_initial_schema.py" = ["RUF100"]
+
 [tool.ruff.format]
 # Frozen migration bytes are historical inputs; format prospective wrappers before freezing.
-exclude = ["python/corpus-structure/semantic_alembic/versions/*.py"]
+exclude = ["python/corpus-structure/semantic_alembic/versions/*.py", "python/corpus-structure/alembic/versions/0001_initial_schema.py"]
 
 [tool.pyrefly]
 python-version = "3.14"
