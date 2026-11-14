@@ -9,8 +9,10 @@ The [current integration/closeout account](../declared-data-operations_2026-11-1
 owns the actual family inventory, cancelled qualification and remaining work. Source/primary,
 learned, M1, structural and retained-math increments do not close the complete replacement target
 below. Explicit retained-demand frontdoors are distinct from default source/book/phase0 caller
-adoption. M1 formal-syntax and named-rule profiles require their genuinely bound formal/rule inputs;
-an explicit refusal remains preferable to silently invoking a legacy reader or callback. Historical
+adoption. Current formal syntax and named construction facts belong to the shared formal and
+construction operations, not obsolete M1 mode flags. Keep literal M1/GLiNER candidates where
+PM2 actually consumes them and retain distinct finite interpretation; migrate current consumers
+to the newer capability owners and remove superseded adapters. Historical
 replay may retain genuine legacy references during this unfinished transition, but target products
 must never be relabelled with invented legacy task/view identifiers. Shared static-extraction reuse
 belongs to the coordinator's efficiency follow-up before wider qualification resumes.

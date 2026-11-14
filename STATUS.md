@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-14. DDO foundations, alignment, static reuse and six bounded legacy removals are integrated. The final actual source-child case passed its targeted qualification. Full campaigns, actual-provider/M1 journeys and health sweeps stay stopped. No deployment, activation or cutover._
+_Updated 2026-11-14. DDO-06–08 execution resumed from the integrated foundations. Bounded actual-provider/current-capability checks are authorized after migration; full campaigns and health sweeps remain stopped. No deployment, activation or cutover._
 
 ## DDO foundation increment · 2026-11-14
 
@@ -16,10 +16,10 @@ _Updated 2026-11-14. DDO foundations, alignment, static reuse and six bounded le
 
 ## Remaining execution and qualification
 
-- The authorized foundation increment is concluded; all 31 selected native identities have passing original/replacement receipts with their source/context bounds. No test remains active. Root maintenance and docs publication passed; source, evidence and documentation are integrated on main. No push; no passing cohort or cancelled inference journey is restarted.
+- The authorized foundation increment is concluded; all 31 selected native identities have passing original/replacement receipts with their source/context bounds. The [resumed execution owner](docs/plans/declared-data-operations_2026-11-12.md#ddo-0608-resumed-execution--2026-11-14) records current DDO-06–08 approach, native Demand-only resume, newer formal/construction targets, bounded verification and retirement. Three independent implementation worktrees are active; checks and receipts stay in main after integration. The concurrent untracked PostgreSQL-library review is preserved separately.
 - DDO-06–08 retain default source/book/phase0 migration, full family/provider/CPU/reference work; 09/10 reuse/public serving/export; 11 preservation/deployment/cutover; 12 assembled applicable union. Helpers/declarations and these bounded passes do not certify those packages.
 - Prior cancelled `3696eb7a301c4cc1965aefe09b0f1ddb` and `ac02513cd05f42a587120c617ee3917e` retain failed/partial outcomes and settled custody. Earlier lost worker-local raw receipts remain unavailable and receive no current inspectable qualification credit. Root and all new receipts/evidence are retained.
-- **not_run:** full `uv run ci test`, broad `uv run ci check`, actual provider inference, benchmarks and repository health sweep, per operator. Focused new/affected verification remains authorized.
+- **not_run:** full `uv run ci test`, broad `uv run ci check`, benchmarks and repository health sweep, per operator. Focused new/affected native and bounded actual-provider verification is authorized. Passing cohorts are not replayed after fixes.
 
 ## Test system: execution closed; qualification deferred · 2026-11-13
 

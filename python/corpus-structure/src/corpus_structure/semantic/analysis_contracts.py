@@ -641,6 +641,32 @@ def _rows(value: Any) -> Iterable[Any]:
     return value.values() if isinstance(value, Mapping) else value
 
 
+@dataclass(frozen=True)
+class AnalysisContextProfile:
+    """Captured mathematical meaning, independent of legacy execution/run admission.
+
+    The acquired operation archives this profile and its semantic implementations
+    as recipe assets. Runtime identity belongs to authentic execution evidence.
+    """
+
+    profile: AnalysisProfile
+    implementation_digests: tuple[tuple[str, str], ...]
+
+    @property
+    def model_id(self) -> str:
+        from dataclasses import asdict
+
+        return sha256(canonical_bytes([asdict(self.profile), self.implementation_digests])).hexdigest()
+
+
+def acquire_analysis_context_profile() -> AnalysisContextProfile:
+    """Acquire trusted current analysis semantics once before operation admission."""
+    model = _standalone_model()
+    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "6":
+        raise ValueError("mathematical acquisition requires the supported analysis profile")
+    return AnalysisContextProfile(model.analysis_profiles[0], model.implementation_digests)
+
+
 def prepare_interpretation_context(
     prepared: PreparedRelease | None = None,
     *,
@@ -655,14 +681,22 @@ def prepare_interpretation_context(
     demand: str = "interpretation",
     offset: int | None = None,
     scope_chain: Iterable[str] = (),
+    context_profile: AnalysisContextProfile | None = None,
 ) -> PreparedInterpretationContext:
     """Prepare once per scope, never resolve current declarations from a historical release."""
     from corpus_structure.core import tex
 
     from .contracts import _fail
 
-    model, profile = _profile(prepared)
-    implementation_digests, runtime_id = _analysis_runtime(prepared)
+    if context_profile is None:
+        model, profile = _profile(prepared)
+        model_id = model.model_id
+        implementation_digests, runtime_id = _analysis_runtime(prepared)
+    else:
+        profile = context_profile.profile
+        model_id = context_profile.model_id
+        implementation_digests = context_profile.implementation_digests
+        runtime_id = None
     if kind not in {"any_value", "formula", "relation", "member", "set_expr"}:
         _fail("analysis_kind", kind, "use an admitted mathematical start kind")
     if demand not in {d.id for d in profile.demands}:
@@ -777,7 +811,7 @@ def prepare_interpretation_context(
     )
     return PreparedInterpretationContext(
         profile,
-        model.model_id,
+        model_id,
         None if prepared is None else prepared.release_id,
         owned_macros,
         kind,

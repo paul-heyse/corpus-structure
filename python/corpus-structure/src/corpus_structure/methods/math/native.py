@@ -148,11 +148,21 @@ def declaration_scope(*, source, items, topology, rules, ordinal, blocks):
 
 def _before_descendant(parent: Any, child: Any, pointer: str) -> bool | None:
     """Prove relative order from retained native containment, not collection indices."""
+    return before_descendant_columns(
+        parent_items=parent.items, parent_ancestors=parent.ancestors,
+        child_items=child.items, child_ancestors=child.ancestors,
+        ancestor=parent.ref.section_pointer, child_pointer=child.ref.section_pointer,
+        pointer=pointer,
+    )
+
+
+def before_descendant_columns(*, parent_items, parent_ancestors, child_items, child_ancestors,
+                              ancestor, child_pointer, pointer) -> bool | None:
+    """Prove forward containment order from retained native columns alone."""
     nodes = {
         item["self_ref"]: item
-        for item in (*parent.items, *parent.ancestors, *child.items, *child.ancestors)
+        for item in (*parent_items, *parent_ancestors, *child_items, *child_ancestors)
     }
-    ancestor = parent.ref.section_pointer
     root = nodes.get(ancestor)
     if root is None:
         return None
@@ -171,7 +181,7 @@ def _before_descendant(parent: Any, child: Any, pointer: str) -> bool | None:
             ref = owner
         return None
 
-    source, target = branch(pointer), branch(child.ref.section_pointer)
+    source, target = branch(pointer), branch(child_pointer)
     order = [ref["$ref"] for ref in root.get("children", ())]
     if source not in order or target not in order:
         return None
@@ -636,6 +646,62 @@ def normalization_readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeRead
     return tuple(result)
 
 
+def native_reading_record(reading: NativeReading, *, original: str, demand: str) -> dict[str, Any]:
+    """Retain the existing mathematical result without a task/view envelope.
+
+    Both native publication routes use this codec; interpretation and symbolic
+    evaluation remain with the prepared mathematical operand.
+    """
+    import dataclasses
+
+    import sympy
+
+    from .transform import NotRepresentable
+
+    operand = reading.prepared
+    record = dict(
+        pointer=reading.pointer,
+        orig=original,
+        recognized_latex=operand.latex,
+        primary_input=operand._primary_input,
+        recognition_health="succeeded",
+        context_basis=operand.context.stage_key(demand),
+        occurrence_basis=operand.context.stage_key("occurrences"),
+        context=dict(
+            source_id=operand.context.source_id,
+            scope=operand.context.scope,
+            declarations=[dataclasses.asdict(d) for d in operand.context.declarations],
+            issues=reading.context_issues,
+        ),
+        **_syntax_value(reading.result),
+    )
+    if demand == "occurrences":
+        syntax_record = _syntax_value(operand.syntax())
+        if syntax_record != _syntax_value(operand.interpretation()):
+            record["raw_syntax"] = syntax_record
+    if demand == "symbolic":
+        record["weak_interpretation"] = _syntax_value(operand.interpretation())
+        try:
+            record["symbolic"] = dict(
+                format="sympy-srepr-1", expression=sympy.srepr(operand.symbolic_value())
+            )
+        except (NotRepresentable, grammar.NotParsed, grammar.Ambiguous) as error:
+            record["symbolic"] = dict(outcome="unsupported", diagnostic=str(error))
+        record["definedness"] = dataclasses.asdict(operand.definedness_result())
+    record["stages"] = {
+        name: dataclasses.asdict(operand.state(name))
+        for name in (
+            "lexical",
+            "syntax",
+            "interpretation",
+            "occurrences",
+            "symbolic",
+            "scientific",
+        )
+    }
+    return record
+
+
 def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
     from corpus_structure.core.evidence import Segment
     from corpus_structure.core.payloads import ValuePayload
@@ -749,57 +815,13 @@ def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
                             recognized_span=(0, len(text)),
                         )
                     )
-    import dataclasses
-
-    import sympy
-
-    from .transform import NotRepresentable
-
-    analysis_items = []
     source_items = {item["self_ref"]: item for item in view.items}
-    for reading in selected:
-        operand = reading.prepared
-        record = dict(
-            pointer=reading.pointer,
-            orig=source_items[reading.pointer].get("orig", ""),
-            recognized_latex=operand.latex,
-            primary_input=operand._primary_input,
-            recognition_health="succeeded",
-            context_basis=operand.context.stage_key(demand),
-            occurrence_basis=operand.context.stage_key("occurrences"),
-            context=dict(
-                source_id=operand.context.source_id,
-                scope=operand.context.scope,
-                declarations=[dataclasses.asdict(d) for d in operand.context.declarations],
-                issues=reading.context_issues,
-            ),
-            **_syntax_value(reading.result),
+    analysis_items = [
+        native_reading_record(
+            reading, original=source_items[reading.pointer].get("orig", ""), demand=demand
         )
-        if demand == "occurrences":
-            syntax_record = _syntax_value(operand.syntax())
-            if syntax_record != _syntax_value(operand.interpretation()):
-                record["raw_syntax"] = syntax_record
-        if demand == "symbolic":
-            record["weak_interpretation"] = _syntax_value(operand.interpretation())
-            try:
-                record["symbolic"] = dict(
-                    format="sympy-srepr-1", expression=sympy.srepr(operand.symbolic_value())
-                )
-            except (NotRepresentable, grammar.NotParsed, grammar.Ambiguous) as error:
-                record["symbolic"] = dict(outcome="unsupported", diagnostic=str(error))
-            record["definedness"] = dataclasses.asdict(operand.definedness_result())
-        record["stages"] = {
-            name: dataclasses.asdict(operand.state(name))
-            for name in (
-                "lexical",
-                "syntax",
-                "interpretation",
-                "occurrences",
-                "symbolic",
-                "scientific",
-            )
-        }
-        analysis_items.append(record)
+        for reading in selected
+    ]
     if analysis_items or demand == "occurrences":
         refs = ()
         if demand == "symbolic":

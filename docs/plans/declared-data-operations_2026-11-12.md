@@ -2,7 +2,7 @@
 
 **Status: Authorized foundation increment complete; scoped Tested, 2026-11-14. DDO-00–02 retain bounded completion.
 Reopened DDO-03/04/05, immediate SQLAlchemy/Alembic alignment, pure static reuse and the six bounded legacy removals are implemented with scoped evidence. Actual selected-view child publication now passes. Broader series qualification is not certified; earlier results retain their source/context bounds.
-DDO-06–08 remain open; the current increment is concluded and its remaining tests were cancelled by the operator, 2026-11-14. DDO-09–12 retain their broader open scope. No deployment, activation or production cutover.**
+DDO-06–08 execution resumed, 2026-11-14, against the closed foundation increment. Earlier cancelled receipts remain cancelled; bounded actual-provider and current-capability journeys are authorized for migrated families. DDO-09–12 retain their broader open scope. No deployment, activation or production cutover.**
 Owns DDO-00–12, the full audited F01–F14/C1–C7 scope, RC01–RC09 adoption and assembled
 qualification. The operator selected this as a dramatic standalone redesign: other plans supply
 no product scope or acceptance limits. Later operator-accepted test-system dependencies are
@@ -1442,6 +1442,47 @@ DDO-06–12 completion is claimed.
 **Documentation publication:** `uv run ci docs check --json` passed `c5d40d6ecf3e4a3890a4329cb02edb95` (1,256 canonical pages, zero link errors); root `just turn-end` completed without final source mutation. Commits `b5d7c63ce` and `ffea0bd5f` contain the checked implementation; subsequent checkpoint edits change documentation only.
 
 Worktree-local managed stores and integrated patches are preserved, with original namespaces, under `build/ddo-worker-results/{builtins,projections,native}` before removing this execution's temporary worktrees. Read an older worker receipt through the corresponding `CORPUS_CI_RESULTS` store; current qualification uses the root receipts above. Pre-existing non-ancestor worktrees are preserved.
+
+## DDO-06–08 resumed execution · 2026-11-14
+
+**In progress; implementation and qualification remain open.** Baseline `0463cb997` supplies
+the repaired source-child, provider and transitive-support premises. This section supersedes
+the prior increment's stop instruction for the newly authorized scope, without changing its
+failed/interrupted receipts. The operator authorizes bounded real-provider and current-capability
+journeys; full campaigns, whole-book qualification and repository health sweeps remain stopped.
+After a repair rerun only failing identities. Keep managed receipts in main, and integrate code
+before native/provider checks rather than creating separate worktree environments or test heads.
+
+Execution proceeds through shared admitted reads and effect/execution contracts, ordinary native
+demand frontdoors, then producer-plus-immediate-consumer migrations. Independent worktrees own
+bounded hydration, source/frontdoor/recovery/reporting, and primary/learned/formal/construction
+adoption. The root owns shared native/model changes, downstream/authored/external integration,
+conflict resolution, focused integrated verification and the final current-state account.
+
+- Hydration joins typed exact selection pins to one authenticated binding-row base per bounded
+  page. Preserve all context/support/membership comparisons, accepted kinds, exact cardinality,
+  repeated occurrences and global byte limits. Connections close before compute/capacity waits.
+- Execution resume accepts native Demand IDs. Keep run IDs only where an actual sealed historical
+  inspection consumer needs them. Migrate ordinary source/book/phase0, ingest, regenerate,
+  characterize, parser/interpretation and project entrypoints with reporting and cancellation.
+- Current formal syntax is produced by shared `FormalEvidenceOperation`; named construction facts
+  by shared `ConstructionOperation`; source-grounded interpretation by PM2/D1. Retire obsolete
+  `M1Config.formula_syntax` / `annotation_rules` modes and adapters with their consumers. Preserve
+  literal GLiNER source candidates and distinct finite interpretation where actually consumed.
+- Complete math/context/symbol scope, relations/definitions/artifacts/clauses, predicate/dossier,
+  structural, contextual/finite interpretation and authored/external/effectful profiles with
+  genuine predecessor products. Remove superseded registries, selectors, dependency/freshness maps,
+  stage permits, CPU Reader/packet dispatch and current dual task/product references only as their
+  consumers move. Historical custody and DDO-11 physical retirement remain protected.
+- Consume existing PostgreSQL/Core, same-connection typed COPY staging and exact pgvector kernels
+  where their contracts fit. Keep short per-request publication and deliberate separate-snapshot
+  conflict/lock behavior; do not add a batch-wide transaction, separate queue or scoring authority.
+
+The concurrent untracked PostgreSQL-library review is preserved. Its useful mechanisms may inform
+this authorized footprint; recommendations for DDO-09/10 or new scope are not blanket adopted.
+DDO-11 still owns persistent deployment, activation, adoption and cutover. Targeted native/functional
+and genuine provider checks qualify only their selected scope; endpoint typing/lint and documentation
+checks do not establish the DDO-12 required union. Efficiency benefits remain Proposed, unmeasured.
 
 ## DDO-06–08 authorized execution · 2026-11-13
 
