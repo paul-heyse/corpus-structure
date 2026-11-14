@@ -27,6 +27,10 @@ _Updated 2026-11-13. DDO completion reassessment found remaining implementation 
 - **Implementation paused.** Audit authorization changes plans/evidence only. On resumption, repair the coordinator's remaining functional/retirement obligations before final qualification; source changes require reassessing affected old passes, not merely retrying the 199 unresolved identities.
 - Keep DDO-06 native streams, DDO-07–10 cutovers, DDO-11 adoption and DDO-12 provider/book/fault qualification open. Clean worker worktrees remain for cleanup after qualification. Concurrent test-system work and operator AGENTS.md edits are preserved. No push.
 
+## DDO model-update improvement review · 2026-11-13
+
+- **Published, Proposed:** the [ast-grep/LibCST review](docs/plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md) assesses finite DDO migration and ongoing `ci` preview/apply updates separately. It recommends owned regeneration, programmatic LibCST migration and conditional structural discovery; no second production frontend or synchronization platform is selected. DDO plan revision and implementation remain separate. Concurrent test-infrastructure work is preserved.
+
 ## Test system: execution in progress · 2026-11-13
 
 - The [coordinator](docs/plans/test-system-target-design_2026-11-13.md#execution-checkpoint--2026-11-13) owns TS-00–25 and current dispositions. TS-00 ADR-0101/0102 targets, TS-04 worker sizing and TS-16 CPU controls are delivered; TS-01/03/06/09/15/19 are implemented in part or awaiting affected native checks. Other packages remain open. Duration benefits are Proposed, unmeasured.

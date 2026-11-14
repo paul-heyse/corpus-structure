@@ -41,6 +41,12 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [DDO structural analysis, codemods and model-driven updates](declared-data-operations-ast-grep_2026-11-13.md):
+  full ast-grep-py/LibCST capability comparison; owned regeneration, programmatic Python
+  migration and bounded source updates through existing preview/apply. Ast-grep discovery is
+  conditional; no second production frontend or automatic synchronization platform is selected.
+  Recommendations remain proposals; the DDO plans are unchanged.
+
 - [Test-system target design](test-system-target-design_2026-11-13.md):
   shorter focused and full runs through demand-driven deployment verification, preparation keys,
   infrastructure-only fixtures, effective affinity and reused DDO setup; preserved binding and
