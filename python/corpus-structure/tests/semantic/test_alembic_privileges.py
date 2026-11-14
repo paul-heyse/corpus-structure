@@ -399,17 +399,36 @@ def test_privilege_failure_context_survives_aborted_owner_scope(semantic_bare_en
 
 def test_owner_column_acl_is_removed_without_changing_implicit_owner_rights(semantic_bare_engine):
     from corpus_structure.semantic.native_objects import native_owner
+
     schema = "owner_column_" + uuid4().hex[:10]
-    policy = {"kind": "table", "name": schema + ".sample", "owner": "corpus_sem_publisher", "acl": [], "columns": []}
+    policy = {
+        "kind": "table",
+        "name": schema + ".sample",
+        "owner": "corpus_sem_publisher",
+        "acl": [],
+        "columns": [],
+    }
     with semantic_bare_engine.begin() as conn:
         conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
         conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
         conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
         conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
         with native_owner(conn, "corpus_sem_publisher"):
-            conn.exec_driver_sql(f'GRANT SELECT(id) ON TABLE "{schema}".sample TO corpus_sem_publisher')
-        assert conn.scalar(text("SELECT attacl IS NOT NULL FROM pg_attribute WHERE attrelid=to_regclass(:name) AND attname='id'"), {"name": policy["name"]})
-        Operations(MigrationContext.configure(conn)).invoke(PrivilegeTransitionOp(None, policy, normalization=True))
+            conn.exec_driver_sql(
+                f'GRANT SELECT(id) ON TABLE "{schema}".sample TO corpus_sem_publisher'
+            )
+        assert conn.scalar(
+            text(
+                "SELECT attacl IS NOT NULL FROM pg_attribute WHERE attrelid=to_regclass(:name) AND attname='id'"
+            ),
+            {"name": policy["name"]},
+        )
+        Operations(MigrationContext.configure(conn)).invoke(
+            PrivilegeTransitionOp(None, policy, normalization=True)
+        )
         admit_privileges(conn, [policy])
-        assert conn.scalar(text("SELECT has_table_privilege('corpus_sem_publisher',:name,'SELECT')"), {"name": policy["name"]})
+        assert conn.scalar(
+            text("SELECT has_table_privilege('corpus_sem_publisher',:name,'SELECT')"),
+            {"name": policy["name"]},
+        )
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')

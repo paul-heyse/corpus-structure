@@ -179,16 +179,23 @@ def _revoke_acl_edges(connection, policy, target, kind, failure_context):
         # Ownership supplies implicit rights. Historical FK setup may nevertheless
         # leave an explicit owner column grant; the declared empty column ACL must
         # remove that row without changing those implicit ownership capabilities.
-        owner_columns = connection.execute(text(
-            "SELECT at.attname,pg_get_userbyid(a.grantor),a.privilege_type,pg_get_userbyid(c.relowner) "
-            "FROM pg_attribute at JOIN pg_class c ON c.oid=at.attrelid "
-            "CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE c.oid=to_regclass(:name) "
-            "AND at.attnum>0 AND NOT at.attisdropped AND a.grantee=c.relowner"
-        ), {"name": policy["name"]}).all()
+        owner_columns = connection.execute(
+            text(
+                "SELECT at.attname,pg_get_userbyid(a.grantor),a.privilege_type,pg_get_userbyid(c.relowner) "
+                "FROM pg_attribute at JOIN pg_class c ON c.oid=at.attrelid "
+                "CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE c.oid=to_regclass(:name) "
+                "AND at.attnum>0 AND NOT at.attisdropped AND a.grantee=c.relowner"
+            ),
+            {"name": policy["name"]},
+        ).all()
         for column, grantor, privilege, owner in owner_columns:
-            failure_context["dependency_objects"] = [{"grantor": grantor, "grantee": owner, "privilege": privilege, "column": column}]
+            failure_context["dependency_objects"] = [
+                {"grantor": grantor, "grantee": owner, "privilege": privilege, "column": column}
+            ]
             with native_owner(connection, grantor):
-                connection.exec_driver_sql(f"REVOKE {privilege} ({quote(column)}) ON TABLE {target} FROM {quote(owner)}")
+                connection.exec_driver_sql(
+                    f"REVOKE {privilege} ({quote(column)}) ON TABLE {target} FROM {quote(owner)}"
+                )
     if kind == "SCHEMA":
         sql = "SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,NULL::text FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.nspname=:name AND a.grantee<>n.nspowner"
     else:
