@@ -62,7 +62,11 @@ def candidate_inspection_report(prepared, model, primary, context, *, inspection
 
 
 def candidate_member_values(report, *, candidate_type):
-    """Project already validated immutable report membership without another read."""
+    """Project validated candidate domain fields, excluding the carrier discriminator.
+
+    Domain record/contribution IDs predate the packet's candidate_type label. This
+    explicit view preserves that domain payload; it does not relabel its native kind.
+    """
     if candidate_type not in {"record", "contribution"}:
         raise ValueError("unknown candidate member family")
-    return tuple(packet["body"] for packet in report["members"] if packet["body"]["candidate_type"] == candidate_type)
+    return tuple({name: value for name, value in packet["body"].items() if name != "candidate_type"} for packet in report["members"] if packet["body"]["candidate_type"] == candidate_type)
