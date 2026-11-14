@@ -101,3 +101,68 @@ def test_parser_and_interpretation_requests_preserve_exact_declared_questions(
     assert request.roots[0].analyzed_scope == {"start": 3, "end": 9}
     assert request.selections[0].parameters["question"] == {"text": "Copy the retained numeral."}
     assert request.execution_profile == "cuda-bfloat16" and request.runtime_id == "t"
+
+
+@pytest.mark.parametrize("parser,target", [
+    ("hanlp", "text.hanlp_native/source-native"),
+    ("maverick", "text.maverick/source-native"),
+    ("dipo", "text.dipo/source-native"),
+])
+def test_ordinary_parser_choices_retain_source_scope_and_exact_profile(cli, tmp_path, monkeypatch, parser, target):
+    calls = []
+    monkeypatch.setattr(demands, "execute_request", lambda ctx, **values: calls.append(values))
+    result = cli("run", "parsers", "--source-root", str(tmp_path), "--parser", parser,
+        "--project", "p", "--semantic-release", "r", "--runtime", "t",
+        "--scope", "selected", "--document", "book", "--json")
+    assert result.exit_code == 0, result.output
+    request = calls[0]["source_request"]
+    assert request.workflow == "parsers" and request.targets == (target,)
+    assert request.selection == NamedScope("selected") and request.documents == ("book",)
+    assert request.release_id == "r" and request.runtime_id == "t"
+
+
+@pytest.mark.parametrize("provider,question,candidates,target", [
+    ("d1", "function", "source", "text.d1_source/source-native"),
+    ("d1", "function", "primary", "text.d1_candidates/source-native"),
+    ("gliner", "function", "source", "text.gliner_function/source-native"),
+    ("gliner", "cues", "source", "text.gliner_cues/source-native"),
+    ("gliner", "definitions", "source", "text.gliner_definitions/source-native"),
+])
+def test_ordinary_interpretation_selects_actual_question_and_candidate_owner(cli, tmp_path, monkeypatch, provider, question, candidates, target):
+    calls = []
+    monkeypatch.setattr(demands, "execute_request", lambda ctx, **values: calls.append(values))
+    result = cli("run", "interpret", "--source-root", str(tmp_path),
+        "--provider", provider, "--question", question, "--candidate-mode", candidates,
+        "--project", "p", "--semantic-release", "r", "--runtime", "t", "--json")
+    assert result.exit_code == 0, result.output
+    request = calls[0]["source_request"]
+    assert request.workflow == "interpret" and request.targets == (target,)
+
+
+def test_interpretation_focus_is_frozen_without_changing_native_candidate_population(cli, tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(demands, "execute_request", lambda ctx, **values: calls.append(values))
+    focus = [{"focal_extent": [5, 10], "projection_extent": [0, 20]}]
+    path = tmp_path / "focus.json"
+    path.write_text(json.dumps(focus))
+    result = cli("run", "interpret", "--source-root", str(tmp_path), "--provider", "d1",
+        "--question", "function", "--focuses", str(path), "--project", "p",
+        "--semantic-release", "r", "--runtime", "t", "--json")
+    assert result.exit_code == 0, result.output
+    (selection,) = calls[0]["source_request"].selections
+    assert selection.operation == "text.d1_source/source-native"
+    assert selection.parameters == {"focuses": focus}
+
+
+@pytest.mark.parametrize("action,overrides", [("parsers", ("--parser", "hanlp")), ("interpret", ("--provider", "d1", "--question", "function"))])
+def test_capability_resume_preserves_exact_demand_and_refuses_new_profile_choices(cli, tmp_path, monkeypatch, action, overrides):
+    calls = []
+    monkeypatch.setattr(demands, "execute_request", lambda ctx, **values: calls.append(values))
+    arguments = ("run", action, "--demand", "demand:one", "--source-root", str(tmp_path), "--json")
+    result = cli(*arguments)
+    assert result.exit_code == 0, result.output
+    assert calls[0]["demand"] == "demand:one" and "request" not in calls[0]
+    calls.clear()
+    result = cli(*arguments, *overrides)
+    assert result.exit_code != 0 and "frozen" in result.output
+    assert not calls

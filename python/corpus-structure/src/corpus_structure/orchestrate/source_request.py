@@ -64,7 +64,7 @@ class SourceRunRequest(BaseModel):
     runtime_id: str = Field(min_length=1)
     domain: str | None = None
     selection: SourceSelection = PackDefault()
-    workflow: Literal["phase0", "capture", "characterize"] = "phase0"
+    workflow: Literal["phase0", "capture", "characterize", "parsers", "interpret"] = "phase0"
     membership: Literal["direct", "descendants"] = "descendants"
     documents: tuple[str, ...] = ()
     retained_sources: tuple[RetainedSourceSelection, ...] = ()
