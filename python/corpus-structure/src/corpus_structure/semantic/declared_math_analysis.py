@@ -9,14 +9,16 @@ from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal
+from collections.abc import Callable
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from .analysis_contracts import acquire_analysis_context_profile, prepare_interpretation_context
+from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
 from .structural_products import DeclaredStructuralInputPin
-from .types import SourceArtifact
+from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
@@ -453,7 +455,7 @@ def analyze_declared_math(
 
 
 def math_analysis_kernel(
-    arguments: dict, roles: tuple, context: Any, options: str, *, prepared: Any, check_active: Any
+    arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, options: str, *, prepared: PreparedRelease, check_active: Callable[[], None]
 ) -> dict:
     from .declared_math_products import DeclaredMathOptions
 

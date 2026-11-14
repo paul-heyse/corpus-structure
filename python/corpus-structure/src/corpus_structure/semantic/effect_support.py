@@ -136,7 +136,7 @@ SUPPORTED_EFFECTS = {
         "effects": (),
         "implementation": "enrich_pdf_math",
         "transitions": {},
-        "version": "1",
+        "version": "2",
     },
     "convert_pdf": {
         "effects": (),

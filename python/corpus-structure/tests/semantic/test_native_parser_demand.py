@@ -176,7 +176,11 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(scenario
         for use in snapshot["uses"]:
             operation = obligations[use["obligation_id"]]["operation_id"]
             if operation in TARGETS:
-                assert use["fate"] == "fulfilled", use
+                assert use["fate"] == "fulfilled", {
+                    "operation": operation,
+                    "fate": use["fate"],
+                    "selection": use.get("selection"),
+                }
                 observed[operation] = {
                     product["role"]: decode_semantic_value(product["body"])
                     for product in use["products"]

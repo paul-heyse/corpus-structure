@@ -189,12 +189,14 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
                 "completion": completion,
             },
         )
-        connection.execute(
-            text(
-                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
-            ),
-            {"task": first["task_id"]},
+        released = DataOperationStorage(connection).invoke(
+            "release_data_attempt", {
+                **{name: first[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")},
+                "physical_retirement": "confirmed",
+                "failure": {"code": "controlled-actor-retired", "message": "Actor work finished; publication owner retired before acknowledgement."},
+            }
         )
+        assert released["state"] == "released" and released["retained_intent_id"] == admitted["intent_id"]
     successor = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     second = successor.claim(retained["packet_id"])
     assert second["action"] == "reconcile" and second["retained_intent_id"] == admitted["intent_id"]

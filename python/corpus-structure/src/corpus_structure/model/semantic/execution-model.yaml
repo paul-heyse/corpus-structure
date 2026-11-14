@@ -8241,8 +8241,8 @@ operations:
   projections: []
   implementation: convert_pdf
 - id: enrich_pdf_math
-  inputs: [PdfNativeEnvelope, SourceView]
-  results: [PdfNativeEnvelope, SourceView]
+  inputs: [PdfNativeEnvelope]
+  results: [PdfNativeEnvelope]
   applicability: []
   universe: Explicit selected section views and necessary same-product ancestor context over a pinned native original
   effects: []
@@ -11255,12 +11255,12 @@ implementations:
   effects: []
   required_capabilities: []
 - id: enrich_pdf_math
-  owner: ingest.pdf_methods
-  symbol: EnrichPdfMath.run
-  version: '1'
+  owner: ingest.pdf_selected_enrichment
+  symbol: enrich_selected_pdf
+  version: '2'
   placement: core
-  input_concepts: [PdfNativeEnvelope, SourceView]
-  result_concepts: [PdfNativeEnvelope, SourceView]
+  input_concepts: [PdfNativeEnvelope]
+  result_concepts: [PdfNativeEnvelope]
   features: [typed_bound_inputs, explicit_outcomes]
   effects: []
   required_capabilities: []

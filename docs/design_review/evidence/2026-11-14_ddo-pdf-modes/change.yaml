@@ -1,0 +1,7 @@
+baseline: 588a0a2ee
+packs:
+- statistics
+native_predecessor: semantic_ddo_runtime_v3
+native_revision: semantic_ddo_pdf_modes_v1
+deployment: true
+deployment_profile: development

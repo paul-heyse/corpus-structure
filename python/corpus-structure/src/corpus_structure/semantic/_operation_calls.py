@@ -6320,6 +6320,85 @@ def read_pdf_published_revision(
         return None if row is None else _read_pdf_published_revision_result(row)
 
 
+READ_PDF_MATERIALIZATION_BOUND_CONTRACT_DIGEST = (
+    "47d0244771f91467b4e55c83b3fe482fca8aa76e5ec6cf42d92dd3b2387104c8"
+)
+
+
+class _read_pdf_materialization_boundRequest(OperationResult):
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    product_key: ProductKey
+    content_digest: ContentDigest
+
+
+_read_pdf_materialization_bound_function = func.ops.read_pdf_materialization_bound(
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+    type_=BigInteger(),
+)
+_read_pdf_materialization_bound_statement = select(_read_pdf_materialization_bound_function)
+
+
+def prepare_read_pdf_materialization_bound(
+    *,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> Select[int]:
+    _request = _read_pdf_materialization_boundRequest(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_pdf_product",
+            "read_pdf_materialization_bound",
+            READ_PDF_MATERIALIZATION_BOUND_CONTRACT_DIGEST,
+        )
+    return _read_pdf_materialization_bound_statement.params(
+        **{
+            "task_id": _request.task_id,
+            "product_key": _request.product_key,
+            "content_digest": _request.content_digest,
+        }
+    )
+
+
+_read_pdf_materialization_bound_adapter = TypeAdapter(int)
+
+
+def materialize_read_pdf_materialization_bound(row: tuple[int]) -> int:
+    with native_result_scope("read_pdf_product", "read_pdf_materialization_bound", "byte_bound"):
+        checked = _read_pdf_materialization_bound_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def read_pdf_materialization_bound(
+    conn: Connection,
+    *,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> int:
+    _statement = prepare_read_pdf_materialization_bound(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_pdf_product", "read_pdf_materialization_bound"):
+        row = _native_result.one()
+        return materialize_read_pdf_materialization_bound(row)
+
+
 READ_PDF_PUBLISHED_VALIDATION_CONTRACT_DIGEST = (
     "776cc3a468e57b8ded2353f0358bb5c676c8fdd89e6c20068197fe4da260cd42"
 )
@@ -10780,4 +10859,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "4deed71ac83bb684085058a8fc9b803dc53f3623616a9cdb055ffb9c832e6bc2"
+CALL_CONTRACT_DIGEST = "05c3468222969fec7931b6c97a253cea43a84ea6d132e269619ec75f61a25652"

@@ -200,7 +200,7 @@ def _case(scenario_seeds, *, empty):
 def _m1_result(kernel, demand):
     with kernel.engine.begin() as connection:
         result = DataOperationStorage(connection).invoke(
-            "read_demand_result", {"demand_id": demand, "view": "products"}
+            "read_demand_result", {"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608}
         )
         completions = (
             connection.execute(
@@ -211,7 +211,10 @@ def _m1_result(kernel, demand):
             .scalars()
             .all()
         )
-    assert len(completions) == 1, result
+    names = {row["obligation_id"]: row["operation_id"] for row in result["obligations"]}
+    diagnostic = {"fates": [{"operation": names.get(row["obligation_id"]), "fate": row["fate"],
+        "selection": row["selection"]} for row in result["uses"]], "failures": result.get("attempt_failures")}
+    assert len(completions) == 1, json.dumps(diagnostic, sort_keys=True)
     completion = completions[0]
     if isinstance(completion, str):
         completion = json.loads(completion)

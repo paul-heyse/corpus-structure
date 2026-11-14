@@ -333,7 +333,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.ingest.pdf import PdfConverter
     from corpus_structure.ingest.pdf_chandra import ChandraRuntime
     from corpus_structure.ingest.pdf_hierarchy import organize, project_section
-    from corpus_structure.ingest.pdf_methods import EnrichPdfMath
+    from corpus_structure.ingest.pdf_selected_enrichment import enrich_selected_pdf
     from corpus_structure.ingest.pdf_recognition import RecognitionWorker
     from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
     from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer
@@ -423,7 +423,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "publish_pdf_observation": pdf_integrated.store_pdf_observation,
             "read_pdf_product": pdf_storage.read_pdf_product,
             "convert_pdf": PdfConverter.convert_bytes,
-            "enrich_pdf_math": EnrichPdfMath.run,
+            "enrich_pdf_math": enrich_selected_pdf,
             "organize_pdf": organize,
             "project_pdf_source": project_section,
             "publish_characterization": characterization_store.publish_layer,
@@ -1385,6 +1385,7 @@ def _read_analysis_implementation_inputs(
                 ("pdf/candidate-source.py", "ingest/pdf_candidate_source.py"),
                 ("pdf/candidate-geometry.py", "ingest/pdf_candidate_geometry.py"),
                 ("pdf/methods.py", "ingest/pdf_methods.py"),
+                ("pdf/selected-enrichment.py", "ingest/pdf_selected_enrichment.py"),
                 ("pdf/math.py", "methods/math/native.py"),
                 ("pdf/analysis.py", "semantic/native_analysis.py"),
                 ("pdf/topology.py", "methods/math/native_topology.py"),
@@ -1461,10 +1462,6 @@ def _read_analysis_implementation_inputs(
         ),
         SourceArtifact(
             "pdf/recognition.py", root.joinpath("ingest", "pdf_recognition.py").read_bytes()
-        ),
-        SourceArtifact(
-            "pdf/recognition_methods.py",
-            root.joinpath("ingest", "pdf_recognition_methods.py").read_bytes(),
         ),
         SourceArtifact(
             "pdf/reconciliation.py", root.joinpath("ingest", "pdf_reconciliation.py").read_bytes()
@@ -1967,6 +1964,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/assets.py",
         "pdf/candidates.py",
         "pdf/methods.py",
+        "pdf/selected-enrichment.py",
         "pdf/math.py",
         "pdf/analysis.py",
         "pdf/topology.py",
@@ -2065,7 +2063,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
                 "pdf/reconciliation.py",
                 "pdf/bulk_remove.py",
                 "pdf/recognition.py",
-                "pdf/recognition_methods.py",
             }
         )
     required_implementations.intersection_update(SEMANTIC_IMPLEMENTATION_NAMES)

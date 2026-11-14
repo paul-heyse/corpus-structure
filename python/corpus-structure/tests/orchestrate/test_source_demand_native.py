@@ -166,7 +166,15 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         builds_after = connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
     assert builds_after == builds_before, "retained sources must never recapture their original"
     pending = [
-        {"operation": value["operation_id"], "fate": value["fate"], "reason": value.get("reason")}
+        {
+            "operation": value["operation_id"],
+            "fate": value["fate"],
+            "uses": [
+                {"fate": use["fate"], "selection": use.get("selection")}
+                for use in snapshot["uses"]
+                if use["obligation_id"] == value["obligation_id"]
+            ],
+        }
         for value in snapshot["obligations"]
         if value["fate"] != "fulfilled"
     ]

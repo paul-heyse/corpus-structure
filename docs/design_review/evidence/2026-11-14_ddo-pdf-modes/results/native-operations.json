@@ -1,0 +1,661 @@
+{
+  "version": "native-operation-explanation-1",
+  "candidate_id": "4f316b521e754ab48454b06e007d8c79",
+  "binding": {
+    "revision": "semantic_ddo_pdf_modes_v1",
+    "predecessor": "semantic_ddo_runtime_v3",
+    "target": "0a16812b186d4053de949671e8096ef4fbf67fbeedad142e059f2fef7c953b8f",
+    "target_profile": "development",
+    "target_identity": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    },
+    "authoring_identity": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    },
+    "release": "release:e233a31d42364319294d7da5b27f0d67a4359c4441342d58baa501b66588e070",
+    "release_manifest_sha256": "e233a31d42364319294d7da5b27f0d67a4359c4441342d58baa501b66588e070",
+    "release_artifacts_sha256": "1c5d2348813a423d67a8a0781ba95e3e04de16000cdf7ddb845b10cff0c69596",
+    "hashes": {
+      "native_candidate.py": "f05a71b38d7c7b9e330c14ca808135613594e7f2b4ccfe3263cb82ed34ea4dd4",
+      "native_operations.json": "f5bb60c5e9f9b9f359952a05ac8ebd4458e777b22b6cf0092993df54c35bee4b",
+      "native_admission.sql": "3948b4395438e6888f49b6f148033e2de96d71d3f67b57ca18ac5b7276a6d2ec"
+    }
+  },
+  "total": 11,
+  "items": [
+    {
+      "ordinal": 1,
+      "identity": {
+        "arguments": [],
+        "kind": "function",
+        "name": "data_operation_native_descriptor",
+        "relation": null,
+        "schema": "sem"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "data-operations:forward",
+      "after_source": "data-operations:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 2,
+      "identity": {
+        "arguments": [
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "kind": "function",
+        "name": "ddo_pdf_capture_source",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "data-operation-source-admission:forward",
+      "after_source": "data-operation-source-admission:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 3,
+      "identity": {
+        "arguments": [
+          "text"
+        ],
+        "kind": "function",
+        "name": "require_execution_projection",
+        "relation": null,
+        "schema": "sem"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "current release guards",
+      "after_source": "current release guards",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 4,
+      "identity": {
+        "arguments": [
+          "text",
+          "text"
+        ],
+        "kind": "function",
+        "name": "pdf_contract_input",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "pdf-payloads:forward",
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 5,
+      "identity": {
+        "arguments": [
+          "text",
+          "text"
+        ],
+        "kind": "function",
+        "name": "require_pdf_operation",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "pdf-payloads:forward",
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 6,
+      "identity": {
+        "arguments": [
+          "bigint",
+          "bigint",
+          "text"
+        ],
+        "kind": "function",
+        "name": "pdf_stage_owner_current",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "pdf-payloads:forward",
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 7,
+      "identity": {
+        "arguments": [
+          "bigint",
+          "text",
+          "text"
+        ],
+        "kind": "function",
+        "name": "read_pdf_materialization_bound",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "create",
+      "changed_properties": [
+        "acl",
+        "arguments",
+        "body",
+        "config",
+        "cost",
+        "kind",
+        "language",
+        "leakproof",
+        "owner",
+        "parallel",
+        "result",
+        "rows",
+        "security",
+        "setof",
+        "strict",
+        "support",
+        "volatility"
+      ],
+      "before_owner": null,
+      "after_owner": "corpus_sem_publisher",
+      "before_source": null,
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": null,
+        "after": {}
+      },
+      "before_acl": null,
+      "after_acl": [
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 8,
+      "identity": {
+        "arguments": [
+          "bigint",
+          "bigint",
+          "text",
+          "text",
+          "bytea",
+          "bytea[]"
+        ],
+        "kind": "function",
+        "name": "publish_pdf_observation",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "pdf-payloads:forward",
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 9,
+      "identity": {
+        "arguments": [
+          "sem.data_operation_definition"
+        ],
+        "kind": "function",
+        "name": "ddo_pdf_command_eligible",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "pdf-payloads:forward",
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 10,
+      "identity": {
+        "arguments": [
+          "jsonb",
+          "bigint",
+          "bigint",
+          "text",
+          "text",
+          "text"
+        ],
+        "kind": "function",
+        "name": "ddo_require_pdf_completion",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "pdf-payloads:forward",
+      "after_source": "pdf-payloads:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 11,
+      "identity": {
+        "arguments": [],
+        "kind": "function",
+        "name": "execution_contract_descriptor",
+        "relation": null,
+        "schema": "data"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "native-admission:forward:execution_contract_descriptor",
+      "after_source": "native-admission:forward:execution_contract_descriptor",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    }
+  ],
+  "next_after": null
+}

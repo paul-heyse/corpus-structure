@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "ddo.pdf-modes-governance",
+  "title": "Declared PDF modes, bounded reads and compact v5 archive successor",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can exact declared PDF organization/enrichment/integration custody, bounded materialization and current v5 admission be registered without changing persistent deployment?",
+  "answers": [],
+  "method": "Complete rendered rollback execution and independent catalog verification; all eleven native transitions inspected, existing ownership/grants preserved and new helper grants explicit.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-pdf-modes/change.yaml --json",
+    "uv run ci model change candidate c57d995b61bb475ca005bd1b23d3325f --json",
+    "uv run ci model change inspect-candidate 4f316b521e754ab48454b06e007d8c79 --view operations --limit 100 --json",
+    "uv run ci model change register 4f316b521e754ab48454b06e007d8c79 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "fixed-source request",
+      "sha256": "96e640821dd07f94d2b07a1180a155a8070f2c2b2faf555b861039757ca1a254"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/candidate.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "8243d3df449b20bd30ebc27af2c5bb2e475a00f818a2057e1d59dcfe96fbc51b"
+    },
+    {
+      "path": "results/native-operations.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "dc8cc2db6a38cd8f67cdecaed03af8e12008694e737006eaf6d30d9714ac3791"
+    },
+    {
+      "path": "results/registered-files.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "518cdb07a4720266a313ef1c93f04b2634a4fbf175680499507806b7300f44c2"
+    }
+  ],
+  "depends_on": [
+    "ddo.tagged-wire-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Preview c57d995b61bb475ca005bd1b23d3325f, complete rollback candidate 4f316b521e754ab48454b06e007d8c79 and registration df4c462755694d15a5134ad21929f6bc passed. Exact registration verified. Eleven native changes, no privilege/ordinary operations: existing owners/ACLs preserved; bounded read helper explicitly grants evaluator/reader/writer plus publisher. Native v5 admission, exact PDF effect/factory eligibility, structural observation lineage and aggregate materialization bound remain enforced. Functional and actual-provider qualification remain separate. Frozen predecessors unchanged. Persistent semantic_bep_located_v2 unchanged; no deployment/activation/cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
