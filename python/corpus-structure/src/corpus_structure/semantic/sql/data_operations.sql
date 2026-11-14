@@ -1546,8 +1546,8 @@ BEGIN
  FOR field IN SELECT value FROM jsonb_array_elements(attestation->'execution_meaning'->3->1) LOOP
  IF data.ddo_field(field->1,'role')->>1 IS NULL OR data.ddo_field(field->1,'role')->>1 NOT IN ('semantic','execution') THEN RAISE EXCEPTION 'unknown provider projection field role'; END IF;
  END LOOP;
- SELECT jsonb_build_array('mapping',coalesce(jsonb_agg(jsonb_build_array(field->0,data.ddo_field(field->1,'value')) ORDER BY field->>0 COLLATE "C"),'[]')) INTO semantic_fields
- FROM jsonb_array_elements(attestation->'execution_meaning'->3->1) field WHERE data.ddo_field(field->1,'role')->>1='semantic';
+ SELECT jsonb_build_array('mapping',coalesce(jsonb_agg(jsonb_build_array(profile_field.value->0,data.ddo_field(profile_field.value->1,'value')) ORDER BY profile_field.value->>0 COLLATE "C"),'[]')) INTO semantic_fields
+ FROM jsonb_array_elements(attestation->'execution_meaning'->3->1) AS profile_field(value) WHERE data.ddo_field(profile_field.value->1,'role')->>1='semantic';
  IF data.ddo_identity('inference',semantic_fields) IS DISTINCT FROM profile->>'identity' THEN RAISE EXCEPTION 'execution profile semantic subset differs'; END IF;
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_provider_profile(release_ text,operation_ text,runtime_ text) RETURNS text
