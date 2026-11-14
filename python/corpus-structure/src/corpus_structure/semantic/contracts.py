@@ -144,8 +144,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/source-progress.py", "orchestrate/source_progress.py"),
     ("invocation/source-reporting.py", "orchestrate/source_reporting.py"),
     ("characterization/execution-policy.py", "core/execution_policy.py"),
-    ("characterization/execution-preparation.py", "semantic/execution_preparation.py"),
-    ("characterization/ready-admission.py", "orchestrate/ready.py"),
     ("characterization/cpu-execution.py", "semantic/cpu_execution.py"),
     ("characterization/native-annotations.py", "semantic/native_annotations.py"),
     ("characterization/native-host.py", "methods/native_host.py"),

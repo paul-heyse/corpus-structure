@@ -815,7 +815,6 @@ def prepare_unit_completion(
     configuration_hash: str,
     source: str,
     records: Sequence[Mapping[str, Any]] | None = None,
-    regional_preparation=None,
 ) -> PreparedUnitCompletion:
     """The actual recognizer terminal boundary: binding, source storage and one native fence."""
     from .contracts import require_bound_operation
@@ -880,11 +879,7 @@ def prepare_unit_completion(
                 reference = pending.pop()
                 if reference in layers:
                     continue
-                retained = (
-                    regional_preparation.layer(conn, reference, run_id=task["run_id"])
-                    if regional_preparation is not None
-                    else read_layer(conn, reference, run_id=task["run_id"])
-                )
+                retained = read_layer(conn, reference, run_id=task["run_id"])
                 layers[reference] = retained
                 release_id = retained.payload["release_id"]
                 if release_id not in releases:
@@ -893,12 +888,7 @@ def prepare_unit_completion(
                     ProductReference(**pin) for pin in retained.payload.get("dependencies", ())
                 )
             if layer is not None:
-                validator = (
-                    regional_preparation.validate_layer
-                    if regional_preparation is not None
-                    else validate_layer
-                )
-                layer = validator(prepared, layer.payload, dependencies=layers, releases=releases)
+                layer = validate_layer(prepared, layer.payload, dependencies=layers, releases=releases)
                 layers[layer.reference(task_id)] = layer
             if view is not None:
                 view = validate_view(prepared, view.payload, layers, releases=releases)
@@ -1094,11 +1084,9 @@ class BoundReader:
         analysis: bool = True,
         read_budget: Any = None,
         cpu_execution=None,
-        regional_preparation=None,
-    ):
+        ):
         self.cpu_execution = cpu_execution
         self.provider_execution: Any = None
-        self._regional_preparation = regional_preparation
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         self._analysis_enabled = analysis
         self._read_budget = read_budget
@@ -1121,11 +1109,7 @@ class BoundReader:
         from .characterization_store import read_layer
 
         return {
-            reference: (
-                self._regional_preparation.layer(self.conn, reference, run_id=self.run_id)
-                if self._regional_preparation is not None
-                else read_layer(self.conn, reference, run_id=self.run_id)
-            )
+            reference: read_layer(self.conn, reference, run_id=self.run_id)
             for reference in references
         }
 
@@ -1142,14 +1126,8 @@ class BoundReader:
         from .characterization_store import read_primary_layers
 
         return select_primary_layers(
-            (
-                self._regional_preparation.primary_layers(
-                    self.conn, self.run_id, source_view_id, self.characterization_selection
-                )
-                if self._regional_preparation is not None
-                else read_primary_layers(
-                    self.conn, self.run_id, source_view_id, self.characterization_selection
-                )
+            read_primary_layers(
+                self.conn, self.run_id, source_view_id, self.characterization_selection
             ),
             self.source_view(source_view_id),
             families=families,
@@ -1339,22 +1317,13 @@ class BoundReader:
             cache = {}
             self._native_views = cache
         if source_view_id not in cache:
-            if self._regional_preparation is not None:
-                cache[source_view_id] = self._regional_preparation.source_view(
-                    self.conn,
-                    reference,
-                    analysis=self._analysis_enabled,
-                    prepared=self.prepared,
-                    read_budget=self._read_budget,
-                )
-            else:
-                cache[source_view_id] = load_source_view(
-                    self.conn,
-                    source_view_id,
-                    analysis=self._analysis_enabled,
-                    analysis_context=self.prepared,
-                    read_budget=self._read_budget,
-                )
+            cache[source_view_id] = load_source_view(
+                self.conn,
+                source_view_id,
+                analysis=self._analysis_enabled,
+                analysis_context=self.prepared,
+                read_budget=self._read_budget,
+            )
         return cache[source_view_id]
 
     def ancestor_source_views(self, source_view_id: int):
@@ -2438,7 +2407,6 @@ def run_view(
     cut_id: int | None = None,
     read_budget=None,
     cpu_execution=None,
-    regional_preparation=None,
 ) -> BoundRunView:
     from corpus_structure.core.vocab import RunKind
 
@@ -2462,7 +2430,6 @@ def run_view(
             cut_id,
             read_budget=read_budget,
             cpu_execution=cpu_execution,
-            regional_preparation=regional_preparation,
         ),
     )
 
