@@ -12,7 +12,8 @@ from .identity import canonical_bytes
 from .runtime_bindings import RuntimeBinding, RuntimeBindingError, _document, _inputs
 from .types import PreparedRelease, SourceArtifact
 
-VERSION = "data-operation-runtime-binding-v1"
+VERSION = "data-operation-runtime-binding-v2"
+HISTORICAL_VERSION = "data-operation-runtime-binding-v1"
 
 
 def _required_inputs(prepared: PreparedRelease) -> list[dict[str, str]]:
@@ -43,9 +44,13 @@ def prepare_data_operation_runtime(
         execution_profile=execution_profile,
         observed=observed,
     )
+    from .data_operation_provider_profiles import runtime_profiles
+
+    profiles = runtime_profiles(model, sources)
     manifest = canonical_bytes(
         {
             "version": VERSION,
+            "provider_profiles": profiles,
             "release_id": prepared.release_id,
             "model_digest": sha256(model.content).hexdigest(),
             "python_version": python_version,
@@ -77,10 +82,17 @@ def prepare_data_operation_runtime(
 
 def validate_data_operation_runtime(binding: RuntimeBinding, prepared: PreparedRelease) -> None:
     model = bound_data_operation_model(prepared)
+    try:
+        raw = json.loads(binding.manifest)
+    except (TypeError, ValueError) as error:
+        raise RuntimeBindingError("target runtime manifest is not JSON") from error
+    if not isinstance(raw, dict):
+        raise RuntimeBindingError("target runtime manifest requires an object")
     manifest = _document(
         binding.manifest,
         {
             "version",
+            *(("provider_profiles",) if raw.get("version") == VERSION else ()),
             "release_id",
             "model_digest",
             "python_version",
@@ -96,7 +108,7 @@ def validate_data_operation_runtime(binding: RuntimeBinding, prepared: PreparedR
     )
     archive = _document(binding.archive, {"version", "inputs"})
     if (
-        manifest["version"] != VERSION
+        manifest["version"] not in {VERSION, HISTORICAL_VERSION}
         or archive["version"] != "runtime-source-archive-1"
         or manifest["release_id"] != prepared.release_id
         or binding.release_id != prepared.release_id
@@ -128,6 +140,13 @@ def validate_data_operation_runtime(binding: RuntimeBinding, prepared: PreparedR
             <= {(item["name"], item["sha256"]) for item in actual}
         ):
             raise ValueError("target runtime does not retain its captured implementation inputs")
+        from .data_operation_provider_profiles import runtime_profiles
+        profiles = runtime_profiles(model, tuple(sources))
+        if manifest["version"] == HISTORICAL_VERSION:
+            if profiles:
+                raise ValueError("historical runtime cannot attest provider profiles")
+        elif manifest["provider_profiles"] != profiles:
+            raise ValueError("runtime provider profile differs from captured inputs")
         artifact = runtime_artifact_identity(
             {"python": manifest["python_version"], "inputs": actual}
         )

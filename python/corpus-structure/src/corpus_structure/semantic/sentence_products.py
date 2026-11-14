@@ -765,6 +765,18 @@ def _semantic_nodes(content: bytes, names: tuple[str, ...]):
     return result
 
 
+def sentence_provider_asset(selection):
+    from corpus_structure.methods.native_profiles import spacy_observation_policy
+    from .data_operation_provider_profiles import profile_asset
+    return profile_asset("sentences/provider-inference-profile", selection, spacy_observation_policy())
+
+
+def sentence_provider_attestation(selection):
+    from corpus_structure.methods.native_profiles import spacy_observation_policy
+    from .data_operation_provider_profiles import profile_attestation
+    return profile_attestation(selection, spacy_observation_policy())
+
+
 def sentence_execution_custody(
     configuration: SentenceConfig | None = None, *, selection=None
 ) -> SourceArtifact:
@@ -788,6 +800,7 @@ def sentence_execution_custody(
                     mode="json"
                 ),
                 "selection": selection.declaration(),
+                "provider_profile": sentence_provider_attestation(selection),
                 "files": [
                     (str(path.relative_to(root.parent)), path.read_bytes().hex()) for path in paths
                 ],
@@ -890,6 +903,7 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None, *, s
             ),
         ),
         boundary_contracts=(
+            sentence_provider_asset(selection),
             sentence_profile_assets(configuration, selection=selection),
             sentence_execution_custody(configuration, selection=selection),
         ),
@@ -1030,6 +1044,10 @@ class PreparedSentencePort:
             raise PortRefusal("sentence capability lacks its required original source subset")
         if any(Path(source.filename).read_bytes() != source.content for source in sources.sources):
             raise PortRefusal("sentence acquired source archive changed")
+        from .data_operation_provider_profiles import operation_profile
+        profile = operation_profile(self.operation, sources.boundary_contracts)
+        if profile is None or profile["identity"] != sentence_provider_attestation(self.profile.selection)["identity"]:
+            raise PortRefusal("acquired sentence provider differs from captured semantic profile")
         retained = {artifact.name: artifact for artifact in self.custody}
         if len(retained) != len(self.custody) or any(
             retained.get(actual.name) != actual

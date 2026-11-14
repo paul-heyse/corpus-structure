@@ -46,7 +46,11 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_protocol import recordable_fate_sql
 
     protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
+    from .data_operation_projections import capture_projection_sources
+
     return (
+        *capture_projection_sources(),
+        SourceArtifact("native/data-operation-provider-profiles.py", Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes()),
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(
             "native/data-operation-pdf-completion.sql", pdf_completion_native_sql().encode()
@@ -118,8 +122,13 @@ def _captured(sources) -> dict[str, bytes]:
         required.add("native/data-operation-original-support-reference.json")
     if b".data_operation_json import" in result.get("native/data-operation-wire.py", b""):
         required.add("native/data-operation-json.py")
+    if b"__DDO_CORE_" in result.get("native/data-operations.sql", b""):
+        required.update({"native/data-operation-projections.py", "native/data-operation-projections.json", "native/data-operation-provider-profiles.py"})
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
+    if b"__DDO_CORE_" in result["native/data-operations.sql"]:
+        if result.get("native/projection-physical/data-operation-native.yaml") != result["native/data-operation-protocol.yaml"] or result.get("native/projection-physical/data-operation-physical.yaml") != result["native/data-operation-physical.yaml"]:
+            raise ValueError("Core projection physical/protocol capture differs from native custody")
     return result
 
 
@@ -156,6 +165,12 @@ def native_sql(sources=None) -> str:
             "'__DDO_RECORDABLE_FATES__'",
             _captured(captured)["native/data-operation-recordable-fates.sql"].decode(),
         )
+    if "__DDO_CORE_" in sql:
+        products = json.loads(_captured(captured)["native/data-operation-projections.json"])
+        for name, body in products.items():
+            sql = sql.replace("__DDO_CORE_" + name.upper() + "__", body)
+        if "__DDO_CORE_" in sql:
+            raise ValueError("captured Core projection is incomplete")
     wrappers = []
     for item in _protocol(captured):
         name = item["name"]
@@ -593,7 +608,7 @@ def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 def data_operation_definition_projection(
-    prepared: PreparedRelease, model: EffectiveDataOperationModel, *, native_digest: str
+    prepared: PreparedRelease, model: EffectiveDataOperationModel, *, native_digest: str, captured_contracts=()
 ) -> bytes:
     """Compile the fixed native projection for authenticated release archiving."""
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
@@ -652,6 +667,8 @@ def data_operation_definition_projection(
                 "universe": universe,
             }
         )
+    from .data_operation_provider_profiles import operation_profile
+
     operations = []
     archived = json.loads(model.content)
     exported_bindings = {b["semantic_id"]: b["expression"] for b in archived["bindings"]}
@@ -695,6 +712,7 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
+                    **({"provider_profile": profile} if (profile := operation_profile(operation, captured_contracts)) is not None else {}),
                     **(
                         {
                             "output_witnesses": [
@@ -765,6 +783,30 @@ def _binding_scope_parameter(scope=_UNQUALIFIED_SCOPE):
     )
 
 
+def typed_field_projection(meaning, value, value_type, *, multivalued=False):
+    """Decode one admitted tagged field for candidate filtering, never a raising native verifier."""
+    from sqlalchemy import Boolean, Date, DateTime, Float, Numeric
+
+    lexical = meaning[1].astext
+    if multivalued:
+        return value, "json"
+    if value_type == "integer":
+        return cast(lexical, Numeric()), value_type
+    if value_type == "boolean":
+        return cast(lexical, Boolean()), value_type
+    if value_type in {"float", "double"}:
+        return cast(lexical, Float()), "float"
+    if value_type == "decimal":
+        return cast(lexical, Numeric()), value_type
+    if value_type == "date":
+        return cast(lexical, Date()), value_type
+    if value_type == "datetime":
+        return cast(lexical, DateTime(timezone=True)), value_type
+    if value_type in {"string", "uri", "uriorcurie"}:
+        return lexical, "string"
+    return value, "json"
+
+
 def admitted_data_projection(
     connection: Connection,
     demand_id: str,
@@ -805,33 +847,10 @@ def admitted_data_projection(
     accepted = input_kind_contracts(
         model, (role.kind for role in operation.roles if role.direction == "input")
     )
-    names = (
-        "product",
-        "kind_contract",
-        "subject",
-        "original_source",
-        "analyzed_scope",
-        "coverage",
-        "support_episodes",
-        "support_references",
-        "support_evidence",
-        "position",
-        "multiplicity",
-        "member",
-        "provider_identity",
-        "alternative_identity",
-        "body",
-        "meaning_body",
-    )
-    json_columns = {
-        "analyzed_scope",
-        "coverage",
-        "support_episodes",
-        "support_references",
-        "support_evidence",
-        "body",
-        "meaning_body",
-    }
+    from .data_operation_projections import binding_columns
+
+    columns = binding_columns(decoder=True)
+    names = tuple(item.name for item in columns)
     relation = func.ops.data_binding_rows(
         demand_id,
         operation_id,
@@ -840,18 +859,7 @@ def admitted_data_projection(
         subject,
         original_source,
         _binding_scope_parameter(analyzed_scope),
-    ).table_valued(
-        *(
-            column(name, ContextJSONB())
-            if name in {"analyzed_scope", "support_evidence"}
-            else column(name, JSONB())
-            if name in json_columns
-            else column(name, BigInteger())
-            if name in {"position", "multiplicity"}
-            else column(name, String())
-            for name in names
-        )
-    )
+    ).table_valued(*columns)
     projections = []
     for kind_id in sorted({role.kind for role in operation.roles if role.direction == "input"}):
         kind = kinds[kind_id]
@@ -904,25 +912,9 @@ def admitted_data_projection(
             # receives its own body column, including subject/position collisions.
             fields = [field for field in fields if field.name != name]
             meaning = cast(func.data.ddo_field(relation.c.meaning_body, name), JSONB)
-            lexical = meaning[1].astext
-            if prop.get("multivalued"):
-                expression, value_type = relation.c.body[name], "json"
-            elif value_type == "integer":
-                expression = cast(lexical, BigInteger())
-            elif value_type == "boolean":
-                expression = cast(lexical, Boolean())
-            elif value_type in {"float", "double"}:
-                expression, value_type = cast(lexical, Float()), "float"
-            elif value_type == "decimal":
-                expression = cast(lexical, Numeric())
-            elif value_type == "date":
-                expression = cast(lexical, Date())
-            elif value_type == "datetime":
-                expression = cast(lexical, DateTime(timezone=True))
-            elif value_type in {"string", "uri", "uriorcurie"}:
-                expression, value_type = lexical, "string"
-            else:
-                expression, value_type = relation.c.body[name], "json"
+            expression, value_type = typed_field_projection(
+                meaning, relation.c.body[name], value_type, multivalued=bool(prop.get("multivalued"))
+            )
             selected.append(expression.label(label))
             fields.append(ProjectionField(name, label, value_type))
         from .data_operation_subjects import subject_field_kind, subject_field_path

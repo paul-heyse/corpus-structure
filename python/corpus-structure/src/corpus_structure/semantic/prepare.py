@@ -1334,8 +1334,12 @@ def _prepare_release_uncached(
             native_digest_from_dependencies,
         )
 
+        from .composed import read_data_operation_inputs
+        captured = read_data_operation_inputs(dependencies)
+        captured_contracts = captured[1].boundary_contracts if captured is not None and captured[1] is not None else ()
         projection = data_operation_definition_projection(
-            prepared, data_operations, native_digest=native_digest_from_dependencies(dependencies)
+            prepared, data_operations, native_digest=native_digest_from_dependencies(dependencies),
+            captured_contracts=captured_contracts,
         )
         prepared = replace(
             prepared,

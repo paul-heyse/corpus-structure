@@ -1,15 +1,15 @@
 -- Implementation provenance is immutable custody, independent of semantic release identity.
 CREATE OR REPLACE FUNCTION sem.validate_runtime_binding(r text,runtime text,manifest_content bytea,archive_content bytea)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $runtime$
-DECLARE manifest jsonb; archive jsonb; model jsonb; expected jsonb; actual jsonb; item jsonb;
+DECLARE manifest jsonb; archive jsonb; model jsonb; expected jsonb; actual jsonb; item jsonb; operation_ jsonb; profile_ jsonb; profiles_ jsonb; runtime_source jsonb;
 BEGIN
  manifest:=convert_from(manifest_content,'UTF8')::jsonb;
  archive:=convert_from(archive_content,'UTF8')::jsonb;
- IF manifest->>'version'='data-operation-runtime-binding-v1' THEN
+ IF manifest->>'version' IN ('data-operation-runtime-binding-v1','data-operation-runtime-binding-v2') THEN
   PERFORM sem.require_admission_caller();
   PERFORM ops.ddo_fields(manifest,ARRAY['version','release_id','model_digest','python_version',
    'semantic_inputs','implementation_inputs','runtime_artifact','runtime_meaning','attestation',
-   'attestation_meaning','execution_profile','observed']);
+   'attestation_meaning','execution_profile','observed'],CASE WHEN manifest->>'version'='data-operation-runtime-binding-v2' THEN ARRAY['provider_profiles'] ELSE ARRAY[]::text[] END);
   PERFORM ops.ddo_fields(archive,ARRAY['version','inputs']);
   IF manifest_content IS DISTINCT FROM convert_to(data.canonical_json(manifest),'UTF8')
    OR archive_content IS DISTINCT FROM convert_to(data.canonical_json(archive),'UTF8')
@@ -53,6 +53,24 @@ BEGIN
       'runtime_artifact',manifest->>'runtime_artifact','release',r,
       'execution_profile',manifest->>'execution_profile','observed',manifest->'observed') THEN
    RAISE EXCEPTION 'target runtime artifact or attestation differs' USING ERRCODE='23514'; END IF;
+  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT model FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json';
+  profiles_:='{}'::jsonb;
+  FOR operation_ IN SELECT value FROM jsonb_array_elements(model->'operations') LOOP
+   profile_:=sem.ddo_provider_profile(r,operation_);
+   IF profile_ IS NULL THEN CONTINUE; END IF;
+   IF manifest->>'version'<>'data-operation-runtime-binding-v2' THEN RAISE EXCEPTION 'historical runtime cannot attest provider profiles'; END IF;
+   item:=manifest->'provider_profiles'->(operation_->>'semantic_id');
+   PERFORM ops.ddo_fields(item,ARRAY['profile','attestation','runtime_contract','runtime_sha256']);
+   IF item->'profile' IS DISTINCT FROM profile_ THEN RAISE EXCEPTION 'runtime provider semantic contract differs'; END IF;
+   SELECT value INTO STRICT runtime_source FROM jsonb_array_elements(archive->'inputs') source
+    WHERE source->>'name'='data-operations/contracts/'||(item->>'runtime_contract');
+   IF runtime_source->>'sha256' IS DISTINCT FROM item->>'runtime_sha256'
+    OR (convert_from(decode(runtime_source->>'content_hex','hex'),'UTF8')::jsonb)->'provider_profile' IS DISTINCT FROM item->'attestation'
+    THEN RAISE EXCEPTION 'runtime provider execution asset differs'; END IF;
+   PERFORM sem.ddo_validate_provider_attestation(item->'attestation',profile_);
+   profiles_:=profiles_||jsonb_build_object(operation_->>'semantic_id',item);
+  END LOOP;
+  IF manifest->>'version'='data-operation-runtime-binding-v2' AND manifest->'provider_profiles' IS DISTINCT FROM profiles_ THEN RAISE EXCEPTION 'runtime provider profile operation coverage differs'; END IF;
   RETURN;
  END IF;
  PERFORM sem.require_execution_operation(r,'start_run');

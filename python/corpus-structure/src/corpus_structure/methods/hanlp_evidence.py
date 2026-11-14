@@ -104,6 +104,7 @@ class HanlpEvidenceOperation:
             },
         ],
         "assets": [
+            {"reference": "hanlp-provider-inference-profile", "contract": "hanlp/provider-inference-profile", "role": "provider-inference-profile"},
             {
                 "reference": "hanlp-native-model-profile",
                 "contract": "hanlp/profile-assets",

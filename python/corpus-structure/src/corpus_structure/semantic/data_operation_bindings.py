@@ -49,21 +49,9 @@ BindingStatus = Literal[
     "invalid",
     "unavailable",
 ]
-_MEMBER_COLUMNS = (
-    "product",
-    "kind_contract",
-    "subject",
-    "original_source",
-    "analyzed_scope",
-    "coverage",
-    "support_episodes",
-    "support_evidence",
-    "position",
-    "multiplicity",
-    "member",
-    "provider_identity",
-    "alternative_identity",
-)
+from .data_operation_projections import member_columns
+
+_MEMBER_COLUMNS = member_columns()
 
 
 @dataclass(frozen=True)
