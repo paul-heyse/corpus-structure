@@ -34,7 +34,13 @@ class PdfCaptureEffectPort(ReceiptBearingEffectPort):
         operation = self.wrapped.operation
         if (
             operation.profile != "command"
-            or operation.effects not in ((PDF_CAPTURE_EFFECT,), (PDF_ENRICHMENT_EFFECT,), (PDF_INTEGRATION_EFFECT,), (PDF_ORGANIZATION_EFFECT,))
+            or operation.effects
+            not in (
+                (PDF_CAPTURE_EFFECT,),
+                (PDF_ENRICHMENT_EFFECT,),
+                (PDF_INTEGRATION_EFFECT,),
+                (PDF_ORGANIZATION_EFFECT,),
+            )
             or operation.capabilities.preparation != "pdf-native"
             or operation.capabilities.prepared_factory is None
         ):

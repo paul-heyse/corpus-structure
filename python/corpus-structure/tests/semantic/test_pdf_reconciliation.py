@@ -675,12 +675,22 @@ def test_policy_demand_defaults_into_recipe_and_unsupported_demand_refuses(nativ
     }
     cfg = PdfIntegrationOptions(recovery_policy=None, integration_policy=legacy)
     recognition = NemotronRecipe("a" * 64, "b" * 64)
-    profile = PreparedPdfTransform(None, None, {"mode": "integrated", "recognition_bytes": recognition.to_bytes().hex(), "options": cfg.model_dump(mode="json")})
+    profile = PreparedPdfTransform(
+        None,
+        None,
+        {
+            "mode": "integrated",
+            "recognition_bytes": recognition.to_bytes().hex(),
+            "options": cfg.model_dump(mode="json"),
+        },
+    )
     recipe = json.loads(profile.recipe_bytes())
     assert cfg.integration_policy["comparison_demand"] == "lexical"
     assert normalize_pdf_integration_policy({}) == normalize_pdf_integration_policy()
     assert recipe["integration_policy"] == normalize_pdf_integration_policy(legacy)
     with pytest.raises(ValueError, match="only lexical"):
-        PdfIntegrationOptions(recovery_policy=None, integration_policy={**legacy, "comparison_demand": "symbolic"})
+        PdfIntegrationOptions(
+            recovery_policy=None, integration_policy={**legacy, "comparison_demand": "symbolic"}
+        )
     with pytest.raises(ValueError, match="only lexical"):
         normalize_pdf_integration_policy({**legacy, "comparison_demand": "syntax"})

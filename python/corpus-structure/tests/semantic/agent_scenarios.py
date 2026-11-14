@@ -303,7 +303,9 @@ def queue_resubmission_agent(source, engine, *, admin):
     from semantic.primary_native_support import bind_primary_agent_run
 
     with engine.begin() as conn:
-        run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config, admin=admin)
+        run, config = bind_primary_agent_run(
+            conn, run, prepared, (view.ref.id,), config, admin=admin
+        )
         locator = view.ref.key
         (task,) = (
             create_historical_agent_task(
@@ -342,7 +344,9 @@ def build_resubmission_case(
     )
     prepared = preparation.prepared
     persist_resubmission_release(admin, engine, preparation, composed=composed)
-    source = publish_resubmission_source(preparation, engine, path, admin=admin, model=model, domain=domain)
+    source = publish_resubmission_source(
+        preparation, engine, path, admin=admin, model=model, domain=domain
+    )
     queued = queue_resubmission_agent(source, engine, admin=admin)
     return prepared, queued.run, queued.task, queued.locator
 
@@ -864,7 +868,9 @@ def build_exclusion_recipe(recipe, admin, writer, directory, *, purpose_engine=N
         )
     )
     persist_resubmission_release(admin, writer, preparation, composed=True)
-    source = publish_resubmission_source(preparation, writer, directory / "exclusions.pdf", admin=admin)
+    source = publish_resubmission_source(
+        preparation, writer, directory / "exclusions.pdf", admin=admin
+    )
     queued = queue_resubmission_agent(source, writer, admin=admin)
     result = submit_exclusion_case(
         queued,

@@ -455,7 +455,13 @@ def analyze_declared_math(
 
 
 def math_analysis_kernel(
-    arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, options: str, *, prepared: PreparedRelease, check_active: Callable[[], None]
+    arguments: dict,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
+    options: str,
+    *,
+    prepared: PreparedRelease,
+    check_active: Callable[[], None],
 ) -> dict:
     from .declared_math_products import DeclaredMathOptions
 

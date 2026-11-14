@@ -151,18 +151,36 @@ def prepare_source_demand(
     if any(value.reference.mime != "application/pdf" for value in originals):
         raise SourceRequestError("source acquisition requires immutable PDF originals")
     captured = not request.retained_sources
-    if (not captured and request.pdf_mode != "standard") or (request.recognition_pages and request.pdf_mode != "integrated"):
-        raise SourceRequestError("PDF transformation mode/pages require an explicit new captured source")
-    organized = captured and any(operation.semantic_id == "source.pdf_sections/organize" for operation in model.operations)
-    targets = request.targets or primary_operation_targets(request.workflow, captured=captured, pdf_mode=request.pdf_mode, organized=organized)
+    if (not captured and request.pdf_mode != "standard") or (
+        request.recognition_pages and request.pdf_mode != "integrated"
+    ):
+        raise SourceRequestError(
+            "PDF transformation mode/pages require an explicit new captured source"
+        )
+    organized = captured and any(
+        operation.semantic_id == "source.pdf_sections/organize" for operation in model.operations
+    )
+    targets = request.targets or primary_operation_targets(
+        request.workflow, captured=captured, pdf_mode=request.pdf_mode, organized=organized
+    )
     supplied = {value.operation: value for value in request.selections}
     if len(supplied) != len(request.selections):
         raise SourceRequestError("duplicate source operation selection")
     # Full means the optional families explicitly declared by this admitted
     # composition, not a manually maintained method dependency list.
     supplied = _default_profile_selections(model, targets, supplied)
-    selected_pdf_mode = "organized" if organized and request.pdf_mode == "standard" else request.pdf_mode
-    producer = ("source.pdf_views/discovery" if selected_pdf_mode == "standard" else "source.pdf_" + selected_pdf_mode + "_views/discovery") if captured else "source.selected_views/discovery"
+    selected_pdf_mode = (
+        "organized" if organized and request.pdf_mode == "standard" else request.pdf_mode
+    )
+    producer = (
+        (
+            "source.pdf_views/discovery"
+            if selected_pdf_mode == "standard"
+            else "source.pdf_" + selected_pdf_mode + "_views/discovery"
+        )
+        if captured
+        else "source.selected_views/discovery"
+    )
     if request.pdf_mode != "standard":
         transform = (
             "source.pdf_math/enrich"

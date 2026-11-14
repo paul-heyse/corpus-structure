@@ -598,7 +598,10 @@ class EffectiveDataOperationModel:
         record = asdict(self)
         legacy_model = self.version in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
         if self.version not in {
-            MODEL_VERSION, PREVIOUS_MODEL_VERSION, LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION
+            MODEL_VERSION,
+            PREVIOUS_MODEL_VERSION,
+            LEGACY_MODEL_VERSION,
+            ARCHIVED_MODEL_VERSION,
         }:
             raise ValueError("unsupported archived data-operation model version")
 
@@ -645,7 +648,9 @@ class EffectiveDataOperationModel:
             if self.graph_projections:
                 raise ValueError("historical v2 cannot declare current graph projections")
             record.pop("graph_projections")
-        identity_type = EffectiveIdentity if self.version == MODEL_VERSION else ArchivedEffectiveIdentity
+        identity_type = (
+            EffectiveIdentity if self.version == MODEL_VERSION else ArchivedEffectiveIdentity
+        )
         if any(type(identity) is not identity_type for identity in self.identities):
             raise ValueError("model identity representation differs from its archive version")
         return canonical_bytes(encode(record))
@@ -872,5 +877,7 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
     converter.register_structure_hook(bytes, structure_bytes)
     converter.register_structure_hook_factory(is_dataclass, structure_record)
     if historical_model:
-        converter.register_structure_hook(EffectiveIdentity, structure_record(ArchivedEffectiveIdentity))
+        converter.register_structure_hook(
+            EffectiveIdentity, structure_record(ArchivedEffectiveIdentity)
+        )
     return converter.structure(record, EffectiveDataOperationModel)

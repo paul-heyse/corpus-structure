@@ -89,8 +89,16 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
     connection = native_rollback.connection
     assert connection.scalar(query, {"value": json_bytes(definition).decode()}) is True
     for change in (
-        "factory", "paired_factory", "fulfillment", "authorization", "implementation",
-        "profile", "effects", "preparation", "forms", "source_digest",
+        "factory",
+        "paired_factory",
+        "fulfillment",
+        "authorization",
+        "implementation",
+        "profile",
+        "effects",
+        "preparation",
+        "forms",
+        "source_digest",
     ):
         invalid = deepcopy(definition)
         if change == "factory":

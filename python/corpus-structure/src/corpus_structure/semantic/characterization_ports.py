@@ -1090,9 +1090,15 @@ def captured_document_view_operation_sources(
 
 def organized_captured_document_view_operation_sources(*, include_dependencies=False):
     if include_dependencies:
-        raise ValueError("organized composition requires its separately captured actual PDF profile")
+        raise ValueError(
+            "organized composition requires its separately captured actual PDF profile"
+        )
     from .primary_operations import combine_primary_sources
-    return combine_primary_sources(captured_document_view_operation_sources(include_dependencies=False), _operation_sources("captured_organized_composition", "view"))
+
+    return combine_primary_sources(
+        captured_document_view_operation_sources(include_dependencies=False),
+        _operation_sources("captured_organized_composition", "view"),
+    )
 
 
 def enriched_captured_document_view_operation_sources(*, include_dependencies=False):
@@ -1139,6 +1145,7 @@ class PreparedOrganizedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
         from corpus_structure.methods.captured_organized_composition import (
             ComposeOrganizedCapturedDocumentOperation,
         )
+
         return ComposeOrganizedCapturedDocumentOperation
 
 
@@ -1168,7 +1175,9 @@ class PreparedIntegratedCapturedDocumentViewPort(PreparedFullDocumentViewPort):
 
 def resolve_captured_document_view_port(prepared, model, operation, **admission):
     if operation == "text.compose_view/organized-captured-full-native":
-        return _resolve(PreparedOrganizedCapturedDocumentViewPort, prepared, model, operation, **admission)
+        return _resolve(
+            PreparedOrganizedCapturedDocumentViewPort, prepared, model, operation, **admission
+        )
     if operation == "text.compose_view/enriched-captured-full-native":
         port = PreparedEnrichedCapturedDocumentViewPort
     elif operation == "text.compose_view/integrated-captured-full-native":

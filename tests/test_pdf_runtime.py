@@ -23,7 +23,9 @@ def test_domain_source_selection_survives_pure_scope_configuration():
 
     import yaml
 
-    domain = yaml.safe_load((Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text())
+    domain = yaml.safe_load(
+        (Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text()
+    )
     values = domain["configs"]["ingest.pdf_integrated"]["default"]
     before = deepcopy(values)
     configuration = PdfIngestConfig.model_validate(values)
@@ -202,9 +204,12 @@ def test_organization_profile_capture_does_not_initialize_models(tmp_path, monke
 
     def forbidden(*args, **kwargs):
         raise AssertionError("acquisition cannot initialize PDF or recognition models")
+
     monkeypatch.setattr(pdf_worker.PdfWorker, "__init__", forbidden)
     monkeypatch.setattr(pdf_recognition.RecognitionWorker, "__init__", forbidden)
-    captured = pdf_transform_operation_sources("organized", options=SectionPolicy("explicit-policy"), directory=tmp_path)
+    captured = pdf_transform_operation_sources(
+        "organized", options=SectionPolicy("explicit-policy"), directory=tmp_path
+    )
     (custody,) = captured.boundary_contracts
     profile = json.loads(custody.content)
     assert profile["options"]["rule_id"] == "explicit-policy"
@@ -436,11 +441,16 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     )
     pin = ProductReference(1, "organized", "c" * 64)
     product = SimpleNamespace(
-        values=lambda: {key: value for key, value in payload.items() if key != "inline_candidate_pages"},
-        original=b"%PDF-fixture", schema_bytes=b"{}", recipe_bytes=b"original-native-fixture",
+        values=lambda: {
+            key: value for key, value in payload.items() if key != "inline_candidate_pages"
+        },
+        original=b"%PDF-fixture",
+        schema_bytes=b"{}",
+        recipe_bytes=b"original-native-fixture",
     )
     from corpus_structure.ingest.pdf_candidate_source import as_candidate_source
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
+
     spool = PdfStreamSpool(tmp_path / "candidates")
     for page in as_candidate_source(conversion.inline_candidates).iter_pages():
         spool.capture_candidates(page)
@@ -500,10 +510,28 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
             return Image.new("RGB", (20, 20))
 
     monkeypatch.setattr("corpus_structure.ingest.pdf_enrichment.PdfRegionRenderer", Renderer)
-    draft = enrich_selected_pdf(product, pin, ((section, membership),), cfg, b"captured-enrichment-recipe", candidate_source, worker, check_active=lambda: None)
+    draft = enrich_selected_pdf(
+        product,
+        pin,
+        ((section, membership),),
+        cfg,
+        b"captured-enrichment-recipe",
+        candidate_source,
+        worker,
+        check_active=lambda: None,
+    )
     try:
         reference = ProductReference(2, "math-enriched", "f" * 64)
-        source_views = _drafts(1, reference, snapshot(draft.document), draft.health, (section,), membership, "release1", recognition_coverage=draft.metadata["recognition_coverage"])
+        source_views = _drafts(
+            1,
+            reference,
+            snapshot(draft.document),
+            draft.health,
+            (section,),
+            membership,
+            "release1",
+            recognition_coverage=draft.metadata["recognition_coverage"],
+        )
     finally:
         worker.close()
     assert draft.companions["input"] == ({**pin.values(), "role": "structural"},)
@@ -520,12 +548,24 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     assert row["outcome"] == expected_coverage
     assert source_views[0].health["inline_coverage"] == expected_coverage
     if unresolved_context:
-        assert draft.metadata["inline_alignment_reports"][0]["item_pointers"] == [paragraph.self_ref]
+        assert draft.metadata["inline_alignment_reports"][0]["item_pointers"] == [
+            paragraph.self_ref
+        ]
         assert draft.metadata["inline_alignment_reports"][0]["candidate_index"] == 0
         assert draft.metadata["derivation_mappings"] == []
         return
     if with_ancestor:
-        (context,) = _drafts(1, reference, snapshot(draft.document), draft.health, (organization.sections[0].group_ref,), "direct", "release1", analysis_eligible=False, recognition_coverage=draft.metadata["recognition_coverage"])
+        (context,) = _drafts(
+            1,
+            reference,
+            snapshot(draft.document),
+            draft.health,
+            (organization.sections[0].group_ref,),
+            "direct",
+            "release1",
+            analysis_eligible=False,
+            recognition_coverage=draft.metadata["recognition_coverage"],
+        )
         assert context.membership == "direct" and context.analysis_eligible is False
         assert context.text == "1: Parent\nParent context."
         assert {r["section_pointer"] for r in draft.metadata["recognition_coverage"]} == {
@@ -533,7 +573,9 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
         }
         assert len(draft.metadata["recognition_coverage"]) == 6
     assert len(draft.metadata["derivation_mappings"]) == 3
-    assert {r["origin_pointer"] for r in draft.metadata["derivation_mappings"]} == {paragraph.self_ref}
+    assert {r["origin_pointer"] for r in draft.metadata["derivation_mappings"]} == {
+        paragraph.self_ref
+    }
     assert "runtime_report" in draft.metadata
     assert (
         json.loads(draft.metadata["runtime_report"]["effective_options"])["do_formula_enrichment"]
@@ -668,26 +710,53 @@ def test_validation_error_terminal_summary_is_bounded_and_omits_input():
 
 
 @pytest.mark.parametrize("fail", [False, True])
-def test_prepared_enrichment_retires_worker_after_last_consumer_even_on_failure(tmp_path, monkeypatch, fail):
+def test_prepared_enrichment_retires_worker_after_last_consumer_even_on_failure(
+    tmp_path, monkeypatch, fail
+):
     from corpus_structure.ingest import pdf_selected_enrichment, pdf_worker
     from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions, PreparedPdfTransform
+
     recipe = PdfIngestConfig(device="cpu", ocr_device="cpu").recipe()
-    profile = PreparedPdfTransform(None, None, {"mode": "enriched", "options": PdfEnrichmentOptions().model_dump(mode="json"), "native": {"recipe": recipe.to_bytes().hex(), "assets": {"root": str(tmp_path), "manifest": b"{}".hex(), "files": (), "repositories": ()}, "nemotron_endpoint": None}})
+    profile = PreparedPdfTransform(
+        None,
+        None,
+        {
+            "mode": "enriched",
+            "options": PdfEnrichmentOptions().model_dump(mode="json"),
+            "native": {
+                "recipe": recipe.to_bytes().hex(),
+                "assets": {
+                    "root": str(tmp_path),
+                    "manifest": b"{}".hex(),
+                    "files": (),
+                    "repositories": (),
+                },
+                "nemotron_endpoint": None,
+            },
+        },
+    )
     events = []
+
     class Worker:
         def __init__(self, recipe, *, assets):
             self.closed = False
             events.append("opened")
+
         def close(self):
             self.closed = True
             events.append("retired")
+
     result = object()
-    def consume(product, parent, sections, options, recipe_bytes, candidates, worker, *, check_active):
+
+    def consume(
+        product, parent, sections, options, recipe_bytes, candidates, worker, *, check_active
+    ):
         assert not worker.closed
         events.append("consumed")
         if fail:
             raise RuntimeError("controlled consumer failure")
         return result
+
     monkeypatch.setattr(pdf_worker, "PdfWorker", Worker)
     monkeypatch.setattr(pdf_selected_enrichment, "enrich_selected_pdf", consume)
     selected = SimpleNamespace(product=object(), parent=object(), sections=(), candidates=object())

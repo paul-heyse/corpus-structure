@@ -293,7 +293,9 @@ class DomainSourceStage:
             read_original(connection, self.document, prepared=self.preparation.prepared)
 
 
-def publish_domain_source(preparation, writer, path, *, admin, duplicate=False, statement_packets=None):
+def publish_domain_source(
+    preparation, writer, path, *, admin, duplicate=False, statement_packets=None
+):
     prepared = preparation.prepared
     double_source = duplicate or statement_packets == "different"
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
@@ -351,11 +353,14 @@ class ClaimedDomainTask:
     lease: Any
 
 
-def create_domain_source_task(source, writer, *, math=None, duplicate=False, admin: Engine | None = None):
+def create_domain_source_task(
+    source, writer, *, math=None, duplicate=False, admin: Engine | None = None
+):
     prepared, run, views = source.preparation.prepared, source.run, source.views
     with writer.begin() as conn:
         view = views[0]
         from contextlib import nullcontext
+
         with admin.begin() if admin is not None else nullcontext(conn) as metadata_connection:
             cid = record_method(
                 metadata_connection,
@@ -551,7 +556,9 @@ def build_domain_case(admin: Engine, writer: Engine, path: Path, **options):
     return finish_domain_case(source, writer, path, recipe, admin=admin).result
 
 
-def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe, *, admin: Engine | None = None) -> CompletedDomainStage:
+def finish_domain_case(
+    source, writer, path, recipe: DomainCaseRecipe, *, admin: Engine | None = None
+) -> CompletedDomainStage:
     """Finish a published prefix with this consumer's declarations, task and proposal."""
     import json
 
@@ -568,7 +575,9 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe, *, admin:
     statement_packets, attribute_assertions = recipe.statement_packets, recipe.attribute_assertions
     isolated_entity, unselected_report = recipe.isolated_entity, recipe.unselected_report
     run, views = source.run, source.views
-    task_stage = create_domain_source_task(source, writer, math=math, duplicate=duplicate, admin=admin)
+    task_stage = create_domain_source_task(
+        source, writer, math=math, duplicate=duplicate, admin=admin
+    )
     claimed = claim_domain_source_task(task_stage, writer)
     cid, task, frame = task_stage.configuration, task_stage.task, task_stage.frame
     lease, view = claimed.lease, views[0]
@@ -894,7 +903,9 @@ def finish_domain_case(source, writer, path, recipe: DomainCaseRecipe, *, admin:
             path.with_name("outside-cut.pdf"), ("Alice is here.", "Outside cut report.")
         )
         if admin is None:
-            raise ValueError("foreign historical source requires its explicit metadata setup engine")
+            raise ValueError(
+                "foreign historical source requires its explicit metadata setup engine"
+            )
         with admin.begin() as conn:
             foreign_document = register_document(
                 conn,

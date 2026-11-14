@@ -22,8 +22,12 @@ PDF_INTEGRATION_EFFECT = EffectContract(
     "request-generation/source-digest/recipe-digest",
     "sealed-native-pdf-receipt",
 )
-PDF_ENRICHMENT_FACTORY = "corpus_structure.ingest.pdf_enrichment_operation.PdfEnrichmentOperation.acquire_port"
-PDF_INTEGRATION_FACTORY = "corpus_structure.ingest.pdf_integration_operation.PdfIntegrationOperation.acquire_port"
+PDF_ENRICHMENT_FACTORY = (
+    "corpus_structure.ingest.pdf_enrichment_operation.PdfEnrichmentOperation.acquire_port"
+)
+PDF_INTEGRATION_FACTORY = (
+    "corpus_structure.ingest.pdf_integration_operation.PdfIntegrationOperation.acquire_port"
+)
 
 PDF_ORGANIZATION_EFFECT = EffectContract(
     "publish_pdf_organization",
@@ -31,4 +35,6 @@ PDF_ORGANIZATION_EFFECT = EffectContract(
     "request-generation/source-digest/recipe-digest",
     "sealed-native-pdf-receipt",
 )
-PDF_ORGANIZATION_FACTORY = "corpus_structure.ingest.pdf_organization_operation.PdfOrganizationOperation.acquire_port"
+PDF_ORGANIZATION_FACTORY = (
+    "corpus_structure.ingest.pdf_organization_operation.PdfOrganizationOperation.acquire_port"
+)

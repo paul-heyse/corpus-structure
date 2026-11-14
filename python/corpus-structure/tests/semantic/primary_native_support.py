@@ -102,24 +102,31 @@ def publish_primary_fixture(conn, run, prepared, method, params, *, admin: Engin
     canonical = canonical_numbers(config.model_dump(mode="json"))
     configuration_hash = config_key(method.name, method.version, canonical)
     from contextlib import nullcontext
+
     with admin.begin() if admin is not None else nullcontext(conn) as metadata_connection:
         config_id = record_method(
-            metadata_connection, method, "primary-control", canonical, configuration_hash, prepared=prepared
+            metadata_connection,
+            method,
+            "primary-control",
+            canonical,
+            configuration_hash,
+            prepared=prepared,
         )
     run_view = SimpleNamespace(reader=reader)
     (ref,) = method.select(run_view, config)
     input_hash = "primary-control:" + method.name
-    task_id = create_task(
-        conn,
-        run_id=run,
-        config_id=config_id,
-        stage="extract",
-        unit_type=str(ref.unit_type),
-        unit_id=ref.unit_id,
-        unit_key=ref.unit_key,
-        input_hash=input_hash,
-        fresh=True,
-    )
+    with admin.begin() if admin is not None else nullcontext(conn) as setup:
+        task_id = create_task(
+            setup,
+            run_id=run,
+            config_id=config_id,
+            stage="extract",
+            unit_type=str(ref.unit_type),
+            unit_id=ref.unit_id,
+            unit_key=ref.unit_key,
+            input_hash=input_hash,
+            fresh=True,
+        )
     (claim,) = claim_tasks(conn, run_id=run, config_id=config_id, holder="primary-control")
     runtime = conn.scalar(text("SELECT runtime_id FROM ops.run WHERE id=:run"), {"run": run})
     operation = dict(
@@ -160,7 +167,9 @@ def publish_primary_fixture(conn, run, prepared, method, params, *, admin: Engin
     return result.characterization_layer.reference(task_id)
 
 
-def publish_primary_layers(conn, run, prepared, identities, *, formal=False, admin: Engine | None = None):
+def publish_primary_layers(
+    conn, run, prepared, identities, *, formal=False, admin: Engine | None = None
+):
     """Run real primary producers and publish their products under owned claims."""
     from pydantic import BaseModel
 
@@ -211,7 +220,14 @@ def publish_primary_layers(conn, run, prepared, identities, *, formal=False, adm
 
 
 def bind_primary_agent_run(
-    conn, capture_run, prepared, identities, configuration: dict[str, Any], *, method="agent.opus", admin: Engine | None = None
+    conn,
+    capture_run,
+    prepared,
+    identities,
+    configuration: dict[str, Any],
+    *,
+    method="agent.opus",
+    admin: Engine | None = None,
 ):
     """Freeze real primary pins before authoring an agent run over the original views."""
     import json

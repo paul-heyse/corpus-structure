@@ -458,7 +458,9 @@ def binding_branches(metadata):
             admitted.c.parent_source.label("projected_source"),
             admitted.c.parent_scope.label("projected_scope"),
             admitted.c.canonical_body.label("projected_body"),
-        ).where(admitted.c.output_member.is_(None)),
+        )
+        .where(admitted.c.output_member.is_(None))
+        .correlate(admitted),
         select(
             members.c.member_id,
             members.c.kind_contract,
@@ -466,12 +468,14 @@ def binding_branches(metadata):
             members.c.original_source,
             members.c.analyzed_scope,
             members.c.body,
-        ).where(
+        )
+        .where(
             members.c.product_id == admitted.c.product_id,
             or_(
                 admitted.c.output_member.is_(None), admitted.c.output_member == members.c.member_id
             ),
-        ),
+        )
+        .correlate(admitted),
     ).lateral("projected")
     header = _obj(subject=projected.c.projected_subject, meaning_body=projected.c.projected_body)
     full_header = _obj(

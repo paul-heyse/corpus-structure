@@ -92,9 +92,7 @@ def _unapproved_pdf_preparation_recipe():
         replace(
             STORAGE,
             name="unapproved-pdf-preparation",
-            declaration_content=json_bytes(
-                {"version": MODEL_VERSION, "operations": [declaration]}
-            ),
+            declaration_content=json_bytes({"version": MODEL_VERSION, "operations": [declaration]}),
         ),
     )
 
@@ -138,7 +136,8 @@ def test_native_pdf_preparation_does_not_authorize_private_original_writes(ddo_o
             )
         ).one()
     with (
-        case.writer.begin() as connection, native_refusal(
+        case.writer.begin() as connection,
+        native_refusal(
             "P0004",
             message="stale private PDF build owner/capability/support",
             context="ops.require_pdf_stage_owner",
@@ -161,6 +160,9 @@ def test_native_pdf_preparation_does_not_authorize_private_original_writes(ddo_o
             )
         ).one()
         assert after == before
-        assert connection.scalar(
-            text("SELECT count(*) FROM ops.source_build WHERE task_id=:task"), params
-        ) == 0
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.source_build WHERE task_id=:task"), params
+            )
+            == 0
+        )

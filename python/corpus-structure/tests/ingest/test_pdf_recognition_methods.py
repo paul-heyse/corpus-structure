@@ -28,7 +28,9 @@ from corpus_structure.semantic.pdf_transforms import (
 from corpus_structure.semantic.product_reference import ProductReference
 
 
-def test_live_integration_retains_typed_candidates_and_distinct_valid_health_rows(tmp_path, monkeypatch):
+def test_live_integration_retains_typed_candidates_and_distinct_valid_health_rows(
+    tmp_path, monkeypatch
+):
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -130,26 +132,48 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         return ProductReference(20, "integrated", "d" * 64)
 
     from corpus_structure.ingest import pdf_recognition
+
     monkeypatch.setattr(pdf_recognition, "RecognitionWorker", NoProviderWorker)
     recipe = NemotronRecipe("a" * 64, "b" * 64)
     options = PdfIntegrationOptions(recovery_policy=None, integration_policy={})
-    profile = PreparedPdfTransform(None, None, {
-        "mode": "integrated", "options": options.model_dump(mode="json"),
-        "recognition_recipe": asdict(recipe),
-        "resources": {"python": "unused", "script": "unused", "endpoint": "unused", "receipts": str(tmp_path), "timeout_seconds": 1},
-    })
-    selected = SelectedPdfInput(SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}"), reference, capture(reference, tmp_path / "candidate-input"), ((section.self_ref, "descendants"),), context)
+    profile = PreparedPdfTransform(
+        None,
+        None,
+        {
+            "mode": "integrated",
+            "options": options.model_dump(mode="json"),
+            "recognition_recipe": asdict(recipe),
+            "resources": {
+                "python": "unused",
+                "script": "unused",
+                "endpoint": "unused",
+                "receipts": str(tmp_path),
+                "timeout_seconds": 1,
+            },
+        },
+    )
+    selected = SelectedPdfInput(
+        SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}"),
+        reference,
+        capture(reference, tmp_path / "candidate-input"),
+        ((section.self_ref, "descendants"),),
+        context,
+    )
     owner = SimpleNamespace(claim=SimpleNamespace(task_id=20))
     # Controlled no-provider evidence cannot establish recognized coverage.
-    with contextmanager(profile._integrate)(selected, b"{}", (), owner, tmp_path / "selected", lambda: None) as draft:
+    with contextmanager(profile._integrate)(
+        selected, b"{}", (), owner, tmp_path / "selected", lambda: None
+    ) as draft:
         retain(None, draft)
     assert len(observed) == 1
 
 
 def test_recovery_policy_rejects_unbounded_or_undeclared_recipes():
     for changed in (
-        {"max_attempts": 2}, {"min_identical_character_run": 63},
-        {"permitted_recipe_id": "unreviewed"}, {"eligible_finish_reason": "stop"},
+        {"max_attempts": 2},
+        {"min_identical_character_run": 63},
+        {"permitted_recipe_id": "unreviewed"},
+        {"eligible_finish_reason": "stop"},
     ):
         with pytest.raises(ValidationError):
             PdfRecognitionRecoveryPolicy.model_validate(changed)

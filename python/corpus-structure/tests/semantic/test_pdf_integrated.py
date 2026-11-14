@@ -694,18 +694,26 @@ def test_retained_recognition_page_callback_uses_observation_only_native_port(
         ),
     )
     recipe = NemotronRecipe("1" * 64, "2" * 64)
+
     def retain(product):
         assert product.values()["kind"] == "recognition_observation"
         return ProductReference(db.job.task, product.values()["product_key"], publish(db, product))
 
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+
     with db.writer.connect() as connection:
         context = pdf_context_for_task(connection, db.job.task)
-    retained = list(retain_recognition_page(
-        page, PreparedRecognitionSource.prepare(db.source.original), recipe,
-        PreparedPdfOriginal(db.source.original), context,
-        publish=retain, check_active=lambda: None,
-    ))
+    retained = list(
+        retain_recognition_page(
+            page,
+            PreparedRecognitionSource.prepare(db.source.original),
+            recipe,
+            PreparedPdfOriginal(db.source.original),
+            context,
+            publish=retain,
+            check_active=lambda: None,
+        )
+    )
     assert len(retained) == 1
     reference, observed, response = retained[0]
     assert (

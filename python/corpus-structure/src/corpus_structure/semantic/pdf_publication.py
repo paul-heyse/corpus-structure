@@ -574,7 +574,14 @@ def _run_native_validation(
         while not parent.poll(0.2):
             check_active()
             if not process.is_alive():
-                raise RuntimeError("native validation child exited without outcome")
+                process.join()
+                # The result may have arrived between the timed poll and exit
+                # observation. Recheck the pipe after terminal child custody.
+                if parent.poll():
+                    break
+                raise RuntimeError(
+                    f"native validation child exited with status {process.exitcode} without outcome"
+                )
         passed, error = parent.recv()
         check_active()
         while process.is_alive():

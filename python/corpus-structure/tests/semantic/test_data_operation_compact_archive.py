@@ -32,7 +32,9 @@ def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys
         f"derive__data_operation__ = {contract()!r}\n"
     )
     model = compile_data_operations(
-        python_sources=PythonSourceCollection((PythonSource("compact", source.encode(), "compact.py"),))
+        python_sources=PythonSourceCollection(
+            (PythonSource("compact", source.encode(), "compact.py"),)
+        )
     )
     record = json.loads(model.content)
     assert record["version"] == "data-operation-model-v5"
@@ -50,11 +52,15 @@ def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys
         witness = kind_fingerprint(graph, kind.semantic_id)
         assert witness.key == expected[kind.semantic_id, "kind"]
     for implementation in reopened.implementation_slices:
-        witness = implementation_slice_fingerprint(implementation.semantic_records(), implementation.root)
+        witness = implementation_slice_fingerprint(
+            implementation.semantic_records(), implementation.root
+        )
         assert witness.key == expected[implementation.root, "implementation-slice"]
 
 
-@pytest.mark.parametrize("version", [ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION])
+@pytest.mark.parametrize(
+    "version", [ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION]
+)
 def test_expanded_historical_identity_witnesses_retain_exact_bytes_and_no_execution(version):
     model = compile_data_operations()
     graph = model.projection_graph("semantic-reference")
@@ -104,7 +110,9 @@ def test_current_identity_archive_shape_refuses_expanded_or_incomplete_headers(m
         read_effective_data_operations(canonical_bytes(record))
 
 
-@pytest.mark.parametrize("version", [ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION])
+@pytest.mark.parametrize(
+    "version", [ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION]
+)
 def test_historical_identity_archive_cannot_omit_its_retained_witness(version):
     record = json.loads(compile_data_operations().content)
     record["version"] = version

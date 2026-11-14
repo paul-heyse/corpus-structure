@@ -206,6 +206,7 @@ class SealedNativeFixture(_SealedPrimary):
 
 
 class SealedFormalFixture(_SealedPrimary):
+    family = MethodFamily.NORMALIZE
     name = "text.formal_evidence"
     Config = _FormalSelection
 

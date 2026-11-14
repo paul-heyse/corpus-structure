@@ -33,29 +33,48 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
     from corpus_structure.ingest import pdf_worker
 
     def controlled_stream(
-        self, source, *, spool_root, record_root, build_id, release_id,
-        on_replay, check_active, **options,
+        self,
+        source,
+        *,
+        spool_root,
+        record_root,
+        build_id,
+        release_id,
+        on_replay,
+        check_active,
+        **options,
     ):
         check_active()
         document = DoclingDocument(name="Independent materialization source")
         document.add_page(page_no=1, size=Size(width=200, height=300))
         document.add_text(
-            label=DocItemLabel.TEXT, text="independent expected text",
+            label=DocItemLabel.TEXT,
+            text="independent expected text",
             prov=ProvenanceItem(
-                page_no=1, bbox=BoundingBox(l=10, t=20, r=150, b=40), charspan=(0, 25),
+                page_no=1,
+                bbox=BoundingBox(l=10, t=20, r=150, b=40),
+                charspan=(0, 25),
             ),
         )
         streamed = StreamingPdfResult(
-            document, PdfStreamSpool(spool_root, check_active=check_active),
-            "success", (), self.recipe.to_bytes(), (),
+            document,
+            PdfStreamSpool(spool_root, check_active=check_active),
+            "success",
+            (),
+            self.recipe.to_bytes(),
+            (),
         )
         occurrences = streamed.write_native_occurrence_batches(
             record_root.with_name(record_root.name + "-occurrences"),
-            build_id=build_id, on_batch=on_replay,
+            build_id=build_id,
+            on_batch=on_replay,
         )
         records = streamed.write_record_batches(
-            record_root, build_id=build_id, release_id=release_id,
-            source_digest=source.digest, on_batch=on_replay,
+            record_root,
+            build_id=build_id,
+            release_id=release_id,
+            source_digest=source.digest,
+            on_batch=on_replay,
         )
         return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
@@ -63,8 +82,11 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
     recipe = OriginalSeedRecipe(RecordSourceRecipe(), _pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(
-            clone.admin, clone.stage.kernel.preparation, clone.stage.kernel.identities,
-            recipe.target, clone,
+            clone.admin,
+            clone.stage.kernel.preparation,
+            clone.stage.kernel.identities,
+            recipe.target,
+            clone,
         )
         document = table("kb.document")
         with clone.admin.connect() as connection:
@@ -73,38 +95,55 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             ).scalar_one()
         with kernel.purpose("write").begin() as connection:
             original = acquire_original_document_selection(
-                connection, project_id=clone.stage.source.project_id, document_key=document_key,
+                connection,
+                project_id=clone.stage.source.project_id,
+                document_key=document_key,
             )
             intent = freeze_demand(
-                kernel.model, roots=(original.root,), targets=("source.pdf/capture",),
-                original_sources=(original.selection(),), inference="pdf-materialization-test",
+                kernel.model,
+                roots=(original.root,),
+                targets=("source.pdf/capture",),
+                original_sources=(original.selection(),),
+                inference="pdf-materialization-test",
                 execution_profile=recipe.target.execution_profile,
             )
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
-                intent, project=clone.stage.source.project_id, release=kernel.prepared.release_id,
+                intent,
+                project=clone.stage.source.project_id,
+                release=kernel.prepared.release_id,
                 runtime=kernel.runtime,
             )["demand_id"]
         executed = execute_data_demand(
-            kernel.purpose("write"), demand, source_root=ROOT,
+            kernel.purpose("write"),
+            demand,
+            source_root=ROOT,
             admission_engine=kernel.purpose("admit"),
         )
         assert executed.receipt_count == 1
         intents, requests = table("ops.data_completion_intent"), table("ops.data_request")
         with clone.admin.connect() as connection:
             payload = connection.execute(
-                select(intents.c.payload).join_from(
-                    intents, requests, requests.c.id == intents.c.request_id,
-                ).where(requests.c.operation_id == "source.pdf/capture")
+                select(intents.c.payload)
+                .join_from(
+                    intents,
+                    requests,
+                    requests.c.id == intents.c.request_id,
+                )
+                .where(requests.c.operation_id == "source.pdf/capture")
             ).scalar_one()
         assert isinstance(payload, dict)
         (receipt,) = payload["execution_evidence"]["pdf_receipts"]
         publication = receipt["publication"]
         pin = ProductReference(
-            publication["task_id"], publication["product_key"], publication["logical_digest"],
+            publication["task_id"],
+            publication["product_key"],
+            publication["logical_digest"],
         )
         with kernel.purpose("read").connect() as connection:
             reader = PublishedPdfReader(
-                connection, pin, projection_context=kernel.prepared,
+                connection,
+                pin,
+                projection_context=kernel.prepared,
                 read_budget=PublishedReadBudget(100_000, 16 * 1024 * 1024),
             )
             bound = reader.require_materialization_capacity()
@@ -114,7 +153,9 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             assert b"independent expected text" in encoded
             assert bound >= len(encoded) > len(b"independent expected text")
             too_small = PublishedPdfReader(
-                connection, pin, projection_context=kernel.prepared,
+                connection,
+                pin,
+                projection_context=kernel.prepared,
                 read_budget=PublishedReadBudget(100_000, bound - 1),
             )
 

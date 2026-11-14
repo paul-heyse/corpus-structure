@@ -1780,11 +1780,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
             continue
         identity = kind_fingerprint(graph, kind.semantic_id)
         kinds[kind.semantic_id] = identity.key
-        identities.append(
-            EffectiveIdentity(
-                kind.semantic_id, identity.domain, identity.key
-            )
-        )
+        identities.append(EffectiveIdentity(kind.semantic_id, identity.domain, identity.key))
     slices = {}
     for implementation in model.implementation_slices:
         if implementation.complete:
@@ -1792,11 +1788,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
                 implementation.semantic_records(), implementation.root
             )
             slices[implementation.root] = identity
-            identities.append(
-                EffectiveIdentity(
-                    implementation.root, identity.domain, identity.key
-                )
-            )
+            identities.append(EffectiveIdentity(implementation.root, identity.domain, identity.key))
     bindings = {binding.semantic_id: binding for binding in model.bindings}
     for operation in model.operations:
         binding = bindings[operation.binding]
@@ -1828,9 +1820,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
             }
         )
         identities += [
-            EffectiveIdentity(
-                operation.semantic_id, identity.domain, identity.key
-            )
+            EffectiveIdentity(operation.semantic_id, identity.domain, identity.key)
             for identity in (definition, eligibility)
         ]
         if (
@@ -1854,11 +1844,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
             },
             implementation_slices=implementation_slices,
         )
-        identities.append(
-            EffectiveIdentity(
-                operation.semantic_id, recipe.domain, recipe.key
-            )
-        )
+        identities.append(EffectiveIdentity(operation.semantic_id, recipe.domain, recipe.key))
     return tuple(identities)
 
 

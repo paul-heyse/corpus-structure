@@ -133,7 +133,9 @@ def test_known_input_exclusions_follow_participating_endpoints(exclusion_case, t
     from .primary_native_support import bind_primary_agent_run
 
     with commit_writer_engine.begin() as conn:
-        run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config, admin=exclusion_case.admin)
+        run, config = bind_primary_agent_run(
+            conn, run, prepared, (view.ref.id,), config, admin=exclusion_case.admin
+        )
         locator = view.ref.key
         (task,) = (
             create_historical_agent_task(

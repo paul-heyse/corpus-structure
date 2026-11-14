@@ -50,6 +50,7 @@ def create_historical_agent_task(
         + sha256(canonical_bytes([producer.method, producer.version, configuration])).hexdigest()
     )
     from contextlib import nullcontext
+
     with admin.begin() if admin is not None else nullcontext(conn) as metadata_connection:
         config = record_method(
             metadata_connection,
@@ -84,24 +85,25 @@ def create_historical_agent_task(
             )
         ).hexdigest()
     )
-    task = create_task(
-        conn,
-        run_id=run_id,
-        config_id=config,
-        stage="propose",
-        unit_type="source_view",
-        unit_id=source_view_id,
-        unit_key=unit_key,
-        input_hash=input_hash,
-        packet_hash=packet.hash,
-        agent=True,
-        fresh=method_name in run["options"].get("fresh", ()),
-        trigger={
-            "fixture": "historical-rich-source-report",
-            "producer_binding": producer.values(),
-            **(trigger or {}),
-        },
-    )
+    with admin.begin() if admin is not None else nullcontext(conn) as setup:
+        task = create_task(
+            setup,
+            run_id=run_id,
+            config_id=config,
+            stage="propose",
+            unit_type="source_view",
+            unit_id=source_view_id,
+            unit_key=unit_key,
+            input_hash=input_hash,
+            packet_hash=packet.hash,
+            agent=True,
+            fresh=method_name in run["options"].get("fresh", ()),
+            trigger={
+                "fixture": "historical-rich-source-report",
+                "producer_binding": producer.values(),
+                **(trigger or {}),
+            },
+        )
     reused = conn.scalar(
         select(table("ops.task").c.reused_task_id).where(table("ops.task").c.id == task)
     )

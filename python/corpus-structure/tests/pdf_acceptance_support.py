@@ -357,7 +357,15 @@ def write_controlled_pdf(path: Path, paragraphs: tuple[str, ...]) -> bytes:
 
 
 def publish_controlled_pdf_views(
-    engine, *, prepared, run_id, document_id, original, paragraphs, source_claim=None, admin: Engine | None = None
+    engine,
+    *,
+    prepared,
+    run_id,
+    document_id,
+    original,
+    paragraphs,
+    source_claim=None,
+    admin: Engine | None = None,
 ):
     """Retain authored sections; a supplied claim leaves terminal settlement with its owner."""
     from tempfile import TemporaryDirectory
@@ -406,7 +414,9 @@ def publish_controlled_pdf_views(
     config: MethodConfigId | None = None
     if source_claim is None:
         if admin is None:
-            raise ValueError("historical source configuration requires its explicit administrative setup engine")
+            raise ValueError(
+                "historical source configuration requires its explicit administrative setup engine"
+            )
         with admin.begin() as conn:
             config = record_method(
                 conn,
@@ -427,16 +437,18 @@ def publish_controlled_pdf_views(
     with engine.begin() as conn:
         if source_claim is None:
             assert config is not None
-            task = create_task(
-                conn,
-                run_id=run_id,
-                config_id=config,
-                stage="ingest",
-                unit_type="document",
-                unit_id=document_id,
-                unit_key="controlled-source",
-                input_hash=conversion.original_digest,
-            )
+            assert admin is not None
+            with admin.begin() as setup:
+                task = create_task(
+                    setup,
+                    run_id=run_id,
+                    config_id=config,
+                    stage="ingest",
+                    unit_type="document",
+                    unit_id=document_id,
+                    unit_key="controlled-source",
+                    input_hash=conversion.original_digest,
+                )
             claim = claim_tasks(
                 conn,
                 run_id=RunId(run_id),

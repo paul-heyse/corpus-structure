@@ -200,7 +200,8 @@ def _case(scenario_seeds, *, empty):
 def _m1_result(kernel, demand):
     with kernel.engine.begin() as connection:
         result = DataOperationStorage(connection).invoke(
-            "read_demand_result", {"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608}
+            "read_demand_result",
+            {"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608},
         )
         completions = (
             connection.execute(
@@ -211,9 +212,44 @@ def _m1_result(kernel, demand):
             .scalars()
             .all()
         )
+        candidate_facts = []
+        if len(completions) != 1:
+            child = next(
+                row
+                for row in result["obligations"]
+                if row["operation_id"] == "extract.m1_candidates"
+            )
+            candidate_facts = [
+                dict(row)
+                for row in connection.execute(
+                    text(
+                        "SELECT product, kind_contract, subject, original_source, analyzed_scope, member, multiplicity, support_episodes, alternative_identity "
+                        "FROM ops.data_binding_rows(:demand,'extract.m1_candidates',CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
+                    ),
+                    {
+                        "demand": demand,
+                        "trust": json.dumps(result["trust_snapshot"]),
+                        "read": result["read_id"],
+                        "subject": child["subject"],
+                        "source": child["original_source"],
+                        "scope": json.dumps(child["analyzed_scope"]),
+                    },
+                ).mappings()
+            ]
     names = {row["obligation_id"]: row["operation_id"] for row in result["obligations"]}
-    diagnostic = {"fates": [{"operation": names.get(row["obligation_id"]), "fate": row["fate"],
-        "selection": row["selection"]} for row in result["uses"]], "failures": result.get("attempt_failures")}
+    diagnostic = {
+        "fates": [
+            {
+                "operation": names.get(row["obligation_id"]),
+                "fate": row["fate"],
+                "reasons": row["selection"].get("reasons"),
+            }
+            for row in result["uses"]
+            if row["fate"] != "fulfilled"
+        ],
+        "failures": result.get("attempt_failures"),
+        "facts": candidate_facts,
+    }
     assert len(completions) == 1, json.dumps(diagnostic, sort_keys=True)
     completion = completions[0]
     if isinstance(completion, str):

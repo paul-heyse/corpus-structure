@@ -71,7 +71,6 @@ class PdfIngestConfig(PdfRuntimeConfig):
         )
 
 
-
 def _snapshot_from_values(values: Mapping[str, Any]) -> NativeSnapshot:
     from .pdf_hierarchy import NativeSnapshot
 
@@ -240,8 +239,6 @@ def _drafts(
             )
         )
     return tuple(drafts)
-
-
 
 
 def _conversion_from_product(

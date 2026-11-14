@@ -121,7 +121,11 @@ def test_real_completed_binding_comparison(exclusion_case, tmp_path):
     preparation = prepare_resubmission_case(ResubmissionPreparationRecipe())
     assert preparation.prepared.release_id == prepared.release_id
     source = publish_resubmission_source(
-        preparation, exclusion_case.writer, tmp_path / "amended.pdf", admin=exclusion_case.admin, fresh=True
+        preparation,
+        exclusion_case.writer,
+        tmp_path / "amended.pdf",
+        admin=exclusion_case.admin,
+        fresh=True,
     )
     queued = queue_resubmission_agent(source, exclusion_case.writer, admin=exclusion_case.admin)
     _, after_run, after_cut, _ = submit_exclusion_case(

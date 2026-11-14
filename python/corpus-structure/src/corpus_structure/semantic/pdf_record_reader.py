@@ -745,18 +745,30 @@ class PublishedPdfReader:
         from ._operation_calls import read_pdf_materialization_bound
         from ._operation_ids import TaskId
         from .query import ReadLimit
+
         self._check_active()
         cached = getattr(self, "_materialization_bound", None)
         bound = cached[1] if cached is not None and cached[0] == self.reference else None
         if bound is None:
             with self._read_scope():
-                bound = read_pdf_materialization_bound(self.conn, task_id=TaskId(self.reference.task_id), product_key=ProductKey(self.reference.product_key), content_digest=ContentDigest(self.reference.content_digest), projection_context=self.projection_context)
+                bound = read_pdf_materialization_bound(
+                    self.conn,
+                    task_id=TaskId(self.reference.task_id),
+                    product_key=ProductKey(self.reference.product_key),
+                    content_digest=ContentDigest(self.reference.content_digest),
+                    projection_context=self.projection_context,
+                )
             self._materialization_bound = (self.reference, bound)
         budget = self.read_budget
         if budget is None:
-            raise ValueError("whole PDF materialization requires an explicit invocation input budget")
+            raise ValueError(
+                "whole PDF materialization requires an explicit invocation input budget"
+            )
         if type(bound) is not int or bound < 0 or bound > budget.max_bytes:
-            raise ReadLimit("PDF aggregate materialization exceeds invocation input capacity", reason="work_limit")
+            raise ReadLimit(
+                "PDF aggregate materialization exceeds invocation input capacity",
+                reason="work_limit",
+            )
         self._check_active()
         return bound
 

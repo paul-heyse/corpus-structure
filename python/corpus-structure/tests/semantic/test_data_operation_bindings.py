@@ -1493,7 +1493,12 @@ def test_population_projection_preserves_historical_bytes_and_is_explicit():
     from corpus_structure.semantic.data_operation_compilation import _expression
 
     historical = model(BindingExpression("scan", roles=("items",)))
-    for version in ("data-operation-model-v2", "data-operation-model-v3", "data-operation-model-v4", MODEL_VERSION):
+    for version in (
+        "data-operation-model-v2",
+        "data-operation-model-v3",
+        "data-operation-model-v4",
+        MODEL_VERSION,
+    ):
         archived = replace(historical, version=version, identities=())
         assert b"population_projection" not in archived.content
         assert read_effective_data_operations(archived.content).content == archived.content

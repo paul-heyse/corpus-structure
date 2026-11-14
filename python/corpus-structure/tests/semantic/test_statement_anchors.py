@@ -121,7 +121,9 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
     with monkeypatch.context() as earlier:
         earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
         _, run, task, locator = queue_resubmission_agent(
-            resubmission_historical_source.stage, commit_writer_engine, admin=resubmission_historical_source.admin
+            resubmission_historical_source.stage,
+            commit_writer_engine,
+            admin=resubmission_historical_source.admin,
         ).result
 
         def complete():
