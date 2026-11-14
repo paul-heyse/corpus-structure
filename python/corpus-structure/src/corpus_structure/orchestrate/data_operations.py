@@ -19,7 +19,7 @@ from time import monotonic
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Connection, Engine, select
+from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.work import (
@@ -52,10 +52,6 @@ from corpus_structure.semantic.data_operation_ports import (
 )
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
-    admitted_data_projection,
-)
-from corpus_structure.semantic.data_operation_support import (
-    support_reference_records as _support_records,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
@@ -222,6 +218,7 @@ class _RequestExecution:
         self.handles = []
         self.consumer_inputs = {}
         self.consumer_results = {}
+        self.binding_rows = {}
         self.uncertain_submission = False
 
     def submit_python(self, callback):
@@ -481,94 +478,63 @@ class NativeDemandExecutor:
             raise ClaimFenceLost(claim, result["reason"])
 
     def _hydrate(self, ready: ReadyDataRequest, execution_owner=None):
-        if self.model.operation(ready.operation).consumer_selection is not None:
-            from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection, hydrate_consumer_selection
-            pins = wire_json_loads(ready.resolved.trust_evidence)
-            with self.engine.begin() as connection:
-                selected = hydrate_consumer_selection(connection, self.model,
-                    BoundConsumerSelection.from_binding(ready.binding_result, operation=ready.operation),
-                    demand_id=pins.get("demand_id", self.demand), read_id=pins["read_id"],
-                    trust_snapshot=pins["trust"], max_bytes=self.policy.max_packet_bytes)
-            result = self.consumer_selectors[ready.operation].select_hydrated(selected)
-            if execution_owner is not None:
-                execution_owner.consumer_inputs[ready.obligation] = selected
-                execution_owner.consumer_results[ready.obligation] = result
-            roles = {role.name: role for role in self.model.operation(ready.operation).roles}
-            identities = {(value.owner, value.domain): value.key for value in self.model.identities}
-            values = []
-            for role, members in selected.values:
-                retained = ready.binding_result.roles[next(index for index, entry in enumerate(ready.binding_result.roles) if entry.role == role)]
-                if retained.state == "known-absent":
-                    continue
-                decoded = tuple(member.value() for member in members)
-                if roles[role].collection == "scalar":
-                    if len(decoded) != 1:
-                        raise PortRefusal("scalar input requires one admitted member")
-                    value = decoded[0]
-                else:
-                    value = decoded
-                values.append(PythonRoleValue(role, identities[roles[role].kind, "kind"], value))
-            return tuple(values)
+        from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection, hydrate_consumer_selection
         pins = wire_json_loads(ready.resolved.trust_evidence)
         with self.engine.begin() as connection:
-            projections = admitted_data_projection(
-                connection,
-                pins.get("demand_id", self.demand),
-                ready.operation,
-                pins["trust"],
-                self.model,
-                read_id=pins["read_id"],
-                subject=ready.subject,
-                original_source=pins["original_source"],
-                analyzed_scope=pins["analyzed_scope"],
-            )
-            by_kind = {p.kind: p for p in projections}
-            values = []
-            size = 0
-            for role in ready.resolved.roles:
-                if role.state == "known-absent":
-                    continue
-                declaration = next(
-                    r for r in self.model.operation(ready.operation).roles if r.name == role.role
-                )
-                relation = by_kind[declaration.kind].relation
-                decoded = []
-                for member in role.members:
-                    query = select(relation.c.meaning_body).where(
-                        relation.c.product == member.product,
-                        relation.c.member.is_not_distinct_from(member.member),
-                        relation.c.subject == member.subject,
-                        relation.c.support_evidence == wire_json_loads(member.support_evidence),
-                        relation.c.support_episodes == list(member.support_episodes),
-                        relation.c.support_references
-                        == _support_records(member.support_references),
-                        relation.c.position.is_not_distinct_from(member.position),
-                        relation.c.multiplicity == member.multiplicity,
-                    )
-                    rows = connection.execute(query).scalars().all()
-                    if len(rows) != 1:
-                        raise ValueError("bound member no longer has one admitted body")
-                    size += len(canonical_bytes(rows[0])) * member.multiplicity
-                    if size > self.policy.max_packet_bytes:
-                        raise ValueError("admitted inputs exceed complete packet capacity")
-                    decoded.extend([decode_semantic_value(rows[0])] * member.multiplicity)
-                if declaration.collection == "scalar":
-                    if len(decoded) != 1:
-                        raise PortRefusal("scalar input requires one admitted member")
-                    value = decoded[0]
-                else:
-                    value = tuple(decoded)
-                contract = next(
-                    i.key
-                    for i in self.model.identities
-                    if i.owner == declaration.kind and i.domain == "kind"
-                )
-                values.append(PythonRoleValue(role.role, contract, value))
-            return tuple(values)
+            selected = hydrate_consumer_selection(connection, self.model,
+                BoundConsumerSelection.from_binding(ready.binding_result, operation=ready.operation),
+                demand_id=pins.get("demand_id", self.demand), read_id=pins["read_id"],
+                trust_snapshot=pins["trust"], max_bytes=self.policy.max_packet_bytes)
+        if self.model.operation(ready.operation).consumer_selection is not None:
+            result = self.consumer_selectors[ready.operation].select_hydrated(selected)
+            if execution_owner is not None:
+                execution_owner.consumer_results[ready.obligation] = result
+        if execution_owner is not None:
+            execution_owner.consumer_inputs[ready.obligation] = selected
+            execution_owner.binding_rows[ready.obligation] = {
+                role: tuple({
+                    "product": value.member.product,
+                    "member": value.member.member,
+                    "kind_contract": value.member.kind_contract,
+                    "project_id": ready.resolved.subject_context.project_id,
+                    "subject": value.member.subject,
+                    "original_source": value.member.original_source,
+                    "analyzed_scope": wire_json_loads(value.member.analyzed_scope),
+                    "body": value.value(),
+                } for value in values)
+                for role, values in selected.values
+            }
+        roles = {role.name: role for role in self.model.operation(ready.operation).roles}
+        identities = {(value.owner, value.domain): value.key for value in self.model.identities}
+        values = []
+        retained_roles = {role.role: role for role in ready.binding_result.roles}
+        for role, members in selected.values:
+            if retained_roles[role].state == "known-absent":
+                continue
+            decoded = tuple(member.value() for member in members)
+            if roles[role].collection == "scalar":
+                if len(decoded) != 1:
+                    raise PortRefusal("scalar input requires one admitted member")
+                value = decoded[0]
+            else:
+                value = decoded
+            values.append(PythonRoleValue(role, identities[roles[role].kind, "kind"], value))
+        return tuple(values)
 
-    def _retain_answer(self, ready, claim, answer, port, owner):
+    def _retain_answer(self, ready, claim, answer, port, owner, *, physical=None):
         if answer.operation != ready.operation:
             raise PortRefusal("completion belongs to another operation")
+        operation = self.model.operation(ready.operation)
+        if operation.output_witnesses:
+            from corpus_structure.semantic.data_operation_output_witnesses import validate_output_witnesses
+            if physical is None or ready.obligation not in physical.binding_rows:
+                raise PortRefusal("output witnesses require their authenticated selected input rows")
+            bodies = {}
+            for value in answer.outputs:
+                if value.meaning is None:
+                    raise PortRefusal("output witnesses require canonical typed output meaning")
+                bodies.setdefault(value.role, []).append(decode_semantic_value(wire_json_loads(value.meaning)))
+            validate_output_witnesses(operation, bodies, physical.binding_rows[ready.obligation])
         if (
             sum(
                 len(value.content) + len(value.meaning or b"") + sum(map(len, value.members))
@@ -752,7 +718,7 @@ class NativeDemandExecutor:
                     )
                 )
                 phase = "settlement"
-                retained = self._retain_answer(ready, claim, answer, port, owner)
+                retained = self._retain_answer(ready, claim, answer, port, owner, physical=physical)
                 receipt = self._publish(claim, retained, owner)
             return _ExecutionResult((receipt,))
         except Exception as error:
@@ -794,7 +760,8 @@ class NativeDemandExecutor:
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
                         if item.obligation in physical.consumer_inputs:
                             physical.consumer_inputs[member] = physical.consumer_inputs[item.obligation]
-                            physical.consumer_results[member] = physical.consumer_results[item.obligation]
+                            if item.obligation in physical.consumer_results:
+                                physical.consumer_results[member] = physical.consumer_results[item.obligation]
                         pending.append((member, item, claim, inputs, port))
                 except Exception as error:
                     if claim is not None:
@@ -862,7 +829,7 @@ class NativeDemandExecutor:
                         strict=True,
                     ):
                         try:
-                            retained = self._retain_answer(item, claim, result, port, owner)
+                            retained = self._retain_answer(item, claim, result, port, owner, physical=physical)
                             receipts.append(self._publish(claim, retained, owner))
                         except Exception as error:
                             try:
