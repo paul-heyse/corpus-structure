@@ -528,7 +528,7 @@ class ConstructionOperation:
             },
             {
                 "name": "result",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,

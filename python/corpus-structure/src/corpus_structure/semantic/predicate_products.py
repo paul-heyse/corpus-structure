@@ -105,7 +105,7 @@ class PreparedPredicateInputs:
             retained_formal.append(product)
         retained = []
         for member, body in zip(self.members("constructions"), constructions, strict=True):
-            product = RetainedCharacterizationProduct.acquire(self.prepared, model, self.prepared.index.definitions["DdoConstructionProduct"].iri, canonical_bytes(body), subject_context=self.subject_context(member))
+            product = RetainedCharacterizationProduct.acquire(self.prepared, model, self.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri, canonical_bytes(body), subject_context=self.subject_context(member))
             if product.semantic_id != member.product:
                 raise ValueError("predicate construction body differs from its bound product")
             retained.append(CharacterizationSnapshot(product.semantic_id, product.content))

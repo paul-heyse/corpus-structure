@@ -223,7 +223,7 @@ class InterpretedProduct:
 
 @dataclass(frozen=True)
 class ConstructionProduct(InterpretedProduct):
-    kind_name: ClassVar[str] = "DdoConstructionProduct"
+    kind_name: ClassVar[str] = "DdoPrimaryConstructionProduct"
     manifest_name: ClassVar[str] = "DdoConstructionManifest"
 
 

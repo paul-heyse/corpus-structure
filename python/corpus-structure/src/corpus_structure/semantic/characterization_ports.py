@@ -726,7 +726,7 @@ class PreparedCharacterizationPort(ABC):
                 validate_construction_product(
                     self.prepared,
                     self.model,
-                    _body(self.prepared, "DdoConstructionProduct", value),
+                    _body(self.prepared, "DdoPrimaryConstructionProduct", value),
                     source,
                     (*formal, *supporting),
                     subject_context=value.subject_context
