@@ -220,7 +220,6 @@ class RecordSourceRecipe:
     record_configuration_hash: str = "private-config"
     sibling_captions: tuple[str, ...] = ()
     sibling_references: tuple[str, ...] = ()
-    sibling_originals: tuple[str, ...] = ()
 
     def __post_init__(self):
         if self.composition not in {
@@ -240,15 +239,10 @@ class RecordSourceRecipe:
             "additional_methods",
             "sibling_captions",
             "sibling_references",
-            "sibling_originals",
         ):
             value = getattr(self, name)
             if not isinstance(value, tuple) or not all(isinstance(item, str) for item in value):
                 raise TypeError(f"{name} must be a tuple of strings")
-        if self.sibling_originals and len(self.sibling_originals) != len(
-            self.sibling_captions
-        ) + len(self.sibling_references):
-            raise ValueError("formula originals require the exact authored sibling text population")
 
     @property
     def preparation_recipe(self):
@@ -1020,7 +1014,6 @@ def build_record_recipe(recipe, admin, writer, directory, *, purpose_engine=None
         record_configuration_hash=recipe.record_configuration_hash,
         sibling_captions=recipe.sibling_captions,
         sibling_references=recipe.sibling_references,
-        sibling_originals=recipe.sibling_originals,
         claim_record=False,
     )
     return replace(source, writer=None)
