@@ -90,7 +90,6 @@ def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_prec
     from methods.domain_configuration import candidate_configuration
     from methods.record_assembly_support import release
 
-    method = m1_source.M1Candidates()
     cfg = m1_source.M1Config.model_validate(
         candidate_configuration(ROOT / "domains/statistics", "default")
     )

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from typing import TypeVar
 
 from pydantic import Field, model_validator
 
@@ -95,18 +94,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work, *, primary
     return identity_records(frame, inputs, source_ref, rows, index, record_type=ArtifactRecord)
 
 
-def identity_records(
-    frame,
-    inputs,
-    source_ref,
-    rows,
-    index,
-    *,
-    artifact_type=SourceArtifactOccurrence,
-    reference_type=ArtifactReferenceDesignator,
-    record_type: type[_Record],
-    primary_reference=lambda reference: reference,
-) -> tuple[_Record, ...]:
+def identity_records[_Record: (ArtifactRecord, DeclaredArtifactRecord)](frame, inputs, source_ref, rows, index, *, artifact_type=SourceArtifactOccurrence, reference_type=ArtifactReferenceDesignator, record_type: type[_Record], primary_reference=lambda reference: reference) -> tuple[_Record, ...]:
     """Source-bound artifact assembly shared by native and sealed address owners."""
     from .witnessed_source_links import retained_artifact_fields
 
@@ -204,11 +192,8 @@ def identity_records(
     return tuple(records)
 
 
-_Record = TypeVar("_Record", ArtifactRecord, DeclaredArtifactRecord)
-_Nomination = TypeVar("_Nomination", ArtifactNomination, DeclaredArtifactNomination)
 
-
-def artifact_cohort(records: list[_Record]) -> tuple[_Record, ...]:
+def artifact_cohort[_Record: (ArtifactRecord, DeclaredArtifactRecord)](records: list[_Record]) -> tuple[_Record, ...]:
     cohort: dict[tuple[str, str, str], _Record] = {}
     for record in sorted(records, key=lambda r: r.contribution_id):
         key = (record.occurrence_id, record.artifact.source_work, record.artifact.artifact_kind)
@@ -227,7 +212,6 @@ def artifact_cohort(records: list[_Record]) -> tuple[_Record, ...]:
 
 def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
     """Resolve explicit bounded artifact declarations without inferring lineage from labels."""
-    passages = {p.passage_id: p for p in inputs.passages}
     from .witnessed_source_links import navigation_index
 
     indexes = {
@@ -381,20 +365,7 @@ def retained_artifact_nomination(
     )
 
 
-def artifact_nomination(
-    inputs,
-    records,
-    reference,
-    contributions,
-    *,
-    sources,
-    source_key,
-    navigation_for,
-    origin_fields,
-    endpoint_type=ArtifactNominationEndpoint,
-    nomination_type: type[_Nomination],
-    primary_reference=lambda reference: reference,
-) -> _Nomination:
+def artifact_nomination[_Nomination: (ArtifactNomination, DeclaredArtifactNomination)](inputs, records, reference, contributions, *, sources, source_key, navigation_for, origin_fields, endpoint_type=ArtifactNominationEndpoint, nomination_type: type[_Nomination], primary_reference=lambda reference: reference) -> _Nomination:
     """Join original source origins through their actual nominal address owner."""
     if reference.contribution_id not in inputs.dependencies:
         raise ValueError("artifact nomination outside declared dependencies")

@@ -774,7 +774,7 @@ def declaration_sentences(layers, view, passage):
                     row["local_id"] for row in support.payload["annotations"]
                 }:
                     raise DeclarationNotQualified("declaration native support is unavailable")
-            data = read(term)
+            data = read(term, terms)
             if not isinstance(data, dict):
                 raise DeclarationNotQualified(
                     "primary declaration sentence is not a structured mapping"
@@ -1124,6 +1124,15 @@ def declaration_sentences_products(products, source, passage, *, supporting):
             raise DeclarationNotQualified("declaration support repeats a selected product")
         supports[product.semantic_id] = {packet["member_id"] for packet in body["members"]}
     found, evidence = [], []
+    def read(term, terms) -> Any:
+        children = term.get("children", ())
+        if not children:
+            return json.loads(term["value"])
+        if all(row["role"] == "item" for row in children):
+            return tuple(read(terms[row["target"]], terms) for row in sorted(children, key=lambda row: row["order"]))
+        return {row["role"]: read(terms[row["target"]], terms) for row in children}
+
+
     for product in products:
         body = json.loads(product.content)
         if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
@@ -1133,17 +1142,6 @@ def declaration_sentences_products(products, source, passage, *, supporting):
         facts = product.inventory()
         terms = {row["local_id"]: row for row in facts["terms"]}
         occurrences = {row["local_id"]: row for row in facts["occurrences"]}
-
-        def read(term) -> Any:
-            children = term.get("children", ())
-            if not children:
-                return json.loads(term["value"])
-            if all(row["role"] == "item" for row in children):
-                return tuple(
-                    read(terms[row["target"]])
-                    for row in sorted(children, key=lambda row: row["order"])
-                )
-            return {row["role"]: read(terms[row["target"]]) for row in children}
 
         for term in terms.values():
             if (
@@ -1195,22 +1193,13 @@ def declaration_sentences_products(products, source, passage, *, supporting):
                 for ref in premises
             ):
                 raise DeclarationNotQualified("declaration native support is unavailable")
-            data = read(term)
-            if (
-                not isinstance(data, dict)
-                or len(data["words"]) != len(data["positions"])
-                or any(
-                    not 0 <= a < b <= len(selected["text"]) or selected["text"][a:b] != word
-                    for word, (a, b) in zip(data["words"], data["positions"], strict=True)
-                )
-                or any(left[1] > right[0] for left, right in pairwise(data["positions"]))
-            ):
-                raise DeclarationNotQualified(
-                    "primary declaration sentence differs from exact native text"
-                )
-            reference = member_reference(
-                DataProductReference(product.semantic_id), term["local_id"]
-            )
+            data = read(term, terms)
+            if not isinstance(data, dict) or len(data["words"]) != len(data["positions"]) or any(
+                not 0 <= a < b <= len(selected["text"]) or selected["text"][a:b] != word
+                for word, (a, b) in zip(data["words"], data["positions"], strict=True)
+            ) or any(left[1] > right[0] for left, right in pairwise(data["positions"])):
+                raise DeclarationNotQualified("primary declaration sentence differs from exact native text")
+            reference = member_reference(DataProductReference(product.semantic_id), term["local_id"])
             found.append(SimpleNamespace(**data, reference=reference))
             evidence.append(reference)
     found.sort(key=lambda value: value.positions[0][0])
