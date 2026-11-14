@@ -172,3 +172,9 @@ annotation_rules:
   bindings:
     scope_marker: {node: marker}
     scoped_clause: {node: clause, expansion: subtree, max_tokens: 64, stop_words: []}
+math_scope_binders:
+  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]
+  clause: [where, for]
+  reopen: [again]
+  section_wide: ["in this section", "throughout this section"]
+math_domain_rules: []

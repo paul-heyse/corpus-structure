@@ -454,8 +454,14 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(p
         annotations = sentence_profile.run(source, host=host, subject_context=context, source_pin=_controlled_source_pin(source))
     monkeypatch.setattr("corpus_structure.semantic.sentence_products.pipeline", lambda *_: pytest.fail("construction repeated native inference"))
     rule = AnnotationRule(rule="copula", variant="is", mechanism="token", pattern=[{"LOWER": "is"}], bindings={"cue": {"node": "match"}})
-    product = construction.run(source, (primary,), ConstructionOptions(annotation_rules=(rule,)), sentences=annotations, subject_context=context)
+    from corpus_structure.semantic.constructions.math_scope import Binders, retained_math_scope_products
+    binders = Binders(sentence_initial=("mean",))
+    product = construction.run(source, (primary,), ConstructionOptions(annotation_rules=(rule,), math_scope_binders=binders), sentences=annotations, subject_context=context)
     inventory = product.inventory()
+    scope = retained_math_scope_products((product,), source, binders=binders)
+    assert scope.complete and scope.sentences == ((0, len(source.value["text"])),)
+    assert scope.flags(0) == {"initial"}
+    assert not retained_math_scope_products((product,), source, binders=Binders(sentence_initial=("suppose",))).complete
     bindings = [row for row in inventory["annotations"] if row["kind"] == "construction.named_binding"]
     assert len(bindings) == 1
     match = bindings[0]["named_match"]
@@ -481,3 +487,18 @@ def test_statistics_named_rule_configuration_belongs_to_construction_profile():
     options = load_construction_options(Path(__file__).resolve().parents[4] / "domains/statistics")
     assert len(options.annotation_rules) == 15
     assert {("defining", "active_as"), ("naming", "passive_called_term"), ("condition_exception", "marked_clause")} <= {(rule.rule, rule.variant) for rule in options.annotation_rules}
+
+
+def test_target_math_scope_keeps_unavailable_native_coverage_open(profiles):
+    from corpus_structure.semantic.constructions.math_scope import Binders, retained_math_scope_products
+
+    formal, construction = profiles
+    source = selected(formal, "Suppose x is finite.")
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    binders = Binders(sentence_initial=("suppose",))
+    product = construction.run(source, (primary,), ConstructionOptions(math_scope_binders=binders), subject_context=context)
+    readings = retained_math_scope_products((product,), source, binders=binders)
+    assert not readings.complete and readings.sentences == () and readings.cues == ()
+    coverage = [row for row in product.inventory()["coverage"] if row["family"] == "construction.math_scope"]
+    assert coverage and coverage[0]["outcome"] == "unknown"

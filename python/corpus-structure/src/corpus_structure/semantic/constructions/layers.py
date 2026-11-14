@@ -39,6 +39,14 @@ class ConstructionSource:
         return tuple(self.value["pieces"])
 
     @property
+    def items(self):
+        return tuple(self.value["items"])
+
+    @property
+    def ancestors(self):
+        return tuple(self.value.get("ancestors", ()))
+
+    @property
     def projection(self):
         return self.value["source"]["projection"]
 

@@ -62,6 +62,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
             "constructions/reuse.py",
             "constructions/named.py",
             "constructions/named_nominations.py",
+            "constructions/math_scope.py",
             "constructions/grammars/prose.lark",
         ),
         "contextual": (*common, "constructions/evaluation.py"),
@@ -208,6 +209,7 @@ def _execution_custody() -> SourceArtifact:
         "constructions/matching.py",
         "constructions/named.py",
         "constructions/named_nominations.py",
+        "constructions/math_scope.py",
         "../methods/annotation_rules.py",
         "../ingest/annotation_views.py",
     )

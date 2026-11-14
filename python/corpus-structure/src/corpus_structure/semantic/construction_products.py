@@ -25,6 +25,7 @@ from .characterization import (
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
+from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
@@ -138,6 +139,8 @@ class ConstructionOptions(BaseModel):
     max_region_chars: int = Field(default=4096, gt=0)
     parse_seconds: float = Field(default=2, gt=0)
     annotation_rules: tuple[AnnotationRule, ...] = ()
+    math_scope_binders: Binders | None = None
+    math_domain_rules: tuple[NativeDomainRule, ...] = ()
 
 
 def load_construction_options(domain: Path) -> ConstructionOptions:
@@ -298,7 +301,7 @@ def construction_product_values(
         {"selectors": selected["selectors"]},
         {"key": "text.constructions/source-native"},
         semantic=True,
-        families=(*FAMILIES, *(("construction.named_rules",) if options.annotation_rules else ())),
+        families=(*FAMILIES, "construction.math_scope", *(("construction.named_rules",) if options.annotation_rules else ())),
     )
     atom_references = {}
     for product in formal:
@@ -417,6 +420,15 @@ def construction_product_values(
                 for family in FAMILIES:
                     for selector in selected["selectors"]:
                         builder.record(family, selector, "partial", "; ".join(unavailable))
+    from .constructions.math_scope import populate_math_scope_products
+    if native is None:
+        vocab = None
+    populate_math_scope_products(
+        builder, view, source, native, formal, vocab,
+        binders=options.math_scope_binders, rules=options.math_domain_rules,
+        check_active=check_active,
+        admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
+    )
     if options.annotation_rules:
         from .constructions.named import NAMED_FAMILY, populate_named_products
 
