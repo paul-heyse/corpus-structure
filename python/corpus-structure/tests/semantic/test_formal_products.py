@@ -661,7 +661,7 @@ def test_formal_product_cannot_relabel_typed_member_contract(profile):
         validate_formal_product(profile.prepared, value, source, model=profile.model)
 
 
-def test_schema_free_target_cpu_owner_refuses_legacy_work_and_retires_shared_credit(profile):
+def test_schema_free_target_cpu_owner_retires_shared_credit(profile):
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
 
@@ -674,8 +674,7 @@ def test_schema_free_target_cpu_owner_refuses_legacy_work_and_retires_shared_cre
         assert budget.used_bytes == 2048
         permit = scope.try_admit(reservation=parent)
         assert permit is not None
-        with pytest.raises(ValueError, match="refuses legacy"):
-            scope.submit(permit, b"{}", {})
+        scope.release_admission(permit)
         assert budget.used_bytes == 2048
     finally:
         scope.close()
@@ -974,3 +973,21 @@ def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_fore
     assert all("layer" not in value for value in (field.typed.primary_formal.values(), field.typed.primary_basis.values()))
     with pytest.raises(ValueError, match="another original source"):
         threshold_readings(passage, source=address.model_copy(update={"document": "document:foreign"}), primary_layers=primary)
+
+
+def test_target_formal_profile_refuses_stale_captured_grammar(profile):
+    from dataclasses import replace
+
+    source = selected(profile, "x+y=1")
+    with pytest.raises(ValueError, match="effective grammar"):
+        replace(profile, grammar="obsolete").run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+
+
+def test_target_distinct_original_projections_keep_disjoint_formal_members(profile):
+    left, right = selected(profile, "x+y=1"), selected(profile, "x-y=2")
+    assert left.value["source"]["document"] == right.value["source"]["document"]
+    assert left.value["source"]["projection"] != right.value["source"]["projection"]
+    results = tuple(profile.run(source, FormalEvidenceOptions(math_start="formula"), subject_context=_publication_context(source)) for source in (left, right))
+    members = [{member.member_id for member in product.members} for product in results]
+    assert members[0] and members[1] and members[0].isdisjoint(members[1])
+    assert all(any(row["kind"] == "formal.symbol" for row in product.inventory()["annotations"]) for product in results)

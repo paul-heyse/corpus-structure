@@ -12,8 +12,7 @@ import pytest
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic import cpu_execution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, CPURequestCancelled
-from semantic.cpu_execution_support import packet
-from semantic.primary_formal_fixture import prepared as prepared
+from semantic.cpu_execution_support import packet, prepared as prepared
 
 # One second permits real spawned-worker scheduling while bounding failure cleanup.
 _CLOSE_GRACE = 1.0
@@ -108,7 +107,7 @@ def test_close_kills_noncooperative_initializer_after_cooperative_grace(prepared
     ownership = None
     try:
         permit = execution.try_admit()
-        handle = execution.submit(permit, packet(prepared), {})
+        handle = execution.submit_formal(permit, packet(prepared))
         assert started.wait(30), "worker did not enter blocked initializer"
         ownership = _ownership(execution)
         before = time.monotonic()
@@ -141,7 +140,7 @@ def test_close_cooperatively_drains_running_work_without_whole_pool_abort(prepar
 
     try:
         permit = execution.try_admit()
-        handle = execution.submit(permit, packet(prepared), {}, active)
+        handle = execution.submit_formal(permit, packet(prepared), active)
         assert started.wait(30)
         ownership = _ownership(execution)
         before = time.monotonic()
@@ -185,9 +184,9 @@ def test_close_reaps_term_ignoring_sibling_of_broken_worker(prepared, monkeypatc
     monkeypatch.setattr(pool, "submit", lambda *_args: submit(next(jobs)))
     ownership = None
     try:
-        first = execution.submit(execution.try_admit(), packet(prepared), {})
+        first = execution.submit_formal(execution.try_admit(), packet(prepared))
         assert started.wait(30)
-        second = execution.submit(execution.try_admit(), packet(prepared), {})
+        second = execution.submit_formal(execution.try_admit(), packet(prepared))
         ownership = _ownership(execution)
         deadline = time.monotonic() + 30
         while not any(process.exitcode == 23 for process in ownership.processes):
@@ -267,7 +266,7 @@ def test_close_unblocks_third_submission_behind_broken_pool_lock(prepared, monke
 
     def submit_third():
         try:
-            execution.submit(permits[2], content, {})
+            execution.submit_formal(permits[2], content)
         except BaseException as error:
             submission_errors.append(error)
         finally:
@@ -284,9 +283,9 @@ def test_close_unblocks_third_submission_behind_broken_pool_lock(prepared, monke
     caller = threading.Thread(target=submit_third, daemon=True)
     closer = threading.Thread(target=close, daemon=True)
     try:
-        first = execution.submit(permits[0], content, {})
+        first = execution.submit_formal(permits[0], content)
         assert started.wait(30)
-        execution.submit(permits[1], content, {})
+        execution.submit_formal(permits[1], content)
         deadline = time.monotonic() + 30
         while not any(process.exitcode == 23 for process in ownership.processes):
             assert time.monotonic() < deadline, "second worker did not exit"
@@ -371,7 +370,7 @@ def test_close_bounds_abandoned_ipc_lock(prepared, monkeypatch, abandoned):
     content = packet(prepared)
     ownership = None
     try:
-        handle = execution.submit(execution.try_admit(), content, {})
+        handle = execution.submit_formal(execution.try_admit(), content)
         assert started.wait(30)
         ownership = _ownership(execution)
         deadline = time.monotonic() + 30

@@ -1533,7 +1533,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     from corpus_structure.core.method import MethodSettings
     from corpus_structure.core.vocab import Stage
     from corpus_structure.methods.characterization import ComposeViewMethod
-    from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
+    from semantic.retained_primary_fixture import SealedFormalFixture
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
     from corpus_structure.orchestrate.runner import Graph, Step
@@ -1655,7 +1655,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
         return result, ProductReference(**product["reference"])
 
     config = dict(characterization_base_document=base.values(), characterization_source_scope=scope)
-    _, layer_pin = run(FormalEvidenceMethod(), config)
+    _, layer_pin = run(SealedFormalFixture(), config)
     with commit_reader_engine.connect() as conn:
         layer = read_layer(conn, layer_pin).payload
     inputs = {

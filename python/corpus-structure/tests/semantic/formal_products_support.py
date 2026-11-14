@@ -1,6 +1,7 @@
 """Shared controlled inputs and builders for formal products support."""
 
 from pathlib import Path
+from functools import lru_cache
 
 import pytest
 
@@ -13,8 +14,8 @@ from corpus_structure.semantic.formal_products import (
 )
 
 
-@pytest.fixture(scope="module")
-def profile():
+@lru_cache(maxsize=1)
+def released_profile():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = formal_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
@@ -34,6 +35,11 @@ def profile():
     return prepare_formal_evidence(
         prepared, bound_data_operation_model(prepared), grammar=grammar_identity()
     )
+
+
+@pytest.fixture(scope="module")
+def profile():
+    return released_profile()
 
 
 def selected(profile, text="Quantity: 2 kg\nusing the equation x = 2.", **changes):

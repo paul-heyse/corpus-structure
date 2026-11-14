@@ -382,15 +382,9 @@ def test_overlong_sentence_is_not_cut_and_cancellation_propagates(native_source)
         drive_prepared_work(_batch_sentences(LimitedWorker(), [entry], builder, cancel), cancel)
 
 
-@pytest.mark.parametrize("producer_name", ("native", "formal", "construction"))
 def test_explicit_primary_scope_keeps_context_only_source_and_exact_base(
-    native_source, producer_name
+    native_source
 ):
-    from corpus_structure.methods.construction_characterization import (
-        ConstructionCharacterizationMethod,
-    )
-    from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
-
     _, _, _, view, base, scope, _ = native_source
     from pydantic import BaseModel
 
@@ -414,12 +408,7 @@ def test_explicit_primary_scope_keeps_context_only_source_and_exact_base(
         with pytest.raises(ValueError, match=r"(base|selected document)"):
             tuple(selected.select(run, wrong_base))
 
-    if producer_name == "native":
-        verify(NativeEvidenceMethod())
-    elif producer_name == "formal":
-        verify(FormalEvidenceMethod())
-    else:
-        verify(ConstructionCharacterizationMethod())
+    verify(NativeEvidenceMethod())
 
 
 @pytest.mark.parametrize("corruption", (None, "missing", "ordinal", "member", "digest"))

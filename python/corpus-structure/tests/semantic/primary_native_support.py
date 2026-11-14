@@ -5,10 +5,7 @@ from typing import Any
 from sqlalchemy import select
 
 from corpus_structure.core.vocab import Stage
-from corpus_structure.methods.construction_characterization import (
-    ConstructionCharacterizationMethod,
-)
-from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
+from semantic.retained_primary_fixture import SealedConstructionFixture, SealedFormalFixture
 from corpus_structure.methods.native_evidence import NativeEvidenceMethod
 from corpus_structure.semantic.characterization_store import read_inventory
 from corpus_structure.semantic.metadata import table
@@ -53,8 +50,8 @@ def stage_primary_layers(case, run, sources):
     pins = []
     for method, cfg in (
         (NativeEvidenceMethod(), dict(selection, characterization_profile="spacy_only")),
-        (FormalEvidenceMethod(), selection),
-        (ConstructionCharacterizationMethod(), selection),
+        (SealedFormalFixture(), selection),
+        (SealedConstructionFixture(), selection),
     ):
         cfg = dict(cfg, characterization_layers=list(pins))
         result = run(method, Stage.EXTRACT, sources, cfg, "primary-" + method.name)
@@ -182,8 +179,8 @@ def publish_primary_layers(conn, run, prepared, identities, *, formal=False):
 
     publish(NativeEvidenceMethod(), dict(characterization_profile="spacy_only"))
     if formal:
-        publish(FormalEvidenceMethod(), {})
-    publish(ConstructionCharacterizationMethod(), {})
+        publish(SealedFormalFixture(), {})
+    publish(SealedConstructionFixture(), {})
     reader.characterization_selection = tuple(pins)
     return tuple(pins)
 

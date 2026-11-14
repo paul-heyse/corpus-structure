@@ -7,7 +7,6 @@ from concurrent.futures import Future
 from typing import cast
 
 import pytest
-from methods.formal_evidence_support import inputs
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic.cpu_execution import (
@@ -19,8 +18,7 @@ from corpus_structure.semantic.cpu_execution import (
     release_capsule,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.cpu_execution_support import packet as packet
-from semantic.primary_formal_fixture import prepared as prepared
+from semantic.cpu_execution_support import execute_formal, packet as packet, prepared as prepared
 
 
 def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
@@ -28,7 +26,7 @@ def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
         prepared, CharacterizationExecutionPolicy(workers=1, max_submissions=1)
     )
     try:
-        with execution.execute(packet(prepared), {}, lambda: None) as first:
+        with execute_formal(execution, packet(prepared), lambda: None) as first:
             first_pid = first.pid
             assert first_pid != os.getpid() and first.main_thread
             assert first.native_thread_limit == 1
@@ -37,10 +35,10 @@ def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
             assert execution.native_thread_reports[first_pid]["pools"] == first.native_pools
             layer = json.loads(first.content)
             assert any(
-                extent["text"] == "x≥2" for row in layer["occurrences"] for extent in row["extents"]
+                extent["text"] == "x≥2" for packet in layer["members"] if packet["body"]["record_type"] == "occurrence" for extent in packet["body"]["extents"]
             )
             assert execution.budget.used_bytes > len(first.content)
-        with execution.execute(packet(prepared), {}, lambda: None) as second:
+        with execute_formal(execution, packet(prepared), lambda: None) as second:
             assert second.pid == first_pid
     finally:
         execution.close()
@@ -54,7 +52,7 @@ def test_capsule_tampering_and_malformed_packet_refuse(prepared):
         hydrate_capsule(canonical_bytes(capsule))
     execution = CPUExecutionScope(prepared)
     try:
-        with pytest.raises(ValueError), execution.execute(b"{}", {}, lambda: None):
+        with pytest.raises(ValueError), execute_formal(execution, b"{}", lambda: None):
             pytest.fail("malformed packet produced a layer")
     finally:
         execution.close()
@@ -81,7 +79,7 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
     policy = CharacterizationExecutionPolicy(max_packet_bytes=64)
     execution = CPUExecutionScope(prepared, policy)
     try:
-        with pytest.raises(CapacityExceeded), execution.execute(packet(prepared), {}, lambda: None):
+        with pytest.raises(CapacityExceeded), execute_formal(execution, packet(prepared), lambda: None):
             pytest.fail("oversized input was submitted")
     finally:
         execution.close()
@@ -110,8 +108,9 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
             try:
                 with (
                     pytest.raises(RuntimeError, match="lost exact claim"),
-                    execution.execute(
-                        _identified_packet(prepared, "slow"), {}, cancel_while_waiting
+                    execute_formal(
+                        execution,
+                        _identified_packet(prepared, "slow"), cancel_while_waiting
                     ),
                 ):
                     pytest.fail("cancelled claim returned a usable result")
@@ -119,7 +118,7 @@ def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prep
                 assert not execution._stop.is_set()
             finally:
                 release.set()
-            with execution.execute(packet(prepared), {}, lambda: None) as sibling:
+            with execute_formal(execution, packet(prepared), lambda: None) as sibling:
                 assert sibling.content
     finally:
         execution.close()
@@ -134,7 +133,7 @@ def test_broken_worker_initializer_is_terminal_and_releases_capacity(prepared, m
     try:
         with (
             pytest.raises(Exception, match=r"terminated|initializer"),
-            execution.execute(packet(prepared), {}, lambda: None),
+            execute_formal(execution, packet(prepared), lambda: None),
         ):
             pytest.fail("invalid initializer produced a layer")
     finally:
@@ -169,7 +168,7 @@ def test_actual_child_error_and_misrouted_reply_are_not_polling_waits(
         monkeypatch.setattr(pool, "submit", lambda *_args: submit(worker))
         with (
             pytest.raises((TimeoutError, ValueError), match=message),
-            execution.execute(packet(prepared), {}, lambda: None),
+            execute_formal(execution, packet(prepared), lambda: None),
         ):
             pytest.fail("invalid child completion was accepted")
     finally:
@@ -177,7 +176,7 @@ def test_actual_child_error_and_misrouted_reply_are_not_polling_waits(
     assert execution.budget.used_bytes == 0
 
 
-def _gated_compute(content, capsules, max_reply_bytes, slot, generation, started, release):
+def _gated_compute(content, max_reply_bytes, slot, generation, profile, stream_connection, started, release):
     from time import monotonic
 
     from corpus_structure.semantic import cpu_execution
@@ -190,7 +189,7 @@ def _gated_compute(content, capsules, max_reply_bytes, slot, generation, started
             cpu_execution._worker_active()
             if monotonic() > deadline:
                 raise RuntimeError("test synchronization did not release CPU worker")
-    return cpu_execution._compute(content, capsules, max_reply_bytes)
+    return cpu_execution._dispatch(content, max_reply_bytes, slot, generation, profile, stream_connection)
 
 
 def _identified_packet(prepared, identity):
@@ -200,7 +199,7 @@ def _identified_packet(prepared, identity):
 
 
 def _collect(execution, content):
-    with execution.execute(content, {}, lambda: None) as reply:
+    with execute_formal(execution, content, lambda: None) as reply:
         return reply
 
 
@@ -298,70 +297,6 @@ def test_transient_byte_saturation_backpressures_before_second_submission(prepar
     assert execution.budget.used_bytes == 0
 
 
-def test_full_slot_blocks_method_source_hydration_before_input_factory(prepared, monkeypatch):
-    from corpus_structure.core.method import PreparedWork, ReadyGroup, drive_prepared_work
-    from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
-
-    unit, cfg, ctx, _operation = inputs(prepared)
-    execution = CPUExecutionScope(
-        prepared, CharacterizationExecutionPolicy(workers=1, max_submissions=1)
-    )
-    monkeypatch.setattr(unit.run.reader, "cpu_execution", execution, raising=False)
-    source_view = unit.run.reader.source_view
-    gate: Future[str] = Future()
-    hydrated = False
-    blocked = False
-
-    class GateHandle:
-        future = gate
-
-        def collect(self):
-            return self.future.result()
-
-        def cancel(self):
-            self.future.cancel()
-
-        def retire(self):
-            return self.future.done()
-
-    def read_source(identity):
-        nonlocal hydrated
-        hydrated = True
-        assert blocked, "source hydration ran before the full admission slot was observed"
-        return source_view(identity)
-
-    try_admit = execution.try_admit
-
-    def observe_admission(check_active=lambda: None):
-        nonlocal blocked
-        permit = try_admit(check_active)
-        if permit is None:
-            assert not hydrated
-            blocked = True
-            gate.set_result("released")
-        return permit
-
-    def occupied_plan():
-        # This held admission has a driver-visible pending result. Its release is
-        # coordinated by the same invocation loop as the real formal method plan.
-        with execution.admitted_inputs(lambda: None):
-            (value,) = yield (PreparedWork(lambda: GateHandle()),)
-        return value
-
-    def combined_plan():
-        return (yield ReadyGroup((occupied_plan(), FormalEvidenceMethod().plan((unit,), cfg, ctx))))
-
-    monkeypatch.setattr(unit.run.reader, "source_view", read_source)
-    monkeypatch.setattr(execution, "try_admit", observe_admission)
-    try:
-        held_result, (result,) = drive_prepared_work(combined_plan(), lambda: None)
-        assert held_result == "released"
-        assert blocked and hydrated
-        assert result.characterization_layer is not None
-    finally:
-        execution.close()
-    assert execution.budget.used_bytes == 0
-
 
 def test_async_independent_cancel_generation_reuse_and_reply_retention(prepared, monkeypatch):
     import multiprocessing
@@ -381,10 +316,10 @@ def test_async_independent_cancel_generation_reuse_and_reply_retention(prepared,
             fast_permit = execution.try_admit()
             assert slow_permit is not None and fast_permit is not None
             assert execution.try_admit() is None
-            slow = execution.submit(slow_permit, _identified_packet(prepared, "slow"), {})
+            slow = execution.submit_formal(slow_permit, _identified_packet(prepared, "slow"))
             assert started.wait(60)
             assert execution.collect(slow) is None
-            fast = execution.submit(fast_permit, _identified_packet(prepared, "fast"), {})
+            fast = execution.submit_formal(fast_permit, _identified_packet(prepared, "fast"))
             fast.future.result(timeout=60)
             reply = fast.collect()
             assert fast_permit.reserved == len(reply.content)
@@ -394,7 +329,7 @@ def test_async_independent_cancel_generation_reuse_and_reply_retention(prepared,
             assert replacement.generation > fast_permit.generation
             fast.cancel()
             assert execution._cancellation[replacement.slot * 2 + 1] == 0
-            next_job = execution.submit(replacement, _identified_packet(prepared, "next"), {})
+            next_job = execution.submit_formal(replacement, _identified_packet(prepared, "next"))
             slow.cancel()
             with pytest.raises(CPURequestCancelled):
                 slow.future.result(timeout=60)

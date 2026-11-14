@@ -6,28 +6,20 @@ import json
 import multiprocessing
 import sys
 import threading
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator
 from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from contextlib import contextmanager, suppress
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from hashlib import sha256
 from time import monotonic
 from typing import Any, Literal, cast
-from uuid import uuid4
-
-from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-from corpus_structure.core.method import SourceViewRef, UnitRef, UnitView
-from corpus_structure.core.vocab import TaskUnitType
 
 from .archive_reader import reconstruct_release
 from .archive_wire import encode_products
-from .characterization import LayerReport, validate_layer
 from .cpu_receipts import CPUExecutionReceipt
 from .identity import canonical_bytes
-from .product_reference import ProductReference
-from .source_views import PreparedSourceView
 from .types import PreparationProfile, PreparedArtifact, PreparedRelease, SourceBundle
 
 
@@ -125,56 +117,6 @@ def hydrate_capsule(content: bytes) -> PreparedRelease:
     )
 
 
-class _SourceInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    ref: dict[str, Any]
-    text: str
-    pieces: tuple[dict[str, Any], ...]
-    items: tuple[dict[str, Any], ...]
-    ancestors: tuple[dict[str, Any], ...]
-    health: dict[str, Any]
-    text_policy: dict[str, str] | None
-    analysis_enabled: bool
-    integrated_context: dict[str, Any] | None
-
-    def working_view(self):
-        from .contracts import TextPreparationPolicy
-
-        ref = dict(self.ref)
-        ref["native_product"] = ProductReference(**ref["native_product"])
-        return PreparedSourceView(
-            SourceViewRef(**ref),
-            self.text,
-            self.pieces,
-            self.items,
-            self.ancestors,
-            self.health,
-            None if self.text_policy is None else TextPreparationPolicy(**self.text_policy),
-            self.analysis_enabled,
-            self.integrated_context,
-        )
-
-
-class _Dependency(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    pin: dict[str, Any]
-    content: str
-
-
-class _Input(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    request_id: str
-    run_id: int | None
-    claims: tuple[tuple[int, int, str], ...]
-    method: Literal["text.formal_evidence", "text.constructions", "text.evaluate_context"]
-    release_id: str
-    configuration: dict[str, Any]
-    operation: dict[str, str]
-    document_id: int
-    sources: tuple[_SourceInput, ...]
-    dependencies: tuple[_Dependency, ...]
-
-
 @dataclass(frozen=True)
 class CPUReply:
     request_digest: str
@@ -183,7 +125,6 @@ class CPUReply:
     main_thread: bool
     error_type: str | None = None
     error_message: str | None = None
-    cost: bytes | None = None
     native_thread_limit: int | None = None
     native_pools: tuple[dict[str, Any], ...] = ()
 
@@ -196,42 +137,6 @@ class CPUReply:
             self.native_thread_limit,
             canonical_bytes(self.native_pools),
         )
-
-
-class _KernelReader:
-    """Finite, owned kernel values; deliberately no database/Reader delegation."""
-
-    def __init__(self, prepared, sources, layers, releases):
-        self.prepared = prepared
-        self._sources = {view.ref.id: view for view in sources}
-        self._layers = layers
-        self._releases = releases
-
-    def source_view(self, identity):
-        return self._sources[identity]
-
-    def source_view_ref(self, identity):
-        return self._sources[identity].ref
-
-    def characterization_layers(self, pins):
-        return {pin: self._layers[pin] for pin in pins}
-
-    def characterization_release(self, identity):
-        return self._releases[identity]
-
-
-@dataclass(frozen=True)
-class _KernelRun:
-    reader: _KernelReader
-
-
-@dataclass(frozen=True)
-class _KernelContext:
-    check_active: Callable[[], None]
-    operation: Mapping[str, str]
-
-    def characterization_operation(self, _ref):
-        return self.operation
 
 
 _WORKER_RELEASES: dict[str, PreparedRelease] = {}
@@ -296,65 +201,6 @@ def _worker_active() -> None:
                 raise CPURequestCancelled("CPU logical request cancelled")
 
 
-def _compute(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) -> CPUReply:
-    import os
-
-    from corpus_structure.core.method import MethodContext, SourceRunContext
-    from corpus_structure.methods.construction_characterization import (
-        ConstructionCharacterizationMethod,
-    )
-    from corpus_structure.methods.contextual_interpretation import ContextualInterpretationMethod
-    from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
-
-    _apply_native_thread_limits()
-    _worker_active()
-    packet = _Input.model_validate_json(content)
-    releases = dict(_WORKER_RELEASES)
-    for capsule in capsules:
-        identity = json.loads(capsule)["products"]["release_id"]
-        if identity not in releases:
-            releases[identity] = hydrate_capsule(capsule)
-    prepared = releases[packet.release_id]
-    methods = {
-        m.name: m
-        for m in (
-            FormalEvidenceMethod(),
-            ConstructionCharacterizationMethod(),
-            ContextualInterpretationMethod(),
-        )
-    }
-    method: Any = methods[packet.method]
-    cfg = method.Config.model_validate(packet.configuration)
-    layers = {
-        ProductReference(**item.pin): LayerReport(item.content.encode())
-        for item in packet.dependencies
-    }
-    reader = _KernelReader(
-        prepared, tuple(s.working_view() for s in packet.sources), layers, releases
-    )
-    unit = UnitView(
-        UnitRef(TaskUnitType.DOCUMENT, packet.document_id),
-        cast(SourceRunContext, _KernelRun(reader)),
-    )
-    ctx = cast(MethodContext, _KernelContext(_worker_active, packet.operation))
-    (result,) = method._run_prepared((unit,), cfg, ctx)
-    layer = result.characterization_layer
-    if layer is None:
-        raise ValueError("CPU kernel did not produce its declared layer")
-    if len(layer.content) > max_reply_bytes:
-        raise CapacityExceeded("CPU result exceeds admitted reply byte capacity")
-    _worker_active()
-    return CPUReply(
-        sha256(content).hexdigest(),
-        layer.content,
-        os.getpid(),
-        threading.current_thread() is threading.main_thread(),
-        cost=None if result.cost is None else result.cost.model_dump_json().encode(),
-        native_thread_limit=_WORKER_NATIVE_THREADS,
-        native_pools=_WORKER_NATIVE_POOLS,
-    )
-
-
 def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
     """Private prepared target work, never a fabricated legacy task or Reader."""
     import os
@@ -365,7 +211,9 @@ def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
 
     packet = json.loads(content)
     if (
-        packet["profile"] != "formal-source-native"
+        not isinstance(packet, dict)
+        or not {"profile", "assets", "grammar", "source", "options", "member_contracts"} <= packet.keys()
+        or packet["profile"] != "formal-source-native"
         or packet["assets"] != formal_profile_assets().digest
         or packet["grammar"] != grammar_identity()
     ):
@@ -394,13 +242,10 @@ def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
 
 def _dispatch(
     content: bytes,
-    capsules: tuple[bytes, ...],
     max_reply_bytes: int,
-    slot: int = -1,
-    generation: int = 0,
-    profile: Literal[
-        "legacy", "formal-source-native", "closed-python", "closed-python-stream"
-    ] = "legacy",
+    slot: int,
+    generation: int,
+    profile: Literal["formal-source-native", "closed-python", "closed-python-stream"],
     stream_connection=None,
 ) -> CPUReply:
     import os
@@ -444,9 +289,7 @@ def _dispatch(
                 native_thread_limit=_WORKER_NATIVE_THREADS,
                 native_pools=_WORKER_NATIVE_POOLS,
             )
-        if profile != "legacy":
-            raise ValueError("CPU dispatch has no admitted source-native profile")
-        return _compute(content, capsules, max_reply_bytes)
+        raise ValueError("CPU dispatch has no admitted source-native profile")
     except Exception as error:
         return CPUReply(
             sha256(content).hexdigest(),
@@ -539,7 +382,7 @@ class CPUHandle:
                 retained = (
                     0
                     if self._reply is None
-                    else len(self._reply.content) + len(self._reply.cost or b"")
+                    else len(self._reply.content)
                 )
                 self.owner._collected(self.admission, retained)
         if self._error is not None:
@@ -854,45 +697,28 @@ class CPUExecutionScope:
             permit.retired = True
             self._admissions.pop(id(permit), None)
 
-    def submit(
-        self,
-        admission,
-        content: bytes,
-        releases: Mapping[str, PreparedRelease],
-        check_active: Callable[[], None] = lambda: None,
-    ) -> CPUHandle:
-        return self._submit(admission, content, releases, check_active, "legacy")
-
     def submit_formal(
         self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
     ) -> CPUHandle:
-        return self._submit(admission, content, {}, check_active, "formal-source-native")
+        return self._submit(admission, content, check_active, "formal-source-native")
 
     def submit_closed_python(
         self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
     ) -> CPUHandle:
-        return self._submit(admission, content, {}, check_active, "closed-python")
+        return self._submit(admission, content, check_active, "closed-python")
 
     def submit_closed_python_stream(self, admission, content, connection, check_active):
         return self._submit(
-            admission, content, {}, check_active, "closed-python-stream", connection
+            admission, content, check_active, "closed-python-stream", connection
         )
 
     def _submit(
-        self, admission, content, releases, check_active, profile, stream_connection=None
+        self, admission, content, check_active, profile, stream_connection=None
     ) -> CPUHandle:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
             raise ValueError("CPU input admission is not active for this invocation")
-        if profile == "legacy" and not self.retain_schema:
-            self.release_admission(admission)
-            raise ValueError("schema-free CPU scope refuses legacy schema-dependent work")
-        capsules = tuple(
-            release_capsule(value)
-            for key, value in releases.items()
-            if key != self.prepared.release_id
-        )
-        if len(content) + sum(map(len, capsules)) > self.policy.max_packet_bytes:
+        if len(content) > self.policy.max_packet_bytes:
             self.release_admission(admission)
             raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
         with self._lock:
@@ -910,17 +736,11 @@ class CPUExecutionScope:
             future = pool.submit(
                 _dispatch,
                 content,
-                capsules,
                 self.policy.max_reply_bytes,
                 admission.slot,
                 admission.generation,
-                *(
-                    (profile, stream_connection)
-                    if stream_connection is not None
-                    else (profile,)
-                    if profile != "legacy"
-                    else ()
-                ),
+                profile,
+                stream_connection,
             )
             with self._lock:
                 handle = CPUHandle(
@@ -965,37 +785,6 @@ class CPUExecutionScope:
         finally:
             if permit is not None and not permit.submitted:
                 self.release_admission(permit)
-
-    @contextmanager
-    def execute(
-        self,
-        content: bytes,
-        releases: Mapping[str, PreparedRelease],
-        check_active: Callable[[], None],
-        *,
-        admission=None,
-    ) -> Generator[CPUReply]:
-        if admission is None:
-            with (
-                self.admitted_inputs(check_active) as owned,
-                self.execute(content, releases, check_active, admission=owned) as reply,
-            ):
-                yield reply
-            return
-        handle = self.submit(admission, content, releases, check_active)
-        try:
-            while not handle.future.done():
-                check_active()
-                if self._closed:
-                    raise RuntimeError("CPU invocation is closed")
-                with suppress(TimeoutError):
-                    handle.future.result(timeout=0.1)
-            yield handle.collect()
-        except BaseException:
-            handle.cancel()
-            raise
-        finally:
-            handle.retire()
 
     def abort(self) -> None:
         self.close()
@@ -1102,155 +891,3 @@ class CPUExecutionScope:
             self._close_lock.release()
         if error is not None:
             _report_cleanup_failure(error)
-
-
-def cpu_method_plan(method, units, cfg, ctx):
-    """Prepare only after admission; yielding private work never blocks the coordinator."""
-    from corpus_structure.core._model.shapes import Cost
-    from corpus_structure.core.method import PreparedWork, UnitResult
-    from corpus_structure.core.vocab import ObservationOutcome
-
-    _base, scope, pins = cfg.require_selection()
-    results = []
-    owned = []
-    try:
-        for unit in units:
-            ctx.check_active()
-            if unit.ref not in method.select(unit.run, cfg):
-                raise ValueError("CPU task unit differs from exact selected document")
-            reader = unit.run.reader
-            operation = dict(ctx.characterization_operation(unit.ref))
-            if any(
-                operation.get(k) != v
-                for k, v in dict(
-                    key=method.name,
-                    version=method.version,
-                    model=cfg.model,
-                    grammar=cfg.grammar,
-                    context=cfg.context,
-                ).items()
-            ):
-                raise ValueError("CPU task determinants differ from its frozen configuration")
-            execution = getattr(reader, "cpu_execution", None)
-            if execution is None:
-                execution = CPUExecutionScope(
-                    reader.prepared, getattr(ctx.settings, "execution_policy", None)
-                )
-                owned.append(execution)
-            prepared_inputs = {}
-            executor = cast(CPUExecutionScope, execution)
-
-            def try_submit(
-                executor=executor,
-                reader=reader,
-                unit=unit,
-                operation=operation,
-                prepared_inputs=prepared_inputs,
-            ):
-                admission = executor.try_admit(ctx.check_active)
-                if admission is None:
-                    return None
-                try:
-                    layers, pending = {}, pins
-                    while pending:
-                        ctx.check_active()
-                        read = reader.characterization_layers(pending)
-                        if set(read) != set(pending):
-                            raise ValueError("CPU input requires complete exact dependency closure")
-                        layers.update(read)
-                        pending = tuple(
-                            dict.fromkeys(
-                                ProductReference(**p)
-                                for report in read.values()
-                                for p in report.payload["dependencies"]
-                                if ProductReference(**p) not in layers
-                            )
-                        )
-                    releases = {reader.prepared.release_id: reader.prepared}
-                    for layer in layers.values():
-                        ctx.check_active()
-                        identity = layer.payload["release_id"]
-                        if identity not in releases:
-                            releases[identity] = reader.characterization_release(identity)
-                    sources = []
-                    for identity in scope["source_view_ids"]:
-                        ctx.check_active()
-                        view = reader.source_view(identity)
-                        sources.append(
-                            dict(
-                                ref=asdict(view.ref),
-                                text=view.text,
-                                pieces=view.pieces,
-                                items=view.items,
-                                ancestors=view.ancestors,
-                                health=view.health,
-                                text_policy=None
-                                if view.text_policy is None
-                                else asdict(view.text_policy),
-                                analysis_enabled=view.analysis_enabled,
-                                integrated_context=view.integrated_context,
-                            )
-                        )
-                    content = canonical_bytes(
-                        dict(
-                            request_id=uuid4().hex,
-                            run_id=getattr(unit.run, "run_id", None),
-                            claims=tuple(getattr(ctx.check_active, "active", ())),
-                            method=method.name,
-                            release_id=reader.prepared.release_id,
-                            configuration=cfg.model_dump(mode="json"),
-                            operation=operation,
-                            document_id=unit.ref.unit_id,
-                            sources=sources,
-                            dependencies=[
-                                dict(pin=asdict(pin), content=layer.content.decode())
-                                for pin, layer in layers.items()
-                            ],
-                        )
-                    )
-                    prepared_inputs.update(layers=layers, releases=releases)
-                    return executor.submit(admission, content, releases, ctx.check_active)
-                except BaseException:
-                    if not admission.submitted:
-                        executor.release_admission(admission)
-                    raise
-
-            (reply,) = yield (PreparedWork(try_submit),)
-            layers, releases = prepared_inputs["layers"], prepared_inputs["releases"]
-            layer = validate_layer(
-                reader.prepared,
-                json.loads(reply.content),
-                dependencies=layers,
-                releases=releases,
-            )
-            payload = layer.payload
-            if (
-                layer.base_document != _base
-                or payload["source_scope"] != scope
-                or any(payload["operation"].get(key) != value for key, value in operation.items())
-            ):
-                raise ValueError("CPU result differs from exact source/operation request")
-            results.append(
-                UnitResult(
-                    ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
-                    characterization_layer=layer,
-                    cost=None if reply.cost is None else Cost.model_validate_json(reply.cost),
-                )
-            )
-        return tuple(results)
-    finally:
-        failures = []
-        for execution in owned:
-            try:
-                execution.close()
-            except BaseException as error:
-                failures.append(error)
-        if failures:
-            _report_cleanup_failure(BaseExceptionGroup("CPU method cleanup failed", failures))
-
-
-def run_cpu_method(method, units, cfg, ctx):
-    from corpus_structure.core.method import drive_prepared_work
-
-    return drive_prepared_work(cpu_method_plan(method, units, cfg, ctx), ctx.check_active)

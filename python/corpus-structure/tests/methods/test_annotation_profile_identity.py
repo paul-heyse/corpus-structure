@@ -9,7 +9,6 @@ from types import SimpleNamespace
 import pytest
 from annotation_support import controlled as controlled
 from annotation_support import item
-from pydantic import ValidationError
 
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import AnnotationProfile
@@ -207,10 +206,9 @@ def test_prepared_annotation_rejects_wrong_profile_or_parameters_before_declarat
         )
 
 
-def test_restoration_source_changes_construction_resource_identity_and_refuses_old_configuration(
+def test_restoration_source_changes_construction_resource_identity(
     monkeypatch,
 ):
-    from corpus_structure.methods.construction_characterization import ConstructionConfig
     from corpus_structure.semantic.constructions.resources import construction_digest
 
     original = construction_digest()
@@ -226,8 +224,7 @@ def test_restoration_source_changes_construction_resource_identity_and_refuses_o
 
     monkeypatch.setattr(Path, "read_bytes", changed)
     assert construction_digest() != original
-    with pytest.raises(ValidationError, match="construction configuration"):
-        ConstructionConfig(grammar=original)
+
 
 
 @pytest.mark.parametrize("coerced", [True, 2.0])

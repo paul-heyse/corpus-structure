@@ -573,3 +573,35 @@ def test_target_math_scope_keeps_unavailable_native_coverage_open(profiles):
         if row["family"] == "construction.math_scope"
     ]
     assert coverage and coverage[0]["outcome"] == "unknown"
+
+
+def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles):
+    formal, construction = profiles
+    text = "A uses x + y."
+    source = selected(formal, text, pieces=[
+        dict(start=0, end=7, kind="native_text", item_ref="#/texts/0", source_field="text"),
+        dict(start=7, end=12, kind="native_text", item_ref="#/texts/1", source_field="text"),
+        dict(start=12, end=13, kind="native_text", item_ref="#/texts/0", source_field="text"),
+    ], items=[
+        dict(self_ref="#/texts/0", label="paragraph", text=text, orig=text, prov=[dict(page_no=1)]),
+        dict(self_ref="#/texts/1", label="formula", parent="#/texts/0", text="x + y", orig="x + y", prov=[dict(page_no=1)]),
+    ])
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    product = construction.run(source, (primary,), subject_context=context)
+    inventory = product.inventory()
+    atoms = [row for row in inventory["annotations"] if row["kind"] == "grammar.terminal" and row.get("native_label") == "ATOM"]
+    assert atoms
+    by_id = {row["local_id"]: row for row in inventory["occurrences"]}
+    assert any([(extent["start"], extent["end"], extent["text"]) for extent in by_id[row["occurrences"][0]]["extents"]] == [(7, 12, "x + y")] for row in atoms)
+
+
+def test_target_lexical_formal_root_keeps_paragraph_quantifier_and_predicate(profiles):
+    formal, construction = profiles
+    source = selected(formal, "All samples are finite.")
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    product = construction.run(source, (primary,), subject_context=context)
+    inventory = product.inventory()
+    assert {row["kind"] for row in inventory["terms"]} >= {"binder", "predicate"}
+    assert not any(row.get("native_label") == "ATOM" for row in inventory["annotations"])
