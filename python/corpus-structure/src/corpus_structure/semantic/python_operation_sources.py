@@ -204,6 +204,31 @@ def _syntax(value: Any) -> Any:
     return value
 
 
+def _specialize_roles(metadata: dict, overrides: Any, owner: str) -> list[dict]:
+    """Apply only literal producer-alternative refinements to existing inherited roles."""
+    inherited = metadata.get("roles")
+    if not isinstance(overrides, list) or not isinstance(inherited, list):
+        _fail(owner, "role_overrides requires a literal list and inherited role declarations")
+    if any(not isinstance(role, dict) or not isinstance(role.get("name"), str) for role in inherited):
+        _fail(owner, "role_overrides requires named inherited roles")
+    roles = [dict(role) for role in inherited]
+    by_name = {role["name"]: role for role in roles}
+    if len(by_name) != len(roles):
+        _fail(owner, "role_overrides cannot specialize ambiguous inherited roles")
+    seen = set()
+    for patch in overrides:
+        if not isinstance(patch, dict) or "name" not in patch or set(patch) - {"name", "alternatives", "selected"}:
+            _fail(owner, "role_overrides permits only name, alternatives and selected")
+        name = patch["name"]
+        if not isinstance(name, str) or name not in by_name:
+            _fail(owner, "role_overrides names an unknown inherited role")
+        if name in seen:
+            _fail(owner, "role_overrides repeats an inherited role")
+        seen.add(name)
+        by_name[name].update({field: value for field, value in patch.items() if field != "name"})
+    return roles
+
+
 class ClosedPythonSources:
     """One preparation lifetime; no module, inference-manager or target-runtime cache."""
 
@@ -832,17 +857,25 @@ class ClosedPythonSources:
             obj = self.resolve(exposed)
             metadata: dict = {}
             field_owners: dict[str, str] = {}
+            ancestors = ()
             if isinstance(obj, griffe.Class):
                 try:
-                    for base in reversed(obj.mro()):
-                        metadata.update(self.metadata.get(base.path, {}))
-                        field_owners.update(
-                            {field: base.path for field in self.metadata.get(base.path, {})}
-                        )
+                    ancestors = tuple(base.path for base in reversed(obj.mro()))
                 except griffe.AliasResolutionError, ValueError:
                     pass  # Unsupported bases are visible to slice admission below.
-            metadata.update(self.metadata[exposed])
-            field_owners.update({field: exposed for field in self.metadata[exposed]})
+            role_origins = []
+            for owner in (*ancestors, exposed):
+                authored = self.metadata.get(owner, {})
+                fields = {field: value for field, value in authored.items() if field != "role_overrides"}
+                if "roles" in fields:
+                    role_origins.clear()
+                metadata.update(fields)
+                field_owners.update({field: owner for field in fields})
+                if "role_overrides" in authored:
+                    if not isinstance(obj, griffe.Class):
+                        _fail(owner, "role_overrides belongs to an inherited class declaration")
+                    metadata["roles"] = _specialize_roles(metadata, authored["role_overrides"], owner)
+                    role_origins.append(owner)
             if metadata.get("abstract", False):
                 continue
             surfaces = []
@@ -871,6 +904,11 @@ class ClosedPythonSources:
                     self.metadata_lines.get(field_owners[field]),
                 )
                 for field in metadata
+            )
+            origins += tuple(
+                FactOrigin("roles", "authored", self.modules[self._module_for(owner)].source.filename,
+                           owner, exposed, self.metadata_lines.get(owner))
+                for owner in dict.fromkeys(role_origins)
             )
             origins += tuple(
                 FactOrigin(

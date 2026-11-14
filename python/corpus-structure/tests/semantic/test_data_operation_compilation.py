@@ -452,6 +452,60 @@ def test_inherited_family_preserves_supplying_metadata_and_exposed_callable():
     ).declaration.endswith("Family")
 
 
+def _alternative_family_source(overrides):
+    metadata = contract(entrypoints=["run"], abstract=True)
+    metadata.pop("id")
+    metadata["roles"][0].update(presence="alternative", alternatives=["source:base"], selected="source:base")
+    return (
+        "raise RuntimeError('declaration acquisition must not import this module')\n"
+        "class Family:\n    def run(self, x: int) -> int: return x + 1\n"
+        f"Family.__data_operation__ = {metadata!r}\n"
+        "class First(Family): pass\n"
+        f"First.__data_operation__ = {{'abstract':False, 'id':'urn:fixture:first', 'role_overrides':{overrides!r}}}\n"
+        "class Second(Family): pass\n"
+        "Second.__data_operation__ = {'abstract':False, 'id':'urn:fixture:second', 'role_overrides':"
+        "[{'name':'source','alternatives':['source:second'],'selected':'source:second'}]}\n"
+        "class Unchanged(Family): pass\n"
+        "Unchanged.__data_operation__ = {'abstract':False, 'id':'urn:fixture:unchanged'}\n"
+    )
+
+
+def test_literal_role_specialization_preserves_inherited_meaning_origins_and_sibling_isolation():
+    code = _alternative_family_source([dict(name="source", alternatives=["source:first"], selected="source:first")])
+    model = compile_data_operations(python_sources=python_inputs(code, "role_family"))
+    first = model.operation("urn:fixture:first")
+    second = model.operation("urn:fixture:second")
+    original = model.operation("urn:fixture:unchanged")
+    left, right, base = (next(role for role in operation.roles if role.name == "source")
+                         for operation in (first, second, original))
+    assert left.alternatives == ("source:first",) and left.selected == "source:first"
+    assert right.alternatives == ("source:second",) and right.selected == "source:second"
+    assert base.alternatives == ("source:base",) and base.selected == "source:base"
+    assert replace(left, alternatives=base.alternatives, selected=base.selected) == base
+    assert left.support is not None and left.support.provenance == "exact"
+    assert left.support.identity_requirements == ("episode",)
+    assert {origin.declaration for origin in first.origins if origin.field == "roles"} == {
+        "role_family.Family", "role_family.First",
+    }
+    assert first.callable_surfaces[0].declaration == "role_family.Family.run"
+    assert first.callable_surfaces[0].exposed == "role_family.First.run"
+    assert all(item.complete for item in model.implementation_slices)
+    assert identity(model, first.semantic_id, "recipe") != identity(model, second.semantic_id, "recipe")
+
+
+@pytest.mark.parametrize(("overrides", "reason"), [
+    ([dict(name="missing", selected="source:first")], "unknown inherited role"),
+    ([dict(name="source", selected="source:base"), dict(name="source", selected="source:base")], "repeats an inherited role"),
+    ([dict(name="source", kind="string")], "only name, alternatives and selected"),
+    ([dict(selected="source:base")], "only name, alternatives and selected"),
+    (dict(name="source", selected="source:base"), "literal list"),
+    ([dict(name="source", alternatives=["source:first"], selected="source:other")], "selected declared alternative"),
+])
+def test_literal_role_specialization_refuses_unowned_or_invalid_changes(overrides, reason):
+    with pytest.raises(PreparationError, match=reason):
+        compile_data_operations(python_sources=python_inputs(_alternative_family_source(overrides)))
+
+
 def test_target_composed_preparation_never_enters_legacy_approval(monkeypatch):
     from corpus_structure.semantic import contracts
     from corpus_structure.semantic.types import PreparationProfile
