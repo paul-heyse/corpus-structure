@@ -19,7 +19,9 @@ import json
 import typing
 from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from hashlib import sha256
+from importlib.metadata import version as _package_version
 from pathlib import Path
 from types import CodeType, MappingProxyType, ModuleType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
@@ -31,6 +33,7 @@ if TYPE_CHECKING:
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
+from .data_operation_compilation import compile_data_operations as _STATIC_COMPILER
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
@@ -39,6 +42,14 @@ from .python_operation_sources import PythonSourceCollection
 # Trusted references are captured once rather than reread from a mutable namespace
 # during invocation. Only consumed names participate in callable authentication.
 _STANDARD_BUILTINS = MappingProxyType(dict(vars(builtins)))
+
+# A process-local compilation cache cannot survive analyzer/compiler replacement.
+# Exact source and interpretation settings remain part of each cache key below.
+_STATIC_COMPILER_CONTEXT = (
+    _STATIC_COMPILER,
+    _STATIC_COMPILER.__code__,
+    tuple((name, _package_version(name)) for name in ("griffe", "libcst", "astroid")),
+)
 
 
 class PortRefusal(ValueError):
@@ -776,6 +787,23 @@ def _untrusted_value(value: Any) -> Any:
     return copy.deepcopy(value)
 
 
+@lru_cache(maxsize=16)
+def _prepared_python_sources(schema, declarations, sources, definitions, vocabularies, context):
+    """Reuse immutable static facts, never analyzer managers or acquired authority.
+
+    Every input is an exact frozen preparation value. The context names the active
+    compiler implementation and process analyzer selection; it is not a durable
+    semantic fingerprint or authorization cache.
+    """
+    return _STATIC_COMPILER(
+        schema,
+        declarations=declarations,
+        python_sources=sources,
+        definitions=definitions,
+        vocabularies=vocabularies,
+    )
+
+
 def python_port_identity(
     model: EffectiveDataOperationModel,
     sources: PythonSourceCollection,
@@ -799,13 +827,22 @@ def python_port_identity(
     # EffectiveOperation or a matching signature alone.
     from .nominal_schema_kinds import effective_nominal_kind_declarations
 
-    observed = compile_data_operations(
-        schema,
-        declarations=effective_nominal_kind_declarations(model),
-        python_sources=sources,
-        definitions=prepared.definitions if prepared is not None else None,
-        vocabularies=prepared.vocabularies if prepared is not None else (),
-    )
+    declarations = effective_nominal_kind_declarations(model)
+    definitions = prepared.definitions if prepared is not None else None
+    vocabularies = prepared.vocabularies if prepared is not None else ()
+    if compile_data_operations is _STATIC_COMPILER:
+        observed = _prepared_python_sources(
+            schema, declarations, sources, definitions, vocabularies, _STATIC_COMPILER_CONTEXT
+        )
+    else:
+        # An explicitly substituted compiler owns its own semantics and lifetime.
+        observed = compile_data_operations(
+            schema,
+            declarations=declarations,
+            python_sources=sources,
+            definitions=definitions,
+            vocabularies=vocabularies,
+        )
     expected = {(i.owner, i.domain): i.key for i in model.identities}
     actual = {(i.owner, i.domain): i.key for i in observed.identities}
     required = (

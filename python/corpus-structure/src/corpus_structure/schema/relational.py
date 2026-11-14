@@ -609,6 +609,8 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     expected = "read-projections" if read_only else "physical"
     if str(view.schema.id) != "https://corpus-structure.org/model/semantic/" + expected:
         raise ModelError(["semantic target requires its trusted physical module"])
+    if any(ci_annotations(enum).get("ph:values_from") is not None for enum in view.all_enums().values()):
+        raise ModelError(["referenced physical value sets require compile_physical with captured inputs"])
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
     # Trusted physical imports may contribute stored relations. Imported payload
     # classes without a physical subset remain boundary types, never tables.
@@ -950,10 +952,16 @@ def render_typed_column_class(
         if isinstance(column.type, JSONB):
             kind = "JsonValue"
         elif isinstance(column.type, ARRAY):
-            kind = f"list[{column.type.item_type.python_type.__name__}]"
+            item_type = column.type.item_type.python_type
+            if item_type is object:
+                raise ModelError([f"unsupported typed column {column}"])
+            kind = f"list[{item_type.__name__}]"
         else:
             try:
-                kind = column.type.python_type.__name__
+                python_type = column.type.python_type
+                if python_type is object:
+                    raise ModelError([f"unsupported typed column {column}"])
+                kind = python_type.__name__
             except NotImplementedError as exc:
                 raise ModelError([f"unsupported typed column {column}"]) from exc
         if column.nullable:

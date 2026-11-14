@@ -3,14 +3,13 @@
 import psycopg
 import pytest
 import yaml
-from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import ValidationError
 from sqlalchemy import insert, text
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.schema.relational import compile_metadata
+from corpus_structure.schema.physical import compile_physical, physical_source_closure
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL, PHYSICAL_MODEL_ID, physical_model_id
 from corpus_structure.semantic.migrations import head_revision
 from corpus_structure.semantic.pdf_record_model import (
@@ -80,8 +79,11 @@ def test_record_field_order_types_and_model_constraints():
 def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_path, monkeypatch):
     from corpus_structure.semantic import native_products, pdf_record_model, source_view_native
 
+    for name, content in physical_source_closure(
+        PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
+    ).items():
+        (tmp_path / name).write_bytes(content)
     copied = tmp_path / "physical.yaml"
-    copied.write_bytes(PHYSICAL_MODEL.read_bytes())
     (tmp_path / "characterization-physical.yaml").write_bytes(
         PHYSICAL_MODEL.with_name("characterization-physical.yaml").read_bytes()
     )
@@ -93,7 +95,7 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     declarations["classes"]["PdfRecordMembership"]["attributes"]["ordinal"]["minimum_value"] = 2
     del declarations["enums"]["PdfNativeRecordFamily"]["permissible_values"]["cell"]
     record_path.write_text(yaml.safe_dump(declarations, sort_keys=False))
-    changed = compile_metadata(SchemaView(str(copied)), target="semantic")
+    changed = compile_physical(physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes()))
     changed_id = physical_model_id(copied)
     changed.info["physical_model_id"] = changed_id
     ddl = str(CreateTable(changed.tables["kb.pdf_record_membership"]).compile(dialect=dialect()))
@@ -612,8 +614,11 @@ def test_independent_model_role_edit_changes_wire_selection(tmp_path):
         record_upload_tables,
     )
 
+    for name, content in physical_source_closure(
+        PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
+    ).items():
+        (tmp_path / name).write_bytes(content)
     copied = tmp_path / "physical.yaml"
-    copied.write_bytes(PHYSICAL_MODEL.read_bytes())
     (tmp_path / "characterization-physical.yaml").write_bytes(
         PHYSICAL_MODEL.with_name("characterization-physical.yaml").read_bytes()
     )
@@ -623,7 +628,7 @@ def test_independent_model_role_edit_changes_wire_selection(tmp_path):
     declarations = yaml.safe_load(PHYSICAL_MODEL.with_name("pdf-staging.yaml").read_bytes())
     declarations["classes"]["PdfRecordAccess"]["annotations"]["pds:record_boundary_role"] = "upload"
     (tmp_path / "pdf-staging.yaml").write_text(yaml.safe_dump(declarations, sort_keys=False))
-    changed = compile_metadata(SchemaView(str(copied)), target="semantic")
+    changed = compile_physical(physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes()))
     assert "kb.pdf_record_access" in derived_record_tables()
     assert "kb.pdf_record_access" not in derived_record_tables(changed)
     assert "kb.pdf_record_access" in record_upload_tables(changed)

@@ -43,7 +43,9 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     )
     from .data_operation_wire_native import wire_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
+    from .data_operation_protocol import recordable_fate_sql
 
+    protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
     return (
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(
@@ -61,9 +63,14 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
         ),
         SourceArtifact(
             "native/data-operation-protocol.yaml",
-            (_ROOT / "data-operation-native.yaml").read_bytes(),
+            protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
+        SourceArtifact("native/data-operation-recordable-fates.sql", recordable_fate_sql(protocol).encode()),
+        SourceArtifact(
+            "native/data-operation-protocol.py",
+            Path(__file__).with_name("data_operation_protocol.py").read_bytes(),
+        ),
         SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
         SourceArtifact(
             "native/data-operation-member-contracts.py",
@@ -105,6 +112,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
     }
+    if b"__DDO_RECORDABLE_FATES__" in result.get("native/data-operations.sql", b""):
+        required.update({"native/data-operation-protocol.py", "native/data-operation-recordable-fates.sql"})
     if b"admit_original_document_asset" in result.get("native/data-operation-protocol.yaml", b""):
         required.add("native/data-operation-original-support-reference.json")
     if b".data_operation_json import" in result.get("native/data-operation-wire.py", b""):
@@ -142,6 +151,11 @@ def native_sql(sources=None) -> str:
         .decode()
         .replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     )
+    if "__DDO_RECORDABLE_FATES__" in sql:
+        sql = sql.replace(
+            "'__DDO_RECORDABLE_FATES__'",
+            _captured(captured)["native/data-operation-recordable-fates.sql"].decode(),
+        )
     wrappers = []
     for item in _protocol(captured):
         name = item["name"]

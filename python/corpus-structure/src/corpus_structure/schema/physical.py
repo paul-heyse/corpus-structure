@@ -49,8 +49,32 @@ def _imports(name: str, document: dict[str, Any]) -> tuple[str, ...]:
     return tuple(imports)
 
 
+def _enum_references(document: dict[str, Any]):
+    """Resolve only explicitly named local value-set inputs; no ambient acquisition."""
+    enums = document.get("enums", {})
+    if not isinstance(enums, dict):
+        raise ModelError(["physical enums must be a mapping"])
+    for enum in enums.values():
+        if enum is None:
+            continue
+        if not isinstance(enum, dict) or not isinstance(enum.get("annotations", {}), dict):
+            raise ModelError(["physical enum declaration/annotations must be mappings"])
+        reference = enum.get("annotations", {}).get("ph:values_from")
+        if reference is None:
+            continue
+        if not isinstance(reference, str) or "#/" not in reference:
+            raise ModelError(["physical enum reference requires a local source and JSON pointer"])
+        source, pointer = reference.split("#", 1)
+        if (not source or PurePosixPath(source).name != source or ":" in source
+            or source in {".", ".."} or not source.endswith(".yaml")):
+            raise ModelError(["physical enum reference must name a flat local source"])
+        if enum.get("permissible_values"):
+            raise ModelError(["physical enum cannot author values beside a referenced value set"])
+        yield enum, source, pointer
+
+
 def physical_source_closure(root: str, read: Callable[[str], bytes | None]) -> dict[str, bytes]:
-    """Acquire only the root and its declared, flat, local import closure."""
+    """Acquire the flat LinkML imports and their explicit referenced value-set sources."""
     sources, _ = _source_documents(root, read)
     return sources
 
@@ -61,20 +85,49 @@ def _source_documents(
     sources: dict[str, bytes] = {}
     documents: dict[str, dict[str, Any]] = {}
 
+    def acquire(name: str) -> bytes:
+        if name not in sources:
+            content = read(name)
+            if content is None:
+                raise ModelError([f"missing physical import or value-set source: {name}"])
+            sources[name] = content
+        return sources[name]
+
     def visit(name: str) -> None:
-        if name in sources:
+        if name in documents:
             return
-        content = read(name)
-        if content is None:
-            raise ModelError([f"missing physical import: {name}"])
-        sources[name] = content
-        document = documents[name] = _document(name, content)
+        document = documents[name] = _document(name, acquire(name))
         for imported in _imports(name, document):
             if imported != _LINKML_TYPES:
                 visit(imported + ".yaml")
+        for _, source, _ in _enum_references(document):
+            acquire(source)
 
     visit(root)
     return sources, documents
+
+
+def resolve_physical_value_sets(document: dict[str, Any], sources: Mapping[str, bytes]):
+    # Documents are freshly parsed from the supplied bytes. Resolving their enum
+    # annotations does not mutate retained sources or change historical declarations.
+    for enum, source, pointer in tuple(_enum_references(document)):
+        value: Any = _document(source, sources[source])
+        try:
+            for part in pointer.removeprefix("/").split("/"):
+                value = value[part.replace("~1", "/").replace("~0", "~")]
+        except (KeyError, TypeError) as error:
+            raise ModelError([f"unknown physical enum reference {source}#{pointer}"]) from error
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or not item for item in value)
+            or len(value) != len(set(value))
+        ):
+            raise ModelError([f"physical enum reference is not a nonempty distinct string set: {source}#{pointer}"])
+        enum["permissible_values"] = {item: {} for item in value}
+        # The resolved LinkML view owns values; dependency custody remains in sources.
+        del enum["annotations"]["ph:values_from"]
+    return document
 
 
 def physical_sources_id(sources: Mapping[str, bytes]) -> str:
@@ -89,14 +142,24 @@ def physical_sources_id(sources: Mapping[str, bytes]) -> str:
     return "physical:" + digest.hexdigest()
 
 
-def compile_physical(
-    sources: Mapping[str, bytes], *, linkml_types: bytes | None = None
-) -> MetaData:
-    """Compile the exact closure. The only nonlocal import is the pinned LinkML types."""
-    closure, documents = _source_documents(PHYSICAL_ROOT, sources.get)
+def physical_model_documents(
+    sources: Mapping[str, bytes], *, root: str = PHYSICAL_ROOT
+) -> dict[str, dict[str, Any]]:
+    """Project resolved LinkML documents; referenced raw inputs stay in source custody."""
+    closure, documents = _source_documents(root, sources.get)
     if set(closure) != set(sources):
         raise ModelError(["unexpected sources in the physical declaration closure"])
-    root = documents.pop(PHYSICAL_ROOT)
+    return {name: resolve_physical_value_sets(document, closure) for name, document in documents.items()}
+
+
+def compile_physical(
+    sources: Mapping[str, bytes], *, linkml_types: bytes | None = None,
+    root: str = PHYSICAL_ROOT, target: str = "semantic"
+) -> MetaData:
+    """Compile the exact closure. The only nonlocal import is the pinned LinkML types."""
+    root_name = root
+    documents = physical_model_documents(sources, root=root_name)
+    root_document = documents.pop(root_name)
     importmap: dict[str, str | dict[str, Any]] = {
         name.removesuffix(".yaml"): document for name, document in documents.items()
     }
@@ -107,16 +170,16 @@ def compile_physical(
         raise ModelError(["unsupported imports in retained LinkML types"])
     importmap[_LINKML_TYPES] = types
     try:
-        schema = yaml_loader.load(root, SchemaDefinition)
+        schema = yaml_loader.load(root_document, SchemaDefinition)
         if not isinstance(schema, SchemaDefinition):
             raise ValueError("root is not a SchemaDefinition")
         # Include the root in the map so even a local cycle cannot reach the filesystem.
-        importmap[PHYSICAL_ROOT.removesuffix(".yaml")] = root
-        metadata = compile_metadata(SchemaView(schema, importmap=importmap), target="semantic")
+        importmap[root_name.removesuffix(".yaml")] = root_document
+        metadata = compile_metadata(SchemaView(schema, importmap=importmap), target=target)
     except ModelError:
         raise
     except (ValueError, TypeError, KeyError) as error:
         raise ModelError([f"invalid physical declaration: {error}"]) from error
-    metadata.info["physical_model_id"] = physical_sources_id(closure)
-    metadata.info["physical_sources"] = closure
+    metadata.info["physical_model_id"] = physical_sources_id(sources)
+    metadata.info["physical_sources"] = dict(sources)
     return metadata

@@ -540,7 +540,7 @@ BEGIN
  CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role
  JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract' WHERE demand.id=o.demand_id;
  PERFORM ops.ddo_require_active_demand(o.demand_id);
- IF p->>'fate' NOT IN ('known-absent','unknown','unavailable','invalid','closed','awaiting-discovery','awaiting-inputs','awaiting-population','not-applicable','failed','cancelled','partial') THEN RAISE EXCEPTION 'native ownership required for fulfillment/attachment'; END IF;
+ IF p->>'fate' NOT IN ('__DDO_RECORDABLE_FATES__') THEN RAISE EXCEPTION 'native ownership required for fulfillment/attachment'; END IF;
  key:='use:'||ops.ddo_digest(p);
  INSERT INTO ops.demand_use VALUES(key,o.demand_id,o.id,p->>'fate',NULL,NULL,NULL,p->'selection','{}',clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
  RETURN jsonb_build_object('payload',jsonb_build_object('use_id',key,'fate',p->>'fate'));

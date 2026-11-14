@@ -1300,3 +1300,66 @@ def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path,
         resolve_python_port(
             historical, inputs, model.operations[0].semantic_id, authorize=lambda _: None
         )
+
+
+def test_static_correspondence_reuses_only_identical_captured_inputs():
+    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+
+    model, sources = actual()
+    operation = model.operations[0].semantic_id
+    _prepared_python_sources.cache_clear()
+    first = python_port_identity(model, sources, operation)
+    assert python_port_identity(model, sources, operation) == first
+    assert _prepared_python_sources.cache_info().misses == 1
+    assert _prepared_python_sources.cache_info().hits == 1
+    renamed = replace(sources, sources=(replace(sources.sources[0], filename="other.py"),))
+    with pytest.raises(PortRefusal):
+        python_port_identity(model, renamed, operation)
+    assert _prepared_python_sources.cache_info().misses == 2
+
+
+def test_explicit_compiler_override_bypasses_static_reuse(monkeypatch):
+    from corpus_structure.semantic import data_operation_compilation
+    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+
+    model, sources = actual()
+    original = data_operation_compilation.compile_data_operations
+    calls = []
+
+    def override(*args, **kwargs):
+        calls.append(None)
+        return original(*args, **kwargs)
+
+    _prepared_python_sources.cache_clear()
+    monkeypatch.setattr(data_operation_compilation, "compile_data_operations", override)
+    for _ in range(2):
+        python_port_identity(model, sources, model.operations[0].semantic_id)
+    assert len(calls) == 2
+    assert _prepared_python_sources.cache_info().misses == 0
+
+
+@pytest.mark.parametrize("change", ["body", "stub", "boundary", "interpreter"])
+def test_static_correspondence_input_changes_cannot_hit_old_preparation(change):
+    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+    from corpus_structure.semantic.types import SourceArtifact
+
+    model, sources = actual()
+    _prepared_python_sources.cache_clear()
+    python_port_identity(model, sources, model.operations[0].semantic_id)
+    source = sources.sources[0]
+    if change == "body":
+        changed = replace(sources, sources=(replace(source, content=source.content + b"\n# captured source changed\n"),))
+    elif change == "stub":
+        changed = replace(sources, sources=(replace(source, stub=b"def claim_source_item(index: int) -> str: ...\n"),))
+    elif change == "boundary":
+        changed = replace(sources, boundary_contracts=(SourceArtifact("extra-contract", b"{}"),))
+    else:
+        changed = replace(sources, interpreter="python-3.14-changed-context")
+    # Some changes are neutral under the admitted interpretation and some refuse;
+    # neither can borrow preparation under the previous captured context.
+    try:
+        python_port_identity(model, changed, model.operations[0].semantic_id)
+    except (PortRefusal, ValueError):
+        pass
+    assert _prepared_python_sources.cache_info().misses == 2
+    assert _prepared_python_sources.cache_info().hits == 0

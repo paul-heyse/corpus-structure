@@ -11,6 +11,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.physical import compile_physical, physical_source_closure
 from corpus_structure.schema.relational import compile_metadata
 from corpus_structure.semantic.metadata import (
     PHYSICAL_MODEL,
@@ -167,7 +168,7 @@ def test_all_data_children_are_pinned_to_the_realization_release() -> None:
 
 
 def test_metadata_deterministic_and_fixed() -> None:
-    again = compile_metadata(SchemaView(str(PHYSICAL_MODEL)), target="semantic")
+    again = compile_physical(physical_source_closure(PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()))
     dialect = postgresql.dialect()
     for name, item in metadata.tables.items():
         assert str(CreateTable(item).compile(dialect=dialect)) == str(

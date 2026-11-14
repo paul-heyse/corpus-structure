@@ -5,6 +5,13 @@ prefixes:
   ph: https://corpus-structure.org/physical/
 imports: [linkml:types]
 default_range: string
+enums:
+  DataOperationHistoricalFate:
+    annotations:
+      ph:values_from: data-operation-native.yaml#/definitions/historical_fate/enum
+  DataOperationRevocationSelector:
+    annotations:
+      ph:values_from: data-operation-native.yaml#/definitions/revoke_data_support_request/properties/selector_kind/enum
 classes:
   data_kind_contract:
     in_subset: [sem]
@@ -390,7 +397,7 @@ classes:
       id: {range: string, required: true}
       demand_id: {range: string, required: true}
       obligation_id: {range: string, required: true}
-      fate: {range: string, required: true}
+      fate: {range: DataOperationHistoricalFate, required: true}
       request_id: {range: string, required: false}
       generation: {range: integer, required: false}
       derivation_id: {range: string, required: false}
@@ -404,14 +411,13 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}, {"columns": ["obligation_id"], "target": "ops.data_obligation.id"}, {"columns": ["request_id"], "target": "ops.data_request.id"}, {"columns": ["derivation_id"], "target": "ops.data_derivation.id"}]'
-      ph:checks: '["fate IN (''waiting'',''attached'',''fulfilled'',''known-absent'',''unknown'',''unavailable'',''invalid'',''closed'',''awaiting-discovery'',''awaiting-inputs'',''awaiting-population'',''not-applicable'',''failed'',''cancelled'',''partial'')"]'
   data_revocation:
     in_subset: [ops]
     attributes:
       id: {range: string, required: true}
       scope: {range: string, required: true}
       epoch: {range: integer, required: true}
-      selector_kind: {range: string, required: true}
+      selector_kind: {range: DataOperationRevocationSelector, required: true}
       selector: {range: string, required: true}
       reason: {range: string, required: true}
       created_at: {range: timestamp, required: true}
@@ -422,7 +428,6 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["scope"], "target": "ops.data_trust_scope.scope"}]'
-      ph:checks: '["selector_kind IN (''derivation'',''recipe'',''runtime'',''product'',''original-source'',''original-admission'')"]'
   data_population:
     in_subset: [ops]
     attributes:

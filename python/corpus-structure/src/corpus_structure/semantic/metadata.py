@@ -11,11 +11,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import MappingProxyType
 
-from linkml_runtime.utils.schemaview import SchemaView
 from sqlalchemy import Table
 
-from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
-from corpus_structure.schema.relational import compile_metadata
+from corpus_structure.schema.physical import compile_physical, physical_source_closure, physical_sources_id
 
 PHYSICAL_MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "physical.yaml"
 
@@ -28,8 +26,9 @@ def physical_model_id(root: Path) -> str:
 
 
 PHYSICAL_MODEL_ID = physical_model_id(PHYSICAL_MODEL)
-metadata = compile_metadata(SchemaView(str(PHYSICAL_MODEL)), target="semantic")
-metadata.info["physical_model_id"] = PHYSICAL_MODEL_ID
+metadata = compile_physical(
+    physical_source_closure(PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes())
+)
 tables = MappingProxyType(dict(metadata.tables))
 SCHEMAS = frozenset({"sem", "data", "ops", "kb", "eval"})
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
@@ -38,7 +37,11 @@ _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+
 # Released view/record projections are modeled separately from stored-table authority.
 # Alembic and physical admission consume only metadata above, never this read selection.
 READ_MODEL = PHYSICAL_MODEL.with_name("read-projections.yaml")
-_read_metadata = compile_metadata(SchemaView(str(READ_MODEL)), target="semantic-read")
+_read_metadata = compile_physical(
+    physical_source_closure(READ_MODEL.name, lambda name: READ_MODEL.with_name(name).read_bytes()),
+    root=READ_MODEL.name,
+    target="semantic-read",
+)
 
 
 def table(name: str) -> Table:

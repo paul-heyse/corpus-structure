@@ -41,7 +41,9 @@ def _source_view(inputs):
     from linkml_runtime.loaders import yaml_loader
     from linkml_runtime.utils.schemaview import SchemaView
 
-    from .contracts import _fail, physical_import_sources
+    from corpus_structure.schema.physical import physical_model_documents
+
+    from .contracts import _fail, retained_physical_sources
 
     artifacts = {item.name: item.content for item in inputs.implementations}
     names = {
@@ -64,11 +66,11 @@ def _source_view(inputs):
             _fail("operation_source", artifact, "required source module is unavailable")
         supplied[name] = artifacts[artifact]
     roots = list(supplied)
-    for filename, content in physical_import_sources(artifacts).items():
-        name = filename.removesuffix(".yaml")
-        if name in supplied or name in aliases:
+    for filename, document in physical_model_documents(retained_physical_sources(artifacts)).items():
+        name = aliases.get(filename.removesuffix(".yaml"), filename.removesuffix(".yaml"))
+        if filename not in {"physical.yaml", "pdf-records.yaml", "pdf-staging.yaml"} and name in supplied:
             _fail("operation_source", name, "physical import conflicts with a declared module")
-        supplied[name] = content
+        supplied[name] = yaml.safe_dump(document, sort_keys=False).encode()
     schemas = {}
     try:
         for name, content in supplied.items():

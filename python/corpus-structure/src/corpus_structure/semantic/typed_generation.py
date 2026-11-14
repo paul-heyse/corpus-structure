@@ -74,5 +74,16 @@ def generated_source() -> str:
     )
 
 
+def generated_fates() -> str:
+    from .data_operation_protocol import generated_fate_source
+    from .metadata import PHYSICAL_MODEL
+
+    return _format(
+        "semantic/_data_operation_fates.py",
+        generated_fate_source(PHYSICAL_MODEL.with_name("data-operation-native.yaml").read_bytes()),
+    )
+
+
 if __name__ == "__main__":
     Path(__file__).with_name("_typed_columns.py").write_text(generated_source())
+    Path(__file__).with_name("_data_operation_fates.py").write_text(generated_fates())
