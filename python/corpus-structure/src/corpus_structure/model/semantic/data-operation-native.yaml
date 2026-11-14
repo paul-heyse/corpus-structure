@@ -256,6 +256,8 @@ definitions:
         $ref: '#/definitions/identifier'
       population:
         $ref: '#/definitions/identifier'
+      target_role:
+        $ref: '#/definitions/identifier'
     required:
     - producer
     - output_role

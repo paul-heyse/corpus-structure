@@ -877,3 +877,28 @@ def test_source_set_wire_uses_existing_semantic_reference_shapes(member):
     assert validate_wire_schema(schema, entry) == entry
     with pytest.raises(ValueError, match="wire violates"):
         validate_wire_schema(schema, {**entry, "reference": {**entry["reference"], "task_id": 0}})
+
+
+def test_discovery_role_wire_is_optional_closed_identifier():
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+
+    native = wire_contracts()["register_data_demand"]["input"]
+    schema = {
+        "$schema": native["$schema"],
+        "$ref": "#/definitions/discovery_selection",
+        "definitions": native["definitions"],
+    }
+    relation = {
+        "producer": "discover",
+        "output_role": "result",
+        "target": "profile",
+        "population": "selected",
+    }
+    assert validate_wire_schema(schema, relation) == relation
+    associated = {**relation, "target_role": "source"}
+    assert validate_wire_schema(schema, associated) == associated
+    for value in (None, "", 1):
+        with pytest.raises(ValueError, match="wire violates"):
+            validate_wire_schema(schema, {**relation, "target_role": value})
+    with pytest.raises(ValueError, match="wire violates"):
+        validate_wire_schema(schema, {**associated, "unknown": "source"})
