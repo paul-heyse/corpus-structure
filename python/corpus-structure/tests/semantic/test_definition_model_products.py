@@ -93,7 +93,7 @@ def test_definition_question_and_evaluation_choices_keep_distinct_native_receipt
 
     profile = gliner_profile().profile
     policy, _ = installed_policy()
-    item = GlinerInput("unit", "original-window", "Variance is spread.", "text.gliner_definitions/source-native")
+    item = GlinerInput("unit", "b" * 64, "Variance is spread.", "text.gliner_definitions/source-native")
     bare = definition_pack("release", DefinitionQuestion(profile))
     described = definition_pack("release", DefinitionQuestion(profile, description_arm="described"))
     assert bare.fingerprint != described.fingerprint
