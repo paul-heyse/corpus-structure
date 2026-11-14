@@ -1779,7 +1779,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         kinds[kind.semantic_id] = identity.key
         identities.append(
             EffectiveIdentity(
-                kind.semantic_id, identity.domain, identity.key, identity.canonical_input
+                kind.semantic_id, identity.domain, identity.key
             )
         )
     slices = {}
@@ -1791,7 +1791,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
             slices[implementation.root] = identity
             identities.append(
                 EffectiveIdentity(
-                    implementation.root, identity.domain, identity.key, identity.canonical_input
+                    implementation.root, identity.domain, identity.key
                 )
             )
     bindings = {binding.semantic_id: binding for binding in model.bindings}
@@ -1826,7 +1826,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         )
         identities += [
             EffectiveIdentity(
-                operation.semantic_id, identity.domain, identity.key, identity.canonical_input
+                operation.semantic_id, identity.domain, identity.key
             )
             for identity in (definition, eligibility)
         ]
@@ -1853,7 +1853,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         )
         identities.append(
             EffectiveIdentity(
-                operation.semantic_id, recipe.domain, recipe.key, recipe.canonical_input
+                operation.semantic_id, recipe.domain, recipe.key
             )
         )
     return tuple(identities)

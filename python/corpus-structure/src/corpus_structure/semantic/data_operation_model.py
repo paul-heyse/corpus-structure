@@ -21,8 +21,9 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v4"
-PREVIOUS_MODEL_VERSION = "data-operation-model-v3"
+MODEL_VERSION = "data-operation-model-v5"
+PREVIOUS_MODEL_VERSION = "data-operation-model-v4"
+LEGACY_MODEL_VERSION = "data-operation-model-v3"
 ARCHIVED_MODEL_VERSION = "data-operation-model-v2"
 
 
@@ -303,6 +304,12 @@ class EffectiveIdentity:
     owner: str
     domain: str
     key: str
+
+
+@dataclass(frozen=True)
+class ArchivedEffectiveIdentity(EffectiveIdentity):
+    """Expanded witnesses belong only to exact historical archive readback."""
+
     canonical_input: bytes
 
 
@@ -589,13 +596,18 @@ class EffectiveDataOperationModel:
             return value
 
         record = asdict(self)
+        legacy_model = self.version in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
+        if self.version not in {
+            MODEL_VERSION, PREVIOUS_MODEL_VERSION, LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION
+        }:
+            raise ValueError("unsupported archived data-operation model version")
 
         def binding_record(node):
             for operand in node["operands"]:
                 mode = operand["population_projection"]
                 if mode == "member":
                     operand.pop("population_projection")
-                elif self.version != MODEL_VERSION:
+                elif legacy_model:
                     raise ValueError("historical models cannot project population contexts")
             for child in node["children"]:
                 binding_record(child)
@@ -605,9 +617,9 @@ class EffectiveDataOperationModel:
         for operation in record["operations"]:
             if operation["external"] is None:
                 operation.pop("external")
-            elif self.version != MODEL_VERSION:
+            elif legacy_model:
                 raise ValueError("historical models cannot declare external executors")
-            if self.version != MODEL_VERSION:
+            if legacy_model:
                 if operation["output_witnesses"]:
                     raise ValueError("historical models cannot declare output witnesses")
                 operation.pop("consumer_selection")
@@ -616,7 +628,7 @@ class EffectiveDataOperationModel:
             for role in operation["roles"]:
                 if role["subject_target"] == "subject":
                     role.pop("subject_target")
-                elif self.version != MODEL_VERSION:
+                elif legacy_model:
                     raise ValueError("historical models cannot target original-source associations")
                 if role["subject_field"] is None:
                     role.pop("subject_field")
@@ -633,6 +645,9 @@ class EffectiveDataOperationModel:
             if self.graph_projections:
                 raise ValueError("historical v2 cannot declare current graph projections")
             record.pop("graph_projections")
+        identity_type = EffectiveIdentity if self.version == MODEL_VERSION else ArchivedEffectiveIdentity
+        if any(type(identity) is not identity_type for identity in self.identities):
+            raise ValueError("model identity representation differs from its archive version")
         return canonical_bytes(encode(record))
 
 
@@ -789,7 +804,7 @@ def _read_effective_data_operations_cached(content: bytes) -> EffectiveDataOpera
 
 
 def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
-    """Read current meaning or exact retained v2 meaning; never promote old interpretation."""
+    """Read compact current or exact expanded historical meaning without promotion."""
     from dataclasses import fields, is_dataclass
 
     from cattrs import Converter
@@ -799,11 +814,13 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
     if not isinstance(record, dict) or record.get("version") not in {
         MODEL_VERSION,
         PREVIOUS_MODEL_VERSION,
+        LEGACY_MODEL_VERSION,
         ARCHIVED_MODEL_VERSION,
     }:
         raise ValueError("unsupported archived data-operation model version")
     archived_v2 = record["version"] == ARCHIVED_MODEL_VERSION
     historical_model = record["version"] != MODEL_VERSION
+    legacy_model = record["version"] in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
     converter = Converter(forbid_extra_keys=True, detailed_validation=False)
 
     def structure_bytes(value, _):
@@ -817,17 +834,17 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
         historical: dict[str, Any] = (
             {"graph_projections": []} if cls is EffectiveDataOperationModel and archived_v2 else {}
         )
-        if historical_model and cls is ImplementationCapabilities:
+        if legacy_model and cls is ImplementationCapabilities:
             historical["stream_settlement"] = None
             historical["prepared_factory"] = None
-        if historical_model and cls is EffectiveOperation:
+        if legacy_model and cls is EffectiveOperation:
             historical["consumer_selection"] = None
         archived_fields = expected - historical.keys()
 
         def structure(value, _):
             if cls is BindingOperand and isinstance(value, dict):
                 value = {"population_projection": "member", **value}
-                if historical_model and value["population_projection"] != "member":
+                if legacy_model and value["population_projection"] != "member":
                     raise ValueError("historical models cannot project population contexts")
             if cls is InputSupport and isinstance(value, dict):
                 value = {
@@ -838,13 +855,13 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
                 }
             if cls is OperationRole and isinstance(value, dict):
                 value = {"subject_field": None, "subject_target": "subject", **value}
-                if historical_model and value["subject_target"] != "subject":
+                if legacy_model and value["subject_target"] != "subject":
                     raise ValueError("historical models cannot target original-source associations")
             if cls is EffectiveOperation and isinstance(value, dict):
-                if historical_model and value.get("output_witnesses"):
+                if legacy_model and value.get("output_witnesses"):
                     raise ValueError("historical models cannot declare output witnesses")
                 value = {"external": None, "result_fields": [], "output_witnesses": [], **value}
-                if historical_model and value["external"] is not None:
+                if legacy_model and value["external"] is not None:
                     raise ValueError("historical models cannot declare external executors")
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
@@ -854,4 +871,6 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
 
     converter.register_structure_hook(bytes, structure_bytes)
     converter.register_structure_hook_factory(is_dataclass, structure_record)
+    if historical_model:
+        converter.register_structure_hook(EffectiveIdentity, structure_record(ArchivedEffectiveIdentity))
     return converter.structure(record, EffectiveDataOperationModel)

@@ -1292,14 +1292,17 @@ def test_builtin_mapping_subclass_cannot_hide_runtime_lookup(tmp_path, monkeypat
 def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path, monkeypatch):
     from dataclasses import replace
 
-    from corpus_structure.semantic.data_operation_model import ARCHIVED_MODEL_VERSION
+    from corpus_structure.semantic.data_operation_model import (
+        ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION,
+    )
 
     model, inputs = fixture_source(tmp_path, monkeypatch, body='return "fixed"')
-    historical = replace(model, version=ARCHIVED_MODEL_VERSION, graph_projections=())
-    with pytest.raises(PortRefusal, match="historical model"):
-        resolve_python_port(
-            historical, inputs, model.operations[0].semantic_id, authorize=lambda _: None
-        )
+    for version in (ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION):
+        historical = replace(model, version=version, graph_projections=())
+        with pytest.raises(PortRefusal, match="historical model"):
+            resolve_python_port(
+                historical, inputs, model.operations[0].semantic_id, authorize=lambda _: None
+            )
 
 
 def test_static_correspondence_reuses_only_identical_captured_inputs():

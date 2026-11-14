@@ -101,9 +101,9 @@ def model(
         (),
         (),
         identities=(
-            EffectiveIdentity("urn:op", "definition", "definition:fixed", b"{}"),
-            EffectiveIdentity("urn:op", "eligibility", "eligibility:fixed", b"{}"),
-            EffectiveIdentity("urn:item", "kind", "kind:fixed", b"{}"),
+            EffectiveIdentity("urn:op", "definition", "definition:fixed"),
+            EffectiveIdentity("urn:op", "eligibility", "eligibility:fixed"),
+            EffectiveIdentity("urn:item", "kind", "kind:fixed"),
         ),
     )
 
@@ -195,7 +195,7 @@ def test_declared_abstract_input_accepts_transitive_concrete_kinds_without_relab
         identities=(
             *base.identities,
             *(
-                EffectiveIdentity(kind, "kind", contract, b"{}")
+                EffectiveIdentity(kind, "kind", contract)
                 for kind, contract in (
                     ("urn:middle", "kind:middle"),
                     ("urn:a", "kind:a"),
@@ -1493,8 +1493,8 @@ def test_population_projection_preserves_historical_bytes_and_is_explicit():
     from corpus_structure.semantic.data_operation_compilation import _expression
 
     historical = model(BindingExpression("scan", roles=("items",)))
-    for version in ("data-operation-model-v2", "data-operation-model-v3", MODEL_VERSION):
-        archived = replace(historical, version=version)
+    for version in ("data-operation-model-v2", "data-operation-model-v3", "data-operation-model-v4", MODEL_VERSION):
+        archived = replace(historical, version=version, identities=())
         assert b"population_projection" not in archived.content
         assert read_effective_data_operations(archived.content).content == archived.content
     parsed = _expression(
@@ -1620,7 +1620,7 @@ def test_sql_subject_field_can_target_original_source_without_relabeling_context
     assert b'"subject_target":"original-source"' in schema.content
     assert read_effective_data_operations(schema.content).content == schema.content
     for version in ("data-operation-model-v2", "data-operation-model-v3"):
-        archived = replace(base, version=version)
+        archived = replace(base, version=version, identities=())
         assert b"subject_target" not in archived.content
         assert read_effective_data_operations(archived.content).content == archived.content
         with pytest.raises(ValueError, match="historical"):

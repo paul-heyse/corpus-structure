@@ -13,7 +13,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
-    PREVIOUS_MODEL_VERSION,
+    LEGACY_MODEL_VERSION,
     read_effective_data_operations,
 )
 from corpus_structure.semantic.identity import claim_source_item__data_operation__
@@ -55,11 +55,11 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
 
 def test_exact_v3_archive_read_has_no_current_execution_authority():
     model = compile_data_operations()
-    previous = replace(model, version=PREVIOUS_MODEL_VERSION)
+    previous = replace(model, version=LEGACY_MODEL_VERSION, identities=())
     content = previous.content
     reopened = read_effective_data_operations(content)
     assert reopened.content == content
-    assert json.loads(content)["version"] == PREVIOUS_MODEL_VERSION
+    assert json.loads(content)["version"] == LEGACY_MODEL_VERSION
     with pytest.raises(ValueError, match="historical"):
         reopened.projection_graph("semantic-reference")
 

@@ -24,6 +24,7 @@ from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import ContextJSONB, json_bytes, json_context_equal, wire_json_loads
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
+    MODEL_VERSION,
     BindingExpression,
     BindingOperand,
     BoundRoleMember,
@@ -410,7 +411,7 @@ def compile_binding(
         raise ValueError("compiled binding differs from acquired subject context")
     if not subject:
         raise ValueError("binding requires a frozen subject")
-    if model.version != "data-operation-model-v4":
+    if model.version != MODEL_VERSION:
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
     available_source_sets = source_sets_record(source_sets)
