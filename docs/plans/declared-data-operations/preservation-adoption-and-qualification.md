@@ -62,6 +62,23 @@ snapshot or resumes target exact intents under fenced ownership. Do not pretend 
 rollback is safe. Exact effect authority, source freeze and target checks precede actual adoption.
 The series owns this execution; no other plan's final campaign is a prerequisite.
 
+### Source migration and historical custody — Ast-grep I01/I02/I04/I05
+
+Consume the [finite source-evolution workflow](source-evolution-and-migrations.md) when preparing
+current callers and references for adoption. Source preview/apply prepares checkout changes; it
+does not deploy native candidates, grant publication authority or rewrite frozen migrations,
+archives, protected answers or retained evidence. Use immutable forward successors through the
+existing native authoring/registration route. Preserve exact historical interpretation even when
+current code no longer needs the old implementation.
+
+Retire legacy selectors, codecs, compatibility dispatch and duplicate definitions with their actual
+migrated consumers. Do not retain a decoder merely because a synthetic legacy test exercises it;
+identify a real retained reader/recovery obligation or remove it while preserving useful independent
+expectations. Reacquire current work before editing: TS-19 already removed the pure identity helpers
+at `e1f62fa72`; the coordinator owns remaining CA-07 obligations. Keep TS-21 test transfer and TS-22
+evidence mapping at their existing owners. The migration's required consumer set must cover the
+actual public readers/references, not just a generated declaration or successful local rename.
+
 ## DDO-12 — Series-owned required qualification
 
 Define the required test identity union from the completed redesign and its preserved behaviors,
@@ -79,6 +96,7 @@ No test count or earlier successful campaign substitutes for the declared union.
 | Providers | Affected actual PDF capture/recognition/math-enrichment and supported visual/external adapter boundaries on bounded original source, plus selected spaCy/HanLP/formal/Maverick/DiPO/D1/GLiNER paths, source mapping and numerical/profile evidence; D1CUDA/BF16 and other learnedCUDA/FP32 preserved; no mock provider pass |
 | Reuse/change | New executable with unchanged recipe, semantic/model change, equal-content cutoff, changed support, membership addition/deletion/optional presence, newly applicable subjects and explicit replicates |
 | Serving/evaluation | Actual native/ci/MCP/resources, definition/assertion/all3contextual recipes, exact export/verify/detached replay; source and prediction releases separate; protected labels excluded from production |
+| Source evolution | Adopted finite transformations and ongoing `ci model change` preview/apply: independently expected source and domain meaning, actual migrated callers, complete required population, proposed-source compilation, staleness and concurrent/partial-apply recovery; former route removed |
 | Retained whole document | One frozen original316-view/518-page source demand, complete demanded-family fate/coverage account, controlled interruption/resume and exact completed-product preservation; no repeated PDF recognition merely to change identity |
 | Generality | Independently specified non-statistics context involving attributed/quoted material and meaningful relationships; no page/corpus-specific planner logic |
 
@@ -153,8 +171,14 @@ Astroid [inference](https://pylint.pycqa.org/projects/astroid/en/stable/inferenc
 Expected semantics must be independent of those same extraction paths. A fixture whose import would
 fail checks static acquisition; actual native/provider guarantees still need their existing real lanes.
 
-Retain pyrefly positive/negative nominal/protocol/SQL checks. Optional ty services/extensions/codemods
-are not required qualification unless adopted for an actual consumer. No benchmark, universal Python
+Retain pyrefly positive/negative nominal/protocol/SQL checks. Selected source migrations include
+their [independent acceptance cases](source-evolution-and-migrations.md#independent-acceptance-and-change-scenarios)
+in the applicable union: alias/shadow distinctions, explicit annotation-stage behavior, comments and
+Unicode/newline fidelity, required unknown refusal, changed source-set/import/transform premises,
+settled-after-byte retry and actual M1/contextual/structural caller behavior. Expected facts and source
+must not come from the same codemod used to produce actual output. Optional ty services/extensions,
+unused modernization commands and conditional ast-grep features are not required qualification unless
+adopted for an actual consumer. No benchmark, universal Python
 proof, architectural lint or four-engine voting campaign is introduced. Extraction/bootstrap must
 avoid self-referential identity and archived products must not reopen current code. Targeted checks
 accompany implementation; final broad union waits for complete functional replacement/retirement.

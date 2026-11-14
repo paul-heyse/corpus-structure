@@ -160,10 +160,42 @@ recomputation. DDO-10 derives documentation and comprehensive drift from effecti
 Griffe breakages alone. ty navigation is conditional; pyrefly remains checker. DDO-07/08 retire
 actual duplicated mappings/lists with consumers, while DDO-11 preserves archived interpretations.
 
+### Source evolution and model-update amendment · 2026-11-13
+
+Consumes [ast-grep/LibCST review I01–I06](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md)
+at `2e88d02db`. The operator selected full integration on 2026-11-13: owned regeneration,
+programmatic Python migrations and the bounded ongoing `ci model change preview/apply` capability
+are required planned scope. Ast-grep discovery remains conditional per actual consumer; adding its
+Python binding is not a prerequisite. The [source-evolution companion](declared-data-operations/source-evolution-and-migrations.md)
+owns technical contracts, detailed library references, conditional dispositions and settling cases.
+
+DDO-03 supplies explicit source-migration intent, proposed-source compilation and exact effect
+preparation. DDO-06/07 supply authentic binding/read/trust context and the first actual M1 caller
+migration; DDO-07/08 complete their full ordinary-consumer populations. DDO-10 exposes those same
+supported transformations as recurring operator preview/apply behavior. DDO-09 retains semantic
+change/reuse meaning; DDO-11/12 retain adoption, immutable history, retirement and qualification.
+No new DDO stage or second semantic/effect authority is introduced.
+
+Authored inputs change only through explicit owner-specific intent. Regenerate checkout-derived
+products through their owners; retain release-only calls/IDs/schemas in archive preparation.
+Required unresolved consumers prevent a coherent migration from becoming applicable. Existing apply
+remains retryable per-file publication, not multi-file atomicity. Bind source-universe membership,
+eligibility facts, transformation implementation/options and selected library identity alongside
+existing exact-byte/toolchain premises. Initial scope is finite named UTF-8 Python transformations.
+
+LibCST's programmatic codemod results, rename/import coordination, matcher/template construction
+and an explicitly qualified annotation stage are selected mechanisms for applicable migrations.
+Current Griffe/Astroid/conditional ty responsibilities and pyrefly remain unchanged. Ast-grep matches
+are syntax/candidate evidence; they cannot establish complete semantic dependency or caller closure.
+The complete capability catalogue keeps triggers and limits rather than scheduling every feature.
+No rule impact is presently selected; a real authority/publication change follows the existing
+confirmation/decision route. This is plan adoption, not implementation or renewed qualification.
+
 ## Reading and work-package ownership
 
 | Supporting plan | Owns design detail |
 |---|---|
+| [Source evolution and migrations](declared-data-operations/source-evolution-and-migrations.md) | Source-effect preparation, migration eligibility/results, library composition and ongoing preview/apply; DDO-03/07/08/10 with DDO-09/11/12 boundaries |
 | [Implementation contracts and fingerprints](declared-data-operations/implementation-contracts-and-fingerprints.md) | Shared Python/declaration authoring, extraction APIs, slice identities, derived contracts/drift and profile qualification |
 | [Graph projections and analysis](declared-data-operations/graph-projections-and-analysis.md) | Shared projection/algorithm/lifecycle contracts across DDO-01–12; complete capability selection and conditional triggers |
 | [Contracts and compilation](declared-data-operations/contracts-and-compilation.md) | DDO-01–03, semantic authority/IR, canonical identity and generated binding/port semantics |
@@ -191,14 +223,14 @@ native behavior. Product-family slices carry immediate consumers; no late consum
 | DDO-00 | Accepted RC01–09 and current code/data | Durable decisions/owner updates, complete operation/consumer inventory and preservation root classification; no destructive action before concrete closure |
 | DDO-01 | DDO-00 accepted mixed ownership | Both closed source/declaration frontends and one normalized operation/kind model; source/aggregate/effectful profiles represented |
 | DDO-02 | DDO-01 effective IR | Versioned canonical kind/subject/product/recipe/binding and admitted implementation-slice identities, independent expected examples |
-| DDO-03 | DDO-01/02 | Direct suitable typed invocation plus generated native/wire correspondence, fixed relational bindings and equivalent native/explanation semantics; no hidden selector authority |
+| DDO-03 | DDO-01/02 | Direct suitable typed invocation plus generated native/wire correspondence, fixed relational bindings and equivalent native/explanation semantics; explicit source-migration effect preparation; no hidden selector authority |
 | DDO-04 | DDO-01–03 implemented contracts | Native products/support/request/attempt/intent/fulfillment operations and purpose permissions work under real transactional controls |
 | DDO-05 | DDO-03/04 | Native frozen demand, declared discovery/aggregate closure, explicit producer selection and dependency-derived frontier |
 | DDO-06 | DDO-04 and DDO-05 resolved requests | Cross-demand coalescing, owned execution, fenced publication, exact uncertain replay, bounded drain and resume |
 | DDO-07 | DDO-01–06 usable vertical primitives | Capture/recognition/source and primary providers publish new products with their immediate consumers migrated |
 | DDO-08 | Same primitives + required DDO-07 products | Every downstream/structural/authored/external operation and effectful action realizes its declared profile; bypasses removed |
 | DDO-09 | DDO-02–04; integration with DDO-05–08 | Complete declared reuse, support-aware revocation/impact and modeled consolidation; remove conservative old mechanisms only after replacement works |
-| DDO-10 | DDO-04 selection; DDO-07–09 products | Pinned read/export/replay and protected assessment migrated together; no hidden inference or cross-snapshot meaning |
+| DDO-10 | DDO-04 selection; DDO-07–09 products | Pinned read/export/replay, protected assessment and supported operator model-update preview/apply; no hidden inference or cross-snapshot meaning |
 | DDO-11 | DDO-00 preserved closure + all target callers/native behavior | Coordinated forward adoption, disposable regeneration, verified source/reference custody and obsolete authority retirement |
 | DDO-12 | Complete functional DDO-00–11/frozen source | Series-owned applicable functional/native/fault/provider/nonfunctional union and retained-book/consumer qualification covered |
 
@@ -285,6 +317,22 @@ qualification unless selected for a concrete consumer. The shared companion owns
 | [Python I05](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md#I05) | DDO-00/01/03/07/08/11 consumer migration/removal | Duplicate signature/owner/version/dependency lists retired with real consumers; custody preserved |
 | [Python I06](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md#I06) | DDO-03/10/12 checker/public tooling boundary | pyrefly obligations preserved; any adopted ty inspection negotiates public supported API |
 | [Python I07](../plan_improvement_reviews/declared-data-operations-python-introspection_2026-11-12.md#I07) | DDO-01–12 preparation/profile/lifecycle qualification | Independent effective facts/slices, archived interpretation and adopted native/provider/consumer union |
+
+### Ast-grep/model-update review disposition · 2026-11-13
+
+Source-qualified IDs refer to review `2e88d02db`; they do not replace Python or NetworkX I01–I07.
+Required portions below are accepted planning amendments, **open for implementation**. Conditional
+rows retain their triggers in the source-evolution companion; no dependency or investigation quota
+follows from catalogue inclusion. This table alone owns scheduled disposition.
+
+| Source recommendation | Integrated responsibility and package owner | Required closure |
+|---|---|---|
+| [Ast-grep I01](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md#I01) | Required owner-specific propagation and owned generation, DDO-01/03/07/08/10 | Declaration-owned and implementation-owned changes reach derived products and actual handwritten consumers without inverse authority or patched generated artifacts. |
+| [Ast-grep I02](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md#I02) | Required applicable programmatic LibCST migrations, DDO-03/07/08/10 | Actual M1 first slice, contextual/structural challenge cases, complete required consumer population, qualified adopted rename/import/annotation behavior and retired former routing. |
+| [Ast-grep I03](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md#I03) | Conditional bounded discovery within DDO-00/07/08/10 | Existing discovery/CLI or embedded binding selected only when it removes concrete work; preserve attribution, coverage and unknowns. No second production frontend, persistent scanner or new lint gate. |
+| [Ast-grep I04](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md#I04) | Required ongoing explicit source-update preview/apply, DDO-03/10 with DDO-07/08 migration semantics | Proposed-snapshot compilation, typed per-consumer outcomes, exact file effects, complete staleness premises and honest partial-apply recovery; required unresolved sites prevent application. |
+| [Ast-grep I05](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md#I05) | Required selected-boundary fidelity, DDO-01/03/07/08 | Correct scope/alias/source identity, encoding/coordinates, parse validity, conflict handling and independent source/semantic expectations for the chosen backend. |
+| [Ast-grep I06](../plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md#I06) | Required qualitative execution fit, DDO-03/07/08/10 | Shared preparation and scoped file batches; no gratuitous second parse, journal, worker pool or resident index. No quantitative benefit claim without measurement. |
 
 ## DDO-00–02 execution receipt · 2026-11-12
 
@@ -861,7 +909,7 @@ design-audit findings.
 | DDO-CA-04 (F11/F13) | **Repair present; final acceptance open.** Native fate/expansion/revocation/pending read branches enforce affected kind universes (`sql/data_operations.sql:483–487,512–516,1159–1172,1184–1188`). Valid typed writer/evaluator probes reached the guards in native 10/10, `8dc2c54a9a8f44cfa38f40302d5eec15`; broad selector authorization remains explicit. | DDO-04 retains actual principal, unchanged-fate/trust and final-source qualification. No additional purpose defect was established in this inspection. |
 | DDO-CA-05 (F05) | **Still implementation-incomplete in discovery.** Request/product context and exact numeric/null controls are implemented under ADR-0100, but `close_data_population`, `sql/data_operations.sql:543–544`, groups only by `member->>'subject'`. Publication accepts distinct member IDs/full contexts (`:917–942`); closure rejects members named `local` with scopes page1/page2. Native expansion (`:493–503`) and planner forwarding (`data_operation_demands.py:402–413`) already retain complete context. | **Open; DDO-02/03/04/05.** Qualify ambiguity by complete authenticated context with JSONB scope meaning; retain refusal of truly duplicate complete contexts. Exercise native publish→close→expand→attach→publish for both scopes. Use normal forward native authoring; leave frozen v5 unchanged. |
 | DDO-CA-06 (NetworkX I01; F01/F02) | **Missing accepted projection-definition prerequisite.** Graph companion §I01 requires compiled source/selection, node/relationship/orientation, unresolved-reference/completeness and analysis interpretation. `EffectiveDataOperationModel`, `data_operation_model.py:378–387`, has no equivalent projection definition. Kind `projection_families` validates packet access, while `SemanticGraph`, `data_operation_identity.py:194–337`, supplies pure authenticated topology kernels. `freeze_demand`, `data_operation_demands.py:107–118,177`, chooses dependency connectivity directly. Those useful subsets do not supply the governing projection contract. | **Open; DDO-01/03.** Compile/admit/archive the named projection interpretation in the effective model and have graph construction/analysis consume it, with independent fidelity/completeness controls. This does not pull later DDO-04/08/09/10 consumers forward or require a separate graph registry/service. |
-| DDO-CA-07 (hard-target retirement; Python I05) | **Avoidable compatibility remains.** Current authoring accepts `ARCHIVED_MODEL_VERSION` then emits current v2 (`data_operation_compilation.py:770,1480`). Context-incomplete `subject_identity`/`product_identity` (`data_operation_identity.py:407–434`) have only mechanism tests, and `trusted_data_operation_calls = native_operation_calls` (`data_operation_storage.py:303`) has no repository caller. No concrete retained v1-model instance was identified in the inspected authored-source/preservation owners; synthetic v1 tests are not such a consumer. | **Open; DDO-01/02/03 retirement.** Move declaration fixtures/examples to the current version; remove old-version authoring acceptance, obsolete helpers/alias and mechanism-only controls while preserving useful independent expectations against current identities. Reconcile TS-19's existing helper-deletion handover without duplicating status. Retain a historical decoder only for a specifically identified retained reader/recovery obligation; otherwise retire it too. Frozen migration/evidence bytes stay immutable. |
+| DDO-CA-07 (hard-target retirement; Python I05) | **Avoidable compatibility remains.** Current authoring accepts `ARCHIVED_MODEL_VERSION` then emits current v2 (`data_operation_compilation.py:770,1480`). Context-incomplete `subject_identity`/`product_identity` (`data_operation_identity.py:407–434`) have only mechanism tests, and `trusted_data_operation_calls = native_operation_calls` (`data_operation_storage.py:303`) has no repository caller. No concrete retained v1-model instance was identified in the inspected authored-source/preservation owners; synthetic v1 tests are not such a consumer. | **Open; DDO-01/02/03 retirement.** Move declaration fixtures/examples to the current version; remove old-version authoring acceptance, obsolete helpers/alias and mechanism-only controls while preserving useful independent expectations against current identities. TS-19 removed the pure identity helpers at `e1f62fa72`; retain that bounded implementation evidence and do not schedule their deletion again. Reconcile remaining retirement with TS-19 without duplicating status. Retain a historical decoder only for a specifically identified retained reader/recovery obligation; otherwise retire it too. Frozen migration/evidence bytes stay immutable. |
 
 ### Hard-target retirement and closely related adjacent code
 
@@ -882,7 +930,7 @@ by existing packages rather than a second retirement plan.
 | Dual admission/task/PDF runtime branches | `semantic/execution_admission.py:52–91`; `sql/execution_guards.sql:4–24` and old lifecycle branches; `pdf_staging_native.py:55–74,87–103,114–139`. | DDO-06/07/08/11: authenticate transition of actual live task/build custody, migrate callers and remove executable legacy branches. They are not frozen historical artifacts. |
 | Task/run-origin serving, reuse and fallback projections | `runtime_binding_store.py:56–84` is reached by `serve/selected_source.py:338–384`; DDO-09/10 already name copied reuse/task-dependency/currentness and pinned-reader/export migration. | DDO-09/10/11: move actual readers and durable references, then retire current runtime fallback paths. Archive-only `legacy_runtime_binding` refuses current execution compilers (`runtime_bindings.py:259–277`); preserve necessary original interpretation through concrete frozen custody/import, not a second current execution authority. |
 | Authored graph cycle misclassification | `semantic/domain_operations.py:1646–1658` labels every unprocessed `TopologicalSorter` node cyclic, including a tail blocked by a cycle. | Existing DDO-08 / NetworkX I02–I03: SCC/condensation distinguishes actual cycle members, blocked descendants, self-loops and unrelated work. This known open obligation is not renamed as a new finding. |
-| Dead current helpers and v1 authoring compatibility | CA-07 above. Historical v1 reader/re-export branches are `data_operation_model.py:423–440,583–640`; no concrete retained target-v1 consumer was established in this bounded search. | CA-07 owns immediate retirement; identify an actual historical interpretation need before retaining decoder machinery. TS-19's proposed deletion work is a handover, not proof of completion. |
+| Current v1 authoring compatibility and remaining aliases | CA-07 above. Historical v1 reader/re-export branches are `data_operation_model.py:423–440,583–640`; no concrete retained target-v1 consumer was established in this bounded search. | CA-07 owns remaining retirement; identify an actual historical interpretation need before retaining decoder machinery. TS-19 removed the pure identity helpers at `e1f62fa72`; this bounded delivery does not close other CA-07 obligations. |
 | Frozen native revisions / rejected never-deployed archive-v1 evidence | The registered v2–v5 wrappers and payloads implement exact predecessor custody; rejected v1 is preserved outside active Alembic discovery. | Keep immutable historical bytes and required retained evidence. Their retention does not justify a current fallback API, and audit authorization does not permit rewriting migrations or dropping preserved data. |
 
 ### Verification, qualification and benefit limits
@@ -1049,8 +1097,9 @@ or evidence files. Authoring publication checks are separate from product qualif
 **Implementation remains paused.** The current audit records outstanding work; it does not restart
 repairs or the cancelled campaign. On the operator's resumption, address CA-01's captured builtin
 closure/authentication, CA-05's complete-context discovery, CA-06's compiled projection prerequisite
-and CA-07's avoidable compatibility. Native changes require normal successor authoring after frozen
-v5. Migrate ordinary consumers and remove the adjacent legacy footprint under their existing
+and CA-07's remaining avoidable compatibility. Integrate the selected source-evolution slices above
+with actual consumers; they are new planned obligations, not completed capabilities. Native changes
+require normal successor authoring after frozen v5. Migrate ordinary consumers and remove the adjacent legacy footprint under their existing
 DDO-06–11 owners before claiming those replacements complete.
 
 After repairs, reassess affected evidence against final source/context and qualify the required

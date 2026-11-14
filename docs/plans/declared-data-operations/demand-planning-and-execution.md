@@ -83,6 +83,13 @@ derivations/receipts, selected fulfillment and explicit failure/uncertainty outc
 packages replace actual adapter reads and writers against these interfaces. Public read/evaluation
 packages consume the same pinned demand result; they do not derive a second completion algorithm.
 
+The [source-evolution amendment](source-evolution-and-migrations.md#package-slices-actual-consumers-and-retirement)
+consumes these working contracts when migrating actual callers. DDO-06/07 must expose authentic
+model/binding, demand/read identity, trust snapshot and capacity context for the first M1 slice;
+source editing cannot infer or fabricate them. A source-preview consumer universe is a maintenance
+scope, distinct from the modeled domain discovery population. Applying a source update neither
+creates a corpus demand nor bypasses native readiness/admission or CA-05's complete-context repair.
+
 ## DDO-05 — demand, discovery and eligibility
 
 ### Selected relational semantics

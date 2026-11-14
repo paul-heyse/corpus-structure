@@ -237,3 +237,10 @@ supported profile and explicit opaque boundaries must justify reusable slice com
 implementation references are finite graphs, not hash recursion or admitted execution iteration.
 Do not create another mirror, scheduler or private canonicalization. Docstrings/annotations/source
 positions remain governed by the shared normalization/reflection policy, not arbitrary display filters.
+
+For [source-migration discovery and eligibility](source-evolution-and-migrations.md#preparation-coverage-and-publication),
+keep structural candidates separate from resolved semantic correspondences and complete consumer
+coverage. Neither ast-grep captures nor a LibCST qualified-name membership establishes a unique
+operation binding, data/support edge or absence of other callers. Proposed-source compilation uses
+the declared projection definitions above; syntactic rewrites cannot close CA-06's missing compiled
+projection prerequisite. Do not introduce a second graph or persisted matcher registry for edits.

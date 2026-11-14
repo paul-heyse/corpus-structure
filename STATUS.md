@@ -27,9 +27,9 @@ _Updated 2026-11-13. DDO completion reassessment found remaining implementation 
 - **Implementation paused.** Audit authorization changes plans/evidence only. On resumption, repair the coordinator's remaining functional/retirement obligations before final qualification; source changes require reassessing affected old passes, not merely retrying the 199 unresolved identities.
 - Keep DDO-06 native streams, DDO-07–10 cutovers, DDO-11 adoption and DDO-12 provider/book/fault qualification open. Clean worker worktrees remain for cleanup after qualification. Concurrent test-system work and operator AGENTS.md edits are preserved. No push.
 
-## DDO model-update improvement review · 2026-11-13
+## DDO source-evolution plan amendment · 2026-11-13
 
-- **Published, Proposed:** the [ast-grep/LibCST review](docs/plan_improvement_reviews/declared-data-operations-ast-grep_2026-11-13.md) assesses finite DDO migration and ongoing `ci` preview/apply updates separately. It recommends owned regeneration, programmatic LibCST migration and conditional structural discovery; no second production frontend or synchronization platform is selected. DDO plan revision and implementation remain separate. Concurrent test-infrastructure work is preserved.
+- **Integrated into the accepted plan; implementation Proposed:** the [coordinator disposition](docs/plans/declared-data-operations_2026-11-12.md#ast-grepmodel-update-review-disposition--2026-11-13) owns review I01–I06. The new [source-evolution companion](docs/plans/declared-data-operations/source-evolution-and-migrations.md#selected-library-mechanisms-and-required-contracts) specifies LibCST APIs/references, owned regeneration, actual caller migration, ongoing explicit preview/apply, staleness/recovery and conditional ast-grep triggers. All affected companions carry their integration and retirement obligations. Implementation remains paused; concurrent test-infrastructure work is preserved.
 
 ## Test system: execution in progress · 2026-11-13
 

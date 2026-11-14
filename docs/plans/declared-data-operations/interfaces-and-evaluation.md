@@ -30,6 +30,30 @@ they do not perform hidden NLP, recompute derivations or select newest products.
 authentication and current-trust checks retain their necessary boundary protection. Immutable product
 validity need not be reconstructed at every internal hop.
 
+## Explicit model-update preview/apply — Ast-grep I01/I02/I04–I06
+
+DDO-10 exposes supported ongoing source changes through existing `ci model change preview/apply`,
+using the typed request, outcomes and [source-evolution workflow](source-evolution-and-migrations.md#consumed-and-delivered-interface)
+prepared in DDO-03 and exercised on actual DDO-07/08 callers. This is explicit operator maintenance;
+ordinary read/inspection requests retain their read-only contract. An authored model edit does not
+automatically rewrite code or execute corpus work.
+
+Preview displays the selected owner/correspondence and required consumer population, per-consumer
+changed/already-satisfied/excluded/ambiguous/unsupported/unresolved standing, warnings and exact
+candidate file effects. Required unresolved sites block application of that coherent migration;
+candidate effects remain inspectable for resolution and fresh preview. Generated archive products
+retain their release-preparation route. Public read/export callers require their actual pinned
+DemandResult contract before a source migration can claim them covered.
+
+Use the same programmatic transformation semantics as finite family cutover and the existing apply
+writer. The [publication contract](source-evolution-and-migrations.md#preparation-coverage-and-publication)
+binds proposed-source compilation, source-set membership/import facts, transform code/options and
+library identity to staleness. Retain concurrent-edit refusal, settled-after-byte retry and honest
+mid-apply recovery; no multi-file atomicity is promised. Acceptance pairs an independently specified
+model/interface update with actual migrated callers, refusal for missing authentic context, changed
+consumer population after preview and repeat application. No second writer, watcher or arbitrary
+user-authored matcher endpoint is added.
+
 ## Protected assessment
 
 Model assessment/reference authoring as specialized profiles with purpose-restricted capabilities.

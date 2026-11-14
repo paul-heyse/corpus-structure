@@ -349,6 +349,28 @@ failed/unknown role, cardinality, scope, family, selection or witness. A human e
 introduces another classifier. Live publication rechecks mutable admission under its native
 fences; a previously compiled/query-valid binding cannot authorize an effect by itself.
 
+### Explicit source effects and proposed-source compilation — Ast-grep I01/I02/I04/I05
+
+DDO-03 extends the existing typed model-change request and preview products with finite, explicit
+source migrations under the [source-evolution contract](source-evolution-and-migrations.md#consumed-and-delivered-interface).
+The request names the authored owner and old→new semantic correspondence; an effective model is
+not permission to rewrite the Python source from which it was extracted. Declaration-owned changes
+regenerate mechanical products, while implementation-owned changes first edit their authorized
+definition and then compile the proposed snapshot through the ordinary effective-model frontends.
+
+Compose programmatic LibCST outcomes with existing `FileEffect`s, retaining required unresolved,
+ambiguous, skipped and unsupported consumers in the preview. Compile candidate implementation recipes
+and correspondences against proposed inputs before readiness; checking only old-release signatures
+would miss a changed body or domain obligation. The [selected API and lifecycle table](source-evolution-and-migrations.md#selected-library-mechanisms-and-required-contracts)
+owns `transform_module`, context, rename/import/annotation composition and their detailed references.
+It also owns exact staleness premises and the UTF-8/file-publication support boundary.
+
+Keep archive-only generated calls/IDs/schemas in `data_operation_artifacts.py` preparation and
+`verify_release_products`. Regenerate any actual checkout product through its owning renderer;
+do not introduce checkout copies merely to give a codemod something to edit. DDO-03 completion
+includes preparation and independent requested-change/consumer cases; DDO-07/08 supply actual
+family migration and DDO-10 exposes those same semantics to ongoing operator requests.
+
 ## Package acceptance and independent checks
 
 Each package delivers its consumers and retires superseded compiler/protocol machinery for that

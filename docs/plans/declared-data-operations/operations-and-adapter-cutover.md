@@ -118,8 +118,34 @@ interpretation family and one simple algorithm as initial shapes; do not convert
 Python authority or infer domain effects from signatures. Existing providers keep explicit source,
 config/numerical/support and capability contracts. Static plugin discovery does not grant execution.
 
-LibCST [codemods/import coordination](https://libcst.readthedocs.io/en/latest/codemods.html) are
-conditional tools for actual source-preserving migration. Keep adequate AST generation and native SQL
-analysis. Require independent same-signature/body-change, inherited-value, metadata-export and nominal
+Programmatic LibCST migration and native import coordination are selected for applicable changed
+Python consumers under the [source-evolution amendment](source-evolution-and-migrations.md).
+Keep adequate AST generation and native SQL analysis. Require independent same-signature/body-change, inherited-value, metadata-export and nominal
 port cases; no parallel registration or handwritten parameter list should remain necessary to add
 one supported operation. Language extraction semantics and protected evaluation remain preserved.
+
+## Source migrations with actual caller adoption — Ast-grep I01–I06
+
+Use the complete operation/consumer inventory above to define each migration's required population;
+the first example does not limit replacement scope. Start with an actual M1 caller slice: the common
+orchestrator's former `method.select(view, config.config)` route must reach the admitted binding and
+`select_bound_native`/`select_hydrated` capability through its authentic context. DDO-06/07 must supply
+the model/binding, demand/read identity, trust snapshot and byte bound before this migration is
+eligible. A symbol rename cannot manufacture them. Do not add a method-name exception, default
+subject or compatibility dispatch in the common runtime to satisfy the transformation.
+
+Compose selected [LibCST runner, metadata, matchers/templates and import helpers](source-evolution-and-migrations.md#selected-library-mechanisms-and-required-contracts)
+with explicit semantic correspondences. Author signature/call reshaping deliberately; use the
+qualified annotation stage only for authoritative annotation changes. Next use contextual occurrence
+selection and structural passage/reading selection as challenge cases for distinct source, role,
+order and population meaning. Independently check actual caller behavior as well as source output.
+Extend the supported migration semantics across every affected family and reader in the inventory.
+
+Candidate discovery may use existing LibCST facts or bounded ast-grep CLI queries; an embedded
+binding requires the [conditional consumer and contract decision](source-evolution-and-migrations.md#conditional-capability-coverage).
+Record changed, already satisfied, excluded and unresolved consumers explicitly. A required dynamic
+or ambiguous site prevents applying the coherent migration until resolved; it cannot disappear from
+coverage because a search returned no match. Remove former selectors/input digests, registrations,
+manual dependency lists and mechanism-only controls with their migrated callers. Keep useful
+algorithm kernels, semantic expectations and original custody. DDO-10 reuses these finite supported
+transformations; it does not introduce another migration framework or runtime selection authority.

@@ -52,6 +52,22 @@ support path is usable only when explicitly admitted by the consumer contract; r
 revocation appends a new derivation generation. Retry, revocation and requested replicate remain
 different operations. Serving an old snapshot is distinct from assessing its current trust.
 
+## Proposed-source changes use the same change semantics — Ast-grep I01/I04/I06
+
+Consume [source-evolution preparation](source-evolution-and-migrations.md#preparation-coverage-and-publication)
+as proposed effective facts, implementation revisions and generated correspondences. DDO-09 compares
+them through the existing definition/recipe/eligibility projections above. A changed source byte,
+successful codemod or syntactic graph similarity does not independently establish changed result
+meaning or authorize recomputation. Missing source/import or semantic premises remain unknown;
+resolved syntax alone does not close CA-01/05/06.
+
+An operator may inspect and apply an eligible source update without executing a corpus demand.
+Later requested execution follows normal admission, affected-subject determination and equal-value/
+support cutoff. Independently distinguish a signature/domain change, a relevant helper/body change,
+an unrelated edit, eligibility widening and a conservative recipe change whose output stays equal.
+Keep old products and interpretation intact. Migration preview staleness belongs to the source-effect
+owner, while semantic currentness and reuse remain here; do not build a second invalidation engine.
+
 ## Consolidation is inside the total model
 
 Declare consolidation/materialization as an operation over a cut selection: exact semantic products,
