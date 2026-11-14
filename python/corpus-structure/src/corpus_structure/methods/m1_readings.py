@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.reading_resolution_products import EVENT_PROCEDURE, RECIPE, reading_diagnostics
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.record_policy import (
@@ -27,8 +28,6 @@ from .record_readings import interpret_candidate_readings
 
 METHOD = "resolve.m1_readings"
 UPSTREAM = "extract.m1_candidates"
-RECIPE = "retained-m1-reading-resolution-1"
-EVENT_PROCEDURE = "independent-complete-reading-logistic-1"
 
 
 class M1ReadingConfig(BaseModel):
@@ -111,16 +110,6 @@ def _historical(reader, view, cfg):
     return matches[0]
 
 
-def reading_diagnostics(row, details):
-    """Select exact group diagnostics once even when the decoder repeats a group."""
-    group_ids = {d for d in row["computation_dependencies"] if d.startswith("native-group:")}
-    unique = {}
-    for report in details.get("reports", ()):
-        for diagnostic in report.get("diagnostics", ()):
-            if diagnostic.get("group_dependency") in group_ids:
-                key = canonical_bytes({k: v for k, v in diagnostic.items() if k != "group"})
-                unique.setdefault(key, diagnostic)
-    return list(unique.values())
 
 
 class M1Readings:

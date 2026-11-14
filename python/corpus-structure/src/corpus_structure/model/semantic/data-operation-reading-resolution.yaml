@@ -1,0 +1,21 @@
+id: https://corpus-structure.dev/semantic/data-operation-reading-resolution
+name: data_operation_reading_resolution
+prefixes:
+  reading: https://corpus-structure.dev/semantic/data-operation-reading-resolution/
+default_prefix: reading
+default_range: string
+imports: [data_operation_candidate_inspection]
+classes:
+  DdoReadingFeaturePolicy:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {required: true, equals_string: reading-feature-policy-1}
+      recipe: {required: true, equals_string: retained-m1-reading-resolution-1}
+      subset: {required: true}
+      feature_instances: {range: SourceValue, inlined: true, required: true}
+  DdoResolvedReadingReport:
+    is_a: DdoCandidateInspectionReport
+    description: Private retained reading alternatives with actual fitted feature/event scores; no admission or coupled inference.
+    attributes:
+      reading_policy_digest: {required: true}
+      reading_events: {range: SourceValue, inlined: true, required: true}
