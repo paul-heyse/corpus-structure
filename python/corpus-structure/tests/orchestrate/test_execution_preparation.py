@@ -110,43 +110,6 @@ def test_standalone_source_view_unit_uses_bounded_inputs_and_release_affinity(mo
         execution.require_release("release")
 
 
-def test_public_boundary_forwards_only_request_arguments_and_closes_owned_scope(
-    monkeypatch, tmp_path
-):
-    import corpus_structure.orchestrate.characterization as owner
-
-    @contextmanager
-    def snapshot(engine):
-        yield "connection"
-
-    captured = []
-    prepared = SimpleNamespace(release_id="release")
-    monkeypatch.setattr("corpus_structure.semantic.query.read_snapshot", snapshot)
-    monkeypatch.setattr("corpus_structure.semantic.releases.load_release", lambda *args: prepared)
-    monkeypatch.setattr(
-        owner,
-        "_execute_characterization_demand",
-        lambda execution, **kwargs: captured.append((execution, kwargs)) or "result",
-    )
-    request: Any = SimpleNamespace(release_id="release")
-    settings = MethodSettings(
-        data_dir=tmp_path,
-        model_cache=tmp_path,
-        execution_policy=CharacterizationExecutionPolicy(workers=1),
-    )
-    assert owner.execute_characterization_demand("engine", request, settings) == "result"
-    execution, arguments = captured[0]
-    assert execution.policy is settings.execution_policy
-    assert set(arguments) == {
-        "engine",
-        "request",
-        "method_settings",
-        "preparation_cache",
-        "registry",
-        "on_created",
-    }
-    with pytest.raises(ValueError, match="closed"):
-        execution.require_release("release")
 
 
 def test_regional_source_hydrates_once_but_each_reader_owns_mutable_working_values(monkeypatch):

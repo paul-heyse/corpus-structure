@@ -266,7 +266,7 @@ def test_native_progress_queries_parse_and_page_under_exact_uuid_scope(monkeypat
         project_id="project",
         release_id="release",
         input_realization_id="input",
-        options=link.options(),
+        options={"source_operation": link.model_dump(mode="json")},
         has_characterization_demand=True,
     )
     calls = []
@@ -344,9 +344,9 @@ def test_native_progress_queries_parse_and_page_under_exact_uuid_scope(monkeypat
                             input_realization_id="input",
                             status="finished",
                             sealed=True,
-                            options=SourceOperationLink(
+                            options={"source_operation": SourceOperationLink(
                                 operation_id=OPERATION, role="capture"
-                            ).options(),
+                            ).model_dump(mode="json")},
                             has_demand=False,
                         ),
                         dict(
@@ -357,7 +357,7 @@ def test_native_progress_queries_parse_and_page_under_exact_uuid_scope(monkeypat
                             status="running",
                             sealed=False,
                             options={
-                                **link.options(),
+                                "source_operation": link.model_dump(mode="json"),
                                 "characterization_region": 0,
                                 "characterization_stage": ["text.test"],
                             },

@@ -201,15 +201,19 @@ def execute_request(
                 target = acquired_target(connection, purpose="write")
                 if source_request is not None:
                     from corpus_structure.orchestrate.source_operation import prepare_source_demand
+                    from corpus_structure.semantic.releases import load_release
 
-                    request = prepare_source_demand(connection, source_request)
+                    prepared = load_release(connection, source_request.release_id)
+                    request = prepare_source_demand(connection, source_request, prepared=prepared)
+                else:
+                    prepared = None
                 if request is not None:
                     if project is not None and request.project_id != project:
                         raise ValueError("request belongs to another project")
                     path = invocation.directory / "request.json"
                     path.write_bytes(json_bytes(request.model_dump(mode="python")))
                     invocation.publish("request", path)
-                    snapshot = create_native_demand(connection, request)
+                    snapshot = create_native_demand(connection, request, prepared=prepared)
                     demand = snapshot["demand_id"]
                 else:
                     assert demand is not None

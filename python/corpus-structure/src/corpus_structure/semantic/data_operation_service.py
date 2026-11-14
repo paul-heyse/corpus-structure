@@ -125,11 +125,15 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
     )
 
 
-def create_native_demand(connection: Connection, request: NativeDemandRequest) -> dict[str, Any]:
+def create_native_demand(
+    connection: Connection, request: NativeDemandRequest, *, prepared=None
+) -> dict[str, Any]:
     """Authenticate retained runtime custody before admitting the compiled intent."""
     from .runtime_binding_store import runtime_binding_for_release
 
-    prepared = load_release(connection, request.release_id)
+    prepared = load_release(connection, request.release_id) if prepared is None else prepared
+    if prepared.release_id != request.release_id:
+        raise ValueError("prepared source request belongs to another release")
     runtime_binding_for_release(connection, prepared, request.runtime_id)
     intent = freeze_native_demand(prepared, request)
     planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))

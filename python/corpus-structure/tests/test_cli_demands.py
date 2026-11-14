@@ -28,6 +28,13 @@ def routing(monkeypatch):
 
     monkeypatch.setattr(demands, "ENGINE", engine)
     monkeypatch.setattr(
+        demands, "read_data_demand",
+        lambda conn, demand, **options: {
+            "demand_id": demand, "project_id": "project:one",
+            "release_id": "release:one", "runtime_id": "runtime:one",
+        },
+    )
+    monkeypatch.setattr(
         demands,
         "acquired_target",
         lambda conn, *, purpose: StorageTarget(
@@ -46,7 +53,7 @@ def test_demand_help_has_no_settings_or_database_effects(cli):
     def refuse():
         raise AssertionError("help must not resolve settings")
 
-    for action in ((), ("create",), ("read",), ("cancel",), ("execute",)):
+    for action in ((), ("create",), ("plan",), ("read",), ("cancel",), ("execute",)):
         result = cli("demands", *action, "--help", settings=refuse)
         assert result.exit_code == 0, result.output
 

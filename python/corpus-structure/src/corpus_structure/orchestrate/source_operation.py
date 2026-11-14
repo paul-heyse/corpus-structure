@@ -21,7 +21,9 @@ from .source_request import NamedScope, NamedSlice, PackDefault, SourceRequestEr
 CommandError = SourceRequestError
 
 
-def prepare_source_demand(connection, request: SourceRunRequest, *, domains: Path | None = None):
+def prepare_source_demand(
+    connection, request: SourceRunRequest, *, domains: Path | None = None, prepared=None
+):
     """Acquire exact immutable originals; frozen declarations own executable closure.
 
     Pack files provide only source-selection conveniences. Provider configuration,
@@ -43,7 +45,9 @@ def prepare_source_demand(connection, request: SourceRunRequest, *, domains: Pat
     from .commands import resolve_source_domain
     from .slices import records
 
-    prepared = load_release(connection, request.release_id)
+    prepared = load_release(connection, request.release_id) if prepared is None else prepared
+    if prepared.release_id != request.release_id:
+        raise SourceRequestError("prepared source request belongs to another release")
     model = bound_data_operation_model(prepared)
     domain = resolve_source_domain(
         connection, request.project_id, request.release_id, request.domain, domains=domains
@@ -140,11 +144,11 @@ def prepare_source_demand(connection, request: SourceRunRequest, *, domains: Pat
             and "computation" in role.support.origins
             and set(input_kind_refinements(model, (role.kind,))[role.kind]).intersection(member_kinds)
         ]
-        if len(roles) != 1:
-            raise SourceRequestError("source target requires one declared discovered-source role: " + operation_id)
+        if len(roles) > 1:
+            raise SourceRequestError("source target has ambiguous discovered-source roles: " + operation_id)
         discoveries.append(DemandDiscoverySelection(
             producer=producer, output_role="result", target=operation_id,
-            population="selected-source-views", target_role=roles[0].name,
+            population="selected-source-views", target_role=roles[0].name if roles else None,
         ))
     root_targets = tuple(target for target in targets if model.operation(target).subject != "original-source-view")
     native = NativeDemandRequest(
@@ -161,10 +165,6 @@ def prepare_source_demand(connection, request: SourceRunRequest, *, domains: Pat
         ) for value in (*originals, *acquired_views)},
         inference=request.inference, execution_profile=request.execution_profile,
     )
-    # Validate complete frozen meaning before creating any durable native intent.
-    from corpus_structure.semantic.data_operation_service import freeze_native_demand
-
-    freeze_native_demand(prepared, native)
     return native
 
 
@@ -172,9 +172,12 @@ def run_source_operation(
     engine, request: SourceRunRequest, method_settings, *, source_root: Path,
     admission_engine=None, domains: Path | None = None, on_registered=None,
 ):
+    from corpus_structure.semantic.releases import load_release
+
     with engine.begin() as connection:
-        native_request = prepare_source_demand(connection, request, domains=domains)
-        snapshot = create_native_demand(connection, native_request)
+        prepared = load_release(connection, request.release_id)
+        native_request = prepare_source_demand(connection, request, domains=domains, prepared=prepared)
+        snapshot = create_native_demand(connection, native_request, prepared=prepared)
     if on_registered is not None:
         on_registered(snapshot)
     return execute_data_demand(

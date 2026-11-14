@@ -173,7 +173,6 @@ def run_source_methods(
     execution_preparation: Any = None,
     regional_preparation: Any = None,
     source_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
-    freshness_seed: str | None = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
     arguments = locals()
@@ -290,7 +289,6 @@ def _source_run_plan(
     execution_preparation: Any = None,
     regional_preparation: Any = None,
     source_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
-    freshness_seed: str | None = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> Generator[Any, Any, BoundRunReport]:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
@@ -512,9 +510,6 @@ def _source_run_plan(
             )
         if graph.policy_propose:
             library_names.update(("rapidfuzz", "regex", "rule-engine"))
-        from .characterization_recovery import native_thread_profile
-
-        execution_native_profile = native_thread_profile(cpu_execution.policy)
         dependency_manifest = {
             **(
                 {
@@ -724,12 +719,6 @@ def _source_run_plan(
                             # Reused parent invocations share the same immutable producer.
                             # A fresh origin invalidates the child even if its digest omits custody.
                             inputs.append(["source_producer_origin", producer.origin_task_id])
-                        from .characterization import PRIMARY_PRODUCERS
-
-                        if method.name in PRIMARY_PRODUCERS:
-                            inputs.append(["execution_native_profile", execution_native_profile])
-                        if freshness_seed is not None and method.name in fresh:
-                            inputs.append(["characterization_freshness", freshness_seed])
                         ih = sha256(canonical_bytes(inputs)).hexdigest()
                         task_id = create_task(
                             conn,
@@ -741,7 +730,7 @@ def _source_run_plan(
                             unit_key=ref.unit_key,
                             input_hash=ih,
                             packet_hash=digest.packet_hash,
-                            fresh=method.name in fresh and freshness_seed is None,
+                            fresh=method.name in fresh,
                         )
                         if ref.unit_type == TaskUnitType.DOCUMENT and ref.unit_id is not None:
                             task_table = table("ops.task")
