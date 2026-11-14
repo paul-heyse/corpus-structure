@@ -607,7 +607,7 @@ RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_cata
  AND ((coalesce(reference->>'kind','computation')='computation' AND EXISTS(
  SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=reference->>'derivation_id'
  AND output.product_id=product AND (output.member_id IS NULL OR output.member_id IS NOT DISTINCT FROM member)))
- OR (reference->>'kind'='original-source' AND member IS NULL AND EXISTS(
+ OR (reference->>'kind' IN ('original-source','authored') AND member IS NULL AND EXISTS(
  SELECT FROM ops.original_source_admission admission WHERE admission.id=reference->>'admission_id' AND admission.product_id=product)))
 $$;
 

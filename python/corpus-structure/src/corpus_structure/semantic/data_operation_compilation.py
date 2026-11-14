@@ -1121,7 +1121,7 @@ def compile_data_operations(
                     semantic_id,
                     empty=False,
                 )
-                if not set(allowed_origins) <= {"computation", "original-source"}:
+                if not set(allowed_origins) <= {"computation", "original-source", "authored"}:
                     _fail(semantic_id, "unsupported input support origin")
                 if (
                     data["provenance"] == "exact"
@@ -1134,16 +1134,16 @@ def compile_data_operations(
                     )
                 if (
                     data["provenance"] == "exact"
-                    and "original-source" in allowed_origins
+                    and {"original-source", "authored"} & set(allowed_origins)
                     and "original-source" not in identity_requirements
                 ):
                     _fail(
                         semantic_id, "exact original provenance requires original-source identity"
                     )
-                if (
-                    "original-source" in identity_requirements
-                    and "original-source" not in allowed_origins
-                ):
+                if "original-source" in identity_requirements and not {
+                    "original-source",
+                    "authored",
+                } & set(allowed_origins):
                     _fail(
                         semantic_id,
                         "original-source identity requires an allowed original support origin",
@@ -1941,6 +1941,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
             }
             assert role.support is not None
             from .data_operation_support import (
+                AuthoredFactSupportReference,
                 OriginalSourceSupportReference,
                 support_reference_records,
             )
@@ -1948,7 +1949,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
             originals = tuple(
                 reference
                 for reference in member.support_references
-                if isinstance(reference, OriginalSourceSupportReference)
+                if isinstance(
+                    reference, (OriginalSourceSupportReference, AuthoredFactSupportReference)
+                )
             )
             actual_origins = {reference.kind for reference in member.support_references}
             if not actual_origins <= set(role.support.origins) or (

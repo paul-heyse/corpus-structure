@@ -12,6 +12,7 @@ from sqlalchemy import (
     BigInteger,
     Text,
     and_,
+    case,
     cast,
     column,
     exists,
@@ -83,7 +84,7 @@ def _node(kind, identity):
 def _reference_node(reference):
     from sqlalchemy import case
 
-    original = reference["kind"].astext == "original-source"
+    original = reference["kind"].astext.in_(("original-source", "authored"))
     use = reference["admission_use_id"].astext.is_not(None)
     return (
         case((original, literal("original")), (use, literal("use")), else_=literal("episode")),
@@ -591,6 +592,10 @@ def binding_branches(metadata):
         func.ops.ddo_kind_access(candidates.c.projected_kind),
     )
     admissions = metadata.tables["ops.original_source_admission"].alias("admission")
+    fact_origin = case(
+        (admissions.c.reference["kind"].astext == "authored-fact", literal("authored")),
+        else_=literal("original-source"),
+    )
     factual_header = _obj(subject=admissions.c.subject, meaning_body=products.c.canonical_body)
     factual_role = exists(
         select(1)
@@ -600,7 +605,7 @@ def binding_branches(metadata):
             definitions.c.operation_id == operation_id,
             roles.c.value["accepted_kind_contracts"].op("?")(products.c.kind_contract),
             func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(
-                literal("original-source")
+                fact_origin
             ),
             or_(
                 subject.is_(None),
@@ -628,7 +633,10 @@ def binding_branches(metadata):
     )
     refs = _aggregate(
         _obj(
-            kind=literal("original-source"),
+            kind=case(
+                (fact.c.reference["kind"].astext == "authored-fact", literal("authored")),
+                else_=literal("original-source"),
+            ),
             admission_id=fact.c.id,
             source_reference=fact.c.source_reference,
         ),

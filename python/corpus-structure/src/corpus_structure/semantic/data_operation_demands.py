@@ -397,7 +397,9 @@ class DemandPlanner:
         for name, source in record.get("original_sources", {}).items():
             self.storage.invoke(
                 (
-                    "admit_original_document_asset"
+                    "admit_authored_data"
+                    if source["reference"].get("kind") == "authored-fact"
+                    else "admit_original_document_asset"
                     if source["reference"].get("kind") == "original-document"
                     else "admit_original_source_view"
                 ),

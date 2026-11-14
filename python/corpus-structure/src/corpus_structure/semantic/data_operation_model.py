@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_support import (
+    AuthoredFactSupportReference,
     ComputationalSupportReference,
     OriginalSourceSupportReference,
     SupportReference,
@@ -77,7 +78,7 @@ class InputSupport:
     ] = ()
     source_set: str | None = None
     source_reference_field: str | None = None
-    origins: tuple[Literal["computation", "original-source"], ...] = ("computation",)
+    origins: tuple[Literal["computation", "original-source", "authored"], ...] = ("computation",)
 
 
 @dataclass(frozen=True)
@@ -664,6 +665,7 @@ class BoundRoleMember:
                 (
                     ComputationalSupportReference,
                     OriginalSourceSupportReference,
+                    AuthoredFactSupportReference,
                 ),
             )
             for reference in self.support_references

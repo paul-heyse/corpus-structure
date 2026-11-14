@@ -156,7 +156,7 @@ BEGIN
  IF coalesce(reference->>'kind','computation')='computation' AND item->>'kind'='computation'
  AND reference->>'derivation_id'=item->>'derivation_id'
  AND (reference->>'admission_use_id' IS NULL OR reference->>'admission_use_id'=item->>'admission_use_id') THEN RETURN true; END IF;
- IF reference->>'kind'='original-source' AND item->>'kind'='original-source'
+ IF reference->>'kind' IN ('original-source','authored') AND reference->>'kind'=item->>'kind'
  AND (reference->>'admission_id',reference->>'source_reference')=(item->>'admission_id',item->>'source_reference') THEN RETURN true; END IF;
  END LOOP;
  RETURN false;
@@ -199,7 +199,7 @@ BEGIN
  IF NOT EXISTS(SELECT FROM ops.data_derivation d JOIN sem.data_operation_definition def ON (def.release_id,def.recipe)=(d.release_id,d.recipe)
  JOIN ops.data_demand demand ON demand.id=u.demand_id WHERE d.id=u.derivation_id AND def.support_contract->>'provenance'='value_substitution' AND demand.strength='value') THEN RETURN false; END IF;
  FOR support IN SELECT value FROM jsonb_array_elements(u.selection->'support') LOOP
- IF support->>'kind'='original-source' THEN
+ IF support->>'kind' IN ('original-source','authored') THEN
  IF NOT EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=support->>'admission_id'
  AND admission.source_reference=support->>'source_reference' AND ops.ddo_original_admission_valid(admission,boundary)) THEN RETURN false; END IF;
  CONTINUE;
@@ -264,10 +264,10 @@ DECLARE item jsonb; episode ops.data_derivation; source_request ops.data_request
 BEGIN
  IF jsonb_typeof(support) IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'support manifest must be array'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(support) LOOP
- IF item->>'kind'='original-source' THEN
+ IF item->>'kind' IN ('original-source','authored') THEN
  PERFORM ops.ddo_fields(item,ARRAY['kind','admission_id','source_reference','role','position']);
  SELECT * INTO original FROM ops.original_source_admission WHERE id=item->>'admission_id';
- IF original.id IS NULL OR original.project_id IS DISTINCT FROM r.project_id OR original.source_reference IS DISTINCT FROM item->>'source_reference'
+ IF original.id IS NULL OR item->>'kind' IS DISTINCT FROM (CASE WHEN original.reference->>'kind'='authored-fact' THEN 'authored' ELSE 'original-source' END) OR original.project_id IS DISTINCT FROM r.project_id OR original.source_reference IS DISTINCT FROM item->>'source_reference'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(binding->'inputs') selected_input
  JOIN kb.data_product product ON product.id=selected_input->>'product_id'
  JOIN sem.data_operation_definition definition ON definition.release_id=r.release_id AND definition.operation_id=r.operation_id
@@ -432,9 +432,14 @@ BEGIN
  UNION SELECT relation->>'producer' FROM jsonb_array_elements(p->'selection'->'discovery') relation),
  closure(id) AS (SELECT id FROM roots UNION SELECT dependency FROM closure
  JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=closure.id
- CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency)
- SELECT id FROM closure FULL JOIN jsonb_array_elements_text(p->'selection'->'root_operations') declared(id) USING(id)
- WHERE closure.id IS NULL OR declared.id IS NULL)
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency),
+ member_roots(id) AS (SELECT relation->>'target' FROM jsonb_array_elements(p->'selection'->'discovery') relation),
+ member_closure(id) AS (SELECT id FROM member_roots UNION SELECT dependency FROM member_closure
+ JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=member_closure.id
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency),
+ root_expected(id) AS (SELECT id FROM closure WHERE id IN (SELECT id FROM roots) OR id NOT IN (SELECT id FROM member_closure))
+ SELECT id FROM root_expected FULL JOIN jsonb_array_elements_text(p->'selection'->'root_operations') declared(id) USING(id)
+ WHERE root_expected.id IS NULL OR declared.id IS NULL)
  THEN RAISE EXCEPTION 'root operations differ from selected dependency closure'; END IF;
  IF EXISTS(WITH RECURSIVE roots(id) AS (
  SELECT value FROM jsonb_array_elements_text(p->'selection'->'targets')
@@ -682,8 +687,8 @@ BEGIN
  IF lexical_alternative IS NULL OR (roledef->>'presence'='alternative' AND rv->>'selected_alternative' IS DISTINCT FROM lexical_alternative)
  OR (roledef->'identity_requirements' ? 'alternative' AND mv->>'alternative' IS DISTINCT FROM lexical_alternative) THEN RAISE EXCEPTION 'selected alternative differs from actual producing operation'; END IF;
  END IF;
- IF roledef->'identity_requirements' ? 'original-source' AND EXISTS(SELECT FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE reference->>'kind'='original-source') THEN
- SELECT coalesce(jsonb_agg(identity ORDER BY identity),'[]') INTO expected FROM (SELECT DISTINCT reference->>'source_reference' identity FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE reference->>'kind'='original-source') original;
+ IF roledef->'identity_requirements' ? 'original-source' AND EXISTS(SELECT FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE reference->>'kind' IN ('original-source','authored')) THEN
+ SELECT coalesce(jsonb_agg(identity ORDER BY identity),'[]') INTO expected FROM (SELECT DISTINCT reference->>'source_reference' identity FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE reference->>'kind' IN ('original-source','authored')) original;
  IF mv->'original_sources' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'original source identity differs from selected authentic facts'; END IF;
  END IF;
  IF roledef->'identity_requirements' ? 'provider' THEN
@@ -753,7 +758,7 @@ BEGIN
  AND ((item->>'member_id' IS NULL AND declared->'accepted_kind_contracts' ? x.kind_contract) OR EXISTS(SELECT FROM kb.data_product_member m WHERE m.product_id=x.id AND m.member_id=item->>'member_id' AND declared->'accepted_kind_contracts' ? m.kind_contract)))
  OR (item->>'position')::integer<0 OR (item->>'multiplicity')::integer<1 THEN RAISE EXCEPTION 'input role/member/kind/source mismatch'; END IF;
  IF NOT (EXISTS(SELECT FROM ops.data_derivation_output outp JOIN jsonb_array_elements(p->'binding'->'support') s ON s->>'derivation_id'=outp.derivation_id
- WHERE s->>'role'=item->>'role' AND s->>'position' IS NOT DISTINCT FROM item->>'position' AND (item->>'support_derivation_id' IS NULL OR item->>'support_derivation_id'=s->>'derivation_id') AND outp.product_id=item->>'product_id' AND ((item->>'member_id' IS NULL AND outp.member_id IS NULL) OR (item->>'member_id' IS NOT NULL AND (outp.member_id IS NULL OR outp.member_id=item->>'member_id')))) OR EXISTS(SELECT FROM jsonb_array_elements(p->'binding'->'support') source_support JOIN ops.original_source_admission admission ON admission.id=source_support->>'admission_id' WHERE source_support->>'kind'='original-source' AND source_support->>'role'=item->>'role' AND source_support->>'position' IS NOT DISTINCT FROM item->>'position' AND admission.product_id=item->>'product_id' AND item->>'member_id' IS NULL AND source_support->>'source_reference'=admission.source_reference AND ops.ddo_original_admission_valid(admission))) THEN RAISE EXCEPTION 'input lacks selected authentic support'; END IF;
+ WHERE s->>'role'=item->>'role' AND s->>'position' IS NOT DISTINCT FROM item->>'position' AND (item->>'support_derivation_id' IS NULL OR item->>'support_derivation_id'=s->>'derivation_id') AND outp.product_id=item->>'product_id' AND ((item->>'member_id' IS NULL AND outp.member_id IS NULL) OR (item->>'member_id' IS NOT NULL AND (outp.member_id IS NULL OR outp.member_id=item->>'member_id')))) OR EXISTS(SELECT FROM jsonb_array_elements(p->'binding'->'support') source_support JOIN ops.original_source_admission admission ON admission.id=source_support->>'admission_id' WHERE source_support->>'kind' IN ('original-source','authored') AND source_support->>'role'=item->>'role' AND source_support->>'position' IS NOT DISTINCT FROM item->>'position' AND admission.product_id=item->>'product_id' AND item->>'member_id' IS NULL AND source_support->>'source_reference'=admission.source_reference AND ops.ddo_original_admission_valid(admission))) THEN RAISE EXCEPTION 'input lacks selected authentic support'; END IF;
  END LOOP;
  FOR declared IN SELECT value FROM jsonb_array_elements(def.input_roles) LOOP
  SELECT coalesce(sum((v->>'multiplicity')::integer),0) INTO cnt FROM jsonb_array_elements(p->'binding'->'inputs') v WHERE v->>'role'=declared->>'name';
@@ -781,7 +786,7 @@ BEGIN
  OR (v.selector_kind='recipe' AND v.selector=r.recipe)));
  invalid_retained:=retained.id IS NOT NULL AND (
  EXISTS(SELECT FROM jsonb_array_elements(retained.payload->'support') old_support
- WHERE CASE WHEN old_support->>'kind'='original-source' THEN NOT EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=old_support->>'admission_id' AND admission.source_reference=old_support->>'source_reference' AND ops.ddo_original_admission_valid(admission)) WHEN old_support->>'admission_use_id' IS NULL
+ WHERE CASE WHEN old_support->>'kind' IN ('original-source','authored') THEN NOT EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=old_support->>'admission_id' AND admission.source_reference=old_support->>'source_reference' AND ops.ddo_original_admission_valid(admission)) WHEN old_support->>'admission_use_id' IS NULL
  THEN NOT ops.ddo_support_valid(old_support->>'derivation_id')
  ELSE NOT EXISTS(SELECT FROM ops.demand_use selected
  WHERE selected.id=old_support->>'admission_use_id'
@@ -1145,7 +1150,18 @@ BEGIN
  frozen:=d.selection->'original_sources'->(p->>'selection_name');
  IF frozen IS NULL OR frozen IS DISTINCT FROM (p-'demand_id'-'selection_name')
  OR p->'reference'->>'project_id' IS DISTINCT FROM d.project_id THEN RAISE EXCEPTION 'original source selection differs from immutable demand'; END IF;
- IF p->'reference'->>'kind'='original-document' THEN
+ IF p->'reference'->>'kind'='authored-fact' THEN
+ IF p->'selectors' IS DISTINCT FROM '[{"scope":"authored-fact"}]'::jsonb THEN
+ RAISE EXCEPTION 'authored input requires its explicit immutable selection scope'; END IF;
+ SELECT contract.kind INTO STRICT kind_name FROM sem.data_kind_contract contract
+ JOIN sem.data_kind_release release ON release.kind_contract=contract.kind_contract
+ WHERE release.release_id=d.release_id AND contract.kind_contract=p->'reference'->>'kind_contract'
+ AND contract.universe='ordinary';
+ fact:=jsonb_build_object('subject',p->'reference'->>'subject','original_source',p->'reference'->>'original_source',
+ 'analyzed_scope',p->'reference'->'analyzed_scope','meaning_body',data.ddo_normalize(p->'reference'->'meaning_body'),
+ 'evidence',jsonb_build_object('standing','authored','author_assertion',p->'reference'->>'author',
+ 'selection_id',p->'reference'->>'selection_id','submitted_by',coalesce(nullif(current_setting('role'),'none'),session_user)));
+ ELSIF p->'reference'->>'kind'='original-document' THEN
  IF p->'selectors' IS DISTINCT FROM '[{"scope":"whole-document"}]'::jsonb THEN
  RAISE EXCEPTION 'original document scope differs from immutable whole document'; END IF;
  fact:=ops.ddo_original_document_view(p->'reference');
@@ -1179,7 +1195,14 @@ BEGIN
  WHERE release.release_id=d.release_id AND contract.kind=kind_name;
  product:=ops.ddo_install_product_context(jsonb_build_object('project_id',d.project_id,'release_id',d.release_id,
  'subject',fact->>'subject','original_source',fact->>'original_source','analyzed_scope',fact->'analyzed_scope'),
- jsonb_build_object('kind_contract',kind,'body',fact->'meaning_body','members','[]'::jsonb));
+ jsonb_build_object('kind_contract',kind,'body',fact->'meaning_body','members',
+ (SELECT coalesce(jsonb_agg(jsonb_build_object('member_id',data.ddo_json(data.ddo_field(packet,'member_id')),
+ 'kind_contract',data.ddo_json(data.ddo_field(packet,'kind_contract')),
+ 'context',data.ddo_json(data.ddo_field(packet,'context')),'body',data.ddo_field(packet,'body'))
+ || (SELECT coalesce(jsonb_object_agg(field,data.ddo_json(data.ddo_field(data.ddo_field(packet,'body'),field))),'{}')
+ FROM unnest(ARRAY['coordinates','roles','endpoints','coverage','choices']) field
+ WHERE data.ddo_field(data.ddo_field(packet,'body'),field) IS NOT NULL)), '[]')
+ FROM jsonb_array_elements(coalesce(data.ddo_field(fact->'meaning_body','members')->1,'[]')) packet)));
  identity:=ops.ddo_digest(p->'reference');
  key:='original-admission:'||ops.ddo_digest(jsonb_build_array(d.id,p->>'selection_name',identity,p->'selectors',product));
  INSERT INTO ops.original_source_admission VALUES(key,d.id,d.project_id,d.release_id,p->>'selection_name',identity,
@@ -1191,6 +1214,14 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('admission_id',admitted.id,'selection_name',admitted.selection_name,
  'product_id',product,'kind_contract',kind,'subject',admitted.subject,'original_source',admitted.original_source,
  'analyzed_scope',admitted.analyzed_scope,'source_reference',identity,'trust_snapshot',snapshot,'evidence',admitted.evidence));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.admit_authored_data(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF p_payload->'reference'->>'kind' IS DISTINCT FROM 'authored-fact' THEN
+ RAISE EXCEPTION 'authored admission requires its exact declared fact reference'; END IF;
+ RETURN ops.ddo_admit_original_source(p_payload);
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.admit_original_source_view(p_payload jsonb) RETURNS jsonb
@@ -1247,7 +1278,7 @@ BEGIN
  INSERT INTO ops.data_derivation_input VALUES(episode,item->>'role',n,(item->>'multiplicity')::integer,item->>'product_id',item->>'member_id');
  END LOOP;
  FOR item,n IN SELECT value,ord-1 FROM jsonb_array_elements(i.payload->'support') WITH ORDINALITY a(value,ord) LOOP
- IF item->>'kind'='original-source' THEN
+ IF item->>'kind' IN ('original-source','authored') THEN
  INSERT INTO ops.data_derivation_original_support SELECT episode,n,item->>'role',(item->>'position')::integer,
  admission.id,admission.source_reference,ops.ddo_scope(admission.project_id,admission.original_source),
  (snapshot->>ops.ddo_scope(admission.project_id,admission.original_source))::integer
