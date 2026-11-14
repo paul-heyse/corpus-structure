@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "ddo.bound-row-governance",
+  "title": "Explicitly correlated native binding row successor",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can exact product/body/support pairing and current PDF child implementation correspondence be registered without modifying frozen predecessors or persistent deployment?",
+  "answers": [],
+  "method": "Complete rendered rollback execution and independent catalog verification; all three native body changes inspected with unchanged owners/ACLs; exact registration verified.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-pdf-modes/change-binding.yaml --json",
+    "uv run ci model change candidate 503a8094304642deb094ad3088d638c6 --json",
+    "uv run ci model change inspect-candidate 68a7fb915b304da7baee7d90ee400ba1 --view operations --limit 100 --json",
+    "uv run ci model change register 68a7fb915b304da7baee7d90ee400ba1 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change-binding.yaml",
+      "role": "fixed-source request",
+      "sha256": "f9e0ed19417cab96d106b5c3bde8269e728e797ece1b3e3f30938af7125fcb98"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/binding-candidate.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "8abfcbae3eead6cf2cba842c6d8baf1bbef3c54ee3f1df3030fc016c9294ed2b"
+    },
+    {
+      "path": "results/binding-native-operations.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "f454769ce93f67a474154f647ed1b2fbe48ad3b9ba6fc0199c2abc3058a23ecf"
+    },
+    {
+      "path": "results/binding-registered-files.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "466f08f6a3a5f72385edbb0aa3abfcf3b3fa53f79c48eff03aebf2c17d5338b2"
+    }
+  ],
+  "depends_on": [
+    "ddo.pdf-modes-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Complete rollback candidate 68a7fb915b304da7baee7d90ee400ba1 and registration a1729eb925c34005bd355420d4b45ea4 passed; exact registration verified. Three native body changes preserve owners and ACLs, with no ordinary or privilege operations. Explicit SQLAlchemy correlation removes the inner admitted rescan and preserves exact product/body/support identity without episode deduplication. Descriptor correspondence includes stable final PDF child settlement code. Native/provider/historical functional replacements remain separate. Frozen predecessors unchanged; persistent semantic_bep_located_v2 unchanged. No deployment, activation or cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

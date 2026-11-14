@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "id": "ddo.model-archive-shape",
+  "title": "Captured effective model repeated identity witness diagnosis",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which captured effective model content caused the actual definition native archive refusal?",
+  "answers": [],
+  "method": "One static captured-input preparation; serialized array byte distribution and exact source/input digests. No database or provider execution.",
+  "commands": [
+    "CORPUS_PM2_NATIVE_TEST_ASSETS=/home/paul/corpus-structure/build/models/pm2 timeout 300 .venv/bin/python docs/design_review/evidence/2026-11-14_ddo-model-archive-shape/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "captured static diagnosis",
+      "sha256": "10d1422e5ea9375cb973af0c6a49262ab1e3c6bd7770884b50c919273f70b989"
+    },
+    {
+      "path": "inputs.json",
+      "role": "captured static diagnosis",
+      "sha256": "8eed173686c8e1176b6402265e33602df0ab85f0e258f2ec2915e3f76a7e7f11"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "result.json",
+      "role": "captured static diagnosis",
+      "sha256": "d846eaef2aeffe88dac597328b6bbee1783791957402b54585af237dd2917642"
+    },
+    {
+      "path": "stdout.txt",
+      "role": "captured static diagnosis",
+      "sha256": "659c7febdfeb230301ae9db75185425436ee0564827e2189b5f51e31b83c34d3"
+    },
+    {
+      "path": "stderr.txt",
+      "role": "captured static diagnosis",
+      "sha256": "a37f6acae4782d3f19d52958a76577f6fb8d86b5977a8582d6ee2c225a87c3b6"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Measured 223217117 model bytes including 204671906 bytes of identity records; repeated kind preimages dominate. Governing graph and native projection remain required. Actual failing JSONB binary sub-container was not separately isolated. ADR-0105 selects compact current identity headers with unchanged hashing and exact historical custody. Native/provider repair qualification remains separate.",
+  "consumed_by": [
+    "ADR-0105",
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}
