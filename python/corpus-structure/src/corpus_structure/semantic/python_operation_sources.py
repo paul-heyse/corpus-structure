@@ -1593,6 +1593,10 @@ class ClosedPythonSources:
                     candidates = module.names.get(node, set())
                     candidates = candidates() if callable(candidates) else candidates
                     parent = module.parent_nodes.get(node)
+                    # A keyword's label is syntax, not a lexical variable read.
+                    # Its actual argument value is visited independently below.
+                    if isinstance(parent, cst.Arg) and parent.keyword is node:
+                        return
                     imported_name = isinstance(
                         parent, (cst.ImportAlias, cst.ImportFrom, cst.Import)
                     )

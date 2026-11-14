@@ -1224,3 +1224,23 @@ def test_custom_builtin_namespace_cannot_claim_complete_recipe(number):
     assert any("custom builtin namespace" in item.reason for item in implementation.unknowns)
     assert any(node.category == "standard_builtin" for node in implementation.nodes)
     assert any(edge.relation == "builtin_reference" for edge in implementation.edges)
+
+
+def test_keyword_argument_label_is_syntax_but_argument_value_remains_a_required_read():
+    code = (
+        "def helper(value: int) -> int: return value + 1\n"
+        "def derive(x: int) -> int: return helper(value=x)\n"
+        f"derive__data_operation__ = {contract()!r}\n"
+    )
+    model = compile_data_operations(python_sources=python_inputs(code))
+    assert model.implementation_slices[0].complete
+    assert identity(model)
+    broken = compile_data_operations(
+        python_sources=python_inputs(code.replace("value=x", "value=missing"))
+    )
+    assert any(
+        "load name missing" in item.reason for item in broken.implementation_slices[0].unknowns
+    )
+    assert not any(
+        item.owner == "urn:test:derive" and item.domain == "recipe" for item in broken.identities
+    )
