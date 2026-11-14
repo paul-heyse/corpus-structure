@@ -170,6 +170,7 @@ def primary_operation_inputs(
             definition_component_operation_sources,
         )
         from .definition_products import definition_inputs, definition_operation_sources
+        from .definition_location_products import definition_location_inputs, definition_location_operation_sources
         from .dossier_products import dossier_inputs, dossier_operation_sources
         from .finite_interpretation_products import (
             finite_interpretation_inputs,
@@ -186,6 +187,7 @@ def primary_operation_inputs(
         bundle = scoped_inputs(bundle)
         bundle = artifact_inputs(bundle)
         bundle = definition_inputs(bundle)
+        bundle = definition_location_inputs(bundle)
         bundle = definition_component_inputs(bundle, include_learned=learned_selections is not None)
         bundle = dossier_inputs(bundle)
         bundle = finite_interpretation_inputs(bundle)
@@ -197,6 +199,7 @@ def primary_operation_inputs(
             scoped_operation_sources(),
             artifact_operation_sources(),
             definition_operation_sources(),
+            definition_location_operation_sources(),
             definition_component_operation_sources(include_learned=learned_selections is not None),
             dossier_operation_sources(),
             finite_interpretation_operation_sources(),

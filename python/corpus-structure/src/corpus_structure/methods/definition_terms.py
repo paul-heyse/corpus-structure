@@ -118,15 +118,9 @@ def project_retained_definition_terms(reader, view, cfg, *, check_active=lambda:
         )
         if any(source.get(key) != value for key, value in expected.items()):
             raise ValueError("retained definition term belongs to another original source")
-        anchors = []
-        for piece in context.map_span(
-            span["start"], span["end"], literal=span["text"], allow_multiple=True
-        ):
-            anchor, coordinate = evidence_anchor(context, piece, native=True)
-            anchors.append(anchor)
-            coordinates[
-                canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})
-            ] = coordinate
+        anchors, located_coordinates = locate_definition_span(context, span)
+        for coordinate in located_coordinates:
+            coordinates[canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})] = coordinate
         dependencies.extend(deps)
         row = dict(
             contract="RetainedContributionSemantics",
@@ -155,3 +149,13 @@ def project_retained_definition_terms(reader, view, cfg, *, check_active=lambda:
         computation_dependencies=tuple(dict.fromkeys(dependencies)),
     )
     return tuple(products), (operation,), tuple(coordinates.values())
+
+
+def locate_definition_span(context, span, *, offset=0):
+    """Map one retained half-open literal span through its actual source owner."""
+    anchors, coordinates = [], []
+    for piece in context.map_span(span["start"] - offset, span["end"] - offset, literal=span["text"], allow_multiple=True):
+        anchor, coordinate = evidence_anchor(context, piece, native=True)
+        anchors.append(anchor)
+        coordinates.append(coordinate)
+    return tuple(anchors), tuple(coordinates)

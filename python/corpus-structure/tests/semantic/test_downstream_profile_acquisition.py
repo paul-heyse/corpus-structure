@@ -318,3 +318,24 @@ def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp
     for identity in (encoder.semantic_id, *encoder.dependencies):
         assert callable(resolve_prepared_factory(model, sources, identity))
     assert "structure.dossier/declared" not in {item.semantic_id for item in model.operations}
+
+
+def test_public_downstream_acquires_definition_location_with_exact_report_witnesses(tmp_path):
+    root = primary_profile_inputs(tmp_path)
+    _use_core_schema(root)
+    manifest = _manifest(root)
+    manifest["primary_profile"]["downstream"] = True
+    _write_manifest(root, manifest)
+    model, sources = _compiled_acquisition(root)
+    operation = model.operation("locate.definition_terms/declared")
+    inputs = {role.name: role for role in operation.roles if role.direction == "input"}
+    assert inputs["components"].kind == "urn:corpus:structural:DeclaredDefinitionComponentsReport"
+    assert inputs["selection"].support is not None and inputs["selection"].support.origins == ("authored",)
+    assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
+    witnesses = {witness.input_role: witness for witness in operation.output_witnesses}
+    assert set(witnesses) == {"source", "components", "selection"}
+    for role, witness in witnesses.items():
+        assert all(comparison.input.role == role for comparison in witness.comparisons)
+    # The existing contextual encoder accepts the authentic located member kind.
+    output = next(role for role in operation.roles if role.direction == "output")
+    assert output.kind.endswith("/DdoDefinitionLocationReport")

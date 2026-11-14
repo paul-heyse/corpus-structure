@@ -1,0 +1,39 @@
+id: https://corpus-structure.dev/semantic/data-operation-definition-location
+name: data_operation_definition_location
+prefixes:
+  location: https://corpus-structure.dev/semantic/data-operation-definition-location/
+default_prefix: location
+default_range: string
+imports: [data_operation_candidate_inspection]
+classes:
+  DdoDefinitionRoleSelection:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true, range: DdoDefinitionLocationRole}
+      envelope: {required: true}
+      index: {range: integer, required: true, minimum_value: 0}
+  DdoDefinitionLocationSelection:
+    is_a: SourceRecordProduct
+    description: Exact component IDs or independent retained model-role identities to locate; not new source mentions.
+    attributes:
+      component_ids: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      roles: {range: DdoDefinitionRoleSelection, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoDefinitionLocationInputPin:
+    is_a: SourceRecordProduct
+    attributes:
+      product_id: {required: true}
+      reference: {required: true}
+      kind_contract: {required: true}
+      project_id: {required: true}
+      subject: {required: true}
+      original_source: {required: true}
+      analyzed_scope_meaning: {required: true}
+  DdoDefinitionLocationReport:
+    is_a: DdoCandidateInspectionReport
+    description: Source occurrences projected from exact retained definition components or independent model roles; no knowledge admission.
+    attributes:
+      components_input: {range: DdoDefinitionLocationInputPin, inlined: true, required: true}
+      selection_input: {range: DdoDefinitionLocationInputPin, inlined: true, required: true}
+enums:
+  DdoDefinitionLocationRole:
+    permissible_values: {term: {}, content: {}}
