@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from itertools import pairwise
-from typing import Any, Literal, Self
+from typing import Any, Literal, Protocol, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
 
@@ -105,7 +105,22 @@ class DefinitionComponentsConfig(StructuralValue):
         return self
 
 
-def definition_pack(release: str, cfg: DefinitionComponentsConfig) -> GlinerPack:
+class LocatedDefinitionQuestion(Protocol):
+    """Finite question fields shared by captured target and sealed configurations."""
+
+    @property
+    def term_entity(self) -> str: ...
+    @property
+    def content_entity(self) -> str: ...
+    @property
+    def attachment_relation(self) -> str: ...
+    @property
+    def description_arm(self) -> str: ...
+    @property
+    def profile(self) -> GlinerProfile | None: ...
+
+
+def definition_pack(release: str, cfg: LocatedDefinitionQuestion) -> GlinerPack:
     entities: list[str] | dict[str, str] = [cfg.term_entity, cfg.content_entity]
     relations: list[str] | dict[str, str] = [cfg.attachment_relation]
     if cfg.description_arm == "described":
@@ -165,7 +180,7 @@ def _located(passage: StructuralPassage, raw: Any) -> LocatedDefinitionSpan:
 def decode_definition_components(
     raw: Any,
     passage: StructuralPassage,
-    cfg: DefinitionComponentsConfig,
+    cfg: LocatedDefinitionQuestion,
     *,
     candidate_errors: list[dict[str, JsonValue]] | None = None,
     component_factory: Callable[..., Any] = definition_component,
@@ -853,7 +868,7 @@ _DEFINITION_WINDOW_OVERLAP = 256
 _DEFINITION_MAX_WINDOWS = 64
 
 
-def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConfig, policy=None):
+def definition_windows(passage: StructuralPassage, cfg: LocatedDefinitionQuestion, policy=None):
     """Bound model contexts while preserving original offsets and overlap provenance."""
     # Operational resource choices belong to the archived runtime, not the semantic
     # configuration ABI. Tuning these bounds does not redefine the output data model.

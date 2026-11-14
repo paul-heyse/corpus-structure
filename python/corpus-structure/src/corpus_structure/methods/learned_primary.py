@@ -3185,7 +3185,13 @@ class GlinerDefinitionPrimaryOperation:
                 "presence": "required",
             },
         ],
-        "parameters": {},
+        "parameters": {
+            "term_entity": {"default": "defined term or expression"},
+            "content_entity": {"default": "defining text or formula"},
+            "attachment_relation": {"default": "term is defined or explained by"},
+            "description_arm": {"default": "bare"},
+            "evaluation_overlap": {"default": ""},
+        },
         "dependencies": [],
         "effects": [],
         "applicability": ["actual-original-source-blocks", "frozen-qualified-native-provider"],
@@ -3209,6 +3215,8 @@ class GlinerDefinitionPrimaryOperation:
         "invocation shared provider lanes",
         "binding": {"operator": "all", "children": [{"operator": "scan", "roles": ["source"]}]},
         "opaque": [
+            {"reference": "corpus_structure.semantic.definition_model_products.extract_definition_products", "contract": "learned/profile-assets", "role": "owned-native-located-definition-plan"},
+            {"reference": "corpus_structure.semantic.definition_model_products.DefinitionExtractionOptions", "contract": "learned/profile-assets", "role": "explicit-authored-question-and-evaluation-choices"},
             {
                 "reference": "corpus_structure.semantic.learned_primary.execute_learned_primary",
                 "contract": "learned/profile-assets",
@@ -3605,5 +3613,7 @@ class GlinerDefinitionPrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource) -> LearnedPrimaryProducts:
-        return execute_learned_primary(self, source)
+    def run(self, source: FrozenNativeSource, term_entity: str = "defined term or expression", content_entity: str = "defining text or formula", attachment_relation: str = "term is defined or explained by", description_arm: str = "bare", evaluation_overlap: str = "") -> LearnedPrimaryProducts:
+        from corpus_structure.semantic.definition_model_products import DefinitionExtractionOptions, extract_definition_products
+
+        return extract_definition_products(self.profile, source, binding=self.binding, execution_owner=self.execution_owner, check_active=self.check_active, options=DefinitionExtractionOptions(term_entity, content_entity, attachment_relation, description_arm, evaluation_overlap))

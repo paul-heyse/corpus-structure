@@ -45,7 +45,10 @@ def pair():
     text, window, raw = population()
     pin = {"source_product": "native-product"}
     frame = SimpleNamespace(text=text, pin=SimpleNamespace(values=lambda: pin), contains_span=lambda start,end: 0 <= start < end <= len(text))
-    request = {"question": QUESTION, "window": window.model_dump(mode="json", exclude_none=True), "source_pin": pin}
+    from dataclasses import asdict
+    from corpus_structure.semantic.definition_model_products import DefinitionExtractionOptions
+
+    request = {"question": QUESTION, "options": asdict(DefinitionExtractionOptions()), "window": window.model_dump(mode="json", exclude_none=True), "source_pin": pin}
     digest = sha256(canonical_bytes(request)).hexdigest()
     operation = operation_identity(QUESTION, "1", "native-source", digest)
     report = {"question": QUESTION, "request": request, "input_digest": digest, "native": {"raw": raw}}
@@ -77,3 +80,28 @@ def test_retained_definition_refuses_wrong_source_reply_member_or_missing_popula
         candidates["members"] = []
     with pytest.raises(ValueError):
         retained_definition_windows(frame, observation, candidates)
+
+
+
+def test_definition_question_and_evaluation_choices_keep_distinct_native_receipts():
+    from dataclasses import asdict
+    from corpus_structure.methods.definition_applicability import definition_pack
+    from corpus_structure.methods.gliner import GlinerInput
+    from corpus_structure.methods.model_observation import installed_policy, request_digest
+    from corpus_structure.semantic.definition_model_products import DefinitionExtractionOptions, DefinitionQuestion
+    from semantic.model_characterization_support import gliner_profile
+
+    profile = gliner_profile().profile
+    policy, _ = installed_policy()
+    item = GlinerInput("unit", "original-window", "Variance is spread.", "text.gliner_definitions/source-native")
+    bare = definition_pack("release", DefinitionQuestion(profile))
+    described = definition_pack("release", DefinitionQuestion(profile, description_arm="described"))
+    assert bare.fingerprint != described.fingerprint
+    assert "defined term or expression" in bare.declaration_json and "defined term or expression" in described.declaration_json
+    options = (DefinitionExtractionOptions(), DefinitionExtractionOptions(evaluation_overlap="flat"), DefinitionExtractionOptions(evaluation_overlap="nested"), DefinitionExtractionOptions(evaluation_overlap="allow"))
+    receipts = {request_digest(bare, asdict(profile), (item,), 0.5, option.overlap, option.evaluation, policy["inference"]) for option in options}
+    assert len(receipts) == 4
+    with pytest.raises(ValueError):
+        DefinitionExtractionOptions(description_arm="invented")
+    with pytest.raises(ValueError):
+        DefinitionExtractionOptions(term_entity="same", content_entity="same")

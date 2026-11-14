@@ -1020,6 +1020,10 @@ class PreparedLearnedPrimaryPort:
                     "focal learned producer requires its exact frozen parameter selection"
                 )
             inputs["focuses"] = parameters["focuses"]
+        elif self.profile.family == "gliner_definitions":
+            if set(parameters) != {"term_entity", "content_entity", "attachment_relation", "description_arm", "evaluation_overlap"}:
+                raise PortRefusal("located definitions require their exact frozen authored question/overlap choices")
+            inputs.update(parameters)
         elif parameters:
             raise PortRefusal("learned producer does not declare authored parameters")
         check_active()

@@ -177,6 +177,7 @@ def authenticated_gliner_report(
     profile: ClassificationProfile,
     *,
     overlap_policy: str = "flat",
+    evaluation: bool = False,
     request_version: str = "located-model-request-2",
 ) -> GlinerReport:
     """The shared exact request/runtime gate for classification and literal cues."""
@@ -192,7 +193,7 @@ def authenticated_gliner_report(
             (item,),
             threshold,
             overlap_policy,
-            False,
+            evaluation,
             request["inference"],
         )
         observed = observation_digest(expected, native.raw_json, native.effective_profile_json)
@@ -214,7 +215,7 @@ def authenticated_gliner_report(
                 (item,),
                 threshold,
                 overlap_policy,
-                False,
+                evaluation,
                 request["inference"],
             )
             if (

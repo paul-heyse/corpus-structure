@@ -18,6 +18,27 @@ QUESTION = "definition.located_gliner_v1"
 
 
 @dataclass(frozen=True)
+class DefinitionExtractionOptions:
+    term_entity: str = "defined term or expression"
+    content_entity: str = "defining text or formula"
+    attachment_relation: str = "term is defined or explained by"
+    description_arm: str = "bare"
+    evaluation_overlap: str = ""
+
+    def __post_init__(self):
+        if self.description_arm not in {"bare", "described"} or self.evaluation_overlap not in {"", "flat", "nested", "allow"} or any(not isinstance(value, str) or not value for value in (self.term_entity, self.content_entity, self.attachment_relation)) or self.term_entity == self.content_entity:
+            raise ValueError("definition extraction requires explicit distinct roles and supported authored question/overlap choices")
+
+    @property
+    def overlap(self):
+        return self.evaluation_overlap or "flat"
+
+    @property
+    def evaluation(self):
+        return bool(self.evaluation_overlap)
+
+
+@dataclass(frozen=True)
 class DefinitionQuestion:
     profile: Any
     term_entity: str = "defined term or expression"
@@ -26,12 +47,12 @@ class DefinitionQuestion:
     description_arm: str = "bare"
 
 
-def definition_request(prepared, frame, window, profile, *, threshold):
+def definition_request(prepared, frame, window, profile, *, threshold, options=DefinitionExtractionOptions()):
     from corpus_structure.methods.definition_applicability import definition_pack
     from corpus_structure.methods.gliner import GlinerInput
     from corpus_structure.methods.model_observation import released_policy
 
-    question: Any = DefinitionQuestion(profile)
+    question: Any = DefinitionQuestion(profile, options.term_entity, options.content_entity, options.attachment_relation, options.description_arm)
     pack = definition_pack(prepared.release_id, question)
     item = GlinerInput(
         "definition-target:" + window.identity,
@@ -41,6 +62,9 @@ def definition_request(prepared, frame, window, profile, *, threshold):
     )
     return {
         "question": QUESTION,
+        "options": asdict(options),
+        "overlap_policy": options.overlap,
+        "evaluation": options.evaluation,
         "pack": asdict(pack),
         "item": asdict(item),
         "threshold": threshold,
@@ -50,7 +74,7 @@ def definition_request(prepared, frame, window, profile, *, threshold):
     }
 
 
-def decode_definition_window(raw, window, profile, *, envelope):
+def decode_definition_window(raw, window, profile, *, envelope, options=DefinitionExtractionOptions()):
     """Preserve independent located roles even when no attachment is justified."""
     from corpus_structure.methods.definition_applicability import (
         decode_definition_components,
@@ -58,7 +82,7 @@ def decode_definition_window(raw, window, profile, *, envelope):
     )
     from .structural_products import declared_definition_component
 
-    question: Any = DefinitionQuestion(profile)
+    question: Any = DefinitionQuestion(profile, options.term_entity, options.content_entity, options.attachment_relation, options.description_arm)
     errors = []
     try:
         roles = located_definition_roles(raw, window, question, envelope=envelope, errors=errors)
@@ -100,7 +124,7 @@ def definition_contribution(frame, operation, payload, input_digest):
     return {**row, "contribution_id": contribution_identity(row)}
 
 
-def extract_definition_products(profile, source, *, binding, execution_owner, check_active):
+def extract_definition_products(profile, source, *, binding, execution_owner, check_active, options=DefinitionExtractionOptions()):
     from corpus_structure.methods.characterization_resources import GLiNERWork, LogicalProviderMember
     from corpus_structure.methods.definition_applicability import definition_windows
     from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile
@@ -140,21 +164,21 @@ def extract_definition_products(profile, source, *, binding, execution_owner, ch
             unexamined.append(dict(projection=frame.projection_digest, start=block.start, end=block.end))
         for offset in range(0, len(windows), gliner.max_batch):
             batch = windows[offset:offset + gliner.max_batch]
-            requests = tuple(definition_request(profile.prepared, frame, window, gliner, threshold=profile.threshold) for window in batch)
+            requests = tuple(definition_request(profile.prepared, frame, window, gliner, threshold=profile.threshold, options=options) for window in batch)
             pack = GlinerPack(**requests[0]["pack"])
             items = tuple(GlinerInput(**request["item"]) for request in requests)
             correlation = sha256(canonical_bytes([str(claim.request_id), claim.generation, claim.attempt, requests])).hexdigest()
             logical = tuple(LogicalProviderMember(str(claim.request_id), claim.generation, claim.task_id, claim.attempt, window.identity, index, 1, payload_digest([asdict(item)])) for index, (window, item) in enumerate(zip(batch, items, strict=True)))
-            (reply,) = yield (execution_owner.providers.work(GLiNERWork(gliner, pack, items, profile.threshold, "flat", correlation, (check_active,), logical_members=logical), reservation=execution_owner.reservation),)
+            (reply,) = yield (execution_owner.providers.work(GLiNERWork(gliner, pack, items, profile.threshold, options.overlap, correlation, (check_active,), evaluation=options.evaluation, logical_members=logical), reservation=execution_owner.reservation),)
             _ = reply.payload
             if reply.execution_receipt is None or len(reply.reports) != len(items):
                 raise ValueError("located definition provider lacks its exact physical scatter receipt")
             receipts.append(canonical_bytes(asdict(reply.execution_receipt)))
             for window, request, envelope in zip(batch, requests, reply.reports, strict=True):
-                native = authenticated_gliner_report(request, asdict(envelope), classifier)
+                native = authenticated_gliner_report(request, asdict(envelope), classifier, overlap_policy=options.overlap, evaluation=options.evaluation)
                 digest = sha256(canonical_bytes(request)).hexdigest()
                 operation = operation_identity(QUESTION, "1", frame.source_key, digest)
-                decoded = decode_definition_window(native.raw, window, gliner, envelope=digest)
+                decoded = decode_definition_window(native.raw, window, gliner, envelope=digest, options=options)
                 payload = {"window": request["window"], **decoded}
                 report = {"question": QUESTION, "version": "1", "request": request, "native": {"raw": native.raw, "effective_profile": json.loads(native.effective_profile_json)}, "input_digest": digest}
                 observations.append(source_value(report))
@@ -208,7 +232,7 @@ def retained_definition_windows(frame, observation, candidates):
         used.add(operation)
         identifier, row = rows[0]
         payload = source_python(row["value"])
-        decoded = decode_definition_window(report["native"]["raw"], window, None, envelope=digest)
+        decoded = decode_definition_window(report["native"]["raw"], window, None, envelope=digest, options=DefinitionExtractionOptions(**request["options"]))
         if payload != {"window": request["window"], **decoded} or tuple(row["computation_dependencies"]) != (digest,):
             raise ValueError("located definition candidate changed the independently located roles or directed attachments")
         retained.append((identifier, window, decoded))
