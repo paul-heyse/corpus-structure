@@ -1,0 +1,169 @@
+"""Declared definition projections over authentic source and primary product inputs."""
+
+from __future__ import annotations
+
+import inspect
+import json
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .data_operation_model import ResolvedRoleBinding, SubjectContext
+from .identity import canonical_bytes
+from .types import PreparedRelease, SourceArtifact
+
+_ROOT = Path(__file__).parents[1]
+_PATHS = (
+    "methods/definition_declared.py", "semantic/definition_products.py",
+    "methods/definition_declaration.py", "semantic/constructions/retained_declarations.py",
+    "semantic/structural_products.py", "semantic/declared_structural_references.py",
+    "semantic/declared_record_sources.py", "semantic/construction_products.py",
+    "semantic/characterization_manifests.py", "semantic/hanlp_products.py",
+    "semantic/source_contexts.py",
+)
+
+
+def definition_inputs(bundle):
+    from .construction_products import construction_product_inputs
+    from .declared_structural_calls import structural_inputs
+    from .hanlp_products import hanlp_product_inputs
+
+    if "data_operation_constructions" not in {source.name for source in bundle.sources}:
+        bundle = construction_product_inputs(bundle)
+    if "data_operation_hanlp" not in {source.name for source in bundle.sources}:
+        bundle = hanlp_product_inputs(bundle)
+    return structural_inputs(bundle)
+
+
+def definition_profile_assets():
+    return SourceArtifact("definitions/profile-assets", canonical_bytes({
+        "version": "declared-definition-projections-v1",
+        "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS],
+    }))
+
+
+def definition_operation_sources():
+    from .python_operation_sources import PythonSource, PythonSourceCollection
+
+    return PythonSourceCollection(tuple(
+        PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve()))
+        for name in ("methods/definition_declared.py", "semantic/definition_products.py", "semantic/data_operation_prepared_call.py")
+    ), boundary_contracts=(definition_profile_assets(),))
+
+
+@dataclass(frozen=True)
+class PreparedDefinitionInputs:
+    prepared: PreparedRelease
+    roles: tuple[ResolvedRoleBinding, ...]
+    context: SubjectContext
+    check_active: Callable[[], None]
+
+    def members(self, role, *, whole=True):
+        selected = next(value for value in self.roles if value.role == role)
+        if any((whole and member.member is not None) or member.multiplicity != 1 for member in selected.members):
+            raise ValueError("definition inputs require their exact whole primary inventories")
+        return selected.members
+
+    def retained(self, role, values, name, model, source):
+        from .construction_products import CharacterizationSnapshot
+        from .enriched_document_products import RetainedCharacterizationProduct
+
+        result = []
+        for member, body in zip(self.members(role), values, strict=True):
+            if body["source"] != source.value["source"] or body["selectors"] != source.value["selectors"]:
+                raise ValueError("definition primary product differs from exact source and analyzed scope")
+            context = SubjectContext(self.context.project_id, member.subject, member.original_source, member.analyzed_scope)
+            product = RetainedCharacterizationProduct.acquire(self.prepared, model, self.prepared.index.definitions[name].iri, canonical_bytes(body), subject_context=context)
+            if product.semantic_id != member.product:
+                raise ValueError("definition primary body differs from its exact selected product")
+            result.append(CharacterizationSnapshot(product.semantic_id, product.content))
+        return tuple(result)
+
+    def declaration(self, source, constructions, hanlp, *, start, end, passage_id, scope, effective_version, parent):
+        from corpus_structure.methods.definition_declaration import primary_declaration_component_products
+        from .data_operation_admission import bound_data_operation_model
+        from .declared_record_sources import DeclaredNativeFrameSource
+        from .declared_structural_calls import _passage
+        from .structural_products import (
+            DeclaredDefinitionComponentsProduct, DeclaredDefinitionComponentsReport,
+            DeclaredStructuralInput, DeclaredStructuralInputPin, DefinitionStage,
+        )
+        from .source_products import FrozenNativeSource
+
+        self.check_active()
+        model = bound_data_operation_model(self.prepared)
+        selected = FrozenNativeSource.acquire(self.prepared, source)
+        (source_member,) = self.members("source", whole=False)
+        frame = DeclaredNativeFrameSource.acquire(self.prepared, source, source_member, project=self.context.project_id)
+        reference, passage = _passage(frame, passage_id=passage_id, start=start, end=end, scope=scope, version=effective_version, parent=parent)
+        # Authored passage bounds select from the admitted analyzed source scope;
+        # source text outside that scope never becomes a declaration premise.
+        index = selected.selector_index()
+        if not any(
+            selector.get("start", 0) <= start and end <= selector.get("end", len(frame.text))
+            and all(index.matches(selector, piece["item_ref"]) is True for piece in selected.value["pieces"] if piece["kind"] == "native_text" and start < piece["end"] and piece["start"] < end)
+            for selector in selected.value["selectors"]
+        ):
+            raise ValueError("definition passage exceeds its analyzed original source scope")
+        primary = self.retained("constructions", constructions, "DdoConstructionProduct", model, selected)
+        support = self.retained("hanlp", hanlp, "DdoHanlpInventory", model, selected)
+        component = primary_declaration_component_products(primary, selected, passage, supporting=support, source_pin=frame.pin.values())
+        source_pin = DeclaredStructuralInputPin.from_bound(source_member, project=self.context.project_id)
+        primary_pins = tuple(DeclaredStructuralInputPin.from_bound(member, project=self.context.project_id) for member in self.members("constructions"))
+        dependencies = tuple(member.product for role in ("constructions", "hanlp") for member in self.members(role))
+        report = DeclaredDefinitionComponentsReport(
+            inputs=DeclaredStructuralInput(question="Read the exact retained local declaration chain.", scope=scope, inventory_id="explicit-native-definition", policy_id="retained-declaration-chain-v2", sources=(reference,), passages=(passage,), dependencies=dependencies),
+            definition_components=DeclaredDefinitionComponentsProduct(components=(component,), stages=(DefinitionStage(passage_id=passage_id, operation="attachment", outcome="succeeded", reason="Released declaration chain replayed from exact separately retained native syntax."),)),
+            sources_input=(source_pin,), reports_input=primary_pins,
+        )
+        self.check_active()
+        return report.model_dump(mode="json", exclude_none=True)
+
+
+def execute_definition_declaration(receiver, source, constructions, hanlp, start, end, passage_id, scope, effective_version, parent):
+    return receiver.inputs.declaration(source, constructions, hanlp, start=start, end=end, passage_id=passage_id, scope=scope, effective_version=effective_version, parent=parent)
+
+
+def definition_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
+    from corpus_structure.methods.definition_declared import DefinitionDeclarationOperation
+
+    return DefinitionDeclarationOperation(PreparedDefinitionInputs(prepared, roles, context, check_active)).run(**arguments)
+
+
+@dataclass
+class DefinitionCallPlan:
+    prepared: PreparedRelease
+    port: Any = None
+
+    def verify(self):
+        self.port._verify()
+        if definition_profile_assets() != self.port.assets[0]:
+            raise ValueError("definition source or semantic assets changed")
+
+    def plan(self, arguments, *, binding, check_active, execution_owner):
+        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+        from .data_operation_prepared_call import PreparedCallResult
+
+        if binding is None or binding.subject_context is None:
+            raise ValueError("definition call requires its exact qualified binding")
+        signature = inspect.signature(definition_kernel, eval_str=True)
+        bound = signature.bind(arguments=arguments.arguments, roles=binding.roles, context=binding.subject_context, prepared=self.prepared, check_active=check_active)
+        captured = definition_operation_sources()
+        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in captured.sources), "corpus_structure.semantic.definition_products.definition_kernel", (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
+        reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.verify, execution_owner=execution_owner, check_active=check_active)
+        return PreparedCallResult(json.loads(reply.content), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+
+
+def resolve_definition_port(prepared, model, operation, *, identity, authorize, custody, sources):
+    from corpus_structure.methods.definition_declared import DefinitionDeclarationOperation
+    from .data_operation_ports import PortRefusal
+    from .data_operation_prepared_call import PreparedOriginalCallPort
+
+    selected = model.operation(operation)
+    if selected.semantic_id != DefinitionDeclarationOperation.__data_operation__["id"]:
+        raise PortRefusal("definition factory differs from its governing operation")
+    receiver, plan = DefinitionDeclarationOperation(None), DefinitionCallPlan(prepared)
+    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.definition_products.DefinitionCallPlan.plan", authorize, (definition_profile_assets(),), definition_operation_sources(), functions=(("corpus_structure.semantic.definition_products.definition_kernel", definition_kernel), ("corpus_structure.semantic.definition_products.execute_definition_declaration", execute_definition_declaration), ("corpus_structure.semantic.definition_products.PreparedDefinitionInputs.declaration", PreparedDefinitionInputs.declaration)), requires_prepared_schema=True)
+    plan.port = port
+    return port

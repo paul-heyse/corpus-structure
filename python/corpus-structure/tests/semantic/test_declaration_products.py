@@ -6,7 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.methods.definition_declaration import _declaration_chain_from_sentences
+from corpus_structure.methods.definition_declaration import (
+    _declaration_chain_from_sentences, primary_declaration_component_products,
+)
 from corpus_structure.semantic.construction_products import CharacterizationSnapshot
 from corpus_structure.semantic.constructions.layers import ConstructionLayer, ConstructionSource
 from corpus_structure.semantic.constructions.retained_declarations import (
@@ -90,3 +92,20 @@ def test_missing_native_premise_or_changed_canonical_association_cannot_become_e
     assert all(row["outcome"] not in {"complete", "empty"} for row in json.loads(failed.content)["coverage"])
     with pytest.raises(DeclarationNotQualified):
         declaration_sentences_products((failed,), source, passage(source), supporting=(hanlp,))
+
+
+def test_target_definition_component_retains_semantic_witness_and_independent_domain_result():
+    source, native, canonical, hanlp = case()
+    product = produce(source, native, canonical, hanlp)
+    component = primary_declaration_component_products(
+        (product,), source, passage(source), supporting=(hanlp,),
+        source_pin=native[0].source.values(),
+    )
+    assert component.term.text == "samples" and component.basis == "declaration_chain"
+    assert component.declaration_chain is not None
+    witness = component.declaration_chain.model_dump(mode="json")
+    assert witness["primary_evidence"] and all(
+        reference["product_id"] == product.semantic_id and reference["member_id"]
+        for reference in witness["primary_evidence"]
+    )
+    assert "parser" not in witness and "task_id" not in canonical_bytes(witness).decode()
