@@ -72,6 +72,33 @@ def _receipt(
     )
 
 
+def test_installed_retry_retains_collection_failure_in_existing_failure_view(tmp_path):
+    source = tmp_path / "test_broken_retry.py"
+    source.write_text("def test_case(:\n    pass\n")
+    node = source.as_posix() + "::test_case"
+    store = ResultStore(tmp_path / "results")
+    with store.operation("test", scope={"lane": "ordinary"}) as original:
+        directory = original.directory / "ordinary"
+        _receipt(directory, [node], fail=True)
+        original.publish("ordinary", directory)
+        original.settle("failed", lanes={"ordinary": "failed"})
+    attempt = _run(store, "retry", original.id, "--lane", "ordinary", "--json", check=False)
+    assert attempt.returncode == 1, attempt.stderr
+    report = json.loads(attempt.stdout)
+    assert report["outcome"] == "failed", report
+    replacement = store.show(report["id"])
+    assert replacement.details["execution_outcome"] == "not_run"
+    assert replacement.details["retry_recollection_failed"]
+    assert replacement.details["next_action"] == f"ci test retry {original.id}"
+    assert "ordinary" in replacement.artifacts
+    failures = json.loads(
+        _run(store, "failures", report["id"], "--lane", "ordinary", "--json").stdout
+    )
+    assert failures["availability"] == "available"
+    assert any("SyntaxError" in item.get("diagnostic", "") for item in failures["items"])
+    assert failures["next_action"] == f"ci test retry {original.id}"
+
+
 @pytest.mark.parametrize("retry", [False, True])
 @pytest.mark.parametrize("workers", ["0", "-1", "1.5", "auto"])
 def test_cli_workers_reject_invalid_before_operation(cli, tmp_path, retry, workers):

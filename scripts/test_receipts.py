@@ -1952,6 +1952,23 @@ def write_unresolved(
         or collected["worker_loss"]
         or set(collected["selected"]) != set(result["required"])
     ):
+        if managed:
+            # The caller owns this settled collection receipt. Retain it through
+            # the ordinary lane's existing diagnostic views without executing a
+            # broadened or stale functional selection.
+            write_json(
+                directory / "classification.json",
+                classify([directory]),
+            )
+            return {
+                "path": None,
+                "nodes": [],
+                "lane": lane,
+                "validation_receipt": str(directory),
+                "evidence_selection": evidence_selection,
+                "native_host": native_host,
+                "validation": "failed",
+            }
         raise ValueError(
             "current collection is stale, ambiguous, failed or outside the selected lane; "
             f"receipt: {directory}"
@@ -2320,6 +2337,11 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 }
                 | {
+                    **(
+                        {"unresolved_selection": result["unresolved_selection"]}
+                        if "unresolved_selection" in result
+                        else {}
+                    ),
                     "custody_unsettled": result["custody_unsettled"],
                     "retryable": _retryable(result),
                     "contexts": [

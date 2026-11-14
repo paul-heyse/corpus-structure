@@ -748,6 +748,9 @@ def _finish(result: Invocation, outcomes: dict[str, str], json: bool) -> None:
         next_action = (
             f"ci test{mode}{_native_host_flag(result.manifest)} --lane {failed}" if failed else None
         )
+    if result.manifest.details.get("retry_recollection_failed"):
+        next_action = f"ci test retry {result.manifest.scope['retry_of']}"
+        result.manifest.details["execution_outcome"] = "not_run"
     if result.manifest.action == "test.collect":
         if outcome != "passed":
             mode = (
@@ -947,6 +950,8 @@ def _next_test_action(
         return f"ci results recover {result_id}"
     if receipt_unsettled or manifest.details.get("custody_unsettled"):
         return f"Inspect supervisor settlement with ci results show {result_id} before retrying."
+    if manifest.details.get("retry_recollection_failed"):
+        return f"ci test retry {manifest.scope['retry_of']}"
     if manifest.action == "test.collect":
         mode = (
             " --providers-only" if manifest.scope.get("evidence_selection") == "providers" else ""
@@ -1564,7 +1569,7 @@ def retry(
                                 f"{current} context changed ({', '.join(changed)}); "
                                 "review coverage applicability after retry"
                             )
-                        _supervisor(
+                        recollected = _supervisor(
                             "classify",
                             "--summary",
                             *flags,
@@ -1575,6 +1580,20 @@ def retry(
                             "--managed-selection",
                             opened={path: fd},
                         )
+                        validation = recollected.get("unresolved_selection", {})
+                        if validation.get("validation") == "failed":
+                            directory = Path(validation["validation_receipt"]).resolve()
+                            if directory.parent != result.directory.resolve():
+                                raise ResultError("retry collection escaped its managed invocation")
+                            result.publish(current, directory)
+                            result.manifest.scope["required_lanes"].append(current)
+                            result.manifest.details["retry_recollection_failed"] = True
+                            outcomes[current] = "failed"
+                            diagnostic(
+                                f"{current} retry collection failed; inspect with ci test failures "
+                                f"{result.id} --lane {current}"
+                            )
+                            continue
                         result.manifest.scope["required_lanes"].append(current)
                         result.manifest.scope["workers"][current] = {
                             "requested": workers if current == "ordinary" else 0,
