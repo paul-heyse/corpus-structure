@@ -9,8 +9,11 @@ from dataclasses import asdict
 from types import SimpleNamespace
 from typing import Literal
 
+from pydantic import JsonValue, TypeAdapter
+
 from corpus_structure.core.method import Resources, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.identity import canonical_bytes
 
 
 def component_descriptor():
@@ -174,7 +177,7 @@ def controlled_component_result(prepared, configuration, ref, raw):
         ref=ref,
         outcome=ObservationOutcome.PRODUCED,
         structural_product=report.model_dump(mode="json"),
-        parse_detail=detail,
+        parse_detail=TypeAdapter(dict[str, JsonValue]).validate_json(canonical_bytes(detail)),
     )
 
 
