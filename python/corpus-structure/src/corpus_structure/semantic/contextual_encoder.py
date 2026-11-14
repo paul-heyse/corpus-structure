@@ -278,7 +278,7 @@ def resolve_contextual_encoder_port(
     selection = ContextualEncoderSelection(
         EncoderProfile(**value["profile"]),
         Path(value["model_path"]),
-        tuple(tuple(row) for row in value["artifacts"]),
+        tuple((name, digest) for name, digest in value["artifacts"]),
     )
     selected = model.operation(operation)
     if (
