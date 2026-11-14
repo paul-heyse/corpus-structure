@@ -1001,12 +1001,7 @@ def native_request_analysis(
     binders=None,
 ) -> NativeAnalysisPayload:
     """Finite native demand kernel; no converter, database or stronger extraction entrypoint."""
-    import dataclasses
-
-    import sympy
-
     from .prepared import PreparedMathInput
-    from .transform import NotRepresentable
 
     allowed = {
         "lexical",
@@ -1096,95 +1091,15 @@ def native_request_analysis(
                 )
         if not selected:
             continue
-        value = dict(
-            pointer=ref,
-            orig=item.get("orig", ""),
-            recognized_latex=item["text"],
-            primary_input=operand._primary_input,
-            recognition_health=outcome,
-            availability="available",
-            context_basis=context.stage_key(
-                demand,
-                **(
-                    {
-                        "conditions": (
-                            []
-                            if question_rule is None
-                            else [dataclasses.asdict(c) for c in operand.definedness()]
-                        ),
-                        "precision": {"mode": "exact-symbolic"},
-                        "sampling": {"requested": False},
-                        "decision_policy": {
-                            "question": question,
-                            "predicate": predicate,
-                            "rule": None
-                            if question_rule is None
-                            else dataclasses.asdict(question_rule),
-                        },
-                    }
-                    if demand == "scientific"
-                    else {}
-                ),
-            ),
-        )
-        value["context"] = dict(
-            source_id=context.source_id,
-            scope=context.scope,
-            declarations=[dataclasses.asdict(d) for d in context.declarations],
-            coverage="complete" if domain_rules and not context_issues else "unknown",
-            issues=context_issues,
-        )
-        if demand in {"lexical", "structure"}:
-            from corpus_structure.semantic.formal_forest import retained_math_inventory
+        from corpus_structure.semantic.formal_forest import retained_math_inventory
 
-            inventory = retained_math_inventory(
-                layers, view, ref, item["text"], macros=context.macros
-            )
-            if demand == "lexical":
-                value["lexical"] = inventory["lexical"]
-            else:
-                value["structure"] = {
-                    key: item for key, item in inventory.items() if key != "lexical"
-                }
-        elif demand == "syntax":
-            value.update(_syntax_value(operand.syntax()))
-        else:
-            if demand != "scientific" or question_rule is not None:
-                value.update(_syntax_value(operand.interpretation()))
-            if demand == "symbolic":
-                try:
-                    native = operand.symbolic_value()
-                    value["symbolic"] = dict(format="sympy-srepr-1", expression=sympy.srepr(native))
-                except (NotRepresentable, grammar.NotParsed, grammar.Ambiguous) as error:
-                    value["symbolic"] = dict(outcome="unsupported", diagnostic=str(error))
-                value["definedness"] = dataclasses.asdict(operand.definedness_result())
-            if demand == "scientific":
-                assert question is not None
-                assessment = operand.assess(question, predicate=predicate)
-                value["scientific_question"] = (
-                    None if question_rule is None else dataclasses.asdict(question_rule)
-                )
-                if question_rule is not None:
-                    value["definedness"] = dataclasses.asdict(operand.definedness_result())
-                    if "symbolic" in question_rule.result_basis:
-                        try:
-                            value["symbolic"] = dict(
-                                format="sympy-srepr-1",
-                                expression=sympy.srepr(operand.symbolic_value()),
-                            )
-                        except (NotRepresentable, grammar.NotParsed, grammar.Ambiguous) as error:
-                            value["symbolic"] = dict(outcome="unsupported", diagnostic=str(error))
-                value["assessment"] = dict(
-                    question=assessment.question,
-                    outcome=assessment.outcome,
-                    value=None
-                    if assessment.value is None or question == "definedness"
-                    else sympy.srepr(assessment.value),
-                    conditions=[dataclasses.asdict(c) for c in assessment.conditions],
-                    diagnostic=assessment.diagnostic,
-                    coverage=assessment.coverage,
-                )
-        value["stages"] = {name: dataclasses.asdict(operand.state(name)) for name in allowed}
+        value = analyze_native_operand(
+            operand, demand=demand, pointer=ref, original=item.get("orig", ""),
+            recognition_health=outcome, context_issues=context_issues,
+            context_coverage="complete" if domain_rules and not context_issues else "unknown",
+            retained_inventory=lambda: retained_math_inventory(layers, view, ref, item["text"], macros=context.macros),
+            question=question, predicate=predicate,
+        )
         results.append(value)
     return NativeAnalysisPayload(
         source_view_id=view.ref.id,
@@ -1194,6 +1109,106 @@ def native_request_analysis(
         demand=demand,
         items=tuple(results),
     )
+
+
+def analyze_native_operand(operand, *, demand, pointer, original, recognition_health, context_issues, context_coverage, retained_inventory, question=None, predicate=None):
+    """Original finite per-operand projection, shared by target and sealed readers."""
+    import dataclasses
+    import sympy
+    from .transform import NotRepresentable
+    from corpus_structure.semantic.analysis_contracts import scientific_question_rule
+
+    allowed = {"lexical", "structure", "syntax", "interpretation", "occurrences", "symbolic", "scientific"}
+    if demand not in allowed or (demand == "scientific" and question is None):
+        raise ValueError("native mathematical analysis requires its exact demand/question")
+    context = operand.context
+    question_rule = scientific_question_rule(context.profile, question) if demand == "scientific" else None
+    value = dict(
+        pointer=pointer,
+        orig=original,
+        recognized_latex=operand.latex,
+        primary_input=operand._primary_input,
+        recognition_health=recognition_health,
+        availability="available",
+        context_basis=context.stage_key(
+            demand,
+            **(
+                {
+                    "conditions": (
+                        []
+                        if question_rule is None
+                        else [dataclasses.asdict(c) for c in operand.definedness()]
+                    ),
+                    "precision": {"mode": "exact-symbolic"},
+                    "sampling": {"requested": False},
+                    "decision_policy": {
+                        "question": question,
+                        "predicate": predicate,
+                        "rule": None
+                        if question_rule is None
+                        else dataclasses.asdict(question_rule),
+                    },
+                }
+                if demand == "scientific"
+                else {}
+            ),
+        ),
+    )
+    value["context"] = dict(
+        source_id=context.source_id,
+        scope=context.scope,
+        declarations=[dataclasses.asdict(d) for d in context.declarations],
+        coverage=context_coverage,
+        issues=context_issues,
+    )
+    if demand in {"lexical", "structure"}:
+        inventory = retained_inventory()
+        if demand == "lexical":
+            value["lexical"] = inventory["lexical"]
+        else:
+            value["structure"] = {
+                key: item for key, item in inventory.items() if key != "lexical"
+            }
+    elif demand == "syntax":
+        value.update(_syntax_value(operand.syntax()))
+    else:
+        if demand != "scientific" or question_rule is not None:
+            value.update(_syntax_value(operand.interpretation()))
+        if demand == "symbolic":
+            try:
+                native = operand.symbolic_value()
+                value["symbolic"] = dict(format="sympy-srepr-1", expression=sympy.srepr(native))
+            except (NotRepresentable, grammar.NotParsed, grammar.Ambiguous) as error:
+                value["symbolic"] = dict(outcome="unsupported", diagnostic=str(error))
+            value["definedness"] = dataclasses.asdict(operand.definedness_result())
+        if demand == "scientific":
+            assert question is not None
+            assessment = operand.assess(question, predicate=predicate)
+            value["scientific_question"] = (
+                None if question_rule is None else dataclasses.asdict(question_rule)
+            )
+            if question_rule is not None:
+                value["definedness"] = dataclasses.asdict(operand.definedness_result())
+                if "symbolic" in question_rule.result_basis:
+                    try:
+                        value["symbolic"] = dict(
+                            format="sympy-srepr-1",
+                            expression=sympy.srepr(operand.symbolic_value()),
+                        )
+                    except (NotRepresentable, grammar.NotParsed, grammar.Ambiguous) as error:
+                        value["symbolic"] = dict(outcome="unsupported", diagnostic=str(error))
+            value["assessment"] = dict(
+                question=assessment.question,
+                outcome=assessment.outcome,
+                value=None
+                if assessment.value is None or question == "definedness"
+                else sympy.srepr(assessment.value),
+                conditions=[dataclasses.asdict(c) for c in assessment.conditions],
+                diagnostic=assessment.diagnostic,
+                coverage=assessment.coverage,
+            )
+    value["stages"] = {name: dataclasses.asdict(operand.state(name)) for name in allowed}
+    return value
 
 
 def native_proposal_packet(
@@ -2027,3 +2042,36 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
             ),
         ),
     )
+
+
+def analysis_failure(analysis) -> str | None:
+    """A failed attempt is never promoted to a reusable available capability."""
+    if analysis is None:
+        return None
+    for item in analysis.items:
+        failure = item.get("failure")
+        if isinstance(failure, dict) and failure.get("category") == "timeout":
+            return "native mathematical request exceeded its budget"
+        for stage in item.get("stages", {}).values():
+            if stage.get("work") == "failed":
+                return stage.get("diagnostic") or "native mathematical stage failed"
+    return None
+
+
+def analysis_coverage(analysis) -> Literal["complete", "partial"]:
+    if analysis is None:
+        return "complete"
+    for item in analysis.items:
+        if item.get("availability") != "available" or item.get("context", {}).get("issues"):
+            return "partial"
+        if item.get("context", {}).get("coverage") == "unknown" and analysis.demand in {
+            "interpretation",
+            "symbolic",
+            "scientific",
+        }:
+            return "partial"
+        if item.get("outcome") in {"failed", "ambiguous", "unsupported"}:
+            return "partial"
+        if any(stage.get("coverage") == "partial" for stage in item.get("stages", {}).values()):
+            return "partial"
+    return "complete"

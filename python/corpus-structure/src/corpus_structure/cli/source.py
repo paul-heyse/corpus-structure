@@ -396,26 +396,21 @@ def native_products(
         emit(RootModel[list[NativeProductReport]](rows), json=json)
 
 
-@app.command("native-request")
-def native_request(
+@app.command("native-render")
+def native_render(
     ctx: typer.Context,
     run: int,
     source_view: int,
-    demand: Literal[
-        "lexical", "structure", "syntax", "interpretation", "symbolic", "assessment", "render"
-    ],
     pointer: str | None = None,
     region_index: int | None = None,
     scale: float = 2,
-    question: str | None = None,
-    predicate: str | None = None,
     seconds: float = 2,
     output: Path | None = None,
     writer_release: str | None = None,
     writer_realization: str | None = None,
     json: JsonOpt = False,
 ):
-    """Execute an explicit native demand through the existing source-ready task lifecycle."""
+    """Render an exact published PDF occurrence under genuine archived source custody."""
     from sqlalchemy import select
 
     from corpus_structure.cli.failures import failure_boundary
@@ -424,7 +419,7 @@ def native_request(
     from corpus_structure.semantic.operations import OperationConflict
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    if output is not None and (demand != "render" or output.exists()):
+    if output is not None and output.exists():
         raise typer.BadParameter("a new --output path is available only for render demands")
     with (
         failure_boundary(json, expected=(ValueError, OperationConflict, FileExistsError)),
@@ -436,12 +431,10 @@ def native_request(
             engine,
             source_run_id=run,
             source_view_id=source_view,
-            demand=demand,
+            demand="render",
             pointer=pointer,
             region_index=region_index,
             scale=scale,
-            question=question,
-            predicate=predicate,
             seconds=seconds,
             code_commit="native-source-cli-v2",
             writer_release=writer_release,
@@ -600,3 +593,34 @@ def enriched(
             read_snapshot(engine) as conn,
         ):
             emit(inspect_characterization(conn, request), json=json)
+
+
+@app.command("native-request")
+def native_request(
+    ctx: typer.Context,
+    request: Annotated[Path | None, typer.Option(help="NativeDemandRequest JSON with actual source facts and acquired analysis targets; '-' reads stdin.")] = None,
+    demand: Annotated[str | None, typer.Option(help="Resume this exact retained native demand ID.")] = None,
+    source_root: Path | None = None,
+    project: str | None = None,
+    execution_policy: Path | None = None,
+    limit: int = 100,
+    max_rounds: int = 100,
+    json: JsonOpt = False,
+):
+    """Execute declared native analysis or resume its exact immutable demand.
+
+    Analysis targets are analyze.math/lexical and analyze.math/contextual. The
+    request freezes demand/question/predicate choices and genuine OriginalFactRef
+    selections. Rendering is available through native-render.
+    """
+    from corpus_structure.cli.demands import execute_request
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
+
+    if (request is None) == (demand is None):
+        raise typer.BadParameter("select exactly one --request or --demand")
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        parsed = None if request is None else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        execute_request(ctx, request=parsed, demand=demand, source_root=source_root, project=project, execution_policy=execution_policy, limit=limit, max_rounds=max_rounds, action="source.native-request", json=json)

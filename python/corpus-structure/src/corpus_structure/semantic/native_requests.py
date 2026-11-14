@@ -1,18 +1,17 @@
-"""Existing run/task lifecycle applied to explicit native section demands."""
+"""Genuine archived PDF rendering custody; mathematical analysis uses native demands."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, select
 
-from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitRef, UnitResult
-from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
+from corpus_structure.core.method import CoverageDraft, UnitRef, UnitResult
+from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 
 from .identity import canonical_bytes
 from .metadata import table
@@ -63,27 +62,14 @@ class NativeRequestLimits(BaseModel):
     scale: float = Field(default=2, gt=0, le=8)
 
 
-class NativeMacroTemplate(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    name: str
-    body: str
-
-
 class NativeRequestConfig(NativeRequestLimits):
     source_view_id: int = Field(gt=0)
     native_product: dict[str, Any]
     projection_digest: str
     recipe_digest: str
-    demand: Literal[
-        "lexical", "structure", "syntax", "interpretation", "symbolic", "assessment", "render"
-    ]
+    demand: Literal["render"]
     pointer: str | None = None
-    question: str | None = None
-    predicate: str | None = None
     region_index: int | None = Field(default=None, ge=0)
-    domain_rules: tuple[dict[str, Any], ...] = ()
-    characterization_layers: tuple[dict[str, Any], ...] = ()
-    macros: tuple[NativeMacroTemplate, ...] = ()
     ancestor_context: str = "{}"
     renderer: dict[str, str] | None = None
 
@@ -111,8 +97,6 @@ def request_source_view(
     ],
     code_commit: str,
     pointer: str | None = None,
-    question: str | None = None,
-    predicate: str | None = None,
     seconds: float = 2,
     region_index: int | None = None,
     scale: float = 2,
@@ -120,6 +104,8 @@ def request_source_view(
     writer_release: str | None = None,
     writer_realization: str | None = None,
 ) -> NativeRequestResult:
+    if demand != "render":
+        raise ValueError("mathematical analysis requires an explicit NativeDemandRequest and native demand execution")
     if (writer_release is None) != (writer_realization is None):
         raise ValueError("an explicit render writer requires both release and realization")
     if writer_release is not None and demand != "render":
@@ -217,100 +203,10 @@ def request_source_view(
             assert pointer is not None and region_index is not None
             archived_region = published.region(pointer, region_index)
         else:
-            view = load_source_view(conn, source_view_id, analysis=demand != "render")
+            view = load_source_view(conn, source_view_id, analysis=False)
             reference = view.ref
-        archived = {} if demand == "render" else json.loads(source_binding.dependencies)
-        math_operations = [
-            value
-            for name, value in archived.get("operations", {}).items()
-            if name.split("/", 1)[0]
-            in {"extract.math", "normalize.formula", "resolve.symbol_scope"}
-        ]
-        math_sections = [value.get("parameters", {}).get("math") or {} for value in math_operations]
-        rules = [section.get("native_domain_rules", []) for section in math_sections]
-        if rules and any(
-            canonical_bytes(value) != canonical_bytes(rules[0]) for value in rules[1:]
-        ):
-            raise ValueError("native source request has competing archived domain-rule contexts")
-        domain_rules = tuple(rules[0]) if rules else ()
-        macro_maps = [section.get("macros", {}) for section in math_sections]
-        if macro_maps and any(value != macro_maps[0] for value in macro_maps[1:]):
-            raise ValueError("native source request has competing archived macro contexts")
-        macros = dict(macro_maps[0]) if macro_maps else {}
-        from .operations import BoundReader
-        from .product_reference import ProductReference
-
-        primary_pins = tuple(
-            dict.fromkeys(
-                ProductReference(**pin)
-                for operation in math_operations
-                for pin in operation.get("parameters", {}).get("characterization_layers", ())
-            )
-        )
-        primary_layers = {}
-        reader = BoundReader(conn, source_run_id, prepared)
-        reader.characterization_selection = primary_pins
-        if demand != "render":
-            if not primary_pins:
-                raise ValueError(
-                    "native source analysis requires regenerated math operations "
-                    "with frozen primary layers"
-                )
-            primary_layers = reader.primary_characterization(
-                source_view_id, families=("formal.lexical",)
-            )
-        contextual = demand in {"interpretation", "symbolic", "assessment"}
-        ancestor_refs = ancestor_views = ()
-        parent_records = {}
-        parent_coverage = {}
-        if contextual:
-            ancestor_refs = tuple(reader.ancestor_source_views(source_view_id))
-            ancestor_views = tuple(reader.source_view(ref.id) for ref in ancestor_refs)
-            parent_records = {
-                (ref.id, kind): tuple(
-                    reader.source_observations(ref.id, "resolve.symbol_scope", kind)
-                )
-                for ref in ancestor_refs
-                for kind in (ObservationKind.RECORD, ObservationKind.SCOPE)
-            }
-            parent_coverage = {
-                ref.id: tuple(reader.source_view_coverage(ref.id, "resolve.symbol_scope"))
-                for ref in ancestor_refs
-            }
         runtime_binding = require_installed_runtime(prepared)
-        renderer = (
-            prepare_native_renderer(conn, prepared, runtime_binding=runtime_binding)
-            if demand == "render"
-            else None
-        )
-    # Native syntax work runs after the bounded database snapshot has been released.
-    kernel_rules = ()
-    if demand != "render":
-        from corpus_structure.methods.math.native import NativeDomainRule
-
-        kernel_rules = tuple(NativeDomainRule.model_validate(rule) for rule in domain_rules)
-    declarations = issues = ()
-    if contextual:
-        from corpus_structure.methods.math.native import stored_native_ancestor_declarations
-
-        class AncestorSnapshot:
-            def __init__(self):
-                self.prepared = prepared
-
-            def ancestor_source_views(self, identity):
-                return ancestor_refs
-
-            def source_view(self, identity):
-                return next(parent for parent in ancestor_views if parent.ref.id == identity)
-
-            def source_observations(self, identity, method, kind):
-                return parent_records.get((identity, kind), ())
-
-            def source_view_coverage(self, identity, method):
-                return parent_coverage.get(identity, ())
-
-        assert view is not None
-        declarations, issues = stored_native_ancestor_declarations(AncestorSnapshot(), view)
+        renderer = prepare_native_renderer(conn, prepared, runtime_binding=runtime_binding)
     config = NativeRequestConfig(
         source_view_id=source_view_id,
         native_product=reference.native_product.values(),
@@ -318,38 +214,9 @@ def request_source_view(
         recipe_digest=reference.recipe_digest,
         demand=demand,
         pointer=pointer,
-        question=question,
-        predicate=predicate,
         seconds=seconds,
         region_index=region_index,
         scale=scale,
-        domain_rules=domain_rules,
-        characterization_layers=tuple(pin.values() for pin in primary_pins),
-        macros=tuple(
-            NativeMacroTemplate(name=name, body=body) for name, body in sorted(macros.items())
-        ),
-        ancestor_context=canonical_bytes(
-            dict(
-                source_views=[asdict(ref) for ref in ancestor_refs],
-                declarations=declarations,
-                issues=issues,
-                observations=[
-                    dict(
-                        source_view_id=identity,
-                        kind=kind,
-                        observation_key=row.observation_key,
-                        payload_hash=row.payload_hash,
-                    )
-                    for (identity, kind), rows in parent_records.items()
-                    for row in rows
-                ],
-                coverage=[
-                    dict(source_view_id=identity, **asdict(row))
-                    for identity, rows in parent_coverage.items()
-                    for row in rows
-                ],
-            )
-        ).decode(),
         renderer=renderer,
     )
     if demand == "assessment" and not question:
@@ -418,11 +285,6 @@ def request_source_view(
                 )
             ).scalar_one()
             result = None
-            if demand != "render":
-                raw = BoundReader(conn, run_id, prepared, analysis=False).source_observations(
-                    source_view_id, method.name, ObservationKind.RECORD
-                )
-                result = dict(raw[0].payload) if raw else None
             artifact = conn.execute(
                 select(table("ops.native_region_artifact").c.artifact_digest).where(
                     table("ops.native_region_artifact").c.task_id == reused
@@ -505,92 +367,12 @@ def request_source_view(
 
             owner()
             artifact_bytes = None
-            if demand == "render":
-                from corpus_structure.serve.native_regions import render_pdf_region
+            from corpus_structure.serve.native_regions import render_pdf_region
 
-                assert original is not None and region is not None
-                artifact_bytes = render_pdf_region(original, region, scale=scale)
-                analysis = None
-            else:
-                from corpus_structure.methods.math.native import native_request_analysis
-
-                assert view is not None
-                analysis = native_request_analysis(
-                    view,
-                    prepared,
-                    "scientific" if demand == "assessment" else demand,
-                    pointer,
-                    question,
-                    predicate,
-                    seconds,
-                    domain_rules=kernel_rules,
-                    ancestor_declarations=declarations,
-                    ancestor_context_issues=issues,
-                    primary_layers=primary_layers,
-                    macros={name: MacroDef(body=body) for name, body in macros.items()},
-                )
+            assert original is not None and region is not None
+            artifact_bytes = render_pdf_region(original, region, scale=scale)
             owner()
-            failure = analysis_failure(analysis)
-            if failure is not None and analysis is not None:
-                failed = UnitResult(
-                    ref=unit,
-                    outcome=ObservationOutcome.FAILED,
-                    error=failure,
-                    parse_detail={"native_analysis": analysis.model_dump(mode="json")},
-                )
-                owner.settle(claim, terminal_intent(failed).apply)
-                with engine.begin() as conn:
-                    end_source_run(
-                        conn,
-                        RunId(run_id),
-                        failure={
-                            "message": failure,
-                            "native_analysis": analysis.model_dump(mode="json"),
-                        },
-                        prepared=prepared,
-                    )
-                return NativeRequestResult(
-                    run_id,
-                    task_id,
-                    None,
-                    "failed",
-                    source_view_id,
-                    result=analysis.model_dump(mode="json"),
-                    error=failure,
-                )
-            observations = (
-                ()
-                if analysis is None
-                else (
-                    ObservationDraft(
-                        kind=ObservationKind.RECORD,
-                        payload=analysis,
-                        payload_class=type(analysis),
-                        payload_version="1",
-                        source_view_id=source_view_id,
-                        native_pointer=pointer,
-                    ),
-                )
-            )
-            result = UnitResult(
-                ref=unit,
-                outcome=ObservationOutcome.PRODUCED if observations else ObservationOutcome.EMPTY,
-                observations=observations,
-                coverage=(
-                    CoverageDraft(
-                        family=method.name,
-                        scope=reference.key,
-                        outcome=analysis_coverage(analysis),
-                        required_capability=demand,
-                        reason=None
-                        if analysis_coverage(analysis) == "complete"
-                        else (
-                            "native demand coverage is incomplete; inspect the retained item "
-                            "diagnostics"
-                        ),
-                    ),
-                ),
-            )
+            result = UnitResult(ref=unit, outcome=ObservationOutcome.EMPTY, coverage=(CoverageDraft(family=method.name, scope=reference.key, outcome="complete", required_capability="render"),))
             with engine.begin() as conn:
                 artifact_digest = None
                 if artifact_bytes is not None:
@@ -632,7 +414,7 @@ def request_source_view(
             source_view_id,
             sha256(canonical_bytes(body)).hexdigest(),
             artifact_digest,
-            analysis.model_dump(mode="json") if analysis is not None else None,
+            None,
         )
     except BaseException as error:
         try:
@@ -647,35 +429,3 @@ def request_source_view(
             error.add_note("native request failure settlement failed: " + repr(cleanup))
         raise
 
-
-def analysis_failure(analysis) -> str | None:
-    """A failed attempt is never promoted to a reusable available capability."""
-    if analysis is None:
-        return None
-    for item in analysis.items:
-        failure = item.get("failure")
-        if isinstance(failure, dict) and failure.get("category") == "timeout":
-            return "native mathematical request exceeded its budget"
-        for stage in item.get("stages", {}).values():
-            if stage.get("work") == "failed":
-                return stage.get("diagnostic") or "native mathematical stage failed"
-    return None
-
-
-def analysis_coverage(analysis) -> Literal["complete", "partial"]:
-    if analysis is None:
-        return "complete"
-    for item in analysis.items:
-        if item.get("availability") != "available" or item.get("context", {}).get("issues"):
-            return "partial"
-        if item.get("context", {}).get("coverage") == "unknown" and analysis.demand in {
-            "interpretation",
-            "symbolic",
-            "scientific",
-        }:
-            return "partial"
-        if item.get("outcome") in {"failed", "ambiguous", "unsupported"}:
-            return "partial"
-        if any(stage.get("coverage") == "partial" for stage in item.get("stages", {}).values()):
-            return "partial"
-    return "complete"
