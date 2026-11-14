@@ -59,12 +59,28 @@ class NativeScopePayload(BaseModel):
 
 
 def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...], *, primary_scope=None):
+    return domain_blocks_columns(
+        root=view.ref.section_pointer,
+        text=view.text,
+        items=view.items,
+        ancestors=view.ancestors,
+        pieces=view.pieces,
+        rules=rules,
+        primary_scope=primary_scope,
+    )
+
+
+def domain_blocks_columns(*, root, text, items, ancestors, pieces, rules, primary_scope=None):
+    from .native_topology import prepare_native_topology_columns
+
     """Combine retained source-marker candidates with actual native section topology."""
     if not rules:
         return ()
     if primary_scope is None or not primary_scope.complete:
         raise ValueError("native domain scopes require complete primary source-marker coverage")
-    topology = native_topology(view)
+    topology = prepare_native_topology_columns(
+        root=root, text=text, items=items, ancestors=ancestors, pieces=pieces
+    )
     by_pointer = {}
     for _start, pointer, rule in primary_scope.markers:
         by_pointer.setdefault(pointer, set()).add(rule)
@@ -76,7 +92,9 @@ def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...], *, primary_sco
     ]
 
     found.sort()
-    topology = native_topology(view)
+    topology = prepare_native_topology_columns(
+        root=root, text=text, items=items, ancestors=ancestors, pieces=pieces
+    )
     result = []
     for index, (start, pointer, rule) in enumerate(found):
         section = topology.section(pointer)
@@ -149,15 +167,26 @@ def declaration_scope(*, source, items, topology, rules, ordinal, blocks):
 def _before_descendant(parent: Any, child: Any, pointer: str) -> bool | None:
     """Prove relative order from retained native containment, not collection indices."""
     return before_descendant_columns(
-        parent_items=parent.items, parent_ancestors=parent.ancestors,
-        child_items=child.items, child_ancestors=child.ancestors,
-        ancestor=parent.ref.section_pointer, child_pointer=child.ref.section_pointer,
+        parent_items=parent.items,
+        parent_ancestors=parent.ancestors,
+        child_items=child.items,
+        child_ancestors=child.ancestors,
+        ancestor=parent.ref.section_pointer,
+        child_pointer=child.ref.section_pointer,
         pointer=pointer,
     )
 
 
-def before_descendant_columns(*, parent_items, parent_ancestors, child_items, child_ancestors,
-                              ancestor, child_pointer, pointer) -> bool | None:
+def before_descendant_columns(
+    *,
+    parent_items,
+    parent_ancestors,
+    child_items,
+    child_ancestors,
+    ancestor,
+    child_pointer,
+    pointer,
+) -> bool | None:
     """Prove forward containment order from retained native columns alone."""
     nodes = {
         item["self_ref"]: item

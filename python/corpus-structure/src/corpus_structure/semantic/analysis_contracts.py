@@ -656,7 +656,9 @@ class AnalysisContextProfile:
     def model_id(self) -> str:
         from dataclasses import asdict
 
-        return sha256(canonical_bytes([asdict(self.profile), self.implementation_digests])).hexdigest()
+        return sha256(
+            canonical_bytes([asdict(self.profile), self.implementation_digests])
+        ).hexdigest()
 
 
 def acquire_analysis_context_profile() -> AnalysisContextProfile:

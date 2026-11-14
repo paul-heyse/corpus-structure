@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.formal_forest import SourceNativeMathReadings
 from corpus_structure.semantic.source_products import FrozenNativeSource
@@ -131,7 +133,9 @@ def declared_math_readings(
     return readings
 
 
-def declared_normalization_readings(source, records, configuration, *, prepared, prepare_context, check_active=lambda: None):
+def declared_normalization_readings(
+    source, records, configuration, *, prepared, prepare_context, check_active=lambda: None
+):
     """Consume the exact occurrence codec without recognizing or parsing again."""
     from .native import NativeReading, _restore_reading
     from .prepared import PreparedMathInput
@@ -140,8 +144,13 @@ def declared_normalization_readings(source, records, configuration, *, prepared,
         raise TypeError("normalization requires an admitted semantic source")
     positions = {item["self_ref"]: n for n, item in enumerate(source.items)}
     selected, _ = selected_formula_inputs(FrozenNativeSource.acquire(prepared, source.value))
-    topology = prepare_native_topology_columns(root=source.section_pointer, text=source.text,
-        items=source.items, ancestors=source.ancestors, pieces=source.pieces)
+    topology = prepare_native_topology_columns(
+        root=source.section_pointer,
+        text=source.text,
+        items=source.items,
+        ancestors=source.ancestors,
+        pieces=source.pieces,
+    )
     pieces = {piece["item_ref"]: piece for piece in source.pieces if piece.get("item_ref")}
     items = {item["self_ref"]: item for item in source.items}
     seen = set()
@@ -149,17 +158,30 @@ def declared_normalization_readings(source, records, configuration, *, prepared,
     for record in records:
         check_active()
         pointer = record["pointer"]
-        if pointer in seen or pointer not in selected or record["recognized_latex"] != items[pointer]["text"]:
+        if (
+            pointer in seen
+            or pointer not in selected
+            or record["recognized_latex"] != items[pointer]["text"]
+        ):
             raise ValueError("occurrence inventory differs from selected original formula atoms")
         seen.add(pointer)
         basis = record["context"]
-        context = prepare_context(prepared, macros=configuration.section().macro_table(),
-            constants=configuration.section().constants, source_id=basis["source_id"], scope=basis["scope"],
-            offset=positions[pointer], scope_chain=topology.scope_chain(pointer, basis["source_id"]),
-            declarations=[d for d in basis["declarations"] if d["authority"] == "source"], demand="occurrences")
+        context = prepare_context(
+            prepared,
+            macros=configuration.section().macro_table(),
+            constants=configuration.section().constants,
+            source_id=basis["source_id"],
+            scope=basis["scope"],
+            offset=positions[pointer],
+            scope_chain=topology.scope_chain(pointer, basis["source_id"]),
+            declarations=[d for d in basis["declarations"] if d["authority"] == "source"],
+            demand="occurrences",
+        )
         if context.stage_key("occurrences") != record["occurrence_basis"]:
             raise ValueError("normalization context differs from its exact occurrence input")
-        operand = PreparedMathInput(context, record["recognized_latex"], seconds=configuration.parse_seconds)
+        operand = PreparedMathInput(
+            context, record["recognized_latex"], seconds=configuration.parse_seconds
+        )
         syntax = _restore_reading(record.get("raw_syntax", record), operand.latex, context)
         weak = _restore_reading(record, operand.latex, context)
         operand.retain_primary_syntax(syntax, primary_input=record.get("primary_input"))
@@ -168,183 +190,303 @@ def declared_normalization_readings(source, records, configuration, *, prepared,
         operand._remember("interpretation", weak)
         operand._states["occurrences"] = operand.state("interpretation")
         piece = pieces.get(pointer)
-        start = None if piece is None or source.text[piece["start"]:piece["end"]] != operand.latex else piece["start"]
-        result.append(NativeReading(pointer, operand, operand.symbolic_reading(), start, tuple(basis.get("issues", ()))))
+        start = (
+            None
+            if piece is None or source.text[piece["start"] : piece["end"]] != operand.latex
+            else piece["start"]
+        )
+        result.append(
+            NativeReading(
+                pointer, operand, operand.symbolic_reading(), start, tuple(basis.get("issues", ()))
+            )
+        )
     return tuple(result)
 
 
 class DeclaredMathOccurrences:
-    __data_operation__ = {'id': 'extract.math/declared',
-     'profile': 'derivation',
-     'subject': 'original-source-view',
-     'context': ['project', 'subject', 'original-source', 'analyzed-scope'],
-     'entrypoints': ['run'],
-     'roles': [{'name': 'source',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource',
-                'direction': 'input',
-                'parameter': 'source',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation', 'original-source'],
-                            'source': 'original-source',
-                            'coverage': 'exact-selected-scope'}},
-               {'name': 'formal',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct',
-                'direction': 'input',
-                'parameter': 'formal',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation'],
-                            'source': 'original-source',
-                            'coverage': 'exact-selected-scope'}},
-               {'name': 'inherited',
-                'kind': 'urn:corpus:math:DeclaredMathProduct',
-                'direction': 'input',
-                'parameter': 'inherited',
-                'minimum': 0,
-                'maximum': None,
-                'collection': 'set',
-                'presence': 'optional',
-                'subject_target': 'source-set',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation'],
-                            'source': 'frozen-source-set',
-                            'source_set': 'math-ancestors',
-                            'coverage': 'exact-selected-scope'}},
-               {'name': 'ancestor_sources',
-                   'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource',
-                   'direction': 'input', 'parameter': 'ancestor_sources',
-                   'minimum': 0, 'maximum': None, 'collection': 'set', 'presence': 'optional',
-                   'subject_target': 'source-set',
-                   'support': {'provenance': 'value_substitution', 'identity_requirements': [],
-                               'origins': ['computation', 'original-source'],
-                               'source': 'frozen-source-set', 'source_set': 'math-ancestor-sources',
-                               'coverage': 'exact-selected-source-scope'}},
-               {'name': 'result',
-                'kind': 'urn:corpus:math:DeclaredMathProduct',
-                'direction': 'output',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required'}],
-     'applicability': ['retained-formal-syntax-and-explicit-mathematical-context'],
-     'invariants': ['exact-original-formula-coordinates',
-                    'no-repeated-recognition',
-                    'exact-retained-occurrence-context'],
-     'coverage': 'selected-formula-atoms-with-explicit-partial-context',
-     'outcomes': ['success'],
-     'precision': 'exact-symbolic-with-retained-ambiguity',
-     'dependencies': [],
-     'effects': [],
-     'parameters': {},
-     'capabilities': {'forms': ['scalar'],
-                      'preparation': 'schema',
-                      'prepared_factory': 'acquire_port',
-                      'cancellation': 'cooperative',
-                      'ownership': 'existing-invocation-cpu-owner'},
-     'behavior': 'original-native-mathematical-occurrences-v1',
-     'binding': {'operator': 'scan', 'roles': ['source', 'formal', 'inherited', 'ancestor_sources']},
-     'assets': [{'reference': 'declared-mathematical-profile',
-                 'contract': 'math/declared-profile',
-                 'role': 'semantic-profile-and-kernels'}],
-     'opaque': [{'reference': 'corpus_structure.semantic.declared_math_products.execute_occurrences',
-                 'contract': 'math/declared-profile',
-                 'role': 'mathematical-kernel'}]}
+    __data_operation__: ClassVar[dict] = {
+        "id": "extract.math/declared",
+        "profile": "derivation",
+        "subject": "original-source-view",
+        "context": ["project", "subject", "original-source", "analyzed-scope"],
+        "entrypoints": ["run"],
+        "roles": [
+            {
+                "name": "source",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                "direction": "input",
+                "parameter": "source",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation", "original-source"],
+                    "source": "original-source",
+                    "coverage": "exact-selected-scope",
+                },
+            },
+            {
+                "name": "formal",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "direction": "input",
+                "parameter": "formal",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "exact-selected-scope",
+                },
+            },
+            {
+                "name": "inherited",
+                "kind": "urn:corpus:math:DeclaredMathProduct",
+                "direction": "input",
+                "parameter": "inherited",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "subject_target": "source-set",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation"],
+                    "source": "frozen-source-set",
+                    "source_set": "math-ancestors",
+                    "coverage": "exact-selected-scope",
+                },
+            },
+            {
+                "name": "ancestor_sources",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                "direction": "input",
+                "parameter": "ancestor_sources",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "subject_target": "source-set",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation", "original-source"],
+                    "source": "frozen-source-set",
+                    "source_set": "math-ancestor-sources",
+                    "coverage": "exact-selected-source-scope",
+                },
+            },
+            {
+                "name": "constructions",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoConstructionProduct",
+                "direction": "input",
+                "parameter": "constructions",
+                "minimum": 0,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "optional",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "exact-selected-source-scope",
+                },
+            },
+            {
+                "name": "result",
+                "kind": "urn:corpus:math:DeclaredMathProduct",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "applicability": ["retained-formal-syntax-and-explicit-mathematical-context"],
+        "invariants": [
+            "exact-original-formula-coordinates",
+            "no-repeated-recognition",
+            "exact-retained-occurrence-context",
+        ],
+        "coverage": "selected-formula-atoms-with-explicit-partial-context",
+        "outcomes": ["success"],
+        "precision": "exact-symbolic-with-retained-ambiguity",
+        "dependencies": ["text.formal_evidence/source-native"],
+        "potential_dependencies": ["text.constructions/source-native"],
+        "effects": [],
+        "parameters": {},
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "schema",
+            "prepared_factory": "acquire_port",
+            "cancellation": "cooperative",
+            "ownership": "existing-invocation-cpu-owner",
+        },
+        "behavior": "original-native-mathematical-occurrences-v1",
+        "binding": {
+            "operator": "scan",
+            "roles": ["source", "formal", "inherited", "ancestor_sources", "constructions"],
+        },
+        "assets": [
+            {
+                "reference": "declared-mathematical-profile",
+                "contract": "math/declared-profile",
+                "role": "semantic-profile-and-kernels",
+            }
+        ],
+        "opaque": [
+            {
+                "reference": "corpus_structure.semantic.declared_math_products.execute_occurrences",
+                "contract": "math/declared-profile",
+                "role": "mathematical-kernel",
+            }
+        ],
+    }
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
         from corpus_structure.semantic.declared_math_products import resolve_math_port
 
-        return resolve_math_port(prepared, model, operation, receiver=DeclaredMathOccurrences(None),
-            phase="occurrences", identity=identity, authorize=authorize, custody=custody, sources=sources)
+        return resolve_math_port(
+            prepared,
+            model,
+            operation,
+            receiver=DeclaredMathOccurrences(None),
+            phase="occurrences",
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
+        )
 
     def __init__(self, profile):
         self.profile = profile
 
-    def run(self, source: dict, formal: dict, inherited: tuple[dict, ...] = (), ancestor_sources: tuple[dict, ...] = ()) -> dict:
+    def run(
+        self,
+        source: dict,
+        formal: dict,
+        inherited: tuple[dict, ...] = (),
+        ancestor_sources: tuple[dict, ...] = (),
+        constructions: dict | None = None,
+    ) -> dict:
         from corpus_structure.semantic.declared_math_products import execute_occurrences
 
-        return execute_occurrences(self, source, formal, inherited, ancestor_sources)
+        return execute_occurrences(self, source, formal, inherited, ancestor_sources, constructions)
 
 
 class DeclaredMathNormalization:
-    __data_operation__ = {'id': 'normalize.formula/declared',
-     'profile': 'derivation',
-     'subject': 'original-source-view',
-     'context': ['project', 'subject', 'original-source', 'analyzed-scope'],
-     'entrypoints': ['run'],
-     'roles': [{'name': 'source',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource',
-                'direction': 'input',
-                'parameter': 'source',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation', 'original-source'],
-                            'source': 'original-source',
-                            'coverage': 'exact-selected-scope'}},
-               {'name': 'occurrences',
-                'kind': 'urn:corpus:math:DeclaredMathProduct',
-                'direction': 'input',
-                'parameter': 'occurrences',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required',
-                'support': {'provenance': 'value_substitution',
-                            'identity_requirements': [],
-                            'origins': ['computation'],
-                            'source': 'original-source',
-                            'coverage': 'exact-selected-scope'}},
-               {'name': 'result',
-                'kind': 'urn:corpus:math:DeclaredMathProduct',
-                'direction': 'output',
-                'minimum': 1,
-                'maximum': 1,
-                'collection': 'scalar',
-                'presence': 'required'}],
-     'applicability': ['retained-formal-syntax-and-explicit-mathematical-context'],
-     'invariants': ['exact-original-formula-coordinates',
-                    'no-repeated-recognition',
-                    'exact-retained-occurrence-context'],
-     'coverage': 'selected-formula-atoms-with-explicit-partial-context',
-     'outcomes': ['success'],
-     'precision': 'exact-symbolic-with-retained-ambiguity',
-     'dependencies': [],
-     'effects': [],
-     'parameters': {},
-     'capabilities': {'forms': ['scalar'],
-                      'preparation': 'schema',
-                      'prepared_factory': 'acquire_port',
-                      'cancellation': 'cooperative',
-                      'ownership': 'existing-invocation-cpu-owner'},
-     'behavior': 'original-native-mathematical-symbolic-v1',
-     'binding': {'operator': 'scan', 'roles': ['source', 'occurrences']},
-     'assets': [{'reference': 'declared-mathematical-profile',
-                 'contract': 'math/declared-profile',
-                 'role': 'semantic-profile-and-kernels'}],
-     'opaque': [{'reference': 'corpus_structure.semantic.declared_math_products.execute_normalization',
-                 'contract': 'math/declared-profile',
-                 'role': 'mathematical-kernel'}]}
+    __data_operation__: ClassVar[dict] = {
+        "id": "normalize.formula/declared",
+        "profile": "derivation",
+        "subject": "original-source-view",
+        "context": ["project", "subject", "original-source", "analyzed-scope"],
+        "entrypoints": ["run"],
+        "roles": [
+            {
+                "name": "source",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                "direction": "input",
+                "parameter": "source",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation", "original-source"],
+                    "source": "original-source",
+                    "coverage": "exact-selected-scope",
+                },
+            },
+            {
+                "name": "occurrences",
+                "kind": "urn:corpus:math:DeclaredMathProduct",
+                "direction": "input",
+                "parameter": "occurrences",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "value_substitution",
+                    "identity_requirements": [],
+                    "origins": ["computation"],
+                    "source": "original-source",
+                    "coverage": "exact-selected-scope",
+                },
+            },
+            {
+                "name": "result",
+                "kind": "urn:corpus:math:DeclaredMathProduct",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "applicability": ["retained-formal-syntax-and-explicit-mathematical-context"],
+        "invariants": [
+            "exact-original-formula-coordinates",
+            "no-repeated-recognition",
+            "exact-retained-occurrence-context",
+        ],
+        "coverage": "selected-formula-atoms-with-explicit-partial-context",
+        "outcomes": ["success"],
+        "precision": "exact-symbolic-with-retained-ambiguity",
+        "dependencies": ["extract.math/declared"],
+        "effects": [],
+        "parameters": {},
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "schema",
+            "prepared_factory": "acquire_port",
+            "cancellation": "cooperative",
+            "ownership": "existing-invocation-cpu-owner",
+        },
+        "behavior": "original-native-mathematical-symbolic-v1",
+        "binding": {"operator": "scan", "roles": ["source", "occurrences"]},
+        "assets": [
+            {
+                "reference": "declared-mathematical-profile",
+                "contract": "math/declared-profile",
+                "role": "semantic-profile-and-kernels",
+            }
+        ],
+        "opaque": [
+            {
+                "reference": "corpus_structure.semantic.declared_math_products.execute_normalization",
+                "contract": "math/declared-profile",
+                "role": "mathematical-kernel",
+            }
+        ],
+    }
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
         from corpus_structure.semantic.declared_math_products import resolve_math_port
 
-        return resolve_math_port(prepared, model, operation, receiver=DeclaredMathNormalization(None),
-            phase="symbolic", identity=identity, authorize=authorize, custody=custody, sources=sources)
+        return resolve_math_port(
+            prepared,
+            model,
+            operation,
+            receiver=DeclaredMathNormalization(None),
+            phase="symbolic",
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
+        )
 
     def __init__(self, profile):
         self.profile = profile
