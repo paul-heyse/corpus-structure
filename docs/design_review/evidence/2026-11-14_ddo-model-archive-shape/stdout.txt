@@ -1,0 +1,136 @@
+{
+  "model_bytes": 223217117,
+  "arrays": {
+    "bindings": {
+      "count": 62,
+      "bytes": 307414
+    },
+    "edges": {
+      "count": 11828,
+      "bytes": 2925167
+    },
+    "graph_projections": {
+      "count": 3,
+      "bytes": 1817
+    },
+    "identities": {
+      "count": 6277,
+      "bytes": 204671906
+    },
+    "implementation_slices": {
+      "count": 35,
+      "bytes": 383720
+    },
+    "kinds": {
+      "count": 6056,
+      "bytes": 7739168
+    },
+    "nodes": {
+      "count": 6180,
+      "bytes": 6627944
+    },
+    "operations": {
+      "count": 62,
+      "bytes": 559831
+    }
+  },
+  "identity_domains": {
+    "kind": {
+      "count": 6056,
+      "canonical_input_bytes": 200472407
+    },
+    "implementation-slice": {
+      "count": 35,
+      "canonical_input_bytes": 1706780
+    },
+    "definition": {
+      "count": 62,
+      "canonical_input_bytes": 538461
+    },
+    "eligibility": {
+      "count": 62,
+      "canonical_input_bytes": 88546
+    },
+    "recipe": {
+      "count": 62,
+      "canonical_input_bytes": 461531
+    }
+  },
+  "largest_identity_inputs": [
+    {
+      "owner": "https://corpus-structure.dev/semantic/observations/SourceObservationBatch",
+      "domain": "kind",
+      "bytes": 2994782
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/observations/SourceObservationBatch/property/structural_product",
+      "domain": "kind",
+      "bytes": 2523420
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/observations/StructuralProductReport",
+      "domain": "kind",
+      "bytes": 2520611
+    },
+    {
+      "owner": "urn:corpus:data-wire:read_demand_result_result",
+      "domain": "kind",
+      "bytes": 2227262
+    },
+    {
+      "owner": "urn:corpus:structural:DeclaredDossierReport",
+      "domain": "kind",
+      "bytes": 1645697
+    },
+    {
+      "owner": "urn:corpus:structural:DeclaredArtifactReport",
+      "domain": "kind",
+      "bytes": 1503534
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/characterization/AnnotationLayer",
+      "domain": "kind",
+      "bytes": 1316298
+    },
+    {
+      "owner": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
+      "domain": "kind",
+      "bytes": 1308080
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/data-operation-definition-location/DdoDefinitionLocationReport",
+      "domain": "kind",
+      "bytes": 1306654
+    },
+    {
+      "owner": "urn:corpus:data-wire:admit_external_data_result_request",
+      "domain": "kind",
+      "bytes": 1291102
+    },
+    {
+      "owner": "urn:corpus:data-wire:retain_data_completion_intent_request",
+      "domain": "kind",
+      "bytes": 1283039
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
+      "domain": "kind",
+      "bytes": 1281798
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoGlinerDefinitionCandidatesReport",
+      "domain": "kind",
+      "bytes": 1275797
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoGlinerFunctionCandidatesReport",
+      "domain": "kind",
+      "bytes": 1275721
+    },
+    {
+      "owner": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport",
+      "domain": "kind",
+      "bytes": 1275531
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+capturing actual recipe metadata
+compiling one captured model
+Abstract class 'MathematicalExpression' has only 1 direct child ('ExpressionValue'). The covering axiom makes them equivalent (MathematicalExpression ≡ ExpressionValue). Use --skip-abstract-class-as-unionof-subclasses to suppress.
+Abstract class 'ContributionSemantics' has only 1 direct child ('RetainedContributionSemantics'). The covering axiom makes them equivalent (ContributionSemantics ≡ RetainedContributionSemantics). Use --skip-abstract-class-as-unionof-subclasses to suppress.
+Abstract class 'DdoFormalAnalyticalMember' has only 1 direct child ('DdoFormalOccurrence'). The covering axiom makes them equivalent (DdoFormalAnalyticalMember ≡ DdoFormalOccurrence). Use --skip-abstract-class-as-unionof-subclasses to suppress.
+Abstract class 'DdoContextualMember' has only 1 direct child ('DdoContextualManifest'). The covering axiom makes them equivalent (DdoContextualMember ≡ DdoContextualManifest). Use --skip-abstract-class-as-unionof-subclasses to suppress.
+examining existing serialized model

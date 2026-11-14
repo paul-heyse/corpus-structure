@@ -1,0 +1,1018 @@
+{
+  "observed_at": "2026-11-14T20:51:54.446577+00:00",
+  "head_before": "c767ef5f779c5ef199d7844aebc6839c40cbfd47",
+  "python": "3.14.10 (main, Oct 26 2026, 14:09:22) [Clang 23.1.3 ]",
+  "failure_result": "2950f7ac49574c4a970e491119d89972",
+  "recipe": "_captured_definition_recipe",
+  "execution": "static acquisition and compilation only; no DB, runtime binding, inference or publication",
+  "captured_inputs": [
+    {
+      "category": "source",
+      "name": "toy_semantic",
+      "bytes": 2173,
+      "sha256": "f9ca04ec7bf03eaf2ef9ae58a38be81792efdc0cd4111b58311c9b874f300fa1"
+    },
+    {
+      "category": "source",
+      "name": "semantic_core",
+      "bytes": 17241,
+      "sha256": "2169052c539d249f2bc0072852bf3512108c75fd6c56e82e02118c2c9e1d2cc3"
+    },
+    {
+      "category": "source",
+      "name": "observations",
+      "bytes": 114610,
+      "sha256": "dadd0d5dc14eee79c82462b29504758cd00e4aa24d62eae3acb115ca7f38bb02"
+    },
+    {
+      "category": "source",
+      "name": "observation-root",
+      "bytes": 130,
+      "sha256": "56106263adaeb1ddcf6134ef6109cee0179eff2da73af679485d957349f4507f"
+    },
+    {
+      "category": "source",
+      "name": "characterization",
+      "bytes": 56010,
+      "sha256": "64ba511d7754d63abe72d774f44857709d3fa149d9bf0121bd70da15fddd05c8"
+    },
+    {
+      "category": "source",
+      "name": "characterization-root",
+      "bytes": 148,
+      "sha256": "c0ad7e2f50660826203d00adcea972882215add8860f9cf5d5334935c64a2919"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_references",
+      "bytes": 683,
+      "sha256": "acc14ca2119c4d4530061be5824ab8ed86196df21c4c5f1800f32395aea53ed9"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_references_root",
+      "bytes": 144,
+      "sha256": "a371380adb06072787bd12b38f7fe82b683d2c03d706591706088fae5cd581c8"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_source",
+      "bytes": 7466,
+      "sha256": "d4dc387da441fd2e95599a16ad4be334c5d7804a9c7371454e97cf86087ef98d"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_source_root",
+      "bytes": 141,
+      "sha256": "f445c5e2b17a2ff505c8c5fcf0f107ab6bd37a0db779d59482339ae20303825c"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_source_discovery",
+      "bytes": 1532,
+      "sha256": "4625eb54f7028493892f21a235c717b7c50f1ef377bf8299c7135a1bff215a7c"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_source_discovery_root",
+      "bytes": 152,
+      "sha256": "b462dfc7a324045b2c5dbf1f8182e2709486ddc8004478d4589669e6ddc97294"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_source_profile",
+      "bytes": 987,
+      "sha256": "c7f15ae880c31d1d95b7746f2a744bc24b07333626fee01187a07f62de8e646a"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_source_profile_root",
+      "bytes": 156,
+      "sha256": "951156b20e27fa1a16bd087bc785967b1b96e817b1b77f03ebfe7eaf087e0565"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_sentences",
+      "bytes": 13618,
+      "sha256": "d1bc9b07efbb44b6a295ffbe97c710628ebea764590467b46dd647de5be12248"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_sentences_root",
+      "bytes": 154,
+      "sha256": "5768c57702b92ecec3c2f3d513b19156b4ce01809bf9d5d20b92d60f044ae41a"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_characterization",
+      "bytes": 11188,
+      "sha256": "b756c781f344b8edd5b3fe723560e75fc44bec10d4a4211f9419b2f2ab89ba1c"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_characterization_root",
+      "bytes": 170,
+      "sha256": "87dd57fb8454d9f046e00aa66aed880c51dd0a3d0a9f1b90e197278411723c44"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_constructions",
+      "bytes": 52271,
+      "sha256": "4716464bd35683ae6e499e19cfd1ddacd1560d0724516129e199afeee0805d63"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_constructions_root",
+      "bytes": 168,
+      "sha256": "ec73b8aaf7dd2bd918e5ee950f95159e8f15cb25beea8273bf38839777effd7a"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_hanlp",
+      "bytes": 4962,
+      "sha256": "fff7edbf543046aed32893afad9c36ce9a202610cc0a028a69bdd7c3ac4a8097"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_hanlp_root",
+      "bytes": 126,
+      "sha256": "8e3379dd8e2bf10071b2421c99bddc9bad75cb0e5ad117cf4efbdeef568c991d"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_candidate_inspection",
+      "bytes": 3739,
+      "sha256": "84f5c6a905f8fc3266f3b951e19784d0288738ed70adeb6add9455af24e21e79"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_candidate_inspection_root",
+      "bytes": 163,
+      "sha256": "7835ef2b0aa19bcd9c24172fe610311060a45981d94fc3b6157c5b86f6b9ad8e"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_learned",
+      "bytes": 6283,
+      "sha256": "e5f8678a7b82064cd9e7b4e315561db421ce1afd8970b44a7c223d3c2d80186b"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_learned_root",
+      "bytes": 147,
+      "sha256": "e84faf32a369f9a0416ef995746c604bdf122934a4e9bc3d2e0031cd66ba84f9"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_contextual",
+      "bytes": 2379,
+      "sha256": "6f02dfdffb3738c493dce155754776177588885868c88511d5ac06b812347309"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_contextual_root",
+      "bytes": 135,
+      "sha256": "44e7abb279ea2a1c87c6849369b5d6c2d50a4c11604487ecf744c15aa6f1d2aa"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_definition_location",
+      "bytes": 1819,
+      "sha256": "5ba5924978c013a64f363a4352b0439cba6c6b06d1fe0dc4e2ce0957050937bb"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_definition_location_root",
+      "bytes": 165,
+      "sha256": "f2f4a52df6a9d440e8b5d60a4472bdafcbdd3c892228ad213a17f2864308cb45"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_interpretation",
+      "bytes": 1419,
+      "sha256": "1c85711b74e88a936118e764213e2c754ef5267c46c263d7c58cd2dd1c5e71b1"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_interpretation_root",
+      "bytes": 166,
+      "sha256": "f849dd5a8846231ee38693956dde2993ea722eed61e736ca8f976e2ddce9186c"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_reading_resolution",
+      "bytes": 980,
+      "sha256": "f7a1190196635914b56c0dd5dc508b994b6a240e1dd638cc970c60f21234b64f"
+    },
+    {
+      "category": "source",
+      "name": "data_operation_reading_resolution_root",
+      "bytes": 166,
+      "sha256": "23ce10e0f6e9d0f483c2ecaddca944bc0dbdef05220dba543c28d786a2e6d25d"
+    },
+    {
+      "category": "dependency",
+      "name": "pack/characterization/operation/interpretation-questions.yaml",
+      "bytes": 11730,
+      "sha256": "0552a8b41a1dc9fcbdaf1de07384f57c0dc07dcd4715326f0a814f385c9091ec"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-projections.py",
+      "bytes": 40903,
+      "sha256": "01efadb3876d08d8e671efef077213fb6c114f53678c06b655609af9dc1744e7"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-projections.json",
+      "bytes": 35172,
+      "sha256": "e3e4291fbebfb900ef934ce4fe9037d2ba368ec93e6a8f1e3c80bd1968e49eaf"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-linkml-types.yaml",
+      "bytes": 7296,
+      "sha256": "1c79b264397bec0eadb404d22e9b163458f1b889809b3b482ecc39c98743fe00"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-physical/characterization-physical.yaml",
+      "bytes": 14100,
+      "sha256": "eaf1e3b42f32784cf4d91c9611c4dd58f41f4b5ff2c9e6764837014490309de7"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-physical/data-operation-native.yaml",
+      "bytes": 66043,
+      "sha256": "5bf3226ca7682156997eba79b0c210de3eaf6c208eb6acce94038c9dcf0cd42e"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-physical/data-operation-physical.yaml",
+      "bytes": 26390,
+      "sha256": "41ceb6f6c4c41782f12a428702f30bc5afe1699c4c2762daab9518832c22918e"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-physical/pdf-records.yaml",
+      "bytes": 6834,
+      "sha256": "0e24b1808121fcb75275c892dabf8a8b132613e26cab1b6d19ab0eb843dcfc2c"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-physical/pdf-staging.yaml",
+      "bytes": 12770,
+      "sha256": "4511d0bdcea10752afab0b01c319fd6017c085f5ab9ed66b2653b4fc6641e3a7"
+    },
+    {
+      "category": "dependency",
+      "name": "native/projection-physical/physical.yaml",
+      "bytes": 161705,
+      "sha256": "62df72a563308d8ad73ad585b7d29a61a0759b127c9fb011428c1427a875b22b"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-provider-profiles.py",
+      "bytes": 5882,
+      "sha256": "26c29fe4d80434f493c3eaaf083173353934590d8da9dce5fe18a0596a14fefe"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-execution-evidence.schema.json",
+      "bytes": 7574,
+      "sha256": "e1a520667ecc676b6712fd2524a677147a55906a338e9a8bb662c69920d3a300"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-external-receipts.py",
+      "bytes": 1112,
+      "sha256": "5eb64bff901cb58006ee6af5eefd1c2a4527461c5cba64024b211ce100625ef4"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-pdf-completion.sql",
+      "bytes": 4828,
+      "sha256": "78299c13a08bc8346dbdb675e3cf1d99ca96bfe295c6ec4b38bdfb92a6633e36"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-pdf-effect-contract.py",
+      "bytes": 1481,
+      "sha256": "20294b9a3aaa9240919047774362c74ffa16504f26d2453b89b91c90c1475f8b"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-original-reference.json",
+      "bytes": 1298,
+      "sha256": "0b0028b7d88e6d945b0e44efb4044f589d39ef2c8c7ecab4a049b3dc9412e56e"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-original-support-reference.json",
+      "bytes": 3005,
+      "sha256": "85fb825599a8bbb4b73c642556fcf19eb56b8212b06ad62cf1b850e0d043c917"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-support.py",
+      "bytes": 7002,
+      "sha256": "3c4b79f54f9499e2eaa56fdd6e518423c0c43fb9fdcf6079a715a0ebaac594cf"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-execution-evidence.py",
+      "bytes": 4513,
+      "sha256": "eca7dbab2a26c106f2d1cb60d61834923a07a00f0321aac2db5f5ae1532aa027"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-protocol.yaml",
+      "bytes": 66043,
+      "sha256": "5bf3226ca7682156997eba79b0c210de3eaf6c208eb6acce94038c9dcf0cd42e"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operations.sql",
+      "bytes": 168958,
+      "sha256": "29bb36c9df3cc94fbbc7da9d0114aae02b46c243eba540d86a66d3a213cc5be7"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-external.sql",
+      "bytes": 23115,
+      "sha256": "6eeb48a21a9b6772d79089f6af04878cf61effbf1b1bc1a219cd1cd1323b13af"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-recordable-fates.sql",
+      "bytes": 166,
+      "sha256": "51e075105eec59eb3fb1778c2a4f43a85fd2075c22ad70b6e927c7bd828dac0d"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-protocol.py",
+      "bytes": 2335,
+      "sha256": "1a4c2f49400f979e04f938d0247a2bb55e92012e5b072c6cbb864a2490f9341c"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-storage.py",
+      "bytes": 49593,
+      "sha256": "9672055b143280a44cac8a2bf996b1d415c5aa27ea89a419589731bf1a196cf2"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-member-contracts.py",
+      "bytes": 5081,
+      "sha256": "a6850cf811ebfc740b916fd23164c5f2a9a37b513a359af56329506dc2aaef57"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-kind-refinements.py",
+      "bytes": 2148,
+      "sha256": "7b7a252fd6f4b53f1042ca874fce8a3c09258d9fab46520a5f9530402e3d001e"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-subjects.py",
+      "bytes": 1876,
+      "sha256": "c16c9b490ea21309c16109bebf64a9172d539ea2a809f04e1d3ef74279bb51e1"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-physical.yaml",
+      "bytes": 26390,
+      "sha256": "41ceb6f6c4c41782f12a428702f30bc5afe1699c4c2762daab9518832c22918e"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-bindings.sql",
+      "bytes": 62387,
+      "sha256": "a36fd576afcf7d4f3a25e440183b404900620436b1a99e94272ed415c8e8661a"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-binding-native.py",
+      "bytes": 1838,
+      "sha256": "d16b153a2324060eb4ffee6d7faadd394ad85913db82b473d61494bd22088214"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-wire.sql",
+      "bytes": 790,
+      "sha256": "e4e58d1d40b636ec47783acfbe29f7232c3087e5589d1f1f6c3aea9f75089390"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-wire-native.py",
+      "bytes": 1975,
+      "sha256": "b8e667bbd1587a9e0eca970d6639c4ace355cb3282a45542174ff1a60bf1d7c7"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-wire.py",
+      "bytes": 18970,
+      "sha256": "6cc531531a6053a8524d067ca8d75da879a7024f780d3ea613176990af457ff7"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-json.py",
+      "bytes": 2606,
+      "sha256": "df9f065152700a27dcda9650d18c655416eb002ddeaafb2af17b065e76011e76"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-source-admission.sql",
+      "bytes": 15751,
+      "sha256": "7db8a7be6ca03ad2a567b1cbdbe4aa85f1361b2334dd41fd735c1a9e46d5eab0"
+    },
+    {
+      "category": "dependency",
+      "name": "native/data-operation-source-native.py",
+      "bytes": 1625,
+      "sha256": "be9da7236e69ede4ced423740f9171e854b7d75b92078d9ebfbc9958de799da6"
+    },
+    {
+      "category": "dependency",
+      "name": "generator/data_operation_artifacts.py",
+      "bytes": 12594,
+      "sha256": "bb43f893cbc99227b7a77376e42ebb0269ba59eda295647f2ebf293e5a99436f"
+    },
+    {
+      "category": "dependency",
+      "name": "generator/operation_call_generation.py",
+      "bytes": 62780,
+      "sha256": "659a58ab928fb09d0f9f97eb346cd45938640ff026fd0531327be14bbb24eeb6"
+    },
+    {
+      "category": "dependency",
+      "name": "generator/data_operation_ports.py",
+      "bytes": 88577,
+      "sha256": "2c2def3a6cde10a5ccfcefdeb94dfc82214db76123402238e789f08ceca8a8f1"
+    },
+    {
+      "category": "dependency",
+      "name": "generator/data_operation_cpu.py",
+      "bytes": 19401,
+      "sha256": "bd6c30a0065e53f41e62c8fb32760482e7557f169905390a22a84ef6a22d2b59"
+    },
+    {
+      "category": "dependency",
+      "name": "generator/data_operation_wire.py",
+      "bytes": 18970,
+      "sha256": "6cc531531a6053a8524d067ca8d75da879a7024f780d3ea613176990af457ff7"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/manifest.json",
+      "bytes": 12244,
+      "sha256": "def17944cc6452874520a7e8c11eb58a02a94b671647ed01a26753b7306ef228"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/declarations/native/data-operation-native.yaml",
+      "bytes": 366440,
+      "sha256": "c42446feb23956c0ebbd1c88d85c5012bad4de616e6a8cb0842073b4b3898406"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/declarations/structural/nominal-kinds.json",
+      "bytes": 616857,
+      "sha256": "a6e01ad81174bb925e44eb58d19191c9a8020425f6197a777c9358cb78c2c8b6"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/0.py",
+      "bytes": 12529,
+      "sha256": "b3ff1e90d88ea149c7c9c3a5f47a65004781f3e0c7616bbe7bfa1f057df95fbf"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/1.py",
+      "bytes": 4805,
+      "sha256": "632d3b31dc2d348085a2f5f8289f8755cee455dec024148ecc7b7dde859aa793"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/2.py",
+      "bytes": 2392,
+      "sha256": "c0034f58d7cf579482dad2c575805bdecb5d3d0c966ac08057311c16a592bb59"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/3.py",
+      "bytes": 4676,
+      "sha256": "d09a905e05324b340b9298447e5ada63ea7658ef7c510d8ee5197f237b33ac5a"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/4.py",
+      "bytes": 57661,
+      "sha256": "fcb3f213b6a4141712eb026f758e686a4b878b4e4bad097c851c62ebbe37f349"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/5.py",
+      "bytes": 9316,
+      "sha256": "b52a2ad2d1ad74ec2ae3eba6e561d8a1f44fd5551054694ff0d1b5a1f9465fac"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/6.py",
+      "bytes": 17509,
+      "sha256": "8a41b97cf7c953561c275e9e2573c01fe9482608e11d247de4160686a0f46e50"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/7.py",
+      "bytes": 4004,
+      "sha256": "adc651abd4f995e262bfaa6a8e488b84b593af048b741f8dafb7cdada324e583"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/8.py",
+      "bytes": 35619,
+      "sha256": "71d4215fcd713a4ad81fc415ae15b2b89cfa7d1cf6ad7f3e67a4b7c1a4ba3f1c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/9.py",
+      "bytes": 5509,
+      "sha256": "d8cc55f8c2ecae0e81f3ae841aa7ff4a0a9a5fa732e05ed1654e7de975329f32"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/10.py",
+      "bytes": 39207,
+      "sha256": "6b35c762eea5e8fa19d77e2df1aa81d507b66013ca4c8c6e6970d131d220fab2"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/11.py",
+      "bytes": 4358,
+      "sha256": "158028fcc96c8e0fe059c781ea291c92831ea211c2da570f65df0fdd1db744f1"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/12.py",
+      "bytes": 7716,
+      "sha256": "2838cb6e63d4754df0a3aff1a0bf718a66ecf0cb6f251978c8fbb1a4cb51ff84"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/13.py",
+      "bytes": 10879,
+      "sha256": "3bb162b7048ecb8a46b4f02e20773b84c4edcd67f8bbf159975ad6d7eb242306"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/14.py",
+      "bytes": 6321,
+      "sha256": "0e020f467150f2120cae1f434dd10d86cfecce89df11aa0756350a46d22185d5"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/15.py",
+      "bytes": 45608,
+      "sha256": "2291a88758149c8df6b1af92000a342c1f1820a6841b4e17489e1b6f1c9ed49a"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/16.py",
+      "bytes": 7219,
+      "sha256": "8f7ef95b8aa7eb33edee41d76654eb9e7458686cd1ee52e1a670ed6d1e6c1084"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/17.py",
+      "bytes": 8397,
+      "sha256": "8cf12313e8bbf133942e3df0cc4db4227b90e3e4c1695046722fad0d206bc163"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/18.py",
+      "bytes": 9639,
+      "sha256": "d16fa1b251011ee01ef36cf6df5fe20dd58681ac1930843e3c076793d0e386c6"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/19.py",
+      "bytes": 31285,
+      "sha256": "7686d4d45dfd97dfc2568bae5802ddd47c39637783585bff4f25c4787f3e2b6c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/20.py",
+      "bytes": 146219,
+      "sha256": "c358b9a3720a591b92ff6b4235cb312a8a55486c9a0aede11cf3d67de43fcc92"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/21.py",
+      "bytes": 47277,
+      "sha256": "7bddc272041b28141f25ec556c7c2c458ccf7abb80df61f841b31fbdfd2e7785"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/22.py",
+      "bytes": 18678,
+      "sha256": "b330cd81de441f5abb816734a76e1e20ef8e1d3390e4a41a7fabd9ad19f700ef"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/23.py",
+      "bytes": 30911,
+      "sha256": "3ea16f028e1510bf97c019059ed1ac59e31fe9b3adad1246b13c9046ee6e77ba"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/24.py",
+      "bytes": 12627,
+      "sha256": "9a3f455fe590dd6a771e39226ba1a5f3d56668d663377fddd6665945d27e02ac"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/25.py",
+      "bytes": 31424,
+      "sha256": "e4d07cbcb207a2a3db7db70bfbfe15e92d976a07cc4f2bf6206edd9e0cbc81cc"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/26.py",
+      "bytes": 13280,
+      "sha256": "b8a58a10b56a1e99ea8a040d007dda3f81b7b8b229c6ddfce64cc2dcaaca986b"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/27.py",
+      "bytes": 12550,
+      "sha256": "bd578157a9e1d6e88197c4e98a73cb83264e5db0ed4d4b440447a1e5afa0da95"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/28.py",
+      "bytes": 22430,
+      "sha256": "22ce1c7210a6106861b2f7c7752ca333e48b1b4e0820aa3fa3a81d91f66360c5"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/29.py",
+      "bytes": 11610,
+      "sha256": "537f3c6a3a22d55adb8f3d8e44aafeb3f628a4b87ec35c98b43fc3d17f939a26"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/30.py",
+      "bytes": 14516,
+      "sha256": "d0b8f2c57e24b84e259f5e8115b26fa24e598d3cc76b77fdfc587e9e101be7eb"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/31.py",
+      "bytes": 15275,
+      "sha256": "1646dbfccc78b37f3c384f0a9a8515eed650116235fd39bc6248f3b14c835ee9"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/32.py",
+      "bytes": 10186,
+      "sha256": "5ae2d7b6d3c5273db1123295b7fb07422147d3dfb078168a73e0c4e8ec6776be"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/33.py",
+      "bytes": 42617,
+      "sha256": "5e015211699ef99961ded910fcfb7a9e9ab53e2d4d0548bc74d51fbc3e87f797"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/34.py",
+      "bytes": 15876,
+      "sha256": "7ee92478d044b54b785cd75ab71a3c36807c7ea261d439671b167b6e47a7ce05"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/35.py",
+      "bytes": 20991,
+      "sha256": "3bd221416c0110a74657c50391e9d433d68089d3ad971b3ccd18268fc7da3de7"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/36.py",
+      "bytes": 17685,
+      "sha256": "179061652683730629189f7beb6560fab637b96d1aa4888c9d53c69a4663133f"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/37.py",
+      "bytes": 15338,
+      "sha256": "98225f41a89c2ec6e8242de32ceddfafdd22b14b10b90f2bb842f020ca59e7fd"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/38.py",
+      "bytes": 13848,
+      "sha256": "31dcc6424de3106dfbb9bd6178220146621a289bc2a8464472f510a765f6a1fa"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/39.py",
+      "bytes": 15743,
+      "sha256": "c93031c37120a2b495acbd92d0b8145595cac67b212a0abe4a75c22609aa046f"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/40.py",
+      "bytes": 7003,
+      "sha256": "6f0ba947a8722be8517aa3f15cf8bbeb6e0ea2e64a2a70a30349471dd117e0d2"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/41.py",
+      "bytes": 23470,
+      "sha256": "d2259487d21c2bbf1cdf0b7767286fc06f51c66363a7314969d18aff0b7a886d"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/42.py",
+      "bytes": 11337,
+      "sha256": "3f62eab232b4235f5e3690ca49461df12ffdf74c04922bda4bf26f973af41fcb"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/43.py",
+      "bytes": 8137,
+      "sha256": "10f904f3404d5265dc03863b822215061c242fa6411e3d369d12a41c77e1492b"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/44.py",
+      "bytes": 11316,
+      "sha256": "b309d5369d6c796d04f08141d61438cea38a19381a23255b7d54de859879ea9f"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/45.py",
+      "bytes": 18280,
+      "sha256": "e8dbf4fc8501dd44b9492e6352d7558acf58a50578df2d9ac1f1c98b9eccb627"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/46.py",
+      "bytes": 27406,
+      "sha256": "bd4b2e0f76235fb848408896083115a5f63398aaf65be6ad0296c7bb28ec6da3"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/47.py",
+      "bytes": 24374,
+      "sha256": "cbf0194fa4a3c5df872626be692e3fb121f2ecde45349db7bf5b4bd600e0a92b"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/48.py",
+      "bytes": 9874,
+      "sha256": "7804fb362adc19b4454707c6ef0853478b5bdfd4f083b810e5916e4668d4f6c9"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/49.py",
+      "bytes": 13074,
+      "sha256": "817d09f80c37e27d67bf9f794f41c71eb458012b37a160b5a222ae854b6d0157"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/50.py",
+      "bytes": 9963,
+      "sha256": "982d97c766e5d49eb61fe8b2cf0fcd982f5e344ac38518521c5a2858cd34ba5c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/51.py",
+      "bytes": 13131,
+      "sha256": "68a42628a98eb4430a49346ea47f6f2ad8ab6be3e03c188c3ce4ca17dbbe6c9c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/52.py",
+      "bytes": 37783,
+      "sha256": "0bab5ef989f5be2cbfddfd36937b29823021b1dc7a35c2cde4dd65c0f1d664bf"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/53.py",
+      "bytes": 21356,
+      "sha256": "accd0382f6be48b0263cc53564e091a6a054f94f0f3f6b70ba3e52c019bfac5b"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/54.py",
+      "bytes": 14502,
+      "sha256": "08253520ddd42a55e4e79299d1034a44907465efd2f2bd54dfd972d7cc5a4ec8"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/55.py",
+      "bytes": 15384,
+      "sha256": "79ded1fa2497cb35b58c7625d6cc03c1ed7b0a2da926828f6d61c663a16b4be5"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/python/56.py",
+      "bytes": 28198,
+      "sha256": "f46ecf37681014666429a47fd12ffc949e992820e9a2e1139438e11ba75d7cf7"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/source-discovery/profile-assets",
+      "bytes": 52181,
+      "sha256": "95781cc6502a2d132a200eb796e963bd7a242c0a1210206a8b7a77c998161f42"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/source-discovery/execution-custody",
+      "bytes": 12529,
+      "sha256": "b3ff1e90d88ea149c7c9c3a5f47a65004781f3e0c7616bbe7bfa1f057df95fbf"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/sentences/provider-inference-profile",
+      "bytes": 4634,
+      "sha256": "fdb8caf8144276dfd9a0927916df9a971791de428be7b75f5490455ceaafd3f8"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/sentences/profile-assets",
+      "bytes": 345076,
+      "sha256": "cacce5591f14b238509523421ac10e8165b0a9ecea5f0c9e36087a8476da2999"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/sentences/execution-custody",
+      "bytes": 180778,
+      "sha256": "869bd8efdffeaecbe76da97100b802b8c0cc3190ac0262518d4abccf1ca47d5f"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/canonical/profile-assets",
+      "bytes": 34730,
+      "sha256": "dca8914db3dced810f1429dbcb8af3b250f8c29647ec5b185a4131b7489f095c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/canonical/execution-custody",
+      "bytes": 410433,
+      "sha256": "ea3ceae82bbc81a1f377a6c3028c74d46d5da1d1cfb1a67cf735b9b5d7f1c25b"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/hanlp/profile-assets",
+      "bytes": 109001,
+      "sha256": "c7057cd5c2e7c5d160ef6ec9ff5075516f24a9b399f8ee726a7feb6a587dd65c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/hanlp/execution-custody",
+      "bytes": 316670,
+      "sha256": "d4f93f5ab794763c0b3d1924ba526947962216ed77effa4bd70b66d675b86e1e"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/hanlp/provider-inference-profile",
+      "bytes": 5699,
+      "sha256": "65611ddad34e028b1fe42f49f1ecfe16941f44f09cfe39173f741c36dc74fe49"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/formal/profile-assets",
+      "bytes": 835629,
+      "sha256": "ff30c15b1b2341cf36ea1c59c0d2babbd7b7d3611508b7e4b4993a60cde87fa9"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/formal/execution-custody",
+      "bytes": 156184,
+      "sha256": "07566e23a82dd508429580a2702fc4c9f0ea945973a71df3053270ce40ffd402"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/declarations/profile-assets",
+      "bytes": 760576,
+      "sha256": "46830845390d115d1d29b46cc67d50ae2c26575321d8d2a3188f7c0d0f17711d"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/characterization/construction-assets",
+      "bytes": 1014050,
+      "sha256": "af7cd57c1254f474a576f750e423f3f9807abf39a90d5b5ac5df29c22789baf8"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/characterization/execution-custody",
+      "bytes": 1364315,
+      "sha256": "386c283ed540e7f9f82ece2a80d388b9bcdc1f712037346677905ee6a7fa58f0"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/characterization/construction-configuration",
+      "bytes": 116,
+      "sha256": "a7f4e3c7cd6bb7a229e6ef50df066eb6ca481baac7a4050b9e7c943c37781dbe"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/characterization/contextual-assets",
+      "bytes": 391229,
+      "sha256": "def89fb07c752ee26db8c729a29e8fd924fcdaa6bfce880e8e3a12dbf3e1626c"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/characterization/view-assets",
+      "bytes": 103534,
+      "sha256": "0c7e32a1e16748a7fb6d26275cc3e847bb7dc7ecf3282ee26d066a8b027711ac"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/learned/profile-assets",
+      "bytes": 1564179,
+      "sha256": "92282db719516534f70a6d954facf34a72ccc0ab4e6c16bc0b6958936356e685"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/learned/execution-custody",
+      "bytes": 10147,
+      "sha256": "0f3eb2c02622d0a87f6cbc386969a3a14ac52775feb8ccd083954da6bf8f08f6"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/predicates/profile-assets",
+      "bytes": 846759,
+      "sha256": "40aa2686fb08edee151014ffbcfe1118d4fe24f97dc3f1fa7c70f2f139ba1740"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/scoped/profile-assets",
+      "bytes": 706869,
+      "sha256": "abcb7ae2df93da1d761e662c427c825fbc4e72c58b4bf0d3cad9ecd9ec6ba6e1"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/artifacts/profile-assets",
+      "bytes": 809241,
+      "sha256": "7e394f7ccf2c51da8818ff2c8631e7208af7b37039fd683c1848c676a2e5bf9e"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/definitions/profile-assets",
+      "bytes": 896804,
+      "sha256": "63396d06857028f7c2bb39fe76025948ce84048b19fd569acc7978791f6713c2"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/definition-location/profile-assets",
+      "bytes": 457874,
+      "sha256": "b3d70adbd469269d8ca24eea360be17c595ae4612c0b0ab918ce4e0b0228f0b9"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/definition-components/profile-assets",
+      "bytes": 487144,
+      "sha256": "bf28a2d2d611da4e176091a118ae50a50893be073c1d2ea355706dba4adb4cc6"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/dossiers/profile-assets",
+      "bytes": 702995,
+      "sha256": "1c8a4c3edfad2a0eca74c46a12b125d68c9657952e793efeee42630d3f87c156"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/finite/algorithm-assets",
+      "bytes": 225955,
+      "sha256": "2aea4f0495f55fb9765f6a9ef90dca480db6b88eb06cd33c1bb3390a8082c39f"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/readings/algorithm-assets",
+      "bytes": 149621,
+      "sha256": "dd0c6ae3980377966521a94863aac375693622c5abeccaf2d4b8f06347438ed1"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/structural/call-assets",
+      "bytes": 1812923,
+      "sha256": "dbec96823098779aa0ca8ca87fadf7194ff1bc0c633eff5f526fa27273f1cada"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/contextual/retrieval-assets",
+      "bytes": 241340,
+      "sha256": "f4a93feaec26b145eaab114f1a9a78846c933fbfead764443c548f58e6fa5bb3"
+    },
+    {
+      "category": "dependency",
+      "name": "data-operations/contracts/clauses/profile-assets",
+      "bytes": 492202,
+      "sha256": "e0c362499707349d828d696d2d1573d658e67fbbdcccbd3c58971db91687c12b"
+    }
+  ]
+}
