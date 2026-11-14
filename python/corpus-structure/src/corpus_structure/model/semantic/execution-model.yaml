@@ -5566,7 +5566,7 @@ operations:
   - implementation_version
   precision: Exact authored/canonical values; no implicit rounding
   implementation: start_run
-  transitions: []
+  transitions: [run_begin]
   projections: []
   calls:
   - id: register_runtime_binding
@@ -5632,6 +5632,22 @@ operations:
       source: physical:ops.run.code_commit
       nullable: false
       native_parameter: commit
+    result_mode: scalar
+    result_fields:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      semantic_type: RunId
+    cardinality: one
+    ordered: false
+  - id: begin_run
+    symbol: ops.begin_run
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
     result_mode: scalar
     result_fields:
     - name: run_id
@@ -13050,6 +13066,7 @@ lifecycles:
   initial_states:
   - created
   transitions:
+  - run_begin
   - run_final_cut
   - run_finish
   - run_fail_open
@@ -13625,6 +13642,15 @@ lifecycles:
   transitions: [pdf_private_abandon, pdf_private_freeze, pdf_private_publish]
 
 transitions:
+- id: run_begin
+  lifecycle: run
+  operation: start_run
+  from_states: [created]
+  to_states: [running]
+  immutable_bindings: [release, input_revision, method_configuration, invocation_identity]
+  invariants: [immutable_binding]
+  effects: []
+  outcomes: [applied, replay, conflict]
 - id: run_final_cut
   lifecycle: run
   operation: capture_cut

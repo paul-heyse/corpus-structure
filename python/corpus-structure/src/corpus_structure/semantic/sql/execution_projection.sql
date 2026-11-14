@@ -54,20 +54,21 @@ END $transition$;
 REVOKE ALL ON FUNCTION ops.require_transition(text,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.require_transition(text,text,text,text) TO corpus_sem_writer;
 
-CREATE OR REPLACE FUNCTION ops.start_source_run(p_run bigint) RETURNS bigint
+CREATE OR REPLACE FUNCTION ops.begin_run(p_run bigint) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $start$
 DECLARE job ops.run;
 BEGIN
  SELECT * INTO STRICT job FROM ops.run WHERE id=p_run FOR UPDATE;
- PERFORM sem.require_execution_operation(job.release_id,'execute_source');
+ PERFORM sem.require_execution_operation(job.release_id,'start_run');
+ PERFORM sem.require_runtime_binding(job.release_id,job.runtime_id);
  IF job.status='running' AND NOT job.sealed THEN RETURN job.id; END IF;
- IF job.status<>'created' OR job.sealed THEN RAISE EXCEPTION 'run no longer accepts source execution' USING ERRCODE='P0004'; END IF;
- PERFORM ops.require_transition(job.release_id,'execute_source','created','running');
+ IF job.status<>'created' OR job.sealed THEN RAISE EXCEPTION 'run no longer accepts activation' USING ERRCODE='P0004'; END IF;
+ PERFORM ops.require_transition(job.release_id,'start_run','created','running');
  UPDATE ops.run SET status='running' WHERE id=job.id;
  RETURN job.id;
 END $start$;
-REVOKE ALL ON FUNCTION ops.start_source_run(bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.start_source_run(bigint) TO corpus_sem_writer;
+REVOKE ALL ON FUNCTION ops.begin_run(bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.begin_run(bigint) TO corpus_sem_writer;
 
 CREATE OR REPLACE FUNCTION ops.claim_tasks(p_run bigint,p_config bigint,p_holder text,p_limit bigint,p_agent boolean) RETURNS SETOF ops.task
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $claim$

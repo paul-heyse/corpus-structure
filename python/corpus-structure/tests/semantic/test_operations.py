@@ -1000,3 +1000,24 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
             observations=[],
             outcome="empty",
         )
+
+
+def test_native_run_activation_uses_declared_lifecycle_and_refuses_terminal_state(
+    commit_db_engine, commit_writer_engine
+):
+    from corpus_structure.semantic.operations import start_run
+
+    prepared = prepare_operation_scenario(commit_db_engine)
+    with commit_writer_engine.begin() as conn:
+        run = create_run(conn, project_id="p",
+            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+            kind="full", options={}, code_commit="native-run-activation")
+        assert conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run)) == "created"
+        assert start_run(conn, run, prepared=prepared) == run
+        assert conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run)) == "running"
+        assert start_run(conn, run, prepared=prepared) == run
+    with commit_db_engine.begin() as conn:
+        conn.execute(table("ops.run").update().where(table("ops.run").c.id == run).values(status="failed"))
+    with commit_writer_engine.begin() as conn:
+        with pytest.raises(OperationConflict, match="no longer accepts activation"):
+            start_run(conn, run, prepared=prepared)

@@ -153,15 +153,15 @@ def _require_run_runtime(
 
 
 def start_run(conn: Connection, run_id: RunId, *, prepared: PreparedRelease | None = None) -> int:
-    """Start a source run through guarded DML; an exact running replay is harmless."""
+    """Activate a bound native run; an exact running replay is harmless."""
     _require_run_runtime(conn, run_id, prepared)
     try:
-        from ._operation_calls import start_source_run as invoke
+        from ._operation_calls import begin_run as invoke
 
         return invoke(conn, run_id=run_id)
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
-            raise OperationConflict("run no longer accepts source execution") from exc
+            raise OperationConflict("run no longer accepts activation") from exc
         raise
 
 
