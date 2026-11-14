@@ -297,11 +297,12 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
             raise ValueError("encoder acquisition escapes its selected model directory")
         if {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()} != {name for name, _ in artifact_hashes}:
             raise ValueError("encoder model file population differs from acquired artifacts")
+        observations = tuple((name, (root / name).stat()) for name, _ in artifact_hashes)
         for name, digest in artifact_hashes:
             with (root / name).open("rb") as source:
                 if file_digest(source, "sha256").hexdigest() != digest:
                     raise ValueError("encoder model bytes differ from acquired artifacts")
-        observations = tuple((name, (root / name).stat()) for name, _ in artifact_hashes)
+        _verify_cpu_artifacts(model_path, observations)
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.sentence_transformer.modules import Pooling
 
