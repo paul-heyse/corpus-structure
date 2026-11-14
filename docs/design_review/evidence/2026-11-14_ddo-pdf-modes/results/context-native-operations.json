@@ -1,0 +1,220 @@
+{
+  "version": "native-operation-explanation-1",
+  "candidate_id": "686fc77f906e45299a407e06a6429385",
+  "binding": {
+    "revision": "semantic_ddo_context_pdf_v1",
+    "predecessor": "semantic_ddo_bound_rows_v1",
+    "target": "0a16812b186d4053de949671e8096ef4fbf67fbeedad142e059f2fef7c953b8f",
+    "target_profile": "development",
+    "target_identity": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    },
+    "authoring_identity": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    },
+    "release": "release:555972f04052abb36b5318b474bf403efd2e49b5680e2963a31bc24dea6354cb",
+    "release_manifest_sha256": "555972f04052abb36b5318b474bf403efd2e49b5680e2963a31bc24dea6354cb",
+    "release_artifacts_sha256": "c50185796422ee7b4a249f923b373cf4da8c41425916133587d338fc70d3b17f",
+    "hashes": {
+      "native_candidate.py": "16042976b4e258c78880a31dfd70139aa89f3f8a51b6e345d866d481d2fd1611",
+      "native_operations.json": "c45606eb59b64feebcedaf141f3663b083e93eda277d038f61419303f20448fa",
+      "native_admission.sql": "5902970f5ae7f544ba3ee9dcf4c1c122f4bc58132aad6b7b3b38a8fbe325ecb0"
+    }
+  },
+  "total": 3,
+  "items": [
+    {
+      "ordinal": 1,
+      "identity": {
+        "arguments": [
+          "ops.data_demand",
+          "ops.data_population",
+          "text",
+          "text",
+          "text",
+          "text",
+          "jsonb",
+          "ops.data_demand_read"
+        ],
+        "kind": "function",
+        "name": "ddo_discovery_role_population",
+        "relation": null,
+        "schema": "ops"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "data-operations:forward",
+      "after_source": "data-operations:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 2,
+      "identity": {
+        "arguments": [],
+        "kind": "function",
+        "name": "data_operation_native_descriptor",
+        "relation": null,
+        "schema": "sem"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "data-operations:forward",
+      "after_source": "data-operations:forward",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_evaluator",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_reader",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_writer",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    },
+    {
+      "ordinal": 3,
+      "identity": {
+        "arguments": [],
+        "kind": "function",
+        "name": "execution_contract_descriptor",
+        "relation": null,
+        "schema": "data"
+      },
+      "action": "change",
+      "changed_properties": [
+        "body"
+      ],
+      "before_owner": "corpus_sem_publisher",
+      "after_owner": "corpus_sem_publisher",
+      "before_source": "native-admission:forward:execution_contract_descriptor",
+      "after_source": "native-admission:forward:execution_contract_descriptor",
+      "owner_bindings": {
+        "before": {},
+        "after": {}
+      },
+      "before_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "after_acl": [
+        [
+          "corpus_sem_admitter",
+          "EXECUTE",
+          false
+        ],
+        [
+          "corpus_sem_publisher",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "dependencies": {
+        "before": null,
+        "after": null,
+        "basis": "frozen catalog observations; null means unrecorded"
+      }
+    }
+  ],
+  "next_after": null
+}

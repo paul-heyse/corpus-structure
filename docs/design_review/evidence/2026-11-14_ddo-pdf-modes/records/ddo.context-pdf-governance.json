@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "ddo.context-pdf-governance",
+  "title": "Authenticated complete parent closure and current runtime correspondence",
+  "group": "Declared data operations",
+  "package": "DDO-06–08",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can native population admission match the complete declared original-source closure without weakening episode or child membership custody?",
+  "answers": [],
+  "method": "Complete rendered rollback upgrade, independent catalog verification, three native body changes with unchanged owners/grants and exact registered-file verification.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-pdf-modes/change-context.yaml --json",
+    "uv run ci model change candidate 5db26d2de06e4146b3ba5fc8bd46b558 --json",
+    "uv run ci model change inspect-candidate 686fc77f906e45299a407e06a6429385 --view operations --limit 100 --json",
+    "uv run ci model change register 686fc77f906e45299a407e06a6429385 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change-context.yaml",
+      "role": "fixed-source request",
+      "sha256": "ad70c058e615a90ec904c7d6df59ed8ea6c9013d7b4e364ef2a7dbc74021c767"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/context-candidate.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "594cf712b238722424aa8f44ae7d5fea8e5b79236222e44fb774c24dd4248689"
+    },
+    {
+      "path": "results/context-native-operations.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "87953ca5641d4b0ed6ff2bbd7b94db79ff783bce1a952dc5329b77fc31f1c206"
+    },
+    {
+      "path": "results/context-registered-files.json",
+      "role": "candidate and exact registration custody",
+      "sha256": "e39121ad09a9f00879a833bc5c54b59e612c884cd8626e7a9a2a2bd559dd8330"
+    }
+  ],
+  "depends_on": [
+    "ddo.bound-row-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Complete rollback candidate 686fc77f906e45299a407e06a6429385 passed and registration e597e3edb7f949d6b8b1aedf8eb10e89 is verified. Existing discovery helper admits complete frozen parent closure only for an explicit original-source role with an owned subject field and exact authentic child membership; producer/output/project/release/trust/boundary checks stay in force. Full population witness and forall checks retain the denominator. Two native descriptors bind current code including wire-owned operation inventory, authored default projection and exact PDF product replay key. Three body changes, unchanged owners/grants, no ordinary/privilege operations. Native/provider/historical functional replacements remain separate. Frozen predecessors and persistent development database unchanged; no deployment/activation/cutover.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-07",
+    "DDO-08"
+  ]
+}

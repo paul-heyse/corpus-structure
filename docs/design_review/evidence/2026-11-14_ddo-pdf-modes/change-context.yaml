@@ -1,0 +1,7 @@
+baseline: 45b792491
+packs:
+- statistics
+native_predecessor: semantic_ddo_bound_rows_v1
+native_revision: semantic_ddo_context_pdf_v1
+deployment: true
+deployment_profile: development
