@@ -1,6 +1,14 @@
 -- Trusted finite interpreter of the frozen shared binding AST. No candidate SQL.
 -- Subject association retains the producing member's original subject. A role
 -- may bind its declared identifier property to the consuming operation subject.
+CREATE OR REPLACE FUNCTION ops.ddo_semantic_source_reference(reference jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ SELECT jsonb_typeof(reference)='object' AND reference ? 'product_id'
+ AND NOT EXISTS(SELECT FROM jsonb_object_keys(reference) name WHERE name NOT IN ('product_id','member_id'))
+ AND jsonb_typeof(reference->'product_id')='string' AND nullif(reference->>'product_id','') IS NOT NULL
+ AND (NOT reference ? 'member_id' OR (jsonb_typeof(reference->'member_id')='string' AND nullif(reference->>'member_id','') IS NOT NULL))
+$$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_validate_source_sets(source_sets jsonb,project text) RETURNS void
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE named record; entry jsonb; reference_schema constant jsonb:='__DDO_EXTERNAL_SOURCE_SCHEMA__';
@@ -12,11 +20,18 @@ BEGIN
  FOR entry IN SELECT value FROM jsonb_array_elements(named.value) LOOP
  PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','analyzed_scope','product','member','source_reference','reference']);
  IF EXISTS(SELECT FROM unnest(ARRAY['project_id','original_source','subject','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
- OR NOT public.json_matches_schema(reference_schema::json,(entry->'reference')::json) OR entry->>'project_id' IS DISTINCT FROM project OR entry->'reference'->>'project_id' IS DISTINCT FROM project
+ OR entry->>'project_id' IS DISTINCT FROM project
  OR nullif(entry->>'original_source','') IS NULL OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'product','') IS NULL
  OR jsonb_typeof(entry->'analyzed_scope') IS DISTINCT FROM 'object'
- OR entry->>'source_reference' IS DISTINCT FROM ops.ddo_digest(entry->'reference')
  OR (entry->'member'<>'null'::jsonb AND nullif(entry->>'member','') IS NULL) THEN RAISE EXCEPTION 'source-set entry differs from original qualified reference'; END IF;
+ IF ops.ddo_semantic_source_reference(entry->'reference') THEN
+ IF entry->'reference'->>'product_id' IS DISTINCT FROM entry->>'product'
+ OR entry->'reference'->>'member_id' IS DISTINCT FROM entry->>'member'
+ OR entry->>'source_reference' IS DISTINCT FROM (CASE WHEN entry->'reference' ? 'member_id' THEN 'member:'||ops.ddo_digest(entry->'reference') ELSE entry->>'product' END) THEN RAISE EXCEPTION 'source-set semantic reference differs from exact native product/member'; END IF;
+ ELSE
+ IF NOT public.json_matches_schema(reference_schema::json,(entry->'reference')::json) OR entry->'reference'->>'project_id' IS DISTINCT FROM project
+ OR entry->>'source_reference' IS DISTINCT FROM ops.ddo_digest(entry->'reference') THEN RAISE EXCEPTION 'source-set entry differs from original external reference'; END IF;
+ END IF;
  END LOOP;
  END LOOP;
 END $$;
@@ -26,12 +41,12 @@ LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE name text:=roledef->'support'->>'source_set'; reference_field text:=roledef->'support'->>'source_reference_field';
 BEGIN
  IF name IS NULL THEN RETURN consumer_source IS NULL OR row_value->>'original_source'=consumer_source; END IF;
- IF reference_field IS NULL OR jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+ IF jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
  RETURN EXISTS(SELECT FROM jsonb_array_elements(source_sets->name) entry WHERE
  (entry->>'product',entry->>'member',entry->>'subject',entry->>'original_source') IS NOT DISTINCT FROM
  (row_value->>'product',row_value->>'member',row_value->>'subject',row_value->>'original_source')
  AND entry->'analyzed_scope'=row_value->'analyzed_scope'
- AND data.ddo_field(row_value->'meaning_body',reference_field)=jsonb_build_array('string',entry->>'source_reference'));
+ AND (ops.ddo_semantic_source_reference(entry->'reference') OR (reference_field IS NOT NULL AND data.ddo_field(row_value->'meaning_body',reference_field)=jsonb_build_array('string',entry->>'source_reference'))));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_population_product(population jsonb,row_value jsonb) RETURNS boolean
@@ -48,7 +63,12 @@ CREATE OR REPLACE FUNCTION ops.ddo_binding_subject(roledef jsonb,row_value jsonb
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE association jsonb; path text; part text; target text;
 BEGIN
- IF coalesce(roledef->>'subject_target','subject')='original-source' THEN
+ IF roledef->>'subject_target'='source-set' THEN
+ IF roledef->'support'->>'source_set' IS NULL OR roledef->>'subject_field' IS NOT NULL THEN RAISE EXCEPTION 'source-set association lacks exact declared scope'; END IF;
+ -- All protected consumers pair this relation with ddo_binding_source, which
+ -- independently matches the complete frozen product/member/source context.
+ RETURN true;
+ ELSIF coalesce(roledef->>'subject_target','subject')='original-source' THEN
  IF roledef->>'subject_field' IS NULL OR consumer_source IS NULL THEN RAISE EXCEPTION 'original-source association lacks exact context'; END IF;
  target:=consumer_source;
  ELSIF coalesce(roledef->>'subject_target','subject')='subject' THEN target:=consumer_subject;
@@ -566,6 +586,37 @@ BEGIN
  END IF;
  RETURN result;
 END $$;
+
+-- Physical ledger slots are not source occurrence positions or unordered input
+-- meaning. The original authenticated manifest remains in request/intent binding.
+CREATE OR REPLACE FUNCTION ops.ddo_derivation_input_positions(inputs jsonb,roledefs jsonb)
+RETURNS TABLE(input_record jsonb,physical_position integer)
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ SELECT input,CASE WHEN roledef->>'collection'='sequence' THEN (input->>'position')::integer
+ ELSE (row_number() OVER (PARTITION BY input->>'role' ORDER BY input->>'product_id',input->>'member_id' NULLS FIRST,input->'position',input,ordinal)-1)::integer END
+ FROM jsonb_array_elements(inputs) WITH ORDINALITY values_(input,ordinal)
+ JOIN LATERAL jsonb_array_elements(roledefs) roledef ON roledef->>'name'=input->>'role'
+$$;
+
+-- A source position is local to its own product, not a global role slot.
+-- Reuse authentic producing outputs/admissions to disambiguate equal positions.
+CREATE OR REPLACE FUNCTION ops.ddo_input_support_refs(binding jsonb,role_name text,source_position jsonb,product text,member text)
+RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT reference FROM jsonb_array_elements(binding->'support') reference
+ WHERE reference->>'role'=role_name AND reference->'position' IS NOT DISTINCT FROM source_position
+ AND ((coalesce(reference->>'kind','computation')='computation' AND EXISTS(
+ SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=reference->>'derivation_id'
+ AND output.product_id=product AND (output.member_id IS NULL OR output.member_id IS NOT DISTINCT FROM member)))
+ OR (reference->>'kind'='original-source' AND member IS NULL AND EXISTS(
+ SELECT FROM ops.original_source_admission admission WHERE admission.id=reference->>'admission_id' AND admission.product_id=product)))
+$$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_input_support_episodes(binding jsonb,role_name text,source_position jsonb,product text,member text)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT coalesce(jsonb_agg(episode ORDER BY episode),'[]') FROM (
+ SELECT DISTINCT reference->>'derivation_id' episode FROM ops.ddo_input_support_refs(binding,role_name,source_position,product,member) reference
+ WHERE coalesce(reference->>'kind','computation')='computation') selected
+$$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_binding(p_demand text,p_operation text,p_subject text,p_request_meaning jsonb,p_binding jsonb,p_trust jsonb) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$

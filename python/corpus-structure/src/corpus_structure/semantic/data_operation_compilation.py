@@ -1117,7 +1117,7 @@ def compile_data_operations(
                     )
                 source_set = data.get("source_set")
                 source_reference_field = data.get("source_reference_field")
-                if (source_set is None) != (source_reference_field is None):
+                if source_set is None and source_reference_field is not None:
                     _fail(semantic_id, "source sets require an explicit owned reference field")
                 if (source_set is not None) != (data.get("source") == "frozen-source-set"):
                     _fail(
@@ -1126,6 +1126,7 @@ def compile_data_operations(
                     )
                 if source_set is not None:
                     source_set = _text(source_set, semantic_id + "/source_set")
+                if source_reference_field is not None:
                     source_reference_field = _text(
                         source_reference_field, semantic_id + "/source_reference_field"
                     )
@@ -1169,8 +1170,18 @@ def compile_data_operations(
             if presence != "alternative" and (alternatives or selected is not None):
                 _fail(semantic_id, "only alternative roles carry a selected alternative")
             subject_target = record.get("subject_target", "subject")
-            if subject_target not in {"subject", "original-source"}:
+            if subject_target not in {"subject", "original-source", "source-set"}:
                 _fail(semantic_id, "unsupported subject association target")
+            if subject_target == "source-set" and (
+                direction != "input"
+                or support is None
+                or support.source_set is None
+                or record.get("subject_field") is not None
+            ):
+                _fail(
+                    semantic_id,
+                    "source-set association requires an exact input source set without a root subject field",
+                )
             if subject_target == "original-source" and (
                 direction != "input" or not record.get("subject_field")
             ):

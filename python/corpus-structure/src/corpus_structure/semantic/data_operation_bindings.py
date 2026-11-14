@@ -33,7 +33,11 @@ from .data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
-from .data_operation_source_sets import FrozenSourceSet, source_sets_record
+from .data_operation_source_sets import (
+    FrozenSourceSet,
+    is_semantic_source_reference,
+    source_sets_record,
+)
 from .identity import canonical_bytes
 
 BindingStatus = Literal[
@@ -497,7 +501,15 @@ def compile_binding(
     def subject_condition(name):
         alias = aliases[name]
         role = roles[name]
-        if role.subject_target == "original-source":
+        if role.subject_target == "source-set":
+            if (
+                role.support is None
+                or role.support.source_set is None
+                or role.subject_field is not None
+            ):
+                raise ValueError("source-set association requires an explicit exact input scope")
+            target = None
+        elif role.subject_target == "original-source":
             if role.subject_field is None or not original_source:
                 raise ValueError(
                     "original-source association requires its explicit source and field"
@@ -507,7 +519,9 @@ def compile_binding(
             target = anchor.c.subject
         else:
             raise ValueError("unsupported role subject association target")
-        association = alias.c[subject_columns.get(name, "subject")] == target
+        association = (
+            true() if target is None else alias.c[subject_columns.get(name, "subject")] == target
+        )
         support = roles[name].support
         if support is not None and support.source_set is not None:
             fields = [
@@ -515,16 +529,25 @@ def compile_binding(
                 for field in projected[roles[name].kind].fields
                 if field.name == support.source_reference_field
             ]
-            if len(fields) != 1:
-                raise ValueError("source-set policy requires its admitted reference field")
+            entries = selected_source_sets[support.source_set]
+            if (
+                any(not is_semantic_source_reference(entry["reference"]) for entry in entries)
+                and len(fields) != 1
+            ):
+                raise ValueError("external source-set policy requires its admitted reference field")
             permitted = [
                 and_(
                     alias.c.product == entry["product"],
                     alias.c.member.is_not_distinct_from(entry["member"]),
                     alias.c.subject == entry["subject"],
                     alias.c.original_source == entry["original_source"],
-                    json_context_equal(alias.c.analyzed_scope, entry["analyzed_scope"]),
-                    alias.c[fields[0].column] == entry["source_reference"],
+                    json_context_equal(
+                        alias.c.analyzed_scope,
+                        literal(entry["analyzed_scope"], type_=ContextJSONB()),
+                    ),
+                    true()
+                    if is_semantic_source_reference(entry["reference"])
+                    else alias.c[fields[0].column] == entry["source_reference"],
                 )
                 for entry in selected_source_sets[support.source_set]
             ]
@@ -535,13 +558,16 @@ def compile_binding(
             else association
         )
 
+    def nullable(role):
+        return role.presence == "optional" or (role.presence == "alternative" and role.minimum == 0)
+
     def joined_relation(filters):
         relation = anchor
         # Optional predicates may refer to required peers, which must already be
         # in scope in their ON clause. Candidate text never controls join targets.
         ordered = sorted(
             (name for name in aliases if name not in negative_roles),
-            key=lambda name: roles[name].presence == "optional",
+            key=lambda name: nullable(roles[name]),
         )
         for name in ordered:
             alias = aliases[name]
@@ -559,7 +585,7 @@ def compile_binding(
                 condition = and_(condition, *filters[name])
             relation = (
                 relation.outerjoin(alias, condition)
-                if role.presence == "optional"
+                if nullable(role)
                 else relation.join(alias, condition)
             )
         return relation
@@ -839,17 +865,14 @@ def compile_binding(
                 )
         if node.operator == "optional":
             names = set(node.roles) or referenced_roles(node)
-            optional = {name for name in names if roles[name].presence == "optional"}
+            optional = {name for name in names if nullable(roles[name])}
             if optional:
                 if len(optional) != 1:
                     raise ValueError(
                         "optional relational groups require one declared nullable role"
                     )
                 name = next(iter(optional))
-                if any(
-                    roles[peer].presence == "optional" and peer != name
-                    for peer in referenced_roles(node)
-                ):
+                if any(nullable(roles[peer]) and peer != name for peer in referenced_roles(node)):
                     raise ValueError("optional predicate cannot depend on another nullable role")
                 optional_join_filters.setdefault(name, []).append(nested)
                 optional_unknowns.append(
@@ -1238,7 +1261,11 @@ def decode_binding_rows(
                         member.kind_contract,
                     )
                 )
-                or (role.subject_field is None and member.subject != compiled.subject)
+                or (
+                    role.subject_field is None
+                    and role.subject_target != "source-set"
+                    and member.subject != compiled.subject
+                )
                 or member.kind_contract not in accepted
                 or (
                     member.position is not None

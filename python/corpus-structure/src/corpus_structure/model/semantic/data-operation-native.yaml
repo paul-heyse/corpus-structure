@@ -168,6 +168,13 @@ definitions:
       selectors: {type: array, minItems: 1, items: {$ref: '#/definitions/original_source_selector'}}
     required: [reference, selectors]
     additionalProperties: false
+  semantic_source_reference:
+    type: object
+    properties:
+      product_id: {$ref: '#/definitions/identifier'}
+      member_id: {$ref: '#/definitions/identifier'}
+    required: [product_id]
+    additionalProperties: false
   source_set_entry:
     type: object
     properties:
@@ -181,7 +188,10 @@ definitions:
         - $ref: '#/definitions/identifier'
         - type: 'null'
       source_reference: {$ref: '#/definitions/identifier'}
-      reference: {$ref: '#/definitions/external_source_reference'}
+      reference:
+        oneOf:
+        - {$ref: '#/definitions/external_source_reference'}
+        - {$ref: '#/definitions/semantic_source_reference'}
     required: [project_id, original_source, subject, analyzed_scope, product, member, source_reference, reference]
     additionalProperties: false
   root_subject:

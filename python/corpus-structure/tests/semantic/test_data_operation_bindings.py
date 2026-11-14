@@ -1638,3 +1638,175 @@ def test_header_binding_field_is_compiled_as_reserved_typed_identity():
                 ),
             )
         )
+
+
+def test_zero_minimum_selected_producer_preserves_other_roles_and_requires_closed_absence(storage):
+    connection, table, projection = storage
+    connection.execute(
+        table.update().where(table.c.product == "p1").values(alternative_identity="producer:a")
+    )
+    operands = (
+        BindingOperand("field", "subject-context", BindingField("right", "urn:item", "@context")),
+        BindingOperand(
+            "population",
+            "subject-context",
+            name="right-contexts",
+            population_projection="qualified-context",
+        ),
+    )
+    expression = BindingExpression(
+        "all",
+        children=(
+            BindingExpression("scan", roles=("left",)),
+            BindingExpression(
+                "optional",
+                roles=("right",),
+                children=(BindingExpression("membership", operands=operands),),
+            ),
+            BindingExpression("covers", operands=operands),
+        ),
+    )
+    schema = model(expression, names=("left", "right"))
+    roles = tuple(
+        replace(
+            role,
+            presence="alternative",
+            alternatives=("producer:a" if role.name == "left" else "producer:b",),
+            selected="producer:a" if role.name == "left" else "producer:b",
+            minimum=1 if role.name == "left" else 0,
+        )
+        for role in schema.operations[0].roles
+    )
+    schema = replace(schema, operations=(replace(schema.operations[0], roles=roles),))
+
+    def bind(complete):
+        return execute_binding(
+            connection,
+            compile_binding(
+                schema,
+                "urn:op",
+                (projection,),
+                subject="doc",
+                subject_context=SubjectContext("project", "doc", "source", b"{}"),
+                populations=(
+                    PopulationBinding(
+                        "right-contexts",
+                        "closed",
+                        complete,
+                        (),
+                        b'{"derivation_id":"closure"}',
+                        projection="qualified-context",
+                    ),
+                ),
+            ),
+        )
+
+    ready = bind(True)
+    assert ready.status == "ready"
+    assert [(role.role, role.state, len(role.members)) for role in ready.roles] == [
+        ("left", "present", 1),
+        ("right", "known-absent", 0),
+    ]
+    assert bind(False).status == "awaiting-population"
+
+
+def test_semantic_source_set_pins_cross_source_context_without_legacy_reference(storage):
+    from corpus_structure.semantic.data_operation_source_sets import (
+        FrozenSourceSet,
+        SourceSetEntry,
+        read_source_sets,
+        source_sets_record,
+    )
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
+
+    connection, table, projection = storage
+    connection.execute(
+        table.update()
+        .where(table.c.product == "p2")
+        .values(
+            subject="foreign:subject", original_source="foreign:source", analyzed_scope={"page": 2}
+        )
+    )
+    context = SubjectContext("project", "foreign:subject", "foreign:source", b'{"page":2.0}')
+    entry = SourceSetEntry.from_semantic_source(
+        DataProductMemberReference(DataProductReference("p2"), "m2"), context=context
+    )
+    sources = (FrozenSourceSet("selected", (entry,)),)
+    assert read_source_sets(source_sets_record(sources)) == sources
+    base = model(BindingExpression("scan", roles=("items",)))
+    role = replace(
+        base.operations[0].roles[0],
+        subject_target="source-set",
+        support=replace(
+            base.operations[0].roles[0].support, source="frozen-source-set", source_set="selected"
+        ),
+    )
+    schema = replace(base, operations=(replace(base.operations[0], roles=(role,)),))
+    result = execute_binding(
+        connection,
+        compile_binding(
+            schema,
+            "urn:op",
+            (projection,),
+            subject="authored:input",
+            original_source="local:source",
+            source_sets=sources,
+        ),
+    )
+    assert result.status == "ready"
+    assert [
+        (member.product, member.member, member.subject, member.original_source)
+        for member in result.roles[0].members
+    ] == [("p2", "m2", "foreign:subject", "foreign:source")]
+    for altered in (
+        replace(context, analyzed_scope=b'{"page":true}'),
+        replace(context, subject="other"),
+        replace(context, original_source="other"),
+    ):
+        wrong = SourceSetEntry.from_semantic_source(
+            DataProductMemberReference(DataProductReference("p2"), "m2"), context=altered
+        )
+        invalid = execute_binding(
+            connection,
+            compile_binding(
+                schema,
+                "urn:op",
+                (projection,),
+                subject="authored:input",
+                original_source="local:source",
+                source_sets=(FrozenSourceSet("selected", (wrong,)),),
+            ),
+        )
+        assert invalid.status != "ready"
+
+
+def test_semantic_source_set_association_compiles_without_fabricated_body_reference():
+    operation = declaration()
+    role = operation["roles"][0]
+    role["support"].update(source="frozen-source-set", source_set="selected")
+    role["subject_target"] = "source-set"
+    compiled = compile_data_operations(
+        declarations=(
+            SourceArtifact(
+                "semantic-source-set",
+                canonical_bytes({"version": MODEL_VERSION, "operations": [operation]}),
+            ),
+        )
+    )
+    actual = next(op for op in compiled.operations if op.semantic_id == "urn:op").roles[0]
+    assert actual.subject_target == "source-set"
+    assert actual.subject_field is None and actual.support.source_reference_field is None
+    assert read_effective_data_operations(compiled.content).content == compiled.content
+    role["subject_field"] = "fabricated"
+    with pytest.raises(ValueError, match="source-set association"):
+        compile_data_operations(
+            declarations=(
+                SourceArtifact(
+                    "semantic-source-set",
+                    canonical_bytes({"version": MODEL_VERSION, "operations": [operation]}),
+                ),
+            )
+        )

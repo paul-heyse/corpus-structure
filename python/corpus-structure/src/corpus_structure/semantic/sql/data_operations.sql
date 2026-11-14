@@ -606,10 +606,10 @@ BEGIN
  IF roledef->>'collection'<>'sequence' AND mv->'position' IS DISTINCT FROM 'null'::jsonb THEN RAISE EXCEPTION 'nonsequence position is not a semantic determinant'; END IF;
  SELECT value INTO STRICT item FROM jsonb_array_elements(b->'inputs') i WHERE i->>'role'=roledef->>'name' AND i->>'product_id'=mv->>'product' AND i->>'member_id' IS NOT DISTINCT FROM mv->>'member'
  AND i->>'multiplicity'=mv->>'multiplicity' AND (roledef->>'collection'<>'sequence' OR i->>'position' IS NOT DISTINCT FROM mv->>'position')
- AND (NOT roledef->'identity_requirements' ? 'episode' OR NOT EXISTS(SELECT FROM jsonb_array_elements(b->'support') reference WHERE coalesce(reference->>'kind','computation')='computation' AND reference->>'role'=roledef->>'name' AND reference->>'position' IS NOT DISTINCT FROM i->>'position') OR mv->'support_episodes'=(SELECT coalesce(jsonb_agg(episode ORDER BY episode),'[]') FROM (SELECT DISTINCT support->>'derivation_id' episode FROM jsonb_array_elements(b->'support') support WHERE coalesce(support->>'kind','computation')='computation' AND support->>'role'=roledef->>'name' AND support->>'position' IS NOT DISTINCT FROM i->>'position') selected))
+ AND (NOT roledef->'identity_requirements' ? 'episode' OR mv->'support_episodes'=ops.ddo_input_support_episodes(b,roledef->>'name',i->'position',i->>'product_id',i->>'member_id'))
  ORDER BY (i->>'position')::integer LIMIT 1;
  IF (SELECT count(*) FROM jsonb_array_elements(rv->'value') other WHERE (other->>'product',other->>'member',other->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR other->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR other->'support_episodes' IS NOT DISTINCT FROM mv->'support_episodes')) <>
- (SELECT count(*) FROM jsonb_array_elements(b->'inputs') actual WHERE actual->>'role'=roledef->>'name' AND (actual->>'product_id',actual->>'member_id',actual->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR actual->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR mv->'support_episodes'=(SELECT coalesce(jsonb_agg(episode ORDER BY episode),'[]') FROM (SELECT DISTINCT support->>'derivation_id' episode FROM jsonb_array_elements(b->'support') support WHERE coalesce(support->>'kind','computation')='computation' AND support->>'role'=roledef->>'name' AND support->>'position' IS NOT DISTINCT FROM actual->>'position') selected))) THEN RAISE EXCEPTION 'semantic member occurrence counts differ from native manifest'; END IF;
+ (SELECT count(*) FROM jsonb_array_elements(b->'inputs') actual WHERE actual->>'role'=roledef->>'name' AND (actual->>'product_id',actual->>'member_id',actual->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR actual->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR mv->'support_episodes'=ops.ddo_input_support_episodes(b,roledef->>'name',actual->'position',actual->>'product_id',actual->>'member_id'))) THEN RAISE EXCEPTION 'semantic member occurrence counts differ from native manifest'; END IF;
  SELECT * INTO STRICT x FROM kb.data_product WHERE id=item->>'product_id';
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_kind_contract kind WHERE kind.kind_contract=x.kind_contract;
  SELECT body INTO member_body FROM kb.data_product_member WHERE product_id=x.id AND member_id=item->>'member_id';
@@ -618,18 +618,18 @@ BEGIN
  IF mv->'coverage' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'semantic input coverage differs from native projection'; END IF;
  IF roledef->>'presence'='alternative' OR roledef->'identity_requirements' ? 'alternative' THEN
  SELECT CASE WHEN count(DISTINCT source_request.operation_id)=1 THEN min(source_request.operation_id) ELSE NULL END INTO lexical_alternative
- FROM jsonb_array_elements(b->'support') selected JOIN ops.data_derivation source_episode ON source_episode.id=selected->>'derivation_id' JOIN ops.data_request source_request ON source_request.id=source_episode.request_id
+ FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') selected JOIN ops.data_derivation source_episode ON source_episode.id=selected->>'derivation_id' JOIN ops.data_request source_request ON source_request.id=source_episode.request_id
  WHERE selected->>'role'=roledef->>'name' AND selected->>'position' IS NOT DISTINCT FROM item->>'position'
  AND EXISTS(SELECT FROM ops.data_derivation_output produced WHERE produced.derivation_id=source_episode.id AND produced.product_id=item->>'product_id');
  IF lexical_alternative IS NULL OR (roledef->>'presence'='alternative' AND rv->>'selected_alternative' IS DISTINCT FROM lexical_alternative)
  OR (roledef->'identity_requirements' ? 'alternative' AND mv->>'alternative' IS DISTINCT FROM lexical_alternative) THEN RAISE EXCEPTION 'selected alternative differs from actual producing operation'; END IF;
  END IF;
- IF roledef->'identity_requirements' ? 'original-source' AND EXISTS(SELECT FROM jsonb_array_elements(b->'support') reference WHERE reference->>'kind'='original-source' AND reference->>'role'=roledef->>'name' AND reference->>'position' IS NOT DISTINCT FROM item->>'position') THEN
- SELECT coalesce(jsonb_agg(identity ORDER BY identity),'[]') INTO expected FROM (SELECT DISTINCT reference->>'source_reference' identity FROM jsonb_array_elements(b->'support') reference WHERE reference->>'kind'='original-source' AND reference->>'role'=roledef->>'name' AND reference->>'position' IS NOT DISTINCT FROM item->>'position') original;
+ IF roledef->'identity_requirements' ? 'original-source' AND EXISTS(SELECT FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE reference->>'kind'='original-source') THEN
+ SELECT coalesce(jsonb_agg(identity ORDER BY identity),'[]') INTO expected FROM (SELECT DISTINCT reference->>'source_reference' identity FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE reference->>'kind'='original-source') original;
  IF mv->'original_sources' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'original source identity differs from selected authentic facts'; END IF;
  END IF;
- IF roledef->'identity_requirements' ? 'episode' AND EXISTS(SELECT FROM jsonb_array_elements(b->'support') reference WHERE coalesce(reference->>'kind','computation')='computation' AND reference->>'role'=roledef->>'name' AND reference->>'position' IS NOT DISTINCT FROM item->>'position') THEN
- SELECT coalesce(jsonb_agg(id ORDER BY id),'[]') INTO expected FROM (SELECT DISTINCT z->>'derivation_id' id FROM jsonb_array_elements(b->'support') z WHERE coalesce(z->>'kind','computation')='computation' AND z->>'role'=roledef->>'name' AND z->>'position' IS NOT DISTINCT FROM item->>'position') q;
+ IF roledef->'identity_requirements' ? 'episode' AND EXISTS(SELECT FROM ops.ddo_input_support_refs(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id') reference WHERE coalesce(reference->>'kind','computation')='computation') THEN
+ expected:=ops.ddo_input_support_episodes(b,roledef->>'name',item->'position',item->>'product_id',item->>'member_id');
  IF expected='[]'::jsonb OR mv->'support_episodes' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'required episode identity differs from selected authentic support'; END IF;
  END IF;
  END LOOP;
@@ -1161,8 +1161,8 @@ BEGIN
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
- FOR item IN SELECT value FROM jsonb_array_elements(i.payload->'inputs') LOOP
- INSERT INTO ops.data_derivation_input VALUES(episode,item->>'role',(item->>'position')::integer,(item->>'multiplicity')::integer,item->>'product_id',item->>'member_id');
+ FOR item,n IN SELECT input_record,physical_position FROM ops.ddo_derivation_input_positions(i.payload->'inputs',def.input_roles) LOOP
+ INSERT INTO ops.data_derivation_input VALUES(episode,item->>'role',n,(item->>'multiplicity')::integer,item->>'product_id',item->>'member_id');
  END LOOP;
  FOR item,n IN SELECT value,ord-1 FROM jsonb_array_elements(i.payload->'support') WITH ORDINALITY a(value,ord) LOOP
  IF item->>'kind'='original-source' THEN
@@ -1547,17 +1547,28 @@ BEGIN
  IF snapshot IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(p_trust) OR (boundary.id IS NOT NULL AND ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) IS DISTINCT FROM snapshot) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) JOIN sem.data_kind_contract kind ON kind.kind_contract=input_role.value->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
  RETURN QUERY
- WITH admitted AS MATERIALIZED (
-  SELECT x.id AS product_id,x.kind_contract AS parent_kind,x.subject AS parent_subject,x.original_source AS parent_source,x.analyzed_scope AS parent_scope,x.canonical_body,
+ WITH declared_pins AS MATERIALIZED (
+  SELECT entry FROM sem.data_operation_definition consumer
+  CROSS JOIN LATERAL jsonb_array_elements(consumer.input_roles) roledef
+  CROSS JOIN LATERAL jsonb_array_elements(coalesce(d.selection->'source_sets'->(roledef->'support'->>'source_set'),'[]')) entry
+  WHERE consumer.release_id=d.release_id AND consumer.operation_id=p_operation
+  AND ops.ddo_semantic_source_reference(entry->'reference')
+ ), admitted AS MATERIALIZED (
+  -- Equivalent current-valid use receipts attest one original producing event.
+  -- Do not turn repeated admission of that event into extra candidate votes.
+  SELECT DISTINCT ON (episode.id,outp.role,outp.position,x.id,outp.member_id) x.id AS product_id,x.kind_contract AS parent_kind,x.subject AS parent_subject,x.original_source AS parent_source,x.analyzed_scope AS parent_scope,x.canonical_body,
    outp.member_id AS output_member,outp.position AS output_position,outp.multiplicity AS output_multiplicity,episode.id AS episode_id,u.id AS use_id,producer.operation_id AS producer_operation
   FROM ops.demand_use u JOIN ops.data_derivation episode ON episode.id=u.derivation_id
   JOIN ops.data_request producer ON producer.id=episode.request_id
   JOIN ops.data_derivation_output outp ON outp.derivation_id=episode.id JOIN kb.data_product x ON x.id=outp.product_id
-  WHERE u.demand_id=d.id AND u.fate='fulfilled' AND x.project_id=d.project_id
+  CROSS JOIN LATERAL (SELECT EXISTS(SELECT FROM declared_pins pin WHERE pin.entry->>'product'=x.id
+   AND ((pin.entry->>'member' IS NULL AND outp.member_id IS NULL) OR (pin.entry->>'member' IS NOT NULL AND (outp.member_id IS NULL OR outp.member_id=pin.entry->>'member')))) AS exact_pin) selected
+  WHERE (u.demand_id=d.id OR selected.exact_pin) AND u.fate='fulfilled' AND x.project_id=d.project_id
    AND (boundary.id IS NULL OR ops.ddo_read_visible(u.created_at,u.created_xid,boundary))
    AND ops.ddo_use_valid(u,boundary)
    AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected WHERE selected->>'operation'=p_operation AND (jsonb_array_length(selected->'dependencies')=0 OR producer.operation_id=ANY(ops.ddo_consumed_producers(d.selection,p_operation))))
-   AND NOT EXISTS(SELECT FROM ops.demand_use later WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(later.created_at,later.created_xid,boundary)))
+   AND (selected.exact_pin OR NOT EXISTS(SELECT FROM ops.demand_use later WHERE later.obligation_id=u.obligation_id AND (later.created_at,later.id)>(u.created_at,u.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(later.created_at,later.created_xid,boundary))))
+  ORDER BY episode.id,outp.role,outp.position,x.id,outp.member_id,u.id
  ), candidates AS MATERIALIZED (
   SELECT a.product_id,a.parent_kind,projected.*,a.episode_id,a.use_id,a.producer_operation,
    coalesce(member_role.position,a.output_position)::bigint AS occurrence_position,

@@ -851,3 +851,29 @@ def test_original_source_support_reference_never_relabels_a_computation_episode(
     reference["derivation_id"] = reference["admission_id"]
     with pytest.raises(ValueError):
         validate_native_wire("retain_data_completion_intent", "input", completion)
+
+
+@pytest.mark.parametrize("member", [None, "member:one"])
+def test_source_set_wire_uses_existing_semantic_reference_shapes(member):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
+
+    product = DataProductReference("product:one")
+    reference = product if member is None else DataProductMemberReference(product, member)
+    entry = SourceSetEntry.from_semantic_source(
+        reference, context=SubjectContext("project", "subject", "source", b"{}")
+    ).record()
+    native = wire_contracts()["register_data_demand"]["input"]
+    schema = {
+        "$schema": native["$schema"],
+        "$ref": "#/definitions/source_set_entry",
+        "definitions": native["definitions"],
+    }
+    assert validate_wire_schema(schema, entry) == entry
+    with pytest.raises(ValueError, match="wire violates"):
+        validate_wire_schema(schema, {**entry, "reference": {**entry["reference"], "task_id": 0}})

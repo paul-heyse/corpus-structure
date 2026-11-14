@@ -566,3 +566,101 @@ def test_native_binding_header_is_authenticated_row_identity_not_body_property(
     assert evaluate(connection, node, facts) is True
     facts["parameters"]["selected"] = "body-property-is-not-native-identity"
     assert evaluate(connection, node, facts) is False
+
+
+@pytest.mark.db
+def test_native_semantic_source_set_matches_exact_product_member_context(binding_native_connection):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
+
+    connection = binding_native_connection
+    entry = SourceSetEntry.from_semantic_source(
+        DataProductMemberReference(DataProductReference("product:foreign"), "member:one"),
+        context=SubjectContext("project", "subject:foreign", "source:foreign", b'{"page":2}'),
+    ).record()
+    sets = {"selected": [entry]}
+    connection.execute(
+        text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project')"),
+        {"sets": json.dumps(sets)},
+    )
+    role = {"subject_target": "source-set", "support": {"source_set": "selected"}}
+    value = {
+        "product": entry["product"],
+        "member": entry["member"],
+        "subject": entry["subject"],
+        "original_source": entry["original_source"],
+        "analyzed_scope": entry["analyzed_scope"],
+        "meaning_body": ["mapping", []],
+    }
+    query = text(
+        "SELECT ops.ddo_binding_subject(CAST(:role AS jsonb),CAST(:value AS jsonb),'authored:input','local:source') AND ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:value AS jsonb),'local:source',CAST(:sets AS jsonb))"
+    )
+    args = {"role": json.dumps(role), "value": json.dumps(value), "sets": json.dumps(sets)}
+    assert connection.scalar(query, args) is True
+    for key, wrong in (
+        ("member", "other"),
+        ("product", "other"),
+        ("subject", "other"),
+        ("original_source", "other"),
+        ("analyzed_scope", {"page": True}),
+    ):
+        assert (
+            connection.scalar(query, {**args, "value": json.dumps({**value, key: wrong})}) is False
+        )
+
+
+@pytest.mark.db
+def test_native_input_ledger_slots_are_dense_without_rewriting_source_positions(
+    binding_native_connection,
+):
+    connection = binding_native_connection
+    inputs = [
+        {
+            "role": "unordered",
+            "position": 0,
+            "multiplicity": 1,
+            "product_id": product,
+            "member_id": None,
+        }
+        for product in ("product:b", "product:a")
+    ] + [
+        {
+            "role": "ordered",
+            "position": position,
+            "multiplicity": 1,
+            "product_id": str(position),
+            "member_id": None,
+        }
+        for position in (2, 5)
+    ]
+    roles = [
+        {"name": "unordered", "collection": "set"},
+        {"name": "ordered", "collection": "sequence"},
+    ]
+    rows = (
+        connection.execute(
+            text(
+                "SELECT * FROM ops.ddo_derivation_input_positions(CAST(:inputs AS jsonb),CAST(:roles AS jsonb))"
+            ),
+            {"inputs": json.dumps(inputs), "roles": json.dumps(roles)},
+        )
+        .mappings()
+        .all()
+    )
+    assert {
+        (row["input_record"]["product_id"], row["physical_position"])
+        for row in rows
+        if row["input_record"]["role"] == "unordered"
+    } == {("product:a", 0), ("product:b", 1)}
+    assert all(
+        row["input_record"]["position"] == 0
+        for row in rows
+        if row["input_record"]["role"] == "unordered"
+    )
+    assert {
+        row["physical_position"] for row in rows if row["input_record"]["role"] == "ordered"
+    } == {2, 5}

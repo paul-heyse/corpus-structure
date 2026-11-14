@@ -94,7 +94,7 @@ class OperationRole:
     alternatives: tuple[str, ...] = ()
     selected: str | None = None
     subject_field: str | None = None
-    subject_target: Literal["subject", "original-source"] = "subject"
+    subject_target: Literal["subject", "original-source", "source-set"] = "subject"
 
 
 def operation_role_record(role: OperationRole, *, result_only: bool = False) -> dict:

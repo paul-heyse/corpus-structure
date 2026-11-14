@@ -18,6 +18,14 @@ if TYPE_CHECKING:
     from .structural_products import ExternalSourceRef, StructuralInput
 
 
+def is_semantic_source_reference(record):
+    return (
+        isinstance(record, dict)
+        and set(record) in ({"product_id"}, {"product_id", "member_id"})
+        and all(type(value) is str and bool(value) for value in record.values())
+    )
+
+
 @dataclass(frozen=True)
 class SourceSetEntry:
     project_id: str
@@ -49,9 +57,41 @@ class SourceSetEntry:
             raise TypeError("source-set custody and reference pins require immutable exact types")
         if self.member is not None and type(self.member) is not str:
             raise TypeError("source-set member must be an original string identifier")
-        reference = ExternalSourceRef.model_validate_json(self.reference)
-        if reference.project_id != self.project_id or reference.identity != self.source_reference:
-            raise ValueError("source-set reference differs from its original identity/project")
+        raw = json.loads(self.reference)
+        if is_semantic_source_reference(raw):
+            from .data_product_reference import DataProductMemberReference, DataProductReference
+
+            product = DataProductReference(raw["product_id"])
+            reference = (
+                DataProductMemberReference(product, raw["member_id"])
+                if "member_id" in raw
+                else product
+            )
+            member = (
+                reference.member_id if isinstance(reference, DataProductMemberReference) else None
+            )
+            identity = (
+                reference.identity
+                if isinstance(reference, DataProductMemberReference)
+                else product.product_id
+            )
+            if (
+                product.product_id != self.product
+                or member != self.member
+                or identity != self.source_reference
+            ):
+                raise ValueError(
+                    "source-set semantic reference differs from its exact product/member"
+                )
+            canonical = canonical_bytes(reference.values())
+        else:
+            reference = ExternalSourceRef.model_validate_json(self.reference)
+            if (
+                reference.project_id != self.project_id
+                or reference.identity != self.source_reference
+            ):
+                raise ValueError("source-set reference differs from its original identity/project")
+            canonical = canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
         if not all((self.project_id, self.original_source, self.subject, self.product)):
             raise ValueError("source-set entries require exact qualified original custody")
         if self.member is not None and not self.member:
@@ -60,8 +100,35 @@ class SourceSetEntry:
         if not isinstance(scope, dict):
             raise ValueError("source-set scope must be a canonical JSON object")
         object.__setattr__(self, "analyzed_scope", json_bytes(scope))
-        if canonical_bytes(reference.model_dump(mode="json", exclude_none=True)) != self.reference:
+        if canonical != self.reference:
             raise ValueError("source-set original reference must be canonical")
+
+    @classmethod
+    def from_semantic_source(cls, reference, *, context):
+        from .data_product_reference import DataProductMemberReference, DataProductReference
+
+        if isinstance(reference, DataProductMemberReference):
+            product, member, identity = (
+                reference.product.product_id,
+                reference.member_id,
+                reference.identity,
+            )
+        elif isinstance(reference, DataProductReference):
+            product, member, identity = reference.product_id, None, reference.product_id
+        else:
+            raise TypeError(
+                "source-set reference requires the existing semantic product/member type"
+            )
+        return cls(
+            context.project_id,
+            context.original_source,
+            context.subject,
+            context.analyzed_scope,
+            product,
+            member,
+            identity,
+            canonical_bytes(reference.values()),
+        )
 
     @classmethod
     def from_structural_source(
