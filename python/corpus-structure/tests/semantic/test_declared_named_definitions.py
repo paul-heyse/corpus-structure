@@ -57,3 +57,31 @@ def test_declared_named_reader_refuses_wrong_native_members_and_unperformed_vari
         body["members"] = body["members"][1:]
     with pytest.raises(ValueError):
         DeclaredNamedRules((CharacterizationSnapshot(primary.semantic_id, canonical_bytes(body)),), native).decode(product)
+
+
+def test_named_definition_acquisition_compiles_without_model_provider_dependencies(tmp_path):
+    from pathlib import Path
+    from corpus_structure.semantic import SourceArtifact, SourceBundle
+    from corpus_structure.semantic.characterization_ports import characterization_operation_sources
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
+    from corpus_structure.semantic.definition_component_products import definition_component_inputs, definition_component_operation_sources
+    from corpus_structure.semantic.formal_products import formal_operation_sources
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    bundle = definition_component_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    assert "data_operation_learned" not in {source.name for source in bundle.sources}
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.semantic.sentence_products import sentence_operation_sources
+
+    configuration = SentenceConfig()
+    selection = NativeSelection(NativeProfile("spacy", {"controlled": "runtime"}, {}, configuration.model_dump(mode="json"), "float32", "cupy", 4, 1), tmp_path)
+    sources = combine_primary_sources(formal_operation_sources(), characterization_operation_sources(), sentence_operation_sources(configuration, selection=selection), definition_component_operation_sources())
+    model = compile_data_operations(bundle, (structural_operation_declarations(),), sources)
+    names = {operation.semantic_id for operation in model.operations}
+    assert "structure.definition_named_components/declared" in names
+    assert "structure.definition_components/declared" not in names
+    assert "text.gliner_definitions/source-native" not in names
+    assert set(model.operation("structure.definition_named_components/declared").dependencies) == {"segment.sentences/source-native", "text.constructions/source-native"}

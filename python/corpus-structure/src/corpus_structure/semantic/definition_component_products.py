@@ -15,11 +15,11 @@ _ROOT = Path(__file__).parents[1]
 _FILES = ("methods/definition_components_declared.py", "semantic/definition_component_products.py", "semantic/definition_model_products.py", "methods/definition_applicability.py", "semantic/structural_products.py", "semantic/declared_structural_references.py", "semantic/declared_record_sources.py", "semantic/data_operation_prepared_call.py", "methods/definition_named_declared.py", "semantic/constructions/declared_named.py", "methods/model_observation.json", "methods/predicate_frames.py")
 
 
-def definition_component_inputs(bundle):
+def definition_component_inputs(bundle, *, include_learned=False):
     from .declared_structural_calls import structural_inputs
     from .learned_primary import learned_primary_inputs
 
-    if "data_operation_learned" not in {source.name for source in bundle.sources}:
+    if include_learned and "data_operation_learned" not in {source.name for source in bundle.sources}:
         bundle = learned_primary_inputs(bundle)
     if "data_operation_constructions" not in {source.name for source in bundle.sources}:
         from .declaration_products import declaration_inputs
@@ -31,10 +31,14 @@ def definition_component_assets():
     return SourceArtifact("definition-components/profile-assets", canonical_bytes({"version": "declared-located-definition-components-v1", "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES]}))
 
 
-def definition_component_operation_sources():
+def definition_component_operation_sources(*, include_learned=False):
+    """Acquire deterministic named/display readers independently of model providers."""
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
-    return PythonSourceCollection(tuple(PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve())) for name in (*_FILES[:3], "methods/definition_named_declared.py", "semantic/constructions/declared_named.py")), boundary_contracts=(definition_component_assets(),))
+    modules = ("semantic/definition_component_products.py", "methods/definition_named_declared.py", "semantic/constructions/declared_named.py")
+    if include_learned:
+        modules = (*modules, "methods/definition_components_declared.py", "semantic/definition_model_products.py")
+    return PythonSourceCollection(tuple(PythonSource("corpus_structure." + name.removesuffix(".py").replace("/", "."), (_ROOT / name).read_bytes(), str((_ROOT / name).resolve())) for name in modules), boundary_contracts=(definition_component_assets(),))
 
 
 def project_definition_components(prepared, roles, context, source, observation, candidates, *, check_active):
@@ -119,26 +123,25 @@ class DefinitionComponentsCallPlan:
             raise ValueError("definition components require their exact qualified binding")
         signature = inspect.signature(self.kernel, eval_str=True)
         bound = signature.bind(arguments=arguments.arguments, roles=binding.roles, context=binding.subject_context, prepared=self.prepared, check_active=check_active)
-        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in definition_component_operation_sources().sources), "corpus_structure.semantic.definition_component_products." + self.kernel.__name__, (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
+        descriptor = PythonCPUDescriptor(tuple((source.module, source.filename, source.content) for source in definition_component_operation_sources(include_learned=self.kernel is definition_components_kernel).sources), "corpus_structure.semantic.definition_component_products." + self.kernel.__name__, (), verification="prepared-kernel", control_parameter="check_active", prepared_parameter="prepared", prepared_release_id=self.prepared.release_id)
         reply = yield from plan_cpu_call(descriptor, bound, signature, verify=self.verify, execution_owner=execution_owner, check_active=check_active)
         return PreparedCallResult(json.loads(reply.content), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
 
 
 def resolve_definition_components_port(prepared, model, operation, *, identity, authorize, custody, sources):
-    from corpus_structure.methods.definition_components_declared import DefinitionComponentsOperation
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
-    from corpus_structure.methods.definition_named_declared import NamedDefinitionComponentsOperation
-
     selected = model.operation(operation)
-    if selected.semantic_id == DefinitionComponentsOperation.__data_operation__["id"]:
+    if selected.semantic_id == "structure.definition_components/declared":
+        from corpus_structure.methods.definition_components_declared import DefinitionComponentsOperation
         receiver, kernel = DefinitionComponentsOperation(None), definition_components_kernel
-    elif selected.semantic_id == NamedDefinitionComponentsOperation.__data_operation__["id"]:
+    elif selected.semantic_id == "structure.definition_named_components/declared":
+        from corpus_structure.methods.definition_named_declared import NamedDefinitionComponentsOperation
         receiver, kernel = NamedDefinitionComponentsOperation(None), named_definition_components_kernel
     else:
         raise ValueError("definition component factory differs from its actual operation")
     plan = DefinitionComponentsCallPlan(prepared, kernel)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.definition_component_products.DefinitionComponentsCallPlan.plan", authorize, (definition_component_assets(),), definition_component_operation_sources(), functions=(("corpus_structure.semantic.definition_component_products.execute_definition_components", execute_definition_components), ("corpus_structure.semantic.definition_component_products.project_definition_components", project_definition_components), ("corpus_structure.semantic.definition_component_products." + kernel.__name__, kernel), ("corpus_structure.semantic.definition_component_products.execute_named_definition_components", execute_named_definition_components), ("corpus_structure.semantic.definition_component_products.project_named_definition_components", project_named_definition_components)), requires_prepared_schema=True)
+    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan, "corpus_structure.semantic.definition_component_products.DefinitionComponentsCallPlan.plan", authorize, (definition_component_assets(),), definition_component_operation_sources(include_learned=kernel is definition_components_kernel), functions=(("corpus_structure.semantic.definition_component_products.execute_definition_components", execute_definition_components), ("corpus_structure.semantic.definition_component_products.project_definition_components", project_definition_components), ("corpus_structure.semantic.definition_component_products." + kernel.__name__, kernel), ("corpus_structure.semantic.definition_component_products.execute_named_definition_components", execute_named_definition_components), ("corpus_structure.semantic.definition_component_products.project_named_definition_components", project_named_definition_components)), requires_prepared_schema=True)
     plan.port = port
     return port
 
