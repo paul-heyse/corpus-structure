@@ -2,6 +2,11 @@
 
 _Updated 2026-11-14. Operator stopped this DDO increment so other structural work can proceed. No tests remain running. No deployment, activation or cutover._
 
+## PostgreSQL alignment review
+
+- Published the [whole Python PostgreSQL/DDO review](docs/plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md), with library coverage, independent challenge, typed interface and complete legacy retirement recommendations. The separate-session Arrow read proposal has an explicit uncommitted pin-visibility prerequisite. Recommendations remain Proposed; the DDO plan and product code are unchanged.
+- **passed, 2026-11-14:** `uv run ci docs check --json`, `41c0cf0d358648d0bdcfb8fdf26e1b7d` (1276 pages, zero link errors, before this receipt wording); product/native/provider tests and broad checks remain **not_run** under the existing stop boundary.
+
 ## DDO handoff
 
 - The [DDO closeout](docs/plans/declared-data-operations_2026-11-12.md#operator-closeout-and-remaining-failures--2026-11-14) owns the three unresolved test identities, exact failed receipts, implemented repairs and remaining verification. DDO-06–08 acceptance stays open; DDO-09/10 serving, DDO-11 adoption and DDO-12 assembled qualification remain open.

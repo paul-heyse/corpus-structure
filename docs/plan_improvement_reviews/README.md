@@ -41,6 +41,12 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [PostgreSQL domain alignment across DDO](declared-data-operations-postgresql-domain-alignment_2026-11-14.md):
+  whole Python PostgreSQL responsibility and consumer review; derived typed native surfaces,
+  complete pinned read/reuse and legacy retirement boundaries, pool/failure ownership, legacy
+  compiler reduction and transfer preservation. Identifies the uncommitted read-pin obstacle to
+  separate-session ADBC snapshot reads. Reconciles both earlier PostgreSQL reviews; proposals only.
+
 - [Declared data operations with PostgreSQL client libraries](declared-data-operations-postgresql-libraries_2026-11-14.md):
   full overview/addendum coverage of pglast, sqlglot, psycopg, psycopg-pool, pgpq, pgvector and
   adbc-driver-postgresql, with a table of responsibilities done several ways. Set-based input
