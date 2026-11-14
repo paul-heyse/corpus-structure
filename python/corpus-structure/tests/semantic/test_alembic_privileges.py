@@ -146,3 +146,30 @@ def test_schema_policy_refuses_effective_create_despite_owner_acl_filter(semanti
             drift_scope.rollback()
         admit_privileges(conn, [policy])
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+
+
+def test_rendered_candidate_executes_exact_upgrade_before_admission_and_rolls_back(semantic_bare_engine, monkeypatch):
+    from types import SimpleNamespace
+    from corpus_structure.semantic import native_candidate, native_objects
+    from corpus_structure.semantic.alembic_privileges import admit_privileges as real_admit
+    name = "rendered_" + uuid4().hex[:10]
+    source = "from alembic import op\ndef upgrade():\n    op.execute('CREATE TABLE public." + name + " (id integer)')\n"
+    observed = []
+    def native_check(connection, desired):
+        assert desired == ()
+        assert connection.scalar(text("SELECT to_regclass(:name)"), {"name": "public." + name}) is not None
+        observed.append("native")
+    def catalog_check(connection, admission):
+        assert admission == "frozen"
+        assert observed == ["native"]
+        assert connection.scalar(text("SELECT to_regclass(:name)"), {"name": "public." + name}) is not None
+        real_admit(connection, [])
+        observed.append("catalog")
+    monkeypatch.setattr(native_objects, "admit_native", native_check)
+    monkeypatch.setattr(native_candidate, "verify_frozen_catalog", catalog_check)
+    with semantic_bare_engine.begin() as conn:
+        role = conn.scalar(text("SELECT current_user"))
+        native_candidate.verify_rendered_candidate(conn, source, SimpleNamespace(desired=()), (), "frozen")
+        assert observed == ["native", "catalog"]
+        assert conn.scalar(text("SELECT to_regclass(:name)"), {"name": "public." + name}) is None
+        assert conn.scalar(text("SELECT current_user")) == role

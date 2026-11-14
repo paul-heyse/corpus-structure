@@ -175,6 +175,7 @@ def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
     monkeypatch.setattr(migrations, "current_revision", lambda conn: "106")
     monkeypatch.setattr(native_candidate, "prepare_series_candidate", prepare)
     monkeypatch.setattr(native_candidate, "authored_admission_sql", admission)
+    monkeypatch.setattr(native_candidate, "verify_rendered_candidate", lambda *args: None)
     out = tmp_path / "candidate"
     intent = tmp_path / "intent.yaml"
     intent.write_text(

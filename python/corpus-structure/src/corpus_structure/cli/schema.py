@@ -450,6 +450,7 @@ def author_native_candidate(
     from corpus_structure.semantic.native_candidate import (
         authored_admission_sql,
         prepare_series_candidate,
+        verify_rendered_candidate,
     )
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.refusals import SemanticRefusal
@@ -556,6 +557,7 @@ def author_native_candidate(
             # physical row types in scope; rebuilding after its savepoint rolls
             # back cannot resolve those types and would author a second answer.
             admission = authored_admission_sql(authoring)
+            verify_rendered_candidate(conn, python_source, authoring, script.privilege_policies, admission)
             products = {
                 "native_candidate.py": python_source.encode(),
                 "native_operations.json": canonical_bytes(

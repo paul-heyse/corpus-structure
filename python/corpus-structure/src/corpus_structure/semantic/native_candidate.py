@@ -2298,3 +2298,47 @@ def authored_admission_sql(authoring):
     if set(selected) != set(names):
         raise NativeAuthoringError("native authoring lacks its exact admission descriptor/guard")
     return native_sql_script(statement for name in names for statement in selected[name].statements)
+
+
+def verify_frozen_catalog(connection, admission):
+    """Run the frozen guard's catalog predicates without inventing a semantic release.
+
+    The release/authorization checks remain in require_execution_release. Authoring
+    has no released application result: this checks physical/native catalog after DDL,
+    using the same predicates and independently observed PostgreSQL catalog facts.
+    """
+    from .native_products import function_bodies
+    body = function_bodies(admission)["data.require_execution_release"]
+    try:
+        physical = body[body.index(" IF NOT EXISTS(SELECT FROM sem.physical_contract"):body.index(" IF EXISTS(SELECT FROM sem.release archived")]
+        catalog = body[body.index(" SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')"):body.index(" IF NOT EXISTS(SELECT FROM sem.deployment_admission")]
+    except ValueError as error:
+        raise NativeAuthoringError("frozen guard lacks the authoring catalog boundaries") from error
+    connection.exec_driver_sql(
+        "DO $candidate_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; BEGIN "
+        "expected:=data.execution_contract_descriptor(); "
+        "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem'; "
+        + physical + catalog + " END $candidate_catalog$;",
+        execution_options={"no_parameters": True},
+    )
+
+
+def verify_rendered_candidate(connection, python_source, authoring, policies, admission):
+    """Execute the exact generated upgrade and independent admission inside a savepoint."""
+    from alembic.operations import Operations
+    from .alembic_privileges import admit_privileges
+    from .native_objects import admit_native
+    role = connection.exec_driver_sql("SELECT current_user").scalar_one()
+    savepoint = connection.begin_nested()
+    try:
+        namespace = {}
+        exec(compile(python_source, "native_candidate.py", "exec"), namespace)
+        with Operations.context(MigrationContext.configure(connection)):
+            namespace["upgrade"]()
+        if connection.exec_driver_sql("SELECT current_user").scalar_one() != role:
+            raise NativeAuthoringError("candidate upgrade did not restore its migration caller")
+        admit_native(connection, authoring.desired)
+        admit_privileges(connection, policies)
+        verify_frozen_catalog(connection, admission)
+    finally:
+        savepoint.rollback()
