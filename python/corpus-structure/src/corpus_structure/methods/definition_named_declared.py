@@ -1,6 +1,6 @@
 """Generic located definition components from separately retained native products."""
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from corpus_structure.semantic.definition_component_products import execute_named_definition_components
 
@@ -167,5 +167,5 @@ class NamedDefinitionComponentsOperation:
     def __init__(self, prepared, roles=(), context=None, check_active=lambda: None):
         self.prepared, self.roles, self.context, self.check_active = prepared, roles, context, check_active
 
-    def run(self, source: dict[str, Any], annotations: dict[str, Any], constructions: dict[str, Any]) -> dict[str, Any]:
+    def run(self, source: dict, annotations: dict, constructions: dict) -> dict:
         return execute_named_definition_components(self, source, annotations, constructions)
