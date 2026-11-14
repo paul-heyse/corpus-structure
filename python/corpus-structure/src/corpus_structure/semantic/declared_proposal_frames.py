@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pydantic import JsonValue
+
 from .declared_record_sources import DeclaredNativeFrameSource
 from .proposals import ProposalSentence, native_address
 
@@ -34,7 +36,7 @@ class DeclaredProposalSource(DeclaredNativeFrameSource):
                     raise ValueError("declared evidence alias is not its actual selected native piece")
 
     @property
-    def record(self):
+    def record(self) -> dict[str, JsonValue]:
         return {"source_content": self.source_content, "pin_content": self.pin_content,
                 "version": self.version, "sentences": [{"id": sentence.id, "locator": sentence.locator,
                 "start": sentence.start, "end": sentence.end} for sentence in self.sentences]}
@@ -58,7 +60,7 @@ class DeclaredProposalFrame(DeclaredProposalSource):
                 raise ValueError("declared proposal context must be a separately pinned direct ancestor of the same original")
 
     @property
-    def record(self):
+    def record(self) -> dict[str, JsonValue]:
         return {**super().record, "context_sources": [source.record for source in self.context_sources]}
 
 

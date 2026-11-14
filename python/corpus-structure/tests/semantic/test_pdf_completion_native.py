@@ -28,12 +28,13 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
 ):
     """Pure eligibility is necessary; actual sealed receipt inspection remains separate."""
     from copy import deepcopy
+    from typing import Any
 
     from sqlalchemy import text
 
     from corpus_structure.semantic.data_operation_json import json_bytes
 
-    definition = {
+    definition: dict[str, Any] = {
         "profile": "command",
         "implementation_revision": "implementation-slice:captured",
         "support_contract": {

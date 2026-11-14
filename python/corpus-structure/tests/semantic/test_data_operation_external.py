@@ -83,7 +83,11 @@ def test_frozen_model_reuses_content_and_exact_decoding_without_caching_other_in
     assert model.content is first
     decoded = read_effective_data_operations(first)
     assert read_effective_data_operations(bytes(first)) is decoded
-    assert read_effective_data_operations(bytearray(first)) == decoded
-    assert read_effective_data_operations(bytearray(first)) is not decoded
+    class CapturedBytes(bytes):
+        pass
+
+    captured = CapturedBytes(first)
+    assert read_effective_data_operations(captured) == decoded
+    assert read_effective_data_operations(captured) is not decoded
     with pytest.raises(ValueError):
         read_effective_data_operations(first[:-1])

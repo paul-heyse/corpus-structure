@@ -43,13 +43,17 @@ def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observation
         async def exchange():
             async with Client(build_server(session)) as client:
                 response = await client.call_tool("queue_next", {})
+                assert response.structured_content is not None
                 assert response.structured_content["packets"][0]["packet_id"] == packet["packet_id"]
                 leased = await client.call_tool("claim_packet", {"packet_id": packet["packet_id"]})
+                assert leased.structured_content is not None
                 actual = leased.structured_content
+                assert actual is not None
                 assert actual["attempt"] == fence["attempt"] + 1
                 read = await client.call_tool(
                     "read_packet", {"packet_id": packet["packet_id"], "claim": actual}
                 )
+                assert read.structured_content is not None
                 assert (
                     read.structured_content["packet"]["protocol"]["requested_actor"]
                     == "controlled-external"

@@ -61,9 +61,11 @@ def test_current_cli_external_stdio_preserves_exact_native_custody_and_closes_po
                 if mode == "early_exit":
                     return
                 headers = await client.call_tool("queue_next", {})
+                assert headers.structured_content is not None
                 assert headers.structured_content["packets"][0]["packet_id"] == packet["packet_id"]
                 assert set(principals()) == {"corpus_sem_writer"}
                 response = await client.call_tool("claim_packet", {"packet_id": packet["packet_id"]})
+                assert response.structured_content is not None
                 selected.update(response.structured_content)
                 if mode == "cancelled":
                     cancellation.cancel()
@@ -74,10 +76,12 @@ def test_current_cli_external_stdio_preserves_exact_native_custody_and_closes_po
                     assert failed.is_error
                     return
                 actual = await client.call_tool("read_packet", {"packet_id": packet["packet_id"], "claim": selected})
+                assert actual.structured_content is not None
                 assert actual.structured_content["packet_digest"] == packet["packet_digest"]
                 completed = await client.call_tool("submit_result", {"packet_id": packet["packet_id"], "claim": selected,
                     "actor_assertion": "controlled-external", "model_assertion": None,
                     "result": {"outcome": "success", "outputs": [{"role": "result", "body": 7}]}})
+                assert completed.structured_content is not None
                 assert completed.structured_content["state"] == "committed"
                 assert completed.structured_content["receipt"]["admitting_principal"] == "corpus_sem_writer"
 
@@ -107,6 +111,7 @@ def test_lazy_default_external_session_freezes_settings_and_observes_later_nativ
             assert (await client.call_tool("queue_next", {})).structured_content == {"packets": []}
             _, _, packet = create_packet(ddo_kernel)
             headers = await client.call_tool("queue_next", {})
+            assert headers.structured_content is not None
             assert headers.structured_content["packets"][0]["packet_id"] == packet["packet_id"]
 
     anyio.run(exchange)

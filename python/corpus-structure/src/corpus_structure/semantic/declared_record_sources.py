@@ -9,12 +9,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
+from pydantic import JsonValue
 
 from .data_operation_model import BoundRoleMember, SubjectContext, json_context_meaning
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
+    from .proposals import ProposalSentence
     from .source_products import FrozenNativeSource
 
 
@@ -276,7 +278,7 @@ class DeclaredNativeFrameSource:
         )
 
     @property
-    def record(self):
+    def record(self) -> dict[str, JsonValue]:
         return {
             "source_content": self.source_content,
             "pin_content": self.pin_content,
@@ -318,7 +320,7 @@ class DeclaredNativeFrameSource:
         return self._text
 
     @property
-    def sentences(self):
+    def sentences(self) -> tuple[ProposalSentence, ...]:
         return ()
 
     @property

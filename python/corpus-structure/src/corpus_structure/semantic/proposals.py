@@ -392,7 +392,7 @@ def native_address(
     return "pdf:" + canonical_bytes(value).decode()
 
 
-def native_evidence_entries(frame: NativeFrameSource) -> tuple[dict[str, Any], ...]:
+def native_evidence_entries(frame: NativeFrameSource | DeclaredNativeFrameSource) -> tuple[dict[str, Any], ...]:
     """Deterministic evidence handles over retained native projection pieces, not PDF glyphs."""
     context = json.loads(frame.native_context)
     integrated = (
