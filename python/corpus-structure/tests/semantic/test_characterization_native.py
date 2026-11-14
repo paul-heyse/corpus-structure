@@ -1527,16 +1527,13 @@ def test_retained_characterization_does_not_require_unrelated_producer_readiness
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
 def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
-    private_build, commit_writer_engine, commit_reader_engine, tmp_path
+    private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.core.db.cancellation import OperationCancellation
-    from corpus_structure.core.method import MethodSettings
-    from corpus_structure.core.vocab import Stage
+    from corpus_structure.core.method import UnitRef, UnitView
+    from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.characterization import ComposeViewMethod
     from corpus_structure.orchestrate.commands import finalize_bound_run
-    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-    from corpus_structure.orchestrate.runner import Graph, Step
-    from corpus_structure.orchestrate.semantic import run_source_methods
     from corpus_structure.semantic.characterization_store import read_inventory
     from corpus_structure.semantic.operations import OperationBinding, complete_task
     from corpus_structure.semantic.query import read_snapshot
@@ -1548,7 +1545,10 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     )
     from corpus_structure.serve.review_bundle import verify_review_bundle
     from semantic.retained_primary_fixture import SealedFormalFixture
-    from semantic.witnessed_scenario_support import completed_metadata
+    from semantic.primary_native_support import publish_primary_fixture
+    from semantic.witnessed_scenario_support import (
+        completed_metadata, _begin_witnessed_run, _witnessed_reader, _retain_witnessed_result,
+    )
 
     publication = publish_selected(
         commit_writer_engine,
@@ -1636,23 +1636,30 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
         profile="native-formula-object",
     )
 
+    case = SimpleNamespace(writer=commit_writer_engine, prepared=prepared,
+        project_id="p", run=task["run_id"], view=identity,
+        document=task["unit_id"], source_task=task["id"], clone=None)
+
     def run(method, cfg):
-        result = run_source_methods(
-            commit_writer_engine,
-            project_id="p",
-            prepared=prepared,
-            binding=OperationBinding(
-                prepared.release_id, metadata["output_realization_id"], revision, b"{}"
-            ),
-            registry=MethodRegistry((method,), MethodsFile(configs={method.name: {"test": cfg}})),
-            graph=Graph(((Stage.EXTRACT, (Step(method.name + "/test"),)),), policy_propose=False),
-            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            selected_sources=(external,),
-        )
-        assert result.status == "source_ready"
+        config = method.Config.model_validate(cfg)
+        run_id, bound = _begin_witnessed_run(case,
+            OperationBinding(prepared.release_id, metadata["output_realization_id"], revision, b"{}"),
+            ((method, config),), selected_sources=(external,))
+        if isinstance(method, SealedFormalFixture):
+            with commit_writer_engine.begin() as conn:
+                publish_primary_fixture(conn, run_id, prepared, method, cfg)
+        else:
+            assert isinstance(method, ComposeViewMethod)
+            with _witnessed_reader(case, run_id, bound, tmp_path) as ctx:
+                unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, task["unit_id"]), ctx.run,
+                    document_id=task["unit_id"])
+                (result,) = method.run((unit,), config, ctx)
+            _retain_witnessed_result(case, run_id, method, config, result,
+                stage="extract", admin=commit_db_engine)
+        finalize_bound_run(commit_writer_engine, run_id, "unprojected-"+method.name)
         with commit_writer_engine.connect() as conn:
-            (product,) = read_inventory(conn, result.run_id)["products"]
-        return result, ProductReference(**product["reference"])
+            (product,) = read_inventory(conn, run_id)["products"]
+        return SimpleNamespace(run_id=run_id), ProductReference(**product["reference"])
 
     config = dict(characterization_base_document=base.values(), characterization_source_scope=scope)
     _, layer_pin = run(SealedFormalFixture(), config)

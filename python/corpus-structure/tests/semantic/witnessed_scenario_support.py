@@ -56,10 +56,10 @@ from semantic.native_record_fixtures import complete_contributions, contribution
 
 
 def _fixture_configuration(method, config):
-    from hashlib import sha256
+    from corpus_structure.core.evidence import config_key
     from corpus_structure.orchestrate.registry import canonical_numbers
-    params = canonical_numbers(config.model_dump(mode="json", exclude_none=True))
-    return params, sha256(canonical_bytes([method.name, method.version, params])).hexdigest()
+    params = canonical_numbers(config.model_dump(mode="json"))
+    return params, config_key(method.name, method.version, params)
 
 
 def _begin_witnessed_run(case, binding, configured, *, structural_admission=(), local_semantic_admission=(), selected_sources=()):
