@@ -1,6 +1,7 @@
 """Support origin is admission policy; only declared exact origin identity salts values."""
 
 from dataclasses import replace
+from decimal import Decimal
 
 import pytest
 
@@ -107,3 +108,20 @@ def test_original_origin_and_historical_default_survive_owned_archive_roundtrip(
         restored = read_effective_data_operations(model.content)
         assert restored.content == model.content
         assert restored.operations[0].roles[0].support == model.operations[0].roles[0].support
+
+
+@pytest.mark.parametrize("scope", [None, False, 0, {"fraction": Decimal("0.123456789012345678901"), "nested": [True, None]}])
+def test_authored_scope_preserves_exact_fraction_null_and_boolean_distinctions(scope):
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_support import AuthoredFactRef, authored_fact_selection, read_original_source_reference
+    selected = authored_fact_selection("fact", {"value": 7}, kind_contract="kind:A",
+        context=SubjectContext("project:A", "subject:A", "source:A", json_bytes(scope)),
+        author="operator", selection_id="selection:A")
+    acquired = read_original_source_reference(selected.reference)
+    assert isinstance(acquired, AuthoredFactRef)
+    assert semantic_value(selected.record()["reference"]["analyzed_scope"]) == semantic_value(scope)
+    assert semantic_value(acquired.analyzed_scope) == semantic_value(scope)
+    assert json_bytes(selected.record()["reference"]) == selected.reference
+    assert json_loads(selected.reference)["meaning_body"] == semantic_value({"value": 7})

@@ -44,7 +44,7 @@ WireTaskIdentity = NewType("WireTaskIdentity", int)
 
 
 class WireAuthoredFactRef(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[WireDdoJsonValue]
     author: Required[str]
     kind: Required[Literal["authored-fact"]]
     kind_contract: Required[WireKindContract]
@@ -1060,6 +1060,18 @@ class WireAttemptFence(TypedDict):
     request_id: Required[WireRequestId]
     task_id: Required[WireTaskIdentity]
 
+
+type WireDdoJsonValue = (
+    bool
+    | int
+    | int
+    | float
+    | Decimal
+    | str
+    | list[WireDdoJsonValue]
+    | dict[str, WireDdoJsonValue]
+    | None
+)
 
 type WireJsonValue = WireExactJSONValue
 

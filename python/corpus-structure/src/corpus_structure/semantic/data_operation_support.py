@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
 from .identity import canonical_bytes
+from .data_operation_json import DdoJsonValue, json_bytes, json_loads, wire_json_loads
 
 Nonempty = Annotated[str, Field(min_length=1)]
 
@@ -37,7 +38,7 @@ class AuthoredFactRef(BaseModel):
     kind_contract: Nonempty
     subject: Nonempty
     original_source: Nonempty
-    analyzed_scope: JsonValue
+    analyzed_scope: DdoJsonValue
     meaning_body: JsonValue
 
     @model_validator(mode="after")
@@ -51,9 +52,10 @@ class AuthoredFactRef(BaseModel):
 def read_original_source_reference(content: bytes):
     from .structural_products import ExternalSourceRef
 
-    return TypeAdapter(OriginalDocumentRef | ExternalSourceRef | AuthoredFactRef).validate_json(
-        content, strict=True
-    )
+    parsed = json_loads(content)
+    if isinstance(parsed, dict) and parsed.get("kind") == "authored-fact":
+        return AuthoredFactRef.model_validate(parsed, strict=True)
+    return TypeAdapter(OriginalDocumentRef | ExternalSourceRef).validate_json(content, strict=True)
 
 
 class ComputationalSupportReference(BaseModel):
@@ -111,7 +113,8 @@ class OriginalSourceSelection:
         ):
             raise TypeError("original source selections require immutable named canonical bytes")
         reference = read_original_source_reference(self.reference)
-        if canonical_bytes(reference.model_dump(mode="json", exclude_none=True)) != self.reference:
+        frozen = json_bytes(reference.model_dump(mode="python")) if isinstance(reference, AuthoredFactRef) else canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
+        if frozen != self.reference:
             raise ValueError("original source reference must preserve its exact canonical pins")
         selectors = json.loads(self.selectors)
         if (
@@ -128,7 +131,7 @@ class OriginalSourceSelection:
             raise ValueError("authored admission requires its explicit authored-fact scope")
 
     def record(self) -> dict:
-        return {"reference": json.loads(self.reference), "selectors": json.loads(self.selectors)}
+        return {"reference": wire_json_loads(self.reference), "selectors": json.loads(self.selectors)}
 
 
 def original_source_selections_record(selections: tuple[OriginalSourceSelection, ...]) -> dict:
@@ -146,7 +149,6 @@ def authored_fact_selection(name, value, *, kind_contract, context, author, sele
     root context. Possessing this value grants no publication permission.
     """
     from .data_operation_identity import semantic_value
-    from .data_operation_json import json_loads
 
     reference = AuthoredFactRef(
         kind="authored-fact",
@@ -161,7 +163,7 @@ def authored_fact_selection(name, value, *, kind_contract, context, author, sele
     )
     return OriginalSourceSelection(
         name,
-        canonical_bytes(reference.model_dump(mode="json")),
+        json_bytes(reference.model_dump(mode="python")),
         canonical_bytes([{"scope": "authored-fact"}]),
     )
 
