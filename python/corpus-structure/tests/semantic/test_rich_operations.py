@@ -30,6 +30,7 @@ def test_actual_current_rich_method_factories_and_native_effect_compile_without_
     admit = model.operation("rich.admit")
     assert consolidate.profile == "derivation" and consolidate.effects == ()
     assert admit.profile == "command" and admit.capabilities.preparation == "native-publication"
+    assert admit.capabilities.prepared_factory is not None
     assert (
         admit.capabilities.prepared_factory.entrypoint
         == "corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port"

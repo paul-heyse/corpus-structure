@@ -198,6 +198,7 @@ classes:
     )
     occurrences = [item.body for item in value.members if isinstance(item.body, DdoRichOccurrence)]
     assert len(occurrences) == 1 and occurrences[0].original.product_id == "product:proposals"
+    assert occurrences[0].statement is not None
     assert occurrences[0].statement.member_id == "statement:s"
     constraints = [
         item.body for item in value.members if isinstance(item.body, DdoRichIdentityExclusion)

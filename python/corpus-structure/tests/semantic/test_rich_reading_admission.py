@@ -25,6 +25,7 @@ from corpus_structure.semantic.rich_cpu_inputs import RichKernelInputs
 from corpus_structure.semantic.rich_knowledge_contracts import (
     DdoRichContext,
     DdoRichPacket,
+    DdoRichSourceReadingAssertion,
     RichGraphAssembly,
 )
 from corpus_structure.semantic.rich_reading_admission import rich_reading_decisions
@@ -232,7 +233,9 @@ def actual_inputs():
     bodies = (*values.values, assertion)
     packets = tuple(
         DdoRichPacket(
-            member_id=body.reading_id if body is assertion else body.value_id,
+            member_id=body.reading_id
+            if isinstance(body, DdoRichSourceReadingAssertion)
+            else body.value_id,
             kind_contract=ids[
                 "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
                 + type(body).__name__
@@ -259,5 +262,7 @@ def test_actual_complete_reading_applies_exact_authorization_without_merging_raw
     assert decision.outcome == "accepted"
     assert decision.assertion_member_id == assertion.reading_id
     assert decision.source_interpretation_id != decision.interpretation_id
+    assert decision.original is not None and decision.resolved is not None
     assert decision.original.product_id == "raw" and decision.resolved.product_id == "resolved"
+    assert decision.probability_hex is not None
     assert 0 < float.fromhex(decision.probability_hex) <= 1

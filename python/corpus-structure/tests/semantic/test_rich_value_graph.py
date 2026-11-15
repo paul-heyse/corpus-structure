@@ -917,7 +917,7 @@ def test_rich_reading_decision_does_not_invent_unavailable_resolution():
         reason_code="resolution-unavailable",
         assertion_member_id=None,
     )
-    assert DdoRichReadingDecision(**fields).interpretation_id is None
+    assert DdoRichReadingDecision.model_validate(fields).interpretation_id is None
     for change in (
         {"outcome": "accepted"},
         {"interpretation_id": "interpretation:invented"},
@@ -925,7 +925,7 @@ def test_rich_reading_decision_does_not_invent_unavailable_resolution():
         {"score_hex": (0.5).hex()},
     ):
         with pytest.raises(ValidationError):
-            DdoRichReadingDecision(**{**fields, **change})
+            DdoRichReadingDecision.model_validate({**fields, **change})
 
 
 def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_other_fields(source):
@@ -943,6 +943,8 @@ def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_othe
     values = RichValueGraph(prepared, model)
     key = values.lower_property("KeyedEntity", "code", "retained-key")
     original = next(packet for packet in graph.members if isinstance(packet.body, DdoRichEntity))
+    original_body = original.body
+    assert isinstance(original_body, DdoRichEntity)
     basis = DdoRichEntityIdentity(
         class_contract=ids["urn:rich-values:KeyedEntity"],
         fields=(
@@ -955,10 +957,10 @@ def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_othe
     )
     entity = original.model_copy(
         update={
-            "body": original.body.model_copy(
+            "body": original_body.model_copy(
                 update={
-                    "class_contracts": (*original.body.class_contracts, basis.class_contract),
-                    "identities": (*original.body.identities, basis),
+                    "class_contracts": (*original_body.class_contracts, basis.class_contract),
+                    "identities": (*original_body.identities, basis),
                 }
             )
         }
@@ -987,6 +989,8 @@ def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_othe
     assert (
         validate_rich_graph(prepared, model, context=context, graph=actual, inputs=inputs) == actual
     )
+    entity_body = entity.body
+    assert isinstance(entity_body, DdoRichEntity)
     for field in (
         basis.fields[0].model_copy(
             update={"property_contract": ids["urn:rich-values:Measurement/property/amount"]}
@@ -995,10 +999,10 @@ def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_othe
     ):
         changed = entity.model_copy(
             update={
-                "body": entity.body.model_copy(
+                "body": entity_body.model_copy(
                     update={
                         "identities": (
-                            *original.body.identities,
+                            *original_body.identities,
                             basis.model_copy(update={"fields": (field,)}),
                         )
                     }
