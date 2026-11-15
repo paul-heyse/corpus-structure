@@ -296,3 +296,34 @@ def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(infrastruc
     assert error["database"]["pool_stats"]["pool_size"] >= 1
     assert error["database"]["usage_scope"] == "pool_connection_scopes_only"
     assert "SELECT" not in result.stdout
+
+
+@pytest.mark.usefixtures("observed_store_checkouts")
+def test_reserved_renewal_runs_while_all_port_capacity_is_borrowed(infrastructure_engine):
+    from datetime import timedelta
+    from types import SimpleNamespace
+
+    renewed = Event()
+    observed = []
+    claim = SimpleNamespace(
+        task_id=1, attempt=1, holder="owner", release_id="release:test",
+        deadline=datetime.now(UTC) + timedelta(minutes=5),
+    )
+
+    def renew(conn, owned):
+        observed.append(conn.scalar(text("SELECT pg_backend_pid()")))
+        renewed.set()
+
+    with open_store(
+        settings_for(infrastructure_engine), "pg-renewal-reserved", min_size=1, max_size=2
+    ) as store:
+        with claim_lifetime.maintained_claims(
+            store.engine, [claim], "owner", interval=0.01, renew=renew
+        ):
+            with store.engine.begin() as foreground:
+                foreground_pid = foreground.scalar(text("SELECT pg_backend_pid()"))
+                renewed.clear()
+                assert renewed.wait(3)
+                assert observed[-1] != foreground_pid
+        with store.engine.begin() as conn:
+            assert conn.scalar(text("SELECT 19")) == 19

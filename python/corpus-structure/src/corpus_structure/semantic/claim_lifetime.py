@@ -211,7 +211,7 @@ def _deadlines(conn, database, *, statement_timeout_seconds: float):
         )
 
 
-def _retryable_renewal_timeout(error: Exception, failure: DatabaseFailure) -> bool:
+def _retryable_renewal_failure(error: Exception, failure: DatabaseFailure) -> bool:
     if (
         not isinstance(error, DBAPIError)
         or failure.phase != DatabasePhase.EXECUTING
@@ -220,11 +220,8 @@ def _retryable_renewal_timeout(error: Exception, failure: DatabaseFailure) -> bo
         or failure.cancellation_requested
     ):
         return False
-    message = getattr(getattr(error.orig, "diag", None), "message_primary", None)
-    return (failure.sqlstate, message) in {
-        ("55P03", "canceling statement due to lock timeout"),
-        ("57014", "canceling statement due to statement timeout"),
-    }
+    # These are physical causes, not proof of a particular server timeout.
+    return failure.sqlstate in {"55P03", "57014"}
 
 
 def _leases_cover_retry(
@@ -268,6 +265,7 @@ def maintained_claims(
     cancellation = BorrowerCancellation(timeout=database.cancel_request_timeout_seconds)
     stop = Event()
     failed = Event()
+    ready = Event()
     failures: list[Exception] = []
 
     def check_active() -> None:
@@ -277,7 +275,7 @@ def maintained_claims(
     owner = ClaimOwner(engine, claims, holder, database, check_active)
     renew_owned_claim = renew
 
-    def renew_loop() -> None:
+    def renew_reserved(conn: Connection) -> None:
         renewed = False
         retry_of: Exception | None = None
         while not stop.wait(interval if retry_of is None else 0):
@@ -293,76 +291,78 @@ def maintained_claims(
                 if not active:
                     retry_of = None
                     continue
-                with engine.connect() as conn, cancellation.borrow(conn):
-                    if retry_of is not None:
-                        with owner.lock, conn.begin():
-                            phase = DatabasePhase.EXECUTING
-                            _deadlines(
-                                conn,
-                                database,
-                                statement_timeout_seconds=database.renewal_statement_timeout_seconds,
-                            )
-                            if not _leases_cover_retry(
-                                conn,
-                                active,
-                                timedelta(
-                                    seconds=database.renewal_statement_timeout_seconds * len(active)
-                                ),
-                            ):
-                                raise retry_of
-                    for claim in active:
-                        key = (claim.task_id, claim.attempt, holder)
-                        with owner.lock:
-                            if key not in owner.active or key in owner.uncertain:
-                                continue
-                            phase = DatabasePhase.ACQUIRING
-                            effects = EffectKnowledge.NONE
+                if retry_of is not None:
+                    with owner.lock, conn.begin():
+                        phase = DatabasePhase.EXECUTING
+                        _deadlines(
+                            conn,
+                            database,
+                            statement_timeout_seconds=database.renewal_statement_timeout_seconds,
+                        )
+                        if not _leases_cover_retry(
+                            conn,
+                            active,
+                            timedelta(
+                                seconds=database.renewal_statement_timeout_seconds * len(active)
+                            ),
+                        ):
+                            raise retry_of
+                for claim in active:
+                    key = (claim.task_id, claim.attempt, holder)
+                    with owner.lock:
+                        if key not in owner.active or key in owner.uncertain:
+                            continue
+                        phase = DatabasePhase.ACQUIRING
+                        effects = EffectKnowledge.NONE
+                        try:
+                            transaction = conn.begin()
                             try:
-                                with conn.begin():
-                                    phase = DatabasePhase.EXECUTING
-                                    effects = EffectKnowledge.UNCERTAIN
-                                    _deadlines(
-                                        conn,
-                                        database,
-                                        statement_timeout_seconds=database.renewal_statement_timeout_seconds,
-                                    )
-                                    cancellation.check_active()
-                                    if renew_owned_claim is not None:
-                                        renew_owned_claim(conn, claim)
-                                    else:
-                                        from ._operation_calls import TaskAttempt, TaskId
+                                phase = DatabasePhase.EXECUTING
+                                effects = EffectKnowledge.UNCERTAIN
+                                _deadlines(
+                                    conn,
+                                    database,
+                                    statement_timeout_seconds=database.renewal_statement_timeout_seconds,
+                                )
+                                cancellation.check_active()
+                                if renew_owned_claim is not None:
+                                    renew_owned_claim(conn, claim)
+                                else:
+                                    from ._operation_calls import TaskAttempt, TaskId
 
-                                        renew_claim(
-                                            conn,
-                                            task_id=TaskId(claim.task_id),
-                                            attempt=TaskAttempt(claim.attempt),
-                                            holder=holder,
-                                        )
-                                    cancellation.check_active()
-                                    phase = DatabasePhase.COMMITTING
-                                effects = EffectKnowledge.COMMITTED
-                                renewed = True
-                            except ClaimFenceLost as loss:
-                                # A typed native refusal concerns only this exact
-                                # producer. Prior sibling renewal commits survive.
-                                if loss.claim != claim:
-                                    raise OperationConflict(
-                                        "renewal loss belongs to another claim"
-                                    ) from loss
-                                owner.lost[key] = loss
-                                del owner.active[key]
+                                    renew_claim(
+                                        conn,
+                                        task_id=TaskId(claim.task_id),
+                                        attempt=TaskAttempt(claim.attempt),
+                                        holder=holder,
+                                    )
+                                cancellation.check_active()
+                            except BaseException:
+                                transaction.rollback()
                                 effects = EffectKnowledge.ROLLED_BACK
-                            except Exception:
-                                if phase != DatabasePhase.COMMITTING and not conn.invalidated:
-                                    effects = EffectKnowledge.ROLLED_BACK
                                 raise
-                    retry_of = None
+                            phase = DatabasePhase.COMMITTING
+                            transaction.commit()
+                            effects = EffectKnowledge.COMMITTED
+                            renewed = True
+                        except ClaimFenceLost as loss:
+                            # A typed native refusal concerns only this exact
+                            # producer. Prior sibling renewal commits survive.
+                            if loss.claim != claim:
+                                raise OperationConflict(
+                                    "renewal loss belongs to another claim"
+                                ) from loss
+                            owner.lost[key] = loss
+                            del owner.active[key]
+                            effects = EffectKnowledge.ROLLED_BACK
+                retry_of = None
             except Exception as error:
                 failure = classify_error(
                     error,
                     phase=phase,
                     effects=effects,
                     cancellation_requested=cancellation.requested,
+                    broken=conn.invalidated,
                 )
                 if (
                     stop.is_set()
@@ -372,15 +372,17 @@ def maintained_claims(
                     return
                 if (
                     retry_of is None
-                    and _retryable_renewal_timeout(error, failure)
+                    and _retryable_renewal_failure(error, failure)
                     and (renewed or all(c.deadline > datetime.now(UTC) for c in active))
                 ):
-                    # Release the checkout and serialization lock before the retry.
+                    # Release the serialization lock before the single bounded retry.
                     retry_of = error
                     continue
                 if retry_of is not None and retry_of is not error:
                     prior_state = classify_error(retry_of).sqlstate
                     error.add_note(f"renewal retry followed SQLSTATE {prior_state}")
+                    if error.__cause__ is None:
+                        error.__cause__ = retry_of
                 record_operation_failure(
                     error,
                     DatabaseOperationFailure(
@@ -394,9 +396,34 @@ def maintained_claims(
                 failed.set()
                 return
 
+    def renew_loop() -> None:
+        phase = DatabasePhase.ACQUIRING
+        try:
+            # Acquire on the owning thread before foreground work can consume capacity.
+            # Each cycle ends its transaction; the reserved session waits idle.
+            with engine.connect() as conn, cancellation.borrow(conn):
+                ready.set()
+                phase = DatabasePhase.EXECUTING
+                renew_reserved(conn)
+                phase = DatabasePhase.RESOLVING
+        except Exception as error:
+            record_operation_failure(
+                error,
+                DatabaseOperationFailure(
+                    classify_error(error, phase=phase, cancellation_requested=cancellation.requested),
+                    remediation="stop_claimed_work",
+                ),
+            )
+            failures.append(error)
+            failed.set()
+        finally:
+            ready.set()
+
     thread = Thread(target=renew_loop, name="corpus-claim-renewal", daemon=True)
     thread.start()
+    ready.wait()
     try:
+        owner()
         yield owner
         owner.check_settled()
     finally:

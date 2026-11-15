@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -45,6 +46,19 @@ LOG = logging.getLogger("corpus_structure.database")
 def dumps(value: Any) -> str:
     """The JSON text written to `jsonb`: compact, UTF-8 as is (key order the dump's)."""
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+
+
+class PooledConnection(psycopg.Connection[Any]):
+    """A physical session may be initialized by multiple SQLAlchemy connection records."""
+
+    def add_notice_handler(self, callback: Callable[[psycopg.errors.Diagnostic], None]) -> None:
+        # Public Psycopg APIs keep registration idempotent without suppressing dialect
+        # initialization (adapters, isolation state and extension setup still run).
+        try:
+            self.remove_notice_handler(callback)
+        except ValueError:
+            pass
+        super().add_notice_handler(callback)
 
 
 def configure(conn: psycopg.Connection[Any]) -> None:
@@ -131,6 +145,7 @@ def open_store(
         raise ValueError("invalid database pool bounds or checkout timeout")
     pool: ConnectionPool = ConnectionPool(
         settings.database.url,
+        connection_class=PooledConnection,
         kwargs={"application_name": application_name},
         min_size=min_size,
         max_size=max_size,

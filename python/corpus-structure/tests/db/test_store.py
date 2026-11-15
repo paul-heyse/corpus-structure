@@ -84,3 +84,32 @@ def test_notice_callback_copies_selected_fields_while_valid(infrastructure_engin
             "schema_name": "public",
         }
     ]
+
+
+@pytest.mark.usefixtures("observed_store_checkouts")
+def test_dialect_notices_are_once_per_physical_session_across_checkouts_and_reconnect(
+    infrastructure_engine, monkeypatch
+):
+    from unittest.mock import Mock
+
+    from sqlalchemy.dialects.postgresql import psycopg as dialect
+
+    notice = Mock()
+    monkeypatch.setattr(dialect, "_log_notices", notice)
+    with store.open_store(
+        settings_for(infrastructure_engine), "test-notice-reuse", min_size=1, max_size=1
+    ) as opened:
+        pids = []
+        for _ in range(3):
+            with opened.engine.begin() as conn:
+                pids.append(conn.scalar(text("SELECT pg_backend_pid()")))
+        assert len(set(pids)) == 1
+        with opened.engine.begin() as conn:
+            conn.execute(text("DO $$ BEGIN RAISE NOTICE 'once'; END $$"))
+        assert notice.call_count == 1
+        with opened.engine.connect() as conn:
+            conn.invalidate()
+        with opened.engine.begin() as conn:
+            assert conn.scalar(text("SELECT pg_backend_pid()")) != pids[0]
+            conn.execute(text("DO $$ BEGIN RAISE NOTICE 'reconnected once'; END $$"))
+        assert notice.call_count == 2
