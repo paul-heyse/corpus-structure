@@ -6,7 +6,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Protocol, TypedDict, cast
+from typing import (
+    Annotated,
+    Protocol,
+    TypedDict,
+    cast,
+)
 
 from pydantic import Field, JsonValue, TypeAdapter
 from sqlalchemy import (
@@ -103,7 +108,7 @@ class PdfCoverageSupport(OperationResult):
 
 
 PREPARE_RELEASE_ARCHIVE_CONTRACT_DIGEST = (
-    "e4e86288644a6131320f204b98605ff33f83fb6efe8179549d1994600683f74e"
+    "287905734a4062e84f2d08ecafa0e03c527ec66aba14b6cd049b2cf9789a17d3"
 )
 
 
@@ -156,7 +161,7 @@ def prepare_release_archive(
 
 
 PUBLISH_RELEASE_ARCHIVE_CONTRACT_DIGEST = (
-    "720a4012ff3a37ca9014f17cf8b7d488111666d9e047aa157c1a8e8db106dc2d"
+    "7a7e485a62254bd81b62866ce3bab029a50e2b5a6ab528bd002a4461eebb3e45"
 )
 
 
@@ -219,7 +224,7 @@ def publish_release_archive(
 
 
 ACTIVATE_RELEASE_CONTRACT_DIGEST = (
-    "bf333661e856dcc2b28beb7edb12b11b03c41efb47c9b68cb368b551b973789d"
+    "4c0fd1f82bbd121cf72080b39b2c8feaee06cd6700c70b76f4d27b2ee57e9105"
 )
 
 
@@ -300,7 +305,7 @@ def activate_release(
 
 
 INITIALIZE_SOURCE_PROJECT_CONTRACT_DIGEST = (
-    "3f56e05db599e6abebf00c27e444e603753a4748887fe9c9ea5b3c2da449b175"
+    "3d3f348b293d61b3b5e841ad15a821e4d9b1f84dcb412b786a01d82d73b55f77"
 )
 
 
@@ -377,7 +382,7 @@ def initialize_source_project(
 
 
 REGISTER_RUNTIME_BINDING_CONTRACT_DIGEST = (
-    "f0ee952a1b7c29e55dbd885373e6ca893b882317aa1a88ae2e35a0ee6d618e99"
+    "d3c89f02224b64ead142524a383fa2aef9721f9d8c98344ac079ef65eb5b797d"
 )
 
 
@@ -460,7 +465,7 @@ def register_runtime_binding(
         return materialize_register_runtime_binding(row)
 
 
-CREATE_RUN_CONTRACT_DIGEST = "f51b77ef54c54a01fedcd69ad2ba5893e3964b126a26e6a7d63f6e565f10922a"
+CREATE_RUN_CONTRACT_DIGEST = "92b0350c481aad0fdb2f1c5c9dd950d3314a758ef5ce328a0b67e9f59dee6bff"
 
 
 class _create_runRequest(OperationResult):
@@ -588,7 +593,7 @@ def create_run(
         return materialize_create_run(row)
 
 
-BEGIN_RUN_CONTRACT_DIGEST = "87b9b14f577c9a4ada55070fddc2334964994936c4c18f9ace3e9786513bf538"
+BEGIN_RUN_CONTRACT_DIGEST = "e74eff9a2ea3158315b9d75287edba5474c39965d5a23fe84507a31452d44792"
 
 
 class _begin_runRequest(OperationResult):
@@ -647,7 +652,7 @@ def begin_run(
 
 
 METHOD_DEFINITION_CONTRACT_DIGEST = (
-    "ba21fbc400515fa728f561a1fefb694423bfe8576ba00064a033073e64d147cb"
+    "54f6025359eb6612ae8fa20411087120c2c8b31f0fa79848bdb290ce3f5474df"
 )
 
 
@@ -825,7 +830,7 @@ def collect_method_definition(
 
 
 METHOD_CONFIGURATION_CONTRACT_DIGEST = (
-    "2f763992db2e8389f8ec80df475d243ab5dd7effa2ad09f993884b1c9971967f"
+    "23c74ad4e8c15424fb2d7b18fc54582ffe11d656ccb5ec607adc4059f194d89f"
 )
 
 
@@ -965,7 +970,7 @@ def collect_method_configuration(
 
 
 LOCK_SCHEDULE_RUN_CONTRACT_DIGEST = (
-    "63eb42e2a0203c4df7039c8af589de8779e6aaa3e7009cf6257977fec89599b9"
+    "23486766fc983fa52a9654a1b3dfaef04b3c86b634028866d3127c63f3721289"
 )
 
 
@@ -1162,7 +1167,7 @@ def lock_schedule_run(
         return _lock_schedule_run_result(_native_result.one())
 
 
-CLAIM_TASKS_CONTRACT_DIGEST = "f145f73ad23455063d67f62163e71ab4d92fc72463126ac27cc9a04e8f6385b7"
+CLAIM_TASKS_CONTRACT_DIGEST = "b367694d447555e93faab7057163d260ab8a6e7ed17d3603c69db71945393981"
 
 
 class ClaimedTask(NativeRowResult):
@@ -1382,7 +1387,7 @@ def claim_tasks(
         return tuple(_claim_tasks_result(row) for row in _native_result)
 
 
-COMPLETE_TASK_CONTRACT_DIGEST = "19ccef5649f97651c796a6e9963c61e1cec14554e6b439bcaa118ac751f406a3"
+COMPLETE_TASK_CONTRACT_DIGEST = "c3ea8e3c696c1410b86166f86977cafc8c0ce5788a2920ab67ec3e5456c5c76f"
 
 
 class CompletionResult(OperationResult):
@@ -1484,7 +1489,7 @@ def complete_task(
 
 
 LOCK_COMPLETE_UNIT_RUN_CONTRACT_DIGEST = (
-    "932741e1b1930c8efe28c5c84d178ce0d661ac19824e374c5c87dbe5272240a3"
+    "128856c79ca808b64bc948b31f819c35d55190a1aad2bcecacd24478858f6dbd"
 )
 
 
@@ -1570,7 +1575,7 @@ def lock_complete_unit_run(
 
 
 HOLD_AGENT_RESULT_CONTRACT_DIGEST = (
-    "75e1b7052a6a4c6604f9a8ae172f9ff86a706312b06c9d4a7c362f412ab5d103"
+    "ab79b3909d5af50873e0b85f4040cd089a2833ef9e9e12616702e2a77e33acac"
 )
 
 
@@ -1673,7 +1678,7 @@ def hold_agent_result(
 
 
 LOCK_INPUT_SNAPSHOT_CONTRACT_DIGEST = (
-    "28d9dcc7ffe759c0d1587c0ece1afac8989518a1e139a858df5c9527752282e7"
+    "8221999ee8c22e558dcf942cc7600e32a1c9c6b76b5e9b701aa7fc071d790a74"
 )
 
 
@@ -1725,7 +1730,7 @@ def lock_input_snapshot(
     return None
 
 
-CAPTURE_CUT_CONTRACT_DIGEST = "4b8918c1b38115cb65ceb704c6aca787e318ef1a877b7dbbcdd16e552ea8bf1d"
+CAPTURE_CUT_CONTRACT_DIGEST = "8dd71c6d97fda8c2300fe445549a559012156d4514611b0d3d9d00897fb8e779"
 
 
 class _capture_cutRequest(OperationResult):
@@ -1797,7 +1802,7 @@ def capture_cut(
         return materialize_capture_cut(row)
 
 
-END_SOURCE_RUN_CONTRACT_DIGEST = "778dff1e6b7ce7d6b045c4461882a852d80508c6cd1cf74b3b91dfe7a97bcf4d"
+END_SOURCE_RUN_CONTRACT_DIGEST = "e66d7a83baea00eff56c4d1e91a4bbaf5e792ed1f6ffe57f6343a1f680cd109d"
 
 
 class _end_source_runRequest(OperationResult):
@@ -1863,7 +1868,7 @@ def end_source_run(
 
 
 RETAIN_SOURCE_ARTIFACT_CONTRACT_DIGEST = (
-    "9ae9ab77bff3a4cbfd15ad512aab0e198d6f7a5d82a57629420096ed2183601e"
+    "0d04841e9e73218324ee868db3394b10ed3c671e78f48a01899d27105302bc9e"
 )
 
 
@@ -1935,7 +1940,7 @@ def retain_source_artifact(
 
 
 DOCUMENT_REGISTRATION_CONTRACT_DIGEST = (
-    "fa237544d5a6807a7e5bd0db45342f0e9c766d466701e64369849040880b80eb"
+    "590ea8a059180db21b78042e63328c091c899e2dc31c93022c4c199827829eef"
 )
 
 
@@ -2126,7 +2131,7 @@ def collect_document_registration(
 
 
 ORIGINAL_DESCRIPTOR_CONTRACT_DIGEST = (
-    "275132fd5612e78c7cd9a90b24a2b74811e56dfaad0f4371667799dbf84950b1"
+    "ec7ed48c312815a2aa4810a5a256f8011b249e53302325671b9a98ae65a00627"
 )
 
 
@@ -2221,7 +2226,7 @@ def collect_original_descriptor(result: Result[str, str]) -> OriginalDescriptor 
 
 
 ORIGINAL_ARTIFACT_CONTRACT_DIGEST = (
-    "146cf1f69c49db52f2b5f6813373442b487e01f5dff857119ba5f9850827b6c9"
+    "955040903aaf3fd6f18b5f60c005d29d0e503dbeb401a811dea8e885459e6470"
 )
 
 
@@ -2305,7 +2310,7 @@ def collect_original_artifact(result: Result[bytes]) -> bytes | None:
 
 
 BEGIN_EVALUATION_CONTRACT_DIGEST = (
-    "585671606ccc33ed88a5c352275c9d3b57859218eb9478f29a33dacd6c9e1479"
+    "a8d181490c8eda21082704c3b647ef83735c72dc425bb5cf0c39709affff372b"
 )
 
 
@@ -2397,7 +2402,7 @@ def end_stage(
 
 
 FINISH_EVALUATION_CONTRACT_DIGEST = (
-    "c63b09992034f00d018aee2918bdd079d74a1b60fbd69cd156a83f98ef00f9ce"
+    "134b786dc0b8d995867a5120b894a0e17192f78c1cfc6e8f86a3f3dca122a467"
 )
 
 
@@ -2461,7 +2466,7 @@ def finish_evaluation(
 
 
 LOCK_FINALIZATION_RUN_CONTRACT_DIGEST = (
-    "0365b8c598a91840084912fac61766772f68ada355be93391ae5cf0286271fd1"
+    "6508baeada513a9edbfef3a3cc0c16ea087fd75422680920ac85ae7b2161d625"
 )
 
 
@@ -2657,7 +2662,7 @@ def lock_finalization_run(
 
 
 BEGIN_INFERENCE_WORKSPACE_CONTRACT_DIGEST = (
-    "10a239a23e3c75414da2bdf2eabe2a7120266135763cc23614d43190620546c5"
+    "f1a5d78fe55af8c34db5402ece57c59b3d87ed82991860dc0c4c0e126ee69ae5"
 )
 
 
@@ -2731,7 +2736,7 @@ def begin_inference_workspace(
 
 
 END_INFERENCE_WORKSPACE_CONTRACT_DIGEST = (
-    "71ce468d972facfb76e7c8c75ea2dd475f1c30a989db18f87f4399155389553a"
+    "47423ca83741e9e5fd3ea9581eba70296987a0b1e30a912fb1eb6d73e32511ca"
 )
 
 
@@ -2841,7 +2846,7 @@ def begin_stage(
     return None
 
 
-PUBLISH_BATCH_CONTRACT_DIGEST = "8f27a1d3b4ffed08287c4c3ac06d7e7ce60d3f0e9997daf666d13f1e1acb09ec"
+PUBLISH_BATCH_CONTRACT_DIGEST = "59c8ce8646ba0df1f04e239010f3f94ca75100cb6a8bca4f10abc74d695093ce"
 
 
 class _publish_batchRequest(OperationResult):
@@ -2921,7 +2926,7 @@ def publish_batch(
 
 
 REQUIRE_RUNTIME_PRINCIPAL_CONTRACT_DIGEST = (
-    "bb1dbd69adb2c9ef8914e2a3cafa1834b59785902d05cd0a2ec35b82aa9e8e67"
+    "ff1c5aa7194038bcf5c6ea50640ae8d97938aa75286129ca427bc9f6e7afa0fc"
 )
 
 
@@ -2974,7 +2979,7 @@ def require_runtime_principal(
 
 
 REQUIRE_NATIVE_EXECUTION_RELEASE_CONTRACT_DIGEST = (
-    "26f4126313712330b35b0c1d5466b53e4bff5db9c5148ad5f5c4143be14bef02"
+    "80f70a288d2e3c58a2387825a031f1832728a73a87925cf37de6cb002eb84fc4"
 )
 
 
@@ -3027,7 +3032,7 @@ def require_native_execution_release(
 
 
 REQUIRE_EXECUTION_OPERATION_CONTRACT_DIGEST = (
-    "278b1a9bf886da94f1073b9f8f1da259e5fea3cb230fa45fc36876d370821cd5"
+    "187959f14dccb0f2217512f8ed3db9d356df9547ee69ef88cbd8acb97efe39b6"
 )
 
 
@@ -3087,7 +3092,7 @@ def require_execution_operation(
 
 
 RECORD_SQL_ADMISSION_CONTRACT_DIGEST = (
-    "587b6ae3221e62b88d4de2bde9f1c75aa81f01dc9beecbf51681d75b3c7a4284"
+    "94b3bd508b50de36c3eb672e85c34dd2ac5206df9554225ebe588f810959450e"
 )
 
 
@@ -3168,7 +3173,7 @@ def record_sql_admission(
 
 
 PUBLISH_DERIVED_BATCH_CONTRACT_DIGEST = (
-    "850a7db63cf34efa50703f619f8701495a7e63f14826eb5bec642b190b9d24a6"
+    "50ded593633dd723c83f9207d50be3f22b3f800b76f5a1f26abbed0cc1671cf8"
 )
 
 
@@ -3317,7 +3322,7 @@ def publish_derived_batch(
         return materialize_publish_derived_batch(row)
 
 
-RENEW_CLAIM_CONTRACT_DIGEST = "0877ce5f714e0465b44976c8fbf81dd3d2b0a34b7951c31a4814627cc7f587fb"
+RENEW_CLAIM_CONTRACT_DIGEST = "48ecec2a1e46cdd04c083a837cafa226c889f5145ec9ac4e512c85156c2ecdaf"
 
 
 class _renew_claimRequest(OperationResult):
@@ -3384,7 +3389,7 @@ def renew_claim(
     return None
 
 
-RELEASE_CLAIM_CONTRACT_DIGEST = "cf7ab283a5aa023ac948715352b3ead6561eb939792979f234ba6851732e1d66"
+RELEASE_CLAIM_CONTRACT_DIGEST = "10719671de78ec6b90ec203c52d4e53cd88b15a0fb62fead69bdf83bb60175c5"
 
 
 @dataclass(frozen=True)
@@ -3470,7 +3475,7 @@ def release_claim(
 
 
 SELECT_COMPLETED_RESULT_CONTRACT_DIGEST = (
-    "bb5f5bd23930b19a429137acdacd6efdf225b2f39aa4b3802e836822bd545452"
+    "f0c22b25ba4b8d230151d74716f0029569033c16a9657c73eb46a8f61dc4c33a"
 )
 
 
@@ -3547,7 +3552,7 @@ def select_completed_result(
 
 
 RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST = (
-    "265e56efb01e56fb8ece5e7a0d683815d4c2f0432663d4eb5bd2f587cb6a7a53"
+    "3a2d514ddca720cba4a9a84d75edbe61dce2545235a48adb538fe8dd5b6e1ab4"
 )
 
 
@@ -3643,7 +3648,7 @@ def retain_pdf_original(
 
 
 PUBLISH_SOURCE_VIEW_CONTRACT_DIGEST = (
-    "adfb2e0ff172e7b12982b5803a1561228dd8e7037d1979482fe4a0edb108f3f0"
+    "ca34ab2b929f69c7fd722cd1f01b526e954699b9a01d6f8e3dd8cacde60f19dd"
 )
 
 
@@ -3753,7 +3758,7 @@ def publish_source_view(
 
 
 SELECT_REUSED_SOURCE_VIEWS_CONTRACT_DIGEST = (
-    "261c558a2ca34b1df5b59df8ba7ce82b762b0fa9697ae03369849fb6d60ba8d8"
+    "dc144fd2662a5a91fd0137856df6493cb93a77e1c2211e92c6374481fe543ec6"
 )
 
 
@@ -3815,7 +3820,7 @@ def select_reused_source_views(
 
 
 SELECT_SOURCE_VIEW_CONTRACT_DIGEST = (
-    "d815d3660936ca34496b749be8c4f536b63b022fd34efd200dd0c5dbeadf93af"
+    "ad5207636616035360f2fd205b957c9e97e34b9e77bc68da52f1b7d4e86de27b"
 )
 
 
@@ -3887,7 +3892,7 @@ def select_source_view(
 
 
 READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST = (
-    "2a71f61199e3c6d0b46f508fe7a6d6c56a1af4c38680ee03b2cafe3167258b49"
+    "b74293bcdd314feec9c8c76dbb969cae3e46c8664f68cdcb59a666cb786d22b6"
 )
 
 
@@ -4025,7 +4030,7 @@ def read_published_sections(
 
 
 READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST = (
-    "2b0ebfe3691de2ffafdebe675890450e887bca9db0fc69065380e192dc7e62e9"
+    "ed5d6172b33fddd64500c2eca01646bf4d7a52da17c54b9c20750f3ac3a00c62"
 )
 
 
@@ -4215,7 +4220,7 @@ def read_published_section_nodes(
 
 
 READ_PUBLISHED_ITEMS_CONTRACT_DIGEST = (
-    "03feb8bc650d55ec5994ab8b78a4e040a745cae46ed3a4299c51a6af19a4bcb0"
+    "e2702668808a5ee7c5651f81e999a5296d19b8301568fef1e370cd2912ae3e51"
 )
 
 
@@ -4367,7 +4372,7 @@ def read_published_items(
 
 
 READ_PUBLISHED_REGION_CONTRACT_DIGEST = (
-    "6efdd34bf4c37193c1467311bd08d209c7aa3aeaa85dc46a36e07ca318341dba"
+    "1c6c3a5ad2653e5469ade999feeb7902dfd54a32d78939afe7d8e2acde404cfd"
 )
 
 
@@ -4536,7 +4541,7 @@ def read_published_region(
 
 
 READ_PUBLISHED_SECTION_REPORTS_CONTRACT_DIGEST = (
-    "764f44f84ef4fc30a5a9801caf6aadb5692d9d2cdb97d1e136a5c86c6eb38c50"
+    "3e12d3de4a6e7c70ee897fef804d6846f1e6d6bad183046899556bb7b93c5b7c"
 )
 
 
@@ -4658,7 +4663,7 @@ def read_published_section_reports(
 
 
 READ_PUBLISHED_ITEM_PAGE_CONTRACT_DIGEST = (
-    "11363376105f61feab8dfd19a1d746d1e6360499e365a9085f10f11f218f4c52"
+    "4339aa5b9792e2b57b1b163761d34f1b3e269868c6871c167f75f8543f66fb71"
 )
 
 
@@ -4831,7 +4836,7 @@ def read_published_item_page(
 
 
 READ_PUBLISHED_REGIONS_CONTRACT_DIGEST = (
-    "6213dd4ef22a3fecf9d03cc87619c43443255956dd6c5b6a75887a4740a276b6"
+    "6090f0527de770d67ba20c20b0f0406cfec79cd2b32761326fe002d96985ee2c"
 )
 
 
@@ -4979,7 +4984,7 @@ def read_published_regions(
 
 
 READ_PUBLISHED_REGION_BATCH_CONTRACT_DIGEST = (
-    "adae16e71ea3ab3307b24af47ff7a5210c38eab6bebbf31891e6f27fd1c49828"
+    "5ee797c23f89fe52099108ea52d5b4021f3024a4f2fd1a0311671af52fbf1806"
 )
 
 
@@ -5128,7 +5133,7 @@ def read_published_region_batch(
 
 
 READ_PUBLISHED_ITEM_ANCESTORS_CONTRACT_DIGEST = (
-    "70c18d098016bbd03901f9605b6ad5bb50783ae8d6013953cb9d9cde46ca2b80"
+    "1c0ae85c0b0654862ac4077acc92fd424209b4c3be1d87395db67e9e02fe6b8d"
 )
 
 
@@ -5261,7 +5266,7 @@ def read_published_item_ancestors(
 
 
 READ_PDF_RECORD_ROWS_CONTRACT_DIGEST = (
-    "c0e24a5b8f24567e60f507846cc8bc0c992a3c4578712bcaaf31e7b834d59a69"
+    "8fc5ad69485bd5a16f54245a0aaec15cc298a82d163a54249b15eb147fe9b552"
 )
 
 
@@ -5372,7 +5377,7 @@ def read_pdf_record_rows(
 
 
 READ_PDF_RECORD_CONTEXT_ROWS_CONTRACT_DIGEST = (
-    "03720ec843c4e711e68404482d3eacd0b61a39b40de385af12582dedfaa47333"
+    "73a7f28237de73d4ca1f2a125cd138894fa418bb1345250972bbe94e05860a8f"
 )
 
 
@@ -5487,7 +5492,7 @@ def read_pdf_record_context_rows(
 
 
 READ_PDF_COMPANION_EXPORT_EVENTS_CONTRACT_DIGEST = (
-    "972e18a629674004226b09510486fb88dce67d2bfbe626e868ffde06a4dc8d44"
+    "f14b24a6abedb437d57a4618930002168ce78568c204ab314e233b40b9a4ba4a"
 )
 
 
@@ -5574,7 +5579,7 @@ def read_pdf_companion_export_events(
 
 
 READ_PDF_NATIVE_EVENTS_CONTRACT_DIGEST = (
-    "f40d9bf273ebfc9bcdb96bb52cf46a39381fc45825a2d9258bb8f751bfd15b9d"
+    "680b5f7d8f33b224e65e617194672a3c6a819bdf24a4de1f0373baea56e6f1f3"
 )
 
 
@@ -5652,7 +5657,7 @@ def read_pdf_native_events(
 
 
 RECORD_INTEGRATED_SOURCE_CONTEXT_CONTRACT_DIGEST = (
-    "d0e3a01ae3ec02e26bd8a251b657ce343b718c01166756688ece33e116e8b08e"
+    "7e55868ed04667a72570e37a99baed35c80914445314e0a141d6282b9a392a61"
 )
 
 
@@ -5761,7 +5766,7 @@ def record_integrated_source_context(
 
 
 READ_PDF_SELECTED_SOURCE_EVENTS_CONTRACT_DIGEST = (
-    "8c966c8223042811c0e6aae0269916945150e93005a01c5c56ffbb2aabde7a71"
+    "3dc8a0cb854721dbee346dd75551bb807b5b2d6eb85aca3851a3ac01ec9d5803"
 )
 
 
@@ -5883,7 +5888,7 @@ def read_pdf_selected_source_events(
 
 
 CAPTURE_NATIVE_SOURCE_FRAME_CONTRACT_DIGEST = (
-    "5836a4f3811757826d326515c2be5d86b8d62f04e85b1e7d27f9216f7d29562f"
+    "9cfbb73c337654b7f42397ef53eac805f3ed851233bb9b8619f864758e7837bf"
 )
 
 
@@ -5952,7 +5957,7 @@ def capture_native_source_frame(
 
 
 PUBLISH_PDF_OBSERVATION_CONTRACT_DIGEST = (
-    "f2835d980a95f69355dcd74b6fbaeaa0e33b3c1db4cf6a8bbdf2921bc47ba835"
+    "02ace74d3b8858bf31b99e7a3dedbff2303f72ace32c1c5836418c9df64328fc"
 )
 
 
@@ -6057,7 +6062,7 @@ def publish_pdf_observation(
 
 
 READ_PDF_PUBLISHED_REVISION_CONTRACT_DIGEST = (
-    "7504013b3bf12987674e8ea70f95fe422b4f8651c6110e2e0ded4900fccc280a"
+    "ded70b9bbef05d4e949ad61b2c46cfe057d0f48cce5069b7208f639b19228579"
 )
 
 
@@ -6216,7 +6221,7 @@ def read_pdf_published_revision(
 
 
 READ_PDF_MATERIALIZATION_BOUND_CONTRACT_DIGEST = (
-    "47d0244771f91467b4e55c83b3fe482fca8aa76e5ec6cf42d92dd3b2387104c8"
+    "b2d923190f66bb29ef5928ce44651e47ae50797b9cbb1477551ba01b73e6f1cc"
 )
 
 
@@ -6295,7 +6300,7 @@ def read_pdf_materialization_bound(
 
 
 READ_PDF_PUBLISHED_VALIDATION_CONTRACT_DIGEST = (
-    "776cc3a468e57b8ded2353f0358bb5c676c8fdd89e6c20068197fe4da260cd42"
+    "daeae09df0dc80b7bfb20731bed7d6d9ee197eb99133355862b3985e1f478f1f"
 )
 
 
@@ -6418,7 +6423,7 @@ def read_pdf_published_validation(
 
 
 READ_PUBLISHED_INPUT_BATCH_CONTRACT_DIGEST = (
-    "66c1ec5001c123c1c14025cb1d85e5be8e10135ea84eae596d7c1fdb9f1844fa"
+    "b38e1a91d9a6d94c8c8e766a57201bab43640063377371a7ccaacc953116c99a"
 )
 
 
@@ -6629,7 +6634,7 @@ def read_published_input_batch(
 
 
 READ_PUBLISHED_RELATION_BATCH_CONTRACT_DIGEST = (
-    "85183c02fa9d5c9773b37b60466a3a7c673630ce9e9f5a5e228ba81739bcffab"
+    "912b43f233e035b067372488fb2646382c286010c4f2a429abec451a260d5cf7"
 )
 
 
@@ -6911,7 +6916,7 @@ def read_published_relation_batch(
 
 
 READ_PUBLISHED_COVERAGE_BATCH_CONTRACT_DIGEST = (
-    "7cffcaaae89363cadc933728e85637cd0a0e7edbb71361bfc48750ad63dc3059"
+    "492087395090930ae17a9bb03eb55e72a3bd9e9e9d2f50802dd7de77d4fcb0fe"
 )
 
 
@@ -7137,7 +7142,7 @@ def read_published_coverage_batch(
 
 
 READ_PUBLISHED_MAPPING_REPORT_BATCH_CONTRACT_DIGEST = (
-    "79b851bf3718b58cec299005219de449c7f44cf1afb6788d1642d2d2b9028529"
+    "99b0328f4e5c811ee8031e5cca121fb03ca4cb36b9f15a63eb5e9aff91ef3883"
 )
 
 
@@ -7426,7 +7431,7 @@ def read_published_mapping_report_batch(
 
 
 FREEZE_PDF_BUILD_CONTRACT_DIGEST = (
-    "59ce0ff1e03371a283e004338d75d7a09806b34be388310023fce81da72c7801"
+    "b2fa451aaf361a1dda5ecbf600be28b443fd34a664ccb97dc9b805da95fa7e7e"
 )
 
 
@@ -7522,7 +7527,7 @@ def freeze_pdf_build(
 
 
 PREPARE_PDF_BUILD_CONTRACT_DIGEST = (
-    "278f091191296a68c65b7e42e81dc3f2abe0f6d9d9a2f4846388d5851815228d"
+    "ea10669777979df71ae1dd17b94b6cbe525938db4277588632b6b03b5f7733b6"
 )
 
 
@@ -7608,7 +7613,7 @@ def prepare_pdf_build(
 
 
 LOOKUP_PDF_VALIDATION_CONTRACT_DIGEST = (
-    "0c792cf1065c3c6715c035aeff09e81bb1369bf28a1324e156450faff948a06a"
+    "08b9ee9902fd74e08c69b9fd4dad5bfe22d06329bd277c38ca5be5f3cfce467a"
 )
 
 
@@ -7737,7 +7742,7 @@ def lookup_pdf_validation(
 
 
 RECORD_PDF_NATIVE_VALIDATION_CONTRACT_DIGEST = (
-    "87c265c727815829c2f99a28f36238d7d7acb6ca851e44c53b176f78fe095e7d"
+    "84250af032c4a657be6a5bc53ca82c3d4c351f0c75baacb36895b77dde02c8b2"
 )
 
 
@@ -7829,7 +7834,7 @@ def record_pdf_native_validation(
     return None
 
 
-CHECK_PDF_BUILD_CONTRACT_DIGEST = "c34dfe255fe150deed01f3af6b88b1a6fa42462c0b7283feba9d07b13aade11d"
+CHECK_PDF_BUILD_CONTRACT_DIGEST = "36736186caa4d4402e90a9ccad26813c3d943ef776ec609c17452a26e25afa94"
 
 
 class _check_pdf_buildRequest(OperationResult):
@@ -7921,7 +7926,7 @@ def check_pdf_build(
 
 
 ADOPT_PDF_ACCESS_BATCH_CONTRACT_DIGEST = (
-    "38ea95cf1755f4f4a21aaddb02ceac6fa0aff43d38fe3889c3afbc6c827e5007"
+    "3528a221cb06ffb6f17210d53ab4bcce4b9dd461a9f3a92755c3e01213c3854e"
 )
 
 
@@ -8014,7 +8019,7 @@ def adopt_pdf_access_batch(
 
 
 VALIDATE_PDF_BUILD_CONTRACT_DIGEST = (
-    "5fa576ca0f4258cbd7a8325a3ec8334bf77fb3c967c75db034776ed8e6d7707c"
+    "951da0e9552fa7143022750ba79909f14dc978f6ebfedf3a7ba3104f10eac061"
 )
 
 
@@ -8140,7 +8145,7 @@ def validate_pdf_build(
 
 
 READ_PDF_FROZEN_ROWS_CONTRACT_DIGEST = (
-    "706d46d6a654c85e5d5e6da6b80b5ea0ff739be3d8e6bc12456f8981c1d14dff"
+    "a2528416bb4f6da852a3389d9992f50beda1b874b117ac04ba9b214181728814"
 )
 
 
@@ -8262,7 +8267,7 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-SEAL_PDF_BUILD_CONTRACT_DIGEST = "83ecede61921a9439622ad0784993102a5cd59c97f14479ec8723b06031f64f7"
+SEAL_PDF_BUILD_CONTRACT_DIGEST = "75c75cf080f1582249c43fe2e2d7437844d740a73ecd1352ffd3b93a1fb52dd7"
 
 
 class _seal_pdf_buildRequest(OperationResult):
@@ -8425,7 +8430,7 @@ def seal_pdf_build(
 
 
 LOOKUP_PDF_BUILD_CONTRACT_DIGEST = (
-    "1a311bed3cc0973df2ade668da7c9ab615db81db2c9130b1d339b1f3eac31b66"
+    "2ef88558b84550a0ec126482f1f744a27a912ed8b30f0b16a98e8c5e68f8441d"
 )
 
 
@@ -8584,7 +8589,7 @@ def lookup_pdf_build(
 
 
 LOOKUP_PDF_FROZEN_DIGEST_CONTRACT_DIGEST = (
-    "ced53f22fd9089bd31fa92cf1e6d1a21fd68a28a133e9443d13387b0dc620524"
+    "748015f507f1aa3fa2f104a41f7ca26a2491725e92a9c185046ae7c562635ea3"
 )
 
 
@@ -8677,7 +8682,7 @@ def lookup_pdf_frozen_digest(
 
 
 LOOKUP_PDF_FROZEN_KIND_CONTRACT_DIGEST = (
-    "372185cb34302d80300b1ffefb832e3e4fb8ca1677349630343e0e5e7ebf59de"
+    "8357fb77bfc7416249076f801424e35ed0b7e1f5562ea9814e6ccf915de4b3f7"
 )
 
 
@@ -8770,7 +8775,7 @@ def lookup_pdf_frozen_kind(
 
 
 LOOKUP_PDF_PUBLISHED_BUILD_CONTRACT_DIGEST = (
-    "99cd677ade90b7694300c22c1d5cba858e1bc77a2348669b1a2755d5d57d0c54"
+    "f5170989b1dc05d6d32002da53a30d72215c133eb5faa7ae4cbd3bd7b9af91e2"
 )
 
 
@@ -8925,7 +8930,7 @@ def lookup_pdf_published_build(
 
 
 BIND_PDF_STAGE_RECIPE_CONTRACT_DIGEST = (
-    "38b2f4c3318d6386c679f4a3e0a2e780c3245a58903a05f29bd3fdcf98a70a06"
+    "9dcd4807d44e65e0e7fa59308ca7707f6028ce9e7fe4d24480ffc24e2808f9b1"
 )
 
 
@@ -9014,7 +9019,7 @@ def bind_pdf_stage_recipe(
 
 
 ADOPT_PDF_COMPANION_CONTRACT_DIGEST = (
-    "53c6473aff865a8de6d01cba0ee82d9d5f536b993e13b133878618be665c1aeb"
+    "34251b849d2ec500e846aaad6c4ec6efe4a6c7835d2f7a2774ad40c855870b69"
 )
 
 
@@ -9169,7 +9174,7 @@ def adopt_pdf_companion_batch(
     )
 
 
-BEGIN_PDF_BUILD_CONTRACT_DIGEST = "ab7320a2ff1600ff0ff956cf91a46c1f0401c1452131b292f0f50d339f30f021"
+BEGIN_PDF_BUILD_CONTRACT_DIGEST = "d79618a9ce4989993bb171b2a79ff5d2d601ac8739276af8c42b97a9f960a54c"
 
 
 class _begin_pdf_buildRequest(OperationResult):
@@ -9333,7 +9338,7 @@ def begin_pdf_build(
 
 
 PREPARE_PDF_STAGE_CONTRACT_DIGEST = (
-    "4a9181fd6ee426743f54e83ec63cea1a34f61dbf9cdf11802685b4f8353ba42b"
+    "ef685920351de8ad1f060b0c0503cbe9995090e2d66d798b27be8eb7d2873ba3"
 )
 
 
@@ -9411,7 +9416,7 @@ def prepare_pdf_stage(
     return None
 
 
-ADOPT_PDF_BATCH_CONTRACT_DIGEST = "28fb30e3b6f5b9e4070a53698f8ced447299fd976a48794214360b8c1f9f3f52"
+ADOPT_PDF_BATCH_CONTRACT_DIGEST = "87a48f5625a1c977ab38c6553f605e7fc5a5925e3bfceb10dd90e66b421cd752"
 
 
 class PdfStageReceipt(NativeRowResult):
@@ -9535,7 +9540,7 @@ def adopt_pdf_batch(
 
 
 INSPECT_PDF_PROGRESS_CONTRACT_DIGEST = (
-    "89b897282df600cf371baeec1ce37caa380a81f678f460a5416d677ddc92a9a0"
+    "68b96f5a195a0600af1d2bb3968038e45c1a84515ce5f7a71ff7aa13dc53e0f6"
 )
 
 
@@ -9646,7 +9651,7 @@ def inspect_pdf_progress(
 
 
 RESUME_PDF_BUILD_CONTRACT_DIGEST = (
-    "d1d673c95f4231203b636e403810332cfb87dd2548731647903e8c3b2e9cb5e9"
+    "bb2e9c789aa81c52cbbf227a523ba2b0f2626cc5a1690b6c57a1e92722247679"
 )
 
 
@@ -9725,7 +9730,7 @@ def resume_pdf_build(
 
 
 ABANDON_PDF_BUILD_CONTRACT_DIGEST = (
-    "6e721535367083e0f8950f4105ee71bdf5bb40cda94545ee558d2a1739d85f8a"
+    "c08813911dcb141124f94d063816bdb2b6c4936f9f0f5566512274df2693a495"
 )
 
 
@@ -9804,7 +9809,7 @@ def abandon_pdf_build(
 
 
 RECORD_DIRECTION_CONTRACT_DIGEST = (
-    "86f5b0cb523ff885a1ec30246f326ec0bedc34cb45d45023371a9dfc2becff59"
+    "8a947e69efc98970abae502736cb8bf5880a8e583a8fed1184c03fefc76b3de4"
 )
 
 
@@ -9888,7 +9893,7 @@ def record_direction(
 
 
 OPERATION_EVALUATION_PAGE_CONTRACT_DIGEST = (
-    "688dadde56249768b5d120f7120610a857a6420f49f71d4e7675474a122b16da"
+    "e46f1b6798a6f43be2438f8089dec9b9c19d1d576fff9ea3f3a4192d8cbfd1c5"
 )
 
 
@@ -10003,7 +10008,7 @@ def operation_evaluation_page(
 
 
 PUBLISH_CHARACTERIZATION_CONTRACT_DIGEST = (
-    "bad05f8087b063a29aa745dd6c48b310622ff127bc8c6ff686faacfa41bb9721"
+    "f513225ca5586371e0c1df6e98f8c3e52b8abd0c4c9040af5bda4a3ec667e3bb"
 )
 
 
@@ -10109,7 +10114,7 @@ def publish_characterization(
 
 
 READ_CHARACTERIZATION_PRODUCT_CONTRACT_DIGEST = (
-    "c30f60d19f2136f19017e6244c1908a047deacc0ce735194594f00003f817b36"
+    "c6b78cd5cfac35fd893ed3046e414152e5a97df16ef3b90855dd9e9a5f3a4d3d"
 )
 
 
@@ -10213,7 +10218,7 @@ def read_characterization_product(
 
 
 READ_CHARACTERIZATION_LAYER_MANIFEST_CONTRACT_DIGEST = (
-    "4d86c296e171bcbab8b34a7c18bec668dcd6f0f66d06293b965d52b32d75e7e8"
+    "645fbbb8db3d39417d433449394e6543ea853ecbf5d4d07a7ec48d943e73e82d"
 )
 
 
@@ -10314,7 +10319,7 @@ def read_characterization_layer_manifest(
 
 
 READ_CHARACTERIZATION_MEMBERSHIPS_CONTRACT_DIGEST = (
-    "f83a280c282297559765ac3d31dd62b259b4d4d01bad0f2f6db25e03338bfd8e"
+    "9df951d7c81d53cc3de8c3e416c05776a1da8af99357baf92f4ee3a9897cd87c"
 )
 
 
@@ -10441,7 +10446,7 @@ def read_characterization_memberships(
 
 
 READ_CHARACTERIZATION_NODES_CONTRACT_DIGEST = (
-    "d9871a901983d50e5151430a6a8f3910c0cf3647bd7e84565dbf6099838d2c64"
+    "e28eb4e29afe9de4d0c1e23c5ecbf546f1c11ec726f7d89235f3c02a8abacda4"
 )
 
 
@@ -10566,7 +10571,7 @@ def read_characterization_nodes(
 
 
 READ_PRIMARY_CHARACTERIZATION_CONTRACT_DIGEST = (
-    "c7de9978988455df29341d8553ea982b25d34d3ff784326ecf9ceccca7931e29"
+    "f8572de499d8022ed287070c980a6dcac497597a47f417eb50a25bb3d8999ef1"
 )
 
 
@@ -10656,7 +10661,7 @@ def read_primary_characterization(
 
 
 READ_CHARACTERIZATION_INVENTORY_CONTRACT_DIGEST = (
-    "8f2c052a55fe29ac2d2cfc7bd2cbafa43069fa16bb53f5b083b5ac5d0bd633a4"
+    "a20732de4c262a68d21fd310fbe33d39b6b982c464256fe859832ae4a10c75de"
 )
 
 
@@ -10754,4 +10759,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "3964571427b6a31a6dd9c7f7b3bbbedf2beb83a9ff7c816d477e8fb95855af9f"
+CALL_CONTRACT_DIGEST = "b6a27311ca3e112324f9c8dd8f58ffba9f66521cc4e7d256badf91e33ba09192"
