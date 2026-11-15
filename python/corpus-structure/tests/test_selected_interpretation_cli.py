@@ -94,3 +94,25 @@ def test_review_uses_actual_selected_proposal_request_without_integer_cut_alias(
     ):
         assert cli("interpretations", *arguments, "--json").exit_code != 0
     assert len(seen) == 1
+
+
+def test_groups_reads_complete_candidate_universe_and_exact_reading_root(
+    cli, tmp_path, interpreted_runtime, monkeypatch
+):
+    from corpus_structure.serve import interpretations
+
+    path = tmp_path / "groups.json"
+    path.write_text('{"project_id":"project:one","demand_id":"demand:one","roots":[{"product_id":"product:one","member_id":"record:one","interpretation_id":"reading:one"}]}')
+    seen = []
+
+    def inspect(connection, request):
+        seen.append(request)
+        return interpretations.answer("grouped_source_record_interpretations", {"items": [], "knowledge": "unknown"})
+
+    monkeypatch.setattr(interpretations, "group_selected_interpretations", inspect)
+    result = cli("interpretations", "groups", str(path), "--json")
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert seen[0].roots[0].product_id == "product:one"
+    assert seen[0].roots[0].member_id == "record:one"
+    assert seen[0].roots[0].interpretation_id == "reading:one"
+    assert interpreted_runtime == ["read"]

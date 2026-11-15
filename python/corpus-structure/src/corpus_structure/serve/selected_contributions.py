@@ -319,13 +319,21 @@ def actual_graph_inputs(
 
 
 @contextmanager
-def selected_contribution_scope(connection, request):
+def selected_contribution_scope(connection, request, *, product_ids=None):
+    if product_ids is None:
+        product_ids = None if request.product_id is None else [request.product_id]
+    else:
+        product_ids = sorted(set(product_ids))
+        if not product_ids or (
+            request.product_id is not None and product_ids != [request.product_id]
+        ):
+            raise ValueError("selected product roots differ from the requested product scope")
     scope = {
         name: value
         for name, value in dict(
             operation_id=request.operation_id,
             subject=request.subject,
-            product_ids=None if request.product_id is None else [request.product_id],
+            product_ids=product_ids,
         ).items()
         if value is not None
     }

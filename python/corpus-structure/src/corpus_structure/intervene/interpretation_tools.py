@@ -6,9 +6,11 @@ from fastmcp import Context
 from pydantic import BaseModel
 
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.grouped_record_interpretations import GroupedInterpretationRequest
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.serve.interpretations import (
     SelectedProposalRequest,
+    group_selected_interpretations,
     inspect_selected_proposals,
     term_lookup,
 )
@@ -64,4 +66,16 @@ def register_interpretation_tools(
             raise ValueError("private proposal selection belongs to another server demand")
         with selected_reader(ctx, request.project_id) as connection:
             result = inspect_selected_proposals(connection, request)
+        return present(result, request.max_bytes)
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def group_source_record_interpretations(ctx: Context, request: GroupedInterpretationRequest):
+        """Read complete private SourceRecord alternatives under exact candidate product pins."""
+        if project is not None and request.project_id != project:
+            raise ValueError("interpretation selection belongs to another server project")
+        if demand is not None and request.demand_id != demand:
+            raise ValueError("interpretation selection belongs to another server demand")
+        with selected_reader(ctx, request.project_id) as connection:
+            result = group_selected_interpretations(connection, request)
         return present(result, request.max_bytes)

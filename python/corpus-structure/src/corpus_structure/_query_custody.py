@@ -131,7 +131,20 @@ COMPOSITE_READ_SOURCES = (
     "semantic/record_policy_authority.py",
     "semantic/record_policy.py",
 )
-QUERY_SOURCES = tuple(dict.fromkeys((*QUERY_SOURCES, *RICH_QUERY_SOURCES, *COMPOSITE_READ_SOURCES)))
+GROUPED_INTERPRETATION_SOURCES = tuple(dict.fromkeys((
+    *COMPOSITE_READ_SOURCES,
+    "serve/interpretations.py",
+    "semantic/grouped_record_interpretations.py",
+    "methods/record_readings.py",
+    "semantic/record_contracts.py",
+    "semantic/declared_candidate_products.py",
+    "semantic/reading_resolution_products.py",
+    "semantic/finite_interpretation_products.py",
+)))
+QUERY_SOURCES = tuple(dict.fromkeys((
+    *QUERY_SOURCES, *RICH_QUERY_SOURCES, *COMPOSITE_READ_SOURCES,
+    *GROUPED_INTERPRETATION_SOURCES,
+)))
 _BASE = Path(__file__).resolve().parent
 _NAMES = {
     "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name) for name in QUERY_SOURCES

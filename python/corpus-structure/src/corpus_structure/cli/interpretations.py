@@ -207,3 +207,23 @@ def author(
                 author_interpretations(engine, prepared, request=request),
             )
     _emit(result, json=json)
+
+
+@app.command("groups")
+def groups(
+    ctx: typer.Context,
+    request: Annotated[Path, typer.Argument(help="GroupedInterpretationRequest JSON pinning complete candidate products and optional member/reading selectors.")],
+    json: JsonOpt = False,
+):
+    """Read complete SourceRecord alternatives for selected occurrences."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.semantic.grouped_record_interpretations import (
+        GroupedInterpretationRequest,
+    )
+    from corpus_structure.serve.interpretations import group_selected_interpretations
+
+    with failure_boundary(json, expected=(ValueError, OSError)), snapshot(ctx) as connection:
+        selected = GroupedInterpretationRequest.model_validate(json_loads(read_request_bytes(request)))
+        result = group_selected_interpretations(connection, selected)
+    _emit(result, json=json)
