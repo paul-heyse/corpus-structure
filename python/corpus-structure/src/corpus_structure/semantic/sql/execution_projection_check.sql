@@ -13,7 +13,7 @@ BEGIN
  IF EXISTS(SELECT FROM sem.registry_row WHERE release_id=r AND kind='execution_model') THEN
   RAISE EXCEPTION 'target archive contains legacy execution projection' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
-     AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v7') THEN
+     AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v8') THEN
   RAISE EXCEPTION 'unsupported target operation archive' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM sem.execution_operation WHERE release_id=r)
     OR EXISTS(SELECT FROM sem.execution_transition WHERE release_id=r)
