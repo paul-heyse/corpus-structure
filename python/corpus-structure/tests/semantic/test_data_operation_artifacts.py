@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -14,15 +13,19 @@ from corpus_structure.semantic.native_call_contracts import OperationCallBinding
 from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION
-from corpus_structure.semantic.identity import canonical_bytes, claim_source_item__data_operation__
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operation_call_generation import render_call_bindings
 from corpus_structure.semantic.types import SourceArtifact
+from semantic.data_operation_declaration_support import contract
 
 
 def inputs():
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
-    metadata["id"] = "data.read_demand_result"
-    metadata["profile"] = "read"
+    metadata = contract(
+        id="data.read_demand_result", profile="read",
+        behavior="controlled-native-read-v1", invariants=[], outcomes=["success"],
+        transitions=[], state_dimensions=[],
+        binding={"operator": "scan", "roles": ["request"]},
+    )
     metadata["roles"][0].update(name="request", parameter="payload", kind="json")
     metadata["roles"][1].update(name="result", parameter="payload", kind="json")
     metadata["binding"]["roles"] = ["request"]
