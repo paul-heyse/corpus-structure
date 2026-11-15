@@ -23,6 +23,7 @@ from semantic.record_policy_support import calibrated, fitted
 @dataclass(frozen=True)
 class PolicyProjectionRecipe:
     sql: bytes
+    codecs: bytes
 
 
 @dataclass(frozen=True)
@@ -37,11 +38,15 @@ class PolicyProjectionStage:
 
 
 def build_policy_projection(recipe, admin, writer, directory, *, purpose_engine=None):
-    parsed = prepare_sql(recipe.sql.decode(), source="policy-projection-source")
     with admin.begin() as connection:
-        for index, statement in enumerate(parsed.statements):
-            if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname and statement.stmt.funcname[-1].sval == "ddo_policy_authorization_value":
-                connection.exec_driver_sql(parsed.excerpt(index), execution_options={"no_parameters": True})
+        for sql, names in (
+            (recipe.codecs, {"ddo_normalize", "ddo_field", "ddo_json"}),
+            (recipe.sql, {"ddo_policy_authorization_value", "ddo_policy_authorization_meaning"}),
+        ):
+            parsed = prepare_sql(sql.decode(), source="policy-projection-source")
+            for index, statement in enumerate(parsed.statements):
+                if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname and statement.stmt.funcname[-1].sval in names:
+                    connection.exec_driver_sql(parsed.excerpt(index), execution_options={"no_parameters": True})
     return PolicyProjectionStage()
 
 
@@ -50,7 +55,10 @@ register_scenario_builder(PolicyProjectionRecipe, build_policy_projection)
 
 @pytest.fixture
 def policy_projection_connection(scenario_seeds):
-    with scenario_seeds.rollback_family(PolicyProjectionRecipe(record_policy_completion_native_sql().encode())) as case:
+    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+
+    recipe = PolicyProjectionRecipe(record_policy_completion_native_sql().encode(), native_sql(native_protocol_sources()).encode())
+    with scenario_seeds.rollback_family(recipe) as case:
         yield case.connection
 
 
@@ -125,3 +133,21 @@ def test_native_projection_refuses_unfitted_or_unheld_out_basis(policy_projectio
         DdoFittedRecordPolicy.model_validate_json(json.dumps(current))
     with pytest.raises(DBAPIError, match="canonical fitted"):
         project(policy_projection_connection, current)
+
+
+def test_native_projection_preserves_exact_floating_point_semantic_subtrees(policy_projection_connection):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+
+    current = basis()
+    feature = current.instance.feature.model_copy(update={
+        "parameters": current.instance.feature.parameters.model_copy(update={"intercept": -0.0}),
+    })
+    assert current.instance.calibration is not None
+    calibration = current.instance.calibration.model_copy(update={"feature_instance_digest": feature.digest})
+    instance = RecordAcceptanceInstance.model_validate_json(canonical_bytes(current.instance.model_copy(update={"feature": feature, "calibration": calibration}).model_dump(mode="json")))
+    changed = DdoFittedRecordPolicy.from_instance(instance, family_contract=current.family_contract, reading_recipe=current.reading_recipe, judgment_basis_digest=current.judgment_basis_digest, applicability=current.applicability)
+    expected = policy_authorization_value(instance, family_contract=changed.family_contract, reading_recipe=changed.reading_recipe, judgment_basis_digest=changed.judgment_basis_digest, applicability=changed.applicability).model_dump(mode="json")
+    actual = policy_projection_connection.scalar(text("SELECT ops.ddo_policy_authorization_meaning(CAST(:basis AS jsonb))"), {"basis": canonical_bytes(semantic_value(changed.model_dump(mode="json"))).decode()})
+    assert actual == semantic_value(expected)
+    expected["parameters"]["intercept"] = 0.0
+    assert actual != semantic_value(expected)

@@ -35,6 +35,22 @@ def record_policy_completion_native_sql() -> str:
     if projection.keys() != DdoRecordPolicyAuthorization.model_fields.keys():
         raise ValueError("native policy projection must cover the exact public contract")
     fields = ",\n".join(f"'{name}',{value}" for name, value in sorted(projection.items()))
+    def exact_field(name, expression):
+        if name == "version" or name.endswith("_digest") and name in {"policy_instance_digest", "feature_instance_digest", "calibration_digest"}:
+            return f"jsonb_build_array('string',projected->>'{name}')"
+        # Every other public field copies one declared private semantic subtree.
+        parts = expression.split("->")
+        if parts[0] != "basis":
+            raise ValueError("native policy field lacks its exact private correspondence")
+        value = "basis"
+        for part in parts[1:]:
+            value = f"data.ddo_field({value},{part})"
+        return value
+
+    meaning_fields = ",\n".join(
+        f"jsonb_build_array('{name}',{exact_field(name, value)})"
+        for name, value in sorted(projection.items())
+    )
     return r"""
 CREATE OR REPLACE FUNCTION ops.ddo_policy_authorization_value(basis jsonb) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $policy$
@@ -59,6 +75,13 @@ BEGIN
  OR calibration->'fit'->>'reference_digest' IS NOT DISTINCT FROM feature->'fit'->>'reference_digest' THEN
  RAISE EXCEPTION 'policy authorization differs from canonical fitted and held-out instance' USING ERRCODE='23514'; END IF;
  RETURN jsonb_build_object(__PUBLIC_FIELDS__);
+END $policy$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_policy_authorization_meaning(basis jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $policy$
+DECLARE projected jsonb:=ops.ddo_policy_authorization_value(data.ddo_json(basis));
+BEGIN
+ RETURN data.ddo_normalize(jsonb_build_array('mapping',jsonb_build_array(__PUBLIC_MEANING_FIELDS__)));
 END $policy$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_policy_authorization_completion(r ops.data_request,completion jsonb)
@@ -130,7 +153,7 @@ BEGIN
  AND reading.operation_id='resolve.m1_readings' AND reading.recipe=expected->>'reading_recipe')
  OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
  AND kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary')
- OR data.ddo_json(output->'product'->'body') IS DISTINCT FROM expected THEN
+ OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM ops.ddo_policy_authorization_meaning(basis.canonical_body) THEN
  RAISE EXCEPTION 'policy authorization public conclusion differs from exact fitted basis and current interpretation' USING ERRCODE='23514'; END IF;
 END $policy$;
-""".replace("__PUBLIC_FIELDS__", fields)
+""".replace("__PUBLIC_FIELDS__", fields).replace("__PUBLIC_MEANING_FIELDS__", meaning_fields)
