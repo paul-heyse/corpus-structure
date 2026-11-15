@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import json
+import math
 
 import pytest
 from jsonschema import Draft7Validator, ValidationError
@@ -67,3 +68,23 @@ def test_fit_transport_preserves_actual_cut_bytes_and_rejects_substituted_select
     result["product_id"] = "product:other"
     with pytest.raises(ValueError, match="another protected grade"):
         read_record_feature_fit_frame(object(), **args)
+
+
+def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(monkeypatch):
+    cut = selection()
+    frame = grade_frame()
+    event = frame.events[0]
+    features = event.features.model_copy(update={"values": (-0.0,)})
+    frame = frame.model_copy(update={"events": (event.model_copy(update={"features": features}),)})
+    grade = DdoRecordGrade.from_frame(frame).model_dump(mode="json")
+    projected = deepcopy(grade)
+    projected["frame"]["events"][0]["features"]["values"][0] = 0.0
+    monkeypatch.setattr(DataOperationStorage, "read_record_feature_fit_frame", lambda *args: dict(
+        cut=cut.record, product_id="product:grade", derivation_id="derivation:grade",
+        receipt_id="receipt:grade", frame=projected,
+    ))
+    restored = read_record_feature_fit_frame(object(), project_id="project:one", demand_id="demand:one",
+        read_id="read:one", use_id="use:grade", product_id="product:grade", derivation_id="derivation:grade",
+        expected_cut=cut.identity, frame_digest=grade["frame_digest"], cut=cut)
+    assert math.copysign(1.0, restored["frame"]["frame"]["events"][0]["features"]["values"][0]) == -1.0
+    assert restored["frame"]["frame_canonical_json"] == grade["frame_canonical_json"]

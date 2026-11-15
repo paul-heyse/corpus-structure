@@ -28,6 +28,9 @@ def read_record_feature_fit_frame(connection, *, project_id, demand_id, read_id,
     from .data_operation_wire import validate_native_wire
     from .demand_results import CutSelection
     from .data_operation_json import json_bytes
+    from .identity import canonical_bytes
+    from corpus_structure.evaluate.declared_record_policy import DdoRecordGrade
+    import json
 
     if not isinstance(cut, CutSelection) or cut.identity != expected_cut:
         raise ValueError("feature fit requires the exact retained cut bytes")
@@ -43,7 +46,16 @@ def read_record_feature_fit_frame(connection, *, project_id, demand_id, read_id,
         raise ValueError("feature fit returned another retained cut")
     if result["product_id"] != product_id or result["derivation_id"] != derivation_id or result["frame"]["frame_digest"] != frame_digest:
         raise ValueError("feature fit returned another protected grade")
-    return result
+    # JSONB is a projection of the semantic body and can normalize signed zero.
+    # The authenticated CPU grade retains its original exact frame text. Native
+    # compares that text's parsed value and digest before disclosing it; restoring
+    # its typed frame here preserves the actual numerical basis without guessing
+    # PostgreSQL's float spelling or granting authority to caller-supplied bytes.
+    grade = result["frame"]
+    restored = DdoRecordGrade.model_validate_json(canonical_bytes({
+        **grade, "frame": json.loads(grade["frame_canonical_json"]),
+    }), strict=True)
+    return {**result, "frame": restored.model_dump(mode="json")}
 
 
 def record_policy_native_sql():
