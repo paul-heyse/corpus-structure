@@ -418,7 +418,7 @@ def visual_observation_manifest(
     if identity is None:
         raise ValueError("visual observation manifest requires the exact producing run and task")
     archive = open_release(conn, identity.release_id)
-    pdf_context_for_release(conn, archive).execution.require_operation("read_native_source")
+    pdf_context_for_release(conn, archive).require_operation("read_native_source")
     reader = published_record_reader(
         conn,
         ProductReference(source.task_id, source.product_key, source.content_digest),
@@ -526,7 +526,7 @@ def visual_observation_manifest(
         for release in (row["release_id"], row["raw_release_id"]):
             if release is not None and release not in allowed_releases:
                 context = pdf_context_for_release(conn, open_release(conn, release))
-                context.execution.require_operation("read_pdf_product")
+                context.require_operation("read_pdf_product")
                 allowed_releases.add(release)
         scope = RetainedVisualSelection.model_validate(row["scope"])
         if (
@@ -904,27 +904,14 @@ def inspect_pdf_visual_evidence(
     )
     evidence_release = qualified["release_id"]
     context = pdf_context_for_release(conn, open_release(conn, evidence_release))
-    context.execution.require_operation("read_pdf_product")
+    context.require_operation("read_pdf_product")
     # The archive governs which observation may be opened. These display filters
     # apply only to its admitted, bounded candidate rows and bind the read cursor.
     context.boundary.validate_json(
         "PdfNativeReadRequest",
         request.model_dump_json(exclude={"visual_kind", "visual_query"}, exclude_none=True),
     )
-    states = context.execution.lifecycle("task").states
-    matching = [
-        state
-        for state in states
-        if any(
-            value.dimension == "status" and value.value == qualified["status"]
-            for value in state.values
-        )
-    ]
-    if (
-        not matching
-        or not all(state.terminal for state in matching)
-        or qualified["finished_at"] is None
-    ):
+    if qualified["status"] not in context.terminal_task_states or qualified["finished_at"] is None:
         raise ValueError("visual evidence requires a finished producing task")
     if context.contract_digest != qualified["contract_digest"]:
         raise ValueError("visual evidence differs from its archived producing contract")

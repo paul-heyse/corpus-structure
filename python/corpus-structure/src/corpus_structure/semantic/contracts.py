@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from . import native_call_contracts as native_calls
 from . import analysis_policies
+from . import invariant_failures as native_diagnostics
 
 import json
 from collections.abc import Generator, Mapping
@@ -591,18 +592,6 @@ class TransitionDefinition:
 
 
 @dataclass(frozen=True)
-class NativeDiagnosticBinding:
-    operation: str
-    kind: Literal["constraint", "guard"]
-    sqlstate: str
-    schema_name: str | None = None
-    table_name: str | None = None
-    constraint_name: str | None = None
-    guard: str | None = None
-    guard_version: str | None = None
-
-
-@dataclass(frozen=True)
 class InvariantDefinition:
     id: str
     meaning: str
@@ -613,7 +602,7 @@ class InvariantDefinition:
     implementation: str
     required_capability: str | None = None
     observable: bool = False
-    diagnostics: tuple[NativeDiagnosticBinding, ...] = ()
+    diagnostics: tuple[native_diagnostics.NativeDiagnosticBinding, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -90,6 +90,8 @@ class PdfEnrichmentOperation:
             },
         ],
         "assets": [
+            {"reference": "pdf-domain/contract.json", "contract": "pdf-native/helper-bindings",
+             "role": "native-pdf-helper-bindings"},
             {
                 "reference": "frozen-native-pdf-recipe",
                 "contract": "pdf-enriched/execution-custody",

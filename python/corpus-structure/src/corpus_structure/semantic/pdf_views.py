@@ -54,6 +54,7 @@ def pdf_views_operation_sources(
     capture_sources=None, *, mode="standard", transformation_sources=None
 ):
     from .primary_operations import combine_primary_sources
+    from .pdf_domain import pdf_helper_asset
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     root = Path(__file__).parents[1]
@@ -65,7 +66,7 @@ def pdf_views_operation_sources(
                 ("corpus_structure.semantic.pdf_views", Path(__file__)),
             )
         ),
-        boundary_contracts=(pdf_views_assets(), pdf_views_custody()),
+        boundary_contracts=(pdf_views_assets(), pdf_views_custody(), pdf_helper_asset()),
     )
     if capture_sources is None:
         raise ValueError(

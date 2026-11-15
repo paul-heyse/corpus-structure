@@ -78,22 +78,7 @@ def read_pdf_observations(
 
     context = pdf_context_for_run(conn, request.run_id)
     context.require_operation("read_pdf_product")
-    states = context.execution.lifecycle("task").states
-    terminal = {
-        value.value
-        for state in states
-        if state.terminal
-        for value in state.values
-        if value.dimension == "status"
-    }
-    nonterminal = {
-        value.value
-        for state in states
-        if not state.terminal
-        for value in state.values
-        if value.dimension == "status"
-    }
-    if task.status not in terminal - nonterminal or task.finished_at is None:
+    if task.status not in context.terminal_task_states or task.finished_at is None:
         raise ValueError("recognition catalog requires a finished source task")
     after = ""
     if request.cursor is not None:
@@ -312,31 +297,24 @@ def _record_product_identity(conn, task_id, product_key, content_digest, record_
         .mappings()
         .one()
     )
-    from .contracts import approved_implementations
     from .pdf_contracts import pdf_context_for_task
-    from .types import PreparationError
 
     # The producer archive owns decoding. The independently supplied consumer
     # context owns selected projections; neither substitutes for this custody.
     context = pdf_context_for_task(conn, task_id)
     try:
         operation = context.require_operation("read_pdf_product")
-    except (PreparationError, StopIteration) as error:
+    except (ValueError, StopIteration) as error:
         raise NativeDocumentUnavailable(
             "PDF read ABI is unsupported; qualify an archived reader"
         ) from error
-    if context.domain is None:
-        operation = context.execution.require_operation("read_pdf_product")
-        binding = next(
-            item
-            for item in context.execution.implementations
-            if item.id == operation.implementation
-        )
-        owner, symbol = binding.owner, binding.symbol
-    else:
-        binding = context.domain.require_operation("read_pdf_product")["implementation"]
-        owner, symbol = binding["owner"], binding["symbol"]
-    implementation = approved_implementations()["read_pdf_product"]
+    binding = operation["implementation"]
+    owner, symbol = binding["owner"], binding["symbol"]
+    implementation = read_pdf_product
+    from .pdf_contracts import trusted_pdf_context
+    qualified = trusted_pdf_context().require_operation("read_pdf_product")["implementation"]
+    if binding["version"] != qualified["version"]:
+        raise NativeDocumentUnavailable("PDF read ABI is unsupported by the qualified reader version")
     if (owner, symbol) != (
         implementation.__module__.removeprefix("corpus_structure."),
         implementation.__qualname__,

@@ -126,7 +126,7 @@ def search_source(conn: Connection, request: SourceSearchRequest) -> SourceSearc
     from corpus_structure.semantic.source_views import selected_source_views
 
     context = pdf_context_for_run(conn, request.run_id)
-    context.execution.require_operation("read_source_view")
+    context.require_operation("read_source_view")
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.query import ReadLimit
     from corpus_structure.semantic.refusals import InvalidContinuation

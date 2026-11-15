@@ -410,7 +410,7 @@ def claim_tasks(
             from .invariant_failures import InvariantViolation, classify_invariant_failure
 
             failure = classify_invariant_failure(
-                model, "claim", exc, release_id=prepared.release_id
+                model.invariants, "claim", exc, model_id=model.model_id, release_id=prepared.release_id
             )
             if failure is not None:
                 raise InvariantViolation(failure) from exc
@@ -558,8 +558,10 @@ def complete_task(
             from .contracts import bound_execution_model
             from .invariant_failures import InvariantViolation, classify_invariant_failure
 
+            model = bound_execution_model(prepared)
+            model.require_operation("complete")
             failure = classify_invariant_failure(
-                bound_execution_model(prepared), "complete", exc, release_id=prepared.release_id
+                model.invariants, "complete", exc, model_id=model.model_id, release_id=prepared.release_id
             )
             if failure is not None:
                 raise InvariantViolation(failure) from exc
@@ -2051,7 +2053,7 @@ class BoundReader:
             )
         if row["contract_digest"] != context.contract_digest:
             raise OperationConflict("native product archived contract differs")
-        context.execution.require_operation("read_pdf_product")
+        context.require_operation("read_pdf_product")
         return row, context, published
 
     def native_document(self, reference, *, include_candidate_pages: bool = True):

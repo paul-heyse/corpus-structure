@@ -623,7 +623,7 @@ def store_integrated_pdf_product(
     product: PreparedIntegratedPdfProduct,
     context: PreparedPdfContext | None = None,
 ) -> str:
-    from .contracts import require_database_operation
+    from .pdf_domain import require_pdf_database_action
 
     archived = pdf_context_for_task(conn, task_id)
     if context is not None and context != archived:
@@ -637,7 +637,7 @@ def store_integrated_pdf_product(
         raise ValueError(
             "publication requires an immutable prepared bundle under the producing archive"
         )
-    require_database_operation(conn, archived.release_id, "publish_integrated_pdf")
+    require_pdf_database_action(conn, archived.release_id, "publish_integrated_pdf")
     return conn.execute(
         text(
             "SELECT ops.publish_integrated_pdf("

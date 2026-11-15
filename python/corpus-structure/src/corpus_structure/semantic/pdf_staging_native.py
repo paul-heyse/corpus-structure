@@ -46,48 +46,32 @@ def stage_native_sql() -> str:
         pdf_domain_native_sql()
         + """
 CREATE OR REPLACE FUNCTION ops.pdf_task_context(p_task bigint)
-RETURNS TABLE(project_id text,release_id text,run_id bigint,request_id text,generation bigint,
+RETURNS TABLE(project_id text,release_id text,request_id text,generation bigint,
  document_id bigint,source_digest text)
 LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE job ops.task; legacy ops.run; request ops.data_request; document kb.document;
+DECLARE job ops.task; request ops.data_request; document kb.document;
 BEGIN
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
- IF job.data_request_id IS NOT NULL THEN
+ IF job.data_request_id IS NULL THEN RAISE EXCEPTION 'PDF task has no declared data request' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT request FROM ops.data_request WHERE id=job.data_request_id;
  SELECT * INTO STRICT document FROM kb.document d WHERE d.project_id=request.project_id
  AND d.key=request.original_source AND d.mime='application/pdf';
- RETURN QUERY SELECT request.project_id,job.release_id,NULL::bigint,request.id,
+ RETURN QUERY SELECT request.project_id,job.release_id,request.id,
  job.data_generation::bigint,document.id,document.content_hash;
- ELSE
- SELECT * INTO STRICT legacy FROM ops.run WHERE id=job.run_id;
- IF job.unit_type='document' THEN
- SELECT * INTO STRICT document FROM kb.document d WHERE d.id=job.unit_id
- AND d.project_id=legacy.project_id;
- ELSIF job.unit_type='source_view' THEN
- SELECT d.* INTO STRICT document FROM kb.document d
- JOIN kb.source_view view ON view.document_id=d.id
- JOIN ops.run_source_view selected ON selected.source_view_id=view.id
- WHERE view.id=job.unit_id AND selected.run_id=legacy.id AND d.project_id=legacy.project_id;
- ELSE RAISE EXCEPTION 'PDF task has no original document context' USING ERRCODE='23514'; END IF;
- RETURN QUERY SELECT legacy.project_id,legacy.release_id,legacy.id,NULL::text,NULL::bigint,
- document.id,document.content_hash;
- END IF;
+
 END $stage$;
 REVOKE ALL ON FUNCTION ops.pdf_task_context(bigint) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.pdf_stage_owner_current(p_task bigint,p_attempt bigint,p_holder text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE job ops.task; request ops.data_request; legacy ops.run;
+DECLARE job ops.task; request ops.data_request;
 BEGIN
  SELECT * INTO job FROM ops.task WHERE id=p_task;
  IF NOT FOUND OR p_attempt IS NULL OR nullif(p_holder,'') IS NULL
  OR job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder
  OR job.status<>'running' OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp() THEN
  RETURN false; END IF;
- IF job.data_request_id IS NULL THEN
- SELECT * INTO legacy FROM ops.run WHERE id=job.run_id;
- RETURN FOUND AND NOT legacy.sealed AND legacy.status IN ('created','running');
- END IF;
+ IF job.data_request_id IS NULL THEN RETURN false; END IF;
  SELECT * INTO request FROM ops.data_request WHERE id=job.data_request_id;
  IF NOT FOUND THEN RETURN false; END IF;
  PERFORM ops.ddo_authorize_request(request);
@@ -108,15 +92,14 @@ BEGIN
 END $stage$;
 REVOKE ALL ON FUNCTION ops.pdf_stage_owner_current(bigint,bigint,text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.require_pdf_stage_owner(p_task bigint,p_attempt bigint,p_holder text)
-RETURNS TABLE(project_id text,release_id text,run_id bigint,request_id text,generation bigint,
+RETURNS TABLE(project_id text,release_id text,request_id text,generation bigint,
  document_id bigint,source_digest text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE job ops.task; legacy ops.run; request ops.data_request; context record;
+DECLARE job ops.task; request ops.data_request; context record;
 BEGIN
  IF p_task IS NULL OR p_attempt IS NULL OR p_holder IS NULL OR p_holder='' THEN
  RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
- IF context.request_id IS NOT NULL THEN
  SELECT request_row.* INTO STRICT request FROM ops.data_request request_row
  WHERE request_row.id=context.request_id;
  PERFORM ops.ddo_lock_support(request.project_id,request.original_source,
@@ -128,15 +111,9 @@ BEGIN
  SELECT request_row.* INTO STRICT request FROM ops.data_request request_row
  WHERE request_row.id=context.request_id FOR UPDATE;
  SELECT task_row.* INTO STRICT job FROM ops.task task_row WHERE task_row.id=p_task FOR UPDATE;
- ELSE
- SELECT run_row.* INTO STRICT legacy FROM ops.run run_row
- WHERE run_row.id=context.run_id FOR SHARE;
- SELECT task_row.* INTO STRICT job FROM ops.task task_row
- WHERE task_row.id=p_task AND task_row.run_id=legacy.id FOR UPDATE;
- END IF;
  IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
  RAISE EXCEPTION 'stale private PDF build owner/capability/support' USING ERRCODE='P0004'; END IF;
- RETURN QUERY SELECT context.project_id,context.release_id,context.run_id,context.request_id,
+ RETURN QUERY SELECT context.project_id,context.release_id,context.request_id,
  context.generation,context.document_id,context.source_digest;
 END $stage$;
 REVOKE ALL ON FUNCTION ops.require_pdf_stage_owner(bigint,bigint,text) FROM PUBLIC;
@@ -197,7 +174,7 @@ BEGIN
  RAISE EXCEPTION 'private PDF build source custody differs' USING ERRCODE='23514'; END IF;
  id:=encode(sha256(convert_to(jsonb_build_array(p_task,p_source,p_recipe,p_schema,p_key)::text,
  'UTF8')),'hex');
- INSERT INTO ops.pdf_stage_build VALUES(id,p_task,owner.run_id,owner.release_id,p_source,p_recipe,
+ INSERT INTO ops.pdf_stage_build VALUES(id,p_task,owner.release_id,p_source,p_recipe,
  p_schema,p_key,p_attempt,p_holder,'open')
  ON CONFLICT(task_id,replay_key) DO NOTHING;
  SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE task_id=p_task AND replay_key=p_key;
@@ -381,8 +358,6 @@ DECLARE build ops.pdf_stage_build;
 BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
  PERFORM ops.require_pdf_operation(build.release_id,'abandon_pdf_build');
- IF NOT ops.execution_edge(build.release_id,'pdf_private_build','open','abandoned') THEN
- RAISE EXCEPTION 'private PDF abandonment transition unavailable' USING ERRCODE='23514'; END IF;
  UPDATE ops.pdf_stage_build SET state='abandoned' WHERE build_id=p_build;
 END $stage$;
 """

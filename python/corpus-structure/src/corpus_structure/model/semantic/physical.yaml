@@ -418,6 +418,8 @@ classes:
       project_id:
         range: string
         required: true
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ProjectId"}
+
       active_release_id:
         range: string
         required: false
@@ -1279,6 +1281,7 @@ classes:
         range: integer
         required: true
         annotations:
+          ph:python_type: "corpus_structure.semantic.identifiers.TaskId"
           ph:identity: 'true'
       run_id:
         range: integer
@@ -1316,6 +1319,8 @@ classes:
       attempt:
         range: integer
         required: true
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.TaskAttempt"}
+
       claimed_by:
         range: string
         required: false
@@ -2544,6 +2549,7 @@ classes:
         range: integer
         required: true
         annotations:
+          ph:python_type: "corpus_structure.semantic.identifiers.SourceViewId"
           ph:identity: 'true'
       key:
         range: string
@@ -2838,9 +2844,13 @@ classes:
       product_key:
         range: string
         required: true
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ProductKey"}
+
       content_digest:
         range: string
         required: true
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ContentDigest"}
+
       kind:
         range: string
         required: true

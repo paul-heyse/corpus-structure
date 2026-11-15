@@ -159,9 +159,9 @@ def test_invalid_recognition_refuses(native_source, pdf13_context, change):
 
 def test_reconciliation_operations_are_qualified(pdf13_context):
     for operation in ("map_pdf_observation", "compare_pdf_occurrences", "select_pdf_integration"):
-        bound = pdf13_context.execution.require_operation(operation)
-        assert bound.implementation == operation
-        assert "partial" in bound.outcomes
+        bound = pdf13_context.require_operation(operation)
+        assert bound["implementation"]["symbol"] == operation
+        assert "partial" in bound["contract"]["outcomes"]
 
 
 def test_selected_cell_traces_two_observations_original_and_policy_reuse(
@@ -865,23 +865,11 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
 
     def archived_context(conn, task):
         context = load(conn, task)
-        execution = context.execution
-        return replace(
-            context,
-            _execution=replace(
-                execution,
-                implementation_digests=tuple(
-                    (name, "0" * 64 if name in {"pdf/storage.py", "pdf/integrated.py"} else digest)
-                    for name, digest in execution.implementation_digests
-                ),
-                implementations=tuple(
-                    replace(binding, version="unsupported-v2")
-                    if unsupported and binding.id == "read_pdf_product"
-                    else binding
-                    for binding in execution.implementations
-                ),
-            ),
-        )
+        if unsupported:
+            from semantic.pdf_domain_support import altered_domain
+            return replace(context, domain=altered_domain(context.domain, read_version="unsupported-v2"))
+        return context
+
 
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", archived_context)
     with commit_reader_engine.connect() as conn:

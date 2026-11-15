@@ -383,7 +383,7 @@ def _inspect_native_source(
 
     projection_context = open_release(conn, run.release_id)
     context = pdf_context_for_release(conn, projection_context)
-    context.execution.require_operation("read_native_source")
+    context.require_operation("read_native_source")
     if request.view == "visual_evidence":
         from corpus_structure.serve.pdf_visual_evidence import inspect_pdf_visual_evidence
 

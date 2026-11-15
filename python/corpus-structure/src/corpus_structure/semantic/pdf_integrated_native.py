@@ -8,9 +8,6 @@ def observation_publication_sql(context=None) -> str:
     from pglast import ast
     from pglast.stream import RawStream
 
-    from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceArtifact
-
-    from .identity import canonical_bytes
     from .native_shapes import decomposed_record_guards
     from .pdf_contracts import trusted_pdf_context
     from .prepared_sql import prepare_sql
@@ -23,17 +20,6 @@ def observation_publication_sql(context=None) -> str:
         if isinstance(raw.stmt, ast.CreateFunctionStmt)
     }
     declaration = functions["ops", "publish_pdf_observation"]
-    locator = functions["ops", "index_pdf_visual_mapping"]
-    locator_body = next(option for option in locator.options or () if option.defname == "as")
-    schema = canonical_bytes(VisualEvidenceArtifact.model_json_schema()).decode()
-    locator_body.arg[0].sval = locator_body.arg[0].sval.replace(
-        "-- {visual_mapping_shape_guard}",
-        "IF NOT public.json_matches_schema($visual_schema$"
-        + schema
-        + "$visual_schema$::json,mapped::json) "
-        "THEN RAISE EXCEPTION 'mapped visual artifact differs from its declared shape' "
-        "USING ERRCODE='23514'; END IF;",
-    )
     option = next(option for option in declaration.options or () if option.defname == "as")
     body = option.arg[0].sval
     shapes = decomposed_record_guards(
@@ -58,16 +44,8 @@ def observation_publication_sql(context=None) -> str:
         body = body.replace(marker, guard)
     option.arg[0].sval = body
     signature = "ops.publish_pdf_observation(bigint,bigint,text,text,bytea,bytea[])"
-    locator_signature = "ops.index_pdf_visual_mapping(bigint,text,text)"
     return (
-        RawStream()(locator)
-        + ";\nALTER FUNCTION "
-        + locator_signature
-        + " OWNER TO corpus_sem_publisher;\n"
-        + "REVOKE ALL ON FUNCTION "
-        + locator_signature
-        + " FROM PUBLIC;\n"
-        + RawStream()(declaration)
+        RawStream()(declaration)
         + ";\nALTER FUNCTION "
         + signature
         + " OWNER TO corpus_sem_publisher;\nREVOKE ALL ON FUNCTION "

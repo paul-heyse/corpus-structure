@@ -99,6 +99,7 @@ class PdfSourceViewsFamily:
             },
         ],
         "assets": [
+            {"reference": "pdf-domain/contract.json", "contract": "pdf-native/helper-bindings", "role": "native-pdf-helper-bindings"},
             {
                 "reference": "published-section-projection",
                 "contract": "pdf-views/profile-assets",

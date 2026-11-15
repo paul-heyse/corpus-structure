@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from functools import cached_property
+from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Connection, Text, and_, func, select, text
@@ -609,6 +610,7 @@ def store_source_view(
     from .pdf_contracts import pdf_context_for_task
 
     context = pdf_context_for_task(conn, task_id)
+    context.require_operation("publish_source_view")
     payload = context.boundary.validate_json(
         "PdfSourceViewPublication", json.dumps(payload)
     ).model_dump(mode="json", exclude_none=True)
@@ -633,7 +635,8 @@ def store_source_view(
         )
     except DATABASE_ERRORS as exc:
         failure = classify_invariant_failure(
-            context.execution, "publish_source_view", exc, release_id=context.release_id
+            context.domain.invariants, "publish_source_view", exc,
+            model_id="pdf-domain:" + sha256(context.domain.content).hexdigest(), release_id=context.release_id
         )
         if failure is not None:
             raise InvariantViolation(failure) from exc

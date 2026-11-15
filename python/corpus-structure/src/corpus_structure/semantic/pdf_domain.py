@@ -7,8 +7,9 @@ legacy execution model or infer permissions from an operation-name prefix.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from functools import cache
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -25,80 +26,87 @@ def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
         or owner == "orchestrate.pdf_streaming"
         # This genuine shared reader owns the existing PDF projection/context calls.
         or (
-            operation == "read_native_source"
-            and owner == "semantic.source_views"
-            and symbol == "read_native_source"
+            owner == "semantic.source_views"
+            and {"read_native_source": "read_native_source", "read_source_view": "load_source_view", "publish_source_view": "store_source_view"}.get(operation) == symbol
         )
     )
+
+
+HELPER_CONTRACT = "pdf-native/helper-bindings"
+
+
+def _action_sources():
+    """Read explicit current PDF helper declarations and their actual field owners."""
+    import yaml
+    from cattrs import Converter
+    from corpus_structure.schema.physical import PHYSICAL_ROOT, linkml_types_source, physical_source_closure
+    from .native_call_contracts import OperationCallBinding
+    from .native_call_sources import resolve_call_bindings
+
+    root = Path(__file__).resolve().parents[1] / "model/semantic"
+    action_source = SourceArtifact(PREFIX + "native/actions.yaml", root.joinpath("pdf-actions.yaml").read_bytes())
+    document = yaml.safe_load(action_source.content)
+    if not isinstance(document, dict) or set(document) != {"version", "actions", "diagnostics"} or document["version"] != "pdf-native-actions-v1":
+        raise ValueError("unsupported current PDF helper declarations")
+    converter = Converter(forbid_extra_keys=True)
+    declared = {}
+    calls = []
+    for action in document["actions"]:
+        if set(action) != {"id", "implementation", "outcomes", "calls"} or action["id"] in declared:
+            raise ValueError("invalid or duplicate current PDF action")
+        implementation = action["implementation"]
+        if set(implementation) != {"owner", "symbol", "version"} or not _pdf_action(action["id"], implementation["owner"], implementation["symbol"]):
+            raise ValueError("PDF action has a foreign or relabeled owner")
+        declared[action["id"]] = action
+        for call in action["calls"]:
+            for value in (*call["parameters"], *call["result_fields"], *(field for record in call.get("records", ()) for field in record["fields"])):
+                value.setdefault("nullable", False)
+            calls.append((action["id"], converter.structure(call, OperationCallBinding)))
+    logical = {name: root.joinpath(filename).read_bytes() for name, filename in (
+        ("pdf_products", "pdf-products.yaml"), ("core", "core.yaml"),
+        ("pdf_records", "pdf-records.yaml"), ("pdf_staging", "pdf-staging.yaml"),
+        ("read_projections", "read-projections.yaml"), ("companion_projections", "companion-projections.yaml"),
+    )}
+    logical["linkml:types"] = linkml_types_source()
+    physical = physical_source_closure(PHYSICAL_ROOT, lambda name: root.joinpath(name).read_bytes())
+    resolved = resolve_call_bindings(tuple(calls), logical_sources=logical, physical_sources=physical)
+    actions = {
+        name: {"contract": {"id": name, "outcomes": action["outcomes"], "calls": [asdict(call) for owner, call in resolved if owner == name]},
+               "implementation": action["implementation"]}
+        for name, action in declared.items()
+    }
+    sources = (action_source, *(SourceArtifact(PREFIX + "logical/" + name, content) for name, content in sorted(logical.items())),
+               *(SourceArtifact(PREFIX + "physical/" + name, content) for name, content in sorted(physical.items())))
+    return actions, sources, document["diagnostics"]
 
 
 @cache
 def pdf_domain_sources() -> tuple[SourceArtifact, ...]:
-    """Acquire the real owning actions and exact PDF contracts at an entry point."""
-    from .contracts import compile_execution_model, trusted_execution_inputs
-
-    inputs = trusted_execution_inputs()
-    model = compile_execution_model(inputs)
-    bindings = {binding.id: binding for binding in model.implementations}
-    actions = {
-        operation.id: {
-            "contract": asdict(model.require_operation(operation.id)),
-            "implementation": asdict(bindings[operation.implementation]),
-        }
-        for operation in model.operations
-        if operation.implementation is not None
-        and _pdf_action(
-            operation.id,
-            bindings[operation.implementation].owner,
-            bindings[operation.implementation].symbol,
-        )
-    }
-    # Native PDF has its own standalone nominal envelope and retained staging policy.
-    schema = next(source for source in inputs.schema.sources if source.name == "pdf_products")
-    # Semantic domain contracts stay separate from physical Python/worker custody.
-    # The prepared port's acquired implementation slice owns executable source files.
-    contract_inputs = {"pdf/staging-model.yaml", "pdf/docling-validation.schema.json"}
-    implementations = {
-        source.name: source for source in inputs.implementations if source.name in contract_inputs
-    }
-    if set(implementations) != contract_inputs:
-        raise ValueError("PDF domain contract inputs are incomplete")
+    """Acquire current PDF helper assets without an execution catalog/compiler."""
+    actions, action_sources, diagnostics = _action_sources()
+    root = Path(__file__).resolve().parents[1] / "model/semantic"
     sources = (
-        SourceArtifact(PREFIX + "schema/pdf_products", schema.content),
-        SourceArtifact(
-            PREFIX + "schema/core",
-            (Path(__file__).resolve().parents[1] / "model/semantic/core.yaml").read_bytes(),
-        ),
-        SourceArtifact(
-            PREFIX + "schema/pdf_domain_schema",
-            canonical_bytes(
-                {
-                    "id": "urn:corpus:pdf-domain-schema",
-                    "name": "pdf_domain_schema",
-                    "imports": ["pdf_products", "core"],
-                }
-            ),
-        ),
-        *(
-            SourceArtifact(PREFIX + "implementation/" + name, source.content)
-            for name, source in sorted(implementations.items())
-        ),
+        *action_sources,
+        SourceArtifact(PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
+        SourceArtifact(PREFIX + "schema/core", root.joinpath("core.yaml").read_bytes()),
+        SourceArtifact(PREFIX + "schema/pdf_domain_schema", canonical_bytes({"id": "urn:corpus:pdf-domain-schema", "name": "pdf_domain_schema", "imports": ["pdf_products", "core"]})),
+        SourceArtifact(PREFIX + "implementation/pdf/staging-model.yaml", root.joinpath("pdf-staging.yaml").read_bytes()),
+        SourceArtifact(PREFIX + "implementation/pdf/docling-validation.schema.json", root.joinpath("docling-validation.schema.json").read_bytes()),
+        SourceArtifact(PREFIX + "native/data-operation-protocol.yaml", root.joinpath("data-operation-native.yaml").read_bytes()),
     )
-    contract = SourceArtifact(
-        CONTRACT,
-        canonical_bytes(
-            {
-                "version": "pdf-domain-contract-v1",
-                "schema": {
-                    "root": "pdf_domain_schema",
-                    "sources": ["pdf_products", "core", "pdf_domain_schema"],
-                },
-                "actions": actions,
-                "inputs": [{"name": source.name, "sha256": source.digest} for source in sources],
-            }
-        ),
-    )
+    contract = SourceArtifact(CONTRACT, canonical_bytes({
+        "version": "pdf-domain-contract-v2",
+        "schema": {"root": "pdf_domain_schema", "sources": ["pdf_products", "core", "pdf_domain_schema"]},
+        "actions": actions,
+        "diagnostics": diagnostics,
+        "inputs": [{"name": source.name, "sha256": source.digest} for source in sources],
+    }))
     return (contract, *sources)
+
+
+def pdf_helper_asset() -> SourceArtifact:
+    source = next(source for source in pdf_domain_sources() if source.name == CONTRACT)
+    return SourceArtifact(HELPER_CONTRACT, source.content)
 
 
 def pdf_domain_dependencies(dependencies: ResolvedDependencies) -> ResolvedDependencies:
@@ -120,8 +128,8 @@ class PdfDomainContract:
 
     def __post_init__(self) -> None:
         contract = json.loads(self.content)
-        if set(contract) != {"version", "schema", "actions", "inputs"} or (
-            contract["version"] != "pdf-domain-contract-v1"
+        if set(contract) != {"version", "schema", "actions", "inputs", "diagnostics"} or (
+            contract["version"] != "pdf-domain-contract-v2"
         ):
             raise ValueError("unsupported PDF domain contract")
         actual = [{"name": source.name, "sha256": source.digest} for source in self.sources]
@@ -140,6 +148,13 @@ class PdfDomainContract:
         if name not in actions:
             raise ValueError("required action is absent from archived PDF contract: " + name)
         return actions[name]
+
+    @property
+    def invariants(self):
+        from cattrs import Converter
+        from .invariant_failures import NativeInvariant
+
+        return Converter(forbid_extra_keys=True).structure(json.loads(self.content)["diagnostics"], tuple[NativeInvariant, ...])
 
     def source(self, name: str) -> SourceArtifact:
         return next(source for source in self.sources if source.name == PREFIX + name)
@@ -181,7 +196,7 @@ def read_pdf_domain(connection, release_id: str) -> PdfDomainContract:
     return PdfDomainContract(content, tuple(SourceArtifact(name, retained[name]) for name in names))
 
 
-def pdf_domain_artifacts(dependencies: ResolvedDependencies):
+def pdf_domain_artifacts(dependencies: ResolvedDependencies, *, model=None):
     """Materialize the actual domain facet and its shared fixed-call projection."""
     from .types import PreparedArtifact
 
@@ -196,6 +211,7 @@ def pdf_domain_artifacts(dependencies: ResolvedDependencies):
     if set(retained) != set(names):
         raise ValueError("PDF domain preparation source inventory differs")
     domain = PdfDomainContract(content, tuple(retained[name] for name in names))
+    require_pdf_model_asset(model, domain)
     actions = json.loads(domain.content)["actions"]
     calls = [
         [name, call]
@@ -206,6 +222,19 @@ def pdf_domain_artifacts(dependencies: ResolvedDependencies):
         PreparedArtifact(CONTRACT, content),
         PreparedArtifact("operation_call_correspondences.json", canonical_bytes(calls)),
     )
+
+
+def require_pdf_model_asset(model, domain: PdfDomainContract) -> None:
+    """Helper bindings are assets of an actual checked PDF operation."""
+    digest = sha256(domain.content).hexdigest()
+    if model is None or not any(
+        operation.capabilities.preparation == "pdf-native" and any(
+            asset.reference == CONTRACT and asset.contract == HELPER_CONTRACT
+            and asset.role == "native-pdf-helper-bindings" and asset.content_digest == digest
+            for asset in operation.assets
+        ) for operation in model.operations
+    ):
+        raise ValueError("PDF helper contract is not bound by a checked native PDF operation")
 
 
 def require_pdf_database_action(connection, release_id: str, action: str) -> None:

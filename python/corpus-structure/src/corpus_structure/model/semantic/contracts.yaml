@@ -96,39 +96,8 @@ classes:
       records: {range: OperationRecordBinding, multivalued: true, inlined: true}
       batch: {range: boolean}
       json_read: {range: OperationJsonReadRepresentation}
-  PdfIntegratedMetadataPolicy:
-    description: Integration preserves original-page payloads and emits fresh current-graph health; parent assessments remain under their qualified input product.
-    attributes:
-      inherited_metadata_kinds:
-        range: string
-        required: true
-        multivalued: true
-      generated_metadata_kinds:
-        range: string
-        required: true
-        multivalued: true
-      formula_outcome:
-        range: PdfRecognitionOutcome
-        required: true
-      inline_coverage:
-        range: PdfCoverage
-        required: true
-      cell_coverage:
-        range: PdfCoverage
-        required: true
-      allow_scoped_coverage:
-        range: boolean
-        required: true
-  PdfProjectionWriteProfile:
-    description: Native projection-write admission requires a fresh statement snapshot after the build fence.
-    attributes:
-      allowed_isolation:
-        range: PdfProjectionWriteIsolation
-        required: true
-        multivalued: true
-        minimum_cardinality: 1
-      rationale:
-        range: string
+
+
   AnalysisDemand:
     attributes:
       id: {range: string, required: true, slot_uri: execution:AnalysisDemand_id}
@@ -1045,9 +1014,7 @@ enums:
       identity: {}
       task_unit_type: {}
       held_progress: {}
-  PdfProjectionWriteIsolation:
-    permissible_values:
-      read committed: {}
+
   AnalysisSymbolRole:
     permissible_values: {function: {}, variable: {}, constant: {}}
   AnalysisDeclarationAuthority:

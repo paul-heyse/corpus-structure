@@ -5,14 +5,49 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, Protocol
+from collections.abc import Sequence
 
 from corpus_structure.core.db.store import DatabaseOperationFailure, operation_failure
 
 from .refusals import SemanticRefusal
 
 if TYPE_CHECKING:
-    from .contracts import ExecutionModelProducts, NativeDiagnosticBinding
+    from .contracts import ExecutionModelProducts
+
+
+@dataclass(frozen=True)
+class NativeDiagnosticBinding:
+    operation: str
+    kind: Literal["constraint", "guard"]
+    sqlstate: str
+    schema_name: str | None = None
+    table_name: str | None = None
+    constraint_name: str | None = None
+    guard: str | None = None
+    guard_version: str | None = None
+
+
+@dataclass(frozen=True)
+class NativeInvariant:
+    id: str
+    scope: str
+    failure_code: str
+    observable: bool
+    diagnostics: tuple[NativeDiagnosticBinding, ...]
+
+
+class InvariantEvidence(Protocol):
+    @property
+    def id(self) -> str: ...
+    @property
+    def scope(self) -> str: ...
+    @property
+    def failure_code(self) -> str: ...
+    @property
+    def observable(self) -> bool: ...
+    @property
+    def diagnostics(self) -> tuple[NativeDiagnosticBinding, ...]: ...
 
 
 @dataclass(frozen=True)
@@ -106,14 +141,14 @@ def _matches(binding: NativeDiagnosticBinding, invariant: str, native) -> bool:
 
 
 def classify_invariant_failure(
-    model: ExecutionModelProducts,
+    invariants: Sequence[InvariantEvidence],
     operation: str,
     error: BaseException,
     *,
+    model_id: str,
     release_id: str | None = None,
 ) -> InvariantFailure | None:
     """Classify only a promise of this bound model; retain native phase/effect knowledge."""
-    model.require_operation(operation)
     native = operation_failure(error)
     if release_id is not None:
         if native.release_id is not None and native.release_id != release_id:
@@ -123,7 +158,7 @@ def classify_invariant_failure(
         native = replace(native, release_id=release_id)
     matches = [
         invariant
-        for invariant in model.invariants
+        for invariant in invariants
         if invariant.observable
         and any(
             binding.operation == operation and _matches(binding, invariant.id, native)
@@ -134,5 +169,5 @@ def classify_invariant_failure(
         return None
     invariant = matches[0]
     return InvariantFailure(
-        invariant.failure_code, invariant.id, operation, model.model_id, invariant.scope, native
+        invariant.failure_code, invariant.id, operation, model_id, invariant.scope, native
     )

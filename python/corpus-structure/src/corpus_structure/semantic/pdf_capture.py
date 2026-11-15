@@ -98,6 +98,7 @@ def pdf_capture_custody(
 def pdf_capture_operation_sources(
     recipe, assets, *, directory, nemotron_endpoint=None, require_nemotron_handoff=False
 ):
+    from .pdf_domain import pdf_helper_asset
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     if recipe.recipe_id != "docling-standard-pdf-stream-v1":
@@ -130,6 +131,7 @@ def pdf_capture_operation_sources(
             ),
         ),
         boundary_contracts=(
+            pdf_helper_asset(),
             pdf_capture_assets(recipe),
             pdf_capture_custody(
                 recipe,

@@ -463,13 +463,9 @@ def prepare_payload_schema(schema: Mapping[str, Any]) -> PreparedPayloadFamily:
 
 def prepare_payload_family(context=None) -> PreparedPayloadFamily:
     if context is None:
-        from .contracts import trusted_execution_inputs
-        from .pdf_contracts import _boundary
+        from .pdf_contracts import trusted_pdf_context
 
-        # The codec consumes the logical boundary only. Unrelated execution grammar/
-        # transformer compilation is neither its input nor a prerequisite for IPC work.
-        boundary = _boundary(trusted_execution_inputs().schema)
-        return prepare_payload_schema(boundary.json_schema(CLASS_NAME))
+        context = trusted_pdf_context()
     return prepare_payload_schema(context.boundary.json_schema(CLASS_NAME))
 
 

@@ -191,7 +191,6 @@ def test_structural_input_preserves_original_product_custody():
     "change",
     [
         None,
-        "helper_bytes",
         "schema",
         "release",
         "contract",
@@ -225,30 +224,9 @@ def test_record_identity_requires_qualified_producer_archive(monkeypatch, change
         native_contract_digest="b" * 64,
     )
     assert identity["contract_digest"] != context.contract_digest
-    if change == "helper_bytes":
-        context = replace(
-            context,
-            _execution=replace(
-                context.execution,
-                implementation_digests=tuple(
-                    (name, "0" * 64 if name in {"pdf/storage.py", "pdf/integrated.py"} else digest)
-                    for name, digest in context.execution.implementation_digests
-                ),
-            ),
-        )
-    elif change == "abi":
-        context = replace(
-            context,
-            _execution=replace(
-                context.execution,
-                implementations=tuple(
-                    replace(binding, version="unsupported")
-                    if binding.id == "read_pdf_product"
-                    else binding
-                    for binding in context.execution.implementations
-                ),
-            ),
-        )
+    if change == "abi":
+        from semantic.pdf_domain_support import altered_domain
+        context = replace(context, domain=altered_domain(context.domain, read_version="unsupported"))
     elif change == "schema":
         revision["schema_digest"] = "0" * 64
     elif change == "release":

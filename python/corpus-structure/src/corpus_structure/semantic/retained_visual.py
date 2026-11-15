@@ -78,7 +78,7 @@ def _load_visual_source(conn, pin: VisualEvidencePin):
     if source is None or source.unit_type != "document" or source.unit_id is None:
         raise ValueError("visual request requires the exact producing PDF run and task")
     archive = open_release(conn, source.release_id)
-    pdf_context_for_release(conn, archive).execution.require_operation("read_native_source")
+    pdf_context_for_release(conn, archive).require_operation("read_native_source")
     reader = published_record_reader(conn, _reference(pin), projection_context=archive)
     if (
         reader is None

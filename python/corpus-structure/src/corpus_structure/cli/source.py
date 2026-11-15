@@ -340,7 +340,7 @@ def native_products(
         if task is not None or cursor is not None or limit != 100:
             raise ValueError("observation catalog paging requires --observations")
         context = pdf_context_for_run(conn, run)
-        context.execution.require_operation("read_native_source")
+        context.require_operation("read_native_source")
         context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
         products, tasks = map(table, ("ops.pdf_selected_product", "ops.task"))
         from corpus_structure.semantic.pdf_storage import selected_native_ancestry
@@ -462,7 +462,7 @@ def native_views(ctx: typer.Context, run: int, json: JsonOpt = False):
         read_snapshot(engine) as conn,
     ):
         context = pdf_context_for_run(conn, run)
-        context.execution.require_operation("read_source_view")
+        context.require_operation("read_source_view")
         context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
         emit(RootModel(selected_source_views(conn, run)), json=json)
 

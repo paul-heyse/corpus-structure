@@ -70,10 +70,9 @@ classes:
       build_id:
         required: true
       task_id:
+        annotations: {cp:type_source: "physical:ops.task.id"}
         range: PdfRecordInteger
         required: true
-      run_id:
-        range: PdfRecordInteger
       release_id:
         required: true
       source_digest:
@@ -85,6 +84,7 @@ classes:
       replay_key:
         required: true
       attempt:
+        annotations: {cp:type_source: "physical:ops.task.attempt"}
         range: PdfRecordInteger
         required: true
       holder:
@@ -195,15 +195,15 @@ classes:
         range: PdfRecordString
         required: true
       task_id:
-        annotations: {cp:type_source: "physical:ops.pdf_published_revision.task_id"}
+        annotations: {cp:type_source: "physical:ops.task.id"}
         range: PdfRecordInteger
         required: true
       product_key:
-        annotations: {cp:type_source: "physical:ops.pdf_published_revision.product_key"}
+        annotations: {cp:type_source: "physical:ops.pdf_product.product_key"}
         range: PdfRecordString
         required: true
       logical_digest:
-        annotations: {cp:type_source: "physical:ops.pdf_published_revision.logical_digest"}
+        annotations: {cp:type_source: "physical:ops.pdf_product.content_digest"}
         range: PdfRecordString
         required: true
       release_id:

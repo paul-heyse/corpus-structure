@@ -182,6 +182,7 @@ def pdf_transform_custody(
 
 
 def pdf_transform_operation_sources(mode, **profile):
+    from .pdf_domain import pdf_helper_asset
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     custody = pdf_transform_custody(mode, **profile)
@@ -211,7 +212,7 @@ def pdf_transform_operation_sources(mode, **profile):
                 ),
             )
         ),
-        boundary_contracts=(custody,),
+        boundary_contracts=(custody, pdf_helper_asset()),
     )
 
     if mode == "organized":

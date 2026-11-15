@@ -12,8 +12,6 @@ import pytest
 import yaml
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
-from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contracts import trusted_execution_inputs
 from corpus_structure.semantic.operations import BoundReader, OperationConflict
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.pdf_storage import NativeDocumentUnavailable
@@ -33,7 +31,10 @@ def released_context(schema_mode="installed", *, unsupported_read=False):
     from corpus_structure.semantic.pdf_contracts import prepare_pdf_context
     from corpus_structure.semantic.pdf_records import native_schema_bytes
 
-    inputs = trusted_execution_inputs()
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from semantic.pdf_domain_support import altered_domain, dependencies
+
+    domain = trusted_pdf_context().domain
     schema = native_schema_bytes()
     if schema_mode != "installed":
         declaration = json.loads(schema)
@@ -41,24 +42,12 @@ def released_context(schema_mode="installed", *, unsupported_read=False):
             declaration["properties"]["name"]["type"] = "integer"
         schema = json.dumps(declaration, sort_keys=True).encode()
         assert sha256(schema).hexdigest() != sha256(native_schema_bytes()).hexdigest()
-        inputs = replace(
-            inputs,
-            implementations=tuple(
-                SourceArtifact(item.name, schema)
-                if item.name == "pdf/docling-validation.schema.json"
-                else item
-                for item in inputs.implementations
-            ),
-        )
+        domain = altered_domain(domain, sources=tuple(
+            SourceArtifact(item.name, schema) if item.name == "pdf-domain/implementation/pdf/docling-validation.schema.json" else item
+            for item in domain.sources
+        ))
     if unsupported_read:
-        catalog = yaml.safe_load(inputs.catalog.content)
-        binding = next(
-            item for item in catalog["implementations"] if item["id"] == "read_pdf_product"
-        )
-        binding["version"] = "not-qualified"
-        inputs = replace(
-            inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog).encode())
-        )
+        domain = altered_domain(domain, read_version="not-qualified")
     bundle = SourceBundle(
         "candidate",
         (
@@ -80,11 +69,10 @@ classes:
     )
     prepared = prepare_release(
         bundle,
-        composed_dependencies(ResolvedDependencies(), inputs),
+        dependencies(domain),
         PreparationProfile(version="semantic-2"),
     )
-    staging = next(item for item in inputs.implementations if item.name == "pdf/staging-model.yaml")
-    return prepared, prepare_pdf_context(prepared, inputs.schema, staging), schema
+    return prepared, prepare_pdf_context(prepared, domain), schema
 
 
 class Result:
@@ -245,9 +233,9 @@ def test_exact_claimed_input_captures_ipc_without_selected_views_or_native_hydra
     source = reader.capture_pdf_candidates(pin, tmp_path / "capture")
     assert source.encoded(7) == encoded
     assert source.replays[7].path.read_bytes() == encoded.content
-    context.execution.require_operation("read_pdf_product")
-    with pytest.raises(PreparationError):
-        context.execution.operation("publish_native_document")
+    context.require_operation("read_pdf_product")
+    with pytest.raises(ValueError, match="absent from archived PDF contract"):
+        context.require_operation("publish_native_document")
     assert not any(
         "native_document_" in query or "pdf_selected_product" in query for query in queries
     )
@@ -321,7 +309,7 @@ def test_capture_qualifies_retained_mapping_and_consumer_read_profile(
 
 
 def test_unsupported_consumer_read_profile_refuses_preparation_before_capture(tmp_path):
-    with pytest.raises(PreparationError, match="read_pdf_product: required effects differ"):
+    with pytest.raises(ValueError, match="read ABI is unsupported"):
         released_context(unsupported_read=True)
     assert not (tmp_path / "capture").exists()
 

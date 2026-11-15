@@ -24,11 +24,7 @@ BEGIN
  AND EXISTS(SELECT FROM jsonb_array_elements(expected_) declared
  WHERE declared->>'name'=i.input_name AND declared->>'sha256'=i.content_digest)
  AND encode(sha256(i.content),'hex')=i.content_digest;
- ELSE
- SELECT content INTO STRICT content_ FROM sem.input WHERE release_id=p_release
- AND input_kind='dependency' AND input_name='execution/'||p_name
- AND encode(sha256(content),'hex')=content_digest;
- END IF;
+ ELSE RAISE EXCEPTION 'current PDF domain contract is required' USING ERRCODE='23514'; END IF;
  RETURN content_;
 END $pdf$;
 REVOKE ALL ON FUNCTION ops.pdf_contract_input(text,text) FROM PUBLIC;
@@ -38,13 +34,17 @@ DECLARE facet jsonb;
 BEGIN
  SELECT convert_from(content,'UTF8')::jsonb INTO facet FROM sem.input
  WHERE release_id=p_release AND input_kind='dependency' AND input_name='PDF_CONTRACT';
- IF NOT FOUND THEN PERFORM sem.require_execution_operation(p_release,p_operation); RETURN; END IF;
+ IF NOT FOUND THEN RAISE EXCEPTION 'current PDF domain contract is required' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=p_release AND input_kind='dependency'
  AND input_name='PDF_CONTRACT' AND content_digest='PDF_DIGEST'
  AND encode(sha256(content),'hex')='PDF_DIGEST') OR
  NOT EXISTS(SELECT FROM sem.release_finalization WHERE release_id=p_release) OR
- NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=p_release
- AND support_contract->'capabilities'->>'preparation'='pdf-native') OR
+ NOT EXISTS(SELECT FROM sem.artifact archive CROSS JOIN LATERAL jsonb_array_elements(convert_from(archive.content,'UTF8')::jsonb->'operations') operation
+ JOIN sem.data_operation_definition definition ON definition.release_id=archive.release_id AND definition.operation_id=operation->>'semantic_id'
+ WHERE archive.release_id=p_release AND archive.artifact_name='data_operations.json'
+ AND operation->'capabilities'->>'preparation'='pdf-native'
+ AND EXISTS(SELECT FROM jsonb_array_elements(operation->'assets') asset WHERE asset->>'reference'='PDF_CONTRACT'
+ AND asset->>'contract'='pdf-native/helper-bindings' AND asset->>'role'='native-pdf-helper-bindings' AND asset->>'content_digest'='PDF_DIGEST')) OR
  facet->'actions'->p_operation->'contract'->>'id' IS DISTINCT FROM p_operation THEN
  RAISE EXCEPTION 'PDF action/capability correspondence differs' USING ERRCODE='23514'; END IF;
  PERFORM ops.pdf_contract_input(p_release,'schema/pdf_products');

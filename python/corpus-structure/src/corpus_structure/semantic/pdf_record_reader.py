@@ -606,13 +606,13 @@ class PublishedPdfReader:
         index; at most 256 decoded reports remain cached. No native JSONB conversion
         is used for opaque values or arbitrary strings.
         """
-        from .contracts import bound_execution_model
+        from .pdf_contracts import pdf_context_for_release
 
         allowed = {"cell_reports", "derivation_mappings", "inline_alignment_reports"}
         if not set(kinds) <= allowed:
             raise ValueError("unknown selected native diagnostic family")
         with self._projection_scope() as pin:
-            bound_execution_model(pin["projection_context"]).require_operation("read_native_source")
+            pdf_context_for_release(self.conn, pin["projection_context"]).require_operation("read_native_source")
             if not pointers:
                 return []
             selected = set(pointers)

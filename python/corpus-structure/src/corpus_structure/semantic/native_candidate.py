@@ -15,6 +15,7 @@ from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from .data_operation_protocol import render_data_task_guard
 from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin

@@ -83,6 +83,8 @@ class PdfCaptureOperation:
             },
         ],
         "assets": [
+            {"reference": "pdf-domain/contract.json", "contract": "pdf-native/helper-bindings",
+             "role": "native-pdf-helper-bindings"},
             {
                 "reference": "frozen-native-pdf-recipe",
                 "contract": "pdf-capture/profile-assets",

@@ -221,9 +221,7 @@ def test_visual_artifact_delivers_only_the_selected_observation_image_or_raw(mon
     incumbent = [{"pointer": "#/pictures/0", "label": "picture", "text": "incumbent"}]
     monkeypatch.setattr(pdf_visual_evidence, "_page_incumbent", Mock(return_value=incumbent))
     context = Mock(contract_digest="contract")
-    context.execution.lifecycle.return_value.states = [
-        SimpleNamespace(terminal=True, values=[SimpleNamespace(dimension="status", value="done")])
-    ]
+    context.terminal_task_states = frozenset({"done"})
     monkeypatch.setattr(releases, "open_release", lambda *args: "archive")
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_release", lambda *args: context)
     monkeypatch.setattr(pdf_record_reader, "published_record_reader", Mock())

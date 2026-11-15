@@ -29,6 +29,12 @@ def domain():
     return PdfDomainContract(contract.content, tuple(sources))
 
 
+@pytest.fixture(scope="module")
+def model(domain):
+    from semantic.pdf_domain_support import bound_model
+    return bound_model(domain)
+
+
 def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execution(domain):
     action = domain.require_operation("retain_pdf_original")
     assert action["implementation"]["owner"] == "semantic.pdf_contracts"
@@ -38,14 +44,9 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
         domain.require_operation("archive")
     assert all(not source.name.startswith("execution/") for source in domain.sources)
     context = PreparedPdfContext(
-        "release:pdf",
-        _boundary(domain.schema),
-        None,
+        "release:pdf", _boundary(domain.schema), domain,
         domain.source("schema/pdf_products").digest,
-        SourceArtifact(
-            "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
-        ),
-        domain,
+        SourceArtifact("pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content),
     )
     assert (
         context.native_schema_digest
@@ -57,11 +58,11 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
     assert isinstance(action, dict)
     assert action["contract"]["id"] == "prepare_native_document"
     assert "PdfNativeEnvelope" in context.boundary.index.definitions
-    with pytest.raises(ValueError, match="no legacy execution model"):
-        _ = context.execution
+    assert not hasattr(context, "execution")
+    assert context.terminal_task_states == {"done", "empty", "failed", "cancelled"}
 
 
-def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain):
+def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain, model):
     from corpus_structure.semantic._operation_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
 
     dependencies = ResolvedDependencies(
@@ -70,7 +71,9 @@ def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain):
             *domain.sources,
         )
     )
-    artifacts = pdf_domain_artifacts(dependencies)
+    with pytest.raises(ValueError, match="not bound by a checked native PDF operation"):
+        pdf_domain_artifacts(dependencies)
+    artifacts = pdf_domain_artifacts(dependencies, model=model)
     prepared = prepare_release(source_bundle(), ResolvedDependencies(), PreparationProfile())
     prepared = replace(prepared, artifacts=(*prepared.artifacts, *artifacts))
     assert prepared.execution_model_id is None
@@ -94,11 +97,13 @@ def test_pdf_domain_native_checks_exact_frozen_facet_and_declared_action(domain)
     assert len(prepare_sql(sql, source="PDF domain").statements) == 5
     assert sha256(domain.content).hexdigest() in sql
     assert "facet->'actions'->p_operation->'contract'->>'id'" in sql
-    assert "sem.require_execution_operation(p_release,p_operation)" in sql
+    assert "sem.require_execution_operation" not in sql
+    assert "current PDF domain contract is required" in sql
+    assert "native-pdf-helper-bindings" in sql
     assert "pdf-domain/schema/pdf_products" not in sql  # One input prefix projection.
 
 
-def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(domain):
+def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(domain, model):
     from corpus_structure.semantic._operation_calls import (
         READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST,
         READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST,
@@ -118,7 +123,7 @@ def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(dom
         (SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources)
     )
     prepared = replace(
-        boundary, artifacts=(*boundary.artifacts, *pdf_domain_artifacts(dependencies))
+        boundary, artifacts=(*boundary.artifacts, *pdf_domain_artifacts(dependencies, model=model))
     )
     for variant, digest in (
         ("read_published_sections", READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST),
