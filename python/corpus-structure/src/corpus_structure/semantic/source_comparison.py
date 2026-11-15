@@ -141,20 +141,23 @@ def compare_data_operation_models(
                 reason="Effective operation added or removed.",
             )
             continue
-        contract = lambda operation: {
-            "profile": operation.profile,
-            "callables": [
-                dict(
-                    parameters=asdict(surface)["parameters"],
-                    returns=surface.returns,
-                    overloads=[json.loads(item) for item in surface.overloads],
-                )
-                for surface in operation.callable_surfaces
-            ],
-            "roles": [asdict(role) for role in operation.roles],
-            "outcomes": operation.outcomes,
-            "parameters": json.loads(operation.parameters),
-        }
+
+        def contract(operation):
+            return {
+                "profile": operation.profile,
+                "callables": [
+                    dict(
+                        parameters=asdict(surface)["parameters"],
+                        returns=surface.returns,
+                        overloads=[json.loads(item) for item in surface.overloads],
+                    )
+                    for surface in operation.callable_surfaces
+                ],
+                "roles": [asdict(role) for role in operation.roles],
+                "outcomes": operation.outcomes,
+                "parameters": json.loads(operation.parameters),
+            }
+
         append(
             owner,
             "contract",
@@ -162,11 +165,14 @@ def compare_data_operation_models(
             contract(proposed),
             reason="Callable or declared input/output contract changed.",
         )
-        domain = lambda operation: {
-            name: value
-            for name, value in asdict(operation).items()
-            if name not in {"origins", "callable_surfaces", "implementation_root"}
-        }
+
+        def domain(operation):
+            return {
+                name: value
+                for name, value in asdict(operation).items()
+                if name not in {"origins", "callable_surfaces", "implementation_root"}
+            }
+
         append(
             owner,
             "domain",
@@ -212,7 +218,7 @@ def compare_data_operation_models(
                         kind=item.kind.value,
                         old_value=None if item.old_value is None else str(item.old_value),
                         new_value=None if item.new_value is None else str(item.new_value),
-                        details=item.explain(),
+                        details=item.details,
                     )
                 )
         except (ValueError, KeyError, TypeError, griffe.AliasResolutionError) as error:
@@ -247,19 +253,22 @@ def compare_data_operation_models(
         old_docs = {item.operation: item for item in old_interfaces.operations}
         new_docs = {item.operation: item for item in new_interfaces.operations}
         for owner in sorted(old_docs.keys() | new_docs.keys()):
-            documentation = lambda item: (
-                None
-                if item is None
-                else [
-                    dict(
-                        exposed=surface.exposed,
-                        declaration=surface.declaration,
-                        documentation=surface.documentation,
-                        sections=surface.sections,
-                    )
-                    for surface in item.callables
-                ]
-            )
+
+            def documentation(item):
+                return (
+                    None
+                    if item is None
+                    else [
+                        dict(
+                            exposed=surface.exposed,
+                            declaration=surface.declaration,
+                            documentation=surface.documentation,
+                            sections=surface.sections,
+                        )
+                        for surface in item.callables
+                    ]
+                )
+
             append(
                 owner,
                 "documentation",
@@ -273,9 +282,10 @@ def compare_data_operation_models(
     if before_runtime is None or after_runtime is None:
         unknowns.append("Runtime custody comparison requires both explicit runtime bindings.")
     else:
-        runtime_id = lambda runtime: (
-            runtime.runtime_id if hasattr(runtime, "runtime_id") else runtime
-        )
+
+        def runtime_id(runtime):
+            return runtime.runtime_id if hasattr(runtime, "runtime_id") else runtime
+
         append(
             "runtime",
             "runtime",

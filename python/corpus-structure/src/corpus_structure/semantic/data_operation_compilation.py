@@ -1162,6 +1162,11 @@ def compile_data_operations(
                     )
                 if source_set is not None:
                     source_set = _text(source_set, semantic_id + "/source_set")
+                    if (
+                        source_reference_field is None
+                        and record.get("subject_target") != "source-set"
+                    ):
+                        _fail(semantic_id, "source sets require an explicit owned reference field")
                 if source_reference_field is not None:
                     source_reference_field = _text(
                         source_reference_field, semantic_id + "/source_reference_field"

@@ -98,6 +98,13 @@ def _plain(value: Any) -> JsonValue:
     raise TypeError("unsupported structured documentation value " + type(value).__name__)
 
 
+def _record(value: Any) -> dict[str, JsonValue]:
+    result = _plain(value)
+    if not isinstance(result, dict):
+        raise TypeError("structured source fact must be a JSON object")
+    return result
+
+
 def export_source_interfaces(frontend, facts) -> SourceInterfaceProjection:
     """Consume the already resolved/enriched frontend, never create another visitor."""
     modules = tuple(
@@ -125,7 +132,7 @@ def export_source_interfaces(frontend, facts) -> SourceInterfaceProjection:
                 try:
                     # Final signature/parent enrichment has already completed.
                     sections = tuple(
-                        _plain(section.as_dict()) for section in obj.docstring.parse("google")
+                        _record(section.as_dict()) for section in obj.docstring.parse("google")
                     )
                 except (ValueError, TypeError) as error:
                     unknowns.append(surface.declaration + ": documentation: " + str(error))
@@ -140,7 +147,7 @@ def export_source_interfaces(frontend, facts) -> SourceInterfaceProjection:
                     source_digest=module.source_digest,
                     line=obj.lineno,
                     end_line=obj.endlineno,
-                    signature=_plain(signature),
+                    signature=_record(signature),
                     documentation=documentation,
                     sections=sections,
                     origin="modeled" if surface.declaration in frontend.generated else "extracted",
