@@ -86,6 +86,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.source_views import store_source_view
@@ -434,6 +435,11 @@ class RecordPreparation:
     prepared: PreparedRelease
 
     @property
+    def model(self):
+        from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+        return compile_data_operations(self.bundle)
+
+    @property
     def preparation_inputs(self):
         return self.bundle, self.dependencies, self.profile
 
@@ -444,6 +450,11 @@ class RecordReleaseSource:
     realization: str
     prepared: PreparedRelease
     preparation_inputs: tuple
+
+    @property
+    def model(self):
+        from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+        return compile_data_operations(self.preparation_inputs[0])
 
 
 @dataclass(frozen=True)
@@ -1084,7 +1095,7 @@ def candidate(case, cell=0, *, projected=False, coarse=False):
 
 
 def identities(case, record):
-    record["record_id"] = record_identity(case.prepared.release_id, record)
+    record["record_id"] = record_identity(record_family_contract(case.model, record["contract"]), record)
     record["interpretation_id"] = interpretation_identity(record)
     return record
 

@@ -22,7 +22,7 @@ from corpus_structure.methods.m1_source import (
 )
 
 from .data_operation_json import json_bytes
-from .data_operation_model import BoundRoleMember, ResolvedRoleBinding
+from .data_operation_model import BoundRoleMember, ResolvedRoleBinding, EffectiveDataOperationModel
 from .declared_contexts import DeclaredContextPopulation
 from .declared_record_sources import DeclaredNativeFrameSource
 from .identity import canonical_bytes
@@ -175,6 +175,7 @@ class NativeCandidateData:
 @dataclass(frozen=True)
 class PreparedM1Inputs:
     prepared: PreparedRelease
+    model: EffectiveDataOperationModel
     configuration: M1Config
     primary_member: BoundRoleMember
     annotation_member: BoundRoleMember
@@ -237,6 +238,7 @@ class PreparedM1Inputs:
         return (
             yield from plan_candidate_replies(
                 prepared=self.prepared,
+                model=self.model,
                 view=data,
                 prepared_source=prepared_source,
                 annotation_result=annotation_info,
@@ -268,8 +270,11 @@ def execute_m1_kernel(
     """Original child entrypoint; one prepared capsule, one generator, no DB/provider."""
     from corpus_structure.methods.m1_declared import M1SourceCandidatesOperation
 
+    from .data_operation_admission import bound_data_operation_model
+
     profile = PreparedM1Inputs(
         prepared,
+        bound_data_operation_model(prepared),
         M1Config.model_validate_json(configuration),
         primary_member,
         annotation_member,

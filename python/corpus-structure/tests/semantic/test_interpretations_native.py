@@ -511,6 +511,7 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
         evidence_set_identity,
         interpretation_identity,
         record_identity,
+    record_family_contract,
     )
 
     later_record = candidate(case, 1)
@@ -533,7 +534,7 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     later_record["occurrence_anchors"] = tuple(
         anchor_ids[a] for a in later_record["occurrence_anchors"]
     )
-    later_record["record_id"] = record_identity(case.prepared.release_id, later_record)
+    later_record["record_id"] = record_identity(record_family_contract(case.model, later_record["contract"]), later_record)
     later_record["interpretation_id"] = interpretation_identity(later_record)
     later = _publish_historical_authored_fixture(
         case,

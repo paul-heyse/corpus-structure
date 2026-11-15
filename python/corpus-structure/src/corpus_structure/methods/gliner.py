@@ -146,7 +146,7 @@ class GlinerProfile:
     max_metadata_bytes: Annotated[int, "ddo:execution"] = 8192
     max_request_frame_bytes: Annotated[int, "ddo:execution"] = 131072
     max_reply_frame_bytes: Annotated[int, "ddo:execution"] = 1048576
-    timeout_seconds: Annotated[float, "ddo:execution"] = 120
+    timeout_seconds: Annotated[float, "ddo:execution"] = 120.0
     version: Annotated[str, "ddo:semantic"] = CUDA_WHITESPACE_PROFILE
 
     def __post_init__(self) -> None:

@@ -189,6 +189,7 @@ def bind_result(
     result: UnitResult,
     method_confidence_source: str | None = None,
     coverage: Sequence[Mapping[str, str]] = (),
+    model=None,
     records: Sequence[Mapping[str, Any]] | None = None,
     record_coordinate_texts: Sequence[Mapping[str, Any]] = (),
     contribution_coordinate_texts: Sequence[Mapping[str, Any]] = (),
@@ -317,12 +318,15 @@ def bind_result(
     if records is not None:
         from .record_contracts import bind_record_candidates
 
+        if model is None:
+            raise ValueError("record candidates require their actual checked operation model")
         if records and result.outcome.value != "produced":
             raise ValueError("record candidates require a produced source report")
         payload["records"] = tuple(
             record.model_dump(mode="python")
             for record in bind_record_candidates(
                 prepared,
+                model=model,
                 source=source,
                 records=records,
                 coordinate_texts=record_coordinate_texts,

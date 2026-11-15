@@ -1,5 +1,7 @@
 """Real preparation/assembly with controlled decoder readings; no GLiNER provider claim."""
 
+from methods.record_assembly_support import model as record_model
+
 import json
 from hashlib import sha256
 from types import SimpleNamespace
@@ -618,6 +620,7 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     product = candidate_fixture_product(
         dict(
             prepared=prepared,
+            model=record_model(),
             view=source,
             prepared_source=frozen_inputs,
             annotation_result=annotation_result,
@@ -659,7 +662,7 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
         },
         cfg=cfg,
         check_active=lambda: None,
-    )
+     model=record_model())
     request = next(plan)
     assert isinstance(request, m1_source.M1GlinerRequest)
     assert request.profile == cfg.profile()
@@ -701,7 +704,7 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
         },
         cfg=cfg,
         check_active=lambda: None,
-    )
+     model=record_model())
     request = next(plan)
     questions = 0
     while True:

@@ -40,6 +40,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.types import PreparedRelease
@@ -253,7 +254,7 @@ def expected_reading(case, logical_source):
         evidence_sets=tuple(sets),
         fields=fields,
     )
-    row["record_id"] = record_identity(case.prepared.release_id, row)
+    row["record_id"] = record_identity(record_family_contract(case.model, row["contract"]), row)
     row["interpretation_id"] = interpretation_identity(row)
     scopes = tuple(
         {

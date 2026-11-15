@@ -1,5 +1,7 @@
 """Assertion qualification from retained source columns with a controlled decoder."""
 
+from methods.record_assembly_support import model as record_model
+
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -238,7 +240,7 @@ def test_unavailable_or_unmappable_retained_cues_stay_unresolved(tmp_path, case)
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         supplements={0: supplement} if supplement else {},
-    )
+     model=record_model())
     (record,) = (record.model_dump(mode="python") for record in result.records)
     assert evidence(record, "predicate") == [("#/texts/1", 16, 21, "drain")]
     assert_classification(record, "polarity", None)
@@ -269,7 +271,7 @@ def test_literal_assertion_pack_refuses_decoder_classification(tmp_path):
             contract="AssertionRecordFields",
             anchor_role="predicate",
             policy_version="test",
-        )
+         model=record_model())
 
 
 def test_qualification_reads_primary_predication_without_recognition(tmp_path, monkeypatch):

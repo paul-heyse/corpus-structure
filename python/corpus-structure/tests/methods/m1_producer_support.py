@@ -33,28 +33,20 @@ def detail_objects(value: JsonValue) -> tuple[dict[str, JsonValue], ...]:
 
 
 @cache
+def bundle():
+    model = ROOT / 'python/corpus-structure/src/corpus_structure/model/semantic'
+    return characterization_inputs(observation_inputs(SourceBundle('statistics_semantic', (SourceArtifact('statistics_semantic', (ROOT / 'domains/statistics/semantic.yaml').read_bytes()), SourceArtifact('semantic_core', (model / 'core.yaml').read_bytes()), SourceArtifact('statistics_terminology', (ROOT / 'domains/statistics/terminology.yaml').read_bytes())))))
+
+
+@cache
 def release():
-    model = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
-    return prepare_release(
-        characterization_inputs(
-            observation_inputs(
-                SourceBundle(
-                    "statistics_semantic",
-                    (
-                        SourceArtifact(
-                            "statistics_semantic",
-                            (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                        ),
-                        SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
-                        SourceArtifact(
-                            "statistics_terminology",
-                            (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                        ),
-                    ),
-                )
-            )
-        )
-    )
+    return prepare_release(bundle())
+
+
+@cache
+def model():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    return compile_data_operations(bundle())
 
 
 def view(text="Mean is average.", *, heading=None):
@@ -261,6 +253,7 @@ def candidate_fixture_inputs(reader, source, cfg, *, check_active=lambda: None):
     )
     return dict(
         prepared=reader.prepared,
+        model=model(),
         view=source,
         prepared_source=prepared_source,
         annotation_result=annotation_info,

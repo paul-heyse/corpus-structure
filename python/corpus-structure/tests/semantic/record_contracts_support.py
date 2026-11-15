@@ -16,6 +16,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -54,6 +55,12 @@ def release_inputs():
     )
     profile = PreparationProfile()
     return bundle, profile, prepare_release(bundle, profile=profile)
+
+
+@cache
+def model():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    return compile_data_operations(release_inputs()[0])
 
 
 def anchor(pointer, text=None, start=None, end=None, *, space="native", precision="exact"):
@@ -97,7 +104,7 @@ def field(
 
 
 def finish(record):
-    record["record_id"] = record_identity(release_inputs()[2].release_id, record)
+    record["record_id"] = record_identity(record_family_contract(model(), record["contract"]), record)
     record["interpretation_id"] = interpretation_identity(record)
     return record
 
@@ -203,6 +210,7 @@ def table_record():
 def bind(record, contexts=(), release=None):
     return bind_record_candidates(
         release or release_inputs()[2],
+        model=model(),
         source=PIN["source"],
         records=(record,),
         coordinate_texts=contexts,

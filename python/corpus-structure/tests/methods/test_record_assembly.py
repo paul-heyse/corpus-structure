@@ -1,5 +1,7 @@
 """Independent source readings for private composition; no accuracy/publication claim."""
 
+from methods.record_assembly_support import model as record_model
+
 import json
 from dataclasses import replace
 
@@ -125,7 +127,7 @@ def test_native_table_adapter_reads_actual_structure_and_declared_inheritance():
         occurrence_roles=("cell",),
         policy_version="reading-1",
         groups=groups,
-    )
+     model=record_model())
     assert len(result.records) == 2
     zero, blank = map(fields, result.records)
     assert zero["cell_value"]["original"] == "0"
@@ -214,7 +216,7 @@ def test_rich_header_keeps_child_literal_addresses_and_parent_cell_occurrence():
         policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
         groups=rich_header_groups(ctx),
-    )
+     model=record_model())
     (record,) = result.records
     row = record.model_dump()
     header = fields(record)["header_path"]
@@ -282,7 +284,7 @@ def test_unmarked_row_label_can_use_actual_raw_quote_but_present_header_wins():
         policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
         supplements={0: rich_header_groups(ctx, row_path=())[0]},
-    )
+     model=record_model())
     (valued,) = result.records
     assert fields(valued)["row_label"]["original"] == "A"
     assert "alternatives" not in fields(valued)["row_label"]
@@ -298,7 +300,7 @@ def test_unmarked_row_label_can_use_actual_raw_quote_but_present_header_wins():
         policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
         groups=rich_header_groups(ctx, row_path=()),
-    )
+     model=record_model())
     assert native.records[0].model_dump()["record_id"] == valued.model_dump()["record_id"]
     assert (
         native.records[0].model_dump()["interpretation_id"]
@@ -318,7 +320,7 @@ def test_missing_native_row_path_preserves_location_and_unknown_label_without_ab
         policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
         groups=groups,
-    )
+     model=record_model())
     (record,) = result.records
     label = fields(record)["row_label"]
     assert label["state"] == "unresolved" and label["meaning_changing"]
@@ -349,7 +351,7 @@ def test_row_label_unstated_requires_actual_inspection_not_missing_native_flag()
         policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
         supplements={0: rich_header_groups(ctx, row_path=())[0]},
-    )
+     model=record_model())
     (record,) = result.records
     label = fields(record)["row_label"]
     assert label["state"] == "unstated" and label["meaning_changing"]
@@ -392,7 +394,7 @@ def test_native_formula_adapter_uses_existing_occurrence_and_separate_declaratio
         occurrence_roles=("formula", "symbol"),
         policy_version="reading-1",
         groups=(group,),
-    )
+     model=record_model())
     assert len(result.records) == 1
     assert fields(result.records[0])["formula"]["original"] == "x=1"
     assert fields(result.records[0])["meaning"]["original"] == "mean"
@@ -406,7 +408,7 @@ def test_native_formula_adapter_uses_existing_occurrence_and_separate_declaratio
         occurrence_roles=("formula",),
         policy_version="reading-1",
         groups=(unsupported,),
-    )
+     model=record_model())
     assert not result.records
     assert result.native_groups == (unsupported,)
     assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
@@ -458,7 +460,7 @@ def test_definition_native_scope_and_missing_roles_remain_unresolved():
                 (RoleInput("scope", native_pointer="#/groups/1"),), "source declaration scope"
             )
         },
-    )
+     model=record_model())
     assert len(result.records) == 1
     row = result.records[0].model_dump(mode="python")
     assert row["standing"] == "candidate"
@@ -514,7 +516,7 @@ def test_assertion_preserves_modal_condition_and_independent_classification_cue(
                 "explicit local modality attachment",
             )
         },
-    )
+     model=record_model())
     actual = fields(result.records[0])
     assert actual["condition"]["original"] == "below pressure"
     assert actual["modality"]["value"] == {"kind": "assertion_modality", "label": "possible"}
@@ -601,7 +603,7 @@ def test_measurement_repeated_values_exact_decimals_and_inspected_absence():
         occurrence_roles=("original_value",),
         policy_version="reading-1",
         groups=groups,
-    )
+     model=record_model())
     assert len(result.records) == 4
     assert (
         result.records[0].model_dump()["record_id"] != result.records[1].model_dump()["record_id"]
@@ -697,7 +699,7 @@ def test_native_table_full_header_note_shared_and_blank_is_neither_zero_nor_miss
                 "explicit native blank",
             ),
         ),
-    )
+     model=record_model())
     assert len(result.records) == 2
     first, blank = map(fields, result.records)
     assert first["header_path"]["original_pieces"] == ("Population", "mean")
@@ -738,7 +740,7 @@ def test_formula_scope_and_declaration_positions_distinguish_equal_symbol_spelli
                 ("declaration:second",),
             ),
         ),
-    )
+     model=record_model())
     assert len(result.records) == 2
     assert (
         result.records[0].model_dump()["record_id"] != result.records[1].model_dump()["record_id"]
@@ -766,7 +768,7 @@ def test_window_reconciliation_retains_dependencies_and_different_qualifications
         contract="DefinitionRecordFields",
         anchor_role="term",
         policy_version="reading-1",
-    )
+     model=record_model())
     right = assemble_records(
         release(),
         ctx,
@@ -775,8 +777,8 @@ def test_window_reconciliation_retains_dependencies_and_different_qualifications
         contract="DefinitionRecordFields",
         anchor_role="term",
         policy_version="reading-1",
-    )
-    merged = reconcile_record_candidates(release(), (left, right))
+     model=record_model())
+    merged = reconcile_record_candidates(release(), (left, right), model=record_model())
     assert len(merged) == 1
     dependencies = merged[0].model_dump()["computation_dependencies"]
     assert "computation:compute:fixture" in dependencies
@@ -795,8 +797,8 @@ def test_window_reconciliation_retains_dependencies_and_different_qualifications
                 "independently supplied alias alternative",
             )
         },
-    )
-    alternatives = reconcile_record_candidates(release(), (left, right, changed))
+     model=record_model())
+    alternatives = reconcile_record_candidates(release(), (left, right, changed), model=record_model())
     assert len(alternatives) == 2
     assert len({record.model_dump()["record_id"] for record in alternatives}) == 1
 
@@ -819,7 +821,7 @@ def test_invalid_classification_cue_and_decimal_preserve_partial_candidate():
                 "invalid classified/numeric alternatives retained in structural dependencies",
             ),
         ),
-    )
+     model=record_model())
     assert len(result.records) == 1
     actual = fields(result.records[0])
     assert actual["original_value"]["state"] == actual["value_role"]["state"] == "unresolved"
@@ -862,7 +864,7 @@ def test_missing_native_cell_is_unlocated_and_dash_remains_literal():
                 (RoleInput("cell", native_pointer="#/tables/0/data/table_cells/1"),), "missing cell"
             ),
         ),
-    )
+     model=record_model())
     assert len(result.records) == 1
     assert fields(result.records[0])["cell_value"]["value"] == {"kind": "text", "text": "-"}
     assert any(
@@ -890,7 +892,7 @@ def test_discontinuous_literal_retains_exact_pieces_and_nested_evidence():
                 "independent discontinuous reading",
             ),
         ),
-    )
+     model=record_model())
     actual = fields(result.records[0])
     assert actual["defining_text"]["value"] == {
         "kind": "text_sequence",
@@ -911,7 +913,7 @@ def test_report_pack_release_context_and_unlocated_occurrence_controls():
         contract="DefinitionRecordFields",
         anchor_role="term",
         policy_version="reading-1",
-    )
+     model=record_model())
     assert not result.records and result.raw_report is raw
     assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
     (located,) = result.unattached_roles
@@ -932,7 +934,7 @@ def test_report_pack_release_context_and_unlocated_occurrence_controls():
                 contract="DefinitionRecordFields",
                 anchor_role="term",
                 policy_version="reading-1",
-            )
+             model=record_model())
 
 
 def test_synthetic_crossing_and_nonpresent_without_inspection_remain_unresolved():
@@ -961,7 +963,7 @@ def test_synthetic_crossing_and_nonpresent_without_inspection_remain_unresolved(
                 "unsupported crossing",
             ),
         ),
-    )
+     model=record_model())
     actual = fields(result.records[0])
     assert actual["defining_text"]["state"] == actual["alias"]["state"] == "unresolved"
     assert any("synthetic" in item.reason for item in result.diagnostics)
@@ -992,7 +994,7 @@ def test_related_source_mapping_retains_independent_pin_and_primary_occurrence()
                 "related declaration",
             ),
         ),
-    )
+     model=record_model())
     assert fields(result.records[0])["defining_text"]["state"] == "present"
     row = result.records[0].model_dump()
     anchors = {anchor["anchor_id"]: anchor for anchor in row["anchors"]}
@@ -1025,7 +1027,7 @@ def test_exact_duplicate_native_groups_are_not_independent_votes():
         contract="DefinitionRecordFields",
         anchor_role="term",
         policy_version="reading-1",
-    )
+     model=record_model())
     assert len(result.records) == 2
     assert (
         result.records[0].model_dump()["record_id"] != result.records[1].model_dump()["record_id"]

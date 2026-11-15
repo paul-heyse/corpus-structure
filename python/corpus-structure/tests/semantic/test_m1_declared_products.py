@@ -228,7 +228,7 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
                 (RoleInput("term", spans=(LiteralSpan(2, 7, "valve"),)),), "explicit term"
             ),
         ),
-    )
+     model=model)
     records = tuple(record.model_dump(mode="python") for record in assembly.records)
     assert len(records) == 1
     product = M1CandidateProduct(ObservationOutcome.PRODUCED, records=records, contributions=())

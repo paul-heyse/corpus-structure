@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import (
     DeclaredRecordSource,
@@ -206,7 +207,9 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
             SourceArtifact("semantic_core", (root / "core.yaml").read_bytes()),
         ),
     )
-    prepared = prepare_release(declared_record_inputs(source_product_inputs(bundle)))
+    bundle = declared_record_inputs(source_product_inputs(bundle))
+    prepared = prepare_release(bundle)
+    model = compile_data_operations(bundle)
     text = "A valve opens."
     native = FrozenNativeSource.from_projection(
         prepared,
@@ -258,7 +261,7 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
                 (RoleInput("term", spans=(LiteralSpan(2, 7, "valve"),)),), "explicit term"
             ),
         ),
-    )
+     model=model)
     assert len(result.records) == 1
     record = result.records[0].model_dump(mode="python")
     assert {anchor["pin"]["source_product"] for anchor in record["anchors"]} == {

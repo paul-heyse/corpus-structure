@@ -24,6 +24,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -359,6 +360,7 @@ def _assemble(
     prepared: PreparedRelease,
     context: NativeSourceContext,
     *,
+    model,
     contract: str,
     occurrence_roles: tuple[str, ...],
     policy_version: str,
@@ -839,7 +841,7 @@ def _assemble(
             evidence_sets=tuple(evidence_sets.values()),
             computation_dependencies=tuple(sorted(branch_dependencies)),
         )
-        row["record_id"] = record_identity(prepared.release_id, row)
+        row["record_id"] = record_identity(record_family_contract(model, contract), row)
         row["interpretation_id"] = interpretation_identity(row)
         records.append(row)
         all_dependencies.update(branch_dependencies)
@@ -859,6 +861,7 @@ def _assemble(
     unique = {(row["record_id"], row["interpretation_id"]): row for row in records}
     bound = bind_record_candidates(
         prepared,
+        model=model,
         source=context.primary.unit_ref,
         records=tuple(unique.values()),
         coordinate_texts=tuple(coordinates.values()),
@@ -880,6 +883,7 @@ def assemble_records(
     pack: GlinerPack,
     report: GlinerReport,
     *,
+    model,
     contract: str,
     anchor_role: str,
     policy_version: str,
@@ -987,6 +991,7 @@ def assemble_records(
     return _assemble(
         prepared,
         context,
+        model=model,
         contract=contract,
         occurrence_roles=occurrence_roles or (anchor_role,),
         policy_version=policy_version,
@@ -1002,6 +1007,7 @@ def assemble_native_records(
     prepared: PreparedRelease,
     context: NativeSourceContext,
     *,
+    model,
     contract: str,
     occurrence_roles: tuple[str, ...],
     policy_version: str,
@@ -1012,6 +1018,7 @@ def assemble_native_records(
     return _assemble(
         prepared,
         context,
+        model=model,
         contract=contract,
         occurrence_roles=occurrence_roles,
         policy_version=policy_version,
@@ -1253,7 +1260,7 @@ def native_formula_group(
 
 
 def reconcile_record_candidates(
-    prepared: PreparedRelease, results: Sequence[AssemblyResult]
+    prepared: PreparedRelease, results: Sequence[AssemblyResult], *, model
 ) -> tuple[BaseModel, ...]:
     """Reconcile equal source readings across windows, retaining all observation dependencies.
 
@@ -1291,6 +1298,6 @@ def reconcile_record_candidates(
         record
         for source, rows in sources.items()
         for record in bind_record_candidates(
-            prepared, source=source, records=rows, coordinate_texts=coordinates
+            prepared, model=model, source=source, records=rows, coordinate_texts=coordinates
         )
     )

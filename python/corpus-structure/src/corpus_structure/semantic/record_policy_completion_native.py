@@ -150,7 +150,7 @@ BEGIN
  OR NOT EXISTS(SELECT FROM sem.data_kind_contract family JOIN sem.data_kind_release admitted ON admitted.kind_contract=family.kind_contract
  WHERE admitted.release_id=r.release_id AND family.kind_contract=expected->>'family_contract')
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition reading WHERE reading.release_id=r.release_id
- AND reading.operation_id='resolve.m1_readings' AND reading.recipe=expected->>'reading_recipe')
+ AND reading.operation_id='resolve.m1_readings/declared' AND reading.recipe=expected->>'reading_recipe')
  OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
  AND kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary')
  OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM ops.ddo_policy_authorization_meaning(basis.canonical_body) THEN

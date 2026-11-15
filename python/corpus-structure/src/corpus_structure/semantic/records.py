@@ -465,8 +465,11 @@ def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[Privat
                 contexts = authenticated_coordinate_texts(
                     reader.conn, reader.prepared, task, envelope["source"], records, scope=scope
                 )
+                from .data_operation_admission import bound_data_operation_model
+
                 records = bind_record_candidates(
                     reader.prepared,
+                    model=bound_data_operation_model(reader.prepared),
                     source=envelope["source"],
                     records=records,
                     coordinate_texts=contexts,

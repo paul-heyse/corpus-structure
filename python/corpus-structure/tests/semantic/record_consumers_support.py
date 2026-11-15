@@ -8,10 +8,11 @@ import pytest
 from corpus_structure.semantic import PreparationProfile, prepare_release
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.record_contracts import interpretation_identity, record_identity
+from corpus_structure.semantic.record_contracts import interpretation_identity, record_identity, record_family_contract
 from corpus_structure.semantic.record_projection import ARTIFACT, project_record_reports
 from corpus_structure.semantic.record_queries import CompletedRecordProjection
 from semantic.record_contracts_support import (
+    model as record_model,
     formula_record,
     measurement_record,
     record_from_fields,
@@ -117,7 +118,7 @@ def projection(prepared):
     for original in originals:
         record = deepcopy(original)
         record["standing"] = "candidate"
-        record["record_id"] = record_identity(prepared.release_id, record)
+        record["record_id"] = record_identity(record_family_contract(record_model(), record["contract"]), record)
         record["interpretation_id"] = interpretation_identity(record)
         records.append(record)
     reports = [

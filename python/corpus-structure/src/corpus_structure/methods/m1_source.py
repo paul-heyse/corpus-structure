@@ -340,6 +340,7 @@ class M1CandidateProduct:
 def plan_candidate_replies(
     *,
     prepared,
+    model,
     view,
     prepared_source,
     annotation_result,
@@ -351,6 +352,7 @@ def plan_candidate_replies(
     """Translate only bounded provider dispositions into the original kernel."""
     plan = plan_candidates(
         prepared=prepared,
+        model=model,
         view=view,
         prepared_source=prepared_source,
         annotation_result=annotation_result,
@@ -384,6 +386,7 @@ def plan_candidate_replies(
 def plan_candidates(
     *,
     prepared,
+    model,
     view,
     prepared_source,
     annotation_result,
@@ -680,7 +683,7 @@ def plan_candidates(
                     policy_version=cfg.record_policy_version,
                     occurrence_policy=cfg.occurrence_policy,
                     groups=captured,
-                )
+                 model=model)
                 assemblies.append(assembled)
                 contribution_batches.append(
                     adapt_native_groups(
@@ -775,7 +778,7 @@ def plan_candidates(
                         policy_version=cfg.record_policy_version,
                         occurrence_policy=cfg.occurrence_policy,
                         groups=native_groups,
-                    )
+                     model=model)
                     assemblies.append(native)
                     native_diagnostics = native.diagnostics
                     native_records = native.records
@@ -933,7 +936,7 @@ def plan_candidates(
                     occurrence_policy=cfg.occurrence_policy,
                     occurrence_roles=occurrence_roles,
                     supplements=supplements,
-                )
+                 model=model)
                 assemblies.append(assembled)
                 report_entry["diagnostics"] = [
                     dict(
@@ -1004,7 +1007,7 @@ def plan_candidates(
     contribution_batch = ContributionBatch.combine(contribution_batches)
     records = tuple(
         record.model_dump(mode="python")
-        for record in reconcile_record_candidates(prepared, assemblies)
+        for record in reconcile_record_candidates(prepared, assemblies, model=model)
     )
     from corpus_structure.methods.record_readings import interpret_candidate_readings
 

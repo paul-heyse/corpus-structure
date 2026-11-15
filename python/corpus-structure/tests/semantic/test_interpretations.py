@@ -268,17 +268,20 @@ def test_offline_error_inventory_and_file_bounds(tmp_path):
         consumer["bounded_read"](oversized, 8)
 
 
-def test_authored_source_records_decode_json_lists_without_scalar_loss(statistics_pack_prepared):
+def test_authored_source_records_decode_json_lists_without_scalar_loss(statistics_pack_prepared, statistics_pack_inputs):
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.record_contracts import (
         bind_record_candidates,
         interpretation_identity,
         record_identity,
+        record_family_contract,
     )
     from semantic.record_contracts_support import measurement_record
 
     record, coordinates = measurement_record()
-    record["record_id"] = record_identity(statistics_pack_prepared.release_id, record)
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    model = compile_data_operations(statistics_pack_inputs[0])
+    record["record_id"] = record_identity(record_family_contract(model, record["contract"]), record)
     record["interpretation_id"] = interpretation_identity(record)
     authored = json.loads(json.dumps(record))
     assert isinstance(authored["fields"], list)
@@ -293,6 +296,7 @@ def test_authored_source_records_decode_json_lists_without_scalar_loss(statistic
     }
     (bound,) = bind_record_candidates(
         statistics_pack_prepared,
+        model=model,
         source=record["pin"]["source"],
         records=(decoded,),
         coordinate_texts=coordinates,

@@ -17,6 +17,7 @@ from corpus_structure.semantic.record_assertions import (
 )
 from semantic.record_assertions_support import (
     inputs as inputs,
+    model as record_model,
 )
 from semantic.record_assertions_support import (
     lower as lower,
@@ -185,7 +186,7 @@ def test_interpretations_and_occurrences_do_not_merge_by_text_and_missing_custod
     incomplete_report = report(first)
     del incomplete_report["provider"]
     with pytest.raises(ValueError, match="actual producer"):
-        lower_record_assertions(inputs()[2], "r", "b", (incomplete_report,))
+        lower_record_assertions(inputs()[2], "r", "b", (incomplete_report,), model=record_model())
 
 
 def test_role_derivation_tracks_effective_declaration_and_refuses_tampering():
@@ -261,7 +262,7 @@ def test_origin_task_custody_requires_an_integer_identity_not_a_boolean(origin_t
     invalid = report(record())
     invalid["origin_task_id"] = origin_task_id
     with pytest.raises(ValueError, match="actual origin task custody"):
-        lower_record_assertions(inputs()[2], "r", "b", (invalid,))
+        lower_record_assertions(inputs()[2], "r", "b", (invalid,), model=record_model())
 
 
 def test_lowering_accepts_exact_archived_json_arrays():

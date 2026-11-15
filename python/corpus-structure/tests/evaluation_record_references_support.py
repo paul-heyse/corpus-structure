@@ -9,36 +9,28 @@ from evaluation_record_alignment_support import MODEL, ROOT, frame, reading
 from corpus_structure.evaluate.record_references import reference_inputs
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.observations import observation_inputs
-from corpus_structure.semantic.record_contracts import interpretation_identity, record_identity
+from corpus_structure.semantic.record_contracts import interpretation_identity, record_identity, record_family_contract
+
+
+@cache
+def bundle():
+    return reference_inputs(observation_inputs(SourceBundle('statistics_semantic', (SourceArtifact('statistics_semantic', (ROOT / 'domains/statistics/semantic.yaml').read_bytes()), SourceArtifact('semantic_core', (MODEL / 'core.yaml').read_bytes()), SourceArtifact('statistics_terminology', (ROOT / 'domains/statistics/terminology.yaml').read_bytes())))))
 
 
 @cache
 def prepared():
-    return prepare_release(
-        reference_inputs(
-            observation_inputs(
-                SourceBundle(
-                    "statistics_semantic",
-                    (
-                        SourceArtifact(
-                            "statistics_semantic",
-                            (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                        ),
-                        SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
-                        SourceArtifact(
-                            "statistics_terminology",
-                            (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                        ),
-                    ),
-                )
-            )
-        )
-    )
+    return prepare_release(bundle())
+
+
+@cache
+def model():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    return compile_data_operations(bundle())
 
 
 def fixture(family="measurement"):
     row, contexts = reading(family)
     row = deepcopy(row)
-    row["record_id"] = record_identity(prepared().release_id, row)
+    row["record_id"] = record_identity(record_family_contract(model(), row["contract"]), row)
     row["interpretation_id"] = interpretation_identity(row)
     return row, contexts, replace(frame(row), release_id=prepared().release_id)

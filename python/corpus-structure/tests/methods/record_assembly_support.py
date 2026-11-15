@@ -17,32 +17,19 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 @cache
+def bundle():
+    return observation_inputs(SourceBundle('statistics_semantic', (SourceArtifact('statistics_semantic', (ROOT / 'domains/statistics/semantic.yaml').read_bytes()), SourceArtifact('statistics_terminology', (ROOT / 'domains/statistics/terminology.yaml').read_bytes()), SourceArtifact('semantic_core', (ROOT / 'python/corpus-structure/src/corpus_structure' / 'model/semantic/core.yaml').read_bytes()))))
+
+
+@cache
 def release():
-    return prepare_release(
-        observation_inputs(
-            SourceBundle(
-                "statistics_semantic",
-                (
-                    SourceArtifact(
-                        "statistics_semantic",
-                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                    ),
-                    SourceArtifact(
-                        "statistics_terminology",
-                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                    ),
-                    SourceArtifact(
-                        "semantic_core",
-                        (
-                            ROOT
-                            / "python/corpus-structure/src/corpus_structure"
-                            / "model/semantic/core.yaml"
-                        ).read_bytes(),
-                    ),
-                ),
-            )
-        )
-    )
+    return prepare_release(bundle())
+
+
+@cache
+def model():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    return compile_data_operations(bundle())
 
 
 def source(text, *, identity=1, pieces=None, items=None, ancestors=("#/groups/1",)):

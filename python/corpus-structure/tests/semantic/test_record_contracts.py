@@ -1,5 +1,7 @@
 """Independent private record expectations; no provider or publication qualification."""
 
+from semantic.record_contracts_support import model as record_model
+
 from copy import deepcopy
 
 import pytest
@@ -22,6 +24,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 from corpus_structure.semantic.releases import _products
 from semantic.record_contracts_support import (
@@ -128,34 +131,68 @@ def test_binding_preserves_record_memberships_and_retry_identity():
     )
     prepared = release_inputs()[2]
     assert (
-        bind_result(prepared, **kwargs).model_dump_json()
-        == bind_result(prepared, **kwargs).model_dump_json()
+        bind_result(prepared, **kwargs, model=record_model()).model_dump_json()
+        == bind_result(prepared, **kwargs, model=record_model()).model_dump_json()
     )
-    product = bind_result(prepared, **kwargs).model_dump(mode="python")
+    product = bind_result(prepared, **kwargs, model=record_model()).model_dump(mode="python")
     assert product["records"][0]["record_id"] == record["record_id"]
     # Operational retry/sequence positions are not source occurrence meaning.
     moved = deepcopy(record)
     moved["pin"]["source_view_id"] = 81
     for row in moved["anchors"]:
         row["pin"]["source_view_id"] = 81
-    assert record_identity(prepared.release_id, moved) == record["record_id"]
+    assert record_identity(record_family_contract(record_model(), moved["contract"]), moved) == record["record_id"]
     moved["pin"]["recipe_digest"] = "d" * 64
-    assert record_identity(prepared.release_id, moved) != record["record_id"]
+    assert record_identity(record_family_contract(record_model(), moved["contract"]), moved) != record["record_id"]
     kwargs["result"] = UnitResult(
         ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "view"), outcome=ObservationOutcome.EMPTY
     )
     with pytest.raises(ValueError, match="produced source report"):
-        bind_result(prepared, **kwargs)
+        bind_result(prepared, **kwargs, model=record_model())
 
 
 def test_equal_text_at_another_cell_is_another_record_and_dependency_change_is_new_interpretation():
     record, _ = table_record()
     other = deepcopy(record)
     other["occurrence_anchors"] = (anchor("#/tables/0/cells/9", precision="item")["anchor_id"],)
-    assert record_identity(release_inputs()[2].release_id, other) != record["record_id"]
+    assert record_identity(record_family_contract(record_model(), other["contract"]), other) != record["record_id"]
     other = deepcopy(record)
     other["computation_dependencies"] = ("observation:changed-countercandidate",)
     assert interpretation_identity(other) != record["interpretation_id"]
+
+
+def test_occurrence_identity_consumes_family_contract_and_keeps_reading_interpretation_separate():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+
+    bundle, _, _ = release_inputs()
+    record, _ = table_record()
+
+    def changed_model(*, family_change):
+        sources = []
+        for source in bundle.sources:
+            if source.name == "statistics_semantic":
+                document = yaml.safe_load(source.content)
+                if family_change:
+                    document["classes"]["TableRecordFields"]["attributes"]["caption"]["required"] = False
+                else:
+                    document["classes"]["UnrelatedObservation"] = {
+                        "attributes": {"note": {"range": "string"}}
+                    }
+                source = SourceArtifact(source.name, yaml.safe_dump(document).encode())
+            sources.append(source)
+        return compile_data_operations(SourceBundle(bundle.root, tuple(sources)))
+
+    actual = record_family_contract(record_model(), record["contract"])
+    unrelated = record_family_contract(changed_model(family_change=False), record["contract"])
+    revised = record_family_contract(changed_model(family_change=True), record["contract"])
+    assert actual == unrelated
+    assert revised != actual
+    assert record_identity(unrelated, record) == record["record_id"]
+    assert record_identity(revised, record) != record["record_id"]
+    interpretation = deepcopy(record)
+    interpretation["policy_version"] = "reassessed-reading-2"
+    assert record_identity(actual, interpretation) == record["record_id"]
+    assert interpretation_identity(interpretation) != record["interpretation_id"]
 
 
 @pytest.mark.parametrize(
@@ -227,7 +264,7 @@ def test_synthetic_and_coarse_spans_do_not_become_exact_literals():
 def test_source_record_requires_same_producer_pin_and_model_context_is_not_evidence():
     record, contexts = table_record()
     with pytest.raises(ValueError, match="producing source"):
-        bind_record_candidates(release_inputs()[2], source="another-source", records=(record,))
+        bind_record_candidates(release_inputs()[2], source="another-source", records=(record,), model=record_model())
     raw = record["anchors"][0]
     raw["space"] = "model_context"
     raw["anchor_id"] = anchor_identity(raw)

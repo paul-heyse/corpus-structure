@@ -25,6 +25,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -71,6 +72,12 @@ def inputs():
             PreparationProfile(version="semantic-2"),
         ),
     )
+
+
+@cache
+def model():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    return compile_data_operations(inputs()[1])
 
 
 def record(
@@ -143,12 +150,12 @@ def record(
     )
     seal(row)
     # The independent fixture crosses the existing private semantic binder too.
-    bind_record_candidates(prepared, source=PIN["source"], records=(row,), coordinate_texts=texts)
+    bind_record_candidates(prepared, source=PIN["source"], records=(row,), coordinate_texts=texts, model=model())
     return row
 
 
 def seal(row: dict[str, Any]) -> None:
-    row["record_id"] = record_identity(inputs()[2].release_id, row)
+    row["record_id"] = record_identity(record_family_contract(model(), row["contract"]), row)
     row["interpretation_id"] = interpretation_identity(row)
 
 
@@ -169,4 +176,4 @@ def report(*records):
 def lower(*records):
     return lower_record_assertions(
         inputs()[2], "realization:reading", "batch:reading", (report(*records),)
-    )
+    , model=model())

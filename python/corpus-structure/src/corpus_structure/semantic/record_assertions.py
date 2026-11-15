@@ -24,6 +24,7 @@ from .record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
 
@@ -257,6 +258,7 @@ def lower_record_assertions(
     realization_id: str,
     batch_id: str,
     reports: Sequence[Mapping[str, Any]],
+    *, model,
 ) -> RecordAssertionLowering:
     """Lower complete candidate readings, with no selected facts or acceptance overlay.
 
@@ -280,11 +282,11 @@ def lower_record_assertions(
             for k in ("source_uri", "provider", "operation_version")
         ):
             raise ValueError("source readings require actual producer and source descriptors")
-        for model in report["records"]:
+        for record_model in report["records"]:
             raw = (
-                model.model_dump(mode="python", exclude_unset=True)
-                if isinstance(model, BaseModel)
-                else dict(model)
+                record_model.model_dump(mode="python", exclude_unset=True)
+                if isinstance(record_model, BaseModel)
+                else dict(record_model)
             )
             row = prepared.validate_json("SourceRecord", canonical_bytes(raw)).model_dump(
                 mode="python", exclude_unset=True
@@ -302,7 +304,7 @@ def lower_record_assertions(
                 prepared.validate_python("SourceRecord", row)
                 if (
                     row["pin"]["source"] != report["source"]
-                    or record_identity(prepared.release_id, row) != key[0]
+                    or record_identity(record_family_contract(model, row["contract"]), row) != key[0]
                     or interpretation_identity(row) != key[1]
                 ):
                     raise ValueError("source-reading identity/source differs from sealed record")

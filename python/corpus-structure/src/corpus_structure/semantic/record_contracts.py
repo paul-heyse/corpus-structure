@@ -131,18 +131,21 @@ def evidence_set_identity(evidence: Mapping[str, Any]) -> str:
 
 def record_family_contract(model, contract: str) -> str:
     """Identity of the actual effective family-field owner consumed by a reading."""
-    owners = {kind.semantic_id for kind in model.kinds if kind.name == contract}
+    owners = {kind.semantic_id for kind in model.kinds if kind.name == contract and kind.category == "class" and kind.complete}
     identities = {item.key for item in model.identities if item.domain == "kind" and item.owner in owners}
     if len(owners) != 1 or len(identities) != 1:
         raise ValueError("reading requires one exact effective record-family contract")
     return next(iter(identities))
 
 
-def record_identity(release_id: str, record: Mapping[str, Any]) -> str:
+def record_identity(family_contract: str, record: Mapping[str, Any]) -> str:
+    """Original occurrence under its consumed family contract, independent of reading/release."""
+    if not isinstance(family_contract, str) or not family_contract:
+        raise ValueError("record occurrence requires its actual effective family contract")
     return _identity(
         "record",
         [
-            release_id,
+            family_contract,
             record["family"],
             record["occurrence_recipe"],
             _pin(record["pin"]),
@@ -226,6 +229,7 @@ def validate_anchor_binding(anchor, primary_pin):
 def bind_record_candidates(
     prepared: PreparedRelease,
     *,
+    model,
     source: str,
     records: Sequence[Mapping[str, Any]],
     coordinate_texts: Sequence[Mapping[str, Any]] = (),
@@ -248,8 +252,8 @@ def bind_record_candidates(
     result = []
     seen = set()
     for raw in records:
-        model = prepared.validate_python("SourceRecord", raw)
-        row = model.model_dump(mode="python")
+        record_model = prepared.validate_python("SourceRecord", raw)
+        row = record_model.model_dump(mode="python")
         if row["pin"]["source"] != source:
             raise ValueError("record source pin differs from producing source")
         definition = prepared.index.definitions.get(row["contract"])
@@ -304,7 +308,7 @@ def bind_record_candidates(
             for key in occurrence
         ):
             raise ValueError("occurrence anchors must retain the primary source pin")
-        if record_identity(prepared.release_id, row) != row["record_id"]:
+        if record_identity(record_family_contract(model, row["contract"]), row) != row["record_id"]:
             raise ValueError("record occurrence identity differs from source membership")
         # Several coherent alternatives may share an occurrence; exact duplicates may not.
         identity = (row["record_id"], row["interpretation_id"])
@@ -477,5 +481,5 @@ def bind_record_candidates(
                     raise ValueError("accepted field cannot use unavailable source locations")
         if interpretation_identity(row) != row["interpretation_id"]:
             raise ValueError("interpretation identity differs from fields or dependencies")
-        result.append(model)
+        result.append(record_model)
     return tuple(result)

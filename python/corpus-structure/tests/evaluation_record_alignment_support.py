@@ -12,6 +12,7 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -32,25 +33,19 @@ PIN = {
 
 
 @cache
+def bundle():
+    return observation_inputs(SourceBundle('statistics_semantic', (SourceArtifact('statistics_semantic', (ROOT / 'domains/statistics/semantic.yaml').read_bytes()), SourceArtifact('semantic_core', (MODEL / 'core.yaml').read_bytes()), SourceArtifact('statistics_terminology', (ROOT / 'domains/statistics/terminology.yaml').read_bytes()))))
+
+
+@cache
 def prepared():
-    return prepare_release(
-        observation_inputs(
-            SourceBundle(
-                "statistics_semantic",
-                (
-                    SourceArtifact(
-                        "statistics_semantic",
-                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                    ),
-                    SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
-                    SourceArtifact(
-                        "statistics_terminology",
-                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                    ),
-                ),
-            )
-        )
-    )
+    return prepare_release(bundle())
+
+
+@cache
+def model():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    return compile_data_operations(bundle())
 
 
 def literal(role, text, *, meaning=True, decimal=False):
@@ -145,7 +140,7 @@ def specifications(family):
 def finish(row):
     for name in ("fields", "anchors", "evidence_sets"):
         row[name] = tuple(row[name])
-    row["record_id"] = record_identity(prepared().release_id, row)
+    row["record_id"] = record_identity(record_family_contract(model(), row["contract"]), row)
     row["interpretation_id"] = interpretation_identity(row)
     return row
 

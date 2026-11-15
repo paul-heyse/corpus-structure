@@ -1,5 +1,7 @@
 """Independent source/profile/geometry expectations; no model or database execution."""
 
+from methods.record_assembly_support import model as record_model
+
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -330,7 +332,7 @@ def test_natural_formula_variants_keep_roles_and_distinct_grouping_without_false
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         supplements={0: scope, 1: scope},
-    )
+     model=record_model())
     assert len(result.records) == 2
     assert [fields(r)["symbol"]["original"] for r in result.records] == ["x", "y"]
     assert len({r.model_dump()["record_id"] for r in result.records}) == 2
@@ -356,7 +358,7 @@ def test_natural_formula_variants_keep_roles_and_distinct_grouping_without_false
             policy_version="test",
             occurrence_policy=OCCURRENCE_POLICY,
             supplements={0: scope},
-        )
+         model=record_model())
 
     assert fields(assemble(bare).records[0])["symbol"]["state"] == "unstated"
     assert not assemble(dict(formula=bare["formula"], formula__state="present")).records
@@ -395,6 +397,7 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
     result = candidate_fixture_product(
         dict(
             prepared=release(),
+            model=record_model(),
             view=view,
             prepared_source=product,
             annotation_result=dict(

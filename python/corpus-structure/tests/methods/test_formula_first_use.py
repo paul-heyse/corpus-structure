@@ -1,5 +1,7 @@
 """Exact lexical first-use custody, independent of TeX expansion or model behavior."""
 
+from methods.record_assembly_support import model as record_model
+
 import pytest
 
 from corpus_structure.methods.record_assembly import _first_exact_formula_use, _pin
@@ -109,7 +111,7 @@ def test_actual_assembler_retains_tex_binding_with_exact_first_use(formula, symb
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         groups=(group,),
-    )
+     model=record_model())
     assert len(result.records) == 1
     record = result.records[0]
     assert fields(record)["symbol"]["original"] == symbol
