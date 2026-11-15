@@ -15,7 +15,7 @@ def subject_field_path(field: str) -> tuple[str, ...]:
     return tuple(part.replace("~1", "/").replace("~0", "~") for part in parts)
 
 
-def subject_field_kind(kinds, owner: str, field: str):
+def scalar_field_kind(kinds, owner: str, field: str):
     path = subject_field_path(field)
     for index, name in enumerate(path):
         prop = kinds.get(owner + "/property/" + name)
@@ -30,10 +30,16 @@ def subject_field_kind(kinds, owner: str, field: str):
                 raise ValueError("subject association traverses only inline nominal records")
             owner = target.semantic_id
             continue
-        target_facts = json.loads(target.facts) if target is not None else {}
-        primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
-        if primitive not in {"str", "string", "uri", "uriorcurie"} and not (
-            target is not None and target.category in {"class", "enum"} and not facts.get("inlined")
-        ):
-            raise ValueError("subject association requires a scalar subject identifier")
+        if target is None or (target.category == "class" and facts.get("inlined")):
+            raise ValueError("value comparison requires a declared scalar field")
         return target
+
+
+def subject_field_kind(kinds, owner: str, field: str):
+    """Subject association additionally requires a nominal or lexical identifier."""
+    target = scalar_field_kind(kinds, owner, field)
+    facts = json.loads(target.facts)
+    primitive = facts.get("primitive", facts.get("effective_primitive"))
+    if primitive not in {"str", "string", "uri", "uriorcurie"} and target.category not in {"class", "enum"}:
+        raise ValueError("subject association requires a scalar subject identifier")
+    return target

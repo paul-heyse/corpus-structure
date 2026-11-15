@@ -16,7 +16,7 @@ from .data_operation_model import (
     OutputWitnessGroup,
     json_context_meaning,
 )
-from .data_operation_subjects import subject_field_kind, subject_field_path
+from .data_operation_subjects import scalar_field_kind, subject_field_path
 
 _HEADERS = {
     "product",
@@ -101,13 +101,13 @@ def compile_output_witnesses(raw, roles, kinds, aliases):
                 raise ValueError("output witness comparisons share exactly one input role")
             if not isinstance(comparison["output_field"], str) or not comparison["output_field"]:
                 raise ValueError("output witness comparison requires an output field")
-            subject_field_kind(kinds, owner, comparison["output_field"])
+            scalar_field_kind(kinds, owner, comparison["output_field"])
             projection = aliases.get(field["projection"], field["projection"])
             if projection == "selected-input":
                 if field["field"] not in _HEADERS:
                     raise ValueError("output witness references an unknown selected-input field")
             elif projection == source.kind:
-                subject_field_kind(kinds, source.kind, field["field"])
+                scalar_field_kind(kinds, source.kind, field["field"])
             else:
                 raise ValueError("output witness projection differs from its qualified input kind")
             encoding = comparison["encoding"]

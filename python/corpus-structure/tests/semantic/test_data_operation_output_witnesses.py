@@ -195,3 +195,34 @@ def test_missing_body_field_is_not_an_implicit_null_witness():
     incomplete.pop("document")
     with pytest.raises(ValueError, match="no complete selected input member"):
         validate_output_witnesses(operation, {"result": [{"records": [{"pin": incomplete}]}]}, rows)
+
+
+def test_numeric_boolean_value_witnesses_are_typed_without_becoming_subject_identifiers():
+    bundle = SourceBundle("model", (SourceArtifact("model", b"""id: urn:scalar-witness:model
+name: model
+prefixes:
+  w: 'urn:scalar-witness:'
+  xsd: 'http://www.w3.org/2001/XMLSchema#'
+default_prefix: w
+types:
+  integer: {base: int, uri: 'xsd:integer'}
+  boolean: {base: bool, uri: 'xsd:boolean'}
+classes:
+  Record:
+    attributes:
+      count: {range: integer, required: true}
+      flag: {range: boolean, required: true}
+"""),))
+    value = contract()
+    for role in value["roles"]:
+        role["kind"] = "Record"
+    value["output_witnesses"] = [{"output_role": "result", "records": "", "input_role": "source",
+        "comparisons": [{"output_field": field, "input": {"role": "source", "projection": "Record", "field": field}, "encoding": "value"} for field in ("count", "flag")]}]
+    operation = compile_data_operations(bundle, declarations=declarations(value)).operations[0]
+    rows = {"source": [{"body": {"count": 3, "flag": False}}]}
+    validate_output_witnesses(operation, {"result": [{"count": 3, "flag": False}]}, rows)
+    with pytest.raises(ValueError, match="no complete selected input"):
+        validate_output_witnesses(operation, {"result": [{"count": 3, "flag": 0}]}, rows)
+    value["roles"][0]["subject_field"] = "count"
+    with pytest.raises(PreparationError, match="scalar subject identifier"):
+        compile_data_operations(bundle, declarations=declarations(value))
