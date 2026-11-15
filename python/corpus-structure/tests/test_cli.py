@@ -56,7 +56,7 @@ def test_status_json_is_the_result_model(cli, no_database) -> None:
     assert result.exit_code == 0, result.output
     assert result.stderr == ""
     out = json.loads(result.stdout)
-    assert out["progress"] is None and "PoolTimeout" in out["database_error"]
+    assert out["progress"] is None and out["database_error"] is None
     report = SettingsReport.model_validate(out["settings"])
     assert report.resolved["database.url"] == "postgresql:///t"
     assert "CORPUS_DATABSE__URL" in report.unknown_env
@@ -69,6 +69,47 @@ def test_status_renders_without_json(cli, no_database) -> None:
     assert "database.template" in result.stdout
     assert "CORPUS_DATA_DIRR" in result.stdout
     assert max(len(line) for line in result.stdout.splitlines()) <= 100
+
+
+@pytest.mark.parametrize("command", ["status", "tasks"])
+def test_demand_progress_uses_exact_target_and_effectful_native_read(cli, monkeypatch, command):
+    from decimal import Decimal
+    from types import SimpleNamespace
+    from sqlalchemy import create_engine
+    from corpus_structure.semantic.data_operation_json import json_loads
+    engine = create_engine("sqlite://")
+    observed = []
+
+    @contextmanager
+    def acquired(settings):
+        yield engine
+
+    def read(connection, demand, *, project_id, continuation, limit, view):
+        assert connection.in_transaction()
+        observed.append((demand, project_id, continuation, limit, view))
+        report = dict(obligations=[dict(obligation_id="obligation:A", fate="waiting")],
+                      state="active", complete=True, continuation=None,
+                      cut=dict(scope={"amount": Decimal("0.123456789012345678901")}))
+        return SimpleNamespace(report=lambda: report, record=report)
+
+    monkeypatch.setattr(orchestrate, "READ_ENGINE", acquired)
+    monkeypatch.setattr("corpus_structure.semantic.demand_results.read_demand_result", read)
+    try:
+        result = cli(command, "--demand", "demand:A", "--project", "project:A", "--limit", "7", "--json")
+        assert result.exit_code == 0, result.output
+        body = json_loads(result.stdout)
+        progress = body["progress"] if command == "status" else body
+        assert progress["obligations"] == [{"obligation_id": "obligation:A", "fate": "waiting"}]
+        assert progress["cut"]["scope"]["amount"] == Decimal("0.123456789012345678901")
+        assert observed == [("demand:A", "project:A", None, 7, "frontier")]
+    finally:
+        engine.dispose()
+
+
+def test_demand_status_refuses_incomplete_target_before_opening_database(cli, no_database):
+    result = cli("status", "--demand", "demand:A", "--json")
+    assert result.exit_code == 1
+    assert "both --demand and --project" in result.stdout
 
 
 def test_json_is_a_command_option_not_a_root_option(cli) -> None:

@@ -1,10 +1,8 @@
-"""`ci status [RUN]`: run progress (orchestration §3.13, P0-O-1) and the resolved settings
-(foundations). Progress is the run's task counts per stage by status and reason, its cut and final
-M19 task once sealed and agent tasks unresolved as of the cut; the latest run
-by default. Without a reachable database the settings are still reported, with the reason."""
+"""Resolved settings and an explicitly selected native demand frontier."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
@@ -13,7 +11,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, cli_settings_report, emit, safe_text, state
+from corpus_structure.cli.output import JsonOpt, cli_settings_report, emit, safe_text, state, write_report_text
 from corpus_structure.settings import SettingsReport
 
 
@@ -32,9 +30,9 @@ def _render(result: BaseModel) -> RenderableType:
 
 
 class StatusResult(BaseModel):
-    """`ci status`: the run's progress (None without a run or a database) and the settings."""
+    """Settings are local; demand progress requires an explicit target."""
 
-    progress: Any = None  # orchestrate.commands.StatusReport
+    progress: dict[str, Any] | None = None
     database_error: str | None = None
     settings: SettingsReport
 
@@ -42,99 +40,61 @@ class StatusResult(BaseModel):
 def _render_status(result: BaseModel) -> RenderableType:
     assert isinstance(result, StatusResult)
     parts: list[RenderableType] = []
-    progress = result.progress
     if result.database_error is not None:
-        parts.append(Text(f"no run progress: {result.database_error}", style="yellow"))
-    elif progress is not None and progress.run is None:
-        parts.append(Text("no runs yet"))
-    elif progress is not None:
-        run = progress.run
-        head = Table("field", "value", title=f"run {run.run_id}")
-        for name in (
-            "kind",
-            "status",
-            "release_id",
-            "cut_id",
-            "cut_name",
-            "output_realization_id",
-            "unresolved_agent_tasks",
-            "readiness",
-            "supervisor",
-        ):
-            head.add_row(name, Text(safe_text(str(getattr(run, name)))))
-        stages = Table("stage", "status", "reason", "tasks", title="tasks")
-        for c in run.stages:
-            stages.add_row(
-                Text(safe_text(c.stage)),
-                Text(safe_text(c.status)),
-                Text(safe_text(c.reason or "")),
-                str(c.count),
-            )
-        parts += [head, stages]
-        if run.operation is not None:
-            from corpus_structure.cli.result_inspection import render_operation
-
-            parts.append(render_operation(run.operation))
-        elif run.operation_unavailable_reason:
-            parts.append(Text(run.operation_unavailable_reason))
-    if progress is not None and progress.orphaned is None:
-        parts.append(Text("orphan assessment: not assessed"))
-    if progress is not None and progress.orphaned:
-        orphaned = ", ".join(map(str, progress.orphaned))
-        parts.append(Text(f"orphaned runs: {orphaned} (`ci run cancel RUN`)", style="yellow"))
+        parts.append(Text(f"demand progress unavailable: {result.database_error}", style="yellow"))
+    elif result.progress is not None:
+        head = Table("field", "value", title="selected demand")
+        for name in ("cut_id", "state", "complete", "continuation"):
+            head.add_row(name, Text(safe_text(str(result.progress.get(name)))))
+        parts.append(head)
+        rows = Table("obligation", "state", title="demand frontier")
+        for obligation in result.progress["obligations"]:
+            rows.add_row(str(obligation["obligation_id"]), str(obligation["fate"]))
+        parts.append(rows)
+    else:
+        parts.append(Text("Select --demand and --project to inspect native progress."))
     parts.append(_render(result.settings))
     return Group(*parts)
 
 
 def status(
     ctx: typer.Context,
-    run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
-    project: Annotated[
-        str | None, typer.Option(help="Project (default: runtime.default_project).")
-    ] = None,
-    semantic: Annotated[bool, typer.Option(hidden=True)] = False,
-    operation_after: Annotated[
-        str | None,
-        typer.Option(help="Continue native operation progress using its returned cursor."),
-    ] = None,
-    operation_limit: Annotated[
-        int, typer.Option(min=1, max=32, help="Regions per native operation page.")
-    ] = 8,
+    demand: Annotated[str | None, typer.Option(help="Exact native demand; no latest-run lookup.")] = None,
+    project: Annotated[str | None, typer.Option(help="Exact demand project.")] = None,
+    continuation: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     json: JsonOpt = False,
 ) -> None:
-    """Show a run's progress (the latest by default) and the resolved settings."""
+    """Show resolved settings and optionally one pinned native demand frontier."""
     from psycopg import OperationalError
     from psycopg_pool import PoolTimeout
 
     from corpus_structure.cli import orchestrate
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.orchestrate import commands
+    from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+    from corpus_structure.semantic.demand_results import read_demand_result
 
-    with failure_boundary(json, expected=(commands.CommandError, ValueError)):
-        from corpus_structure.orchestrate.source_progress import OperationProgressCursor
-        from corpus_structure.semantic.query import read_snapshot
-
-        if operation_after is not None:
-            OperationProgressCursor.decode(operation_after)
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        if bool(demand) != bool(project) or (continuation is not None and demand is None):
+            raise ValueError("demand progress requires both --demand and --project")
         settings = state(ctx).settings()
         report = cli_settings_report(settings)
-        try:
-            with orchestrate.READ_ENGINE(settings) as engine, read_snapshot(engine) as conn:
-                progress = commands.bound_status(
-                    conn,
-                    run_id,
-                    operation_cursor=operation_after,
-                    operation_region_limit=operation_limit,
-                    project_id=project
-                    or (settings.runtime.default_project if run_id is None else None),
-                )
-        except (PoolTimeout, OperationalError) as error:
-            result = StatusResult(
-                database_error=f"{type(error).__name__}: {safe_text(str(error))}", settings=report
-            )
-        else:
-            result = StatusResult(progress=progress, settings=report)
-    emit(result, json=json, render=_render_status)
+        result = StatusResult(settings=report)
+        if demand is not None and project is not None:
+            pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
+            if pins is not None and not isinstance(pins, dict):
+                raise ValueError("continuation must be a native cursor object")
+            try:
+                with orchestrate.READ_ENGINE(settings) as engine, engine.begin() as connection:
+                    page = read_demand_result(connection, demand, project_id=project,
+                                              continuation=pins, limit=limit, view="frontier")
+                    result.progress = page.report()
+            except (PoolTimeout, OperationalError) as error:
+                result.database_error = f"{type(error).__name__}: {safe_text(str(error))}"
+    if json:
+        write_report_text(json_bytes(result.model_dump(mode="python")).decode() + "\n")
+    else:
+        emit(result, json=False, render=_render_status)
 
 
 def register(app: typer.Typer) -> None:

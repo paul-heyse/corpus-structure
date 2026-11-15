@@ -9,12 +9,10 @@ from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import BaseModel
-from rich.console import Group, RenderableType
+from rich.console import RenderableType
 from rich.table import Table
-from rich.text import Text
 
 from corpus_structure.cli.output import JsonOpt, emit, state
-from corpus_structure.core.vocab import TaskStatus
 
 project_app = typer.Typer(
     help="Register a project and immutable original documents.", no_args_is_help=True
@@ -349,64 +347,33 @@ def run_resume(
     )
 
 
-def _render_tasks(result: BaseModel) -> RenderableType:
-    from corpus_structure.orchestrate.commands import TaskListing
-
-    assert isinstance(result, TaskListing)
-    table = Table(
-        "id",
-        "stage",
-        "unit",
-        "configuration",
-        "status",
-        "reason",
-        "rule",
-        "cost",
-        title=f"run {result.run_id} tasks",
-    )
-    for t in result.tasks:
-        table.add_row(
-            str(t.id),
-            t.stage,
-            t.unit_key or "",
-            t.config,
-            t.status,
-            t.reason or "",
-            t.rule_key or "",
-            str(t.cost) if t.cost else "",
-        )
-    beyond = result.total - len(result.tasks)
-    if beyond <= 0:
-        return table
-    return Group(table, Text(f"{beyond} more match (showing {len(result.tasks)})", style="yellow"))
-
-
 def tasks(
     ctx: typer.Context,
-    run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
-    project: Annotated[
-        str | None, typer.Option(help="Project (default: runtime.default_project).")
-    ] = None,
-    status: Annotated[list[TaskStatus] | None, typer.Option(help="Only this status.")] = None,
-    method: Annotated[list[str] | None, typer.Option(help="Only this method.")] = None,
-    limit: Annotated[int, typer.Option(help="At most this many.")] = 50,
-    semantic: Annotated[bool, typer.Option(hidden=True)] = False,
+    demand: Annotated[str, typer.Option(help="Exact immutable native demand.")],
+    project: Annotated[str, typer.Option(help="Exact demand project.")],
+    continuation: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     json: JsonOpt = False,
 ) -> None:
-    """List a run's tasks (the latest run by default)."""
-    from corpus_structure.orchestrate import commands
+    """Inspect bounded demand obligations and their actual physical attempt failures."""
+    from corpus_structure.cli.output import write_report_text
+    from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+    from corpus_structure.semantic.demand_results import read_demand_result
 
-    with _refusals(json), READ_ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
-        listing = commands.bound_task_listing(
-            conn,
-            run_id,
-            project_id=project
-            or (state(ctx).settings().runtime.default_project if run_id is None else None),
-            statuses=status or (),
-            methods=method or (),
-            limit=limit,
-        )
-    emit(listing, json=json, render=_render_tasks)
+    with _refusals(json), READ_ENGINE(state(ctx).settings()) as engine, engine.begin() as conn:
+        pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
+        if pins is not None and not isinstance(pins, dict):
+            raise ValueError("continuation must be a native cursor object")
+        page = read_demand_result(conn, demand, project_id=project, continuation=pins,
+                                  limit=limit, view="frontier")
+    if json:
+        write_report_text(json_bytes(page.report()).decode() + "\n")
+    else:
+        table = Table("obligation", "state", title="demand obligations")
+        for obligation in page.record["obligations"]:
+            table.add_row(str(obligation["obligation_id"]), str(obligation["fate"]))
+        from rich.console import Console
+        Console().print(table)
 
 
 def ingest(
