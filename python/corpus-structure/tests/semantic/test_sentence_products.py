@@ -486,7 +486,19 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
     )
     result = port.invoke_python((PythonRoleValue("inventory", kind, inventory),))
     value = json.loads(result.outputs[0].content)
-    assert value["members"] == [] and result.outputs[0].members == ()
+    (manifest,) = value["members"]
+    assert manifest["body"]["record_type"] == "manifest"
+    assert manifest["body"]["source"] == inventory["source"]
+    assert manifest["body"]["selectors"] == inventory["selectors"]
+    assert manifest["body"]["outcome"] == "complete"
+    assert {
+        (row["family"], row["availability"], row["outcome"])
+        for row in manifest["body"]["coverage"]
+    } == {
+        ("spacy.tokens", "available", "empty"),
+        ("spacy.sentences", "available", "empty"),
+    }
+    assert len(result.outputs[0].members) == 1
     assert {row["family"] for row in value["coverage"]} == {"spacy.tokens", "spacy.sentences"}
     profile.prepared.validate_json("DdoCanonicalSentences", result.outputs[0].content)
 
@@ -639,7 +651,9 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
         evidence = json.loads(result.cpu_execution_evidence)
         assert evidence["pid"] != os.getpid() and evidence["main_thread"] is True
         assert cpu._capsule_bytes == 0
-        assert json.loads(result.outputs[0].content)["members"] == []
+        (manifest,) = json.loads(result.outputs[0].content)["members"]
+        assert manifest["body"]["record_type"] == "manifest"
+        assert {row["outcome"] for row in manifest["body"]["coverage"]} == {"empty"}
     finally:
         cpu.close()
     assert cpu.budget.used_bytes == 0
@@ -653,7 +667,13 @@ def test_prepared_canonical_full_source_digest_accepts_authenticated_required_su
     path = tmp_path / "extra_original.py"
     path.write_text("PASSIVE = 1\n")
     port = canonical_port(profile, (PythonSource("extra_original", path.read_bytes(), str(path)),))
-    assert len(port.sources.sources) == 2
+    assert {source.module for source in port.sources.sources} == {
+        "corpus_structure.semantic.sentence_products",
+        "corpus_structure.methods.sentence_evidence",
+        "corpus_structure.semantic.canonical_sentences",
+        "corpus_structure.methods.canonical_sentences",
+        "extra_original",
+    }
     port._verify()
 
 
