@@ -145,7 +145,7 @@ def test_actual_selected_precedence_support_public_and_offline(
         support = selected_graph_snapshot(connection, stage.prepared, support_request)
     assert any(edge.relation == "support" for edge in support.occurrences)
     assert _offline_snapshot(destination, "selected-support").identity == support.identity
-    url = clone.reader.url.render_as_string(hide_password=False)
+    url = clone.reader.url.set(drivername="postgresql").render_as_string(hide_password=False)
     settings = Settings()
     settings = settings.model_copy(
         update={"database": settings.database.model_copy(update={"url": url, "reader_url": url})}
