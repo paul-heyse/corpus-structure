@@ -196,59 +196,31 @@ def test_selected_columns_reuse_nominal_anchors_and_keep_unbound_values_generic(
     ],
 )
 def test_explicit_type_correspondence_refuses_invalid_sources(target, message):
-    import yaml
-
     from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
-    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
-    from corpus_structure.semantic.operation_call_generation import source_bindings
-    from corpus_structure.semantic.types import PreparationError, SourceArtifact
+    from corpus_structure.semantic.types import PreparationError
 
-    inputs = trusted_execution_inputs()
-    model = compile_execution_model(inputs)
-    artifact = "pdf/record-physical.yaml"
-    physical = next(s.content for s in inputs.implementations if s.name == artifact)
-    changed = yaml.safe_load(physical)
-    slot = changed["classes"]["occurrence"]["attributes"]["realization_id"]
-    slot["annotations"]["cp:type_source"] = target
-    changed_inputs = replace(
-        inputs,
-        implementations=tuple(
-            SourceArtifact(s.name, yaml.safe_dump(changed, sort_keys=False).encode())
-            if s.name == artifact
-            else s
-            for s in inputs.implementations
-        ),
-    )
-    _, _, _, resolve = source_bindings(model, changed_inputs)
+    def mutate(model):
+        model["classes"]["occurrence"]["attributes"]["realization_id"]["annotations"]["cp:type_source"] = target
+
+    _, _, _, resolve = _correspondence_bindings(_changed_physical_sources(mutate))
     with pytest.raises(PreparationError, match=message):
-        resolve(
-            OperationFieldBinding(
-                "realization_id", "physical:data.occurrence.realization_id", False
-            ),
-            {},
-        )
+        resolve(OperationFieldBinding("realization_id", "physical:data.occurrence.realization_id", False), {})
 
 
-def _changed_correspondence_inputs(mutate):
+def _changed_physical_sources(mutate):
     import yaml
 
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
-    from corpus_structure.semantic.types import SourceArtifact
-
-    inputs = trusted_execution_inputs()
-    artifact = "pdf/record-physical.yaml"
-    physical = next(source.content for source in inputs.implementations if source.name == artifact)
-    changed = yaml.safe_load(physical)
+    sources = dict(metadata.info["physical_sources"])
+    changed = yaml.safe_load(sources["physical.yaml"])
     mutate(changed)
-    return replace(
-        inputs,
-        implementations=tuple(
-            SourceArtifact(source.name, yaml.safe_dump(changed, sort_keys=False).encode())
-            if source.name == artifact
-            else source
-            for source in inputs.implementations
-        ),
-    )
+    sources["physical.yaml"] = yaml.safe_dump(changed, sort_keys=False).encode()
+    return sources
+
+
+def _correspondence_bindings(sources):
+    from corpus_structure.semantic.native_call_sources import source_bindings
+
+    return source_bindings((), logical_sources={"linkml:types": metadata.info["physical_linkml_types"]}, physical_sources=sources)
 
 
 @pytest.mark.parametrize(
@@ -256,35 +228,32 @@ def _changed_correspondence_inputs(mutate):
     [
         ("physical:sem.release.release_id", "cyclic"),
         ("physical:data.occurrence.release_id", "cyclic"),
-        ("physical:data.realization.realization_id", "semantic identifiers differ"),
+        ("physical:data.realization.realization_id", "nominal identifiers differ"),
         ("physical:ops.task.id", "encoding differs"),
     ],
 )
 def test_anchored_correspondence_is_validated_during_compilation(target, message):
-    from corpus_structure.semantic.contracts import compile_execution_model
-    from corpus_structure.semantic.types import PreparationError
+    from corpus_structure.schema.physical import compile_physical
+    from corpus_structure.schema.model import ModelError
 
     def mutate(model):
         slot = model["classes"]["release"]["attributes"]["release_id"]
         slot.setdefault("annotations", {})["cp:type_source"] = target
 
-    with pytest.raises(PreparationError, match=message):
-        compile_execution_model(_changed_correspondence_inputs(mutate))
+    with pytest.raises(ModelError, match=message):
+        compile_physical(_changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"])
 
 
 def test_type_correspondence_keeps_local_nullable_and_constraints():
     from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
-    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
-    from corpus_structure.semantic.operation_call_generation import source_bindings
 
     def mutate(model):
         slot = model["classes"]["occurrence"]["attributes"]["release_id"]
         slot["required"] = False
         slot["pattern"] = "local-pattern"
 
-    inputs = _changed_correspondence_inputs(mutate)
-    model = compile_execution_model(trusted_execution_inputs())
-    _, nominal, _, resolve = source_bindings(model, inputs)
+    inputs = _changed_physical_sources(mutate)
+    _, nominal, _, resolve = _correspondence_bindings(inputs)
     resolved, facts = resolve(
         OperationFieldBinding("release_id", "physical:data.occurrence.release_id", False), {}
     )
@@ -297,8 +266,6 @@ def test_type_correspondence_keeps_local_nullable_and_constraints():
 
 def test_type_correspondence_rejects_conflicting_closed_members():
     from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
-    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
-    from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
     def mutate(model):
@@ -313,9 +280,8 @@ def test_type_correspondence_rejects_conflicting_closed_members():
         }
         fields["target_members"] = {"range": "TargetMembers"}
 
-    inputs = _changed_correspondence_inputs(mutate)
-    model = compile_execution_model(trusted_execution_inputs())
-    _, _, _, resolve = source_bindings(model, inputs)
+    inputs = _changed_physical_sources(mutate)
+    _, _, _, resolve = _correspondence_bindings(inputs)
     with pytest.raises(PreparationError, match="members differ"):
         resolve(
             OperationFieldBinding("members", "physical:data.occurrence.local_members", False), {}
@@ -324,8 +290,6 @@ def test_type_correspondence_rejects_conflicting_closed_members():
 
 def test_type_correspondence_cannot_hide_behind_value_projection():
     from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
-    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
-    from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
     def mutate(model):
@@ -333,9 +297,8 @@ def test_type_correspondence_cannot_hide_behind_value_projection():
         field["annotations"]["cp:source"] = "physical:sem.release.release_id"
         field["annotations"]["cp:type_source"] = "physical:data.realization.realization_id"
 
-    inputs = _changed_correspondence_inputs(mutate)
-    model = compile_execution_model(trusted_execution_inputs())
-    _, _, _, resolve = source_bindings(model, inputs)
+    inputs = _changed_physical_sources(mutate)
+    _, _, _, resolve = _correspondence_bindings(inputs)
     with pytest.raises(PreparationError, match="semantic identifiers differ"):
         resolve(OperationFieldBinding("release", "physical:data.occurrence.release_id", False), {})
 
@@ -368,8 +331,6 @@ def test_companion_generator_cannot_bypass_invalid_anchored_correspondence():
 
 def test_correspondence_preserves_value_projection_lineage_and_rejects_collection_mismatch():
     from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
-    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
-    from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
     def mutate(model):
@@ -381,9 +342,8 @@ def test_correspondence_preserves_value_projection_lineage_and_rejects_collectio
             "annotations": {"cp:type_source": "physical:data.occurrence.many_release_ids"},
         }
 
-    inputs = _changed_correspondence_inputs(mutate)
-    model = compile_execution_model(trusted_execution_inputs())
-    _, nominal, _, resolve = source_bindings(model, inputs)
+    inputs = _changed_physical_sources(mutate)
+    _, nominal, _, resolve = _correspondence_bindings(inputs)
     resolved, facts = resolve(
         OperationFieldBinding("release_id", "physical:data.occurrence.release_id", False), {}
     )
@@ -398,8 +358,8 @@ def test_correspondence_preserves_value_projection_lineage_and_rejects_collectio
 
 @pytest.mark.parametrize("declaration", ["slot", "inherited_slot"])
 def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
-    from corpus_structure.semantic.contracts import compile_execution_model
-    from corpus_structure.semantic.types import PreparationError
+    from corpus_structure.schema.physical import compile_physical
+    from corpus_structure.schema.model import ModelError
 
     def mutate(model):
         release = model["classes"]["release"]
@@ -415,8 +375,8 @@ def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
             }
             release["is_a"] = "PhysicalReleaseBase"
 
-    with pytest.raises(PreparationError, match="cyclic"):
-        compile_execution_model(_changed_correspondence_inputs(mutate))
+    with pytest.raises(ModelError, match="cyclic"):
+        compile_physical(_changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"])
 
 
 @pytest.mark.parametrize(
