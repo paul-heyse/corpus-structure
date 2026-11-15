@@ -789,6 +789,9 @@ BEGIN
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF coalesce(ops.ddo_pdf_command_eligible(def),false) THEN
  PERFORM ops.require_pdf_operation(d.release_id,'retain_pdf_original');
+ ELSIF coalesce(ops.ddo_policy_command_eligible(def),false) THEN
+ IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER') THEN
+ RAISE EXCEPTION 'policy authorization requires native evaluator purpose' USING ERRCODE='42501'; END IF;
  ELSIF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_writer','MEMBER') THEN RAISE EXCEPTION 'external command requires native write purpose' USING ERRCODE='42501'; END IF;
  IF def.profile<>'command' OR def.support_contract->'external' IS NULL OR coalesce(def.support_contract->'effects','[]')='[]'::jsonb
@@ -1103,6 +1106,7 @@ BEGIN
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
  PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
  PERFORM ops.ddo_require_external_completion(p->'completion',r,t.id,t.attempt,t.claimed_by);
+ PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
@@ -1358,6 +1362,7 @@ BEGIN
  -- Reconciliation validates the original sealed producer, not the adopter's later fence.
  PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
  PERFORM ops.ddo_require_external_completion(i.payload,r,i.producer_task_id,i.producer_attempt,i.producer_holder);
+ PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
