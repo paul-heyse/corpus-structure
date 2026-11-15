@@ -405,6 +405,9 @@ def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_con
                 runtime=kernel.runtime,
             )["demand_id"]
 
+    import sys
+
+    monkeypatch.delitem(sys.modules, module, raising=False)
     monkeypatch.syspath_prepend(str(old.preparation.directory))
     original_demand = register(old)
     first = resume_changed_demand(
@@ -426,8 +429,6 @@ def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_con
         waiting = inspect_change_impact(connection, request, target_prepared=target.prepared)
     assert any(row.state == "awaiting" for row in waiting.items)
     assert changed_operations(old.model, target.model)[0] == {"urn:change:producer"}
-    import sys
-
     monkeypatch.syspath_prepend(str(target_directory))
     monkeypatch.delitem(sys.modules, module)
     changed = resume_changed_demand(
