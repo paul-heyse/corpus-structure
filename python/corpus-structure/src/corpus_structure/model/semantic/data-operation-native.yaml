@@ -273,6 +273,7 @@ definitions:
       project_id: {$ref: '#/definitions/identifier'}
       original_source: {$ref: '#/definitions/identifier'}
       subject: {$ref: '#/definitions/identifier'}
+      subject_definition: {$ref: '#/definitions/identifier'}
       analyzed_scope: {$ref: '#/definitions/json_value'}
       product: {$ref: '#/definitions/identifier'}
       member:
@@ -284,7 +285,7 @@ definitions:
         oneOf:
         - {$ref: '#/definitions/external_source_reference'}
         - {$ref: '#/definitions/semantic_source_reference'}
-    required: [project_id, original_source, subject, analyzed_scope, product, member, source_reference, reference]
+    required: [project_id, original_source, subject, subject_definition, analyzed_scope, product, member, source_reference, reference]
     additionalProperties: false
   root_subject:
     type: object
@@ -808,6 +809,8 @@ definitions:
         $ref: '#/definitions/identifier'
       subject:
         $ref: '#/definitions/identifier'
+      subject_definition:
+        $ref: '#/definitions/identifier'
       original_source:
         $ref: '#/definitions/identifier'
       analyzed_scope:
@@ -815,6 +818,7 @@ definitions:
     required:
     - member_id
     - subject
+    - subject_definition
     - original_source
     - analyzed_scope
     additionalProperties: false
@@ -830,6 +834,8 @@ definitions:
       operation_id:
         $ref: '#/definitions/identifier'
       subject:
+        $ref: '#/definitions/identifier'
+      subject_definition:
         $ref: '#/definitions/identifier'
       original_source:
         $ref: '#/definitions/identifier'
@@ -847,7 +853,7 @@ definitions:
         $ref: '#/definitions/semantic_value'
       choices:
         $ref: '#/definitions/parameter_map'
-    required: [parent_population_id, read_id, obligation_id, operation_id, subject, original_source, analyzed_scope, role, definition, eligibility, filter, parameter_meaning, choices]
+    required: [parent_population_id, read_id, obligation_id, operation_id, subject, subject_definition, original_source, analyzed_scope, role, definition, eligibility, filter, parameter_meaning, choices]
     additionalProperties: false
   population_producer_context:
     type: object
@@ -856,11 +862,13 @@ definitions:
         $ref: '#/definitions/identifier'
       subject:
         $ref: '#/definitions/identifier'
+      subject_definition:
+        $ref: '#/definitions/identifier'
       original_source:
         $ref: '#/definitions/identifier'
       analyzed_scope:
         $ref: '#/definitions/json_value'
-    required: [operation_id, subject, original_source, analyzed_scope]
+    required: [operation_id, subject, subject_definition, original_source, analyzed_scope]
     additionalProperties: false
   population_evidence:
     type: object
@@ -1209,12 +1217,13 @@ definitions:
       product_id: {$ref: '#/definitions/identifier'}
       kind_contract: {$ref: '#/definitions/identifier'}
       subject: {$ref: '#/definitions/identifier'}
+      subject_definition: {$ref: '#/definitions/identifier'}
       original_source: {$ref: '#/definitions/identifier'}
       analyzed_scope: {$ref: '#/definitions/json_value'}
       source_reference: {$ref: '#/definitions/identifier'}
       trust_snapshot: {$ref: '#/definitions/trust_snapshot'}
       evidence: {$ref: '#/definitions/json_value'}
-    required: [admission_id, selection_name, product_id, kind_contract, subject, original_source, analyzed_scope, source_reference, trust_snapshot, evidence]
+    required: [admission_id, selection_name, product_id, kind_contract, subject, subject_definition, original_source, analyzed_scope, source_reference, trust_snapshot, evidence]
     additionalProperties: false
   register_data_demand_request:
     type: object
@@ -2155,7 +2164,14 @@ definitions:
     minLength: 1
     description: Server-selected cutoff timestamp pinned by the authenticated read receipt.
   member_context:
-    $ref: '#/definitions/root_subject'
+    type: object
+    properties:
+      subject: {$ref: '#/definitions/identifier'}
+      subject_definition: {$ref: '#/definitions/identifier'}
+      original_source: {$ref: '#/definitions/identifier'}
+      analyzed_scope: {$ref: '#/definitions/json_value'}
+    required: [subject, subject_definition, original_source, analyzed_scope]
+    additionalProperties: false
   inspect_data_execution_request:
     type: object
     properties:

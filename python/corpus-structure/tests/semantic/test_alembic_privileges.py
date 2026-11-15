@@ -584,6 +584,8 @@ def test_successor_trigger_declarations_use_frozen_parent_before_normalization(
     )
     from corpus_structure.semantic.source_view_native import _admission_descriptor
 
+    from corpus_structure.semantic.data_operation_protocol import render_data_task_guard
+
     project = Path(__file__).resolve().parents[2]
     versions = project / "semantic_alembic/versions"
     semantic = project / "src/corpus_structure/semantic"
@@ -596,7 +598,10 @@ def test_successor_trigger_declarations_use_frozen_parent_before_normalization(
         conn.exec_driver_sql("CREATE SCHEMA sem")
         raw = _execution_task_definitions(
             conn,
-            semantic.joinpath("sql/execution_guards.sql").read_text(),
+            render_data_task_guard(
+                (semantic.parent / "model/semantic/data-operation-native.yaml").read_bytes(),
+                semantic.joinpath("sql/execution_guards.sql").read_text(),
+            ),
             versions.joinpath("semantic_0023_execution.sql").read_text(),
             source="execution task:forward",
         )

@@ -926,7 +926,6 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
         ),
     ]
     from .migrations import ALEMBIC_DIR
-    from .data_operation_protocol import render_data_task_guard
 
     definitions.extend(
         _execution_task_definitions(

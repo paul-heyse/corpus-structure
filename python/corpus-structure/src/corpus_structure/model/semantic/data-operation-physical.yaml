@@ -162,6 +162,7 @@ classes:
       kind_contract: {range: string, required: true}
       project_id: {range: string, required: true}
       subject: {range: string, required: true}
+      subject_definition: {range: string, required: true}
       original_source: {range: string, required: true}
       analyzed_scope: {range: json_payload, required: true}
       canonical_body: {range: json_payload, required: true}
@@ -180,6 +181,7 @@ classes:
       member_id: {range: string, required: true}
       kind_contract: {range: string, required: true}
       subject: {range: string, required: true}
+      subject_definition: {range: string, required: true}
       original_source: {range: string, required: true}
       analyzed_scope: {range: json_payload, required: true}
       body: {range: json_payload, required: true}

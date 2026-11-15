@@ -1,5 +1,6 @@
 """Physical attempt and contextual product constraints use their declared owners."""
 
+import json
 from importlib.resources import files
 
 import pytest
@@ -12,12 +13,15 @@ from corpus_structure.semantic.data_operation_identity import (
     contextual_product_identity,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_protocol import render_data_task_guard
 from corpus_structure.semantic.metadata import table
 
 
 @pytest.mark.db
 def test_retired_attempt_preserves_holder_until_a_new_claim_fence(semantic_bare_engine):
     source = files("corpus_structure.semantic").joinpath("sql/execution_guards.sql").read_text()
+    protocol = files("corpus_structure.model").joinpath("semantic/data-operation-native.yaml").read_bytes()
+    source = render_data_task_guard(protocol, source)
     association_start = source.index("   IF (NEW.data_request_id,")
     association_end = source.index(" END IF;", association_start) + len(" END IF;")
     fence_start = source.index("   IF NEW.attempt<>OLD.attempt THEN")
@@ -124,6 +128,40 @@ def test_declared_product_primary_identity_allows_equal_body_in_distinct_scopes(
             with connection.begin_nested() as savepoint:
                 with pytest.raises(IntegrityError):
                     connection.execute(insert(product), rows[0])
+                savepoint.rollback()
+        finally:
+            transaction.rollback()
+
+
+@pytest.mark.db
+def test_qualified_population_preserves_distinct_subject_definitions(semantic_bare_engine):
+    source = files("corpus_structure.semantic").joinpath("sql/data_operation_bindings.sql").read_text()
+    start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_project_population(")
+    end = source.index("-- Physical ledger slots", start)
+    helpers = source[start:end].replace("ops.ddo_project_population", "pg_temp.ddo_project_population").replace("ops.ddo_binding_population_meaning", "pg_temp.ddo_binding_population_meaning")
+    members = [
+        {"member_id": name, "subject": "same-address", "subject_definition": name,
+         "original_source": "same-document", "analyzed_scope": {"page": 3}}
+        for name in ("document-subject", "view-subject")
+    ]
+    expected = [
+        {"project_id": "project", **{key: value for key, value in member.items() if key != "member_id"}}
+        for member in members
+    ]
+    with semantic_bare_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            connection.exec_driver_sql(helpers)
+            witness = connection.execute(text("SELECT pg_temp.ddo_project_population('population:one',true,CAST(:members AS jsonb),'{}','project','qualified-context')"), {"members": json.dumps(members)}).scalar_one()
+            assert witness["members"] == expected
+            assert len({member["subject_definition"] for member in witness["members"]}) == 2
+            meaning = connection.execute(text("SELECT pg_temp.ddo_binding_population_meaning(CAST(:witness AS jsonb),false)"), {"witness": json.dumps(witness)}).scalar_one()
+            assert meaning == {"identity": "population:one", "complete": True,
+                               "members": expected, "projection": "qualified-context"}
+            del witness["members"][0]["subject_definition"]
+            with connection.begin_nested() as savepoint:
+                with pytest.raises(DBAPIError, match="invalid structured native population witness"):
+                    connection.execute(text("SELECT pg_temp.ddo_binding_population_meaning(CAST(:witness AS jsonb),false)"), {"witness": json.dumps(witness)})
                 savepoint.rollback()
         finally:
             transaction.rollback()

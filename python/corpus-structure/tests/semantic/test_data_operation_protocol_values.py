@@ -143,3 +143,16 @@ def test_task_protocol_rejects_unclassified_state():
     protocol["definitions"]["data_task_state"]["enum"].append("forgotten")
     with pytest.raises(ValueError, match="unclassified state"):
         data_task_lifecycle(yaml.safe_dump(protocol).encode())
+
+
+def test_member_context_requires_explicit_subject_definition():
+    from corpus_structure.semantic.data_operation_wire import schema_closure, validate_wire_schema
+    definitions = yaml.safe_load(captured()["data-operation-native.yaml"])["definitions"]
+    schema = schema_closure(definitions["member_context"], definitions)
+    context = {"subject": "same-address", "subject_definition": "original-source-view",
+               "original_source": "document", "analyzed_scope": {"page": 2}}
+    assert validate_wire_schema(schema, context) == context
+    for invalid in ({key: value for key, value in context.items() if key != "subject_definition"},
+                    {**context, "subject_definition": ""}):
+        with pytest.raises(ValueError, match="schema"):
+            validate_wire_schema(schema, invalid)

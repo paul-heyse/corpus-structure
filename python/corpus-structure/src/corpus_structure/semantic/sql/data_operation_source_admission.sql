@@ -109,7 +109,7 @@ BEGIN
  IF jsonb_array_length(atoms)<>cardinality(wanted) THEN RAISE EXCEPTION 'original source native atom inventory is absent or ambiguous'; END IF;
  body:=ops.ddo_native_source_body(document_.key,view_.section_pointer,view_.membership,view_.projection,view_.projection_digest,atoms,p_selectors);
  RETURN jsonb_build_object('body',body,'meaning_body',data.ddo_normalize(data.record_json_meaning(body)),
- 'subject','source-native:'||ops.ddo_digest(body->'source'),'original_source',document_.key,
+ 'subject_definition','original-source-view','subject','source-native:'||ops.ddo_digest(body->'source'),'original_source',document_.key,
  'analyzed_scope',jsonb_build_object('source',body->'source','selectors',body->'selectors'),
  'evidence',jsonb_build_object('reference',p_reference,'document_content_hash',document_.content_hash,'original_projection_digest',view_.projection_digest,
  'native_build_id',placement.build_id,'native_revision_id',placement.build_id,'producer_release_id',placement.release_id));
@@ -131,7 +131,7 @@ BEGIN
  body:=jsonb_build_object('document',document.key,'content_hash',document.content_hash,'mime',document.mime);
  coordinate:=jsonb_build_object('document',document.key);
  RETURN jsonb_build_object('body',body,'meaning_body',data.ddo_normalize(data.record_json_meaning(body)),
- 'subject','original-document:'||ops.ddo_digest(coordinate),
+ 'subject_definition','original-document','subject','original-document:'||ops.ddo_digest(coordinate),
  'original_source',document.key,'analyzed_scope',jsonb_build_object('document',document.key,'scope','whole-document'),
  'evidence',jsonb_build_object('reference',p_reference,'document_id',document.id,
  'document_content_hash',document.content_hash,'source_uri',document.source_uri,'original_path',document.original_path));

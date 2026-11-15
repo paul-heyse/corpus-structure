@@ -18,10 +18,10 @@ BEGIN
  IF named.key='' OR jsonb_typeof(named.value)<>'array' OR jsonb_array_length(named.value)=0 THEN RAISE EXCEPTION 'source set requires exact nonempty pins'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(named.value) value GROUP BY value->>'product',value->>'member' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate qualified source-set product/member'; END IF;
  FOR entry IN SELECT value FROM jsonb_array_elements(named.value) LOOP
- PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','analyzed_scope','product','member','source_reference','reference']);
- IF EXISTS(SELECT FROM unnest(ARRAY['project_id','original_source','subject','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
+ PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','subject_definition','analyzed_scope','product','member','source_reference','reference']);
+ IF EXISTS(SELECT FROM unnest(ARRAY['project_id','original_source','subject','subject_definition','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
  OR entry->>'project_id' IS DISTINCT FROM project
- OR nullif(entry->>'original_source','') IS NULL OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'product','') IS NULL
+ OR nullif(entry->>'original_source','') IS NULL OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'subject_definition','') IS NULL OR nullif(entry->>'product','') IS NULL
  OR jsonb_typeof(entry->'analyzed_scope') IS DISTINCT FROM 'object'
  OR (entry->'member'<>'null'::jsonb AND nullif(entry->>'member','') IS NULL) THEN RAISE EXCEPTION 'source-set entry differs from original qualified reference'; END IF;
  IF ops.ddo_semantic_source_reference(entry->'reference') THEN
@@ -43,8 +43,8 @@ BEGIN
  IF name IS NULL THEN RETURN consumer_source IS NULL OR row_value->>'original_source'=consumer_source; END IF;
  IF jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
  RETURN EXISTS(SELECT FROM jsonb_array_elements(source_sets->name) entry WHERE
- (entry->>'product',entry->>'member',entry->>'subject',entry->>'original_source') IS NOT DISTINCT FROM
- (row_value->>'product',row_value->>'member',row_value->>'subject',row_value->>'original_source')
+ (entry->>'product',entry->>'member',entry->>'subject',entry->>'subject_definition',entry->>'original_source') IS NOT DISTINCT FROM
+ (row_value->>'product',row_value->>'member',row_value->>'subject',row_value->>'subject_definition',row_value->>'original_source')
  AND entry->'analyzed_scope'=row_value->'analyzed_scope'
  AND (ops.ddo_semantic_source_reference(entry->'reference') OR (reference_field IS NOT NULL AND data.ddo_field(row_value->'meaning_body',reference_field)=jsonb_build_array('string',entry->>'source_reference'))));
 END $$;
@@ -243,7 +243,7 @@ BEGIN
  IF field->>'field'='@context' THEN
  IF operand->>'value_type' IS DISTINCT FROM 'subject-context' OR nullif(context->>'project_id','') IS NULL THEN RAISE EXCEPTION 'native qualified context lacks project/type'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(coalesce(context->'roles'->(field->>'role'),'[]')) LOOP
- result:=result||jsonb_build_array(jsonb_build_array('subject-context',jsonb_build_object('project_id',context->>'project_id','subject',item->>'subject','original_source',item->>'original_source','analyzed_scope',item->'analyzed_scope')));
+ result:=result||jsonb_build_array(jsonb_build_array('subject-context',jsonb_build_object('project_id',context->>'project_id','subject',item->>'subject','subject_definition',item->>'subject_definition','original_source',item->>'original_source','analyzed_scope',item->'analyzed_scope')));
  END LOOP;
  RETURN result;
  END IF;
@@ -563,7 +563,7 @@ LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE projected jsonb; result jsonb;
 BEGIN
  IF projection='qualified-context' THEN
- SELECT coalesce(jsonb_agg(jsonb_build_object('project_id',project,'subject',value->'subject','original_source',value->'original_source','analyzed_scope',value->'analyzed_scope') ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
+ SELECT coalesce(jsonb_agg(jsonb_build_object('project_id',project,'subject',value->'subject','subject_definition',value->'subject_definition','original_source',value->'original_source','analyzed_scope',value->'analyzed_scope') ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
  ELSIF projection='member' THEN
  SELECT coalesce(jsonb_agg(value->'member_id' ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
  ELSE RAISE EXCEPTION 'unknown population projection'; END IF;
@@ -580,7 +580,7 @@ BEGIN
  IF jsonb_typeof(witness) IS DISTINCT FROM 'object' OR jsonb_typeof(witness->'identity') IS DISTINCT FROM 'string' OR nullif(witness->>'identity','') IS NULL
  OR jsonb_typeof(witness->'complete') IS DISTINCT FROM 'boolean' OR jsonb_typeof(witness->'members') IS DISTINCT FROM 'array' OR jsonb_typeof(witness->'evidence') IS DISTINCT FROM 'object'
  OR (coalesce(witness->>'projection','member')='member' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m) IS DISTINCT FROM 'string' OR m#>>'{}'=''))
- OR (witness->>'projection'='qualified-context' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m)<>'object' OR nullif(m->>'project_id','') IS NULL OR nullif(m->>'subject','') IS NULL OR nullif(m->>'original_source','') IS NULL OR jsonb_typeof(m->'analyzed_scope') IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(m))<>4))
+ OR (witness->>'projection'='qualified-context' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m)<>'object' OR nullif(m->>'project_id','') IS NULL OR nullif(m->>'subject','') IS NULL OR nullif(m->>'subject_definition','') IS NULL OR nullif(m->>'original_source','') IS NULL OR jsonb_typeof(m->'analyzed_scope') IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(m))<>5))
  OR coalesce(witness->>'projection','member') NOT IN ('member','qualified-context')
  OR EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m GROUP BY m HAVING count(*)<>1) THEN RAISE EXCEPTION 'invalid structured native population witness'; END IF;
  result:=jsonb_build_object('identity',witness->'identity','complete',witness->'complete','members',witness->'members');

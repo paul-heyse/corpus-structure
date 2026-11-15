@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_external_input_rows(r ops.data_request) RETUR
 LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT jsonb_build_object('role',item->>'role','position',item->'position','multiplicity',item->'multiplicity',
  'product_id',product.id,'member_id',item->'member_id','kind_contract',coalesce(member.kind_contract,product.kind_contract),
- 'subject',coalesce(member.subject,product.subject),'original_source',coalesce(member.original_source,product.original_source),
+ 'subject',coalesce(member.subject,product.subject),'subject_definition',coalesce(member.subject_definition,product.subject_definition),'original_source',coalesce(member.original_source,product.original_source),
  'analyzed_scope',CASE WHEN member.member_id IS NULL THEN product.analyzed_scope ELSE member.analyzed_scope END,
  'meaning',coalesce(member.body,product.canonical_body))
  FROM jsonb_array_elements(r.binding->'inputs') WITH ORDINALITY inputs(item,ordinal)
@@ -70,7 +70,7 @@ BEGIN
  SELECT coalesce(jsonb_agg(input),'[]') INTO inputs FROM ops.ddo_external_input_rows(r) input;
  packet:=jsonb_build_object('version','external-data-packet-v1','packet_id',key,'request_id',r.id,'request_key',r.request_key,'generation',r.generation,
  'task_id',t.id,'project_id',r.project_id,'release_id',r.release_id,'runtime_id',r.runtime_id,'operation_id',r.operation_id,'recipe',r.recipe,
- 'implementation_revision',definition.implementation_revision,'subject',r.subject,'original_source',r.original_source,'analyzed_scope',r.analyzed_scope,
+ 'implementation_revision',definition.implementation_revision,'subject',r.subject,'subject_definition',ops.ddo_operation_subject(r.release_id,r.operation_id),'original_source',r.original_source,'analyzed_scope',r.analyzed_scope,
  'binding',r.binding,'protocol',definition.support_contract->'external','inputs',inputs,'result_contract',contracts,'outcomes',definition.support_contract->'outcomes');
  IF octet_length(data.canonical_json(packet))>(p->>'max_bytes')::integer THEN RAISE EXCEPTION 'complete external packet exceeds owned packet capacity'; END IF;
  INSERT INTO ops.data_external_packet VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,r.runtime_id,packet,ops.ddo_digest(packet),clock_timestamp());
