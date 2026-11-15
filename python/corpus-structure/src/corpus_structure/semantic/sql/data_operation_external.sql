@@ -200,7 +200,7 @@ BEGIN
  IF completion->'inputs' IS DISTINCT FROM r.binding->'inputs' OR completion->'support' IS DISTINCT FROM r.binding->'support'
  OR completion->>'implementation_revision' IS DISTINCT FROM packet.payload->>'implementation_revision' THEN RAISE EXCEPTION 'external result changes its immutable input/implementation binding'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(completion->'outputs') output
- CROSS JOIN LATERAL ops.ddo_body_kind_contracts(output->'product'->>'kind_contract',output->'product'->'body') included(kind_contract)
+ CROSS JOIN LATERAL ops.ddo_body_kind_contracts(output->'product'->>'kind_contract',data.ddo_normalize(output->'product'->'body')) included(kind_contract)
  JOIN sem.data_kind_contract kind ON kind.kind_contract=included.kind_contract WHERE kind.universe='evaluator') THEN
  RAISE EXCEPTION 'protected evaluator data cannot leave an external packet'; END IF;
  key:='external-result:'||ops.ddo_digest(jsonb_build_array(packet.id,digest_));
