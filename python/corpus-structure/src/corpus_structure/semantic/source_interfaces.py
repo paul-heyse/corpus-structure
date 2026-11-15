@@ -14,7 +14,13 @@ from importlib.metadata import version
 from typing import Any, Literal
 
 import griffe
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+)
 
 from .identity import canonical_bytes
 
@@ -33,7 +39,7 @@ class SourceModuleFacts(_Fact):
     captured_artifact: str
 
 
-class SourceCallableFacts(_Fact):
+class SourceDocumentationFacts(_Fact):
     exposed: str
     declaration: str
     module: str
@@ -41,22 +47,28 @@ class SourceCallableFacts(_Fact):
     source_digest: str
     line: int | None = None
     end_line: int | None = None
-    signature: dict[str, JsonValue]
     documentation: str | None = None
     sections: tuple[dict[str, JsonValue], ...] = ()
     origin: Literal["extracted", "modeled"] = "extracted"
 
 
+class SourceCallableFacts(SourceDocumentationFacts):
+    signature: dict[str, JsonValue]
+
+
 class SourceOperationFacts(_Fact):
     operation: str
     owner: str
+    documentation: SourceDocumentationFacts | None = None
     callables: tuple[SourceCallableFacts, ...]
     metadata: dict[str, JsonValue]
     origins: tuple[dict[str, JsonValue], ...]
 
 
 class SourceInterfaceProjection(_Fact):
-    version: Literal["data-operation-source-interfaces-v1"] = "data-operation-source-interfaces-v1"
+    version: Literal[
+        "data-operation-source-interfaces-v1", "data-operation-source-interfaces-v2"
+    ] = "data-operation-source-interfaces-v2"
     model_digest: str
     interpreter: str
     interpretation: str
@@ -64,6 +76,16 @@ class SourceInterfaceProjection(_Fact):
     modules: tuple[SourceModuleFacts, ...]
     operations: tuple[SourceOperationFacts, ...]
     unknowns: tuple[str, ...] = ()
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        serialized = handler(self)
+        if self.version == "data-operation-source-interfaces-v1":
+            # Owner docs were not captured by v1. Preserve its archived shape and
+            # identity instead of injecting a later schema's default into it.
+            for operation in serialized.get("operations", ()):
+                operation.pop("documentation", None)
+        return serialized
 
     @property
     def content(self) -> bytes:
@@ -123,11 +145,10 @@ def export_source_interfaces(frontend, facts, model) -> SourceInterfaceProjectio
     unknowns = []
     for fact in facts:
         metadata = json.loads(fact.metadata)
-        callables = []
-        for surface in fact.surfaces:
-            obj = frontend.resolve(surface.declaration)
-            module = by_module[frontend._module_for(surface.declaration)]
-            documentation = obj.docstring.value if obj.docstring is not None else None
+
+        def documentation_facts(exposed, declaration) -> SourceDocumentationFacts:
+            obj = frontend.resolve(declaration)
+            module = by_module[frontend._module_for(obj.path)]
             sections = ()
             if obj.docstring is not None:
                 try:
@@ -136,28 +157,38 @@ def export_source_interfaces(frontend, facts, model) -> SourceInterfaceProjectio
                         _record(section.as_dict()) for section in obj.docstring.parse("google")
                     )
                 except (ValueError, TypeError) as error:
-                    unknowns.append(surface.declaration + ": documentation: " + str(error))
+                    unknowns.append(declaration + ": documentation: " + str(error))
+            return SourceDocumentationFacts(
+                exposed=exposed,
+                declaration=obj.path,
+                module=module.module,
+                path=module.path,
+                source_digest=module.source_digest,
+                line=obj.lineno,
+                end_line=obj.endlineno,
+                documentation=obj.docstring.value if obj.docstring is not None else None,
+                sections=sections,
+                origin="modeled" if obj.path in frontend.generated else "extracted",
+            )
+
+        owner = fact.implementation.root.removeprefix("python:")
+        owner_documentation = documentation_facts(owner, owner)
+        callables = []
+        for surface in fact.surfaces:
+            documentation = documentation_facts(surface.exposed, surface.declaration)
             signature = asdict(surface)
             signature["overloads"] = [json.loads(item) for item in surface.overloads]
             callables.append(
                 SourceCallableFacts(
-                    exposed=surface.exposed,
-                    declaration=surface.declaration,
-                    module=module.module,
-                    path=module.path,
-                    source_digest=module.source_digest,
-                    line=obj.lineno,
-                    end_line=obj.endlineno,
+                    **documentation.model_dump(),
                     signature=_record(signature),
-                    documentation=documentation,
-                    sections=sections,
-                    origin="modeled" if surface.declaration in frontend.generated else "extracted",
                 )
             )
         operations.append(
             SourceOperationFacts(
                 operation=metadata["id"],
                 owner=fact.implementation.root,
+                documentation=owner_documentation,
                 callables=tuple(callables),
                 metadata=metadata,
                 origins=tuple(asdict(origin) for origin in fact.origins),

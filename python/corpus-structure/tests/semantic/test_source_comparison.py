@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import replace
+from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -111,6 +112,86 @@ class Child(Base):
     assert any(
         origin["declaration"] == "example.Base.run" for origin in projection.operations[0].origins
     )
+
+
+def test_class_documentation_edit_retains_owner_and_does_not_change_callable_contract():
+    metadata = contract(entrypoints=["run"])
+    source = (
+        '''raise RuntimeError("must not execute")
+class Operation:
+    """Before operation prose.
+
+    Note:
+        Operation policy.
+    """
+    def run(self, x: int = 2) -> int:
+        return x + 1
+'''
+        + f"Operation.__data_operation__={metadata!r}\n"
+    )
+    before = compile_source(source)
+    after = compile_source(source.replace("Before operation prose.", "After operation prose."))
+    assert after.source_interfaces is not None
+    projection = SourceInterfaceProjection.model_validate_json(after.source_interfaces)
+    operation = projection.operations[0]
+    documented = operation.documentation
+    assert documented is not None
+    assert operation.owner == "python:example.Operation"
+    assert documented.exposed == documented.declaration == "example.Operation"
+    assert documented.module == "example"
+    assert documented.path == projection.modules[0].path
+    assert documented.source_digest == projection.modules[0].source_digest
+    assert documented.line == 2
+    assert documented.origin == "extracted"
+    assert documented.documentation == "After operation prose.\n\nNote:\n    Operation policy."
+    assert documented.sections == (
+        {"kind": "text", "value": "After operation prose."},
+        {
+            "kind": "admonition",
+            "value": {"annotation": "note", "description": "Operation policy."},
+            "title": "Note",
+        },
+    )
+    assert operation.callables[0].documentation is None
+    comparison = compare_data_operation_models(before, after)
+    assert "documentation" in facets(comparison)
+    assert "contract" not in facets(comparison)
+    assert not comparison.breakages
+
+
+def test_v1_interface_identity_preserves_archived_shape_and_owner_docs_stay_unknown():
+    model = compile_source(operation_source())
+    assert model.source_interfaces is not None
+    archived = json.loads(model.source_interfaces)
+    assert archived["version"] == "data-operation-source-interfaces-v2"
+    archived["version"] = "data-operation-source-interfaces-v1"
+    for operation in archived["operations"]:
+        del operation["documentation"]
+    original = json.dumps(
+        archived, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    projection = SourceInterfaceProjection.model_validate_json(original)
+    assert projection.operations[0].documentation is None
+    assert projection.content == original
+    assert projection.model_dump(mode="json") == archived
+    assert projection.identity == "source-interfaces:" + sha256(original).hexdigest()
+    retained = read_source_interfaces(
+        SimpleNamespace(
+            artifacts=(
+                SimpleNamespace(kind=SOURCE_INTERFACE_ARTIFACT, content=original),
+                SimpleNamespace(kind="data_operations.json", content=model.content),
+            ),
+            manifest=json.dumps(
+                {"data_operation_source_interfaces": sha256(original).hexdigest()}
+            ).encode(),
+        )
+    )
+    assert retained is not None
+    assert retained.content == original
+    assert retained.identity == projection.identity
+    comparison = compare_data_operation_models(replace(model, source_interfaces=original), model)
+    assert not comparison.changes
+    assert any("operation owner documentation unavailable" in item for item in comparison.unknowns)
 
 
 def test_missing_archive_projection_stays_unavailable_and_model_content_is_unchanged():

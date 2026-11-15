@@ -270,27 +270,43 @@ def compare_data_operation_models(
         old_docs = {item.operation: item for item in old_interfaces.operations}
         new_docs = {item.operation: item for item in new_interfaces.operations}
         for owner in sorted(old_docs.keys() | new_docs.keys()):
+            old_operation = old_docs.get(owner)
+            new_operation = new_docs.get(owner)
+            owner_docs_available = all(
+                item is None or item.documentation is not None
+                for item in (old_operation, new_operation)
+            )
+            if not owner_docs_available:
+                unknowns.append(owner + ": operation owner documentation unavailable.")
 
-            def documentation(item):
+            def documentation_record(surface):
+                return dict(
+                    exposed=surface.exposed,
+                    declaration=surface.declaration,
+                    documentation=surface.documentation,
+                    sections=surface.sections,
+                    origin=surface.origin,
+                )
+
+            def documentation(item, owner_docs_available=owner_docs_available):
                 return (
                     None
                     if item is None
-                    else [
-                        dict(
-                            exposed=surface.exposed,
-                            declaration=surface.declaration,
-                            documentation=surface.documentation,
-                            sections=surface.sections,
-                        )
-                        for surface in item.callables
-                    ]
+                    else dict(
+                        owner=(
+                            documentation_record(item.documentation)
+                            if owner_docs_available and item.documentation is not None
+                            else None
+                        ),
+                        callables=[documentation_record(surface) for surface in item.callables],
+                    )
                 )
 
             append(
                 owner,
                 "documentation",
-                documentation(old_docs.get(owner)),
-                documentation(new_docs.get(owner)),
+                documentation(old_operation),
+                documentation(new_operation),
                 old_present=owner in old_docs,
                 new_present=owner in new_docs,
                 reason="Prepared source documentation or exposed/supplying origin changed.",
