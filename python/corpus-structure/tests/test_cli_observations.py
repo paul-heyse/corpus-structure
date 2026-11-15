@@ -391,20 +391,18 @@ def test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor(tmp_pa
 
     store = ResultStore(tmp_path)
     with store.operation("bounded", observations=True) as invocation:
-        invocation.bind_observations(run_id=42, project="nondefault project's space")
-        invocation.stage("selected")
+        invocation.bind_observations(demand_id="actual-demand", project="nondefault project's space")
+        invocation.stage("selected", native_source_root="/actual source root")
     monkeypatch.setattr(
         "corpus_structure.cli.result_inspection.native_inspection",
         lambda *args: NativeInspection(
             availability="available",
-            run={
-                "run_id": 42,
-                "status": "source_ready",
-                "readiness": "source_ready",
-                "extra": "x" * 100000,
+            demand={
+                "demand_id": "actual-demand",
+                "state": "fulfilled",
+                "project_id": "nondefault project's space",
+                "uses": [{"detail": "x" * 100000}],
             },
-            counts={"done": 1},
-            denominator=1,
         ),
     )
     ctx = typer.Context(typer.main.get_command(app), obj=CliState())
@@ -412,19 +410,14 @@ def test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor(tmp_pa
         ctx, store, invocation.id, ObservationSelection(severity="CRITICAL", max_bytes=65536)
     )
     assert report.observations.rows == [] and len(report.model_dump_json().encode()) <= 65536
-    assert report.native.run == {
-        "run_id": 42,
-        "status": "source_ready",
-        "readiness": "source_ready",
+    assert report.native.demand == {
+        "demand_id": "actual-demand",
+        "state": "fulfilled",
+        "project_id": "nondefault project's space",
     }
-    action = next(item for item in report.next_actions if item.kind == "resume_run")
+    action = next(item for item in report.next_actions if item.kind == "resume_demand")
     assert shlex.split(action.command) == [
-        "ci",
-        "run",
-        "resume",
-        "42",
-        "--project",
-        "nondefault project's space",
+        "ci", "demands", "execute", "actual-demand", "--source-root", "/actual source root",
     ]
     monkeypatch.setattr(
         "corpus_structure.cli.result_inspection.native_inspection",
@@ -534,3 +527,20 @@ def test_watch_latest_window_counts_budget_evictions_without_rewinding_scan(cli,
     cursor = Cursor.decode(page["next_after"])
     assert cursor.offset == page["end_offset"] == page["observed_bytes"]
     assert len(json.loads(output.stdout)["inspection"]["observations"]["rows"]) < 10
+
+
+def test_run_only_observations_do_not_acquire_a_legacy_native_reader():
+    from types import SimpleNamespace
+    import typer
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.cli.result_inspection import native_inspection
+
+    # These are authentic retained observation bindings, not an instruction to
+    # reconstruct or resume the obsolete run architecture. No storage is acquired.
+    manifest = SimpleNamespace(details={"observation_bindings": {"run_id": 42, "project": "p"}})
+    ctx = typer.Context(typer.main.get_command(app), obj=CliState())
+    report = native_inspection(ctx, manifest, ObservationSelection())
+    assert report.availability == "unavailable"
+    assert report.reason == "No native demand binding was acquired."
+    assert report.demand is None

@@ -465,7 +465,7 @@ and compatibility paths retire. Ordinary policy authorization requires the exact
 and common receipt; its bounded public authority leaf never replaces protected internal support.
 D3 and D7 own realization and qualification; no persistent adoption follows from this decision.
 
-> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0112](../adr/0112-cpu-reply-correspondence.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Purpose-owned
 Psycopg pools lend sessions through SQLAlchemy NullPool. Demand execution reserves one writer
