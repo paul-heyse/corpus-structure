@@ -175,7 +175,7 @@ def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str
         request["support_after"] = support["after"]
 
 
-def verify_detached_result(record: Mapping[str, Any], *, records, wire_schema=None, kinds=None) -> DemandResult:
+def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None, wire_schema=None, kinds=None, definitions=None, runtimes=None, source_artifacts=None, validate_closure=True) -> DemandResult:
     """Verify links and exact value identities against an explicit captured closure.
 
     Export verification authenticates the captured contracts/runtime and trusted
@@ -186,20 +186,25 @@ def verify_detached_result(record: Mapping[str, Any], *, records, wire_schema=No
     admitted = validate_native_wire("read_demand_result", "output", dict(record)) if wire_schema is None else validate_wire_schema(wire_schema, dict(record))
     page = DemandResult(json_bytes(admitted))
     closure = {}
-    for row in records:
-        relation = row["relation"]
-        key = row["key"]
-        previous = closure.setdefault(relation, {}).get(key)
-        if previous is not None and previous != row["record"]:
-            raise ValueError("detached support key has conflicting records")
-        closure[relation][key] = row["record"]
+    if index is None:
+        for row in records:
+            relation = row["relation"]
+            key = row["key"]
+            previous = closure.setdefault(relation, {}).get(key)
+            if previous is not None and previous != row["record"]:
+                raise ValueError("detached support key has conflicting records")
+            closure[relation][key] = row["record"]
     def rows(name):
-        return tuple(closure.get(name, {}).values())
-    actual_kinds = {item["kind_contract"]: item for item in rows("sem.data_kind_contract")}
+        return closure.get(name, {}).values() if index is None else index.rows(name)
+    def row_map(name, *fields):
+        if index is not None:
+            return index.mapping(name, fields)
+        return {(row[fields[0]] if len(fields) == 1 else tuple(row[field] for field in fields)): row for row in rows(name)}
+    actual_kinds = row_map("sem.data_kind_contract", "kind_contract")
     if kinds is not None and any(kinds.get(key) != value for key, value in actual_kinds.items()):
         raise ValueError("detached kind differs from its captured release contract")
-    products = {item["id"]: item for item in rows("kb.data_product")}
-    for product in products.values():
+    products = row_map("kb.data_product", "id")
+    for product in products.values() if validate_closure else ():
         kind = actual_kinds[product["kind_contract"]]
         decoded = decode_semantic_value(product["canonical_body"])
         Draft7Validator(kind["meaning_schema"]).validate(product["canonical_body"])
@@ -208,8 +213,8 @@ def verify_detached_result(record: Mapping[str, Any], *, records, wire_schema=No
         context = SubjectContext(product["project_id"], product["subject"], product["original_source"], json_bytes(product["analyzed_scope"]))
         if body != product["body_digest"] or contextual_product_identity(kind=product["kind_contract"], context=context, body=body).key != product["id"]:
             raise ValueError("detached product differs from its semantic identity")
-    members = {(row["product_id"], row["member_id"]): row for row in rows("kb.data_product_member")}
-    for member in members.values():
+    members = row_map("kb.data_product_member", "product_id", "member_id")
+    for member in members.values() if validate_closure else ():
         product = products[member["product_id"]]
         kind = actual_kinds[member["kind_contract"]]
         Draft7Validator(kind["meaning_schema"]).validate(member["body"])
@@ -218,9 +223,42 @@ def verify_detached_result(record: Mapping[str, Any], *, records, wire_schema=No
         packets = decode_semantic_value(product["canonical_body"]).get("members", ())
         if not any(packet["member_id"] == member["member_id"] and packet["kind_contract"] == member["kind_contract"] and packet["body"] == decoded and packet["context"] == dict(subject=member["subject"], original_source=member["original_source"], analyzed_scope=member["analyzed_scope"]) for packet in packets):
             raise ValueError("detached member differs from its canonical container")
-    episodes = {row["id"]: row for row in rows("ops.data_derivation")}
-    uses = {row["id"]: row for row in rows("ops.demand_use")}
-    originals = {row["id"]: row for row in rows("ops.original_source_admission")}
+    actual_definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
+    if definitions is not None and any(definitions.get(key) != value for key, value in actual_definitions.items()):
+        raise ValueError("detached operation differs from its captured release contract")
+    requests = row_map("ops.data_request", "id")
+    episodes = row_map("ops.data_derivation", "id")
+    if validate_closure:
+        for episode in episodes.values():
+            if runtimes is not None and (episode["release_id"], episode["runtime_id"]) not in runtimes:
+                raise ValueError("detached producing episode lacks its exact runtime archive")
+            request = requests[episode["request_id"]]
+            definition = actual_definitions[episode["release_id"], request["operation_id"]]
+            if episode["recipe"] != request["recipe"] or definition["recipe"] != episode["recipe"]:
+                raise ValueError("detached producing recipe differs from captured definition")
+    uses = row_map("ops.demand_use", "id")
+    originals = row_map("ops.original_source_admission", "id")
+    if validate_closure and source_artifacts is not None:
+        for admission in originals.values():
+            reference = admission["reference"]
+            if reference.get("kind") == "original-document" and reference["content_hash"] not in source_artifacts:
+                raise ValueError("detached selected original bytes are missing")
+    if validate_closure:
+        from .data_operation_identity import SemanticRequestKey
+        for retained in uses.values():
+            if retained["request_id"] is None:
+                continue
+            request = requests.get(retained["request_id"])
+            if request is None:
+                # An unsettled use has no producing episode. Its request is not
+                # needed as semantic evidence, and its fate remains explicit.
+                if retained["derivation_id"] is not None:
+                    raise ValueError("settled use lacks its semantic request")
+                continue
+            binding = retained["selection"]
+            expected = SemanticRequestKey(request["recipe"], request["subject"], decode_semantic_value(binding["request_inputs"]), decode_semantic_value(binding["parameters"]), binding["inference"], subject_context=SubjectContext(request["project_id"], request["subject"], request["original_source"], json_bytes(request["analyzed_scope"]))).identity.key
+            if expected != request["request_key"]:
+                raise ValueError("detached request differs from its exact selected meaning")
     for use in record["uses"]:
         retained = uses.get(use["use_id"])
         if retained is None or any(retained[key] != use[key] for key in ("obligation_id", "request_id", "derivation_id", "selection", "trust_snapshot")):
@@ -229,13 +267,14 @@ def verify_detached_result(record: Mapping[str, Any], *, records, wire_schema=No
             actual = products.get(product["product_id"])
             if actual is None or ("body" in product and actual["canonical_body"] != product["body"]):
                 raise ValueError("detached selected body differs from its support closure")
-    for edge in (*rows("ops.data_derivation_input"), *rows("ops.data_derivation_output")):
+    from itertools import chain
+    for edge in chain(rows("ops.data_derivation_input"), rows("ops.data_derivation_output")) if validate_closure else ():
         if edge["derivation_id"] not in episodes or edge["product_id"] not in products or (edge["member_id"] is not None and (edge["product_id"], edge["member_id"]) not in members):
             raise ValueError("detached role edge has an absent endpoint")
-    for edge in rows("ops.data_derivation_support"):
+    for edge in rows("ops.data_derivation_support") if validate_closure else ():
         if edge["derivation_id"] not in episodes or edge["support_derivation_id"] not in episodes or (edge["admission_use_id"] is not None and edge["admission_use_id"] not in uses):
             raise ValueError("detached support closure is incomplete")
-    for edge in rows("ops.data_derivation_original_support"):
+    for edge in rows("ops.data_derivation_original_support") if validate_closure else ():
         if edge["derivation_id"] not in episodes or edge["admission_id"] not in originals:
             raise ValueError("detached original support closure is incomplete")
     return page

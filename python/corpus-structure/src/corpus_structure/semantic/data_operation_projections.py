@@ -720,7 +720,8 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     seed = union(
         _node("use", selected_uses.c.id),
         _node("original", admissions.c.id).where(
-            admissions.c.demand_id == _var("d.id", Text), in_page, _visible(admissions)
+            admissions.c.demand_id == _var("d.id", Text), in_page, _visible(admissions),
+            *(or_(_var("p", JSONB)["scope"][name].astext.is_(None), admissions.c[name] == _var("p", JSONB)["scope"][name].astext) for name in ("subject", "original_source"))
         ),
     ).cte("export_support_seed")
     nodes = _support_walk(metadata, seed)
@@ -750,9 +751,14 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         # Retain row context exactly; transaction visibility markers are not public
         # semantic addresses and are unnecessary for detached interpretation.
         value = func.to_jsonb(relation.table_valued())
-        for name in ("created_at", "created_xid", "live_task_id"):
-            if name in relation.c:
-                value = value.op("-")(literal(name))
+        omitted = {"created_at", "created_xid"}
+        if relation.fullname == "ops.data_request":
+            # A later generation can replace physical placement and the active
+            # binding/release/runtime. Authentic consumed pins are immutable uses,
+            # role edges and the producing episode, never this mutable row state.
+            omitted.update({"generation", "live_task_id", "binding", "release_id", "runtime_id"})
+        for name in sorted(omitted & set(relation.c.keys())):
+            value = value.op("-")(literal(name))
         key = func.jsonb_build_array(*(relation.c[col.name] for col in relation.primary_key.columns)).cast(Text)
         return select((literal(relation.fullname + ":") + key).label("key"), literal(relation.fullname).label("relation"), value.label("record")).where(predicate)
 

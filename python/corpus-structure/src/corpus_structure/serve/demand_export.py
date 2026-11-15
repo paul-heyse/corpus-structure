@@ -1,6 +1,7 @@
 """Exact same-session selected result export with disk-backed witness deduplication."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -57,6 +58,7 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
         spool = sqlite3.connect(Path(scratch) / "closure.sqlite")
         spool.execute("CREATE TABLE records (key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)")
         files, pages, releases, runtimes = {}, [], set(), set()
+        source_digests = set()
         cut = None
         def write(name, content):
             path = root / name
@@ -77,12 +79,39 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
                 if previous is not None and previous[0] != payload:
                     raise ValueError("same selected witness key acquired different exact bytes")
                 spool.execute("INSERT OR IGNORE INTO records VALUES (?,?,?)", (record["key"], record["relation"], payload))
+                if record["relation"] == "ops.original_source_admission":
+                    reference = record["record"]["reference"]
+                    if reference.get("kind") == "original-document":
+                        source_digests.add(reference["content_hash"])
+                if record["relation"] == "kb.data_product" and record["record"]["artifact_digest"] is not None:
+                    source_digests.add(record["record"]["artifact_digest"])
                 if record["relation"] == "ops.data_derivation":
                     producing = record["record"]
                     releases.add(producing["release_id"])
                     runtimes.add((producing["release_id"], producing["runtime_id"]))
         if cut is None:
             raise ValueError("native result did not produce its empty frontier page")
+        source_files = {}
+        from sqlalchemy import func, select
+        from corpus_structure.semantic.metadata import table
+        artifacts = table("kb.source_artifact")
+        for digest in sorted(source_digests):
+            name = "source-artifacts/" + digest + ".bin"
+            path = root / name
+            path.parent.mkdir(exist_ok=True)
+            size = connection.scalar(select(func.octet_length(artifacts.c.content)).where(artifacts.c.artifact_digest == digest))
+            if type(size) is not int:
+                raise ValueError("selected original source artifact is unavailable")
+            with path.open("wb") as stream:
+                for start in range(0, size, 1024 * 1024):
+                    chunk = connection.scalar(select(func.substring(artifacts.c.content, start + 1, min(size - start, 1024 * 1024))).where(artifacts.c.artifact_digest == digest))
+                    if not isinstance(chunk, bytes):
+                        raise ValueError("selected source artifact chunk is unavailable")
+                    stream.write(chunk)
+            if _checksum(path) != digest:
+                raise ValueError("selected original source bytes differ from their identity")
+            files[name] = dict(sha256=digest, bytes=size)
+            source_files[digest] = name
         release_files, runtime_files = {}, []
         prepared = {}
         for ordinal, release in enumerate(sorted(releases)):
@@ -137,12 +166,64 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
         manifest = dict(format="demand-result-export-v1", encoding=format, cut_id=cut.identity,
                         cut=cut.record, pages=pages, closure="closure.jsonl",
                         reader_contract="reader-contract.json", releases=release_files,
-                        runtimes=runtime_files, relations=relations, files=files,
+                        runtimes=runtime_files, source_artifacts=source_files, relations=relations, files=files,
                         trust="selected historical acquisition; current trust requires native reassessment")
         manifest_bytes = json_bytes(manifest)
         (root / "manifest.json").write_bytes(manifest_bytes)
         root.rename(destination)
         return dict(manifest, manifest_digest=sha256(manifest_bytes).hexdigest())
+
+
+class _RecordMapping(Mapping):
+    """Private disk-backed transfer index; JSON IDs alone enter SQLite expressions."""
+    def __init__(self, index, relation, fields):
+        self.index, self.relation, self.fields = index, relation, fields
+
+    def __getitem__(self, key):
+        values = (key,) if len(self.fields) == 1 else key
+        predicates = " AND ".join("json_extract(payload, '$.record." + field + "')=?" for field in self.fields)
+        rows = self.index.connection.execute("SELECT payload FROM records WHERE relation=? AND " + predicates + " LIMIT 2", (self.relation, *values)).fetchall()
+        if not rows:
+            raise KeyError(key)
+        if len(rows) != 1:
+            raise ValueError("detached records repeat a nominal identity")
+        return wire_json_loads(rows[0][0])["record"]
+
+    def __iter__(self):
+        for row in self.values():
+            yield row[self.fields[0]] if len(self.fields) == 1 else tuple(row[field] for field in self.fields)
+
+    def __len__(self):
+        return self.index.connection.execute("SELECT count(*) FROM records WHERE relation=?", (self.relation,)).fetchone()[0]
+
+    def values(self):
+        return self.index.rows(self.relation)
+
+
+class _RecordIndex:
+    def __init__(self, path):
+        self.connection = sqlite3.connect(path)
+        self.connection.execute("CREATE TABLE records(key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)")
+        for fields in (("id",), ("kind_contract",), ("product_id", "member_id")):
+            expression = ",".join("json_extract(payload, '$.record." + field + "')" for field in fields)
+            self.connection.execute("CREATE INDEX record_" + "_".join(fields) + " ON records(relation," + expression + ")")
+
+    def append(self, payload):
+        row = wire_json_loads(payload)
+        previous = self.connection.execute("SELECT payload FROM records WHERE key=?", (row["key"],)).fetchone()
+        if previous is not None:
+            raise ValueError("detached closure repeats a selected record key")
+        self.connection.execute("INSERT INTO records VALUES(?,?,?)", (row["key"], row["relation"], payload))
+
+    def rows(self, relation):
+        for (payload,) in self.connection.execute("SELECT payload FROM records WHERE relation=? ORDER BY key", (relation,)):
+            yield wire_json_loads(payload)["record"]
+
+    def mapping(self, relation, fields):
+        return _RecordMapping(self, relation, fields)
+
+    def close(self):
+        self.connection.close()
 
 
 def verify_demand_export(root: Path, *, manifest_digest: str):
@@ -160,26 +241,44 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
         path = root / name
         if not path.resolve().is_relative_to(root.resolve()) or path.stat().st_size != descriptor["bytes"] or _checksum(path) != descriptor["sha256"]:
             raise ValueError("detached file differs from its pinned manifest: " + name)
-    prepared, kinds = {}, {}
+    prepared, kinds, definitions = {}, {}, {}
     for release_id, name in manifest["releases"].items():
         captured = wire_json_loads((root / name).read_bytes())
         acquired = open_release_parts(release_id, _unpack(captured["row"]), [_unpack(row) for row in captured["inputs"]], [_unpack(row) for row in captured["artifacts"]])
         prepared[release_id] = acquired
-        definitions = next(item for item in acquired.artifacts if item.kind == "data_operation_native_definitions.json")
-        for kind in wire_json_loads(definitions.content)["kinds"]:
+        projection = wire_json_loads(next(item for item in acquired.artifacts if item.kind == "data_operation_native_definitions.json").content)
+        for operation in projection["operations"]:
+            definitions[release_id, operation["operation_id"]] = dict(operation, release_id=release_id)
+        for kind in projection["kinds"]:
             if kind["kind_contract"] in kinds and kinds[kind["kind_contract"]] != kind:
                 raise ValueError("captured releases disagree on nominal kind meaning")
             kinds[kind["kind_contract"]] = kind
+    runtime_ids = set()
+    for digest, name in manifest["source_artifacts"].items():
+        if _checksum(root / name) != digest:
+            raise ValueError("detached original source bytes differ from their content identity")
     for name in manifest["runtimes"]:
         captured = wire_json_loads((root / name).read_bytes())
         binding = RuntimeBinding(captured["release_id"], captured["runtime_id"], bytes.fromhex(captured["manifest"]), bytes.fromhex(captured["archive"]))
         validate_runtime_binding(binding, prepared[binding.release_id])
+        runtime_ids.add((binding.release_id, binding.runtime_id))
     wire_schema = wire_json_loads((root / manifest["reader_contract"]).read_bytes())
-    # The managed export's closure is disk-backed during capture; verification
-    # consumes this explicit immutable record stream rather than a live DB query.
-    records = tuple(wire_json_loads(line) for line in (root / manifest["closure"]).open("rb"))
-    for name in manifest["pages"]:
-        page = verify_detached_result(wire_json_loads((root / name).read_bytes()), records=records, wire_schema=wire_schema, kinds=kinds)
-        if page.cut.identity != manifest["cut_id"]:
-            raise ValueError("detached page belongs to another selected cut")
+    with TemporaryDirectory(prefix="demand-verify-") as scratch:
+        index = _RecordIndex(Path(scratch) / "closure.sqlite")
+        try:
+            with (root / manifest["closure"]).open("rb") as stream:
+                for line in stream:
+                    index.append(line.rstrip(b"\n"))
+            for ordinal, name in enumerate(manifest["pages"]):
+                page = verify_detached_result(wire_json_loads((root / name).read_bytes()), index=index, wire_schema=wire_schema, kinds=kinds, definitions=definitions, runtimes=runtime_ids, source_artifacts=manifest["source_artifacts"], validate_closure=ordinal == 0)
+                if page.cut.identity != manifest["cut_id"]:
+                    raise ValueError("detached page belongs to another selected cut")
+                pins = page.cut.record
+                if (pins["release_id"], pins["runtime_id"]) not in runtime_ids:
+                    raise ValueError("detached selected runtime archive is missing")
+                effective = next(item for item in prepared[pins["release_id"]].artifacts if item.kind == "data_operations.json")
+                if pins["selection"]["model"] != effective.digest:
+                    raise ValueError("detached demand selection differs from captured effective model")
+        finally:
+            index.close()
     return dict(outcome="passed", cut_id=manifest["cut_id"], pages=len(manifest["pages"]), current_trust="not_assessed", inference="not_run")

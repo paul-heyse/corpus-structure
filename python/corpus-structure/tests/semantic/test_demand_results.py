@@ -99,3 +99,57 @@ def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeyp
         anyio.run(journey)
     finally:
         engine.dispose()
+
+
+def _detached_closure():
+    from corpus_structure.semantic.data_operation_identity import body_identity, contextual_product_identity, SemanticRequestKey
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    context = SubjectContext("project:A", "root", "source:A", json_bytes({"scale": Decimal("1.20")}))
+    body = {"amount": Decimal("12.340")}
+    body_key = body_identity(body).key
+    product_id = contextual_product_identity(kind="kind:amount", context=context, body=body_key).key
+    request = SemanticRequestKey("recipe:A", "root", {}, {}, "inference:A", subject_context=context)
+    selection = {"request_inputs": semantic_value({}), "parameters": semantic_value({}), "inference": "inference:A"}
+    product = dict(id=product_id, kind_contract="kind:amount", project_id="project:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")}, canonical_body=semantic_value(body), body_digest=body_key, artifact_digest=None)
+    native = _page()
+    native["uses"] = [dict(use_id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={}, fate="fulfilled", products=[dict(product_id=product_id, member_id=None, body=semantic_value(body))])]
+    records = [
+        ("kb.data_product", product),
+        ("sem.data_kind_contract", dict(kind_contract="kind:amount", kind="urn:Amount", meaning_schema={"type": "array"}, body_schema={"type": "object", "required": ["amount"]})),
+        ("ops.data_request", dict(id="request:A", request_key=request.identity.key, project_id="project:A", operation_id="op:A", recipe="recipe:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")})),
+        ("ops.data_derivation", dict(id="episode:A", request_id="request:A", release_id="release:A", runtime_id="runtime:A", recipe="recipe:A")),
+        ("ops.demand_use", dict(id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={})),
+        ("sem.data_operation_definition", dict(release_id="release:A", operation_id="op:A", recipe="recipe:A")),
+        ("ops.data_derivation_output", dict(derivation_id="episode:A", product_id=product_id, member_id=None, role="result", position=0, multiplicity=1)),
+    ]
+    return native, [dict(key=relation + ":" + str(ordinal), relation=relation, record=row) for ordinal, (relation, row) in enumerate(records)]
+
+
+def test_detached_verifier_uses_disk_index_and_independent_identity_support_controls(tmp_path):
+    from copy import deepcopy
+    from corpus_structure.semantic.demand_results import verify_detached_result
+    from corpus_structure.serve.demand_export import _RecordIndex
+    native, records = _detached_closure()
+    index = _RecordIndex(tmp_path / "closure.sqlite")
+    try:
+        for row in records:
+            index.append(json_bytes(row))
+        checked = verify_detached_result(native, index=index, wire_schema={}, runtimes={("release:A", "runtime:A")})
+        assert checked.cut.identity == CutSelection.from_native(native).identity
+        assert index.mapping("kb.data_product", ("id",))[native["uses"][0]["products"][0]["product_id"]]["analyzed_scope"] == {"scale": Decimal("1.20")}
+        with pytest.raises(ValueError, match="runtime"):
+            verify_detached_result(native, index=index, wire_schema={}, runtimes={("release:A", "other")})
+        wrong = deepcopy(native)
+        wrong["uses"][0]["products"][0]["body"] = semantic_value({"amount": Decimal("12.341")})
+        with pytest.raises(ValueError, match="selected body"):
+            verify_detached_result(wrong, index=index, wire_schema={})
+    finally:
+        index.close()
+    altered = deepcopy(records)
+    altered[0]["record"]["canonical_body"] = semantic_value({"amount": Decimal("12.341")})
+    with pytest.raises(ValueError, match="semantic identity"):
+        verify_detached_result(native, records=altered, wire_schema={})
+    incomplete = deepcopy(records)
+    incomplete.append(dict(key="support:A", relation="ops.data_derivation_support", record=dict(derivation_id="episode:A", support_derivation_id="episode:missing", admission_use_id=None)))
+    with pytest.raises(ValueError, match="support closure"):
+        verify_detached_result(native, records=incomplete, wire_schema={})
