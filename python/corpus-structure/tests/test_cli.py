@@ -478,7 +478,6 @@ def test_authored_input_refuses_before_database_acquisition(cli, tmp_path, monke
         "interpretations",
         "author",
         "unused",
-        "terminology",
         str(path),
         "--json",
     )
@@ -488,6 +487,6 @@ def test_authored_input_refuses_before_database_acquisition(cli, tmp_path, monke
     assert error["message"] == (
         "authored review input exceeds 4MiB"
         if oversized
-        else "authored review input must contain valid JSON"
+        else "authored input must match the native demand request contract"
     )
     assert "not-json-input-sentinel" not in result.stdout
