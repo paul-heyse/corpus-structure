@@ -6,7 +6,8 @@ import pytest
 import yaml
 
 from corpus_structure.schema.rulelang import RuleError, RuleErrorCode
-from corpus_structure.semantic.domain_operations import RULE_INPUT, ReleasedRulesPolicy
+from corpus_structure.semantic.rich_knowledge_sources import RULE_INPUT
+from corpus_structure.semantic.rich_rules import RichRulePolicy
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact
 
@@ -76,7 +77,7 @@ def test_source_model_changes_determine_binding_and_identity_vocabularies(
         profile,
     )
     assert changed.release_id != statistics_rules_policy.release_id
-    released = ReleasedRulesPolicy(changed)
+    released = RichRulePolicy(changed)
     for expression in (
         "$all([b.bind != 'model_free' for b in claim.bindings])",
         "(claim.subject.identity&['stat:release_key'] ?? '') == 'v'",

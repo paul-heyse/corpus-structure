@@ -1382,10 +1382,11 @@ def _prepare_release_uncached(
     # Admission must not archive an operation artifact whose required rules cannot execute.
     # The policy constructor compiles only immutable release products and performs no I/O.
     if any(artifact.kind == "operation/domain-rules.yaml" for artifact in prepared.artifacts):
-        from .domain_operations import RULE_INPUT, ReleasedRulesPolicy
+        from .rich_knowledge_sources import RULE_INPUT
+        from .rich_rules import RichRulePolicy
 
         try:
-            ReleasedRulesPolicy(prepared)
+            RichRulePolicy(prepared)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             _fail("domain_rules", RULE_INPUT, str(exc), "unsupported")
     return prepared

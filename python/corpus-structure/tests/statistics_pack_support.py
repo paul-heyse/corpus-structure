@@ -3,7 +3,7 @@
 import pytest
 
 from corpus_structure.schema.pack import DOMAINS
-from corpus_structure.semantic.domain_operations import ReleasedRulesPolicy
+from corpus_structure.semantic.rich_rules import RichRulePolicy
 from corpus_structure.semantic.regeneration import prepare_packs
 
 
@@ -19,4 +19,4 @@ def statistics_pack_prepared(statistics_pack_inputs):
 
 @pytest.fixture(scope="session")
 def statistics_rules_policy(statistics_pack_prepared):
-    return ReleasedRulesPolicy(statistics_pack_prepared)
+    return RichRulePolicy(statistics_pack_prepared)
