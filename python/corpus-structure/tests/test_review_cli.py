@@ -9,9 +9,9 @@ def test_review_help_is_lazy(cli):
         raise AssertionError("settings should be lazy")
 
     for arguments in (
-        ("review", "--help"),
-        ("review", "verify", "--help"),
-        ("structure", "list", "--help"),
+        ("retained-review", "--help"),
+        ("retained-review", "verify", "--help"),
+        ("retained-structure", "list", "--help"),
     ):
         result = cli(*arguments, settings=refuse)
         assert result.exit_code == 0, result.output
@@ -21,7 +21,7 @@ def test_offline_verify_refuses_missing_bundle_without_settings(cli, tmp_path):
     def refuse():
         raise AssertionError("offline verification opened settings")
 
-    result = cli("review", "verify", str(tmp_path / "missing"), "--json", settings=refuse)
+    result = cli("retained-review", "verify", str(tmp_path / "missing"), "--json", settings=refuse)
     assert result.exit_code == 1
     error = json.loads(result.stdout)["error"]
     assert error["code"] == "ValueError"
@@ -63,7 +63,7 @@ def test_mixed_cohort_export_keeps_project_and_authorization_boundaries(cli, tmp
     monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
     monkeypatch.setattr(review_bundle, "export_review_bundle", export)
     result = cli(
-        "review",
+        "retained-review",
         "export-evaluated",
         str(selected),
         str(tmp_path / "bundle"),
@@ -111,18 +111,18 @@ def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_pat
 
     monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
     monkeypatch.setattr(review_bundle, "export_review_bundle", export)
-    first = cli("review", "export", str(selected), "--exact-closure", "--json")
+    first = cli("retained-review", "export", str(selected), "--exact-closure", "--json")
     assert first.exit_code == 0, first.output
     original = json.loads(first.stdout)
     selected.unlink()
-    retry = cli("review", "retry", original["invocation_id"], "--json")
+    retry = cli("retained-review", "retry", original["invocation_id"], "--json")
     assert retry.exit_code == 0, retry.output
     retried = json.loads(retry.stdout)
     assert retried["invocation_id"] != original["invocation_id"]
     assert seen[0] == seen[1] and seen[1][1] is True
     assert retried["selection"] == original["selection"]
     source_binding = "different-source"
-    changed = cli("review", "retry", original["invocation_id"], "--json")
+    changed = cli("retained-review", "retry", original["invocation_id"], "--json")
     assert changed.exit_code == 1
     assert "differ from the original" in json.loads(changed.stdout)["error"]["message"]
     assert len(seen) == 2
@@ -130,7 +130,7 @@ def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_pat
     retained.write_text(
         '{"structural_selections":[{"run_id":205,"cut_id":283,"kind":"artifact_identity"}]}'
     )
-    edited = cli("review", "retry", original["invocation_id"], "--json")
+    edited = cli("retained-review", "retry", original["invocation_id"], "--json")
     assert edited.exit_code == 1
     assert "selection differs" in json.loads(edited.stdout)["error"]["message"]
     assert len(seen) == 2
@@ -151,14 +151,14 @@ def test_review_retry_requires_settled_cleanup(cli, tmp_path, monkeypatch):
 
     monkeypatch.setenv("CORPUS_CI_RESULTS", str(results))
     monkeypatch.setattr(review_bundle, "export_review_bundle", uncertain)
-    failed = cli("review", "export", str(selection), "--exact-closure", "--json")
+    failed = cli("retained-review", "export", str(selection), "--exact-closure", "--json")
     assert failed.exit_code == 1
     manifest_path = next(results.glob("*/manifest.json"))
     manifest = json.loads(manifest_path.read_text())
     assert manifest["details"]["custody_unsettled"] is True
     assert manifest["operation_account"]["cleanup"] == "unresolved"
     assert json.loads(failed.stdout)["operation_account"] == manifest["operation_account"]
-    retry = cli("review", "retry", manifest["id"], "--json")
+    retry = cli("retained-review", "retry", manifest["id"], "--json")
     assert retry.exit_code == 1
     assert "proof that the previous capture settled" in json.loads(retry.stdout)["error"]["message"]
 
@@ -184,29 +184,29 @@ def test_managed_inspection_matches_detached_and_rejects_replacement(cli, tmp_pa
             bundle_manifest_sha256=sha256((bundle / "manifest.json").read_bytes()).hexdigest(),
         )
 
-    detached = cli("review", "inspect", str(bundle), "--json")
-    managed = cli("review", "inspect", "--result", invocation.id, "--json")
+    detached = cli("retained-review", "inspect", str(bundle), "--json")
+    managed = cli("retained-review", "inspect", "--result", invocation.id, "--json")
     assert detached.exit_code == managed.exit_code == 0, managed.output
     assert json.loads(managed.stdout) == {"result_id": invocation.id, **json.loads(detached.stdout)}
     assert json.loads(managed.stdout)["relations"] == {"contributions": 1}
-    human = cli("review", "inspect", "--result", invocation.id)
+    human = cli("retained-review", "inspect", "--result", invocation.id)
     assert human.exit_code == 0, human.output
     for detail in (invocation.id, "Run 1", "contributions: 1", "Assessment scope", "Witness rows"):
         assert detail in human.stdout
-    assert cli("review", "inspect", str(bundle), "--result", invocation.id).exit_code == 2
+    assert cli("retained-review", "inspect", str(bundle), "--result", invocation.id).exit_code == 2
 
     alternate = tmp_path / "alternate"
     write_review_bundle(selection, alternate, [("contributions", {"id": "substituted"})])
     for member in alternate.iterdir():
         (bundle / member.name).write_bytes(member.read_bytes())
-    assert cli("review", "inspect", str(bundle), "--json").exit_code == 0
-    rewritten = cli("review", "inspect", "--result", invocation.id, "--json")
+    assert cli("retained-review", "inspect", str(bundle), "--json").exit_code == 0
+    rewritten = cli("retained-review", "inspect", "--result", invocation.id, "--json")
     assert rewritten.exit_code == 1
     assert "integrity differs" in json.loads(rewritten.stdout)["error"]["message"]
 
     bundle.rename(bundle.with_name("previous"))
     bundle.mkdir()
-    replaced = cli("review", "inspect", "--result", invocation.id, "--json")
+    replaced = cli("retained-review", "inspect", "--result", invocation.id, "--json")
     assert replaced.exit_code == 1
     assert "differs from its owner publication" in json.loads(replaced.stdout)["error"]["message"]
 
@@ -221,7 +221,7 @@ def test_piped_review_selection_is_bounded_before_delivery(cli, monkeypatch):
         admitted.append((request.selections[0].run_id, destination, exact_closure, json))
 
     monkeypatch.setattr(review, "_deliver_review", deliver)
-    args = ["review", "export", "-", "--exact-closure", "--json"]
+    args = ["retained-review", "export", "-", "--exact-closure", "--json"]
     passed = cli.runner.invoke(app, args, input=b'{"selections":[{"run_id":17}]}')
     assert passed.exit_code == 0, passed.output
     assert admitted == [(17, None, True, True)]
@@ -260,11 +260,11 @@ def test_enriched_selection_uses_managed_export_and_retry(cli, tmp_path, monkeyp
 
     monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
     monkeypatch.setattr(review_bundle, "export_review_bundle", export)
-    first = cli("review", "export", str(selected), "--json")
+    first = cli("retained-review", "export", str(selected), "--json")
     assert first.exit_code == 0, first.output
     original = json.loads(first.stdout)
     selected.unlink()
-    retry = cli("review", "retry", original["invocation_id"], "--json")
+    retry = cli("retained-review", "retry", original["invocation_id"], "--json")
     assert retry.exit_code == 0, retry.output
     assert len(seen) == 2 and seen[0] == seen[1]
 
@@ -284,6 +284,24 @@ def test_enriched_review_human_inspection_uses_its_format(cli, tmp_path, monkeyp
             "layers": 3,
         },
     )
-    response = cli("review", "inspect", str(tmp_path / "enriched"))
+    response = cli("retained-review", "inspect", str(tmp_path / "enriched"))
     assert response.exit_code == 0, response.output
     assert "private_analyses" in response.stdout and "3" in response.stdout
+
+
+def test_retained_routes_require_explicit_history_pins_before_settings(cli):
+    def refuse():
+        raise AssertionError("missing explicit history pins must fail before acquisition")
+    for args in (("retained-explain","claim","claim:A"),("retained-explain","claim","claim:A","--run","promoted"),("retained-structure","list","--run","17")):
+        result=cli(*args,settings=refuse)
+        assert result.exit_code==2
+
+
+def test_current_explain_forwards_actual_selected_product_support(cli,monkeypatch):
+    from corpus_structure.cli import selected_results
+    calls=[]
+    monkeypatch.setattr(selected_results,"query",lambda *args,**kwargs:calls.append((args[1:],kwargs)))
+    result=cli("explain","--demand","demand:A","--project","project:A","--product","product:A","--json")
+    assert result.exit_code==0,result.output
+    assert calls[0][0]==("support","demand:A","project:A")
+    assert calls[0][1]["product"]=="product:A"

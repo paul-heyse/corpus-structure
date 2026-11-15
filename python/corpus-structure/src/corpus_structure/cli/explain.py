@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated,Literal
 
 import typer
 
@@ -16,7 +16,7 @@ def _explain(
     ctx: typer.Context,
     kind: Literal["claim", "unit"],
     key: str,
-    run: str,
+    run: int,
     project: str | None,
     json: bool,
     query_token: str | None = None,
@@ -41,7 +41,7 @@ def _explain(
         if query_token is not None:
             from corpus_structure.cli.query import followup_context
 
-            _, rid, query = followup_context(conn, query_token, project, run)
+            _, rid, query = followup_context(conn, query_token, project, str(run))
             from corpus_structure.semantic.query import AnswerSelection
             from corpus_structure.serve.journey import decode_token
 
@@ -54,8 +54,8 @@ def _explain(
         else:
             _, rid = result_context(
                 conn,
-                project or (settings.runtime.default_project if run == "promoted" else None),
-                run,
+                project,
+                str(run),
             )
         if report is not None:
             from corpus_structure.serve.explain import unit_source_report
@@ -115,7 +115,7 @@ def _explain(
 def claim(
     ctx: typer.Context,
     key: str,
-    run: str = "promoted",
+    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -127,7 +127,7 @@ def claim(
 def unit(
     ctx: typer.Context,
     key: str,
-    run: str = "promoted",
+    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -143,7 +143,7 @@ def inventory(
     ctx: typer.Context,
     key: str,
     collection: str,
-    run: str = "promoted",
+    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -163,8 +163,8 @@ def report(
     kind: Literal["claim", "unit"],
     key: str,
     identifier: str,
+    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
     collection: str = "observation",
-    run: str = "promoted",
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -186,4 +186,4 @@ def report(
 
 
 def register(root: typer.Typer) -> None:
-    root.add_typer(app, name="explain")
+    root.add_typer(app, name="retained-explain")

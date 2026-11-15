@@ -121,8 +121,19 @@ def verify(
     write_report_text(json_bytes(report).decode() + "\n")
 
 
+
+def explain(ctx:typer.Context,demand:Annotated[str,typer.Option()],project:Annotated[str,typer.Option()],product:Annotated[str,typer.Option(help="Actual selected semantic product to explain.")],cursor:str|None=None,limit:int=100,max_bytes:int=1048576,json:JsonOpt=False):
+    """Read the selected product's authentic producing/support closure under one cut."""
+    return query(ctx,"support",demand,project,product=product,cursor=cursor,limit=limit,max_bytes=max_bytes,json=json)
+
+
 def register(root: typer.Typer):
     root.command("query")(query)
+    root.command("explain")(explain)
+    review=typer.Typer(help="Export and verify selected semantic/source/support closure.")
+    review.command("export")(export)
+    review.command("verify")(verify)
+    root.add_typer(review,name="review")
     root.command("export")(export)
     root.add_typer(records_app, name="records")
     contributions_app.command("list")(records)

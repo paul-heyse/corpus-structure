@@ -14,7 +14,7 @@ app = typer.Typer(help="Compare explicitly pinned research inputs.", no_args_is_
 @app.command(
     "compare-exclusions",
     epilog=(
-        "Example: ci research compare-exclusions --before-run 10 "
+        "Example: ci retained-research compare-exclusions --before-run 10 "
         "--after-run 11 --json\n\nDomain contract: [domain "
         "reader](docs/design/D8-agent-and-query-interfaces.md)"
     ),
@@ -83,4 +83,4 @@ def compare_exclusions(
 
 
 def register(root):
-    root.add_typer(app, name="research")
+    root.add_typer(app, name="retained-research")

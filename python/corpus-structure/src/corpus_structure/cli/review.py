@@ -87,6 +87,14 @@ def _deliver_review(
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.serve.review_bundle import export_review_bundle
 
+    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
+    if not isinstance(request,CharacterizationReviewSelection):
+        for selected in (*request.structural_selections,*request.structural_gap_selections):
+            if selected.cut_id is None:
+                raise ValueError("retained review requires its explicit sealed historical cuts")
+            binding=getattr(selected,"binding_task",None)
+            if binding is not None and binding.cut_id is None:
+                raise ValueError("retained review gap binding requires its explicit sealed cut")
     store = result_store(ctx)
     if destination is not None and (destination.exists() or destination.is_symlink()):
         raise FileExistsError(destination)
@@ -149,11 +157,11 @@ def _deliver_review(
             if received is None:
                 raise
             if prepare_evaluator is not None:
-                next_action = "Submit the selection again with ci review export-evaluated"
+                next_action = "Submit the selection again with ci retained-review export-evaluated"
             elif result.manifest.scope.get("source_binding") is None:
-                next_action = "Submit the selection again with ci review export"
+                next_action = "Submit the selection again with ci retained-review export"
             else:
-                next_action = f"ci review retry {result.id}"
+                next_action = f"ci retained-review retry {result.id}"
             result.settle(
                 "interrupted",
                 signal=received,
@@ -498,4 +506,4 @@ def inspect_review(
 
 
 def register(root: typer.Typer):
-    root.add_typer(app, name="review")
+    root.add_typer(app, name="retained-review")
