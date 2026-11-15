@@ -11,7 +11,6 @@ from corpus_structure.semantic.contextual_encoder import (
     contextual_encoder_operation_sources,
 )
 from corpus_structure.semantic.contextual_operations import contextual_inputs
-from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
@@ -86,9 +85,25 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     bundle = contextual_inputs(
         SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
     )
-    model = compile_data_operations(bundle, python_sources=sources)
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+
+    prepared = prepare_release(
+        bundle,
+        data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
+        PreparationProfile(version="semantic-2"),
+    )
+    model = bound_data_operation_model(prepared)
     operation = model.operation("retrieve.contextual_vectors/declared")
     assert operation.capabilities.prepared_factory is not None
     assert operation.result_fields == (("query", "query"), ("vectors", "vectors"))
+    selected = model.operation("retrieve.contextual_vectors/selected-context")
+    assert selected.capabilities.prepared_factory is not None
+    primary = next(role for role in selected.roles if role.name == "primary")
+    assert primary.support is not None
+    assert primary.support.source_set == "query-context-primary" and primary.minimum == 1
+    assert len(selected.output_witnesses) == 2
     assert all(value.complete for value in model.implementation_slices)
     assert {name for name, _ in selection.artifacts} == {"config.json", "modules.json"}

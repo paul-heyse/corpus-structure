@@ -161,6 +161,7 @@ def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_act
     encoded = by_id[query["occurrence_id"]]
     if (
         encoded.vector_id != query["query_vector_id"]
+        or encoded.representation_digest != query["context"]["representation_digest"]
         or encoded.source_binding != query["source_pin"]["source"]
     ):
         raise ValueError("contextual query vector differs from its retained source occurrence")

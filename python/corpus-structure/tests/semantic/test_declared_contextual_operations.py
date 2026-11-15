@@ -40,7 +40,7 @@ def inputs():
             digest, object_id, binding, profile.profile_id, "actual-input", values, representation
         )
 
-    query_vector = vector("occurrence", "source:original", "located-query-context", (1.0, 0.0))
+    query_vector = vector("occurrence", "source:original", "", (1.0, 0.0))
     vectors = (
         query_vector,
         *(
@@ -52,6 +52,13 @@ def inputs():
         "source_pin": {"source": "source:original"},
         "occurrence_id": "occurrence",
         "lexical_query": "alpha",
+        "context": dict(
+            recipe="lexical-native-1",
+            report=source_value(None),
+            rendered="",
+            representation_digest="",
+        ),
+        "context_inputs": [],
         "query_vector_id": query_vector.vector_id,
         "anchors": ({"anchor_id": "original-relative-location"},),
     }

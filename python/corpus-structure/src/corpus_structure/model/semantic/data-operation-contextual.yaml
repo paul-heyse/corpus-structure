@@ -33,6 +33,29 @@ classes:
       lexical_query: {required: true}
       query_vector_id: {required: true}
       anchors: {range: RecordAnchor, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+      context: {range: DdoEncodedQueryContext, inlined: true, required: true}
+      context_inputs: {range: DdoContextualPrimaryInput, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoSelectedQueryContext:
+    is_a: SourceRecordProduct
+    attributes:
+      recipe: {range: DdoLocatedQueryContextRecipe, required: true}
+      evidence: {range: DdoSemanticMemberReference, inlined: true, required: true}
+  DdoEncodedQueryContext:
+    is_a: SourceRecordProduct
+    attributes:
+      recipe: {required: true, pattern: "^(lexical-native-1|located-frame-2|located-referent-2|located-discourse-neighbor-2)$"}
+      report: {range: SourceValue, inlined: true, required: true}
+      rendered: {required: true}
+      representation_digest: {required: true}
+  DdoContextualPrimaryInput:
+    is_a: DdoSemanticProductReference
+    attributes:
+      reference: {required: true}
+      kind_contract: {required: true}
+      project_id: {required: true}
+      subject: {required: true}
+      original_source: {required: true}
+      analyzed_scope_meaning: {required: true}
   DdoContextualRetrievalPolicy:
     is_a: SourceRecordProduct
     attributes:
@@ -50,3 +73,10 @@ classes:
       inventory: {range: SourceValue, inlined: true, required: true}
       candidate_list: {range: SourceValue, inlined: true, required: true}
       relationship_decision: {range: SourceValue, inlined: true, required: true}
+
+enums:
+  DdoLocatedQueryContextRecipe:
+    permissible_values:
+      located-frame-2: {}
+      located-referent-2: {}
+      located-discourse-neighbor-2: {}

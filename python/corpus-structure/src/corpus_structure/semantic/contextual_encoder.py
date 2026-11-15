@@ -7,7 +7,7 @@ import json
 from dataclasses import asdict, dataclass
 from hashlib import file_digest
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from corpus_structure.methods.contextual_embeddings import EncoderProfile
 
@@ -22,6 +22,11 @@ _FILES = (
     "methods/contextual_candidates.py",
     "semantic/declared_record_sources.py",
     "semantic/source_contexts.py",
+    "methods/contextual_query.py",
+    "methods/pm2_dipo_products.py",
+    "semantic/declared_formal_readings.py",
+    "semantic/characterization.py",
+    "semantic/data_product_reference.py",
 )
 
 
@@ -110,6 +115,145 @@ def execute_contextual_encoder_profile(receiver, source, occurrence, inventory):
     return receiver.execute(source, occurrence, inventory)
 
 
+def execute_selected_context_encoder_profile(
+    receiver, source, occurrence, inventory, primary, context_selection
+):
+    return receiver.execute(source, occurrence, inventory, primary, context_selection)
+
+
+def prepare_selected_query_context(frame, occurrence, primary, *, binding, recipe, evidence):
+    """Project actual bound primary products before any encoder/model allocation."""
+    from corpus_structure.methods.contextual_query import (
+        DeclaredQueryContextBinding,
+        DeclaredQueryContextSelection,
+        resolve_query_contexts,
+    )
+
+    from .data_operation_identity import semantic_value
+    from .data_operation_json import json_bytes, json_loads
+    from .data_operation_model import json_context_meaning
+    from .data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+        read_member_reference,
+    )
+    from .declared_formal_readings import SelectedCharacterizationInventories
+    from .observations import source_value
+    from .source_contexts import PreparedNativeSources
+
+    selected = read_member_reference(evidence)
+    if not isinstance(selected, DataProductMemberReference):
+        raise ValueError("query context requires a genuine selected semantic member")
+    selection = DeclaredQueryContextSelection(
+        recipe, (DeclaredQueryContextBinding(occurrence["occurrence_id"], selected),)
+    )
+    roles = [role for role in binding.roles if role.role == "primary"]
+    if (
+        len(roles) != 1
+        or roles[0].state != "present"
+        or not roles[0].members
+        or len(roles[0].members) != len(primary)
+    ):
+        raise ValueError("query context lacks its actual complete primary binding")
+    source_sets = json_loads(binding.source_sets)
+    entries = source_sets.get("query-context-primary", ())
+    wanted = {(row["product"], row["member"]) for row in entries}
+    actual = {(row.product, row.member) for row in roles[0].members}
+    if (
+        actual != wanted
+        or len(actual) != len(primary)
+        or any(member is not None for _, member in actual)
+    ):
+        raise ValueError("query context requires its exact frozen parent-product closure")
+    products, inputs = {}, []
+    for member, body in zip(roles[0].members, primary, strict=True):
+        if member.multiplicity != 1 or not member.support_episodes:
+            raise ValueError("query context primary lacks its genuine computational support")
+        if (
+            body.get("source") != frame.value["source"]
+            or body.get("selectors") != frame.value["selectors"]
+        ):
+            raise ValueError("query context primary belongs to another original source/scope")
+        products[member.product] = dict(canonical_body=semantic_value(body))
+        inputs.append(
+            dict(
+                product_id=member.product,
+                reference=json_bytes([member.product, None]).decode(),
+                kind_contract=member.kind_contract,
+                project_id=binding.subject_context.project_id,
+                subject=member.subject,
+                original_source=member.original_source,
+                analyzed_scope_meaning=json_context_meaning(member.analyzed_scope).decode(),
+            )
+        )
+    inventories = SelectedCharacterizationInventories(products)
+    reachable, pending = set(), [selected.product]
+    while pending:
+        product = pending.pop()
+        if product in reachable:
+            continue
+        if product not in inventories:
+            raise ValueError("query context lacks its exact selected dependency closure")
+        reachable.add(product)
+        pending.extend(
+            DataProductReference(row["product_id"])
+            for row in inventories[product].payload.get("dependencies", ())
+        )
+    if reachable != {DataProductReference(product) for product in products}:
+        raise ValueError("query context includes unrelated primary products")
+    located = resolve_query_contexts(
+        selection, inventories, (occurrence,), frame, preparation=PreparedNativeSources((frame,))
+    )[occurrence["occurrence_id"]]
+    if not located.signals or not located.rendered or not located.representation_digest:
+        raise ValueError(
+            "requested located query context is unavailable; lexical fallback is forbidden"
+        )
+    return dict(
+        recipe=recipe,
+        report=source_value(located.report()),
+        rendered=located.rendered,
+        representation_digest=located.representation_digest,
+    ), tuple(inputs)
+
+
+class EncodedQueryContext(TypedDict):
+    recipe: str
+    report: dict[str, Any]
+    rendered: str
+    representation_digest: str
+
+
+def checked_encoded_query_context(context) -> EncodedQueryContext:
+    """Preserve named context identity; absence is only the explicit lexical recipe."""
+    from corpus_structure.methods.contextual_embeddings import identity
+
+    from .observations import source_python, source_value
+
+    if context is None:
+        return dict(
+            recipe="lexical-native-1",
+            report=source_value(None),
+            rendered="",
+            representation_digest="",
+        )
+    report = source_python(context["report"])
+    if (
+        context["recipe"]
+        not in {"located-frame-2", "located-referent-2", "located-discourse-neighbor-2"}
+        or not isinstance(report, dict)
+        or report.get("recipe") != context["recipe"]
+        or not context["rendered"]
+        or context["representation_digest"] != identity("located-query-context", report)
+    ):
+        raise ValueError("encoded query context differs from its exact selected representation")
+    return dict(
+        recipe=context["recipe"],
+        report=context["report"],
+        rendered=context["rendered"],
+        representation_digest=context["representation_digest"],
+    )
+
+
 def execute_contextual_encoder_kernel(
     frame_record: dict,
     occurrence: dict,
@@ -119,6 +263,8 @@ def execute_contextual_encoder_kernel(
     artifacts: tuple[tuple[str, str], ...],
     *,
     check_active,
+    query_context_record: dict | None = None,
+    context_inputs: tuple[dict, ...] = (),
 ) -> dict[str, dict]:
     from pydantic import TypeAdapter
 
@@ -151,8 +297,21 @@ def execute_contextual_encoder_kernel(
     text, start, end, mention = contexts[occurrence["occurrence_id"]]
     selected = admitted_contextual_inventory(inventory)
     profile = TypeAdapter(EncoderProfile).validate_python(profile_record)
+    query_context = checked_encoded_query_context(query_context_record)
+    if (query_context_record is None) != (not context_inputs):
+        raise ValueError("encoded query context differs from its retained primary inputs")
     inputs = [
-        ContextInput(occurrence["occurrence_id"], pin["source"], "query", mention, text, start, end)
+        ContextInput(
+            occurrence["occurrence_id"],
+            pin["source"],
+            "query",
+            mention,
+            text,
+            start,
+            end,
+            representation_digest=query_context["representation_digest"],
+            query_context=query_context["rendered"] if query_context_record is not None else None,
+        )
     ]
     for target in selected.targets:
         inputs.append(
@@ -185,6 +344,8 @@ def execute_contextual_encoder_kernel(
             "lexical_query": mention,
             "query_vector_id": query.vector_id,
             "anchors": products[0]["anchors"],
+            "context": query_context,
+            "context_inputs": list(context_inputs),
         },
         "vectors": {
             "profile": source_value(asdict(profile)),
@@ -198,6 +359,7 @@ class ContextualEncoderPlan:
     prepared: Any
     selection: ContextualEncoderSelection
     port: Any = None
+    selected_context: bool = False
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
         from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
@@ -222,6 +384,16 @@ class ContextualEncoderPlan:
         frame = DeclaredNativeFrameSource.acquire(
             self.prepared, source, members[0], project=binding.subject_context.project_id
         )
+        query_context, context_inputs = None, ()
+        if self.selected_context:
+            query_context, context_inputs = prepare_selected_query_context(
+                frame,
+                occurrence,
+                arguments.arguments["primary"],
+                binding=binding,
+                recipe=arguments.arguments["context_selection"]["recipe"],
+                evidence=arguments.arguments["context_selection"]["evidence"],
+            )
         signature = inspect.signature(execute_contextual_encoder_kernel, eval_str=True)
         bound = signature.bind(
             frame_record=frame.record,
@@ -231,6 +403,8 @@ class ContextualEncoderPlan:
             model_path=str(self.selection.model_path),
             artifacts=self.selection.artifacts,
             check_active=check_active,
+            query_context_record=query_context,
+            context_inputs=context_inputs,
         )
         captured = contextual_encoder_operation_sources(self.selection, include_dependencies=False)
         descriptor = PythonCPUDescriptor(
@@ -266,7 +440,10 @@ class ContextualEncoderPlan:
 def resolve_contextual_encoder_port(
     prepared, model, operation, *, identity, authorize, custody, sources
 ):
-    from corpus_structure.methods.contextual_encoding import ContextualEncodingOperation
+    from corpus_structure.methods.contextual_encoding import (
+        ContextualEncodingOperation,
+        SelectedContextEncodingOperation,
+    )
 
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
@@ -281,13 +458,19 @@ def resolve_contextual_encoder_port(
         tuple((name, digest) for name, digest in value["artifacts"]),
     )
     selected = model.operation(operation)
-    if (
-        selected.semantic_id != ContextualEncodingOperation.__data_operation__["id"]
-        or not selection.artifacts
-    ):
+    classes = {
+        kind.__data_operation__["id"]: kind
+        for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation)
+    }
+    if selected.semantic_id not in classes or not selection.artifacts:
         raise PortRefusal("contextual encoder factory differs from its acquired operation/model")
-    receiver = ContextualEncodingOperation(None)
-    plan = ContextualEncoderPlan(prepared, selection)
+    receiver = classes[selected.semantic_id](None)
+    plan = ContextualEncoderPlan(
+        prepared,
+        selection,
+        selected_context=selected.semantic_id
+        == SelectedContextEncodingOperation.__data_operation__["id"],
+    )
     port = PreparedOriginalCallPort(
         identity,
         model,
