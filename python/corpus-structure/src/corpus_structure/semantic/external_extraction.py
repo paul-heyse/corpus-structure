@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import re
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ _FILES = (
     "semantic/declared_proposal_frames.py",
     "semantic/proposals.py",
     "semantic/declared_record_sources.py",
+    "semantic/data_operation_cpu_basis.py",
     "methods/llm/cascade.py",
     "semantic/sentence_products.py",
     "semantic/analysis_contracts.py",
@@ -446,31 +448,84 @@ def execute_rich_profile(receiver, values):
     return receiver.execute(values)
 
 
-def execute_rich_kernel(
-    action: str, values: dict, source_pins: dict, placement_policy: dict, *, prepared, check_active
-) -> dict:
+def _rich_kernel_inputs(action, input_basis, *, prepared, asset_content):
+    """Read actual child operands and captured policy, without parent pin claims."""
     from .data_operation_admission import bound_data_operation_model
+    from .data_operation_identity import decode_semantic_value
 
+    model = bound_data_operation_model(prepared)
+    operation = model.operation(action)
+    recipe = next(item.key for item in model.identities if item.owner == action and item.domain == "recipe")
+    basis = decode_semantic_value(input_basis)
+    if basis["version"] != "cpu-input-basis-1" or basis["recipe"] != recipe:
+        raise ValueError("rich extraction CPU basis differs from its actual admitted recipe")
+    assets = [asset for asset in operation.assets if asset.contract == "external-extraction/algorithm-assets"]
+    if len(assets) != 1 or sha256(asset_content.encode()).hexdigest() != assets[0].content_digest:
+        raise ValueError("rich extraction placement policy differs from its actual captured asset")
+    policy = wire_json_loads(asset_content)["placement_policy"]
+    roles = {}
+    for row in basis["roles"]:
+        roles.setdefault(row["role"], []).append(row)
+    # Empty optional roles have no selected member, while actual scalar and
+    # sequence populations retain the operation's authored cardinality/order.
+    declarations = {role.name: role for role in operation.roles if role.direction == "input"}
+    if set(roles) - declarations.keys():
+        raise ValueError("rich extraction CPU basis has an undeclared input role")
+    values = {}
+    for name, declaration in declarations.items():
+        rows = roles.setdefault(name, [])
+        if (any(row["multiplicity"] != 1 for row in rows) or len(rows) < declaration.minimum
+                or (declaration.maximum is not None and len(rows) > declaration.maximum)):
+            raise ValueError("rich extraction CPU basis differs from its actual input population")
+        if declaration.collection == "scalar":
+            values[name] = rows[0]["body"]
+        else:
+            positions = [row["position"] for row in rows]
+            if any(position is None for position in positions) or len(set(positions)) != len(positions):
+                raise ValueError("rich extraction sequence requires its exact selected order")
+            values[name] = tuple(row["body"] for row in rows)
+    return model, basis, roles, values, policy
+
+
+def _rich_source_pin(prepared, row):
+    from .data_operation_json import json_bytes
+    from .data_operation_model import SubjectContext
+    from .declared_record_sources import DeclaredRecordSource
+    from .source_products import FrozenNativeSource
+
+    source = FrozenNativeSource.acquire(prepared, row["body"])
+    coordinate, context = source.value["source"], row["context"]
+    if coordinate["document"] != context["original_source"]:
+        raise ValueError("rich extraction source body differs from its actual bound original document")
+    return DeclaredRecordSource(
+        coordinate["document"], coordinate["projection"], coordinate["section_pointer"], coordinate["membership"],
+        SubjectContext(context["project_id"], context["subject"], context["original_source"],
+                       json_bytes(context["analyzed_scope"]), subject_definition=context["subject_definition"]),
+        row["product_id"], row["member_id"], row["kind_contract"],
+    ).pin()
+
+
+def execute_rich_kernel(action: str, input_basis: list, asset_content: str, *, prepared, check_active) -> dict:
+    from .data_operation_cpu_basis import cpu_authority_reply
+
+    if action not in {"prepare.external_extraction", "locate.external_extraction"}:
+        raise ValueError("unknown captured rich extraction kernel")
+    model, basis, roles, values, policy = _rich_kernel_inputs(
+        action, input_basis, prepared=prepared, asset_content=asset_content,
+    )
+    check_active()
     if action == "prepare.external_extraction":
-        return prepare_external_packet(
-            prepared,
-            bound_data_operation_model(prepared),
-            values,
-            source_pins,
-            check_active=check_active,
-        )
-    if action == "locate.external_extraction":
+        source_pins = {role: [_rich_source_pin(prepared, row) for row in roles[role]]
+                       for role in ("source", "context_sources")}
+        result = prepare_external_packet(prepared, model, values, source_pins, check_active=check_active)
+    else:
         from corpus_structure.methods.llm.cascade import PlacementPolicy
 
-        return locate_external_extraction(
-            prepared,
-            values["packet"],
-            values["authored"],
-            model=bound_data_operation_model(prepared),
-            placement_policy=PlacementPolicy(**placement_policy),
-            check_active=check_active,
+        result = locate_external_extraction(
+            prepared, values["packet"], values["authored"], model=model,
+            placement_policy=PlacementPolicy(**policy), check_active=check_active,
         )
-    raise ValueError("unknown captured rich extraction kernel")
+    return cpu_authority_reply(input_basis, result)
 
 
 @dataclass
@@ -478,51 +533,36 @@ class RichInvocationPlan:
     prepared: Any
     model: Any
     operation: str
-    placement_policy: dict
+    asset_content: str
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
+        from .data_operation_cpu_basis import cpu_input_basis_from_binding, cpu_authority_value
         from .data_operation_prepared_call import PreparedCallResult
-        from .declared_record_sources import DeclaredRecordSource
-        from .source_products import FrozenNativeSource
 
         if binding is None or binding.subject_context is None:
             raise ValueError("rich extraction requires actual native input/context custody")
-        source_pins = {}
         values = arguments.arguments
-        if self.operation == "prepare.external_extraction":
-            roles = {role.name: role for role in binding.roles}
-            for role in ("source", "context_sources"):
-                bodies = (values[role],) if role == "source" else values[role]
-                source_pins[role] = [
-                    DeclaredRecordSource.from_bound(
-                        FrozenNativeSource.acquire(self.prepared, body),
-                        member,
-                        project=binding.subject_context.project_id,
-                    ).pin()
-                    for body, member in zip(bodies, roles[role].members, strict=True)
-                ]
+        recipe = next(item.key for item in self.model.identities if item.owner == self.operation and item.domain == "recipe")
+        declarations = {role.name: role for role in self.model.operation(self.operation).roles if role.direction == "input"}
+        input_basis = cpu_input_basis_from_binding(recipe, binding, {
+            name: (values[name],) if role.collection == "scalar" else tuple(values[name])
+            for name, role in declarations.items()
+        })
         signature = inspect.signature(execute_rich_kernel, eval_str=True)
         bound = signature.bind(
-            action=self.operation,
-            values=values,
-            source_pins=source_pins,
-            placement_policy=self.placement_policy,
-            prepared=self.prepared,
-            check_active=check_active,
+            action=self.operation, input_basis=input_basis, asset_content=self.asset_content,
+            prepared=self.prepared, check_active=check_active,
         )
         captured = external_extraction_operation_sources()
         reply = yield from self.port.plan_cpu_reply(
-            execute_rich_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            execution_owner=execution_owner,
-            check_active=check_active,
+            execute_rich_kernel, bound, captured, prepared_release_id=self.prepared.release_id,
+            execution_owner=execution_owner, check_active=check_active,
         )
         return PreparedCallResult(
-            wire_json_loads(reply.content),
+            cpu_authority_value(reply.content, expected_basis=input_basis),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content,
         )
 
 
@@ -547,7 +587,7 @@ def resolve_rich_port(prepared, model, operation, *, identity, authorize, custod
     if len(artifacts) != 1:
         raise ValueError("rich acquisition requires its exact captured placement policy")
     plan = RichInvocationPlan(
-        prepared, model, operation, wire_json_loads(artifacts[0].content)["placement_policy"]
+        prepared, model, operation, artifacts[0].content.decode()
     )
     port = PreparedOriginalCallPort(
         identity,
@@ -568,6 +608,7 @@ def resolve_rich_port(prepared, model, operation, *, identity, authorize, custod
             ),
         ),
         requires_prepared_schema=True,
+        retain_cpu_reply=True,
     )
     plan.port = port
     return port
