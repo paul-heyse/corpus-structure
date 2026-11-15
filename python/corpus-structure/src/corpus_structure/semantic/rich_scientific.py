@@ -69,7 +69,7 @@ def _expression_contexts(value: Any):
             yield from _expression_contexts(item)
 
 
-def _macros(value: Any, context: RichScientificSourceContext) -> dict[str, MacroDef]:
+def checked_rich_operand_macros(value: Any, context: RichScientificSourceContext) -> dict[str, MacroDef]:
     """Verify the fact's referenced macro meaning against its actual source packet."""
     projected = bind_expression_context(value, context.macros)
     for actual, expected in zip(_expression_contexts(value), _expression_contexts(projected), strict=True):
@@ -181,7 +181,7 @@ def assess_rich_scientific(
                 qualification = _plain(state.value(occurrence.observed_qualification_value))
                 operands.append(value)
                 qualifiers.append(qualification)
-                macros.append(_macros((value, qualification), source))
+                macros.append(checked_rich_operand_macros((value, qualification), source))
             conflict = set(macros[0]) & set(macros[1])
             incompatible = any(macros[0][name] != macros[1][name] for name in conflict)
             comparison, semantic_reason = None, None
