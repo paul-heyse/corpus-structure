@@ -93,7 +93,7 @@ def graph_inputs(scientific, values, *, qualifications=None, macros=None, proper
         result = graph.add_property_fact(subject_entity="entity:actual", class_name="ScientificSubject", property_name=property_name,
                                          value=bind_expression_context(value, actual_macros), qualification=qualification)
         occurrence = DdoRichOccurrence(member_type="source-occurrence", occurrence_id=f"occurrence:{index}", fact_id=result.fact.fact_id,
-                                       original=original, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=())
+                                       original=original, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=(), establishment="stated", statement_kind=None, statement_role=None, evidence_count=1)
         bodies[result.fact.fact_id] = result.fact
         bodies[occurrence.occurrence_id] = occurrence
     entity = DdoRichEntity(member_type="entity", entity_id="entity:actual", class_contracts=(ids["urn:rich-scientific:ScientificSubject"],), identities=({"class_contract": ids["urn:rich-scientific:ScientificSubject"], "fields": (), "label": None},), source_members=(inputs[0],))

@@ -149,6 +149,10 @@ class DdoRichOccurrence(RichRecord):
     statement: DdoRichSelectedMember | None
     observed_qualification_value: Nonempty
     dependencies: tuple[Nonempty, ...]
+    establishment: Nonempty
+    statement_kind: Nonempty | None
+    statement_role: Nonempty | None
+    evidence_count: Annotated[int, Field(ge=0)]
 
 
 class DdoRichSourceReadingAssertion(RichRecord):
@@ -281,6 +285,7 @@ class DdoRichConsolidationPolicy(RichRecord):
     version: Literal["rich-consolidation-policy-1"]
     qualification_contract: Nonempty
     statement_contract: Nonempty
+    allowed_domain_contracts: Annotated[tuple[Nonempty, ...], Field(min_length=1)]
     rules_digest: Digest
     scientific_digest: Digest
     analysis_profile_digest: Digest

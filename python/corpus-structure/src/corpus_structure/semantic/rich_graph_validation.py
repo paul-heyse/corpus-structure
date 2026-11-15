@@ -366,6 +366,17 @@ class ValidatedRichGraph:
                 if expected != body.fact_id:
                     raise ValueError("rich fact identity differs from its actual context and values")
             elif isinstance(body, (DdoRichOccurrence, DdoRichAuthoredProposition)):
+                if isinstance(body, DdoRichOccurrence):
+                    if body.establishment not in self.prepared.enum_members("Establishment"):
+                        raise ValueError("rich occurrence has an unknown actual establishment")
+                    if body.statement_kind is not None:
+                        from .statement_types import statement_kinds
+                        if body.statement_kind not in statement_kinds(self.prepared):
+                            raise ValueError("rich occurrence has an unknown actual statement kind")
+                    if body.statement_role is not None and body.statement_role not in self.prepared.enum_members("StatementRole"):
+                        raise ValueError("rich occurrence has an unknown actual statement role")
+                    if body.statement is None and (body.statement_kind is not None or body.statement_role is not None):
+                        raise ValueError("rich occurrence statement metadata lacks its actual selected statement")
                 fact = self.member(body.fact_id, DdoRichFact)
                 if isinstance(body, DdoRichOccurrence):
                     self.external(body.original)

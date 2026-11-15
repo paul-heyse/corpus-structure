@@ -27,6 +27,9 @@ types:
   decimal: {base: Decimal, uri: 'xsd:decimal'}
   datetime: {base: datetime, uri: 'xsd:dateTime'}
   float: {base: float, uri: 'xsd:double'}
+enums:
+  Establishment:
+    permissible_values: {stated: {}, derived: {}, agent_asserted: {}}
 classes:
   Entity:
     attributes:
@@ -276,7 +279,7 @@ def actual_graph(source):
     values = RichFactGraph(prepared, model, context=context, entities={"entity:subject": frozenset({"urn:rich-values:Measurement"})}, known_fact_ids=frozenset())
     result = values.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.3"), qualification={"label": "Gaussian", "reporter": "original-source"})
     entity = DdoRichEntity(member_type="entity", entity_id="entity:subject", class_contracts=(ids["urn:rich-values:Measurement"],), identities=({"class_contract": ids["urn:rich-values:Measurement"], "fields": (), "label": None},), source_members=(entity_ref,))
-    occurrence = DdoRichOccurrence(member_type="source-occurrence", occurrence_id="occurrence:actual", fact_id=result.fact.fact_id, original=claim_ref, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=())
+    occurrence = DdoRichOccurrence(member_type="source-occurrence", occurrence_id="occurrence:actual", fact_id=result.fact.fact_id, original=claim_ref, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=(), establishment="stated", statement_kind=None, statement_role=None, evidence_count=1)
     bodies = (*((value.value_id, value) for value in values.values), (entity.entity_id, entity), (result.fact.fact_id, result.fact), (occurrence.occurrence_id, occurrence))
     packets = tuple(DdoRichPacket(member_id=identifier, kind_contract=ids[prefix + type(body).__name__], context=DdoRichContext(subject=context.subject, subject_definition=context.subject_definition, original_source=None, analyzed_scope={}), body=body) for identifier, body in bodies)
     inputs = (entity_ref, claim_ref)
