@@ -466,8 +466,8 @@ class EffectiveOperation:
 class GraphProjectionDefinition:
     """Compiled interpretation; concrete snapshots supply selection, never new semantics."""
 
-    name: Literal["semantic-reference", "potential-producers", "selected-dependencies", "bound-requests", "selected-support", "source-hierarchy", "assessment", "lexical-reference", "possible-call", "resolved-definition", "type-reference", "implementation-determinant"]
-    source_contract: Literal["effective-semantic-records", "effective-operations", "selected-native-records", "selected-source-records", "protected-assessment-records", "captured-implementation-records"]
+    name: Literal["semantic-reference", "potential-producers", "selected-dependencies", "bound-requests", "selected-support", "source-hierarchy", "assessment", "task-assessment", "lexical-reference", "possible-call", "resolved-definition", "type-reference", "implementation-determinant"]
+    source_contract: Literal["effective-semantic-records", "effective-operations", "selected-native-records", "selected-source-records", "protected-assessment-records", "selected-characterization-records", "captured-implementation-records"]
     node_kinds: tuple[str, ...]
     relationship_kinds: tuple[str, ...]
     orientation: Literal["owner-to-dependency", "parent-to-child", "assertion-incidence"] = "owner-to-dependency"
@@ -480,7 +480,7 @@ class GraphProjectionDefinition:
     attributes: Literal["canonical-semantic-payload-unweighted", "typed-native-occurrences-unweighted", "protected-asymmetric-fields"] = (
         "canonical-semantic-payload-unweighted"
     )
-    analyses: tuple[str, ...] = ("root-inclusive-closure", "strong-components")
+    analyses: tuple[str, ...] = ("members", "root-inclusive-closure", "strong-components", "witness-path", "scope-boundary", "dependency-order")
 
     @property
     def identity_bytes(self) -> bytes:
@@ -521,11 +521,17 @@ def compiled_snapshot_projections(implementation_slices=()) -> tuple[GraphProjec
     """
     implementation_kinds = tuple(sorted({node.category for item in implementation_slices for node in item.nodes} | {"lexical-reference", "unresolved-reference"}))
     determinant_relations = tuple(sorted({edge.relation for item in implementation_slices for edge in item.edges}))
+    from .assessment_graph_contract import (
+        ASSESSMENT_NODE_KINDS,
+        ASSESSMENT_RELATION_KINDS,
+        TASK_ASSESSMENT_NODE_KINDS,
+        TASK_ASSESSMENT_RELATION_KINDS,
+    )
 
     def native(
-        name: Literal["bound-requests", "selected-support", "source-hierarchy", "assessment"],
+        name: Literal["bound-requests", "selected-support", "source-hierarchy", "assessment", "task-assessment"],
         nodes: tuple[str, ...], relationships: tuple[str, ...], *,
-        source: Literal["selected-native-records", "selected-source-records", "protected-assessment-records"] = "selected-native-records",
+        source: Literal["selected-native-records", "selected-source-records", "protected-assessment-records", "selected-characterization-records"] = "selected-native-records",
         orientation: Literal["owner-to-dependency", "parent-to-child", "assertion-incidence"] = "owner-to-dependency",
         selection: Literal["pinned-native-cut", "protected-question-and-prediction"] = "pinned-native-cut",
         attributes: Literal["typed-native-occurrences-unweighted", "protected-asymmetric-fields"] = "typed-native-occurrences-unweighted",
@@ -533,13 +539,14 @@ def compiled_snapshot_projections(implementation_slices=()) -> tuple[GraphProjec
         return GraphProjectionDefinition(name, source, nodes, relationships, orientation=orientation,
             identity="qualified-native-reference", selection=selection, snapshot="native-read-and-trust",
             unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe",
-            attributes=attributes, analyses=("root-inclusive-closure", "strong-components", "witness-path", "scope-boundary", "dependency-order"))
+            attributes=attributes, analyses=("members", "root-inclusive-closure", "strong-components", "witness-path", "scope-boundary", "dependency-order"))
     return (
         native("bound-requests", ("request", "obligation", "use", "population"), ("selected-input", "requires", "population")),
         native("selected-support", ("product", "member", "episode", "use", "population", "original", "authored"), ("input", "output", "support", "admission", "population")),
         native("source-hierarchy", ("source", "record", "member"), ("contains",), source="selected-source-records", orientation="parent-to-child"),
-        native("assessment", ("entity", "assertion", "group", "member"), ("subject", "object", "requires", "member", "root"), source="protected-assessment-records", orientation="assertion-incidence", selection="protected-question-and-prediction", attributes="protected-asymmetric-fields"),
-        *(GraphProjectionDefinition(name, "captured-implementation-records", implementation_kinds, relations, snapshot="captured-source", unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe", analyses=("root-inclusive-closure", "strong-components", "witness-path", "scope-boundary"))
+        native("assessment", ASSESSMENT_NODE_KINDS, ASSESSMENT_RELATION_KINDS, source="selected-characterization-records"),
+        native("task-assessment", TASK_ASSESSMENT_NODE_KINDS, TASK_ASSESSMENT_RELATION_KINDS, source="protected-assessment-records", orientation="assertion-incidence", selection="protected-question-and-prediction", attributes="protected-asymmetric-fields"),
+        *(GraphProjectionDefinition(name, "captured-implementation-records", implementation_kinds, relations, snapshot="captured-source", unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe", analyses=("members", "root-inclusive-closure", "strong-components", "witness-path", "scope-boundary", "dependency-order"))
           for name, relations in (
               ("lexical-reference", ("lexical_reference",)),
               ("possible-call", ("possible_call",)),

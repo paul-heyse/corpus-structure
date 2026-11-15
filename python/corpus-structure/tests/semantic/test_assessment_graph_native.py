@@ -13,6 +13,7 @@ from corpus_structure.semantic.demand_results import read_demand_result, selecte
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
+    formal_operation_sources,
     formal_product_inputs,
     prepare_formal_evidence,
 )
@@ -34,7 +35,7 @@ def assessment_recipe():
     declaration = source_declaration()
     declaration["roles"][0].update(kind="DdoFormalProduct", maximum=1, collection="scalar")
     source = SourceArtifact("formal-graph-operation.json", json_bytes(dict(version=MODEL_VERSION, operations=[declaration])))
-    dependencies = data_operation_dependencies(ResolvedDependencies(), (source,))
+    dependencies = data_operation_dependencies(ResolvedDependencies(), (source,), formal_operation_sources())
     return KernelRecipe("assessment-graph-native", "", None, "", captured_inputs=CapturedKernelInputs(bundle, dependencies, PreparationProfile(version="semantic-2")))
 
 

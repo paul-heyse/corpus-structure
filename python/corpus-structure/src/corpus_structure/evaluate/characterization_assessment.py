@@ -12,6 +12,11 @@ from dataclasses import asdict
 from hashlib import sha256
 from typing import Any
 
+from corpus_structure.semantic.assessment_graph_contract import (
+    ASSESSMENT_COLLECTIONS,
+    ASSESSMENT_NODE_KINDS,
+    ASSESSMENT_RELATION_KINDS,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -22,7 +27,7 @@ class WitnessGraphBudgetExceeded(ReferenceError):
     """The full authenticated witness graph exceeds its requested examination bound."""
 
 
-COLLECTIONS = ("occurrences", "annotations", "memberships", "roles", "terms", "choices", "coverage")
+COLLECTIONS = ASSESSMENT_COLLECTIONS
 
 
 def pin_key(value):
@@ -467,6 +472,8 @@ class LayerProjection:
                 if q not in names:
                     names[q] = f"n{len(names)}"
                     queue.append((target_pin, target))
+                if label not in ASSESSMENT_RELATION_KINDS:
+                    raise ReferenceError("witness relation is outside the admitted assessment projection")
                 edges.append(dict(label=label, target=names[q], **fields))
 
             if witness_closure and collection == "choice_member":
@@ -646,6 +653,8 @@ class LayerProjection:
                         path=["named_match", "bindings", identity[2]],
                     )
                 )
+            if collection not in ASSESSMENT_NODE_KINDS:
+                raise ReferenceError("witness node kind is outside the admitted assessment projection")
             node = dict(
                 id=names[(*key, identity)],
                 qualified_identity=qualified,

@@ -1295,6 +1295,13 @@ def _task_graph(entities, assertions, groups, focus, *, expected=False):
     # feasibility below must still refuse it, even if structural matching succeeds.
     missing = {target for _, target, _ in edges if target not in known and target[0] == "member"}
     nodes.extend((identity, {}) for identity in sorted(missing))
+    from corpus_structure.semantic.assessment_graph_contract import (
+        TASK_ASSESSMENT_NODE_KINDS,
+        TASK_ASSESSMENT_RELATION_KINDS,
+    )
+
+    if not {identity[0] for identity, _ in nodes} <= set(TASK_ASSESSMENT_NODE_KINDS) or not {edge["label"] for _, _, edge in edges} <= set(TASK_ASSESSMENT_RELATION_KINDS):
+        raise ContractUnavailable("normalized task facts exceed the admitted task-assessment projection")
     return attributed_graph(nodes, edges)
 
 
