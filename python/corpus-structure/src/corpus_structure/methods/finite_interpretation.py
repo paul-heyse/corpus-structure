@@ -10,6 +10,8 @@ class FiniteInterpretationOperation:
         "id": "interpret.finite_candidates",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "retained-candidates", "explicit-factor-policy"],
         "entrypoints": ["run"],
         "roles": [

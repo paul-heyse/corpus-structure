@@ -10,6 +10,8 @@ class RichExtractionInputOperation:
         "id": "prepare.external_extraction",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "rich-source-report-context"],
         "entrypoints": ["run"],
         "roles": [
@@ -339,6 +341,8 @@ class RichExtractionPlacementOperation:
         "id": "locate.external_extraction",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "rich-source-report-context"],
         "entrypoints": ["run"],
         "roles": [

@@ -40,6 +40,7 @@ from .data_operation_model import (
     StateDimension,
     StateTransition,
     StreamSettlement,
+    SubjectDefinition,
     compiled_graph_projections,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
@@ -93,6 +94,8 @@ _METADATA_FIELDS = {
     "id",
     "profile",
     "subject",
+    "subject_definition",
+    "discovery_relation",
     "context",
     "roles",
     "applicability",
@@ -1030,6 +1033,7 @@ def compile_data_operations(
                 kind, facts=canonical_bytes({**json.loads(kind.facts), **policy})
             )
     operations = []
+    subject_definitions = {}
     bindings = []
     for raw, surfaces, origins, implementation_root in authored:
         raw = _mapping(raw, "operation", _METADATA_FIELDS)
@@ -1674,10 +1678,38 @@ def compile_data_operations(
                 else _text(record["requested_model"], semantic_id),
                 "declared-inputs-only",
             )
+        subject = _text(raw.get("subject"), semantic_id)
+        subject_record = _mapping(
+            raw.get("subject_definition"), semantic_id,
+            {"id", "identifier_kind", "scope"},
+        )
+        identifier_name = _text(subject_record.get("identifier_kind"), semantic_id)
+        identifier_kind = aliases.get(identifier_name, identifier_name)
+        if identifier_kind not in kinds:
+            _fail(semantic_id, "subject definition requires a resolved identifier kind")
+        if subject_record.get("id") != subject:
+            _fail(semantic_id, "operation subject differs from its declared subject definition")
+        subject_scope = subject_record.get("scope")
+        if subject_scope not in {"original-source", "original-document", "selected-source-set", "project", "invocation"}:
+            _fail(semantic_id, "unsupported subject scope relation")
+        subject_definition = SubjectDefinition(subject, identifier_kind, subject_scope)
+        if subject in subject_definitions and subject_definitions[subject] != subject_definition:
+            _fail(semantic_id, "subject definition has conflicting semantic owners")
+        subject_definitions[subject] = subject_definition
+        discovery_relation = raw.get("discovery_relation")
+        if discovery_relation not in {"role-associated", "subject-population"}:
+            _fail(semantic_id, "operation requires explicit subject discovery relation")
+        subject_node = "subject:" + subject
+        subject_payload = canonical_bytes(asdict(subject_definition))
+        if subject_node in nodes and nodes[subject_node].payload != subject_payload:
+            _fail(semantic_id, "subject definition has conflicting semantic owners")
+        nodes[subject_node] = SemanticNode(subject_node, "subject", subject_payload)
+        edges.append(SemanticEdge(subject_node, identifier_kind, "subject_identifier_kind"))
+        edges.append(SemanticEdge(semantic_id, subject_node, "operation_subject"))
         operation = EffectiveOperation(
             semantic_id,
             raw["profile"],
-            _text(raw.get("subject"), semantic_id),
+            subject,
             _strings(raw.get("context"), semantic_id),
             tuple(roles),
             _strings(raw.get("applicability"), semantic_id),
@@ -1704,6 +1736,7 @@ def compile_data_operations(
             selection,
             output_witnesses,
             external,
+            discovery_relation=discovery_relation,
         )
         operations.append(operation)
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)
@@ -1758,6 +1791,7 @@ def compile_data_operations(
         tuple(sorted(edges, key=lambda e: (e.source, e.target, e.relation, e.role))),
         tuple(slices),
         graph_projections=compiled_graph_projections(tuple(nodes.values()), edges, slices),
+        subject_definitions=tuple(subject_definitions[key] for key in sorted(subject_definitions)),
     )
 
     from .source_interfaces import export_source_interfaces
@@ -1843,6 +1877,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         definition = definition_fingerprint(
             {
                 "definition": json.loads(operation.definition),
+                "subject_definition": asdict(model.subject_definition(operation.subject)),
                 "binding": _binding_record(binding.expression),
                 "kind_contracts": kind_contracts,
                 **(
@@ -1873,6 +1908,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         recipe = recipe_fingerprint(
             {
                 "recipe": json.loads(operation.recipe),
+                "subject_definition": asdict(model.subject_definition(operation.subject)),
                 "kind_contracts": kind_contracts,
                 **(
                     {"parameter_kind_contracts": parameter_contracts} if parameter_contracts else {}

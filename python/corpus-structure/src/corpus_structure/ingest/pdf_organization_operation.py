@@ -11,6 +11,8 @@ class PdfOrganizationOperation:
         "id": "source.pdf_sections/organize",
         "profile": "command",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "whole-document"],
         "entrypoints": ["run"],
         "roles": [

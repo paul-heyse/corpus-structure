@@ -10,6 +10,8 @@ class WeakMathAnalysis:
         "id": "analyze.math/lexical",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -307,6 +309,8 @@ class ContextualMathAnalysis:
         "id": "analyze.math/contextual",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [

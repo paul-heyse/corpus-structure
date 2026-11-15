@@ -13,6 +13,8 @@ class ContextualEncodingOperation:
         "id": "retrieve.contextual_vectors/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": [
             "original-source",
             "retained-exact-occurrence",
@@ -265,6 +267,8 @@ class SelectedContextEncodingOperation:
         "id": "retrieve.contextual_vectors/selected-context",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": [
             "original-source",
             "retained-exact-occurrence",

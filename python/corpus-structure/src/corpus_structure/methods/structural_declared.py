@@ -15,6 +15,8 @@ class DeclaredStructuralComparison:
         "id": "structure.compare/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
+        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
+        "discovery_relation": 'role-associated',
         "context": [
             "project",
             "subject",
@@ -557,6 +559,8 @@ class DeclaredConditionQualification:
         "id": "structure.condition_qualification/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
+        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
+        "discovery_relation": 'role-associated',
         "context": [
             "project",
             "subject",

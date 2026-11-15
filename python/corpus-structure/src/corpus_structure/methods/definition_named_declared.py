@@ -12,6 +12,8 @@ class NamedDefinitionComponentsOperation:
         "id": "structure.definition_named_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope", "paired-located-definition-products"],
         "entrypoints": ["run"],
         "roles": [

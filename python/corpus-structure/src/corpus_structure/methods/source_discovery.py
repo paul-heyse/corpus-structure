@@ -13,6 +13,8 @@ class SelectedSourceViewsOperation:
         "id": "source.selected_views/discovery",
         "profile": "discovery",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "frozen-view-selection"],
         "entrypoints": ["run"],
         "roles": [

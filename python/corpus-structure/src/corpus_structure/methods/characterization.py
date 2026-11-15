@@ -71,6 +71,8 @@ class ComposeEnrichedDocumentOperation(PreparedCompositionReceiver):
         "id": "text.compose_view/source-native",
         "profile": "derivation",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [

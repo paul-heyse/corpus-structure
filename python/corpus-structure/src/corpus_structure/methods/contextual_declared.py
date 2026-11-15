@@ -13,6 +13,8 @@ class ContextualRetrievalOperation:
         "id": "retrieve.contextual/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": [
             "original-source",
             "located-occurrence",
@@ -268,6 +270,8 @@ class ContextualInventoryOperation:
         "id": "retrieve.contextual_inventory/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": ["exact-target-selection", "eligible-inventory"],
         "entrypoints": ["run"],
         "roles": [

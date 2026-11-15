@@ -39,7 +39,7 @@ def source_discovery_relations(
         not any(
             role.subject_target == "subject" and role.subject_field is None for role in compatible
         )
-        and operation.subject != "original-source-view"
+        and operation.discovery_relation != "subject-population"
     ):
         return ()
     expression = next(
@@ -54,7 +54,7 @@ def source_discovery_relations(
     ]
     # Document fan-in may consume the same source kind through a document field;
     # that does not make the document operation one obligation per source child.
-    if not children and operation.subject != "original-source-view":
+    if not children and operation.discovery_relation != "subject-population":
         return ()
     result = []
     for role in children:

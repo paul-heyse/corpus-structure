@@ -16,6 +16,8 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
         "id": "text.compose_view/full-native",
         "profile": "derivation",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [

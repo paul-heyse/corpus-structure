@@ -243,6 +243,8 @@ score_operation_event__data_operation__ = {
     "id": "urn:corpus:operation:score-operation-event",
     "profile": "derivation",
     "subject": "fitted-operation-event",
+    "subject_definition": {'id': 'fitted-operation-event', 'identifier_kind': 'string', 'scope': 'project'},
+    "discovery_relation": 'role-associated',
     "context": ["corpus_id", "event", "event_version", "producer_version"],
     "roles": [
         {

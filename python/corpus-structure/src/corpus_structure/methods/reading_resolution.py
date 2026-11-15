@@ -10,6 +10,8 @@ class ReadingResolutionOperation:
         "id": "resolve.m1_readings/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "retained-complete-readings", "actual-feature-policy"],
         "entrypoints": ["run"],
         "roles": [

@@ -12,6 +12,8 @@ class M1SourceCandidatesOperation:
         "id": "extract.m1_candidates",
         "profile": "derivation",
         "subject": "selected-native-source",
+        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'role-associated',
         "context": [
             "project",
             "original-source",

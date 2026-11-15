@@ -11,6 +11,8 @@ class ChandraMappingFamily:
         "id": "source.visual/map",
         "profile": "derivation",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "exact-submitted-png"],
         "entrypoints": ["run"],
         "roles": [

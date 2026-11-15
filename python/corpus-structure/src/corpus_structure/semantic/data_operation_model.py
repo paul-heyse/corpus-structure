@@ -324,6 +324,15 @@ class ExternalExecutorContract:
 
 
 @dataclass(frozen=True)
+class SubjectDefinition:
+    """Nominal subject meaning, separate from its concrete occurrence address."""
+
+    semantic_id: str
+    identifier_kind: str
+    scope: Literal["original-source", "original-document", "selected-source-set", "project", "invocation"]
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
@@ -354,6 +363,7 @@ class EffectiveOperation:
     consumer_selection: ConsumerSelectionCapability | None = None
     output_witnesses: tuple[OutputWitnessGroup, ...] = ()
     external: ExternalExecutorContract | None = None
+    discovery_relation: Literal["role-associated", "subject-population"] = field(kw_only=True)
 
     @property
     def recipe(self) -> bytes:
@@ -369,6 +379,7 @@ class EffectiveOperation:
                 **({"external": asdict(self.external)} if self.external is not None else {}),
                 "profile": self.profile,
                 "subject": self.subject,
+                "discovery_relation": self.discovery_relation,
                 "context": self.context,
                 "roles": [operation_role_record(role, result_only=True) for role in self.roles],
                 "invariants": self.invariants,
@@ -694,6 +705,7 @@ class EffectiveDataOperationModel:
     implementation_slices: tuple[ImplementationSlice, ...] = ()
     identities: tuple[EffectiveIdentity, ...] = ()
     graph_projections: tuple[GraphProjectionDefinition, ...] = ()
+    subject_definitions: tuple[SubjectDefinition, ...] = ()
 
     source_interfaces: bytes | None = field(default=None, repr=False, compare=False)
 
@@ -773,6 +785,12 @@ class EffectiveDataOperationModel:
                 "edges": tuple(asdict(edge) for edge in selected_edges),
             }
         return SemanticGraph(records)
+
+    def subject_definition(self, semantic_id: str) -> SubjectDefinition:
+        definitions = [item for item in self.subject_definitions if item.semantic_id == semantic_id]
+        if len(definitions) != 1:
+            raise ValueError("operation requires one resolved subject definition")
+        return definitions[0]
 
     def operation(self, semantic_id: str) -> EffectiveOperation:
         return next(

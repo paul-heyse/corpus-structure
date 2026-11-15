@@ -11,6 +11,8 @@ class PdfVisualInputFamily:
         "id": "source.visual_input/render",
         "profile": "derivation",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "exact-selected-pdf", "page-or-native-region"],
         "entrypoints": ["run"],
         "roles": [

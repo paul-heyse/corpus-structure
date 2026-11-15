@@ -213,6 +213,8 @@ class DeclaredMathOccurrences:
         "id": "extract.math/declared",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -603,6 +605,8 @@ class DeclaredMathNormalization:
         "id": "normalize.formula/declared",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -857,6 +861,8 @@ class DeclaredMathScope:
         "id": "resolve.symbol_scope/declared",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [

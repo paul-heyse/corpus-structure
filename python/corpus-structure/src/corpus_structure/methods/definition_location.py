@@ -10,6 +10,8 @@ class DefinitionLocationOperation:
         "id": "locate.definition_terms/declared",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope", "retained-definition-components"],
         "entrypoints": ["run"],
         "roles": [

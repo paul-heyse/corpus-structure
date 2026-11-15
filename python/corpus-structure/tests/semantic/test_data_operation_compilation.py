@@ -1348,3 +1348,42 @@ def test_completion_mappings_are_materialized_and_nonstandard_outcomes_need_expl
     }
     with pytest.raises(PreparationError, match="explicit completion"):
         compile_data_operations(declarations=declarations(contract(outcomes=["unmapped"], transitions=[])))
+
+
+def test_subject_definitions_resolve_once_and_reject_conflicting_or_missing_meaning():
+    first = contract(id="urn:first")
+    second = contract(id="urn:second")
+    model = compile_data_operations(declarations=declarations(first, second))
+    assert len(model.subject_definitions) == 1
+    assert model.subject_definitions[0].identifier_kind == "primitive:string"
+    second["subject_definition"]["scope"] = "invocation"
+    with pytest.raises(PreparationError, match="conflicting semantic owners"):
+        compile_data_operations(declarations=declarations(first, second))
+    for mutation in ("missing", "unknown-kind", "wrong-reference"):
+        value = contract()
+        if mutation == "missing":
+            del value["subject_definition"]
+        elif mutation == "unknown-kind":
+            value["subject_definition"]["identifier_kind"] = "urn:missing"
+        else:
+            value["subject"] = "urn:missing"
+        with pytest.raises(PreparationError):
+            compile_data_operations(declarations=declarations(value))
+
+
+def test_discovery_population_relation_does_not_depend_on_subject_spelling():
+    from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
+
+    producer = contract(id="urn:producer")
+    producer["roles"][1]["kind"] = "Other"
+    consumer = contract(id="urn:consumer")
+    consumer["discovery_relation"] = "subject-population"
+    consumer["roles"][0].update(kind="Other", subject_field="unrelated", subject_target="original-source")
+    consumer["binding"] = {"operator": "forall", "roles": ["source"], "population": "selected-source-views", "children": [{"operator": "scan", "roles": ["source"]}]}
+    baseline = compile_data_operations(schema_bundle(), declarations=declarations(producer, consumer))
+    expected = source_discovery_relations(baseline, "urn:producer", "result", "urn:consumer")
+    assert expected
+    consumer["subject"] = "renamed-domain-subject"
+    consumer["subject_definition"]["id"] = "renamed-domain-subject"
+    renamed = compile_data_operations(schema_bundle(), declarations=declarations(producer, consumer))
+    assert source_discovery_relations(renamed, "urn:producer", "result", "urn:consumer") == expected

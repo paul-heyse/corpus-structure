@@ -10,6 +10,8 @@ class ArtifactIdentityOperation:
         "id": "structure.artifact_identity/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
+        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
+        "discovery_relation": 'role-associated',
         "context": [
             "project",
             "subject",

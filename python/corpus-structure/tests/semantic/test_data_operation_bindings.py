@@ -37,6 +37,7 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SemanticEdge,
     SubjectContext,
+    SubjectDefinition,
     read_effective_data_operations,
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
@@ -92,6 +93,7 @@ def model(
         None,
         (),
         "urn:binding",
+        discovery_relation="role-associated",
     )
     return EffectiveDataOperationModel(
         MODEL_VERSION,
@@ -100,6 +102,7 @@ def model(
         (RelationalBinding("urn:binding", "urn:op", expression),),
         (),
         (),
+        subject_definitions=(SubjectDefinition("document", "urn:item", "project"),),
         identities=(
             EffectiveIdentity("urn:op", "definition", "definition:fixed"),
             EffectiveIdentity("urn:op", "eligibility", "eligibility:fixed"),

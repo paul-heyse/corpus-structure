@@ -46,6 +46,8 @@ def declaration(
         "id": identifier,
         "profile": "derivation",
         "subject": vocabulary.subject,
+        "subject_definition": {"id": vocabulary.subject, "identifier_kind": "string", "scope": "project"},
+        "discovery_relation": "role-associated",
         "context": list(vocabulary.context),
         "roles": roles,
         "applicability": list(vocabulary.applicability),

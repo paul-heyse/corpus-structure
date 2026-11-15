@@ -44,6 +44,8 @@ claim_source_item__data_operation__ = {
     "id": "urn:corpus:operation:claim-source-item",
     "profile": "derivation",
     "subject": "source-proposal-list",
+    "subject_definition": {'id': 'source-proposal-list', 'identifier_kind': 'string', 'scope': 'project'},
+    "discovery_relation": 'role-associated',
     "context": ["source-proposal-list"],
     "roles": [
         {

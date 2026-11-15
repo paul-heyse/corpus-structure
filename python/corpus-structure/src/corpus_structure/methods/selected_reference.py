@@ -8,6 +8,8 @@ class SelectedReferenceSnapshotOperation:
         "id": "reference.snapshot/declared",
         "profile": "derivation",
         "subject": "independent-reference",
+        "subject_definition": {'id': 'independent-reference', 'identifier_kind': 'string', 'scope': 'project'},
+        "discovery_relation": 'role-associated',
         "context": ["authored-reference", "frozen-original-source", "protected-evaluator-purpose"],
         "entrypoints": ["run"],
         "roles": [

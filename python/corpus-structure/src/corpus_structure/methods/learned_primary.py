@@ -17,6 +17,8 @@ class MaverickPrimaryOperation:
         "id": "text.maverick/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -515,6 +517,8 @@ class DipoPrimaryOperation:
         "id": "text.dipo/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -983,6 +987,8 @@ class D1SourcePrimaryOperation:
         "id": "text.d1_source/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -1451,6 +1457,8 @@ class D1CandidatesPrimaryOperation:
         "id": "text.d1_candidates/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -2003,6 +2011,8 @@ class GlinerCuesPrimaryOperation:
         "id": "text.gliner_cues/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -2471,6 +2481,8 @@ class GlinerFunctionPrimaryOperation:
         "id": "text.gliner_function/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -2939,6 +2951,8 @@ class ContextualNativePrimaryOperation:
         "id": "text.contextual_native/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -3146,6 +3160,8 @@ class GlinerDefinitionPrimaryOperation:
         "id": "text.gliner_definitions/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [

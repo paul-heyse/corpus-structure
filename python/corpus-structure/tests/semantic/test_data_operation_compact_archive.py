@@ -81,7 +81,7 @@ def test_obsolete_model_encodings_require_target_native_regeneration(version):
     model = compile_data_operations()
     record = json.loads(model.content)
     record["version"] = version
-    with pytest.raises(ValueError, match="unsupported.*regenerate"):
+    with pytest.raises(ValueError, match=r"unsupported.*regenerate"):
         read_effective_data_operations(canonical_bytes(record))
-    with pytest.raises(ValueError, match="unsupported.*regenerate"):
+    with pytest.raises(ValueError, match=r"unsupported.*regenerate"):
         _ = replace(model, version=version).content

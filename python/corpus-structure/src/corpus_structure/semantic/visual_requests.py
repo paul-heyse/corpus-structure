@@ -53,6 +53,8 @@ def visual_external_declaration():
         "id": VISUAL_RECOGNIZE,
         "profile": "command",
         "subject": "original-document",
+        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
+        "discovery_relation": 'role-associated',
         "context": ["original-source", "exact-submitted-png"],
         "roles": [
             {

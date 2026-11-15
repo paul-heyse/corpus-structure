@@ -12,6 +12,8 @@ class DefinitionApplicabilityOperation:
         "id": "structure.definition_applicability/declared",
         "profile": "derivation",
         "subject": "original-source-view",
+        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
+        "discovery_relation": 'subject-population',
         "context": [
             "original-source",
             "selected-scope",

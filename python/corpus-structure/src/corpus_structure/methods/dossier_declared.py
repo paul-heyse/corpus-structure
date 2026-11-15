@@ -10,6 +10,8 @@ class DossierOperation:
         "id": "structure.dossier/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
+        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
+        "discovery_relation": 'role-associated',
         "context": [
             "project",
             "original-source",
