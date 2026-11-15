@@ -74,6 +74,15 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     }
     if actual_subjects != expected_subjects:
         raise ValueError("native operation subjects differ from the checked effective model")
+    identities = {(item.owner, item.domain): item.key for item in model.identities}
+    projected_kinds = {row["kind"]: row["kind_contract"] for row in projection["kinds"]}
+    if len(projected_kinds) != len(projection["kinds"]):
+        raise ValueError("native definition projection repeats a nominal kind")
+    for operation in model.operations:
+        kind = model.subject_definition(operation.subject).identifier_kind
+        contract = identities.get((kind, "kind"))
+        if contract is None or projected_kinds.get(kind) != contract:
+            raise ValueError("native subject identifier kind differs from the checked effective model")
     expected_policies = {
         operation.semantic_id: operation.replicate_policy for operation in model.operations
     }

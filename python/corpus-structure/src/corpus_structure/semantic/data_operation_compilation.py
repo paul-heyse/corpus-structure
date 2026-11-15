@@ -2163,6 +2163,10 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
     bindings = {binding.semantic_id: binding for binding in model.bindings}
     for operation in model.operations:
         binding = bindings[operation.binding]
+        subject_definition = model.subject_definition(operation.subject)
+        if subject_definition.identifier_kind not in kinds:
+            continue
+        subject_kind_contract = kinds[subject_definition.identifier_kind]
         parameter_kinds = {
             name: parameter["kind"]
             for name, parameter in json.loads(operation.parameters).items()
@@ -2177,7 +2181,8 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         definition = definition_fingerprint(
             {
                 "definition": json.loads(operation.definition),
-                "subject_definition": asdict(model.subject_definition(operation.subject)),
+                "subject_definition": asdict(subject_definition),
+                "subject_identifier_kind_contract": subject_kind_contract,
                 "binding": _binding_record(binding.expression),
                 "kind_contracts": kind_contracts,
                 **(
@@ -2208,7 +2213,8 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
         recipe = recipe_fingerprint(
             {
                 "recipe": json.loads(operation.recipe),
-                "subject_definition": asdict(model.subject_definition(operation.subject)),
+                "subject_definition": asdict(subject_definition),
+                "subject_identifier_kind_contract": subject_kind_contract,
                 "kind_contracts": kind_contracts,
                 **(
                     {"parameter_kind_contracts": parameter_contracts} if parameter_contracts else {}

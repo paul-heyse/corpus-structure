@@ -21,7 +21,7 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v7"
+MODEL_VERSION = "data-operation-model-v8"
 
 
 SubjectScope = Literal[

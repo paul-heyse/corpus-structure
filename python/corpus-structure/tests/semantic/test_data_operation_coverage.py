@@ -90,7 +90,22 @@ def test_native_reader_requires_exact_checked_current_coverage_export():
     record = {
         "model_digest": sha256(model.content).hexdigest(),
         "native_digest": "controlled-native",
-        "kinds": [],
+        "kinds": [
+            {
+                "kind": "primitive:string",
+                "kind_contract": next(
+                    item.key
+                    for item in model.identities
+                    if item.owner == "primitive:string" and item.domain == "kind"
+                ),
+                "body_schema": {"type": "string"},
+                "meaning_schema": {"type": "string"},
+                "member_schema": {"not": {}},
+                "member_contracts": [],
+                "families": [],
+                "universe": "ordinary",
+            }
+        ],
         "operations": [
             {
                 "operation_id": operation.semantic_id,

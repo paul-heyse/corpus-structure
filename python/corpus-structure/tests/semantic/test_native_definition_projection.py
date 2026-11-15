@@ -72,11 +72,26 @@ def _captured(**changes):
             }
         ),
         operations=(),
+        identities=(
+            SimpleNamespace(owner="primitive:string", domain="kind", key="kind:string"),
+        ),
+        subject_definition=lambda _: SimpleNamespace(identifier_kind="primitive:string"),
     )
     record = {
         "model_digest": sha256(model.content).hexdigest(),
         "native_digest": "native-source-contract",
-        "kinds": [],
+        "kinds": [
+            {
+                "kind_contract": "kind:string",
+                "kind": "primitive:string",
+                "body_schema": {"type": "string"},
+                "meaning_schema": {"type": "string"},
+                "member_schema": {"not": {}},
+                "member_contracts": [],
+                "families": [],
+                "universe": "ordinary",
+            }
+        ] if operations else [],
         "operations": [],
         **changes,
     }

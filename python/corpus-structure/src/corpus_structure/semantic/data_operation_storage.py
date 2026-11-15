@@ -933,6 +933,10 @@ def data_operation_definition_projection(
 
     used = {role.kind for operation in model.operations for role in operation.roles}
     used.update(
+        model.subject_definition(operation.subject).identifier_kind
+        for operation in model.operations
+    )
+    used.update(
         parameter["kind"]
         for operation in model.operations
         for parameter in json.loads(operation.parameters).values()

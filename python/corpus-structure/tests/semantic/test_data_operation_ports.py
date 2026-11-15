@@ -1279,6 +1279,7 @@ def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path,
         "data-operation-model-v4",
         "data-operation-model-v5",
         "data-operation-model-v6",
+        "data-operation-model-v7",
     ):
         historical = replace(model, version=version, graph_projections=())
         with pytest.raises(PortRefusal, match="historical model"):
