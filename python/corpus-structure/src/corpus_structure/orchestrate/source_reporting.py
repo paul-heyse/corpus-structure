@@ -15,8 +15,8 @@ def record_native_demand(invocation, snapshot, target):
     invocation.stage("demand_registered", **bindings)
 
 
-def retain_native_demand_result(invocation, result):
-    report = {
+def native_demand_result(result):
+    return {
         "demand_id": result.demand_id,
         "snapshot": wire_json_loads(result.snapshot),
         "snapshot_standing": result.snapshot_standing,
@@ -24,6 +24,10 @@ def retain_native_demand_result(invocation, result):
         "receipts_truncated": result.receipts_truncated,
         "receipts": [wire_json_loads(value) for value in result.receipts],
     }
+
+
+def retain_native_demand_result(invocation, result):
+    report = native_demand_result(result)
     path = invocation.directory / "native.json"
     path.write_bytes(json_bytes(report))
     invocation.publish("native", path)

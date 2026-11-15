@@ -1,208 +1,81 @@
-"""Failed-source diagnostics are discoverable without inference or selected Docling content."""
+"""Selected provider-failure observations retain genuine native receipt custody.
 
-import base64
-import json
+This native journey is required after the combined current source capture. The
+controlled submitted response establishes no actual model/provider qualification.
+"""
+
+from dataclasses import replace
 from hashlib import sha256
+from contextlib import contextmanager
+import json
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import insert
-from typer.testing import CliRunner
 
-from corpus_structure.cli.app import app
-from corpus_structure.cli.output import CliState
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import complete_task
-from corpus_structure.semantic.pdf_storage import PdfObservationListRequest, read_pdf_observations
-from corpus_structure.settings import Settings
-from semantic.pdf_integration_support import HOLDER, RESPONSE, observation, prepare, publish
-from semantic.pdf_integration_support import native_source as native_source
-from semantic.pdf_integration_support import pdf13_db as pdf13_db
+from corpus_structure.semantic.data_operation_external import ExternalDataSession
+from corpus_structure.semantic.data_operation_service import DemandOperationSelection, execute_data_demand
+from corpus_structure.semantic.demand_results import selected_read_snapshot
+from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
+from corpus_structure.serve.source_catalog import SourceCatalogRequest
+from semantic.current_pdf_source_support import PROJECT, ROOT
+from semantic.current_pdf_source_support import current_pdf_source as current_pdf_source
 
 
-@pytest.mark.parametrize(
-    "changes",
-    [
-        {"limit": 0},
-        {"limit": 1001},
-        {"run_id": 0},
-        {"task_id": 0},
-        {"kind": "native"},
-    ],
-)
-def test_observation_catalog_requires_typed_bounded_scope(changes):
+@pytest.mark.parametrize("changes", [{"limit": 0}, {"limit": 1001}, {"limit": True}, {"run_id": 1}, {"task_id": 2}, {"view": "recognition_observation"}])
+def test_current_source_catalog_requires_typed_bounded_semantic_scope(changes):
     with pytest.raises(ValidationError):
-        PdfObservationListRequest.model_validate({"run_id": 1, "task_id": 2, **changes})
+        SourceCatalogRequest.model_validate(dict(project_id="project:one", demand_id="demand:one", **changes))
 
 
-def test_failed_task_observations_are_paged_and_inspectable(pdf13_db, commit_reader_engine):
-    db = pdf13_db
-    request = PdfObservationListRequest(run_id=db.job.run, task_id=db.job.task, limit=1)
-    with (
-        commit_reader_engine.connect() as conn,
-        pytest.raises(ValueError, match="finished source task"),
-    ):
-        read_pdf_observations(conn, request)
-
-    failed = observation(db.source, key="pass-c-failed", pass_role="C", outcome="failed")
-    failed["occurrences"] = []
-    failed["coverage"][0]["outcome"] = "unknown"
-    failed["observation"]["diagnostic"] = "controlled response parser failure"
-    retained = prepare(failed, db.source)
-    publish(db, retained)
-    with db.writer.begin() as conn:
-        complete_task(
-            conn,
-            task_id=db.job.task,
-            attempt=db.job.attempt,
-            holder=HOLDER,
-            prepared=db.prepared,
-            observations=[],
-            outcome="failed",
-            error={"code": "controlled-parser-failure", "message": "retained raw response"},
-        )
-    expected = {
-        "pass-a": db.observations[0].digest,
-        "pass-b": db.observations[1].digest,
-        "pass-c-failed": retained.digest,
-    }
-    with commit_reader_engine.connect() as conn:
-        first = read_pdf_observations(conn, request)
-        assert [pin.product_key for pin in first.products] == ["pass-a"]
-        assert first.next_cursor is not None
-        second = read_pdf_observations(
-            conn, request.model_copy(update={"cursor": first.next_cursor, "limit": 2})
-        )
-        assert second.next_cursor is None
-        assert {
-            pin.product_key: pin.content_digest for pin in (*first.products, *second.products)
-        } == expected
-        assert all(pin.kind == "recognition_observation" for pin in second.products)
-        assert read_pdf_observations(conn, request) == first
-        for bad_cursor in ("not-base64", base64.urlsafe_b64encode(b"{}").decode()):
-            with pytest.raises(ValueError, match="continuation"):
-                read_pdf_observations(conn, request.model_copy(update={"cursor": bad_cursor}))
-
-    other = db.create(name="other-source-task")
-    with db.writer.begin() as conn:
-        complete_task(
-            conn,
-            task_id=other.task,
-            attempt=other.attempt,
-            holder=HOLDER,
-            prepared=db.prepared,
-            observations=[],
-            outcome="failed",
-            error={"code": "controlled-source-failure"},
-        )
-    with db.admin.begin() as conn:
-        conn.execute(insert(table("data.project")).values(project_id="foreign"))
-        conn.execute(
-            insert(table("data.realization")).values(
-                project_id="foreign", realization_id="foreign-z", release_id=db.prepared.release_id
-            )
-        )
-    foreign = db.create(project="foreign", name="foreign-source")
-    with commit_reader_engine.connect() as conn:
-        for changes in (
-            {"run_id": other.run},
-            {"task_id": other.task},
-            {"run_id": foreign.run},
-            {"task_id": foreign.task},
-            {"task_id": 99999999},
-        ):
-            with pytest.raises(ValueError, match="requested run/project"):
-                read_pdf_observations(conn, request.model_copy(update=changes))
-        with pytest.raises(ValueError, match="continuation"):
-            read_pdf_observations(
-                conn,
-                PdfObservationListRequest(
-                    run_id=other.run,
-                    task_id=other.task,
-                    cursor=first.next_cursor,
-                ),
-            )
-
-    settings = Settings(
-        database={
-            "url": db.admin.url.set(
-                drivername="postgresql", username="corpus_sem_writer"
-            ).render_as_string(hide_password=False)
-        }
-    )
-    cli = CliRunner()
-
-    def invoke(*args):
-        result = cli.invoke(
-            app, ["source", *args, "--json"], obj=CliState(settings_factory=lambda: settings)
-        )
-        assert result.exit_code == 0, (result.output, result.exception)
-        return json.loads(result.stdout)
-
-    default = invoke("native-products", str(db.job.run))
-    assert [row["product_key"] for row in default] == ["native"]
-    page = invoke(
-        "native-products",
-        str(db.job.run),
-        "--observations",
-        "--task",
-        str(db.job.task),
-        "--limit",
-        "1",
-    )
-    assert page["products"][0]["kind"] == "recognition_observation"
-    tail = invoke(
-        "native-products",
-        str(db.job.run),
-        "--observations",
-        "--task",
-        str(db.job.task),
-        "--cursor",
-        page["next_cursor"],
-        "--limit",
-        "2",
-    )
-    failed_pin = tail["products"][-1]
-    assert failed_pin == {
-        "kind": "recognition_observation",
-        "task_id": db.job.task,
-        "product_key": "pass-c-failed",
-        "content_digest": retained.digest,
-    }
-    pin_args = (
-        str(db.job.run),
-        "--producing-task",
-        str(failed_pin["task_id"]),
-        "--product",
-        failed_pin["product_key"],
-        "--native-digest",
-        failed_pin["content_digest"],
-    )
-    companion = invoke("inspect", *pin_args, "--native-view", "companion")
-    assert companion["rows"][0]["descriptor"]["observation"]["outcome"] == "failed"
-    assert (
-        companion["rows"][0]["descriptor"]["observation"]["diagnostic"]
-        == "controlled response parser failure"
-    )
-    artifact = invoke(
-        "inspect",
-        *pin_args,
-        "--native-view",
-        "artifact",
-        "--artifact-digest",
-        sha256(RESPONSE).hexdigest(),
-    )
-    assert base64.b64decode(artifact["rows"][0]["data"]) == RESPONSE
-    assert artifact["rows"][0]["encoding"] == "base64"
-    for args in (
-        ("--observations",),
-        ("--task", str(db.job.task)),
-        ("--observations", "--task", str(db.job.task), "--limit", "1001"),
-        ("--observations", "--task", str(foreign.task)),
-    ):
-        refused = cli.invoke(
-            app,
-            ["source", "native-products", str(db.job.run), *args, "--json"],
-            obj=CliState(settings_factory=lambda: settings),
-        )
-        assert refused.exit_code != 0
+def test_failed_provider_observation_remains_selected_and_inspectable(current_pdf_source, monkeypatch, cli):
+    case = current_pdf_source
+    with case.kernel.purpose("write").begin() as connection:
+        demand = case.register(connection, "source.visual/recognize", selections=(DemandOperationSelection(
+            operation="source.visual_input/render", parameters={"selection": {"page_no": 1}}),))
+    execute_data_demand(case.kernel.purpose("write"), demand, source_root=ROOT,
+        admission_engine=case.kernel.purpose("admit"), project_id=PROJECT, database_capacity=6)
+    session = ExternalDataSession(case.kernel.purpose("write"), PROJECT, demand_id=demand)
+    (packet,) = session.queue()["packets"]
+    claim = session.claim(packet["packet_id"])
+    assert claim["state"] == "claimed"
+    submitted = session.read(packet["packet_id"], claim)
+    (image,) = submitted["input_views"]
+    assert image["role"] == "image" and image["value"]["document"] == case.document_key
+    raw = ""
+    completed = session.submit(packet["packet_id"], claim, {"outcome": "success", "outputs": [{"role": "observation", "body": dict(
+        image=image["value"], raw_response=raw, response_digest=sha256(raw.encode()).hexdigest(),
+        finish_reason="inference_error", runtime_identity_json='{"controlled":"no model inference"}',
+        provider_outcome="failed", diagnostic="Independent controlled provider failure")} ]},
+        actor_assertion="controlled-source-native-test", model_assertion=None)
+    assert completed["state"] == "committed"
+    selected = replace(case, demand_id=demand)
+    with selected_read_snapshot(case.kernel.purpose("read")) as connection:
+        source, _ = selected.publication(connection)
+        continuation, entries = None, []
+        while True:
+            page = visual_observation_manifest(connection, source, continuation=continuation, limit=1)
+            entries.extend(page.observations)
+            if page.continuation is None:
+                break
+            continuation = page.continuation
+        (observation,) = entries
+        assert observation.execution_outcome == "failed"
+        assert observation.mapping_availability == "not_selected" and observation.mapped is None
+        assert observation.raw_producer["producer_task_id"] == claim["task_id"]
+        assert observation.raw_producer["producer_attempt"] == claim["attempt"]
+        with pytest.raises(InvalidContinuation):
+            visual_observation_manifest(connection, source, continuation={"source": {**source.model_dump(), "read_id": "read:foreign"}, "page_no": None, "native": {}})
+    from corpus_structure.semantic import runtime
+    @contextmanager
+    def opened(*args, **kwargs):
+        assert kwargs["purpose"] == "read"
+        yield case.kernel.purpose("read")
+    monkeypatch.setattr(runtime, "open_runtime_engine", opened)
+    result = cli("source", "visual-observations", "--project", PROJECT, "--demand", demand,
+        "--read", source.read_id, "--use", source.use_id, "--product", source.product_id,
+        "--derivation", source.derivation_id, "--json")
+    assert result.exit_code == 0, result.output
+    actual = json.loads(result.stdout)
+    assert actual["observations"][0]["execution_outcome"] == "failed"
+    assert actual["observations"][0]["raw"]["derivation_id"] == observation.raw.derivation_id

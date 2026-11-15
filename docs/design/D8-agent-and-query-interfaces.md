@@ -592,14 +592,20 @@ Historical read selection, ambiguous-build refusal, corruption refusal and sourc
 semantics survive. New PDF anchors do not rewrite historical canonical evidence. PDF-07/08 own
 actual consumers and PDF-10/11 own external CLI/MCP/adoption evidence.
 
-**Implemented; bounded controls Tested, 2026-10-31.** `NativeSourceRequest` version 2 binds
-run, producing task, product key and content digest. Section/item/formula/cell/region selections
-and continuations preserve that pin. `ci source native-products|views|native-export|native-request`
-and the existing `inspect_source` MCP tool expose the native route alongside explicitly archived
-scalar-coordinate reads. Formula inspection hydrates retained analysis records and named inputs;
-it performs no interpretation. Region rendering is an explicit `render_source_region` demand
-through the existing task/source-ready lifecycle, with a retained image artifact.
+**Implemented; bounded controls Tested, 2026-11-15; native qualification pending the combined DDO source capture.**
+`NativeSourceRequest` version 5 binds explicit project, demand, read, use, product and derivation
+identities. The selected PDF owner independently authenticates the real sealed publication receipt;
+physical task/build coordinates remain producing evidence. `ci source native-products|views`
+discovers current declared publication/source-view kinds through the pinned result reader, preserving
+unknown/partial standing and bounded continuation. Recognition coverage and native exports retain
+the exact selected source scope rather than consulting a run's latest product.
 
+The main current server exposes `render_source_region` as an explicit `NativeDemandRequest` or exact
+retained-demand command restricted to `source.pdf_region/render` and its bound project/demand.
+The CLI `native-render` shares the same native creation/resume/execution route. Both retain actual
+claims, effects and publication custody; the tool's `readOnlyHint` is false. The separate retained
+reader server remains read-only. Registration and adapter controls do not establish genuine rendering
+or end-to-end native publication qualification.
 Separate native proposal frames hash the actual section context, native objects and coverage.
 Their projection ranges and direct native item addresses remain distinct from PDF geometry.
 Deterministic `native_evidence:<piece index>` handles identify an exact retained item, formula

@@ -27,8 +27,10 @@ def routing(monkeypatch):
         yield Engine()
 
     monkeypatch.setattr(demands, "ENGINE", engine)
+    from corpus_structure.orchestrate import native_execution
+
     monkeypatch.setattr(
-        demands,
+        native_execution,
         "read_data_demand",
         lambda conn, demand, **options: {
             "demand_id": demand,
@@ -38,7 +40,7 @@ def routing(monkeypatch):
         },
     )
     monkeypatch.setattr(
-        demands,
+        native_execution,
         "acquired_target",
         lambda conn, *, purpose: StorageTarget(
             database="routing-only",
@@ -49,6 +51,8 @@ def routing(monkeypatch):
             purpose=purpose,
         ),
     )
+    monkeypatch.setattr(demands, "read_data_demand", native_execution.read_data_demand)
+    monkeypatch.setattr(demands, "acquired_target", native_execution.acquired_target)
     return opened, connection
 
 

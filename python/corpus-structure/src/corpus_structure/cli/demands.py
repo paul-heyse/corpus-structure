@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from functools import partial
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -192,6 +191,7 @@ def execute_request(
     request: NativeDemandRequest | None = None,
     source_request=None,
     visual_actor=None,
+    required_targets: tuple[str, ...] | None = None,
     deliver: bool = True,
     project: str | None = None,
     action: str = "demands.execute",
@@ -207,7 +207,6 @@ def execute_request(
         record_native_demand,
         retain_native_demand_result,
     )
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
 
     if sum(value is not None for value in (demand, request, source_request)) != 1:
         raise typer.BadParameter("select one source request, native request or retained demand")
@@ -226,48 +225,25 @@ def execute_request(
             ENGINE(settings, purpose="write") as engine,
             ENGINE(settings, purpose="admit") as admitted,
         ):
-            with engine.begin() as connection:
-                target = acquired_target(connection, purpose="write")
-                if source_request is not None:
-                    from corpus_structure.orchestrate.source_operation import prepare_source_demand
-                    from corpus_structure.semantic.releases import load_release
+            from corpus_structure.orchestrate.native_execution import execute_native_intent
 
-                    prepared = load_release(connection, source_request.release_id)
-                    request = prepare_source_demand(connection, source_request, prepared=prepared)
-                else:
-                    prepared = None
-                if request is not None:
-                    if project is not None and request.project_id != project:
-                        raise ValueError("request belongs to another project")
+            def registered(snapshot, target, parsed_request):
+                nonlocal demand
+                demand = snapshot["demand_id"]
+                if parsed_request is not None:
                     path = invocation.directory / "request.json"
-                    path.write_bytes(json_bytes(request.model_dump(mode="python")))
+                    path.write_bytes(json_bytes(parsed_request.model_dump(mode="python")))
                     invocation.publish("request", path)
-                    snapshot = create_native_demand(connection, request, prepared=prepared)
-                    demand = snapshot["demand_id"]
-                else:
-                    assert demand is not None
-                    snapshot = read_data_demand(connection, demand, limit=1)
-                    if project is not None and snapshot["project_id"] != project:
-                        raise ValueError("retained demand belongs to another project")
                 invocation.record_target(target, None, None, snapshot["release_id"])
-            record_native_demand(invocation, snapshot, target)
-            assert demand is not None
-            try:
-                execute = execute_data_demand
-                if visual_actor is not None:
-                    from corpus_structure.semantic.visual_requests import execute_visual_demand
+                record_native_demand(invocation, snapshot, target)
 
-                    execute = partial(execute_visual_demand, visual_actor=visual_actor)
-                result = execute(
-                    engine,
-                    demand,
-                    source_root=source_root,
-                    limit=limit,
-                    max_rounds=max_rounds,
-                    policy=methods.execution_policy,
-                    project_id=project,
-                    nemotron_endpoint=methods.nemotron_endpoint,
-                    admission_engine=admitted,
+            try:
+                result = execute_native_intent(
+                    engine, admitted, source_root=source_root, methods=methods,
+                    demand=demand, request=request, source_request=source_request,
+                    visual_actor=visual_actor, project=project, limit=limit,
+                    max_rounds=max_rounds, required_targets=required_targets,
+                    registered=registered,
                 )
             except NativeDemandExecutionError as error:
                 retain_native_demand_result(invocation, error.result)

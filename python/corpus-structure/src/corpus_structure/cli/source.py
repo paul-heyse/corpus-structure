@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json as jsonlib
 from collections import Counter
 from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
-from pydantic import BaseModel, JsonValue, RootModel
+from pydantic import BaseModel, RootModel
 
 from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
@@ -17,15 +16,6 @@ from corpus_structure.semantic.visual_evidence import VisualEvidenceKind
 from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
-
-
-class NativeProductReport(BaseModel):
-    task_id: int
-    product_key: str
-    content_digest: str
-    release_id: str
-    health: dict[str, JsonValue]
-    runtime_report: dict[str, JsonValue] | None
 
 
 class SourceCoverageReport(BaseModel):
@@ -289,105 +279,41 @@ def native_export(
             _publish_native_export(staged, output, cancellation=cancellation)
 
 
-@app.command("native-products")
-def native_products(
-    ctx: typer.Context,
-    run: int,
-    observations: bool = typer.Option(False, help="List retained recognition observation pins."),
-    task: int | None = typer.Option(None, help="Exact finished source task for observations."),
-    cursor: str | None = None,
-    limit: int = typer.Option(100, min=1, max=1000),
-    json: JsonOpt = False,
-):
-    """List native pins, or a bounded recognition catalog from one finished source task."""
-    from sqlalchemy import or_, select
-
+def _source_catalog(ctx, demand, project, cursor, limit, max_bytes, view, *, json):
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.cli.output import write_report_text
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.source_catalog import SourceCatalogRequest, read_source_catalog
 
     with (
         failure_boundary(json, expected=(ValueError,)),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-native-products", purpose="read"
-        ) as engine,
-        read_snapshot(engine) as conn,
+        open_runtime_engine(state(ctx).settings(), application_name="ci-source-catalog", purpose="read") as engine,
+        selected_read_snapshot(engine) as connection,
     ):
-        if observations:
-            from corpus_structure.semantic.pdf_storage import (
-                PdfObservationListRequest,
-                read_pdf_observations,
-            )
+        report = read_source_catalog(connection, SourceCatalogRequest(
+            project_id=project, demand_id=demand, view=view,
+            cursor=cursor, limit=limit, max_bytes=max_bytes,
+        ))
+    if json:
+        write_report_text(json_bytes(report.model_dump(mode="python")).decode() + "\n")
+    else:
+        emit(report, json=False)
 
-            if task is None:
-                raise ValueError("--observations requires --task with a finished source task")
-            emit(
-                read_pdf_observations(
-                    conn,
-                    PdfObservationListRequest(run_id=run, task_id=task, cursor=cursor, limit=limit),
-                ),
-                json=json,
-            )
-            return
-        if task is not None or cursor is not None or limit != 100:
-            raise ValueError("observation catalog paging requires --observations")
-        context = pdf_context_for_run(conn, run)
-        context.require_operation("read_native_source")
-        context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
-        products, tasks = map(table, ("ops.pdf_selected_product", "ops.task"))
-        from corpus_structure.semantic.pdf_storage import selected_native_ancestry
 
-        ancestors = selected_native_ancestry(run)
-        pins = select(ancestors.c.task_id).where(
-            ancestors.c.task_id == products.c.task_id,
-            ancestors.c.product_key == products.c.product_key,
-            ancestors.c.content_digest == products.c.content_digest,
-        )
-        query = (
-            select(
-                products.c.task_id,
-                products.c.product_key,
-                products.c.content_digest,
-                products.c.release_id,
-                products.c.health.op("-")("formula_outcomes").label("health"),
-                tasks.c.run_id.label("origin_run"),
-            )
-            .join(tasks, tasks.c.id == products.c.task_id)
-            .where(or_(tasks.c.run_id == run, pins.exists()))
-            .order_by(products.c.task_id, products.c.product_key)
-        )
-        catalog = list(conn.execute(query).mappings())
-        from corpus_structure.semantic.pdf_record_reader import published_record_reader
-        from corpus_structure.semantic.pdf_storage import _record_product_identity
-        from corpus_structure.semantic.product_reference import ProductReference
-        from corpus_structure.semantic.releases import open_release
-        from corpus_structure.serve.native_source import _published_native_header
-
-        if context.release_id is None:
-            raise ValueError("native catalog requires its archived run release")
-        projection_context = open_release(conn, context.release_id)
-        rows = []
-        for row in catalog:
-            pin = ProductReference(row["task_id"], row["product_key"], row["content_digest"])
-            reader = published_record_reader(conn, pin, projection_context=projection_context)
-            if reader is None:
-                raise ValueError("catalog publication pin is unavailable")
-            _record_product_identity(conn, pin.task_id, pin.product_key, pin.content_digest, reader)
-            header = _published_native_header(reader, row["origin_run"], runtime=True)
-            health, report, release_id = header.health, header.runtime_report, header.release_id
-            rows.append(
-                NativeProductReport(
-                    task_id=pin.task_id,
-                    product_key=pin.product_key,
-                    content_digest=pin.content_digest,
-                    release_id=release_id,
-                    health=health,
-                    runtime_report=report,
-                )
-            )
-        emit(RootModel[list[NativeProductReport]](rows), json=json)
+@app.command("native-products")
+def native_products(
+    ctx: typer.Context,
+    demand: str,
+    project: Annotated[str, typer.Option()],
+    cursor: str | None = None,
+    limit: int = typer.Option(100, min=1, max=1000),
+    max_bytes: int = typer.Option(1048576, min=1024, max=8388608),
+    json: JsonOpt = False,
+):
+    """List selected PDF publications with authentic producer and publication pins."""
+    _source_catalog(ctx, demand, project, cursor, limit, max_bytes, "publications", json=json)
 
 
 @app.command("native-render")
@@ -434,31 +360,24 @@ def native_render(
             execution_policy=execution_policy,
             limit=100,
             max_rounds=100,
+            required_targets=(TARGET,),
             action="source.native-render",
             json=json,
         )
 
 
 @app.command("views")
-def native_views(ctx: typer.Context, run: int, json: JsonOpt = False):
-    """List selected native section view IDs and immutable source pins."""
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
-    from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.source_views import selected_source_views
-
-    with (
-        failure_boundary(json, expected=(ValueError,)),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-source-views", purpose="read"
-        ) as engine,
-        read_snapshot(engine) as conn,
-    ):
-        context = pdf_context_for_run(conn, run)
-        context.require_operation("read_source_view")
-        context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
-        emit(RootModel(selected_source_views(conn, run)), json=json)
+def native_views(
+    ctx: typer.Context,
+    demand: str,
+    project: Annotated[str, typer.Option()],
+    cursor: str | None = None,
+    limit: int = typer.Option(100, min=1, max=1000),
+    max_bytes: int = typer.Option(1048576, min=1024, max=8388608),
+    json: JsonOpt = False,
+):
+    """List selected source-view members and their exact original projection coordinates."""
+    _source_catalog(ctx, demand, project, cursor, limit, max_bytes, "views", json=json)
 
 
 @app.command("companion-export")

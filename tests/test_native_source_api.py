@@ -6,34 +6,25 @@ from pydantic import ValidationError
 from corpus_structure.serve.native_source import NativeSourceRequest
 
 
+PIN = dict(project_id="project:selected", demand_id="demand:selected", read_id="read:selected", use_id="use:selected", product_id="product:selected", derivation_id="derivation:producer")
+
+
 def test_native_request_pin_and_continuation_identity():
-    value = NativeSourceRequest(run_id=1, task_id=2, product_key="native", content_digest="a" * 64)
-    assert (
-        value.model_copy(update={"limit": 1, "cursor": "x"}).selection_digest()
-        == value.selection_digest()
-    )
-    assert (
-        value.model_copy(update={"pointer": "#/texts/1"}).selection_digest()
-        != value.selection_digest()
-    )
-    assert (
-        value.model_copy(update={"membership": "descendants"}).selection_digest()
-        != value.selection_digest()
-    )
+    value = NativeSourceRequest(**PIN)
+    assert value.model_copy(update={"limit": 1, "cursor": "x"}).selection_digest() == value.selection_digest()
+    for field, changed in (("pointer", "#/texts/1"), ("read_id", "read:other"), ("derivation_id", "derivation:other")):
+        assert value.model_copy(update={field: changed}).selection_digest() != value.selection_digest()
     with pytest.raises(ValidationError):
-        NativeSourceRequest(run_id=1, task_id=2, product_key="native", content_digest="bad")
+        NativeSourceRequest.model_validate({**PIN, "derivation_id": ""})
 
 
 def test_current_request_refuses_archived_coordinates_and_old_contract_versions():
-    current = dict(
-        version=4, run_id=1, task_id=2, product_key="integrated", content_digest="a" * 64
-    )
-    assert NativeSourceRequest.model_validate(current).version == 4
+    assert NativeSourceRequest.model_validate(PIN).version == 5
     for invalid in (
-        dict(run_id=1, rendition_id=2),
-        dict(current, version=2),
-        dict(current, version=3),
-        dict(current, rendition_id=2),
+        dict(run_id=1, task_id=2, product_key="native", content_digest="a" * 64),
+        *({**PIN, "version": version} for version in (2, 3, 4)),
+        {**PIN, "rendition_id": 2}, {**PIN, "task_id": 2},
+        {name: value for name, value in PIN.items() if name != "read_id"},
     ):
         with pytest.raises(ValidationError):
             NativeSourceRequest.model_validate(invalid)
@@ -63,15 +54,12 @@ def test_mcp_registration_exposes_versioned_native_reads_and_explicit_render():
     from fastmcp import Client
     from sqlalchemy import create_engine
 
-    from corpus_structure.intervene.semantic_server import (
-        RetainedReaderBinding,
-        build_retained_reader_server,
-    )
+    from corpus_structure.intervene.server import build_server
 
     engine = create_engine("sqlite://")
 
     async def check():
-        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1))) as client:
+        async with Client(build_server(project="project:selected", demand="demand:selected", read_engine=engine)) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert "inspect_source" in tools and "render_source_region" in tools
             request = tools["inspect_source"].input_schema["properties"]["request"]

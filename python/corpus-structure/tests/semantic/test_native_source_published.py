@@ -13,9 +13,7 @@ from corpus_structure.serve.native_source import (
     _published_parent_product,
 )
 
-from . import pdf_integration_support as integrated_fixtures
-
-native_source = integrated_fixtures.native_source
+from semantic.pdf_native_source_support import native_source as native_source
 
 
 @pytest.mark.parametrize("runtime", [False, True])
@@ -55,8 +53,8 @@ def test_published_header_reads_bounded_native_metadata_without_body_or_legacy_r
             finally:
                 closed.append("runtime")
 
-    header = _published_native_header(HeaderReader(), 17, runtime=runtime)
-    assert header.origin_run == 17 and header.release_id == "producer"
+    header = _published_native_header(HeaderReader(), runtime=runtime)
+    assert header.release_id == "producer"
     assert header.health == dict(conversion="success", inline_coverage="unknown")
     assert header.runtime_report == (report if runtime else None)
     assert closed == (["health", "runtime"] if runtime else ["health"])
@@ -82,7 +80,7 @@ def test_published_header_refuses_missing_or_ambiguous_native_metadata(defect):
             yield from ({"effective_options": "{}"}, {"effective_options": "{}"})
 
     with pytest.raises(ValueError, match=r"unavailable or ambiguous|runtime metadata is ambiguous"):
-        _published_native_header(HeaderReader(), 17, runtime=True)
+        _published_native_header(HeaderReader(), runtime=True)
 
 
 class DiagnosticReader:

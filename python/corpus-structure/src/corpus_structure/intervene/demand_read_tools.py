@@ -46,6 +46,9 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
             ):
                 yield connection
 
+    from .native_source_tools import register_native_source_tools
+
+    register_native_source_tools(server, reader, project=project, demand=demand)
     from .source_inspection_tools import register_source_inspection_tools
 
     register_source_inspection_tools(server, reader, project=project, demand=demand)
