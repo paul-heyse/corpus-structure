@@ -420,6 +420,7 @@ def read_pdf_product(
             },
         )
         if include_body:
+            import json
             from io import BytesIO
 
             if identity["kind"] == "native":
@@ -597,7 +598,8 @@ def read_pdf_product(
         },
     }
     if include_body:
-        
+        import json
+
         body = table("ops.pdf_product_body")
         payloads = _budgeted_mappings(
             conn,

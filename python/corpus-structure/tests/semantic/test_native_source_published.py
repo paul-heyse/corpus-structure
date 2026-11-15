@@ -535,3 +535,33 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
         assert (result[0]["text"] if port == "items" else result[0]["region_index"]) == (
             "Retained text" if port == "items" else 0
         )
+
+
+@pytest.mark.parametrize("kind", ["native", "integrated", "recognition_observation"])
+def test_explicit_whole_body_materialization_keeps_json_decoding_imports(kind, monkeypatch):
+    """Exercise the actual decoder branches, without claiming native custody."""
+    import json
+    from corpus_structure.semantic import pdf_record_reader, pdf_storage
+
+    expected = {"opaque": 'quoted "native" \\ Ω\u0000', "empty": []}
+    class Reader:
+        def source_context(self, pointers, section, *, row_budget):
+            assert pointers == [] and section == "#/body"
+            return {key: [] for key in ("occurrences", "relations", "inputs", "coverage", "mapping_reports")}
+        def product_descriptor(self):
+            return {"kind": kind}
+        def native_product_values(self):
+            assert kind == "native"
+            return expected
+        def write_integrated_json(self, sink):
+            assert kind == "integrated"
+            sink.write(json.dumps({"product": expected}, ensure_ascii=False).encode())
+    monkeypatch.setattr(pdf_record_reader, "published_record_reader", lambda *args, **kwargs: None if kind == "recognition_observation" else Reader())
+    monkeypatch.setattr(pdf_storage, "_pdf_product_identity", lambda *args, **kwargs: {"kind": kind})
+    monkeypatch.setattr(pdf_storage, "_pdf_descriptors", lambda *args, **kwargs: [{"descriptor": {"kind": kind}}])
+    def selected_rows(connection, query, read_budget=None):
+        return [{"payload": json.dumps(expected)}] if list(query.selected_columns.keys()) == ["payload"] else []
+    monkeypatch.setattr(pdf_storage, "_budgeted_mappings", selected_rows)
+    result = pdf_storage.read_pdf_product(None, task_id=42, product_key="controlled", content_digest="a" * 64,
+        pointers=[], include_body=True)
+    assert result["body"] == expected
