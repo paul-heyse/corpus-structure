@@ -1075,6 +1075,8 @@ definitions:
         $ref: '#/definitions/identifier'
       subject:
         $ref: '#/definitions/identifier'
+      subject_definition:
+        $ref: '#/definitions/identifier'
       original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
@@ -1104,6 +1106,7 @@ definitions:
     - demand_id
     - operation_id
     - subject
+    - subject_definition
     - original_source
     - analyzed_scope
     - parameters

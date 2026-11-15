@@ -48,6 +48,7 @@ def policy_recipe(directory):
         record_policy_authorization_sources,
         record_policy_kind_declarations,
     )
+    from corpus_structure.semantic.terminology import acquire_terminology
 
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
@@ -59,7 +60,10 @@ def policy_recipe(directory):
     statistics = yaml.safe_load((ROOT / "domains/statistics/semantic.yaml").read_bytes())
     statistics["classes"].pop("TableRecordFields")
     statistics["imports"] = ["core", "policy_fixture_terminology"]
-    terminology = yaml.safe_load((ROOT / "domains/statistics/terminology.yaml").read_bytes())
+    (terminology_module,), terminology_artifacts, ontology_names = acquire_terminology(
+        ROOT / "domains/statistics"
+    )
+    terminology = yaml.safe_load(terminology_module.content)
     terminology["imports"] = ["core"]
     terminology["name"] = "policy_fixture_terminology"
     terminology_source = SourceArtifact(
@@ -150,7 +154,9 @@ def policy_recipe(directory):
                 artifact
                 for artifact in captured.dependencies.artifacts
                 if not artifact.name.startswith("data-operations/")
-            )
+            ) + terminology_artifacts,
+            captured.dependencies.vocabularies,
+            (*captured.dependencies.ontology_sources, *ontology_names),
         ),
         (
             *declared,

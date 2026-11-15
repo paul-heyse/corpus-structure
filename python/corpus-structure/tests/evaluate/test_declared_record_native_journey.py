@@ -26,6 +26,13 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
     assert captured is not None
     preparation = prepare_kernel(recipe)
     model = preparation.model
+    vocabulary = preparation.prepared.vocabulary_metadata["enums"]
+    for name, expected_count in (
+        ("StatisticalDistributionFamily", 6), ("StatisticalDistributionAttribute", 3),
+    ):
+        members = vocabulary[name]["members"]
+        assert len(members) == expected_count
+        assert all(member["status"] == "checked" for member in members)
     assert {
         "fixture.record_candidates",
         "resolve.m1_readings/declared",

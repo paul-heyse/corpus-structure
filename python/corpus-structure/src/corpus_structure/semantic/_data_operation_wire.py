@@ -802,6 +802,7 @@ class WireResultObligation(TypedDict):
     parameters: Required[WireParameterMap]
     request_id: Required[WireRequestId | None]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
 
 
 class WireSelectedSupportRow(TypedDict):

@@ -83,7 +83,16 @@ def test_authored_origin_is_explicit_and_preserves_exact_fact_identity():
 
 def _recipe():
     operation = source_declaration()
-    operation.update(id="urn:authored:consume", binding={"operator": "scan", "roles": ["authored"]})
+    operation.update(
+        id="urn:authored:consume",
+        subject="document",
+        subject_definition={
+            "id": "document",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        binding={"operator": "scan", "roles": ["authored"]},
+    )
     operation["roles"].insert(
         0,
         {
@@ -148,6 +157,15 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
             "original_sources": {authored.name: authored.record()},
         }
     )
+    wrong_subject = request.model_dump(mode="python")
+    wrong_subject["original_sources"][authored.name]["reference"]["subject_definition"] = (
+        "undeclared-subject"
+    )
+    with pytest.raises(ValueError, match="resolved subject definition"):
+        author_interpretations(
+            kernel.engine, kernel.prepared,
+            request=NativeDemandRequest.model_validate(wrong_subject),
+        )
     admitted = author_interpretations(kernel.engine, kernel.prepared, request=request)
     assert admitted["standing"] == "authored" and not admitted["selected"]
     assert "run_id" not in admitted and "cut_id" not in admitted

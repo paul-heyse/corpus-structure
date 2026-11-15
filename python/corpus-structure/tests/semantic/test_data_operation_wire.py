@@ -1041,3 +1041,32 @@ def test_native_tagged_recursive_wire_preserves_the_same_independent_cases(infra
                 {"schema": schema, "value": canonical_bytes(value).decode()},
             )
             assert actual is expected, value
+
+
+@pytest.mark.parametrize("mutation", (None, "missing", "empty", "wrong-type", "extra"))
+def test_read_obligation_carries_required_checked_subject_definition(mutation):
+    from corpus_structure.semantic.data_operation_wire import schema_closure, validate_wire_schema
+
+    contract = wire_contracts()["read_demand_result"]["output"]
+    schema = schema_closure(
+        {"$ref": "#/definitions/result_obligation"}, contract["definitions"]
+    )
+    value: dict[str, Any] = dict(
+        id="obligation:actual", obligation_id="obligation:actual", demand_id="demand:actual",
+        operation_id="operation:actual", subject="subject:actual", subject_definition="document",
+        original_source="source:actual", analyzed_scope={}, parameters={}, historical_fate=None,
+        fate="waiting", request_id=None, generation=None, intent_id=None,
+    )
+    if mutation == "missing":
+        del value["subject_definition"]
+    elif mutation == "empty":
+        value["subject_definition"] = ""
+    elif mutation == "wrong-type":
+        value["subject_definition"] = 7
+    elif mutation == "extra":
+        value["implicit_subject_alias"] = "document"
+    if mutation is None:
+        assert validate_wire_schema(schema, value) == value
+    else:
+        with pytest.raises(ValueError):
+            validate_wire_schema(schema, value)
