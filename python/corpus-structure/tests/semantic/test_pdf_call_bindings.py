@@ -157,11 +157,13 @@ def test_projected_requiredness_refines_nullable_source_without_losing_native_di
     _, *sources = pdf_domain_sources()
     logical = {
         s.name.removeprefix("pdf-domain/logical/"): s.content
-        for s in sources if s.name.startswith("pdf-domain/logical/")
+        for s in sources
+        if s.name.startswith("pdf-domain/logical/")
     }
     physical = {
         s.name.removeprefix("pdf-domain/physical/"): s.content
-        for s in sources if s.name.startswith("pdf-domain/physical/")
+        for s in sources
+        if s.name.startswith("pdf-domain/physical/")
     }
     body = yaml.safe_load(logical["companion_projections"])
     body["classes"]["PublishedItemIndexRow"]["attributes"]["text"]["required"] = True
@@ -169,7 +171,8 @@ def test_projected_requiredness_refines_nullable_source_without_losing_native_di
     call = next(c for _, c in current_calls() if c.id == "read_published_item_page")
     resolved = resolve_call_bindings(
         (("read_native_source", replace(call, result_fields=(), source_digest=None)),),
-        logical_sources=logical, physical_sources=physical,
+        logical_sources=logical,
+        physical_sources=physical,
     )
     _, call = resolved[0]
     field = next(f for f in call.result_fields if f.name == "text")
@@ -180,14 +183,16 @@ def test_projected_requiredness_refines_nullable_source_without_losing_native_di
     exec(
         compile(
             render_call_bindings(
-                resolved, metadata,
+                resolved,
+                metadata,
                 identifiers_module="._pdf_native_ids",
                 canonical_identifiers=True,
                 context_validator=(".pdf_domain", "require_pdf_call_context"),
             ),
             "<generated-call-control>",
             "exec",
-        ), vars(module)
+        ),
+        vars(module),
     )
     materialize = vars(module)["_read_published_item_page_result"]
     with pytest.raises(NativeResultViolation) as invalid:
